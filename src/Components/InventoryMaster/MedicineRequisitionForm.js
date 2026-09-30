@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
+import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -146,6 +147,65 @@ const Trow    = styled.tr`transition:background .1s;&:hover{background:#fafafa;}
 /* ── Filter bar ── */
 const FBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:13px 18px;background:${C.faint};border-bottom:1px solid ${C.border};`
 
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+`;
+
+const TableSelect = styled.select`
+  height: 28px;
+  width: 72px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: ${C.primary};
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid #e5e7eb;
+  font-size: .75rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: #fff;
+`;
+
+const PB = styled.button`
+  height: 28px;
+  padding: 0 13px;
+  font-size: .75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: ${p => p.active ? C.primary : '#fff'};
+  color: ${p => p.active ? '#fff' : '#374151'};
+  cursor: pointer;
+  &:disabled {
+    opacity: .45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${p => p.active ? C.primary : '#f3f4f6'};
+  }
+`;
+
 /* ── Modal ── */
 const MOverlay = styled.div`position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1050;display:flex;align-items:center;justify-content:center;padding:16px;`
 const MBox     = styled.div`background:#fff;border-radius:12px;padding:28px 32px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.22);${css`animation:${fadeSlide} .18s ease forwards;`}`
@@ -289,6 +349,11 @@ export default function MedicineRequisition() {
   const [openMenuId,  setOpenMenuId]  = useState(null)
   const menuRef = useRef(null)
 
+  const [page,       setPage]       = useState(1)
+  const [pageSize,   setPageSize]   = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
   /* ── Form fields ── */
   const emptyForm = {
     medicine_name:        "",
@@ -303,8 +368,8 @@ export default function MedicineRequisition() {
   /* ── List filters ── */
   const [searchQ,    setSearchQ]    = useState("")
   const [filterStat, setFilterStat] = useState("")
-  const [fromDate,   setFromDate]   = useState(todayStr)
-  const [toDate,     setToDate]     = useState(todayStr)
+  const [fromDate,   setFromDate]   = useState(getTodayDateString())
+  const [toDate,     setToDate]     = useState(getTodayDateString())
 
   /* ── Close menu on outside click ── */
   useEffect(() => {
@@ -313,22 +378,35 @@ export default function MedicineRequisition() {
     return () => document.removeEventListener("mousedown", h)
   }, [])
 
-  /* ── Fetch list ── */
-  const fetchList = useCallback(async () => {
+  /* ── Fetch list with server-side pagination ── */
+  const fetchList = useCallback(async (p = page, size = pageSize, q = searchQ, stat = filterStat, from = fromDate, to = toDate) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (fromDate) params.append("from_date", fromDate)
-      if (toDate)   params.append("to_date",   toDate)
-      const qs = params.toString()
-      const r  = await apiRequest(`${BASE}medicine-requisition/${qs ? "?" + qs : ""}`, "GET")
-      const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
+      const params = new URLSearchParams({
+        page: p,
+        page_size: size,
+      })
+      if (q && q.trim()) params.append("search", q.trim())
+      if (stat) params.append("status", stat)
+      if (from) params.append("from_date", from)
+      if (to)   params.append("to_date",   to)
+
+      const r  = await apiRequest(`${BASE}medicine-requisition/?${params.toString()}`, "GET")
+      const payload = r?.data
+      const rows = payload?.data ?? (Array.isArray(payload) ? payload : [])
       setPrList(Array.isArray(rows) ? rows : [])
+      setTotalCount(payload?.count !== undefined ? payload.count : (r?.count !== undefined ? r.count : (Array.isArray(rows) ? rows.length : 0)))
+      setTotalPages(payload?.total_pages || Math.ceil((payload?.count || rows.length) / size) || 1)
+      setPage(payload?.current_page || p)
     } catch { toast.error("Failed to load requisitions") }
     finally { setLoading(false) }
-  }, [fromDate, toDate])
+  }, [page, pageSize, searchQ, filterStat, fromDate, toDate])
 
-  useEffect(() => { fetchList() }, [fetchList])
+  useEffect(() => {
+    if (tab === "list") {
+      fetchList(page, pageSize, searchQ, filterStat, fromDate, toDate)
+    }
+  }, [tab, page, pageSize, searchQ, filterStat, fromDate, toDate, fetchList])
 
   /* ── Validate ── */
   const validate = () => {
@@ -410,16 +488,6 @@ export default function MedicineRequisition() {
     setForm(emptyForm)
     setErrs({})
   }
-
-  /* ── Filtered list ── */
-  const filtered = prList.filter(r => {
-    const q = searchQ.toLowerCase()
-    const okQ = !q ||
-      (r.mr_number       || "").toLowerCase().includes(q) ||
-      (r.medicine_name   || "").toLowerCase().includes(q) ||
-      (r.consultant_name || "").toLowerCase().includes(q)
-    return okQ && (!filterStat || r.status === filterStat)
-  })
 
   const fmtDT = d => { try { return d ? new Date(d).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—" } catch { return "—" } }
 
@@ -526,38 +594,55 @@ export default function MedicineRequisition() {
             <CardHead>
               📄 Requisition Records
               <span style={{ background: "#e5e7eb", color: C.muted, fontSize: ".72rem", padding: "1px 8px", borderRadius: 12, fontWeight: 600 }}>
-                {prList.length}
+                {totalCount}
               </span>
             </CardHead>
 
-            {/* Filters */}
-            <FBar>
-              <FG style={{ flex: 1, minWidth: 200, margin: 0 }}>
-                <Lbl>Search</Lbl>
-                <Inp value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="PR No, Medicine, Consultant…" />
-              </FG>
-              <FG style={{ minWidth: 150, margin: 0 }}>
-                <Lbl>Status</Lbl>
-                <Sel value={filterStat} onChange={e => setFilterStat(e.target.value)}>
+            {/* Top Toolbar */}
+            <InvTopToolbar
+              pageSize={pageSize}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+              search={searchQ}
+              onSearchChange={(val) => {
+                setSearchQ(val);
+                setPage(1);
+              }}
+              searchPlaceholder="PR No, Medicine, Consultant…"
+              fromDate={fromDate}
+              toDate={toDate}
+              onFromDateChange={(val) => {
+                setFromDate(val);
+                setPage(1);
+              }}
+              onToDateChange={(val) => {
+                setToDate(val);
+                setPage(1);
+              }}
+              totalRecords={totalCount}
+              customFilters={
+                <Sel
+                  style={{ width: "auto", minWidth: 120, height: 32, padding: "2px 8px", fontSize: "0.8rem" }}
+                  value={filterStat}
+                  onChange={(e) => {
+                    setFilterStat(e.target.value);
+                    setPage(1);
+                  }}
+                >
                   <option value="">All Status</option>
-                  {["Draft", "Verified", "Approved", "Rejected"].map(s => <option key={s} value={s}>{s}</option>)}
+                  {["Draft", "Verified", "Approved", "Rejected"].map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
                 </Sel>
-              </FG>
-              <FG style={{ margin: 0 }}>
-                <Lbl>From Date</Lbl>
-                <Inp type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
-              </FG>
-              <FG style={{ margin: 0 }}>
-                <Lbl>To Date</Lbl>
-                <Inp type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
-              </FG>
-              <PrimBtn onClick={fetchList} style={{ alignSelf: "flex-end" }}>🔄 Refresh</PrimBtn>
-            </FBar>
+              }
+            />
 
             <TblWrap>
               {loading ? (
                 <div style={{ textAlign: "center", padding: "40px", color: C.muted, fontSize: ".85rem" }}>Loading…</div>
-              ) : filtered.length === 0 ? (
+              ) : prList.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px", color: C.muted, fontSize: ".85rem" }}>📭 No requisitions found</div>
               ) : (
                 <Tbl>
@@ -575,11 +660,11 @@ export default function MedicineRequisition() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((r, idx) => {
+                    {prList.map((r, idx) => {
                       const canEdit = r.status === "Draft" || r.status === "Verified"
                       return (
-                        <Trow key={r.mr_number}>
-                          <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
+                        <Trow key={r.mr_number || idx}>
+                          <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                           <Td><Pill>{r.mr_number}</Pill></Td>
                           <Td style={{ fontWeight: 700, maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.medicine_name}</Td>
                           <Td style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: C.muted, fontSize: ".78rem" }}>{r.chemical_composition || "—"}</Td>
@@ -622,6 +707,14 @@ export default function MedicineRequisition() {
                 </Tbl>
               )}
             </TblWrap>
+
+            <InvPagination
+              page={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={(p) => setPage(p)}
+            />
           </Card>
         )}
       </Body>
@@ -634,8 +727,6 @@ export default function MedicineRequisition() {
         />
       )}
 
-      {/* View detail modal */}
-      {viewPr && <ViewModal pr={viewPr} onClose={() => setViewPr(null)} />}
     </Wrap>
   )
 }

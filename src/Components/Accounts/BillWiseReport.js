@@ -23,6 +23,9 @@ import {
 } from "../GlobalStyles";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import * as XLSX from "xlsx";
+import { FaFileExcel } from "react-icons/fa";
+import { printAccountsReport } from "./printAccountsReport";
 
 const SummaryCard = styled.div`
     background: ${colors.surface};
@@ -133,12 +136,13 @@ const PrintSignatures = styled.div`
     }
 `;
 
-
-const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
+const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillType = "All", initialOutlet = "all" }) => {
     const location = useLocation();
     const [fromDate, setFromDate] = useState(startDate || location.state?.startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || location.state?.endDate || format(new Date(), "yyyy-MM-dd"));
-    const [billType, setBillType] = useState("All");
+    const [billType, setBillType] = useState(location.state?.billType || initialBillType || "All");
+    const [outlet, setOutlet] = useState(location.state?.outlet || initialOutlet || "all");
+    const [outlets, setOutlets] = useState([]);
     const [uhid, setUhid] = useState("");
     const [reportData, setReportData] = useState([]);
     const [summary, setSummary] = useState(null);
@@ -146,18 +150,42 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
     const [expandedRow, setExpandedRow] = useState(null);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+    const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
     const hospital_code = localStorage.getItem("hospital_code") || "SH001";
     const branch_code = localStorage.getItem("selected_branch") || "SHB001";
     const user_id = localStorage.getItem("employeeId");
 
     useEffect(() => {
+        fetchOutlets();
+    }, [HmsBaseUrl]);
+
+    const fetchOutlets = async () => {
+        try {
+            const response = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
+            if (response.success && response.data) {
+                setOutlets(response.data);
+            }
+        } catch (error) {
+            console.error("Error fetching outlets:", error);
+        }
+    };
+
+    const getOutletName = (code) => {
+        if (!code || code === "all") return "All Outlets";
+        const found = outlets.find(o => String(o.outlet_code) === String(code) || String(o.outlet_id) === String(code) || String(o.id) === String(code));
+        return found ? (found.outlet_name || found.name) : code;
+    };
+
+    useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        if (initialBillType) setBillType(initialBillType);
+        if (initialOutlet) setOutlet(initialOutlet);
+    }, [startDate, endDate, initialBillType, initialOutlet]);
 
     useEffect(() => {
         fetchReport();
-    }, [fromDate, toDate, billType, uhid]);
+    }, [fromDate, toDate, billType, outlet, uhid]);
 
     const fetchReport = async () => {
         setLoading(true);
@@ -166,6 +194,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                 from_date: fromDate,
                 to_date: toDate,
                 bill_type: billType,
+                outlet_code: outlet,
                 uhid: uhid,
                 "auth-hospital-code": hospital_code,
                 "auth-branch-code": branch_code,
@@ -187,8 +216,59 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
         }
     };
 
+    const formatINR = (val) => {
+        const num = Number(val);
+        return isNaN(num) ? "0.00" : num.toFixed(2);
+    };
+
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = reportData.map((b, i) => ({
+                "S.No": i + 1,
+                "Type": b.type,
+                "Bill No": b.bill_no,
+                "Bill Date": b.bill_date ? dayjs(b.bill_date).format("DD/MM/YYYY HH:mm") : "N/A",
+                "Patient Name": b.patient_name || "N/A",
+                "UHID": b.uhid || "N/A",
+                "Payment Mode": b.payment_mode || "N/A",
+                "Amount (₹)": Number(formatINR(b.net_amount)),
+                "Cashier": b.cashier_name || "N/A"
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+
+            // Add summary sheet if summary exists
+            if (summary) {
+                const summaryRows = [
+                    { "Metric": "From Date", "Value": fromDate ? dayjs(fromDate).format("DD/MM/YYYY") : "—" },
+                    { "Metric": "To Date", "Value": toDate ? dayjs(toDate).format("DD/MM/YYYY") : "—" },
+                    { "Metric": "Outlet", "Value": getOutletName(outlet) },
+                    { "Metric": "Bill Type", "Value": billType },
+                    { "Metric": "Total Collection (₹)", "Value": Number(formatINR(summary.total_collection)) },
+                    { "Metric": "Total Return (₹)", "Value": Number(formatINR(summary.total_return)) },
+                    { "Metric": "Net Collection (₹)", "Value": Number(formatINR(summary.net_collection)) },
+                    { "Metric": "Total Bills Count", "Value": summary.count || 0 }
+                ];
+                const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+                XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+            }
+
+            XLSX.utils.book_append_sheet(wb, ws, "Bills Breakdown");
+            XLSX.writeFile(wb, `Detailed_Bill_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Error exporting Excel:", err);
+            toast.error("Failed to export Excel");
+        }
     };
 
     const toggleRow = (index) => {
@@ -200,69 +280,113 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
     };
 
     return (
-        <PageWrapper>
-            <SectionTitle>
-                <h3>Bill Wise Accounts Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Range: {format(new Date(fromDate), "dd/MM/yyyy")} to {format(new Date(toDate), "dd/MM/yyyy")}
-                </p>
-            </SectionTitle>
-
-            <FilterSection className="no-print">
-                <FormRow>
-                    <InputWrapper>
-                        <Label>From Date</Label>
-                        <DatePicker 
-                            value={fromDate ? dayjs(fromDate) : null} 
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '35px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>To Date</Label>
-                        <DatePicker 
-                            value={toDate ? dayjs(toDate) : null} 
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '35px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>Bill Type</Label>
-                        <Select
-                            value={billType}
-                            onChange={(e) => setBillType(e.target.value)}
-                        >
-                            <option value="All">All Types</option>
-                            <option value="Registration">Registration</option>
-                            <option value="Investigation">Investigation</option>
-                            <option value="Pharmacy">Pharmacy</option>
-                            <option value="Discharge">Discharge</option>
-                            <option value="Sales Return">Sales Return</option>
-                        </Select>
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>UHID</Label>
-                        <Input
-                            type="text"
-                            placeholder="Search UHID"
-                            value={uhid}
-                            onChange={(e) => setUhid(e.target.value)}
-                        />
-                    </InputWrapper>
-                    <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "35px", minWidth: "100px" }}>
-                            {loading ? "..." : "Filter"}
-                        </Button>
-                        <Button onClick={handlePrint} secondary style={{ height: "35px" }}>
-                            Print
-                        </Button>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Detailed Bill Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
                     </div>
-                </FormRow>
-            </FilterSection>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
 
-            {summary && (
+            {!isModalView && (
+                <SectionTitle>
+                    <h3>Bill Wise Accounts Report</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Range: {format(new Date(fromDate), "dd/MM/yyyy")} to {format(new Date(toDate), "dd/MM/yyyy")}
+                    </p>
+                </SectionTitle>
+            )}
+
+            {!isModalView && (
+                <FilterSection className="no-print">
+                    <FormRow>
+                        <InputWrapper>
+                            <Label>From Date</Label>
+                            <DatePicker 
+                                value={fromDate ? dayjs(fromDate) : null} 
+                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: '100%', height: '35px', borderRadius: '8px' }}
+                            />
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>To Date</Label>
+                            <DatePicker 
+                                value={toDate ? dayjs(toDate) : null} 
+                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: '100%', height: '35px', borderRadius: '8px' }}
+                            />
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>Bill Type</Label>
+                            <Select
+                                value={billType}
+                                onChange={(e) => setBillType(e.target.value)}
+                            >
+                                <option value="All">All Types</option>
+                                <option value="Registration">Registration</option>
+                                <option value="Investigation">Investigation</option>
+                                <option value="Pharmacy">Pharmacy</option>
+                                <option value="Discharge">Discharge</option>
+                                <option value="IP Advance">IP Advance</option>
+                                <option value="Admission">Admission</option>
+                                <option value="Sales Return">Sales Return</option>
+                                <option value="Miscellaneous">Miscellaneous Payment</option>
+                            </Select>
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>Outlet</Label>
+                            <Select
+                                value={outlet}
+                                onChange={(e) => setOutlet(e.target.value)}
+                            >
+                                <option value="all">All Outlets</option>
+                                {outlets.map((o) => (
+                                    <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                        {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                    </option>
+                                ))}
+                            </Select>
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>UHID</Label>
+                            <Input
+                                type="text"
+                                placeholder="Search UHID"
+                                value={uhid}
+                                onChange={(e) => setUhid(e.target.value)}
+                            />
+                        </InputWrapper>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", flexWrap: "wrap" }}>
+                            <Button onClick={fetchReport} disabled={loading} style={{ height: "35px", minWidth: "90px" }}>
+                                {loading ? "..." : "Filter"}
+                            </Button>
+                            <Button 
+                                onClick={handleExportExcel} 
+                                disabled={loading || reportData.length === 0} 
+                                style={{ height: "35px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                            >
+                                <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
+                            </Button>
+                            <Button onClick={handlePrint} secondary style={{ height: "35px" }}>
+                                Print
+                            </Button>
+                        </div>
+                    </FormRow>
+                </FilterSection>
+            )}
+
+            {summary && !isModalView && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }}>
                     <SummaryCard color={colors.success}>
                         <SummaryLabel>Total Collection</SummaryLabel>
@@ -331,7 +455,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                                             <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>{b.uhid}</div>
                                         </Td>
                                         <Td style={{ textAlign: "right", fontWeight: "700", color: b.display_amount < 0 ? colors.danger : colors.success }}>
-                                            ₹{b.net_amount.toFixed(2)}
+                                            ₹{formatINR(b.net_amount)}
                                         </Td>
                                         <Td>
                                             <div style={{ fontSize: "0.7rem", fontWeight: "600" }}>{b.payment_mode}</div>
@@ -356,7 +480,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                                                                 <li key={idx}>
                                                                     {item.item_name || item.itemName || "Item"} | 
                                                                     Qty: {item.qty || item.quantity || item.return_qty || 1} | 
-                                                                    Price: ₹{(item.price || item.rate || 0).toFixed(2)}
+                                                                    Price: ₹{formatINR(item.price || item.rate || item.calculated_price || item.amount || 0)}
                                                                 </li>
                                                             ))}
                                                         </ul>
@@ -408,13 +532,15 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                 <PrintInfoTable>
                     <tbody>
                         <tr>
-                            <td style={{ width: "30%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ width: "30%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
+                            <td style={{ width: "25%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "25%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "25%" }}><strong>Outlet:</strong> {getOutletName(outlet)}</td>
+                            <td style={{ width: "25%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
                         </tr>
                         <tr>
                             <td><strong>Bill Type:</strong> {billType}</td>
                             <td><strong>UHID:</strong> {uhid || "All Patients"}</td>
+                            <td></td>
                             <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
                         </tr>
                     </tbody>
@@ -422,10 +548,10 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
 
                 {summary && (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", margin: "10px 0", border: "1px solid #000", padding: "8px", fontSize: "10px" }}>
-                        <div><strong>Total Collection:</strong> ₹{summary.total_collection.toFixed(2)}</div>
-                        <div><strong>Total Return:</strong> ₹{summary.total_return.toFixed(2)}</div>
-                        <div><strong>Net Collection:</strong> ₹{summary.net_collection.toFixed(2)}</div>
-                        <div><strong>Total Count:</strong> {summary.count}</div>
+                        <div><strong>Total Collection:</strong> ₹{formatINR(summary.total_collection)}</div>
+                        <div><strong>Total Return:</strong> ₹{formatINR(summary.total_return)}</div>
+                        <div><strong>Net Collection:</strong> ₹{formatINR(summary.net_collection)}</div>
+                        <div><strong>Total Count:</strong> {summary.count || 0}</div>
                     </div>
                 )}
 
@@ -453,7 +579,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                                         <div>{b.patient_name}</div>
                                         <div style={{ fontSize: "0.75rem", color: "#666" }}>{b.uhid}</div>
                                     </td>
-                                    <td style={{ textAlign: "right" }}>₹{b.net_amount.toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{formatINR(b.net_amount)}</td>
                                     <td>{b.payment_mode}</td>
                                     <td>{b.cashier_name}</td>
                                 </tr>
@@ -466,7 +592,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                         {summary && (
                             <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
                                 <td colSpan="3" style={{ textAlign: "right" }}>Net Collection:</td>
-                                <td style={{ textAlign: "right" }}>₹{summary.net_collection.toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{formatINR(summary.net_collection)}</td>
                                 <td colSpan="2"></td>
                             </tr>
                         )}

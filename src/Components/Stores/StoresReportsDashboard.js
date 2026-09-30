@@ -2,7 +2,8 @@ import React, { useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     FileText, Building2, ClipboardList, ShoppingCart, BarChart3, 
-    CheckCircle, Search, ArrowRight, Maximize2, X, RefreshCw, Layers
+    CheckCircle, Search, ArrowRight, Maximize2, X, RefreshCw, Layers,
+    ShoppingBag, RotateCcw, TrendingUp, Clock, AlertTriangle, AlertCircle, Grid
 } from 'lucide-react';
 import {
     PageWrapper,
@@ -24,7 +25,108 @@ const StoresGRNReport = lazy(() => import('./StoresGRNReport'));
 const StoreIntentApproval = lazy(() => import('./StoreIntentApproval'));
 const StoresAbcVedReport = lazy(() => import('./StoresAbcVedReport'));
 
+// New Stores Reports & Operational Features
+const StoresPurchaseOrderFormat = lazy(() => import('./StoresPurchaseOrderFormat'));
+const StoresPurchaseReturn = lazy(() => import('./StoresPurchaseReturn'));
+const StoresPurchaseAnalysisReport = lazy(() => import('./StoresPurchaseAnalysisReport'));
+const StoresPreviousDayStockReport = lazy(() => import('./StoresPreviousDayStockReport'));
+const StoresSupplierWiseReport = lazy(() => import('./StoresSupplierWiseReport'));
+const StoresNonMovingReport = lazy(() => import('./StoresNonMovingReport'));
+const StoresShortExpiryReport = lazy(() => import('./StoresShortExpiryReport'));
+const StoresReorderLevelReport = lazy(() => import('./StoresReorderLevelReport'));
+const StoresRackClassification = lazy(() => import('./StoresRackClassification'));
+
 const reportsConfig = [
+    {
+        id: 'purchase-order-format',
+        title: 'Purchase Order Format (PO)',
+        description: 'Generate, manage, and print standardized Hospital Purchase Orders with vendor terms and item tax lines.',
+        icon: ShoppingBag,
+        color: '#2563eb',
+        bg: '#eff6ff',
+        route: '/StoresPurchaseOrderFormat',
+        component: StoresPurchaseOrderFormat
+    },
+    {
+        id: 'purchase-return-option',
+        title: 'Purchase Return & Debit Notes',
+        description: 'Return defective or excess goods to suppliers with automatic stock deduction and printable Debit Notes.',
+        icon: RotateCcw,
+        color: '#dc2626',
+        bg: '#fef2f2',
+        route: '/StoresPurchaseReturn',
+        component: StoresPurchaseReturn
+    },
+    {
+        id: 'purchase-analysis',
+        title: 'Purchase Analysis Report',
+        description: 'Analyze monthly purchase trends, vendor spend shares, top purchased goods, and price fluctuations over time.',
+        icon: TrendingUp,
+        color: '#7c3aed',
+        bg: '#f5f3ff',
+        route: '/StoresPurchaseAnalysisReport',
+        component: StoresPurchaseAnalysisReport
+    },
+    {
+        id: 'previous-day-stock',
+        title: 'Previous Day / Daily Stock Report',
+        description: 'Daily opening stock balance, GRN inward receipts, Indent outward issues, returns, and closing valuation.',
+        icon: Layers,
+        color: '#059669',
+        bg: '#ecfdf5',
+        route: '/StoresPreviousDayStockReport',
+        component: StoresPreviousDayStockReport
+    },
+    {
+        id: 'supplier-wise-list',
+        title: 'Supplier-Wise List & Ledger',
+        description: 'Comprehensive directory of suppliers with cumulative order values, total payments made, and pending dues.',
+        icon: Building2,
+        color: '#0284c7',
+        bg: '#f0f9ff',
+        route: '/StoresSupplierWiseReport',
+        component: StoresSupplierWiseReport
+    },
+    {
+        id: 'non-moving-items',
+        title: 'Non-Moving Items Report (Dead Stock)',
+        description: 'Identify slow-moving and idle items with zero indents over 30 / 60 / 90 / 180+ days to prevent dead capital.',
+        icon: Clock,
+        color: '#d97706',
+        bg: '#fffbeb',
+        route: '/StoresNonMovingReport',
+        component: StoresNonMovingReport
+    },
+    {
+        id: 'short-expiry-list',
+        title: 'Short Expiry & Expired List',
+        description: 'Early warning alert report tracking pharmaceutical and medical items nearing expiry within 30, 60, or 90 days.',
+        icon: AlertTriangle,
+        color: '#e11d48',
+        bg: '#fff1f2',
+        route: '/StoresShortExpiryReport',
+        component: StoresShortExpiryReport
+    },
+    {
+        id: 'reorder-level-indication',
+        title: 'Reorder Level Indication',
+        description: 'Real-time stock threshold monitoring, identifying out-of-stock and low-stock items with suggested reorder quantities.',
+        icon: AlertCircle,
+        color: '#4f46e5',
+        bg: '#eef2ff',
+        route: '/StoresReorderLevelReport',
+        component: StoresReorderLevelReport
+    },
+    {
+        id: 'barcode-rack-classification',
+        title: 'Barcode Entry & Rack Classification',
+        description: 'Spatial inventory mapping to manage Racks, Shelves, and Bins with barcode scanner integration.',
+        icon: Grid,
+        color: '#0891b2',
+        bg: '#ecfeff',
+        route: '/StoresRackClassification',
+        component: StoresRackClassification
+    },
     {
         id: 'supplier-grn',
         title: 'Supplier-Based GRN Report',

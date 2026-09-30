@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaSearch, FaMoneyBillWave } from "react-icons/fa";
+import { FaPrint, FaSearch, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -12,7 +15,6 @@ import {
     FormRow,
     InputWrapper,
     Label,
-    Input,
     Button,
     TableWrapper,
     Table,
@@ -27,7 +29,7 @@ const SummaryCard = styled.div`
     border-radius: 12px;
     padding: 16px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    border-left: 4px solid ${colors.success};
+    border-left: 4px solid ${props => props.color || colors.primary};
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -36,7 +38,7 @@ const SummaryCard = styled.div`
 `;
 
 const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
-    const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
+    const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-01"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -52,22 +54,27 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
         if (!fromDate || !toDate) return;
         setLoading(true);
         try {
-            const response = await apiRequest(`${HmsBaseUrl}advance-registration-report/?from_date=${fromDate}&to_date=${toDate}`, "GET");
-            if (response.success && response.data) {
-                const rows = Array.isArray(response.data.data)
-                    ? response.data.data
-                    : Array.isArray(response.data)
-                    ? response.data
-                    : [];
-                const mappedData = rows.map(item => ({
-                    ...item,
-                    advance_amount: item.amount || item.advance_amount,
-                    created_by: item.cashier_id || item.created_by
-                }));
-                setReportData(mappedData);
+            const url = `${HmsBaseUrl}advance-registration-report/?from_date=${fromDate}&to_date=${toDate}`;
+            const response = await apiRequest(url, "GET");
+            if (response && (response.success || response.status === 200 || response.data)) {
+                let rows = [];
+                if (Array.isArray(response.data?.data)) {
+                    rows = response.data.data;
+                } else if (Array.isArray(response.data)) {
+                    rows = response.data;
+                } else if (Array.isArray(response.result)) {
+                    rows = response.result;
+                } else if (Array.isArray(response)) {
+                    rows = response;
+                }
+                setReportData(rows);
+            } else {
+                setReportData([]);
             }
         } catch (error) {
-            console.error("Error fetching report:", error);
+            console.error("Error fetching advance report:", error);
+            toast.error("Failed to fetch advance registration report");
+            setReportData([]);
         } finally {
             setLoading(false);
         }
@@ -77,226 +84,413 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
         fetchReport();
     }, [fetchReport]);
 
+    // Group records by Date (formatted as DD/MM/YYYY)
+    const groupedData = useMemo(() => {
+        const groups = {};
+        if (!Array.isArray(reportData)) return groups;
+        
+        reportData.forEach(item => {
+            const rawDate = item.paid_date || item.date || item.created_date || item.admission_date;
+            let dateKey = "Others";
+            if (rawDate) {
+                const parsed = dayjs(rawDate);
+                if (parsed.isValid()) {
+                    dateKey = parsed.format("DD/MM/YYYY");
+                } else {
+                    dateKey = String(rawDate).slice(0, 10);
+                }
+            }
+            if (!groups[dateKey]) {
+                groups[dateKey] = [];
+            }
+            groups[dateKey].push(item);
+        });
+        return groups;
+    }, [reportData]);
+
+    const grandTotals = useMemo(() => {
+        if (!Array.isArray(reportData)) return { cash: 0, credit: 0, total: 0 };
+        return reportData.reduce((acc, curr) => {
+            const cash = Number(curr.cash_amount ?? ((curr.payment_mode || "").toLowerCase() === "cash" ? curr.amount : 0) ?? 0);
+            const credit = Number(curr.credit_amount ?? ((curr.payment_mode || "").toLowerCase() !== "cash" ? curr.amount : 0) ?? 0);
+            const safeCash = isNaN(cash) ? 0 : cash;
+            const safeCredit = isNaN(credit) ? 0 : credit;
+            acc.cash += safeCash;
+            acc.credit += safeCredit;
+            acc.total += (safeCash + safeCredit);
+            return acc;
+        }, { cash: 0, credit: 0, total: 0 });
+    }, [reportData]);
+
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-advance-report-area", "portrait");
     };
 
-    const totals = reportData.reduce((acc, curr) => {
-        const amt = Number(curr.advance_amount || curr.amount || 0);
-        if ((curr.payment_mode || "").toLowerCase() === "cash") {
-            acc.cash += amt;
-        } else {
-            acc.credit += amt;
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
         }
-        acc.total += amt;
-        return acc;
-    }, { cash: 0, credit: 0, total: 0 });
+        try {
+            const exportRows = [];
+            let globalIndex = 1;
+
+            Object.entries(groupedData).forEach(([dateStr, items]) => {
+                let dayCash = 0;
+                let dayCredit = 0;
+
+                items.forEach((row) => {
+                    const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
+                    const credit = Number(row.credit_amount ?? ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) ?? 0);
+                    const safeCash = isNaN(cash) ? 0 : cash;
+                    const safeCredit = isNaN(credit) ? 0 : credit;
+                    dayCash += safeCash;
+                    dayCredit += safeCredit;
+
+                    exportRows.push({
+                        "Date": dateStr,
+                        "SLNO": globalIndex++,
+                        "BILLNUMBER": row.billnumber || row.bill_no || row.billno || "",
+                        "IPNUMBER": row.ipNumber || row.ip_number || row.ipno || "",
+                        "PATIENTNAME": row.patientname || row.patient_name || "",
+                        "CASH AMOUNT": safeCash > 0 ? Number(safeCash.toFixed(2)) : 0,
+                        "CREDIT AMOUNT": safeCredit > 0 ? Number(safeCredit.toFixed(2)) : 0,
+                        "User": row.user || row.created_by || row.cashier_id || "STAFF"
+                    });
+                });
+
+                // Date Subtotal row
+                exportRows.push({
+                    "Date": dateStr,
+                    "SLNO": "",
+                    "BILLNUMBER": "",
+                    "IPNUMBER": "",
+                    "PATIENTNAME": "Total",
+                    "CASH AMOUNT": Number(dayCash.toFixed(2)),
+                    "CREDIT AMOUNT": Number(dayCredit.toFixed(2)),
+                    "User": ""
+                });
+            });
+
+            // Grand Total row
+            exportRows.push({
+                "Date": "Grand Total",
+                "SLNO": "",
+                "BILLNUMBER": "",
+                "IPNUMBER": "",
+                "PATIENTNAME": "Grand Total",
+                "CASH AMOUNT": Number(grandTotals.cash.toFixed(2)),
+                "CREDIT AMOUNT": Number(grandTotals.credit.toFixed(2)),
+                "User": "End"
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(exportRows);
+            ws["!cols"] = Object.keys(exportRows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 15) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Advance Register");
+            XLSX.writeFile(wb, `Advance_Register_Accounts_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
+    };
+
+    let runningIndex = 1;
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>Advance Registration Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Tracking IP advances and registrations
-                </p>
-            </SectionTitle>
-
-            <FilterSection className="no-print">
-                <FormRow>
-                    <InputWrapper>
-                        <Label>From Date</Label>
-                        <DatePicker 
-                            value={fromDate ? dayjs(fromDate) : null} 
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>To Date</Label>
-                        <DatePicker 
-                            value={toDate ? dayjs(toDate) : null} 
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
-                            <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
-                        </Button>
-                        <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
-                            <FaPrint style={{ marginRight: "8px" }} /> Print
-                        </Button>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Advance Register For {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
                     </div>
-                </FormRow>
-            </FilterSection>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={colors.success}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Cash</span>
-                    <h3 style={{ margin: 0 }}>₹{totals.cash.toLocaleString("en-IN")}</h3>
-                </SummaryCard>
-                <SummaryCard color={colors.primary}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Credit/Other</span>
-                    <h3 style={{ margin: 0 }}>₹{totals.credit.toLocaleString("en-IN")}</h3>
-                </SummaryCard>
-                <SummaryCard color={colors.secondary}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Grand Total</span>
-                    <h3 style={{ margin: 0 }}>₹{totals.total.toLocaleString("en-IN")}</h3>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <>
+                    <SectionTitle className="no-print">
+                        <h3>ADVANCE REGISTER (ACCOUNTS)</h3>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                            Daily IP advance register with Cash and Credit breakdown
+                        </p>
+                    </SectionTitle>
 
+                    <FilterSection className="no-print">
+                        <FormRow>
+                            <InputWrapper>
+                                <Label>From Date</Label>
+                                <DatePicker 
+                                    value={fromDate ? dayjs(fromDate) : null} 
+                                    onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                    style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                                />
+                            </InputWrapper>
+                            <InputWrapper>
+                                <Label>To Date</Label>
+                                <DatePicker 
+                                    value={toDate ? dayjs(toDate) : null} 
+                                    onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                    style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                                />
+                            </InputWrapper>
+
+                            <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
+                                <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
+                                    <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
+                                </Button>
+                                <Button 
+                                    onClick={handleExportExcel} 
+                                    disabled={loading || reportData.length === 0} 
+                                    style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                                >
+                                    <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                                </Button>
+                                <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
+                                    <FaPrint style={{ marginRight: "8px" }} /> Print
+                                </Button>
+                            </div>
+                        </FormRow>
+                    </FilterSection>
+                </>
+            )}
+
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={colors.success}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Cash Amount</span>
+                        <h3 style={{ margin: 0, color: colors.success }}>₹{grandTotals.cash.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                    <SummaryCard color={colors.primary}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Credit / Card</span>
+                        <h3 style={{ margin: 0, color: colors.primary }}>₹{grandTotals.credit.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                    <SummaryCard color={colors.secondary}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Grand Total Collections</span>
+                        <h3 style={{ margin: 0, color: colors.secondary }}>₹{grandTotals.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                </div>
+            )}
+
+            {/* Screen Display Table */}
             <TableWrapper>
                 <Table>
                     <thead>
                         <Tr>
-                            <Th>S.No</Th>
-                            <Th>IP No</Th>
-                            <Th>Bill No</Th>
-                            <Th>Patient Details</Th>
-                            <Th style={{ textAlign: "right" }}>Cash Amount</Th>
-                            <Th style={{ textAlign: "right" }}>Credit Amount</Th>
-                            <Th>Cashier</Th>
+                            <Th style={{ width: "50px" }}>SLNO</Th>
+                            <Th>BILLNUMBER</Th>
+                            <Th>IPNUMBER</Th>
+                            <Th>PATIENTNAME</Th>
+                            <Th style={{ textAlign: "right" }}>CASH AMOUNT</Th>
+                            <Th style={{ textAlign: "right" }}>CREDIT CARD AMOUNT</Th>
+                            <Th>User</Th>
                         </Tr>
                     </thead>
                     <tbody>
-                        {reportData.length > 0 ? (
-                            reportData.map((adv, index) => {
-                                const amt = Number(adv.advance_amount || adv.amount || 0);
-                                const isCash = (adv.payment_mode || "").toLowerCase() === "cash";
+                        {loading ? (
+                            <Tr>
+                                <Td colSpan="7" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                    Loading advance records...
+                                </Td>
+                            </Tr>
+                        ) : Object.keys(groupedData).length > 0 ? (
+                            Object.entries(groupedData).map(([dateStr, items], grpIdx) => {
+                                let dayCash = 0;
+                                let dayCredit = 0;
+
                                 return (
-                                    <Tr key={index}>
-                                        <Td>{index + 1}</Td>
-                                        <Td style={{ fontWeight: "700" }}>{adv.ip_number || adv.ipno || "—"}</Td>
-                                        <Td>{adv.bill_no || adv.billno || "—"}</Td>
-                                        <Td>
-                                            <div style={{ fontWeight: "600" }}>{adv.patient_name || adv.patientName || "—"}</div>
-                                            <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>{adv.uhid}</div>
-                                        </Td>
-                                        <Td style={{ textAlign: "right", color: colors.success }}>
-                                            {isCash ? `₹${amt.toFixed(2)}` : "—"}
-                                        </Td>
-                                        <Td style={{ textAlign: "right", color: colors.primary }}>
-                                            {!isCash ? `₹${amt.toFixed(2)}` : "—"}
-                                        </Td>
-                                        <Td>{adv.created_by || adv.cashier_id || "Staff"}</Td>
-                                    </Tr>
+                                    <React.Fragment key={dateStr || grpIdx}>
+                                        <Tr style={{ background: "#f1f5f9", fontWeight: "bold" }}>
+                                            <Td colSpan="7" style={{ color: "#0f172a", fontSize: "0.95rem", padding: "10px 14px" }}>
+                                                {dateStr}
+                                            </Td>
+                                        </Tr>
+                                        {items.map((row, rowIdx) => {
+                                            const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
+                                            const credit = Number(row.credit_amount ?? ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) ?? 0);
+                                            const safeCash = isNaN(cash) ? 0 : cash;
+                                            const safeCredit = isNaN(credit) ? 0 : credit;
+                                            dayCash += safeCash;
+                                            dayCredit += safeCredit;
+                                            const sl = runningIndex++;
+
+                                            return (
+                                                <Tr key={`${row.billnumber || row.bill_no || 'row'}-${grpIdx}-${rowIdx}`}>
+                                                    <Td>{sl}</Td>
+                                                    <Td style={{ fontWeight: "600" }}>{row.billnumber || row.bill_no || row.billno || "—"}</Td>
+                                                    <Td>{row.ipNumber || row.ip_number || row.ipno || "—"}</Td>
+                                                    <Td style={{ fontWeight: "600" }}>{row.patientname || row.patient_name || "—"}</Td>
+                                                    <Td style={{ textAlign: "right", color: safeCash > 0 ? colors.success : "inherit" }}>
+                                                        {safeCash > 0 ? safeCash.toFixed(2) : "0.00"}
+                                                    </Td>
+                                                    <Td style={{ textAlign: "right", color: safeCredit > 0 ? colors.primary : "inherit" }}>
+                                                        {safeCredit > 0 ? safeCredit.toFixed(2) : "0.00"}
+                                                    </Td>
+                                                    <Td style={{ textTransform: "uppercase", fontSize: "0.85rem" }}>
+                                                        {row.user || row.created_by || row.cashier_id || "STAFF"}
+                                                    </Td>
+                                                </Tr>
+                                            );
+                                        })}
+                                        {/* Daily Subtotal Row */}
+                                        <Tr style={{ background: "#e2e8f0", fontWeight: "bold" }}>
+                                            <Td colSpan="4" style={{ textAlign: "right" }}>Total</Td>
+                                            <Td style={{ textAlign: "right" }}>{dayCash.toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right" }}>{dayCredit.toFixed(2)}</Td>
+                                            <Td></Td>
+                                        </Tr>
+                                    </React.Fragment>
                                 );
                             })
                         ) : (
                             <Tr>
-                                <Td colSpan="7" style={{ textAlign: "center", padding: "30px", color: colors.textMuted }}>
-                                    No advances found for the selected period.
+                                <Td colSpan="7" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                    No advance records found for the selected dates.
                                 </Td>
                             </Tr>
                         )}
                     </tbody>
-                    {reportData.length > 0 && (
+                    {reportData.length > 0 && !loading && (
                         <tfoot>
-                            <Tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
-                                <Td colSpan="4" style={{ textAlign: "right" }}>Totals:</Td>
-                                <Td style={{ textAlign: "right", color: colors.success }}>₹{totals.cash.toFixed(2)}</Td>
-                                <Td style={{ textAlign: "right", color: colors.primary }}>₹{totals.credit.toFixed(2)}</Td>
-                                <Td></Td>
+                            <Tr style={{ background: "#cbd5e1", fontWeight: "900", fontSize: "1rem" }}>
+                                <Td colSpan="4" style={{ textAlign: "right" }}>Grand Total</Td>
+                                <Td style={{ textAlign: "right" }}>{grandTotals.cash.toFixed(2)}</Td>
+                                <Td style={{ textAlign: "right" }}>{grandTotals.credit.toFixed(2)}</Td>
+                                <Td>End</Td>
                             </Tr>
                         </tfoot>
                     )}
                 </Table>
             </TableWrapper>
 
+            {/* Print Styles */}
             <style>
                 {`
                 @media print {
-                    @page { size: landscape; margin: 10mm; }
+                    @page { size: portrait; margin: 8mm; }
                     body * { visibility: hidden; }
-                    #printable-report-area, #printable-report-area * { visibility: visible; }
-                    #printable-report-area {
+                    #printable-advance-report-area, #printable-advance-report-area * { visibility: visible; }
+                    #printable-advance-report-area {
                         position: absolute;
                         left: 0;
                         top: 0;
                         width: 100%;
                         display: block !important;
                     }
-                    body { background: white !important; }
+                    body { background: white !important; font-family: monospace, Courier, sans-serif !important; }
                 }
                 `}
             </style>
 
-            <PrintTemplate id="printable-report-area">
+            {/* Printable Report matching PDF 1 format */}
+            <PrintTemplate id="printable-advance-report-area">
                 <PrintHeader>
-                    <h1>{localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL"}</h1>
-                    <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>
-                    <div className="report-title">Advance Registration Report</div>
+                    <h1>{localStorage.getItem("hospital_name") || "SHANMUGA HOSPITALS"}</h1>
+                    <p>{localStorage.getItem("hospital_address") || "51/24.Saradha College Road, Salem - 636007"}</p>
+                    <p>{localStorage.getItem("hospital_phone") || "04272706666"}</p>
+                    <div className="report-title">
+                        ADVANCE REGISTER(ACCOUNTS) From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}
+                    </div>
                 </PrintHeader>
 
-                <PrintInfoTable>
+                <PrintMetaTable>
                     <tbody>
                         <tr>
-                            <td style={{ width: "30%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ width: "30%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
-                        </tr>
-                        <tr>
-                            <td colSpan="2"><strong>Type:</strong> Advance Registration Payments</td>
-                            <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
+                            <td style={{ textAlign: "left" }}>
+                                <strong>Printed On :</strong> {dayjs().format("DD/MM/YYYY HH:mm:ss")}
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                                <strong>Page No :</strong> - 1 -
+                            </td>
                         </tr>
                     </tbody>
-                </PrintInfoTable>
+                </PrintMetaTable>
 
                 <PrintTable>
                     <thead>
                         <tr>
-                            <th>S.No</th>
-                            <th>IP No</th>
-                            <th>Bill No</th>
-                            <th>Patient Details</th>
-                            <th style={{ textAlign: "right" }}>Cash Amount</th>
-                            <th style={{ textAlign: "right" }}>Credit Amount</th>
-                            <th>Cashier</th>
+                            <th style={{ width: "6%" }}>SLNO</th>
+                            <th style={{ width: "16%" }}>BILLNUMBER</th>
+                            <th style={{ width: "15%" }}>IPNUMBER</th>
+                            <th style={{ width: "27%" }}>PATIENTNAME</th>
+                            <th style={{ width: "13%", textAlign: "right" }}>CASH AMOUNT</th>
+                            <th style={{ width: "13%", textAlign: "right" }}>CREDIT AMOUNT</th>
+                            <th style={{ width: "10%" }}>User</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {reportData.length > 0 ? (
-                            reportData.map((row, index) => {
-                                const amt = Number(row.advance_amount || row.amount || 0);
-                                const isCash = (row.payment_mode || "").toLowerCase() === "cash";
+                        {(() => {
+                            let printSl = 1;
+                            return Object.entries(groupedData).map(([dateStr, items], grpIdx) => {
+                                let dayCash = 0;
+                                let dayCredit = 0;
+
                                 return (
-                                    <tr key={index}>
-                                        <td>{index + 1}</td>
-                                        <td>{row.ip_number || row.ipno || "—"}</td>
-                                        <td>{row.bill_no || row.billno || "—"}</td>
-                                        <td>
-                                            <div><strong>{row.patient_name || row.patientName || "—"}</strong></div>
-                                            <div style={{ fontSize: "8px", color: "#666" }}>UHID: {row.uhid}</div>
-                                        </td>
-                                        <td style={{ textAlign: "right" }}>₹{(isCash ? amt : 0).toFixed(2)}</td>
-                                        <td style={{ textAlign: "right" }}>₹{(!isCash ? amt : 0).toFixed(2)}</td>
-                                        <td>{row.created_by || row.cashierName || "Staff"}</td>
-                                    </tr>
+                                    <React.Fragment key={`print-${dateStr}-${grpIdx}`}>
+                                        <tr className="date-group-header">
+                                            <td colSpan="7" style={{ fontWeight: "bold", textAlign: "left", padding: "4px 6px", borderBottom: "1px dashed #666" }}>
+                                                {dateStr}
+                                            </td>
+                                        </tr>
+                                        {items.map((row, rowIdx) => {
+                                            const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
+                                            const credit = Number(row.credit_amount ?? ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) ?? 0);
+                                            const safeCash = isNaN(cash) ? 0 : cash;
+                                            const safeCredit = isNaN(credit) ? 0 : credit;
+                                            dayCash += safeCash;
+                                            dayCredit += safeCredit;
+                                            const curSl = printSl++;
+
+                                            return (
+                                                <tr key={`print-row-${curSl}-${rowIdx}`}>
+                                                    <td>{curSl}</td>
+                                                    <td>{row.billnumber || row.bill_no || row.billno || "—"}</td>
+                                                    <td>{row.ipNumber || row.ip_number || row.ipno || "—"}</td>
+                                                    <td>{row.patientname || row.patient_name || "—"}</td>
+                                                    <td style={{ textAlign: "right" }}>{safeCash > 0 ? safeCash.toFixed(2) : "0.00"}</td>
+                                                    <td style={{ textAlign: "right" }}>{safeCredit > 0 ? safeCredit.toFixed(2) : "0.00"}</td>
+                                                    <td style={{ textTransform: "uppercase" }}>{row.user || row.created_by || row.cashier_id || "STAFF"}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {/* Date Subtotal */}
+                                        <tr className="subtotal-row" style={{ fontWeight: "bold", borderTop: "1px solid #000", borderBottom: "1px solid #000" }}>
+                                            <td colSpan="4" style={{ textAlign: "left", paddingLeft: "10px" }}>Total</td>
+                                            <td style={{ textAlign: "right" }}>{dayCash.toFixed(2)}</td>
+                                            <td style={{ textAlign: "right" }}>{dayCredit.toFixed(2)}</td>
+                                            <td></td>
+                                        </tr>
+                                    </React.Fragment>
                                 );
-                            })
-                        ) : (
-                            <tr>
-                                <td colSpan="7" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>
-                            </tr>
-                        )}
+                            });
+                        })()}
+
+                        {/* Grand Total */}
                         {reportData.length > 0 && (
-                            <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
-                                <td colSpan="4" style={{ textAlign: "right" }}>Total:</td>
-                                <td style={{ textAlign: "right" }}>₹{totals.cash.toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{totals.credit.toFixed(2)}</td>
-                                <td>Grand Total: ₹{totals.total.toFixed(2)}</td>
+                            <tr className="grand-total-row" style={{ fontWeight: "bold", borderTop: "2px solid #000", borderBottom: "2px solid #000" }}>
+                                <td colSpan="4" style={{ textAlign: "left", paddingLeft: "10px" }}>Grand Total</td>
+                                <td style={{ textAlign: "right" }}>{grandTotals.cash.toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>{grandTotals.credit.toFixed(2)}</td>
+                                <td></td>
                             </tr>
                         )}
                     </tbody>
                 </PrintTable>
 
-                <PrintSignatures>
-                    <div className="sig-box">Prepared By</div>
-                    <div className="sig-box">Accounts Officer</div>
-                    <div className="sig-box">Authorized Signatory</div>
-                </PrintSignatures>
+                <div style={{ textAlign: "center", marginTop: "12px", fontSize: "11px", fontWeight: "bold" }}>
+                    End
+                </div>
             </PrintTemplate>
         </PageWrapper>
     );
@@ -317,23 +511,22 @@ const PrintTemplate = styled.div`
         background: white;
         width: 100%;
         color: black;
-        font-family: 'Times New Roman', serif;
+        font-family: 'Courier New', Courier, monospace;
     }
 `;
 
 const PrintHeader = styled.div`
     text-align: center;
-    border-bottom: 2px solid #000;
-    padding-bottom: 8px;
-    margin-bottom: 12px;
-    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
-    p { margin: 2px 0; font-size: 11px; }
-    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+    h1 { margin: 0; font-size: 16px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 1px 0; font-size: 11px; }
+    .report-title { font-size: 12px; font-weight: bold; margin-top: 6px; text-transform: uppercase; }
 `;
 
-const PrintInfoTable = styled.table`
+const PrintMetaTable = styled.table`
     width: 100%;
-    margin-bottom: 12px;
+    margin-bottom: 6px;
     border-collapse: collapse;
     font-size: 10px;
     td { padding: 2px 0; border: none !important; }
@@ -342,36 +535,33 @@ const PrintInfoTable = styled.table`
 const PrintTable = styled.table`
     width: 100%;
     border-collapse: collapse;
-    margin: 10px 0;
-    font-size: 9px;
+    margin: 6px 0;
+    font-size: 10px;
     th, td {
-        border: 1px solid #000 !important;
-        padding: 5px 6px;
+        border-top: 1px dashed #999;
+        border-bottom: 1px dashed #999;
+        padding: 4px 5px;
         text-align: left;
     }
     th {
-        background-color: #f2f2f2 !important;
+        border-top: 1px solid #000 !important;
+        border-bottom: 1px solid #000 !important;
         font-weight: bold;
         text-transform: uppercase;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+    }
+    .date-group-header td {
+        border-top: none;
+        border-bottom: none;
+        font-size: 11px;
+    }
+    .subtotal-row td {
+        border-top: 1px dashed #000 !important;
+        border-bottom: 1px dashed #000 !important;
+    }
+    .grand-total-row td {
+        border-top: 1px solid #000 !important;
+        border-bottom: 1px solid #000 !important;
     }
 `;
-
-const PrintSignatures = styled.div`
-    margin-top: 40px;
-    display: flex;
-    justify-content: space-between;
-    font-size: 10px;
-    page-break-inside: avoid;
-    .sig-box {
-        text-align: center;
-        width: 180px;
-        border-top: 1px solid #000;
-        padding-top: 4px;
-        font-weight: bold;
-    }
-`;
-
 
 export default AdvanceRegistration;

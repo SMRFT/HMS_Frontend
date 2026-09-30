@@ -63,7 +63,9 @@ export const TabContainer = styled.div`
   box-sizing: border-box;
 `;
 
-export const Tab = styled.div`
+export const Tab = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== "active",
+})`
   padding: 9px 18px;
   font-size: 0.86rem;
   font-weight: ${(props) => (props.active ? "700" : "500")};
@@ -109,7 +111,9 @@ export const InputWrapper = styled.div`
   min-width: 0; /* prevents overflow in grid/flex children */
 `;
 
-export const Label = styled.label`
+export const Label = styled.label.withConfig({
+  shouldForwardProp: (prop) => prop !== "required",
+})`
   font-size: 0.78rem;
   font-weight: 600;
   color: ${colors.textMain};
@@ -200,7 +204,9 @@ export const TextArea = styled.textarea`
   }
 `;
 
-export const Button = styled.button`
+export const Button = styled.button.withConfig({
+  shouldForwardProp: (prop) => !["secondary", "danger", "success", "variant"].includes(prop),
+})`
   padding: 7px 16px;
   height: 34px;
   border-radius: 6px;
@@ -494,7 +500,9 @@ export const CollapsibleSection = styled.div`
   overflow: hidden;
 `;
 
-export const SectionContent = styled.div`
+export const SectionContent = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== "visible",
+})`
   padding: 10px;
   background: white;
   display: ${(props) => (props.visible ? "block" : "none")};

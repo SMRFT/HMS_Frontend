@@ -240,13 +240,13 @@ const EmptyState = styled.div`
 `;
 
 const LabInventoryReport = () => {
-    const [fromDate, setFromDate] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
+    const [fromDate, setFromDate] = useState(dayjs().subtract(1, 'month').format('YYYY-MM-DD'));
     const [toDate, setToDate] = useState(dayjs().format('YYYY-MM-DD'));
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
     const [flattenedItems, setFlattenedItems] = useState([]);
-    const [activePreset, setActivePreset] = useState('7days');
+    const [activePreset, setActivePreset] = useState('month');
     const [viewMode, setViewMode] = useState('flat'); // 'flat' or 'grouped'
     const [expandedDates, setExpandedDates] = useState({});
 
@@ -292,7 +292,7 @@ const LabInventoryReport = () => {
         } else if (preset === '7days') {
             fDate = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
         } else if (preset === 'month') {
-            fDate = dayjs().startOf('month').format('YYYY-MM-DD');
+            fDate = dayjs().subtract(1, 'month').format('YYYY-MM-DD');
         } else if (preset === 'all') {
             fDate = '';
             tDate = '';

@@ -21,6 +21,12 @@ import {
   Stethoscope,
   HeartPulse,
   CheckCheck,
+  Upload,
+  Eye,
+  Download,
+  Trash2,
+  ExternalLink,
+  FileUp,
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 
@@ -826,6 +832,192 @@ const LoadingOverlay = styled.div`
   }
 `;
 
+// ─── PDF Document Elements ──────────────────────────────────────────────────
+const UploadPdfButton = styled.label`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: ${(p) => (p.$disabled ? "not-allowed" : "pointer")};
+  background: #f5f3ff;
+  border: 1.5px dashed #c4b5fd;
+  color: #7c3aed;
+  transition: all 0.2s ease;
+  user-select: none;
+  opacity: ${(p) => (p.$disabled ? 0.6 : 1)};
+
+  &:hover:not([disabled]) {
+    background: #ede9fe;
+    border-color: #8b5cf6;
+    color: #6d28d9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.15);
+  }
+
+  .spin {
+    animation: ${spin} 0.8s linear infinite;
+  }
+`;
+
+const PdfDocCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid #e9d5ff;
+  border-radius: 8px;
+  padding: 6px 8px;
+  min-width: 148px;
+  max-width: 180px;
+  margin: 0 auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #c084fc;
+    box-shadow: 0 2px 8px rgba(168, 85, 247, 0.12);
+  }
+
+  .pdf-doc-info {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    color: #6b21a8;
+    font-size: 0.72rem;
+    font-weight: 700;
+
+    .pdf-icon {
+      color: #9333ea;
+      flex-shrink: 0;
+    }
+
+    .pdf-filename {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 130px;
+    }
+  }
+
+  .pdf-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .pdf-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 6px;
+    border-radius: 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+
+    &.preview {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+      color: #166534;
+      &:hover { background: #dcfce7; border-color: #86efac; }
+    }
+
+    &.download {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1e40af;
+      &:hover { background: #dbeafe; border-color: #93c5fd; }
+    }
+
+    &.replace {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #64748b;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 5px;
+      &:hover { background: #f1f5f9; color: #334155; }
+    }
+
+    &.delete {
+      background: #fff1f2;
+      border-color: #fecdd3;
+      color: #be123c;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 5px;
+      &:hover { background: #ffe4e6; border-color: #fda4af; }
+    }
+  }
+
+  .pdf-meta {
+    font-size: 0.63rem;
+    color: #94a3b8;
+    line-height: 1.2;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+  }
+`;
+
+const PdfPreviewModalContent = styled.div`
+  background: ${theme.surface};
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  width: 95%;
+  max-width: 1050px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: ${modalFade} 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+`;
+
+const PdfModalBody = styled.div`
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: #525659;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
+
+const HeaderActionBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid ${theme.border};
+  color: ${theme.textMain};
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: ${theme.primaryDark};
+  }
+`;
+
 // ─── Modal Styles ───────────────────────────────────────────────────────────
 const ModalOverlay = styled.div`
   position: fixed;
@@ -1066,6 +1258,7 @@ export default function MRDTracking() {
   });
   const [loading, setLoading] = useState(true);
   const [updatingIp, setUpdatingIp] = useState(null);
+  const [uploadingIp, setUploadingIp] = useState(null);
 
   // Filters
   const [activeTab, setActiveTab] = useState("All");
@@ -1089,6 +1282,12 @@ export default function MRDTracking() {
     isOpen: false,
     file: null,
     loading: false,
+  });
+
+  // PDF Preview Modal State
+  const [pdfPreviewModal, setPdfPreviewModal] = useState({
+    isOpen: false,
+    file: null,
   });
 
   // Quick Date presets
@@ -1131,8 +1330,8 @@ export default function MRDTracking() {
         const list = Array.isArray(payload?.data)
           ? payload.data
           : Array.isArray(payload)
-          ? payload
-          : [];
+            ? payload
+            : [];
         setFiles(list);
         if (payload?.stats) {
           setStats(payload.stats);
@@ -1211,8 +1410,8 @@ export default function MRDTracking() {
           const list = Array.isArray(raw?.data)
             ? raw.data
             : Array.isArray(raw)
-            ? raw
-            : [];
+              ? raw
+              : [];
           setFiles(list);
           if (raw?.stats) setStats(raw.stats);
         }
@@ -1388,6 +1587,196 @@ export default function MRDTracking() {
     }
   };
 
+  // PDF Upload handler
+  const handleFileUpload = async (fileItem, selectedFile) => {
+    if (!selectedFile) return;
+
+    if (!selectedFile.name.toLowerCase().endsWith(".pdf") && selectedFile.type !== "application/pdf") {
+      toast.warning("Only PDF files (.pdf) are allowed.");
+      return;
+    }
+
+    if (selectedFile.size > 30 * 1024 * 1024) {
+      toast.warning("PDF file size exceeds 30 MB limit.");
+      return;
+    }
+
+    setUploadingIp(fileItem.ip_no);
+    const toastId = toast.loading(`Uploading ${selectedFile.name}...`);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("ip_no", fileItem.ip_no);
+      formData.append("uhid", fileItem.uhid || "");
+
+      const res = await apiRequest(`${BASE}mrd/upload-pdf/`, "POST", formData);
+
+      if (res && res.success) {
+        toast.update(toastId, {
+          render: "PDF document uploaded successfully!",
+          type: "success",
+          isLoading: false,
+          autoClose: 3000,
+        });
+
+        // Update local file state and auto-fetch fresh data from server
+        setFiles((prev) =>
+          (Array.isArray(prev) ? prev : []).map((f) => {
+            if (f.ip_no === fileItem.ip_no) {
+              return {
+                ...f,
+                pdf_file_id: res.data?.pdf_file_id || "",
+                pdf_filename: res.data?.pdf_filename || selectedFile.name,
+                pdf_uploaded_by: res.data?.pdf_uploaded_by || "User",
+                pdf_uploaded_date: res.data?.pdf_uploaded_date || new Date().toISOString(),
+              };
+            }
+            return f;
+          })
+        );
+        await fetchDischargedFiles();
+      } else {
+        toast.update(toastId, {
+          render: res?.error || "Failed to upload PDF",
+          type: "error",
+          isLoading: false,
+          autoClose: 3000,
+        });
+      }
+    } catch (err) {
+      toast.update(toastId, {
+        render: "Error uploading PDF. Please try again.",
+        type: "error",
+        isLoading: false,
+        autoClose: 3000,
+      });
+    } finally {
+      setUploadingIp(null);
+    }
+  };
+
+  // Open PDF Preview Modal (fetches PDF as Blob URL to eliminate iframe cross-origin blocking)
+  const handlePreviewPdf = async (fileItem) => {
+    if (!fileItem.pdf_file_id) {
+      toast.warning("No PDF uploaded for this record.");
+      return;
+    }
+
+    // Clean up previous blob url if exists
+    if (pdfPreviewModal.blobUrl) {
+      try {
+        window.URL.revokeObjectURL(pdfPreviewModal.blobUrl);
+      } catch (e) { }
+    }
+
+    setPdfPreviewModal({
+      isOpen: true,
+      file: fileItem,
+      blobUrl: "",
+      loading: true,
+      error: "",
+    });
+
+    try {
+      const response = await fetch(`${BASE}mrd/file/${fileItem.pdf_file_id}/`);
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+      const rawBlob = await response.blob();
+      const pdfBlob = new Blob([rawBlob], { type: "application/pdf" });
+      const objectUrl = window.URL.createObjectURL(pdfBlob);
+
+      setPdfPreviewModal((prev) => ({
+        ...prev,
+        blobUrl: objectUrl,
+        loading: false,
+        error: "",
+      }));
+    } catch (err) {
+      console.error("PDF Preview fetch error:", err);
+      setPdfPreviewModal((prev) => ({
+        ...prev,
+        loading: false,
+        error: "Failed to load document preview. You can still download or open it directly.",
+      }));
+    }
+  };
+
+  // Close PDF Preview Modal
+  const closePdfPreviewModal = () => {
+    if (pdfPreviewModal.blobUrl) {
+      try {
+        window.URL.revokeObjectURL(pdfPreviewModal.blobUrl);
+      } catch (e) { }
+    }
+    setPdfPreviewModal({
+      isOpen: false,
+      file: null,
+      blobUrl: "",
+      loading: false,
+      error: "",
+    });
+  };
+
+  // Download PDF Handler
+  const handleDownloadPdf = (fileItem) => {
+    if (!fileItem?.pdf_file_id) {
+      toast.warning("No PDF uploaded to download.");
+      return;
+    }
+
+    const downloadUrl = `${BASE}mrd/file/${fileItem.pdf_file_id}/?download=1`;
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.setAttribute("download", fileItem.pdf_filename || `${fileItem.ip_no}_MRD_Document.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.info(`Downloading ${fileItem.pdf_filename || "MRD Document.pdf"}...`);
+  };
+
+  // Delete PDF Handler
+  const handleDeletePdf = async (fileItem) => {
+    if (!fileItem?.pdf_file_id) return;
+
+    const confirmDel = window.confirm(`Are you sure you want to delete the uploaded PDF (${fileItem.pdf_filename || "document.pdf"}) for IP ${fileItem.ip_no}?`);
+    if (!confirmDel) return;
+
+    setUploadingIp(fileItem.ip_no);
+
+    try {
+      const res = await apiRequest(`${BASE}mrd/delete-pdf/`, "POST", { ip_no: fileItem.ip_no });
+      if (res && res.success) {
+        toast.success("PDF document removed successfully!");
+        setFiles((prev) =>
+          (Array.isArray(prev) ? prev : []).map((f) => {
+            if (f.ip_no === fileItem.ip_no) {
+              return {
+                ...f,
+                pdf_file_id: "",
+                pdf_filename: "",
+                pdf_uploaded_by: "",
+                pdf_uploaded_date: "",
+              };
+            }
+            return f;
+          })
+        );
+        if (pdfPreviewModal.isOpen && pdfPreviewModal.file?.ip_no === fileItem.ip_no) {
+          closePdfPreviewModal();
+        }
+        await fetchDischargedFiles();
+      } else {
+        toast.error(res?.error || "Failed to delete PDF");
+      }
+    } catch (err) {
+      toast.error("Error deleting PDF. Please try again.");
+    } finally {
+      setUploadingIp(null);
+    }
+  };
+
   // Print Filtered Data Report Handler
   const handlePrintFilteredData = () => {
     const fileList = Array.isArray(files) ? files : [];
@@ -1427,6 +1816,10 @@ export default function MRDTracking() {
           }
         }
 
+        let fileTxt = row.pdf_file_id
+          ? `<span class="badge" style="background:#d1fae5; color:#065f46; font-weight:700; border:1px solid #a7f3d0; padding:2px 8px; border-radius:4px;">Yes</span>`
+          : `<span class="badge" style="background:#f1f5f9; color:#64748b; font-weight:700; border:1px solid #cbd5e1; padding:2px 8px; border-radius:4px;">No</span>`;
+
         return `
           <tr>
             <td style="text-align:center; font-weight:600;">${idx + 1}</td>
@@ -1445,6 +1838,7 @@ export default function MRDTracking() {
               <span class="status-pill status-${(row.status || "Pending").toLowerCase()}">${row.status || "Pending"}</span>
             </td>
             <td>${errorTxt}</td>
+            <td style="text-align:center;">${fileTxt}</td>
             <td style="font-size:12px; color:#1e293b; line-height:1.55; font-family:monospace; min-width:360px;">
               <div><strong>Admitted D&T</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: ${formatDateTime(row.admission_date)}</div>
               <div><strong>Discharged D&T</strong> &nbsp;&nbsp;&nbsp;: ${formatDateTime(row.discharge_date)}</div>
@@ -1600,6 +1994,7 @@ export default function MRDTracking() {
               <th>Patient & Admission Details</th>
               <th style="text-align:center; width: 90px;">Status</th>
               <th style="width: 130px;">Error Details</th>
+              <th style="width: 70px; text-align: center;">File</th>
               <th style="width: 380px;">Audit Details (D&T)</th>
             </tr>
           </thead>
@@ -1887,14 +2282,14 @@ export default function MRDTracking() {
                 tab.key === "All"
                   ? stats.total
                   : tab.key === "Pending"
-                  ? stats.pending
-                  : tab.key === "Received"
-                  ? stats.received
-                  : tab.key === "Error"
-                  ? stats.has_error || 0
-                  : tab.key === "Resolved"
-                  ? stats.resolved_error || 0
-                  : stats.scanned;
+                    ? stats.pending
+                    : tab.key === "Received"
+                      ? stats.received
+                      : tab.key === "Error"
+                        ? stats.has_error || 0
+                        : tab.key === "Resolved"
+                          ? stats.resolved_error || 0
+                          : stats.scanned;
 
               return (
                 <CapsuleWrapper key={tab.key}>
@@ -2039,6 +2434,9 @@ export default function MRDTracking() {
                     <th style={{ textAlign: "center", background: "#fff1f2" }}>
                       ⚠️ Error Status
                     </th>
+                    <th style={{ textAlign: "center", background: "#f5f3ff", minWidth: "165px" }}>
+                      📑 Scanned PDF
+                    </th>
                     <th style={{ textAlign: "center", background: "#ecfdf5" }}>
                       📄 Scanned
                     </th>
@@ -2128,10 +2526,10 @@ export default function MRDTracking() {
                                   hasError
                                     ? "File has an Error logged (Received status is locked)"
                                     : isScanned
-                                    ? "File already Scanned (Received status is locked)"
-                                    : isReceived
-                                    ? "Marked as Received (Uncheck to revert to Pending)"
-                                    : "Click to mark as Received"
+                                      ? "File already Scanned (Received status is locked)"
+                                      : isReceived
+                                        ? "Marked as Received (Uncheck to revert to Pending)"
+                                        : "Click to mark as Received"
                                 }
                               >
                                 <input
@@ -2175,8 +2573,8 @@ export default function MRDTracking() {
                                       ? "Click to view resolved error details"
                                       : "Click to view / resolve error details"
                                     : isScanned
-                                    ? "File already Scanned (Errors cannot be added)"
-                                    : "Click to report error in this file"
+                                      ? "File already Scanned (Errors cannot be added)"
+                                      : "Click to report error in this file"
                                 }
                               >
                                 {hasError ? (
@@ -2204,6 +2602,101 @@ export default function MRDTracking() {
                         </td>
 
 
+                        {/* 📑 Scanned PDF Document */}
+                        <td style={{ textAlign: "center", background: "#faf5ff" }}>
+                          {row.pdf_file_id ? (
+                            <PdfDocCard>
+                              <div className="pdf-doc-info" title={row.pdf_filename || "MRD Scanned Document.pdf"}>
+                                <FileText size={14} className="pdf-icon" />
+                                <span className="pdf-filename">{row.pdf_filename || "MRD_Scan.pdf"}</span>
+                              </div>
+                              <div className="pdf-btn-group">
+                                <button
+                                  type="button"
+                                  className="pdf-btn preview"
+                                  onClick={() => handlePreviewPdf(row)}
+                                  title="Preview PDF"
+                                >
+                                  <Eye size={12} />
+                                  <span>Preview</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="pdf-btn download"
+                                  onClick={() => handleDownloadPdf(row)}
+                                  title="Download PDF"
+                                >
+                                  <Download size={12} />
+                                  <span>Download</span>
+                                </button>
+                                <label className="pdf-btn replace" title="Replace / Re-upload PDF">
+                                  <input
+                                    type="file"
+                                    accept="application/pdf,.pdf"
+                                    style={{ display: "none" }}
+                                    disabled={uploadingIp === row.ip_no}
+                                    onChange={(e) => {
+                                      if (e.target.files && e.target.files[0]) {
+                                        handleFileUpload(row, e.target.files[0]);
+                                        e.target.value = "";
+                                      }
+                                    }}
+                                  />
+                                  <RefreshCw size={11} className={uploadingIp === row.ip_no ? "spin" : ""} />
+                                </label>
+                                <button
+                                  type="button"
+                                  className="pdf-btn delete"
+                                  onClick={() => handleDeletePdf(row)}
+                                  title="Delete PDF"
+                                  disabled={uploadingIp === row.ip_no}
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                              </div>
+                              {row.pdf_uploaded_date && (
+                                <div className="pdf-meta" title={`Uploaded: ${formatDateTime(row.pdf_uploaded_date)}${row.pdf_uploaded_by ? ` by ${row.pdf_uploaded_by}` : ""}`}>
+                                  {formatDateOnly(row.pdf_uploaded_date)}
+                                  {row.pdf_uploaded_by ? ` • ${row.pdf_uploaded_by}` : ""}
+                                </div>
+                              )}
+                            </PdfDocCard>
+                          ) : (
+                            <div style={{ display: "flex", justifyContent: "center" }}>
+                              <UploadPdfButton
+                                as="label"
+                                $disabled={uploadingIp === row.ip_no}
+                                title="Upload Scanned PDF file for this record"
+                              >
+                                <input
+                                  type="file"
+                                  accept="application/pdf,.pdf"
+                                  style={{ display: "none" }}
+                                  disabled={uploadingIp === row.ip_no}
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                      handleFileUpload(row, e.target.files[0]);
+                                      e.target.value = "";
+                                    }
+                                  }}
+                                />
+                                {uploadingIp === row.ip_no ? (
+                                  <>
+                                    <RefreshCw size={12} className="spin" />
+                                    <span>Uploading...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload size={12} />
+                                    <span>Upload PDF</span>
+                                  </>
+                                )}
+                              </UploadPdfButton>
+                            </div>
+                          )}
+                        </td>
+
+
                         {/* Scanned Checkbox */}
                         <td style={{ textAlign: "center", background: "#f8fafc" }}>
                           {(() => {
@@ -2217,10 +2710,10 @@ export default function MRDTracking() {
                                   isPending
                                     ? "Must be Received before it can be Scanned"
                                     : hasUnresolvedError
-                                    ? "Cannot Scan: Please resolve Nurse/Doctor errors first"
-                                    : isScanned
-                                    ? "File process completed (Final stage completed)"
-                                    : "Click to complete file process & mark as Scanned"
+                                      ? "Cannot Scan: Please resolve Nurse/Doctor errors first"
+                                      : isScanned
+                                        ? "File process completed (Final stage completed)"
+                                        : "Click to complete file process & mark as Scanned"
                                 }
                               >
                                 <input
@@ -2351,8 +2844,8 @@ export default function MRDTracking() {
                     {errorModal.isResolved
                       ? "Error status is resolved and locked."
                       : errorModal.isError
-                      ? "Error active: Scanned status will be locked until marked resolved."
-                      : "No error: Scanned status is directly available."}
+                        ? "Error active: Scanned status will be locked until marked resolved."
+                        : "No error: Scanned status is directly available."}
                   </div>
                 </div>
                 <input
@@ -2575,6 +3068,132 @@ export default function MRDTracking() {
               </button>
             </ModalFooter>
           </ModalContent>
+        </ModalOverlay>
+      )}
+
+      {/* ─── PDF Preview Modal ─────────────────────────────────────── */}
+      {pdfPreviewModal.isOpen && pdfPreviewModal.file && (
+        <ModalOverlay onClick={closePdfPreviewModal}>
+          <PdfPreviewModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "8px",
+                    background: "rgba(13, 148, 136, 0.12)",
+                    color: theme.primary,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.05rem", color: theme.textMain }}>
+                    {pdfPreviewModal.file.pdf_filename || "MRD Scanned Document.pdf"}
+                  </h3>
+                  <div style={{ fontSize: "0.75rem", color: theme.textMid, marginTop: "2px" }}>
+                    IP: <strong style={{ color: theme.primaryDark }}>{pdfPreviewModal.file.ip_no}</strong> • UHID: <strong>{pdfPreviewModal.file.uhid || "—"}</strong> • Patient: <strong>{pdfPreviewModal.file.patient_name}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {/* Download button */}
+                <HeaderActionBtn
+                  type="button"
+                  onClick={() => handleDownloadPdf(pdfPreviewModal.file)}
+                  title="Download PDF"
+                >
+                  <Download size={14} />
+                  <span>Download</span>
+                </HeaderActionBtn>
+
+                {/* Open in new tab button */}
+                <HeaderActionBtn
+                  type="button"
+                  onClick={() => {
+                    const openUrl = pdfPreviewModal.blobUrl || `${BASE}mrd/file/${pdfPreviewModal.file.pdf_file_id}/`;
+                    window.open(openUrl, "_blank");
+                  }}
+                  title="Open in new window"
+                >
+                  <ExternalLink size={14} />
+                  <span>New Tab</span>
+                </HeaderActionBtn>
+
+                <button className="close-btn" onClick={closePdfPreviewModal} title="Close Preview">
+                  <X size={18} />
+                </button>
+              </div>
+            </ModalHeader>
+
+            <PdfModalBody>
+              {pdfPreviewModal.loading ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    color: "#ffffff",
+                    gap: "12px",
+                  }}
+                >
+                  <RefreshCw size={28} className="spin" />
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Loading document preview...</span>
+                </div>
+              ) : pdfPreviewModal.error ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    color: "#ffffff",
+                    padding: "24px",
+                    textAlign: "center",
+                    gap: "14px",
+                  }}
+                >
+                  <AlertTriangle size={36} color="#f87171" />
+                  <div style={{ fontSize: "1rem", fontWeight: 700 }}>Unable to render inline preview</div>
+                  <p style={{ fontSize: "0.82rem", color: "#cbd5e1", maxWidth: "400px", margin: 0 }}>
+                    {pdfPreviewModal.error}
+                  </p>
+                  <div style={{ display: "flex", gap: "10px", marginTop: "6px" }}>
+                    <HeaderActionBtn
+                      type="button"
+                      onClick={() => handlePreviewPdf(pdfPreviewModal.file)}
+                    >
+                      <RefreshCw size={14} />
+                      Retry
+                    </HeaderActionBtn>
+                    <HeaderActionBtn
+                      type="button"
+                      onClick={() => handleDownloadPdf(pdfPreviewModal.file)}
+                    >
+                      <Download size={14} />
+                      Download Instead
+                    </HeaderActionBtn>
+                  </div>
+                </div>
+              ) : (
+                <iframe
+                  src={pdfPreviewModal.blobUrl}
+                  title="MRD PDF Preview"
+                  width="100%"
+                  height="100%"
+                  style={{ border: "none", width: "100%", height: "100%", background: "#ffffff" }}
+                />
+              )}
+            </PdfModalBody>
+          </PdfPreviewModalContent>
         </ModalOverlay>
       )}
     </PageWrapper>

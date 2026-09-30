@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import {
@@ -58,6 +58,80 @@ const FilterButton = styled.button`
   transition: all 0.15s;
   &:hover { border-color: #0d9488; color: #0d9488; background: white; }
   ${({ active }) => active && `&:hover { color: white; background: #0d9488; }`}
+`;
+
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #fff;
+`;
+
+const TableSelect = styled.select`
+  height: 32px;
+  width: 72px;
+  padding: 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1.5px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: #0d9488;
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.82rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+`;
+
+const PB = styled.button`
+  height: 32px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: ${(p) => (p.active ? "#0d9488" : "#fff")};
+  color: ${(p) => (p.active ? "#fff" : "#374151")};
+  cursor: pointer;
+  transition: all 0.15s;
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${(p) => (p.active ? "#0f766e" : "#f3f4f6")};
+  }
+`;
+
+const SearchBox = styled.input`
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  outline: none;
+  min-width: 240px;
+  &:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+  }
 `;
 
 const StatusBadge = styled.span`
@@ -157,29 +231,47 @@ const PhysicalStockApproval = () => {
   const [loading, setLoading]   = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
 
+  const [page, setPage]         = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [searchQ, setSearchQ]   = useState("");
+
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  useEffect(() => { fetchEntries(); }, []);
-
   // ── Fetch ──────────────────────────────────────────────────────────────
-  const fetchEntries = async () => {
+  const fetchEntries = useCallback(async (p = page, size = pageSize, q = searchQ, flt = filter) => {
     setLoading(true);
     try {
+      const params = new URLSearchParams({
+        page: p,
+        page_size: size,
+      });
+      if (flt && flt !== "all") params.append("status", flt);
+      if (q && q.trim()) params.append("search", q.trim());
+
       const response = await apiRequest(
-        `${HmsBaseUrl}physical-stock-approval/`,
+        `${HmsBaseUrl}physical-stock-approval/?${params.toString()}`,
         "GET"
       );
-      setEntries(
-        response && !response.error && Array.isArray(response.data)
-          ? response.data
-          : []
-      );
+      const payload = response?.data;
+      const rows = payload?.data ?? (Array.isArray(payload) ? payload : (Array.isArray(response?.data) ? response.data : []));
+      const all = Array.isArray(rows) ? rows : [];
+      setEntries(all);
+      const count = payload?.count !== undefined ? payload.count : (response?.count !== undefined ? response.count : all.length);
+      setTotalCount(count);
+      setTotalPages(payload?.total_pages || Math.ceil(count / size) || 1);
+      setPage(payload?.current_page || p);
     } catch {
       toast.error("Failed to fetch entries");
     } finally {
       setLoading(false);
     }
-  };
+  }, [HmsBaseUrl, page, pageSize, searchQ, filter]);
+
+  useEffect(() => {
+    fetchEntries(page, pageSize, searchQ, filter);
+  }, [page, pageSize, searchQ, filter]); // eslint-disable-line
 
   // ── Approve / Reject ───────────────────────────────────────────────────
   const handleAction = async (entry, action) => {
@@ -199,7 +291,7 @@ const PhysicalStockApproval = () => {
             ? `Batch ${entry.batch_number} approved ✅`
             : `Batch ${entry.batch_number} rejected`
         );
-        fetchEntries();
+        fetchEntries(page, pageSize, searchQ, filter);
       } else {
         toast.error(response?.error || `${action} failed`);
       }
@@ -209,16 +301,6 @@ const PhysicalStockApproval = () => {
       setActionLoading(null);
     }
   };
-
-  // ── Filter ─────────────────────────────────────────────────────────────
-  const filtered = entries.filter((e) => {
-    if (filter === "pending")  return !e.is_approved;
-    if (filter === "approved") return e.is_approved;
-    return true;
-  });
-
-  const pendingCount  = entries.filter((e) => !e.is_approved).length;
-  const approvedCount = entries.filter((e) => e.is_approved).length;
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -233,7 +315,7 @@ const PhysicalStockApproval = () => {
           </div>
           <Button
             style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", color: "white", fontSize: "0.82rem", padding: "6px 14px" }}
-            onClick={fetchEntries}
+            onClick={() => fetchEntries(page, pageSize, searchQ, filter)}
           >
             🔄 Refresh
           </Button>
@@ -241,38 +323,71 @@ const PhysicalStockApproval = () => {
 
         <div style={{ padding: "20px 24px 0" }}>
 
-          {/* Stats */}
-          <StatsRow>
-            <StatCard>
-              <StatValue color="#0d9488">{entries.length}</StatValue>
-              <StatLabel>Total Entries</StatLabel>
-            </StatCard>
-            <StatCard bg="#fef9c3" border="#fde68a">
-              <StatValue color="#b45309">{pendingCount}</StatValue>
-              <StatLabel>Pending</StatLabel>
-            </StatCard>
-            <StatCard bg="#d1fae5" border="#6ee7b7">
-              <StatValue color="#065f46">{approvedCount}</StatValue>
-              <StatLabel>Approved</StatLabel>
-            </StatCard>
-          </StatsRow>
-
           {/* Filter */}
           <FilterBar>
-            <FilterButton active={filter === "all"}      onClick={() => setFilter("all")}>All</FilterButton>
-            <FilterButton active={filter === "pending"}  onClick={() => setFilter("pending")}>
-              Pending ({pendingCount})
+            <FilterButton
+              active={filter === "all"}
+              onClick={() => { setFilter("all"); setPage(1); }}
+            >
+              All
             </FilterButton>
-            <FilterButton active={filter === "approved"} onClick={() => setFilter("approved")}>
-              Approved ({approvedCount})
+            <FilterButton
+              active={filter === "pending"}
+              onClick={() => { setFilter("pending"); setPage(1); }}
+            >
+              Pending
+            </FilterButton>
+            <FilterButton
+              active={filter === "approved"}
+              onClick={() => { setFilter("approved"); setPage(1); }}
+            >
+              Approved
             </FilterButton>
           </FilterBar>
 
-          <SectionTitle>Stock Entries</SectionTitle>
+          <SectionTitle>
+            Stock Entries
+            <span style={{
+              background: "#e5e7eb", color: "#6b7280",
+              fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: 600, marginLeft: 8,
+            }}>
+              {totalCount}
+            </span>
+          </SectionTitle>
         </div>
 
-        {/* Table */}
+        {/* TTBar and Table */}
         <div style={{ padding: "0 24px 24px" }}>
+          <TTBar>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: "0.85rem", color: "#4b5563" }}>Show</span>
+              <TableSelect
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+              >
+                {[10, 25, 50, 100].map((sz) => (
+                  <option key={sz} value={sz}>{sz}</option>
+                ))}
+              </TableSelect>
+              <span style={{ fontSize: "0.85rem", color: "#4b5563" }}>entries</span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <SearchBox
+                type="text"
+                placeholder="Search item, batch, notes..."
+                value={searchQ}
+                onChange={(e) => {
+                  setSearchQ(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
+          </TTBar>
+
           {loading ? (
             <div style={{ textAlign: "center", padding: 32, color: "#9ca3af" }}>
               Loading entries...
@@ -297,16 +412,18 @@ const PhysicalStockApproval = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length === 0 ? (
+                  {entries.length === 0 ? (
                     <Tr>
                       <Td colSpan="11" style={{ textAlign: "center", color: "#9ca3af" }}>
                         {filter === "pending" ? "No pending entries" : "No entries found"}
                       </Td>
                     </Tr>
                   ) : (
-                    filtered.map((entry, idx) => (
-                      <Tr key={entry.entry_id}>
-                        <Td>{idx + 1}</Td>
+                    entries.map((entry, idx) => (
+                      <Tr key={entry.entry_id || idx}>
+                        <Td style={{ color: "#6b7280", fontSize: "0.8rem" }}>
+                          {(page - 1) * pageSize + idx + 1}
+                        </Td>
                         <Td style={{ fontWeight: 600, color: "#0f766e" }}>
                           {entry.item_name}
                         </Td>
@@ -413,6 +530,54 @@ const PhysicalStockApproval = () => {
               </Table>
             </TableWrapper>
           )}
+
+          <Pager>
+            <div>
+              Showing {totalCount === 0 ? 0 : (page - 1) * pageSize + 1} to{" "}
+              {Math.min(page * pageSize, totalCount)} of {totalCount} entries
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <PB
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </PB>
+              {(() => {
+                const pages = [];
+                if (totalPages <= 7) {
+                  for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                  pages.push(1);
+                  if (page > 3) pages.push("...");
+                  const start = Math.max(2, page - 1);
+                  const end = Math.min(totalPages - 1, page + 1);
+                  for (let i = start; i <= end; i++) pages.push(i);
+                  if (page < totalPages - 2) pages.push("...");
+                  pages.push(totalPages);
+                }
+                return pages.map((pNum, i) =>
+                  pNum === "..." ? (
+                    <span key={`dots-${i}`} style={{ padding: "0 6px", alignSelf: "center" }}>...</span>
+                  ) : (
+                    <PB
+                      key={pNum}
+                      active={page === pNum}
+                      onClick={() => setPage(pNum)}
+                    >
+                      {pNum}
+                    </PB>
+                  )
+                );
+              })()}
+              <PB
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </PB>
+            </div>
+          </Pager>
         </div>
 
       </Container>
