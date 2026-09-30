@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
+import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper";
 import {
   Container,
   PageWrapper,
@@ -162,6 +163,67 @@ const SearchBtn = styled.button`
   transition: background 0.15s;
   &:hover { background: #0f766e; }
 `;
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #fff;
+`;
+
+const TableSelect = styled.select`
+  height: 32px;
+  width: 72px;
+  padding: 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1.5px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: #0d9488;
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.82rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+`;
+
+const PB = styled.button`
+  height: 32px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: ${(p) => (p.active ? "#0d9488" : "#fff")};
+  color: ${(p) => (p.active ? "#fff" : "#374151")};
+  cursor: pointer;
+  transition: all 0.15s;
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${(p) => (p.active ? "#0f766e" : "#f3f4f6")};
+  }
+`;
+
 const FormPanel = styled.div`
   animation: ${slideDown} 0.3s ease forwards;
   border-bottom: 2px solid #d1fae5;
@@ -648,7 +710,14 @@ const PurchaseReturn = () => {
   const [outlets, setOutlets] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [returns, setReturns] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [searchQ, setSearchQ] = useState("");
 
   // Form header
   const [selectedOutlet, setSelectedOutlet] = useState(isDrugPurchase ? "" : outletCode);
@@ -680,14 +749,6 @@ const PurchaseReturn = () => {
   );
   const grandTotal = itemsSubtotal.toFixed(2);
 
-  // ── Effects ────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    fetchOutlets();
-    fetchVendors();
-    fetchReturns({ from_date: today, to_date: today });
-  }, []); // eslint-disable-line
-
   // ── Fetch helpers ──────────────────────────────────────────────────────────
   const fetchOutlets = useCallback(async () => {
     try {
@@ -708,18 +769,42 @@ const PurchaseReturn = () => {
     } catch { toast.error("Failed to fetch vendors"); }
   }, [HmsBaseUrl]);
 
-  const fetchReturns = useCallback(async (extra = {}) => {
+  const fetchReturns = useCallback(async (p = page, size = pageSize, q = searchQ, from = filterFromDate, to = filterToDate, stat = filterStatus) => {
+    setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (extra.from_date) params.append("from_date", extra.from_date);
-      if (extra.to_date) params.append("to_date", extra.to_date);
-      if (extra.status) params.append("status", extra.status);
-      const qs = params.toString();
-      const r = await apiRequest(`${HmsBaseUrl}purchase-return/${qs ? "?" + qs : ""}`, "GET");
-      const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : []);
-      setReturns(Array.isArray(rows) ? rows : []);
-    } catch { toast.error("Failed to fetch purchase returns"); }
-  }, [HmsBaseUrl]);
+      const params = new URLSearchParams({
+        page: p,
+        page_size: size,
+      });
+      if (q && q.trim()) params.append("search", q.trim());
+      if (from) params.append("from_date", from);
+      if (to) params.append("to_date", to);
+      if (stat) params.append("status", stat);
+      const r = await apiRequest(`${HmsBaseUrl}purchase-return/?${params.toString()}`, "GET");
+      const payload = r?.data;
+      const rows = payload?.data ?? (Array.isArray(payload) ? payload : (Array.isArray(r?.data) ? r.data : []));
+      const all = Array.isArray(rows) ? rows : [];
+      setReturns(all);
+      const count = payload?.count !== undefined ? payload.count : (r?.count !== undefined ? r.count : all.length);
+      setTotalCount(count);
+      setTotalPages(payload?.total_pages || Math.ceil(count / size) || 1);
+      setPage(payload?.current_page || p);
+    } catch {
+      toast.error("Failed to fetch purchase returns");
+    } finally {
+      setLoading(false);
+    }
+  }, [HmsBaseUrl, page, pageSize, searchQ, filterFromDate, filterToDate, filterStatus]);
+
+  // ── Effects ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchOutlets();
+    fetchVendors();
+  }, [fetchOutlets, fetchVendors]);
+
+  useEffect(() => {
+    fetchReturns(page, pageSize, searchQ, filterFromDate, filterToDate, filterStatus);
+  }, [page, pageSize, searchQ, filterFromDate, filterToDate, filterStatus, fetchReturns]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const getOutletName = (code) => {
@@ -1080,104 +1165,173 @@ const PurchaseReturn = () => {
           </FormPanel>
         )}
 
-        {/* ── Date Filters ── */}
-        <FilterRow>
-          <FilterGroup>
-            <FilterLabel>From Date</FilterLabel>
-            <FilterInput type="date" value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)} />
-          </FilterGroup>
-          <FilterGroup>
-            <FilterLabel>To Date</FilterLabel>
-            <FilterInput type="date" value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)} />
-          </FilterGroup>
-          <FilterGroup>
-            <FilterLabel>Status</FilterLabel>
-            <FilterSelect value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="">All</option>
+        {/* Top Toolbar */}
+        <InvTopToolbar
+          pageSize={pageSize}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+          search={searchQ}
+          onSearchChange={(val) => {
+            setSearchQ(val);
+            setPage(1);
+          }}
+          searchPlaceholder="Search bill no, GRN, vendor, cause..."
+          fromDate={filterFromDate}
+          toDate={filterToDate}
+          onFromDateChange={(val) => {
+            setFilterFromDate(val);
+            setPage(1);
+          }}
+          onToDateChange={(val) => {
+            setFilterToDate(val);
+            setPage(1);
+          }}
+          totalRecords={totalCount}
+          customFilters={
+            <FilterSelect
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setPage(1);
+              }}
+              style={{ width: "auto", minWidth: 120, height: 32, padding: "2px 8px", fontSize: "0.8rem" }}
+            >
+              <option value="">All Status</option>
               <option value="Pending">Pending</option>
               <option value="Returned">Returned</option>
             </FilterSelect>
-          </FilterGroup>
-          <SearchBtn onClick={() => fetchReturns({ from_date: filterFromDate, to_date: filterToDate, status: filterStatus })}>
-            🔍 Search
-          </SearchBtn>
-        </FilterRow>
-
-        {/* Status Legend */}
-        <div style={{ padding: "10px 24px 0", display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {["Pending", "Returned"].map((s) => (
-            <StatusBadge key={s} $status={s}>{s}</StatusBadge>
-          ))}
-        </div>
+          }
+        />
 
         {/* ── Records Table ── */}
-        <div style={{ padding: "16px 26px 28px" }}>
-          <SectionTitle>
+        <div style={{ padding: "0 26px 28px" }}>
+          <SectionTitle style={{ marginTop: 16 }}>
             📋 Purchase Return Records — {isDrugPurchase ? "Drug Purchase" : getOutletName(outletCode)}
             <span style={{ background: "#e5e7eb", color: "#6b7280", fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: 600 }}>
-              {returns.length}
+              {totalCount}
             </span>
           </SectionTitle>
+
           <TableWrapper>
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Status</Th>
-                  <Th>Date</Th>
-                  <Th>Bill No</Th>
-                  <Th>GRN No</Th>
-                  <Th>Vendor</Th>
-                  <Th>Outlet</Th>
-                  <Th>Items</Th>
-                  <Th>Amount</Th>
-                  <Th style={{ textAlign: "center" }}>Actions</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {returns.length === 0 ? (
-                  <Tr>
-                    <Td colSpan="9" style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0" }}>
-                      📭 No purchase return records found
-                    </Td>
-                  </Tr>
-                ) : (
-                  returns.map((rec) => {
-                    const items = Array.isArray(rec.items) ? rec.items : [];
-                    return (
-                      <Tr key={rec._id || rec.purchase_return_bill_no}>
-                        <Td><StatusBadge $status={rec.status || "Returned"}>{rec.status || "Returned"}</StatusBadge></Td>
-                        <Td style={{ color: "#374151" }}>{fmtDate(rec.purchase_return_bill_date || rec.created_date)}</Td>
-                        <Td style={{ fontWeight: 700, color: "#0d9488", fontFamily: "monospace" }}>{rec.purchase_return_bill_no}</Td>
-                        <Td style={{ fontFamily: "monospace", color: "#374151" }}>{rec.grn_number || "-"}</Td>
-                        <Td>{rec.vendor_name || rec.vendor_code || "-"}</Td>
-                        <Td>{getOutletName(rec.outlet_code)}</Td>
-                        <Td>
-                          <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>
-                            {items.length} item{items.length !== 1 ? "s" : ""}
-                          </span>
-                        </Td>
-                        <Td style={{ fontWeight: 700, color: "#111827" }}>
-                          ₹ {Number(rec.purchase_return_amount || 0).toFixed(2)}
-                        </Td>
-                        <Td style={{ textAlign: "center" }}>
-                          <RowKebabMenu
-                            record={rec}
-                            onPrint={() => setPrintModal(rec)}
-                            onView={() => setViewModal(rec)}
-                            onUpdateStatus={() => {
-                              if (window.confirm("Are you sure you want to return this bill?")) {
-                                handleStatusUpdate(rec, "Returned");
-                              }
-                            }}
-                          />
-                        </Td>
-                      </Tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </Table>
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>
+                ⏳ Loading purchase return records...
+              </div>
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>#</Th>
+                    <Th>Status</Th>
+                    <Th>Date</Th>
+                    <Th>Bill No</Th>
+                    <Th>GRN No</Th>
+                    <Th>Vendor</Th>
+                    <Th>Outlet</Th>
+                    <Th>Items</Th>
+                    <Th>Amount</Th>
+                    <Th style={{ textAlign: "center" }}>Actions</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {returns.length === 0 ? (
+                    <Tr>
+                      <Td colSpan="10" style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0" }}>
+                        📭 No purchase return records found
+                      </Td>
+                    </Tr>
+                  ) : (
+                    returns.map((rec, idx) => {
+                      const items = Array.isArray(rec.items) ? rec.items : [];
+                      return (
+                        <Tr key={rec._id || rec.purchase_return_bill_no || idx}>
+                          <Td style={{ color: "#6b7280", fontSize: "0.8rem" }}>
+                            {(page - 1) * pageSize + idx + 1}
+                          </Td>
+                          <Td><StatusBadge $status={rec.status || "Returned"}>{rec.status || "Returned"}</StatusBadge></Td>
+                          <Td style={{ color: "#374151" }}>{fmtDate(rec.purchase_return_bill_date || rec.created_date)}</Td>
+                          <Td style={{ fontWeight: 700, color: "#0d9488", fontFamily: "monospace" }}>{rec.purchase_return_bill_no}</Td>
+                          <Td style={{ fontFamily: "monospace", color: "#374151" }}>{rec.grn_number || "-"}</Td>
+                          <Td>{rec.vendor_name || rec.vendor_code || "-"}</Td>
+                          <Td>{getOutletName(rec.outlet_code)}</Td>
+                          <Td>
+                            <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>
+                              {items.length} item{items.length !== 1 ? "s" : ""}
+                            </span>
+                          </Td>
+                          <Td style={{ fontWeight: 700, color: "#111827" }}>
+                            ₹ {Number(rec.purchase_return_amount || 0).toFixed(2)}
+                          </Td>
+                          <Td style={{ textAlign: "center" }}>
+                            <RowKebabMenu
+                              record={rec}
+                              onPrint={() => setPrintModal(rec)}
+                              onView={() => setViewModal(rec)}
+                              onUpdateStatus={() => {
+                                if (window.confirm("Are you sure you want to return this bill?")) {
+                                  handleStatusUpdate(rec, "Returned");
+                                }
+                              }}
+                            />
+                          </Td>
+                        </Tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </Table>
+            )}
           </TableWrapper>
+
+          <Pager>
+            <div>
+              Showing {totalCount === 0 ? 0 : (page - 1) * pageSize + 1} to{" "}
+              {Math.min(page * pageSize, totalCount)} of {totalCount} entries
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <PB
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </PB>
+              {(() => {
+                const pages = [];
+                if (totalPages <= 7) {
+                  for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                  pages.push(1);
+                  if (page > 3) pages.push("...");
+                  const start = Math.max(2, page - 1);
+                  const end = Math.min(totalPages - 1, page + 1);
+                  for (let i = start; i <= end; i++) pages.push(i);
+                  if (page < totalPages - 2) pages.push("...");
+                  pages.push(totalPages);
+                }
+                return pages.map((pNum, i) =>
+                  pNum === "..." ? (
+                    <span key={`dots-${i}`} style={{ padding: "0 6px", alignSelf: "center" }}>...</span>
+                  ) : (
+                    <PB
+                      key={pNum}
+                      active={page === pNum}
+                      onClick={() => setPage(pNum)}
+                    >
+                      {pNum}
+                    </PB>
+                  )
+                );
+              })()}
+              <PB
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </PB>
+            </div>
+          </Pager>
         </div>
 
       </Container>

@@ -487,20 +487,21 @@ export default function RadiologyWardRequest({ patient, onClose }) {
 
   const pd = patient?.patient_details || {};
   const resolvedPatient = {
-    ipNo: patient?.ipNumber || pd.ipNumber || "-",
-    uhid: patient?.uhid || pd.uhid || "-",
-    name: [patient?.salutation ?? pd.salutation, patient?.firstName ?? pd.firstName, patient?.lastName ?? pd.lastName].filter(Boolean).join(" ") || "Unknown Patient",
+    ipNo: patient?.ipNumber || patient?.ip_number || patient?.ipNo || pd.ipNumber || "-",
+    uhid: patient?.uhid || patient?.patient_id || pd.uhid || "-",
+    name: patient?.patient_name || patient?.patientName || [patient?.salutation ?? pd.salutation, patient?.firstName ?? pd.firstName, patient?.lastName ?? pd.lastName].filter(Boolean).join(" ") || "Unknown Patient",
     address: patient?.address || pd.permanent_address || "-",
     admitting: patient?.admissionDateTime ? new Date(patient.admissionDateTime).toLocaleString("en-GB") : "-",
-    admittingDr: patient?.admittingDoctor || pd?.admittingDoctor || "-",
-    roomBed: `${patient?.roomNo || "-"} | ${patient?.bedNo || "-"}`,
-    customerType: patient?.customerType || pd.customer_type || "-",
-    wardName: patient?.wardName || "-",
+    admittingDr: patient?.admittingDoctor || patient?.doctor_name || patient?.doctorName || pd?.admittingDoctor || "-",
+    roomBed: `${patient?.roomNo || patient?.room_no || "-"} | ${patient?.bedNo || patient?.bed_no || "-"}`,
+    customerType: patient?.customerType || patient?.customer_type || pd.customer_type || "-",
+    wardName: patient?.wardName || patient?.ward_name || "-",
   };
 
   useEffect(() => {
-    if (patient?.admittingDoctor) {
-      setDoctor(patient.admittingDoctor);
+    const doc = patient?.admittingDoctor || patient?.doctor_name || patient?.doctorName;
+    if (doc) {
+      setDoctor(doc);
     }
   }, [patient]);
 

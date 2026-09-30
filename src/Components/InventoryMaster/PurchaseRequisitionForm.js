@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
+import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -29,11 +30,22 @@ const Wrap   = styled.div`min-height:100vh;background:${C.bg};padding-bottom:48p
 const Header = styled.div`
   background:linear-gradient(135deg,${C.primary} 0%,${C.pDark} 100%);
   color:#fff;padding:18px 28px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
   box-shadow:0 4px 20px rgba(13,148,136,.25);
 `
 const HTitle = styled.h1`margin:0;font-size:1.2rem;font-weight:800;letter-spacing:-.02em;`
 const HSub   = styled.p`margin:3px 0 0;font-size:.75rem;opacity:.82;`
-const Body   = styled.div`max-width:900px;margin:0 auto;padding:22px 20px;`
+const Body   = styled.div`max-width:1000px;margin:0 auto;padding:22px 20px;`
+
+/* ── Tabs ── */
+const TabRow = styled.div`display:flex;gap:6px;`
+const Tab    = styled.button`
+  padding:7px 18px;border-radius:6px;font-size:.82rem;font-weight:700;
+  cursor:pointer;font-family:inherit;border:none;transition:all .14s;
+  background:${p => p.$a ? "#fff" : "rgba(255,255,255,.18)"};
+  color:${p => p.$a ? C.primary : "#fff"};
+  border:1px solid ${p => p.$a ? "transparent" : "rgba(255,255,255,.3)"};
+`
 
 /* ── Card ── */
 const Card     = styled.div`background:${C.surface};border:1px solid ${C.border};border-radius:10px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 6px rgba(0,0,0,.06);`
@@ -148,9 +160,68 @@ const MOverlay = styled.div`position:fixed;inset:0;background:rgba(0,0,0,.45);z-
 const MBox     = styled.div`background:#fff;border-radius:12px;padding:28px 32px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.22);${css`animation:${fadeSlide} .18s ease forwards;`}`
 const MTitle   = styled.h3`margin:0 0 14px;font-size:1rem;font-weight:800;color:${C.text};`
 
-/* ── List table ── */
+/* ── List table & pagination ── */
 const ListTblWrap = styled.div`overflow-x:auto;`
 const ListTbl = styled.table`width:100%;border-collapse:collapse;font-size:.8rem;`
+
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+`;
+
+const TableSelect = styled.select`
+  height: 28px;
+  width: 72px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: ${C.primary};
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid #e5e7eb;
+  font-size: .75rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: #fff;
+`;
+
+const PB = styled.button`
+  height: 28px;
+  padding: 0 13px;
+  font-size: .75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: ${p => p.active ? C.primary : '#fff'};
+  color: ${p => p.active ? '#fff' : '#374151'};
+  cursor: pointer;
+  &:disabled {
+    opacity: .45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${p => p.active ? C.primary : '#f3f4f6'};
+  }
+`;
 
 /* ══════════════════════════════════════════════════════
    MEDICINE SEARCH FIELD
@@ -401,25 +472,49 @@ export default function PurchaseRequisition() {
   const [viewPr,      setViewPr]      = useState(null)
   const [showEditReason, setShowEditReason] = useState(false)
   const [itemsErr,    setItemsErr]    = useState("")
+  const [searchQ,     setSearchQ]     = useState("")
   const addFieldKey = useRef(0)         // force-reset the medicine search input
+
+  const [page,       setPage]       = useState(1)
+  const [pageSize,   setPageSize]   = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [fromDate,   setFromDate]   = useState(getTodayDateString())
+  const [toDate,     setToDate]     = useState(getTodayDateString())
 
   const fromOutlet = localStorage.getItem("outlet_code") || null
 
-  /* ── Fetch list ── */
-  const fetchList = useCallback(async () => {
+  /* ── Fetch list with server-side pagination ── */
+  const fetchList = useCallback(async (p = page, size = pageSize, q = searchQ, from = fromDate, to = toDate) => {
     setLoading(true)
     try {
-      const r = await apiRequest(`${HmsBaseUrl}purchase-requisition/`, "GET")
-      const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
+      const params = new URLSearchParams({
+        page: p,
+        page_size: size,
+      })
+      if (q && q.trim()) params.append("search", q.trim())
+      if (from) params.append("from_date", from)
+      if (to)   params.append("to_date",   to)
+
+      const r = await apiRequest(`${HmsBaseUrl}purchase-requisition/?${params.toString()}`, "GET")
+      const payload = r?.data
+      const rows = payload?.data ?? (Array.isArray(payload) ? payload : [])
       setPrList(Array.isArray(rows) ? rows : [])
+      setTotalCount(payload?.count !== undefined ? payload.count : (r?.count !== undefined ? r.count : (Array.isArray(rows) ? rows.length : 0)))
+      setTotalPages(payload?.total_pages || Math.ceil((payload?.count || rows.length) / size) || 1)
+      setPage(payload?.current_page || p)
     } catch {
       toast.error("Failed to load requisitions")
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page, pageSize, searchQ, fromDate, toDate, HmsBaseUrl])
 
-  useEffect(() => { fetchList() }, [fetchList])
+  useEffect(() => {
+    if (tab === "list") {
+      fetchList(page, pageSize, searchQ, fromDate, toDate)
+    }
+  }, [tab, page, pageSize, searchQ, fromDate, toDate, fetchList])
 
   /* ── Add item to staging list ── */
   const handleAddItem = () => {
@@ -510,8 +605,18 @@ export default function PurchaseRequisition() {
     <Wrap>
       {/* Header */}
       <Header>
-        <HTitle>💊 Purchase Requisition</HTitle>
-        <HSub>Request medicines for pharmacy stock</HSub>
+        <div>
+          <HTitle>💊 Purchase Requisition</HTitle>
+          <HSub>Request medicines for pharmacy stock</HSub>
+        </div>
+        <TabRow>
+          <Tab $a={tab === "form"} onClick={() => { setTab("form"); setEditPr(null); }}>
+            ✓ Form
+          </Tab>
+          <Tab $a={tab === "list"} onClick={() => setTab("list")}>
+            📄 My List
+          </Tab>
+        </TabRow>
       </Header>
 
       <Body>
@@ -604,9 +709,34 @@ export default function PurchaseRequisition() {
             <CardHead>
               <span>📄 My Requisitions</span>
               <span style={{ background: "#e5e7eb", color: C.muted, fontSize: ".72rem", padding: "1px 8px", borderRadius: 12, fontWeight: 600 }}>
-                {prList.length}
+                {totalCount}
               </span>
             </CardHead>
+
+            <InvTopToolbar
+              pageSize={pageSize}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+              search={searchQ}
+              onSearchChange={(val) => {
+                setSearchQ(val);
+                setPage(1);
+              }}
+              searchPlaceholder="PR No, Medicine…"
+              fromDate={fromDate}
+              toDate={toDate}
+              onFromDateChange={(val) => {
+                setFromDate(val);
+                setPage(1);
+              }}
+              onToDateChange={(val) => {
+                setToDate(val);
+                setPage(1);
+              }}
+              totalRecords={totalCount}
+            />
 
             <ListTblWrap>
               {loading ? (
@@ -632,8 +762,8 @@ export default function PurchaseRequisition() {
                       const firstItem = itemList[0]?.medicine_name || "—"
                       const more      = itemList.length > 1 ? ` +${itemList.length - 1} more` : ""
                       return (
-                        <Trow key={r.pr_number}>
-                          <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
+                        <Trow key={r.pr_number || idx}>
+                          <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                           <Td><Pill>{r.pr_number}</Pill></Td>
                           <Td style={{ fontWeight: 600, fontSize: ".82rem" }}>
                             {firstItem}
@@ -664,24 +794,16 @@ export default function PurchaseRequisition() {
                 </ListTbl>
               )}
             </ListTblWrap>
+
+            <InvPagination
+              page={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={(p) => setPage(p)}
+            />
           </Card>
         )}
-
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-          <PrimBtn
-            onClick={() => { resetForm(); setTab("form") }}
-            style={{ padding: "7px 18px", fontSize: ".8rem", background: tab === "form" ? C.primary : C.pLight, color: tab === "form" ? "#fff" : C.primary }}
-          >
-            {tab === "form" ? "✓ Form" : "+ New"}
-          </PrimBtn>
-          <PrimBtn
-            onClick={() => setTab("list")}
-            style={{ padding: "7px 18px", fontSize: ".8rem", background: tab === "list" ? C.primary : C.pLight, color: tab === "list" ? "#fff" : C.primary }}
-          >
-            {tab === "list" ? "✓ List" : "📄 My List"}
-          </PrimBtn>
-        </div>
       </Body>
 
       {/* View detail modal */}

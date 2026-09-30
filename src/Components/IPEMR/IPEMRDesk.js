@@ -6,6 +6,9 @@ import apiRequest from '../../Auth/apiRequest';
 import IPClinicalNotesPrint from './IPClinicalNotesPrint';
 import IPNursingNotesViewerModal from './IPNursingNotesViewerModal';
 import IPPatientHistoryModal from './IPPatientHistoryModal';
+import IPDischargeSummaryModal from './IPDischargeSummaryModal';
+import MedicineWardRequest from '../NursingStation/WardRequestPage';
+import RadiologyWardRequest from '../NursingStation/RadiologyWardRequest';
 import {
   User,
   Activity,
@@ -194,20 +197,23 @@ const ActionButton = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.78rem;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
   border: none;
   white-space: nowrap;
+  flex-shrink: 0;
+  height: 28px;
+  box-sizing: border-box;
 
   ${props => props.$variant === 'primary' && `
     background: #0d9488;
     color: white;
-    box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2);
+    box-shadow: 0 1px 3px rgba(13, 148, 136, 0.2);
     &:hover { background: #0f766e; transform: translateY(-1px); }
   `}
 
@@ -642,29 +648,45 @@ const CompactPatientRibbon = styled.div`
 
 const PatientActionToolbar = styled.div`
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
-  padding: 6px 12px;
+  padding: 5px 8px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 5px;
   flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
 
-  .left-actions {
+  .toolbar-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+
+    @media (max-width: 900px) {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
+    }
   }
 
-  .right-actions {
+  .toolbar-side {
     display: flex;
     align-items: center;
     gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .left-side {
+    justify-content: flex-start;
+  }
+
+  .right-side {
+    justify-content: flex-end;
   }
 `;
 
@@ -1100,6 +1122,83 @@ const ModalOverlay = styled.div`
   padding: 20px;
 `;
 
+const RequestModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+`;
+
+const RequestModalCard = styled.div`
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 1350px;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+
+  .req-modal-header {
+    background: ${props => props.$bg || '#0d9488'};
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .patient-sub {
+        font-size: 0.8rem;
+        opacity: 0.9;
+      }
+    }
+
+    .close-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+    }
+  }
+
+  .req-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    background: #f8fafc;
+  }
+`;
+
 const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -1120,6 +1219,45 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printNoteTarget, setPrintNoteTarget] = useState(null);
   const [activeNoteId, setActiveNoteId] = useState(null);
+
+  // Ward Requests State (Medicine & Radiology)
+  const [showMedicineModal, setShowMedicineModal] = useState(false);
+  const [showRadiologyModal, setShowRadiologyModal] = useState(false);
+  const [showDischargeSummaryModal, setShowDischargeSummaryModal] = useState(false);
+
+  // Normalized patient data for Ward Requests
+  const patientForRequest = useMemo(() => {
+    if (!selectedPatient) return null;
+    return {
+      ...selectedPatient,
+      ipNumber: selectedPatient.ip_number || selectedPatient.ipNumber || selectedPatient.ipNo || '',
+      ipNo: selectedPatient.ip_number || selectedPatient.ipNumber || selectedPatient.ipNo || '',
+      uhid: selectedPatient.uhid || selectedPatient.patient_id || '',
+      firstName: selectedPatient.firstName || selectedPatient.patient_name || selectedPatient.patientName || '',
+      lastName: selectedPatient.lastName || '',
+      patient_name: selectedPatient.patient_name || selectedPatient.patientName || `${selectedPatient.firstName || ''} ${selectedPatient.lastName || ''}`.trim() || 'Patient',
+      patientName: selectedPatient.patient_name || selectedPatient.patientName || `${selectedPatient.firstName || ''} ${selectedPatient.lastName || ''}`.trim() || 'Patient',
+      roomNo: selectedPatient.room_no || selectedPatient.roomNo || '',
+      room_no: selectedPatient.room_no || selectedPatient.roomNo || '',
+      bedNo: selectedPatient.bed_no || selectedPatient.bedNo || '',
+      bed_no: selectedPatient.bed_no || selectedPatient.bedNo || '',
+      admittingDoctor: selectedPatient.doctor_name || selectedPatient.admittingDoctor || selectedPatient.doctorName || '',
+      doctor_name: selectedPatient.doctor_name || selectedPatient.admittingDoctor || selectedPatient.doctorName || '',
+      customerType: selectedPatient.customerType || selectedPatient.customer_type || 'General',
+      wardName: selectedPatient.ward_name || selectedPatient.wardName || '',
+    };
+  }, [selectedPatient]);
+
+  // Gender detection for conditional gynecology & obstetrics history
+  const patientGenderStr = (selectedPatient?.gender || selectedPatient?.Gender || formData?.gender || '').trim().toLowerCase();
+  const isFemale = patientGenderStr === 'female' || patientGenderStr === 'f';
+
+  // Automatically reset to 'allergies' if activeTab is 'menstrual_obstetrics' for a male patient
+  useEffect(() => {
+    if (!isFemale && activeTab === 'menstrual_obstetrics') {
+      setActiveTab('allergies');
+    }
+  }, [isFemale, activeTab]);
 
   // Unsaved Changes Prompt State
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -1804,91 +1942,156 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
                   </div>
                 </CompactPatientRibbon>
 
-                {/* Patient Specific Action Toolbar */}
+                {/* Patient Specific Action Toolbar (Exactly 2 Rows) */}
                 <PatientActionToolbar>
-                  <div className="left-actions">
-                    <ActionButton
-                      $variant="outline"
-                      style={{
-                        borderColor: '#16a34a',
-                        color: '#166534',
-                        background: '#f0fdf4',
-                        fontWeight: 800
-                      }}
-                      onClick={() => setShowNursingNotesViewer(true)}
-                    >
-                      <Activity size={14} color="#16a34a" /> Nursing Notes & Vitals
-                      {nursingNotesCount > 0 && (
-                        <span style={{
-                          background: '#16a34a',
-                          color: 'white',
-                          padding: '1px 6px',
-                          borderRadius: '10px',
-                          fontSize: '0.68rem',
+                  {/* ROW 1 */}
+                  <div className="toolbar-row">
+                    {/* Left Side: Nursing Notes & History */}
+                    <div className="toolbar-side left-side">
+                      <ActionButton
+                        $variant="outline"
+                        style={{
+                          borderColor: '#16a34a',
+                          color: '#166534',
+                          background: '#f0fdf4',
                           fontWeight: 800
-                        }}>
-                          {nursingNotesCount}
-                        </span>
-                      )}
-                    </ActionButton>
+                        }}
+                        onClick={() => setShowNursingNotesViewer(true)}
+                        title="View Nursing Notes & Bedside Vitals Chart"
+                      >
+                        <Activity size={13} color="#16a34a" /> Nursing Notes & Vitals
+                        {nursingNotesCount > 0 && (
+                          <span style={{
+                            background: '#16a34a',
+                            color: 'white',
+                            padding: '1px 5px',
+                            borderRadius: '8px',
+                            fontSize: '0.64rem',
+                            fontWeight: 800
+                          }}>
+                            {nursingNotesCount}
+                          </span>
+                        )}
+                      </ActionButton>
 
-                    <ActionButton
-                      $variant="outline"
-                      style={{
-                        borderColor: '#0d9488',
-                        color: '#0f766e',
-                        background: '#f0fdf4',
-                        fontWeight: 800
-                      }}
-                      onClick={() => setShowPatientHistoryModal(true)}
-                      title="View Complete Patient Clinical & Diagnostics History (No Financials)"
-                    >
-                      <History size={14} color="#0d9488" /> Patient History
-                    </ActionButton>
+                      <ActionButton
+                        $variant="secondary"
+                        onClick={() => setShowHistoryDrawer(true)}
+                        title="Doctor Clinical Notes History for this admission"
+                      >
+                        <History size={13} color="#0d9488" /> History ({noteHistory.length})
+                      </ActionButton>
+                    </div>
 
-                    <ActionButton $variant="outline" onClick={triggerCreateNewNote}>
-                      <Plus size={14} /> New Note
-                    </ActionButton>
+                    {/* Right Side: Patient History & Discharge Summary */}
+                    <div className="toolbar-side right-side">
+                      <ActionButton
+                        $variant="outline"
+                        style={{
+                          borderColor: '#0d9488',
+                          color: '#0f766e',
+                          background: '#f0fdf4',
+                          fontWeight: 800
+                        }}
+                        onClick={() => setShowPatientHistoryModal(true)}
+                        title="View Complete Patient Clinical & Diagnostics History (No Financials)"
+                      >
+                        <History size={13} color="#0d9488" /> Patient History
+                      </ActionButton>
 
-                    <ActionButton $variant="secondary" onClick={() => setShowHistoryDrawer(true)}>
-                      <History size={14} /> History ({noteHistory.length})
-                    </ActionButton>
+                      <ActionButton
+                        $variant="outline"
+                        style={{
+                          borderColor: '#0d9488',
+                          color: '#0f766e',
+                          background: '#f0fdf4',
+                          fontWeight: 800
+                        }}
+                        onClick={() => setShowDischargeSummaryModal(true)}
+                        title="View Inpatient Discharge Summary for Current Stay"
+                      >
+                        <FileText size={13} color="#0d9488" /> Discharge Summary
+                      </ActionButton>
+                    </div>
                   </div>
 
-                  <div className="right-actions">
-                    <ActionButton
-                      $variant="secondary"
-                      onClick={() => handleSaveNote(false)}
-                      disabled={saving || formData.is_finalized}
-                      title={formData.is_finalized ? "This note is finalized and locked" : "Save Draft"}
-                    >
-                      <Save size={14} /> {saving ? 'Saving...' : activeNoteId ? 'Update Draft' : 'Save Draft'}
-                    </ActionButton>
+                  {/* ROW 2 */}
+                  <div className="toolbar-row">
+                    {/* Left Side: Medicine Request & Radiology Request */}
+                    <div className="toolbar-side left-side">
+                      <ActionButton
+                        $variant="outline"
+                        style={{
+                          borderColor: '#0d9488',
+                          color: '#0f766e',
+                          background: '#f0fdf4',
+                          fontWeight: 800
+                        }}
+                        onClick={() => setShowMedicineModal(true)}
+                        title="Raise Pharmacy / Medicine Ward Request"
+                      >
+                        <Pill size={13} color="#0d9488" /> Medicine Request
+                      </ActionButton>
 
-                    <ActionButton
-                      $variant="primary"
-                      onClick={() => handleSaveNote(true)}
-                      disabled={saving || formData.is_finalized}
-                      title={formData.is_finalized ? "This note is already finalized" : "Finalize Note"}
-                    >
-                      <CheckCircle2 size={14} /> Finalize Note
-                    </ActionButton>
+                      <ActionButton
+                        $variant="outline"
+                        style={{
+                          borderColor: '#0d9488',
+                          color: '#0f766e',
+                          background: '#f0fdf4',
+                          fontWeight: 800
+                        }}
+                        onClick={() => setShowRadiologyModal(true)}
+                        title="Raise Radiology / Imaging Ward Request"
+                      >
+                        <FileText size={13} color="#0d9488" /> Radiology Request
+                      </ActionButton>
+                    </div>
 
-                    <ActionButton
-                      $variant="dark"
-                      onClick={() => {
-                        setPrintNoteTarget(null);
-                        setShowPrintModal(true);
-                      }}
-                      disabled={!formData.is_finalized}
-                      title={!formData.is_finalized ? "Note must be finalized before printing" : "Print Clinical Note"}
-                      style={{
-                        opacity: !formData.is_finalized ? 0.45 : 1,
-                        cursor: !formData.is_finalized ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      <Printer size={14} /> Print
-                    </ActionButton>
+                    {/* Right Side: New Note, Save Draft, Finalize Note, Print */}
+                    <div className="toolbar-side right-side">
+                      <ActionButton
+                        $variant="outline"
+                        onClick={triggerCreateNewNote}
+                        title="Start a new note draft"
+                      >
+                        <Plus size={13} /> New Note
+                      </ActionButton>
+
+                      <ActionButton
+                        $variant="secondary"
+                        onClick={() => handleSaveNote(false)}
+                        disabled={saving || formData.is_finalized}
+                        title={formData.is_finalized ? "This note is finalized and locked" : "Save Draft"}
+                      >
+                        <Save size={13} /> {saving ? 'Saving...' : activeNoteId ? 'Update Draft' : 'Save Draft'}
+                      </ActionButton>
+
+                      <ActionButton
+                        $variant="primary"
+                        onClick={() => handleSaveNote(true)}
+                        disabled={saving || formData.is_finalized}
+                        title={formData.is_finalized ? "This note is already finalized" : "Finalize Note"}
+                      >
+                        <CheckCircle2 size={13} /> Finalize Note
+                      </ActionButton>
+
+                      <ActionButton
+                        $variant="dark"
+                        onClick={() => {
+                          setPrintNoteTarget(null);
+                          setShowPrintModal(true);
+                        }}
+                        disabled={!formData.is_finalized}
+                        title={!formData.is_finalized ? "Note must be finalized before printing" : "Print Clinical Note"}
+                        style={{
+                          opacity: !formData.is_finalized ? 0.45 : 1,
+                          cursor: !formData.is_finalized ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        <Printer size={13} /> Print
+                      </ActionButton>
+                    </div>
                   </div>
                 </PatientActionToolbar>
               </>
@@ -1917,23 +2120,28 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
               <TabButton $active={activeTab === 'social'} onClick={() => setActiveTab('social')}>
                 <User size={13} /> 5. Social History
               </TabButton>
-              <TabButton $active={activeTab === 'menstrual_obstetrics'} onClick={() => setActiveTab('menstrual_obstetrics')}>
-                <Activity size={13} /> 6 & 8. Menstrual & Obstetric
-              </TabButton>
+
+              {/* Female Only: Menstrual & Obstetrics */}
+              {isFemale && (
+                <TabButton $active={activeTab === 'menstrual_obstetrics'} onClick={() => setActiveTab('menstrual_obstetrics')}>
+                  <Activity size={13} /> 6 & 8. Menstrual & Obstetric
+                </TabButton>
+              )}
+
               <TabButton $active={activeTab === 'vaccination'} onClick={() => setActiveTab('vaccination')}>
-                <CheckCircle2 size={13} /> 7. Vaccination
+                <CheckCircle2 size={13} /> {isFemale ? '7' : '6'}. Vaccination
               </TabButton>
               <TabButton $active={activeTab === 'investigations'} onClick={() => setActiveTab('investigations')}>
-                <FileText size={13} /> 9. Investigations Done
+                <FileText size={13} /> {isFemale ? '9' : '7'}. Investigations Done
               </TabButton>
               <TabButton $active={activeTab === 'physical_exam'} onClick={() => setActiveTab('physical_exam')}>
-                <Heart size={13} /> 10. Physical Examination
+                <Heart size={13} /> {isFemale ? '10' : '8'}. Physical Examination
               </TabButton>
               <TabButton $active={activeTab === 'diagnosis'} onClick={() => setActiveTab('diagnosis')}>
-                <Stethoscope size={13} /> 11. Provisional Diagnosis
+                <Stethoscope size={13} /> {isFemale ? '11' : '9'}. Provisional Diagnosis
               </TabButton>
               <TabButton $active={activeTab === 'plan_of_care'} onClick={() => setActiveTab('plan_of_care')}>
-                <Check size={13} /> 12. Plan of Care
+                <Check size={13} /> {isFemale ? '12' : '10'}. Plan of Care
               </TabButton>
             </SectionNavigationTabs>
           )}
@@ -2216,6 +2424,38 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
                     <span className="sub">Ongoing prescription, OTC, and pre-admission drugs</span>
                   </CardHeaderTitle>
 
+                  {/* Quick Action: Medicine Ward Request */}
+                  <div style={{
+                    background: '#f0fdfa',
+                    border: '1px solid #99f6e4',
+                    borderRadius: '10px',
+                    padding: '12px 16px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Pill size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f766e' }}>Inpatient Pharmacy & Medicine Request</div>
+                        <div style={{ fontSize: '0.74rem', color: '#0d9488' }}>Order inpatient medications directly or review live ward pharmacy requests</div>
+                      </div>
+                    </div>
+                    <ActionButton
+                      type="button"
+                      $variant="primary"
+                      style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)', borderColor: '#0d9488', color: 'white', fontWeight: 700 }}
+                      onClick={() => setShowMedicineModal(true)}
+                    >
+                      <Pill size={14} /> Open Medicine Request
+                    </ActionButton>
+                  </div>
+
                   <TableWrapper>
                     <Table>
                       <thead>
@@ -2439,8 +2679,8 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
                 </div>
               )}
 
-              {/* TAB 6 & 8: MENSTRUAL & OBSTETRICS HISTORY */}
-              {activeTab === 'menstrual_obstetrics' && (
+              {/* TAB 6 & 8: MENSTRUAL & OBSTETRICS HISTORY (Female only) */}
+              {isFemale && activeTab === 'menstrual_obstetrics' && (
                 <div>
                   <CardHeaderTitle>
                     <h3><Activity size={16} color="#0d9488" /> 6. Menstrual History & 8. Obstetrics History</h3>
@@ -2568,11 +2808,11 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
                 </div>
               )}
 
-              {/* TAB 7: VACCINATION HISTORY */}
+              {/* TAB VACCINATION HISTORY */}
               {activeTab === 'vaccination' && (
                 <div>
                   <CardHeaderTitle>
-                    <h3><CheckCircle2 size={16} color="#0d9488" /> 7. Vaccination History</h3>
+                    <h3><CheckCircle2 size={16} color="#0d9488" /> {isFemale ? '7' : '6'}. Vaccination History</h3>
                     <span className="sub">Immunization status against preventable communicable diseases</span>
                   </CardHeaderTitle>
 
@@ -2641,13 +2881,45 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
                 </div>
               )}
 
-              {/* TAB 9: INVESTIGATIONS DONE */}
+              {/* TAB INVESTIGATIONS DONE */}
               {activeTab === 'investigations' && (
                 <div>
                   <CardHeaderTitle>
-                    <h3><FileText size={16} color="#0d9488" /> 9. Investigations Done (If Any)</h3>
+                    <h3><FileText size={16} color="#0d9488" /> {isFemale ? '9' : '7'}. Investigations Done (If Any)</h3>
                     <span className="sub">Summarize pathology, microbiology, imaging, and diagnostic findings</span>
                   </CardHeaderTitle>
+
+                  {/* Quick Action: Radiology Ward Request */}
+                  <div style={{
+                    background: '#f0fdfa',
+                    border: '1px solid #99f6e4',
+                    borderRadius: '10px',
+                    padding: '12px 16px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FileText size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f766e' }}>Inpatient Radiology & Diagnostic Imaging Request</div>
+                        <div style={{ fontSize: '0.74rem', color: '#0d9488' }}>Order X-Ray, Ultrasound, CT, MRI, or other imaging modalities for this patient</div>
+                      </div>
+                    </div>
+                    <ActionButton
+                      type="button"
+                      $variant="primary"
+                      style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)', borderColor: '#0d9488', color: 'white', fontWeight: 700 }}
+                      onClick={() => setShowRadiologyModal(true)}
+                    >
+                      <FileText size={14} /> Open Radiology Request
+                    </ActionButton>
+                  </div>
 
                   <TwoCol>
                     <FormGroup>
@@ -2693,11 +2965,11 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
                 </div>
               )}
 
-              {/* TAB 10: PHYSICAL EXAMINATION */}
+              {/* TAB PHYSICAL EXAMINATION */}
               {activeTab === 'physical_exam' && (
                 <div>
                   <CardHeaderTitle>
-                    <h3><Heart size={16} color="#0d9488" /> 10. Physical Examination</h3>
+                    <h3><Heart size={16} color="#0d9488" /> {isFemale ? '10' : '8'}. Physical Examination</h3>
                     <span className="sub">Bedside clinical findings, vital signs, and systemic evaluation</span>
                   </CardHeaderTitle>
 
@@ -2845,11 +3117,11 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
                 </div>
               )}
 
-              {/* TAB 11: PROVISIONAL DIAGNOSIS */}
+              {/* TAB PROVISIONAL DIAGNOSIS */}
               {activeTab === 'diagnosis' && (
                 <div>
                   <CardHeaderTitle>
-                    <h3><Stethoscope size={16} color="#0d9488" /> 11. Provisional Diagnosis</h3>
+                    <h3><Stethoscope size={16} color="#0d9488" /> {isFemale ? '11' : '9'}. Provisional Diagnosis</h3>
                     <span className="sub">Working clinical impression and ICD diagnostic coding</span>
                   </CardHeaderTitle>
 
@@ -2908,13 +3180,50 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
                 </div>
               )}
 
-              {/* TAB 12: PLAN OF CARE */}
+              {/* TAB PLAN OF CARE */}
               {activeTab === 'plan_of_care' && (
                 <div>
                   <CardHeaderTitle>
-                    <h3><Check size={16} color="#0d9488" /> 12. Plan of Care & Orders</h3>
+                    <h3><Check size={16} color="#0d9488" /> {isFemale ? '12' : '10'}. Plan of Care & Orders</h3>
                     <span className="sub">Treatment regime, nursing instructions, investigations ordered, and consults</span>
                   </CardHeaderTitle>
+
+                  {/* Quick Action: Raise Ward Requests */}
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '12px 16px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f172a' }}>Direct Inpatient Orders & Department Requests</div>
+                      <div style={{ fontSize: '0.74rem', color: '#64748b' }}>Dispatch live prescriptions to pharmacy or radiology imaging requests</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <ActionButton
+                        type="button"
+                        $variant="outline"
+                        style={{ borderColor: '#0d9488', color: '#0f766e', background: '#f0fdfa', fontWeight: 800 }}
+                        onClick={() => setShowMedicineModal(true)}
+                      >
+                        <Pill size={14} color="#0d9488" /> Raise Medicine Request
+                      </ActionButton>
+                      <ActionButton
+                        type="button"
+                        $variant="outline"
+                        style={{ borderColor: '#0d9488', color: '#0f766e', background: '#f0fdfa', fontWeight: 800 }}
+                        onClick={() => setShowRadiologyModal(true)}
+                      >
+                        <FileText size={14} color="#0d9488" /> Raise Radiology Request
+                      </ActionButton>
+                    </div>
+                  </div>
 
                   <FormGroup>
                     <label>Immediate Inpatient Treatment & Medication Orders *</label>
@@ -3108,6 +3417,67 @@ const IPEMRDesk = ({ initialPatient = null, isModal = false, onClose = null }) =
           ipNumber={selectedPatient.ip_number || selectedPatient.ipNumber}
           onClose={() => setShowPatientHistoryModal(false)}
         />
+      )}
+
+      {/* Discharge Summary Modal for Current Stay */}
+      {showDischargeSummaryModal && selectedPatient && (
+        <IPDischargeSummaryModal
+          isOpen={showDischargeSummaryModal}
+          ipNumber={selectedPatient.ip_number || selectedPatient.ipNumber}
+          uhid={selectedPatient.uhid}
+          patient={selectedPatient}
+          onClose={() => setShowDischargeSummaryModal(false)}
+        />
+      )}
+
+      {/* Medicine / Pharmacy Ward Request Modal */}
+      {showMedicineModal && selectedPatient && (
+        <RequestModalOverlay onClick={() => setShowMedicineModal(false)}>
+          <RequestModalCard onClick={e => e.stopPropagation()}>
+            <div className="req-modal-header" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' }}>
+              <div className="title-group">
+                <h3><Pill size={20} /> Medicine / Pharmacy Ward Request</h3>
+                <span className="patient-sub">
+                  | {patientForRequest?.patient_name} · Room {patientForRequest?.roomNo || '-'} Bed {patientForRequest?.bedNo || '-'} · Dr. {patientForRequest?.admittingDoctor || 'Attending Physician'}
+                </span>
+              </div>
+              <button className="close-btn" onClick={() => setShowMedicineModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="req-modal-body">
+              <MedicineWardRequest
+                patient={patientForRequest}
+                onClose={() => setShowMedicineModal(false)}
+              />
+            </div>
+          </RequestModalCard>
+        </RequestModalOverlay>
+      )}
+
+      {/* Radiology Ward Request Modal */}
+      {showRadiologyModal && selectedPatient && (
+        <RequestModalOverlay onClick={() => setShowRadiologyModal(false)}>
+          <RequestModalCard onClick={e => e.stopPropagation()}>
+            <div className="req-modal-header" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' }}>
+              <div className="title-group">
+                <h3><FileText size={20} /> Radiology Ward Request</h3>
+                <span className="patient-sub">
+                  | {patientForRequest?.patient_name} · Room {patientForRequest?.roomNo || '-'} Bed {patientForRequest?.bedNo || '-'} · Dr. {patientForRequest?.admittingDoctor || 'Attending Physician'}
+                </span>
+              </div>
+              <button className="close-btn" onClick={() => setShowRadiologyModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="req-modal-body">
+              <RadiologyWardRequest
+                patient={patientForRequest}
+                onClose={() => setShowRadiologyModal(false)}
+              />
+            </div>
+          </RequestModalCard>
+        </RequestModalOverlay>
       )}
 
       {/* Unsaved Changes Confirmation Dialog */}

@@ -141,6 +141,67 @@ const InfoBox = styled.div`
   margin-bottom: 12px;
 `;
 
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #fff;
+`;
+
+const TableSelect = styled.select`
+  height: 32px;
+  width: 72px;
+  padding: 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1.5px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: #0d9488;
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.82rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+`;
+
+const PB = styled.button`
+  height: 32px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: ${(p) => (p.active ? "#0d9488" : "#fff")};
+  color: ${(p) => (p.active ? "#fff" : "#374151")};
+  cursor: pointer;
+  transition: all 0.15s;
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${(p) => (p.active ? "#0f766e" : "#f3f4f6")};
+  }
+`;
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const PhysicalStockEntry = () => {
@@ -167,9 +228,8 @@ const PhysicalStockEntry = () => {
         `${HmsBaseUrl}pharmacy-stock-batches/?item_name=${encodeURIComponent(searchName.trim())}`,
         "GET"
       );
-      const data = response && !response.error && Array.isArray(response.data)
-        ? response.data
-        : [];
+      const payload = response?.data;
+      const data = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
 
       if (data.length === 0) {
         toast.info("No batches found for this medicine");
@@ -317,6 +377,13 @@ const PhysicalStockEntry = () => {
     (r) => !r.saved && r.physical_stock !== "" && r.physical_stock !== null
   ).length;
 
+  const [page, setPage]         = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const totalBatches = rows.length;
+  const totalPages   = Math.max(1, Math.ceil(totalBatches / pageSize));
+  const pagedRows    = rows.slice((page - 1) * pageSize, page * pageSize);
+
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
@@ -342,13 +409,18 @@ const PhysicalStockEntry = () => {
                 placeholder="Type medicine name..."
                 value={searchName}
                 onChange={(e) => setSearchName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleFetch()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setPage(1);
+                    handleFetch();
+                  }
+                }}
               />
             </InputWrapper>
-            <FetchButton onClick={handleFetch} disabled={loading}>
+            <FetchButton onClick={() => { setPage(1); handleFetch(); }} disabled={loading}>
               🔍 {loading ? "Fetching..." : "Fetch"}
             </FetchButton>
-            <ResetButton onClick={handleReset}>Reset</ResetButton>
+            <ResetButton onClick={() => { setPage(1); handleReset(); }}>Reset</ResetButton>
           </SearchBar>
         </FormContent>
 
@@ -358,6 +430,12 @@ const PhysicalStockEntry = () => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <SectionTitle style={{ margin: 0 }}>
                 Batch List — {rows[0]?.item_name}
+                <span style={{
+                  background: "#e5e7eb", color: "#6b7280",
+                  fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: 600, marginLeft: 8,
+                }}>
+                  {totalBatches}
+                </span>
               </SectionTitle>
               <div style={{ display: "flex", gap: 10 }}>
                 {unsavedCount > 0 && (
@@ -371,6 +449,24 @@ const PhysicalStockEntry = () => {
             <InfoBox>
               ℹ️ Computer Stock = Total Stock − Sold − Transferred Out − GRN Return − Blocked + Sales Return. Enter Physical Stock manually. Entries will be visible after manager approval.
             </InfoBox>
+
+            <TTBar>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "0.85rem", color: "#4b5563" }}>Show</span>
+                <TableSelect
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                >
+                  {[10, 25, 50, 100].map((sz) => (
+                    <option key={sz} value={sz}>{sz}</option>
+                  ))}
+                </TableSelect>
+                <span style={{ fontSize: "0.85rem", color: "#4b5563" }}>entries</span>
+              </div>
+            </TTBar>
 
             <TableWrapper>
               <Table>
@@ -387,8 +483,8 @@ const PhysicalStockEntry = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, idx) => {
-                    const isEditing = editingIdx === idx || !row.saved;
+                  {pagedRows.map((row, pIdx) => {
+                    const idx = (page - 1) * pageSize + pIdx;
                     return (
                       <Tr key={`${row.batch_number}-${idx}`}>
                         <Td>{idx + 1}</Td>
@@ -481,6 +577,54 @@ const PhysicalStockEntry = () => {
                 </tbody>
               </Table>
             </TableWrapper>
+
+            <Pager>
+              <div>
+                Showing {totalBatches === 0 ? 0 : (page - 1) * pageSize + 1} to{" "}
+                {Math.min(page * pageSize, totalBatches)} of {totalBatches} entries
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <PB
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </PB>
+                {(() => {
+                  const pages = [];
+                  if (totalPages <= 7) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                  } else {
+                    pages.push(1);
+                    if (page > 3) pages.push("...");
+                    const start = Math.max(2, page - 1);
+                    const end = Math.min(totalPages - 1, page + 1);
+                    for (let i = start; i <= end; i++) pages.push(i);
+                    if (page < totalPages - 2) pages.push("...");
+                    pages.push(totalPages);
+                  }
+                  return pages.map((pNum, i) =>
+                    pNum === "..." ? (
+                      <span key={`dots-${i}`} style={{ padding: "0 6px", alignSelf: "center" }}>...</span>
+                    ) : (
+                      <PB
+                        key={pNum}
+                        active={page === pNum}
+                        onClick={() => setPage(pNum)}
+                      >
+                        {pNum}
+                      </PB>
+                    )
+                  );
+                })()}
+                <PB
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </PB>
+              </div>
+            </Pager>
           </div>
         )}
 

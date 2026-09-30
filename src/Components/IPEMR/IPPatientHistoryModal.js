@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { toast } from 'react-toastify';
 import apiRequest from '../../Auth/apiRequest';
+import IPDischargeSummaryModal from './IPDischargeSummaryModal';
 import {
   X,
   History,
@@ -863,6 +864,10 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
   const [testSearchFilter, setTestSearchFilter] = useState('');
   const [expandedTests, setExpandedTests] = useState({});
 
+  // Discharge Summary Modal State
+  const [showDischargeSummaryModal, setShowDischargeSummaryModal] = useState(false);
+  const [selectedSummaryIp, setSelectedSummaryIp] = useState('');
+
   const targetUHID = uhid || patient?.uhid || searchUHID;
   const targetIP = ipNumber || patient?.ip_number || patient?.ipNumber || '';
 
@@ -1028,6 +1033,32 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
                     📱 <strong>{patientProfile.mobile}</strong>
                   </span>
                 )}
+                {targetIP && (
+                  <button
+                    type="button"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: '#f0fdfa',
+                      color: '#0f766e',
+                      border: '1px solid #99f6e4',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                    onClick={() => {
+                      setSelectedSummaryIp(targetIP);
+                      setShowDischargeSummaryModal(true);
+                    }}
+                    title={`View Discharge Summary for current stay IP #${targetIP}`}
+                  >
+                    <FileText size={12} color="#0d9488" /> Discharge Summary (Current IP)
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1081,13 +1112,6 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
             </div>
           </div>
 
-          <div className="kpi-chip" onClick={() => setActiveTab('discharge_summaries')}>
-            <div className="icon-wrap" style={{ background: '#dbeafe', color: '#1e40af' }}>📋</div>
-            <div className="kpi-text">
-              <span className="val">{dischargeSummaries.length}</span>
-              <span className="lbl">Discharges</span>
-            </div>
-          </div>
 
           <div className="kpi-chip" onClick={() => setActiveTab('medications')}>
             <div className="icon-wrap" style={{ background: '#f3e8ff', color: '#6b21a8' }}>💊</div>
@@ -1132,13 +1156,6 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
             <span className="badge-count">{nursingNotes.length}</span>
           </NavTab>
 
-          <NavTab
-            $active={activeTab === 'discharge_summaries'}
-            onClick={() => setActiveTab('discharge_summaries')}
-          >
-            <FileText size={13} /> Discharge Summaries
-            <span className="badge-count">{dischargeSummaries.length}</span>
-          </NavTab>
 
           <NavTab
             $active={activeTab === 'medications'}
@@ -1428,6 +1445,46 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
                             {adm.final_diagnosis && <div><strong>Final Diagnosis:</strong> {adm.final_diagnosis}</div>}
                           </div>
                         )}
+
+                        {/* Admission-wise Discharge Summary Trigger */}
+                        <div style={{
+                          marginTop: '12px',
+                          paddingTop: '10px',
+                          borderTop: '1px solid #f1f5f9',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '8px'
+                        }}>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                            Summary Status: <strong style={{ color: adm.is_discharged ? '#0f172a' : '#059669' }}>{adm.discharge_summary_status || (adm.is_discharged ? 'Discharged' : 'Active Stay')}</strong>
+                          </div>
+                          <button
+                            type="button"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: '#f0fdfa',
+                              color: '#0f766e',
+                              border: '1px solid #99f6e4',
+                              padding: '5px 12px',
+                              borderRadius: '6px',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                            onClick={() => {
+                              setSelectedSummaryIp(adm.ip_number);
+                              setShowDischargeSummaryModal(true);
+                            }}
+                            title={`View Discharge Summary for Admission IP #${adm.ip_number}`}
+                          >
+                            <FileText size={13} color="#0d9488" /> Discharge Summary
+                          </button>
+                        </div>
                       </Card>
                     ))
                   )}
@@ -1552,55 +1609,6 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
                 </div>
               )}
 
-              {/* TAB 5: DISCHARGE SUMMARIES */}
-              {activeTab === 'discharge_summaries' && (
-                <div>
-                  <SectionHeader>
-                    <h4><FileText size={16} color="#0d9488" /> Past Hospital Discharge Summaries</h4>
-                    <span className="meta">{dischargeSummaries.length} Summaries</span>
-                  </SectionHeader>
-
-                  {dischargeSummaries.length === 0 ? (
-                    <EmptyState>
-                      <div className="icon">📋</div>
-                      <h5>No Discharge Summaries</h5>
-                      <p>No past hospital discharge summaries generated for this patient.</p>
-                    </EmptyState>
-                  ) : (
-                    dischargeSummaries.map((ds, idx) => (
-                      <Card key={idx} style={{ padding: '14px 18px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <div>
-                            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>{ds.heading || ds.summary_type}</span>
-                            <span style={{ fontSize: '0.78rem', color: '#64748b', marginLeft: '8px' }}>IP No: {ds.ip_number}</span>
-                          </div>
-                          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                            {formatDate(ds.created_date)}
-                          </span>
-                        </div>
-
-                        {ds.primary_diagnosis && (
-                          <div style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
-                            <strong>Primary Diagnosis:</strong> {ds.primary_diagnosis}
-                          </div>
-                        )}
-
-                        {ds.condition_at_discharge && (
-                          <div style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
-                            <strong>Condition at Discharge:</strong> {ds.condition_at_discharge}
-                          </div>
-                        )}
-
-                        {ds.hospital_course && (
-                          <div style={{ fontSize: '0.78rem', color: '#334155', background: '#f8fafc', padding: '8px', borderRadius: '6px', marginTop: '6px' }}>
-                            <strong>Course in Hospital:</strong> {ds.hospital_course}
-                          </div>
-                        )}
-                      </Card>
-                    ))
-                  )}
-                </div>
-              )}
 
               {/* TAB 6: MEDICATIONS */}
               {activeTab === 'medications' && (
@@ -1691,6 +1699,21 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
           )}
         </ContentBody>
       </ModalContainer>
+
+      {/* Discharge Summary Modal */}
+      {showDischargeSummaryModal && (
+        <IPDischargeSummaryModal
+          isOpen={showDischargeSummaryModal}
+          ipNumber={selectedSummaryIp || targetIP}
+          uhid={targetUHID}
+          patient={patientProfile}
+          summaryRecord={dischargeSummaries.find(s => (s.ip_number && s.ip_number === (selectedSummaryIp || targetIP)) || (s.ipNo && s.ipNo === (selectedSummaryIp || targetIP)) || (s.id && s.id === selectedSummaryIp))}
+          onClose={() => {
+            setShowDischargeSummaryModal(false);
+            setSelectedSummaryIp('');
+          }}
+        />
+      )}
     </ModalOverlay>
   );
 };

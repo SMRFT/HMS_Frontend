@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import {
@@ -24,10 +24,74 @@ const PageTitle = styled.h2`
   margin: 0;
   letter-spacing: .04em;
 `;
+
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+`;
+
+const TableSelect = styled.select`
+  height: 28px;
+  width: 72px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: #0d9488;
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid #e5e7eb;
+  font-size: .75rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+`;
+
+const PB = styled.button`
+  height: 28px;
+  padding: 0 13px;
+  font-size: .75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: ${p => p.active ? '#0d9488' : '#fff'};
+  color: ${p => p.active ? '#fff' : '#374151'};
+  cursor: pointer;
+  &:disabled {
+    opacity: .45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${p => p.active ? '#0d9488' : '#f3f4f6'};
+  }
+`;
+
 const NursingStation = () => {
-  const [wards, setWards] = useState([]);
-  const [formData, setFormData] = useState({ ward_name: "" });
+  const [wards, setWards]         = useState([]);
+  const [formData, setFormData]   = useState({ ward_name: "" });
   const [editingId, setEditingId] = useState(null);
+  const [page, setPage]           = useState(1);
+  const [perPage, setPerPage]     = useState(10);
+  const [tSearch, setTSearch]     = useState("");
+
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   useEffect(() => { fetchWards(); }, []);
@@ -100,6 +164,34 @@ const NursingStation = () => {
     }
   };
 
+  const getPaginationItems = (currentPage, total) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, "...", total];
+    }
+    if (currentPage >= total - 3) {
+      return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", total];
+  };
+
+  const filtered = useMemo(() => {
+    if (!tSearch.trim()) return wards;
+    const q = tSearch.toLowerCase().trim();
+    return wards.filter((w) =>
+      String(w.ward_id || "").toLowerCase().includes(q) ||
+      String(w.ward_name || "").toLowerCase().includes(q)
+    );
+  }, [wards, tSearch]);
+
+  const totalPages = Math.ceil(filtered.length / perPage) || 1;
+  const paginated = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return filtered.slice(start, start + perPage);
+  }, [filtered, page, perPage]);
+
   return (
     <PageWrapper>
       <Container>
@@ -133,30 +225,59 @@ const NursingStation = () => {
         </FormContent>
 
         <div style={{ padding: "0 24px 24px" }}>
-          <h4 style={{ color: "#0d9488", marginBottom: "16px" }}>Nursing Station List</h4>
+          <h4 style={{ color: "#0d9488", marginBottom: "12px" }}>Nursing Station List</h4>
+
+          {/* ── Table Controls ── */}
+          <TTBar>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
+              Show up to&nbsp;
+              <TableSelect value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}>
+                {[10, 15, 20, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+              </TableSelect>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
+              Search:&nbsp;
+              <input
+                value={tSearch}
+                onChange={e => { setTSearch(e.target.value); setPage(1); }}
+                placeholder="Search Ward ID / Name…"
+                style={{ width: "260px", height: 28, padding: "0 10px", fontSize: ".75rem", border: "1px solid #d1d5db", borderRadius: 4, outline: "none", background: "#fff" }}
+              />
+            </div>
+          </TTBar>
+
           <TableWrapper>
             <Table>
               <thead>
                 <tr>
-                  <Th>Ward ID</Th>
+                  <Th style={{ width: "120px" }}>Ward ID</Th>
                   <Th>Ward Name</Th>
-                  <Th>Actions</Th>
+                  <Th style={{ width: "160px" }}>Actions</Th>
                 </tr>
               </thead>
               <tbody>
-                {wards.length === 0 ? (
+                {paginated.length === 0 ? (
                   <Tr>
-                    <Td colSpan="3" style={{ textAlign: "center" }}>No nursing stations found</Td>
+                    <Td colSpan="3" style={{ textAlign: "center", padding: "20px 0" }}>
+                      No nursing stations found
+                    </Td>
                   </Tr>
                 ) : (
-                  wards.map((ward) => (
+                  paginated.map((ward) => (
                     <Tr key={ward.ward_id}>
-                      <Td>{ward.ward_id}</Td>
+                      <Td style={{ fontWeight: 600 }}>{ward.ward_id}</Td>
                       <Td>{ward.ward_name}</Td>
                       <Td>
                         <div style={{ display: "flex", gap: "10px" }}>
-                          <Button style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => handleEdit(ward)}>Edit</Button>
-                          <Button danger style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => handleDelete(ward)}>Delete</Button>
+                          <Button
+                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                            onClick={() => handleEdit(ward)}
+                          >Edit</Button>
+                          <Button
+                            danger
+                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                            onClick={() => handleDelete(ward)}
+                          >Delete</Button>
                         </div>
                       </Td>
                     </Tr>
@@ -165,6 +286,29 @@ const NursingStation = () => {
               </tbody>
             </Table>
           </TableWrapper>
+
+          {/* ── Pagination Footer ── */}
+          <Pager>
+            <span>Showing {filtered.length === 0 ? 0 : (page - 1) * perPage + 1} to {Math.min(page * perPage, filtered.length)} of {filtered.length} entries</span>
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <PB onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</PB>
+              {getPaginationItems(page, totalPages).map((item, idx) => {
+                if (item === "...") {
+                  return (
+                    <PB key={`ellipsis-${idx}`} disabled style={{ cursor: "default", opacity: 0.8, color: "#6b7280" }}>
+                      ...
+                    </PB>
+                  );
+                }
+                return (
+                  <PB key={item} active={item === page} onClick={() => setPage(item)}>
+                    {item}
+                  </PB>
+                );
+              })}
+              <PB onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages || totalPages === 0}>Next</PB>
+            </div>
+          </Pager>
         </div>
       </Container>
     </PageWrapper>

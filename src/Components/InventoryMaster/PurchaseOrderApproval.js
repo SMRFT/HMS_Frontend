@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
+import { InvTopToolbar, InvPagination, getTodayDateString, InvSelect } from "./InventoryUIHelper"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -96,6 +97,65 @@ const ViewBtn = styled(Btn)`background:${C.faint};color:${C.muted};border:1px so
 const MailBtn = styled(Btn)`background:${C.mailL};color:${C.mail};border:1px solid ${C.mailB};&:hover:not(:disabled){background:#ddd6fe;}`
 const SecBtn  = styled(Btn)`background:#fff;color:#374151;border:1.5px solid ${C.border};padding:8px 18px;&:hover:not(:disabled){background:${C.faint};}`
 const RefBtn  = styled(Btn)`background:${C.primary};color:#fff;border:none;padding:8px 16px;font-size:.82rem;&:hover:not(:disabled){background:${C.pDark};}`
+
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+`;
+
+const TableSelect = styled.select`
+  height: 28px;
+  width: 72px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: ${C.primary};
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid #e5e7eb;
+  font-size: .75rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: #fff;
+`;
+
+const PB = styled.button`
+  height: 28px;
+  padding: 0 13px;
+  font-size: .75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: ${p => p.active ? C.primary : '#fff'};
+  color: ${p => p.active ? '#fff' : '#374151'};
+  cursor: pointer;
+  &:disabled {
+    opacity: .45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${p => p.active ? C.primary : '#f3f4f6'};
+  }
+`;
 
 /* ── Three-dot action menu ── */
 const MenuWrap = styled.div`position:relative;display:inline-block;`
@@ -330,6 +390,11 @@ export default function PurchaseOrderApproval() {
   const [actionLoading, setActionLoading] = useState(false)
   const [emailLoading,  setEmailLoading]  = useState(false)
 
+  const [page,       setPage]       = useState(1)
+  const [pageSize,   setPageSize]   = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
   const [searchQ,    setSearchQ]    = useState("")
   const [filterStat, setFilterStat] = useState("")
   const [fromDate,   setFromDate]   = useState(() => new Date().toISOString().slice(0, 10))
@@ -349,32 +414,39 @@ export default function PurchaseOrderApproval() {
     return () => document.removeEventListener("mousedown", h)
   }, [])
 
-  /* ── fetch PO list ──
-     items arrives as a native array from MongoDB — safeItems() guards the edge case. */
-  const fetchList = useCallback(async () => {
+  /* ── fetch PO list with server-side pagination ── */
+  const fetchList = useCallback(async (p = page, size = pageSize, q = searchQ, stat = filterStat, from = fromDate, to = toDate) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (filterStat) params.append("status",    filterStat)
-      if (fromDate)   params.append("from_date", fromDate)
-      if (toDate)     params.append("to_date",   toDate)
-      const qs = params.toString()
+      const params = new URLSearchParams({
+        page: p,
+        page_size: size,
+      })
+      if (q && q.trim()) params.append("search", q.trim())
+      if (stat) params.append("status",    stat)
+      if (from) params.append("from_date", from)
+      if (to)   params.append("to_date",   to)
 
-      const r    = await apiRequest(`${BASE}purchase-order/${qs ? "?" + qs : ""}`, "GET")
-      const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
+      const r    = await apiRequest(`${BASE}purchase-order/?${params.toString()}`, "GET")
+      const payload = r?.data
+      const rows = payload?.data ?? (Array.isArray(payload) ? payload : [])
 
-      // Guarantee items is always a plain array on each record
       const normalized = (Array.isArray(rows) ? rows : []).map(po => ({
         ...po,
         items: safeItems(po.items),
       }))
 
       setPoList(normalized)
+      setTotalCount(payload?.count !== undefined ? payload.count : (r?.count !== undefined ? r.count : normalized.length))
+      setTotalPages(payload?.total_pages || Math.ceil((payload?.count || normalized.length) / size) || 1)
+      setPage(payload?.current_page || p)
     } catch { toast.error("Failed to load purchase orders") }
     finally  { setLoading(false) }
-  }, [filterStat, fromDate, toDate])
+  }, [page, pageSize, searchQ, filterStat, fromDate, toDate])
 
-  useEffect(() => { fetchList() }, [fetchList])
+  useEffect(() => {
+    fetchList(page, pageSize, searchQ, filterStat, fromDate, toDate)
+  }, [page, pageSize, searchQ, filterStat, fromDate, toDate, fetchList])
 
   /* ── approve ── */
   const handleApproveConfirm = async () => {
@@ -436,18 +508,9 @@ export default function PurchaseOrderApproval() {
     finally { setEmailLoading(false) }
   }
 
-  /* ── client-side text search ── */
-  const filtered = poList.filter(r => {
-    const q = searchQ.toLowerCase()
-    return !q ||
-      (r.po_number   || "").toLowerCase().includes(q) ||
-      (r.supplier    || "").toLowerCase().includes(q) ||
-      (r.vendor_name || "").toLowerCase().includes(q)
-  })
-
   /* ── stat counts ── */
   const stats = {
-    total:    poList.length,
+    total:    totalCount,
     pending:  poList.filter(r => r.status === "Draft" || r.status === "Verified").length,
     approved: poList.filter(r => r.status === "Approved").length,
     rejected: poList.filter(r => r.status === "Rejected").length,
@@ -467,7 +530,7 @@ export default function PurchaseOrderApproval() {
           <HTitle>🏢 PO Approval Dashboard</HTitle>
           <HSub>Review, approve and reject purchase orders</HSub>
         </div>
-        <RefBtn onClick={fetchList} disabled={loading}>
+        <RefBtn onClick={() => fetchList(page, pageSize, searchQ, filterStat, fromDate, toDate)} disabled={loading}>
           {loading ? <SpinEl /> : "🔄"} Refresh
         </RefBtn>
       </Header>
@@ -477,46 +540,69 @@ export default function PurchaseOrderApproval() {
         {/* ── Stats ── */}
         <Stats>
           <Stat $c={C.muted}><SNum $c={C.muted}>{stats.total}</SNum><SLbl>Total</SLbl></Stat>
-          <Stat $c={C.amber}><SNum $c={C.amber}>{stats.pending}</SNum><SLbl>Pending</SLbl></Stat>
-          <Stat $c={C.success}><SNum $c={C.success}>{stats.approved}</SNum><SLbl>Approved</SLbl></Stat>
-          <Stat $c={C.danger}><SNum $c={C.danger}>{stats.rejected}</SNum><SLbl>Rejected</SLbl></Stat>
+          <Stat $c={C.amber}><SNum $c={C.amber}>{stats.pending}</SNum><SLbl>Pending (Page)</SLbl></Stat>
+          <Stat $c={C.success}><SNum $c={C.success}>{stats.approved}</SNum><SLbl>Approved (Page)</SLbl></Stat>
+          <Stat $c={C.danger}><SNum $c={C.danger}>{stats.rejected}</SNum><SLbl>Rejected (Page)</SLbl></Stat>
         </Stats>
 
         <Card>
           <CardHead>
             📋 Purchase Orders
             <span style={{ background: "#e5e7eb", color: C.muted, fontSize: ".7rem", padding: "1px 8px", borderRadius: 12, fontWeight: 700 }}>
-              {filtered.length} record{filtered.length !== 1 ? "s" : ""}
+              {totalCount} record{totalCount !== 1 ? "s" : ""}
             </span>
           </CardHead>
 
-          {/* Filters */}
-          <FBar>
-            <FG style={{ flex: 1, minWidth: 200 }}>
-              <Lbl>Search</Lbl>
-              <Inp value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="PO No, Vendor, Supplier…" />
-            </FG>
-            <FG style={{ minWidth: 150 }}>
-              <Lbl>Status</Lbl>
-              <Sel value={filterStat} onChange={e => setFilterStat(e.target.value)}>
+          {/* Filters & Show Upto Toolbar */}
+          <InvTopToolbar
+            pageSize={pageSize}
+            onPageSizeChange={(sz) => {
+              setPageSize(sz);
+              setPage(1);
+            }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            fromDate={fromDate}
+            toDate={toDate}
+            onFromDateChange={(d) => {
+              setFromDate(d);
+              setPage(1);
+            }}
+            onToDateChange={(d) => {
+              setToDate(d);
+              setPage(1);
+            }}
+            onSetToday={() => {
+              setFromDate(getTodayDateString());
+              setToDate(getTodayDateString());
+              setPage(1);
+            }}
+            onClearDate={() => {
+              setFromDate("");
+              setToDate("");
+              setPage(1);
+            }}
+            search={searchQ}
+            onSearchChange={(val) => {
+              setSearchQ(val);
+              setPage(1);
+            }}
+            searchPlaceholder="Search PO No, Vendor, Supplier…"
+            totalRecords={totalCount}
+            customFilters={
+              <InvSelect
+                value={filterStat}
+                onChange={(e) => {
+                  setFilterStat(e.target.value);
+                  setPage(1);
+                }}
+              >
                 <option value="">All Status</option>
-                {["Draft", "Verified", "Approved", "Rejected"].map(s =>
+                {["Draft", "Verified", "Approved", "Rejected"].map((s) => (
                   <option key={s} value={s}>{s}</option>
-                )}
-              </Sel>
-            </FG>
-            <FG>
-              <Lbl>From Date</Lbl>
-              <Inp type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} style={{ width: "auto" }} />
-            </FG>
-            <FG>
-              <Lbl>To Date</Lbl>
-              <Inp type="date" value={toDate} onChange={e => setToDate(e.target.value)} style={{ width: "auto" }} />
-            </FG>
-            <RefBtn onClick={fetchList} disabled={loading} style={{ alignSelf: "flex-end" }}>
-              🔍 Search
-            </RefBtn>
-          </FBar>
+                ))}
+              </InvSelect>
+            }
+          />
 
           <TblWrap>
             {loading ? (
@@ -524,7 +610,7 @@ export default function PurchaseOrderApproval() {
                 <SpinEl style={{ borderTopColor: C.primary, borderColor: "rgba(13,148,136,.2)" }} />
                 Loading purchase orders…
               </div>
-            ) : filtered.length === 0 ? (
+            ) : poList.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px", color: C.muted, fontSize: ".85rem" }}>
                 📭 No purchase orders for the selected filters
               </div>
@@ -543,16 +629,16 @@ export default function PurchaseOrderApproval() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((po, idx) => {
+                  {poList.map((po, idx) => {
                     const canAct = po.status === "Draft" || po.status === "Verified"
                     const items  = safeItems(po.items)
                     return (
-                      <Trow key={po.po_number}>
-                        <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
+                      <Trow key={po.po_number || idx}>
+                        <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                         <Td><Pill>{po.po_number}</Pill></Td>
                         <Td style={{ fontWeight: 700 }}>{po.vendor_name || po.vendor_id || "—"}</Td>
 
-                        {/* Item count — safeItems already applied above */}
+                        {/* Item count */}
                         <Td>
                           <span style={{ background: C.bLight, color: C.blue, padding: "2px 8px", borderRadius: 10, fontSize: ".68rem", fontWeight: 800 }}>
                             {items.length} item{items.length !== 1 ? "s" : ""}
@@ -635,6 +721,14 @@ export default function PurchaseOrderApproval() {
               </Tbl>
             )}
           </TblWrap>
+
+          <InvPagination
+            currentPage={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={totalCount}
+            onPageChange={setPage}
+          />
         </Card>
       </Body>
 

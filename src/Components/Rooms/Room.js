@@ -1127,6 +1127,19 @@ const Room = () => {
     });
   }, [rooms, searchTerm, selectedBlock, selectedCategory, selectedStation]);
 
+  const getPaginationItems = (currentPage, total) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, "...", total];
+    }
+    if (currentPage >= total - 3) {
+      return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", total];
+  };
+
   const totalPages = Math.max(1, Math.ceil(filteredRooms.length / perPage));
   const paginatedRooms = useMemo(() => {
     const start = (page - 1) * perPage;
@@ -1897,23 +1910,22 @@ const Room = () => {
               Filter Rooms by Block, Category & Nursing Station
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".76rem", color: "#64748b", fontWeight: 600 }}>
-                Show
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
+                Show up to&nbsp;
                 <Select
                   value={perPage}
                   onChange={(e) => {
                     setPerPage(Number(e.target.value));
                     setPage(1);
                   }}
-                  style={{ height: 30, padding: "0 6px", width: 62, fontSize: ".78rem", borderRadius: 5 }}
+                  style={{ height: 28, padding: "0 6px", width: 72, fontSize: ".75rem", borderRadius: 4 }}
                 >
-                  {[10, 15, 25, 50, 100].map((n) => (
+                  {[10, 15, 20, 25, 50, 100].map((n) => (
                     <option key={n} value={n}>
                       {n}
                     </option>
                   ))}
                 </Select>
-                entries
               </div>
               <CountBadge>
                 <Check size={13} color="#059669" />
@@ -2112,25 +2124,31 @@ const Room = () => {
         {/* ── Pagination Footer ── */}
         <Pager>
           <span>
-            Showing {filteredRooms.length === 0 ? 0 : (page - 1) * perPage + 1}–
-            {Math.min(page * perPage, filteredRooms.length)} of {filteredRooms.length} entries
+            Showing {filteredRooms.length === 0 ? 0 : (page - 1) * perPage + 1} to {Math.min(page * perPage, filteredRooms.length)} of {filteredRooms.length} entries
           </span>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <PageBtn onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-              <ChevronLeft size={14} /> Previous
+              Previous
             </PageBtn>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .slice(Math.max(0, page - 3), page + 2)
-              .map((n) => (
-                <PageBtn key={n} active={n === page} onClick={() => setPage(n)}>
-                  {n}
+            {getPaginationItems(page, totalPages).map((item, idx) => {
+              if (item === "...") {
+                return (
+                  <PageBtn key={`ellipsis-${idx}`} disabled style={{ cursor: "default", opacity: 0.8, color: "#6b7280" }}>
+                    ...
+                  </PageBtn>
+                );
+              }
+              return (
+                <PageBtn key={item} active={item === page} onClick={() => setPage(item)}>
+                  {item}
                 </PageBtn>
-              ))}
+              );
+            })}
             <PageBtn
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
+              disabled={page === totalPages || totalPages === 0}
             >
-              Next <ChevronRight size={14} />
+              Next
             </PageBtn>
           </div>
         </Pager>

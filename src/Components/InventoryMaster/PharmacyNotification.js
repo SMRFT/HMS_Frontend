@@ -441,6 +441,11 @@ const PharmacyNotification = () => {
   const [lastSynced, setLastSynced]   = useState(null);
   const [expiryAlerts, setExpiryAlerts]   = useState([]);
   const [lowStockAlerts, setLowStockAlerts] = useState([]);
+  const [outletFilter, setOutletFilter] = useState("ALL");
+  const [loggedOutlet, setLoggedOutlet] = useState("");
+
+  const isLockedIP = loggedOutlet === "OLET001";
+  const isLockedOP = loggedOutlet === "OLET002";
 
   const panelRef  = useRef(null);
   const wrapRef   = useRef(null);
@@ -452,8 +457,18 @@ const PharmacyNotification = () => {
     async (silent = false) => {
       silent ? setRefreshing(true) : setLoading(true);
       try {
+        const selectedOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+        setLoggedOutlet(selectedOutlet);
+
+        const params = new URLSearchParams();
+        if (selectedOutlet === "OLET001") {
+          params.append("outlet_code", "OLET001");
+        } else if (selectedOutlet === "OLET002") {
+          params.append("outlet_code", "OLET002");
+        }
+
         const response = await apiRequest(
-          `${HmsBaseUrl}pharmacy/notifications/`,
+          `${HmsBaseUrl}pharmacy/notifications/?${params.toString()}`,
           "GET"
         );
         if (response && !response.error) {
@@ -491,17 +506,29 @@ const PharmacyNotification = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  // ── Computed ───────────────────────────────────────────────────────────────
+  // ── Computed with outlet filter ────────────────────────────────────────────
 
-  const expiry30 = expiryAlerts.filter((a) => a.urgency === "critical");
-  const expiry90 = expiryAlerts.filter((a) => a.urgency === "warning");
-  const totalCount = expiryAlerts.length + lowStockAlerts.length;
+  const filteredExpiry = expiryAlerts.filter((a) => {
+    if (isLockedIP || outletFilter === "OLET001") return a.outlet_code === "OLET001";
+    if (isLockedOP || outletFilter === "OLET002") return a.outlet_code === "OLET002";
+    return true;
+  });
+
+  const filteredLowStock = lowStockAlerts.filter((a) => {
+    if (isLockedIP || outletFilter === "OLET001") return a.outlet_code === "OLET001";
+    if (isLockedOP || outletFilter === "OLET002") return a.outlet_code === "OLET002";
+    return true;
+  });
+
+  const expiry30 = filteredExpiry.filter((a) => a.urgency === "critical");
+  const expiry90 = filteredExpiry.filter((a) => a.urgency === "warning");
+  const totalCount = filteredExpiry.length + filteredLowStock.length;
 
   // ── Render helpers ─────────────────────────────────────────────────────────
 
   const renderExpiryTab = () => {
     if (loading) return <LoadingWrap><Spinner /><span>Loading alerts...</span></LoadingWrap>;
-    if (expiryAlerts.length === 0)
+    if (filteredExpiry.length === 0)
       return (
         <EmptyState>
           <span>✅</span>
@@ -515,12 +542,25 @@ const PharmacyNotification = () => {
           <>
             <SectionLabel>⚠ Expiring within 30 days</SectionLabel>
             {expiry30.map((item) => (
-              <AlertItem key={`${item.stock_id}-exp`}>
+              <AlertItem key={`${item.stock_id}-${item.outlet_code}-exp`}>
                 <IconBox $variant="red"><AlertTriangleIcon /></IconBox>
                 <ItemBody>
                   <ItemName title={item.item_name}>{item.item_name}</ItemName>
                   <ItemSub>
                     Batch: {item.batch_number} · Qty: {item.available}
+                    {item.outlet_name && (
+                      <span style={{
+                        marginLeft: 6,
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        fontSize: "0.65rem",
+                        fontWeight: 700,
+                        background: item.outlet_code === "OLET002" ? "#dbeafe" : item.outlet_code === "OLET001" ? "#fce7f3" : "#f1f5f9",
+                        color: item.outlet_code === "OLET002" ? "#1e40af" : item.outlet_code === "OLET001" ? "#9d174d" : "#475569"
+                      }}>
+                        {item.outlet_name}
+                      </span>
+                    )}
                   </ItemSub>
                 </ItemBody>
                 <ItemMeta>
@@ -536,12 +576,25 @@ const PharmacyNotification = () => {
           <>
             <SectionLabel>🕐 Expiring within 90 days</SectionLabel>
             {expiry90.map((item) => (
-              <AlertItem key={`${item.stock_id}-warn`}>
+              <AlertItem key={`${item.stock_id}-${item.outlet_code}-warn`}>
                 <IconBox $variant="amber"><ClockIcon /></IconBox>
                 <ItemBody>
                   <ItemName title={item.item_name}>{item.item_name}</ItemName>
                   <ItemSub>
                     Batch: {item.batch_number} · Qty: {item.available}
+                    {item.outlet_name && (
+                      <span style={{
+                        marginLeft: 6,
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        fontSize: "0.65rem",
+                        fontWeight: 700,
+                        background: item.outlet_code === "OLET002" ? "#dbeafe" : item.outlet_code === "OLET001" ? "#fce7f3" : "#f1f5f9",
+                        color: item.outlet_code === "OLET002" ? "#1e40af" : item.outlet_code === "OLET001" ? "#9d174d" : "#475569"
+                      }}>
+                        {item.outlet_name}
+                      </span>
+                    )}
                   </ItemSub>
                 </ItemBody>
                 <ItemMeta>
@@ -558,7 +611,7 @@ const PharmacyNotification = () => {
 
   const renderLowStockTab = () => {
     if (loading) return <LoadingWrap><Spinner /><span>Loading alerts...</span></LoadingWrap>;
-    if (lowStockAlerts.length === 0)
+    if (filteredLowStock.length === 0)
       return (
         <EmptyState>
           <span>✅</span>
@@ -569,22 +622,35 @@ const PharmacyNotification = () => {
     return (
       <>
         <SectionLabel>📦 Below reorder level</SectionLabel>
-        {lowStockAlerts.map((item) => (
-          <AlertItem key={`low-${item.item_id}`}>
+        {filteredLowStock.map((item, idx) => (
+          <AlertItem key={`low-${item.item_id}-${item.outlet_code}-${idx}`}>
             <IconBox $variant={item.urgency === "critical" ? "red" : "orange"}>
               <PackageIcon />
             </IconBox>
             <ItemBody>
               <ItemName title={item.item_name}>{item.item_name}</ItemName>
               <ItemSub>
-                Available: {item.available} · Reorder at: {item.reorder_level}
+                Available: {item.available} · Reorder: {item.reorder_level}
+                {item.outlet_name && (
+                  <span style={{
+                    marginLeft: 6,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    fontSize: "0.65rem",
+                    fontWeight: 700,
+                    background: item.outlet_code === "OLET002" ? "#dbeafe" : item.outlet_code === "OLET001" ? "#fce7f3" : "#f1f5f9",
+                    color: item.outlet_code === "OLET002" ? "#1e40af" : item.outlet_code === "OLET001" ? "#9d174d" : "#475569"
+                  }}>
+                    {item.outlet_name}
+                  </span>
+                )}
               </ItemSub>
             </ItemBody>
             <ItemMeta>
               <Pill $variant={item.urgency === "critical" ? "red" : "orange"}>
                 {item.urgency === "critical" ? "Critical" : "Low"}
               </Pill>
-              <ItemDays>{item.deficit} units</ItemDays>
+              <ItemDays>{item.deficit} deficit</ItemDays>
             </ItemMeta>
           </AlertItem>
         ))}
@@ -616,11 +682,47 @@ const PharmacyNotification = () => {
             <PanelHeader>
               <div>
                 <PanelTitle>🔔 Stock Alerts</PanelTitle>
+                <div style={{ fontSize: "0.72rem", opacity: 0.88, marginTop: 2 }}>
+                  {isLockedIP ? "🏥 IP Pharmacy" : isLockedOP ? "💊 OP Pharmacy" : "🏢 All Outlets"}
+                </div>
               </div>
               <PanelMeta>
                 {lastSynced ? `Synced ${formatTime(lastSynced)}` : "Syncing..."}
               </PanelMeta>
             </PanelHeader>
+
+            {/* Outlet Filter for Common Outlets */}
+            {!isLockedIP && !isLockedOP && (
+              <div style={{ display: "flex", gap: 4, padding: "8px 12px", background: "#f1f5f9", borderBottom: "1px solid #e2e8f0" }}>
+                <button
+                  style={{
+                    flex: 1, padding: "4px 8px", fontSize: "0.72rem", fontWeight: 700, borderRadius: 5, border: "none", cursor: "pointer",
+                    background: outletFilter === "ALL" ? "#0d9488" : "white", color: outletFilter === "ALL" ? "white" : "#475569"
+                  }}
+                  onClick={() => setOutletFilter("ALL")}
+                >
+                  All
+                </button>
+                <button
+                  style={{
+                    flex: 1, padding: "4px 8px", fontSize: "0.72rem", fontWeight: 700, borderRadius: 5, border: "none", cursor: "pointer",
+                    background: outletFilter === "OLET002" ? "#0d9488" : "white", color: outletFilter === "OLET002" ? "white" : "#475569"
+                  }}
+                  onClick={() => setOutletFilter("OLET002")}
+                >
+                  💊 OP Pharmacy
+                </button>
+                <button
+                  style={{
+                    flex: 1, padding: "4px 8px", fontSize: "0.72rem", fontWeight: 700, borderRadius: 5, border: "none", cursor: "pointer",
+                    background: outletFilter === "OLET001" ? "#0d9488" : "white", color: outletFilter === "OLET001" ? "white" : "#475569"
+                  }}
+                  onClick={() => setOutletFilter("OLET001")}
+                >
+                  🏥 IP Pharmacy
+                </button>
+              </div>
+            )}
 
             {/* Tabs */}
             <TabRow>
@@ -629,14 +731,14 @@ const PharmacyNotification = () => {
                 onClick={() => setActiveTab("expiry")}
               >
                 Nearby Expiry
-                <TabCount $variant="red">{expiryAlerts.length}</TabCount>
+                <TabCount $variant="red">{filteredExpiry.length}</TabCount>
               </Tab>
               <Tab
                 $active={activeTab === "lowstock"}
                 onClick={() => setActiveTab("lowstock")}
               >
                 Low Stock
-                <TabCount $variant="amber">{lowStockAlerts.length}</TabCount>
+                <TabCount $variant="amber">{filteredLowStock.length}</TabCount>
               </Tab>
             </TabRow>
 
@@ -668,4 +770,4 @@ const PharmacyNotification = () => {
   );
 };
 
-export default PharmacyNotification;
+export default PharmacyNotification;

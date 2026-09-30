@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
+import { InvTopToolbar, InvPagination, getTodayDateString, InvSelect } from "./InventoryUIHelper"
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -59,17 +60,18 @@ const ACTION_CONFIG = {
 /* ── Layout ── */
 const Wrap   = styled.div`min-height:100vh;background:${C.bg};padding-bottom:48px;font-family:'DM Sans',system-ui,sans-serif;`
 const Header = styled.div`
-  background:linear-gradient(135deg,#1e3a5f 0%,#0f2744 100%);
+  background:linear-gradient(135deg,${C.primary} 0%,${C.pDark} 100%);
   color:#fff;padding:18px 28px;
-  box-shadow:0 4px 20px rgba(15,39,68,.3);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+  box-shadow:0 4px 20px rgba(13,148,136,.25);
 `
 const HTitle = styled.h1`margin:0;font-size:1.2rem;font-weight:800;letter-spacing:-.02em;`
 const HSub   = styled.p`margin:3px 0 0;font-size:.75rem;opacity:.82;`
-const Body   = styled.div`max-width:1000px;margin:0 auto;padding:22px 20px;`
+const Body   = styled.div`max-width:1150px;margin:0 auto;padding:22px 20px;`
 
 /* ── Card ── */
 const Card    = styled.div`background:${C.surface};border:1px solid ${C.border};border-radius:10px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 6px rgba(0,0,0,.06);`
-const CardHead = styled.div`background:${C.faint};border-bottom:1px solid ${C.border};padding:12px 18px;font-size:.82rem;font-weight:800;color:#1e3a5f;display:flex;align-items:center;justify-content:space-between;`
+const CardHead = styled.div`background:${C.faint};border-bottom:1px solid ${C.border};padding:12px 18px;font-size:.82rem;font-weight:800;color:${C.primary};display:flex;align-items:center;justify-content:space-between;`
 
 /* ── Form controls ── */
 const FG  = styled.div`display:flex;flex-direction:column;gap:4px;`
@@ -101,7 +103,7 @@ const Btn     = styled.button`
   &:active{transform:translateY(1px);}
   &:disabled{opacity:.5;cursor:not-allowed;}
 `
-const PrimBtn = styled(Btn)`background:#1e3a5f;color:#fff;border-color:#1e3a5f;&:hover:not(:disabled){background:#0f2744;border-color:#0f2744;}`
+const PrimBtn = styled(Btn)`background:${C.primary};color:#fff;border-color:${C.primary};&:hover:not(:disabled){background:${C.pDark};border-color:${C.pDark};}`
 const SecBtn  = styled(Btn)`background:#fff;color:#374151;border-color:${C.border};&:hover:not(:disabled){background:${C.faint};}`
 const BtnRow  = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid ${C.border};padding-top:16px;`
 
@@ -132,6 +134,65 @@ const Trow  = styled.tr`transition:background .1s;&:hover{background:#fafafa;}`
 const FBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:13px 18px;background:${C.faint};border-bottom:1px solid ${C.border};`
 const FItem = styled.div`display:flex;flex-direction:column;gap:3px;min-width:150px;`
 
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+`;
+
+const TableSelect = styled.select`
+  height: 28px;
+  width: 72px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: ${C.primary};
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid #e5e7eb;
+  font-size: .75rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: #fff;
+`;
+
+const PB = styled.button`
+  height: 28px;
+  padding: 0 13px;
+  font-size: .75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: ${p => p.active ? '#1e3a5f' : '#fff'};
+  color: ${p => p.active ? '#fff' : '#374151'};
+  cursor: pointer;
+  &:disabled {
+    opacity: .45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${p => p.active ? '#1e3a5f' : '#f3f4f6'};
+  }
+`;
+
 /* ── Stats row ── */
 const StatsRow = styled.div`display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;`
 const StatCard = styled.div`
@@ -144,7 +205,7 @@ const StatLbl = styled.div`font-size:.7rem;color:${C.muted};margin-top:4px;font-
 /* ── Modal ── */
 const MOverlay = styled.div`position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1050;display:flex;align-items:center;justify-content:center;padding:16px;`
 const MBox     = styled.div`background:#fff;border-radius:12px;max-width:500px;width:95%;box-shadow:0 20px 60px rgba(0,0,0,.22);${css`animation:${fadeSlide} .18s ease forwards;`}overflow:hidden;`
-const MHead    = styled.div`background:linear-gradient(135deg,#1e3a5f,#0f2744);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;`
+const MHead    = styled.div`background:linear-gradient(135deg,${C.primary},${C.pDark});color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;`
 const MBody    = styled.div`padding:22px 24px;`
 const MTitle   = styled.h3`margin:0;font-size:1rem;font-weight:800;`
 
@@ -373,29 +434,44 @@ export default function PurchaseRequisitionAdmin() {
   const [actionModal, setActionModal] = useState(null)  // { pr, actionCfg }
   const [filterStatus, setFilterStatus] = useState("")
   const [filterSearch, setFilterSearch] = useState("")
-  const [filterFrom,   setFilterFrom]   = useState("")
-  const [filterTo,     setFilterTo]     = useState("")
+  const [filterFrom,   setFilterFrom]   = useState(getTodayDateString())
+  const [filterTo,     setFilterTo]     = useState(getTodayDateString())
 
-  /* ── Fetch list ── */
-  const fetchList = useCallback(async () => {
+  const [page,       setPage]       = useState(1)
+  const [pageSize,   setPageSize]   = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
+  /* ── Fetch list with server-side pagination ── */
+  const fetchList = useCallback(async (p = page, size = pageSize, q = filterSearch, stat = filterStatus, from = filterFrom, to = filterTo) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (filterStatus) params.append("status", filterStatus)
-      if (filterFrom)   params.append("from_date", filterFrom)
-      if (filterTo)     params.append("to_date", filterTo)
-      const qs  = params.toString() ? `?${params}` : ""
-      const r   = await apiRequest(`${HmsBaseUrl}purchase-requisition/${qs}`, "GET")
-      const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
+      const params = new URLSearchParams({
+        page: p,
+        page_size: size,
+      })
+      if (q && q.trim()) params.append("search", q.trim())
+      if (stat) params.append("status", stat)
+      if (from)   params.append("from_date", from)
+      if (to)     params.append("to_date", to)
+
+      const r   = await apiRequest(`${HmsBaseUrl}purchase-requisition/?${params.toString()}`, "GET")
+      const payload = r?.data
+      const rows = payload?.data ?? (Array.isArray(payload) ? payload : [])
       setPrList(Array.isArray(rows) ? rows : [])
+      setTotalCount(payload?.count !== undefined ? payload.count : (r?.count !== undefined ? r.count : (Array.isArray(rows) ? rows.length : 0)))
+      setTotalPages(payload?.total_pages || Math.ceil((payload?.count || rows.length) / size) || 1)
+      setPage(payload?.current_page || p)
     } catch {
       toast.error("Failed to load requisitions")
     } finally {
       setLoading(false)
     }
-  }, [filterStatus, filterFrom, filterTo])
+  }, [page, pageSize, filterSearch, filterStatus, filterFrom, filterTo])
 
-  useEffect(() => { fetchList() }, [fetchList])
+  useEffect(() => {
+    fetchList(page, pageSize, filterSearch, filterStatus, filterFrom, filterTo)
+  }, [page, pageSize, filterSearch, filterStatus, filterFrom, filterTo, fetchList])
 
   /* ── Perform action ── */
   const handleAction = async (reason) => {
@@ -426,17 +502,6 @@ export default function PurchaseRequisitionAdmin() {
     }
   }
 
-  /* ── Filter locally by search ── */
-  const filtered = prList.filter(pr => {
-    if (!filterSearch.trim()) return true
-    const q = filterSearch.toLowerCase()
-    const items = Array.isArray(pr.items) ? pr.items : []
-    return (
-      pr.pr_number?.toLowerCase().includes(q) ||
-      items.some(i => i.medicine_name?.toLowerCase().includes(q))
-    )
-  })
-
   /* ── Stats ── */
   const counts = ALL_STATUSES.reduce((acc, s) => {
     acc[s] = prList.filter(p => p.status === s).length
@@ -466,7 +531,10 @@ export default function PurchaseRequisitionAdmin() {
           ].map(s => (
             <StatCard key={s.key} $color={s.color}
               style={{ cursor: "pointer" }}
-              onClick={() => setFilterStatus(filterStatus === s.key ? "" : s.key)}
+              onClick={() => {
+                setFilterStatus(filterStatus === s.key ? "" : s.key)
+                setPage(1)
+              }}
             >
               <StatNum $color={s.color}>{counts[s.key] || 0}</StatNum>
               <StatLbl>{s.icon} {STATUS_META[s.key]?.label || s.key}</StatLbl>
@@ -479,48 +547,65 @@ export default function PurchaseRequisitionAdmin() {
           <CardHead>
             <span>📄 All Requisitions</span>
             <span style={{ background: "#e5e7eb", color: C.muted, fontSize: ".72rem", padding: "1px 8px", borderRadius: 12, fontWeight: 600 }}>
-              {filtered.length} {filtered.length !== prList.length ? `/ ${prList.length}` : ""}
+              {totalCount} record{totalCount !== 1 ? "s" : ""}
             </span>
           </CardHead>
 
-          {/* Filter bar */}
-          <FBar>
-            <FItem style={{ flex: 2, minWidth: 200 }}>
-              <Lbl>Search</Lbl>
-              <Inp
-                placeholder="PR number or medicine name…"
-                value={filterSearch}
-                onChange={e => setFilterSearch(e.target.value)}
-              />
-            </FItem>
-            <FItem>
-              <Lbl>Status</Lbl>
-              <Sel value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <option value="">All</option>
-                {ALL_STATUSES.map(s => <option key={s} value={s}>{STATUS_META[s]?.label || s}</option>)}
-              </Sel>
-            </FItem>
-            <FItem>
-              <Lbl>From Date</Lbl>
-              <Inp type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
-            </FItem>
-            <FItem>
-              <Lbl>To Date</Lbl>
-              <Inp type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
-            </FItem>
-            <SecBtn onClick={fetchList} style={{ padding: "9px 16px", alignSelf: "flex-end" }}>🔄 Refresh</SecBtn>
-            <SecBtn
-              onClick={() => { setFilterStatus(""); setFilterSearch(""); setFilterFrom(""); setFilterTo("") }}
-              style={{ padding: "9px 16px", alignSelf: "flex-end" }}
-            >
-              ✕ Clear
-            </SecBtn>
-          </FBar>
+          {/* Filters & Show Upto Toolbar */}
+          <InvTopToolbar
+            pageSize={pageSize}
+            onPageSizeChange={(sz) => {
+              setPageSize(sz);
+              setPage(1);
+            }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            fromDate={filterFrom}
+            toDate={filterTo}
+            onFromDateChange={(d) => {
+              setFilterFrom(d);
+              setPage(1);
+            }}
+            onToDateChange={(d) => {
+              setFilterTo(d);
+              setPage(1);
+            }}
+            onSetToday={() => {
+              setFilterFrom(getTodayDateString());
+              setFilterTo(getTodayDateString());
+              setPage(1);
+            }}
+            onClearDate={() => {
+              setFilterFrom("");
+              setFilterTo("");
+              setPage(1);
+            }}
+            search={filterSearch}
+            onSearchChange={(val) => {
+              setFilterSearch(val);
+              setPage(1);
+            }}
+            searchPlaceholder="Search PR number or medicine name…"
+            totalRecords={totalCount}
+            customFilters={
+              <InvSelect
+                value={filterStatus}
+                onChange={(e) => {
+                  setFilterStatus(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">All Status</option>
+                {ALL_STATUSES.map((s) => (
+                  <option key={s} value={s}>{STATUS_META[s]?.label || s}</option>
+                ))}
+              </InvSelect>
+            }
+          />
 
           <TblWrap>
             {loading ? (
               <div style={{ textAlign: "center", padding: "40px", color: C.muted, fontSize: ".85rem" }}>Loading…</div>
-            ) : filtered.length === 0 ? (
+            ) : prList.length === 0 ? (
               <div style={{ textAlign: "center", padding: "40px", color: C.muted, fontSize: ".85rem" }}>📭 No requisitions found</div>
             ) : (
               <Tbl>
@@ -536,15 +621,15 @@ export default function PurchaseRequisitionAdmin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((pr, idx) => {
+                  {prList.map((pr, idx) => {
                     const items      = Array.isArray(pr.items) ? pr.items : []
                     const firstItem  = items[0]?.medicine_name || "—"
                     const more       = items.length > 1 ? ` +${items.length - 1}` : ""
                     const actionList = ACTION_CONFIG[pr.status] || []
 
                     return (
-                      <Trow key={pr.pr_number}>
-                        <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
+                      <Trow key={pr.pr_number || idx}>
+                        <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                         <Td><Pill>{pr.pr_number}</Pill></Td>
                         <Td style={{ maxWidth: 200 }}>
                           <div style={{ fontWeight: 600, fontSize: ".82rem" }}>{firstItem}</div>
@@ -587,6 +672,14 @@ export default function PurchaseRequisitionAdmin() {
               </Tbl>
             )}
           </TblWrap>
+
+          <InvPagination
+            currentPage={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={totalCount}
+            onPageChange={setPage}
+          />
         </Card>
       </Body>
 
@@ -598,11 +691,11 @@ export default function PurchaseRequisitionAdmin() {
         <ActionModal
           pr={actionModal.pr}
           actionCfg={actionModal.actionCfg}
-          acting={acting}
-          onClose={() => setActionModal(null)}
           onConfirm={handleAction}
+          onClose={() => setActionModal(null)}
+          acting={acting}
         />
       )}
     </Wrap>
-  )
+  );
 }

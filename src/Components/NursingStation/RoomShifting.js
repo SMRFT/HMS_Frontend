@@ -280,6 +280,57 @@ const Badge = styled.span`
 `;
 
 // ─── Table ────────────────────────────────────────────────────────────────────
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid ${T.gray200};
+  font-size: 0.8rem;
+  color: ${T.gray500};
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+  border-radius: 0 0 ${T.radius} ${T.radius};
+`;
+
+const PageBtn = styled.button`
+  height: 32px;
+  min-width: 32px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid ${p => p.active ? T.primary : T.gray200};
+  border-radius: ${T.radiusSm};
+  background: ${p => p.active ? T.primary : "#fff"};
+  color: ${p => p.active ? "#fff" : T.gray700};
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  &:hover:not(:disabled) {
+    background: ${p => p.active ? "#0f766e" : T.gray100};
+  }
+`;
+
+const getPaginationItems = (currentPage, total) => {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, "...", total];
+  }
+  if (currentPage >= total - 3) {
+    return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", total];
+};
+
 const TableWrap = styled.div`
   overflow-x: auto;
   border: 1px solid ${T.gray200};
@@ -1021,6 +1072,7 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
   const [showRoom,      setShowRoom]  = useState(false);
   const [shiftings,     setShiftings] = useState([]);
   const [entriesPerPage,setEntries]   = useState(15);
+  const [currentPage,   setCurrentPage] = useState(1);
   const [editRecord,    setEditRecord]= useState(null);
   const [editOpen,      setEditOpen]  = useState(false);
   const [filters, setFilters] = useState({
@@ -1054,6 +1106,7 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
       uhid: "", ipNumber: "",
     };
     setFilters(defaultFilters);
+    setCurrentPage(1);
     fetchShiftings(defaultFilters);
   };
 
@@ -1317,26 +1370,26 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
             <Grid style={{ marginBottom: 14 }}>
               <Field label="From Date" value={filters.fromDate} type="date"
                 onChange={e => setFilters(p => ({ ...p, fromDate: e.target.value }))}
-                onKeyDown={e => e.key === "Enter" && fetchShiftings(filters)} />
+                onKeyDown={e => { if (e.key === "Enter") { setCurrentPage(1); fetchShiftings(filters); } }} />
               <Field label="To Date" value={filters.toDate} type="date"
                 onChange={e => setFilters(p => ({ ...p, toDate: e.target.value }))}
-                onKeyDown={e => e.key === "Enter" && fetchShiftings(filters)} />
+                onKeyDown={e => { if (e.key === "Enter") { setCurrentPage(1); fetchShiftings(filters); } }} />
               <Field label="UHID" value={filters.uhid}
                 onChange={e => setFilters(p => ({ ...p, uhid: e.target.value }))}
-                onKeyDown={e => e.key === "Enter" && fetchShiftings(filters)} />
+                onKeyDown={e => { if (e.key === "Enter") { setCurrentPage(1); fetchShiftings(filters); } }} />
               <Field label="IP Number" value={filters.ipNumber}
                 onChange={e => setFilters(p => ({ ...p, ipNumber: e.target.value }))}
-                onKeyDown={e => e.key === "Enter" && fetchShiftings(filters)} />
+                onKeyDown={e => { if (e.key === "Enter") { setCurrentPage(1); fetchShiftings(filters); } }} />
             </Grid>
             <BtnRow style={{ justifyContent: "flex-start", gap: 8, marginBottom: 16 }}>
-              <Btn type="button" onClick={() => fetchShiftings(filters)}>🔍 Search</Btn>
+              <Btn type="button" onClick={() => { setCurrentPage(1); fetchShiftings(filters); }}>🔍 Search</Btn>
               <Btn type="button" style={{ background: "#94a3b8" }} onClick={handleResetFilters}>↺ Reset</Btn>
             </BtnRow>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: ".8rem", color: T.gray500 }}>
                 Show
-                <select value={entriesPerPage} onChange={e => setEntries(Number(e.target.value))}
+                <select value={entriesPerPage} onChange={e => { setEntries(Number(e.target.value)); setCurrentPage(1); }}
                   style={{ height: 30, padding: "0 6px", border: `1px solid ${T.gray200}`, borderRadius: T.radiusSm, fontSize: ".8rem", background: T.white }}>
                   {[10, 15, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
@@ -1362,7 +1415,7 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
                       </td>
                     </tr>
                   ) : (
-                    shiftings.slice(0, entriesPerPage).map((s, idx) => {
+                    shiftings.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage).map((s, idx) => {
                       const shiftId = s.shifting_id || s._id;
                       const shiftDateStr = s.shiftingDateTime
                         ? new Date(s.shiftingDateTime).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })
@@ -1405,6 +1458,51 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
                 </tbody>
               </Table>
             </TableWrap>
+
+            {shiftings.length > 0 && (
+              <Pager>
+                <span>
+                  Showing {(currentPage - 1) * entriesPerPage + 1} to{" "}
+                  {Math.min(currentPage * entriesPerPage, shiftings.length)} of{" "}
+                  {shiftings.length} records
+                </span>
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <PageBtn
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </PageBtn>
+                  {getPaginationItems(currentPage, Math.max(1, Math.ceil(shiftings.length / entriesPerPage))).map((item, idx) => {
+                    if (item === "...") {
+                      return (
+                        <PageBtn key={`ellipsis-${idx}`} disabled style={{ cursor: "default", opacity: 0.7 }}>
+                          ...
+                        </PageBtn>
+                      );
+                    }
+                    return (
+                      <PageBtn
+                        key={item}
+                        type="button"
+                        active={item === currentPage}
+                        onClick={() => setCurrentPage(item)}
+                      >
+                        {item}
+                      </PageBtn>
+                    );
+                  })}
+                  <PageBtn
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(Math.max(1, Math.ceil(shiftings.length / entriesPerPage)), p + 1))}
+                    disabled={currentPage >= Math.ceil(shiftings.length / entriesPerPage)}
+                  >
+                    Next
+                  </PageBtn>
+                </div>
+              </Pager>
+            )}
           </Card>
         )}
       </Container>

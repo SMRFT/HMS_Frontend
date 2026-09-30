@@ -1,233 +1,334 @@
-import React, { useState, useEffect } from "react";
-import { toast } from "react-toastify";
+import React, { useState, useEffect, useCallback } from "react";
+import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import {
-  Container, PageWrapper, FormContent, FormRow,
-  InputWrapper, Label, Input, Button, ButtonContainer,
-  TableWrapper, Table, Th, Td, Tr,
-} from "../GlobalStyles";
-import styled from "styled-components";
+  InvTheme,
+  InvPageHeader,
+  InvPageTitle,
+  InvPageSubtitle,
+  InvAddBtn,
+  InvTopToolbar,
+  InvPagination,
+  InvTableWrapper,
+  InvTable,
+  InvTh,
+  InvTd,
+  InvTr,
+  InvActionBtn,
+  InvModalOverlay,
+  InvModalContainer,
+  InvModalHeader,
+  InvModalTitle,
+  InvModalCloseBtn,
+  InvModalBody,
+  InvModalFooter,
+  InvFormGrid,
+  InvFormField,
+  InvFormLabel,
+  InvFormError,
+  InvInput,
+  InvEmptyState,
+  InvToast,
+  getTodayDateString,
+} from "./InventoryUIHelper";
 
-// ─── Header (matches PharmacyItem gradient style) ─────────────────────────────
-const PageHeader = styled.div`
-  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
-  color: white;
+const PageContainer = styled.div`
   padding: 18px 24px;
-  border-radius: 8px 8px 0 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  background: ${InvTheme.background};
+  min-height: calc(100vh - 70px);
+  font-family: ${InvTheme.font};
 `;
 
-const PageTitle = styled.h1`
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 700;
+const ContentCard = styled.div`
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: ${InvTheme.shadowSm};
+  overflow: hidden;
+  border: 1px solid ${InvTheme.border};
 `;
 
-const PageSubtitle = styled.p`
-  margin: 3px 0 0;
-  font-size: 0.8rem;
-  opacity: 0.8;
-`;
-
-const SectionTitle = styled.h4`
-  color: #0d9488;
-  margin: 0 0 16px;
-  font-size: 0.95rem;
-  font-weight: 700;
-`;
-
-// ─────────────────────────────────────────────────────────────────────────────
+const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 const PharmacyCategory = () => {
   const [categories, setCategories] = useState([]);
-  const [formData, setFormData]     = useState({ category_name: "" });
-  const [editingId, setEditingId]   = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
 
-  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  // Filters & Pagination State
+  const [search, setSearch] = useState("");
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => { fetchCategories(); }, []);
+  // Modal & Form State
+  const [showModal, setShowModal] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState("");
 
-  // ── API ──────────────────────────────────────────────────────────────────
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(
+    async (p = currentPage, size = pageSize, q = search) => {
+      setLoading(true);
+      try {
+        const query = new URLSearchParams({
+          page: String(p),
+          page_size: String(size),
+        });
+        if (q && q.trim()) query.append("search", q.trim());
+
+        const response = await apiRequest(`${HmsBaseUrl}pharmacy-category/?${query.toString()}`, "GET");
+        if (response && response.success) {
+          const payload = response.data;
+          const list = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload?.results)
+            ? payload.results
+            : [];
+          const total =
+            payload?.total_records ??
+            payload?.count ??
+            response?.count ??
+            (Array.isArray(payload) ? payload.length : list.length);
+          const pages = payload?.total_pages ?? response?.total_pages ?? Math.max(1, Math.ceil(total / size));
+
+          setCategories(list);
+          setTotalCount(total);
+          setTotalPages(pages);
+          setCurrentPage(payload?.current_page || p);
+        } else {
+          setCategories([]);
+          setTotalCount(0);
+          setTotalPages(1);
+        }
+      } catch (err) {
+        console.error("Failed to fetch categories:", err);
+        showToast("Failed to fetch categories", "error");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [HmsBaseUrl, currentPage, pageSize, search]
+  );
+
+  useEffect(() => {
+    fetchCategories(currentPage, pageSize, search);
+  }, [currentPage, pageSize, search, fetchCategories]);
+
+  const handleOpenAdd = () => {
+    setEditingId(null);
+    setCategoryName("");
+    setError("");
+    setShowModal(true);
+  };
+
+  const handleEdit = (cat) => {
+    setEditingId(cat.category_id);
+    setCategoryName(cat.category_name || "");
+    setError("");
+    setShowModal(true);
+  };
+
+  const handleDelete = async (cat) => {
+    if (!window.confirm(`Are you sure you want to delete category "${cat.category_name}"?`)) return;
     try {
-      const response = await apiRequest(`${HmsBaseUrl}pharmacy-category/`, "GET");
-      setCategories(
-        response && !response.error && Array.isArray(response.data)
-          ? response.data
-          : []
-      );
-    } catch {
-      toast.error("Failed to fetch categories");
-    }
-  };
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleEdit = (category) => {
-    setEditingId(category.category_id);
-    setFormData({ category_name: category.category_name });
-    window.scrollTo(0, 0);
-  };
-
-  const handleDelete = async (category) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
-    try {
-      const response = await apiRequest(
-        `${HmsBaseUrl}pharmacy-category/${category.category_id}/`,
-        "DELETE"
-      );
+      const response = await apiRequest(`${HmsBaseUrl}pharmacy-category/${cat.category_id}/`, "DELETE");
       if (response && !response.error) {
-        toast.success("Category deleted successfully");
+        showToast("Category deleted successfully");
         fetchCategories();
       } else {
-        toast.error(response?.error || "Failed to delete category");
+        showToast(response?.error || "Failed to delete category", "error");
       }
     } catch {
-      toast.error("Failed to delete category");
+      showToast("Failed to delete category", "error");
     }
-  };
-
-  const handleReset = () => {
-    setEditingId(null);
-    setFormData({ category_name: "" });
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    if (!categoryName.trim()) {
+      setError("Category name is required");
+      return;
+    }
+    setLoading(true);
     try {
       if (editingId) {
         const response = await apiRequest(
           `${HmsBaseUrl}pharmacy-category/${editingId}/`,
           "PUT",
-          formData
+          { category_name: categoryName.trim() }
         );
         if (response && !response.error) {
-          toast.success("Category updated successfully");
-          handleReset();
+          showToast("Category updated successfully");
+          setShowModal(false);
           fetchCategories();
         } else {
-          toast.error(response?.error || "Update failed");
+          showToast(response?.error || "Update failed", "error");
         }
       } else {
         const response = await apiRequest(
           `${HmsBaseUrl}pharmacy-category/`,
           "POST",
-          formData
+          { category_name: categoryName.trim() }
         );
         if (response && !response.error) {
-          toast.success("Category added successfully");
-          handleReset();
-          fetchCategories();
+          showToast("Category added successfully");
+          setShowModal(false);
+          fetchCategories(1, pageSize, "");
         } else {
-          toast.error(response?.error || "Create failed");
+          showToast(response?.error || "Create failed", "error");
         }
       }
     } catch {
-      toast.error("Failed to save category");
+      showToast("Failed to save category", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const startIdx = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
 
   return (
-    <PageWrapper>
-      <Container>
+    <PageContainer>
+      {toast && <InvToast error={toast.type === "error"}>{toast.msg}</InvToast>}
 
+      <ContentCard>
         {/* ── Header ── */}
-        <PageHeader>
+        <InvPageHeader>
           <div>
-            <PageTitle>🗂️ Pharmacy Category</PageTitle>
-            <PageSubtitle>Manage pharmacy category master data</PageSubtitle>
+            <InvPageTitle>🗂️ Pharmacy Category Master</InvPageTitle>
+            <InvPageSubtitle>Categorize medicines, surgical items, consumables, and drugs</InvPageSubtitle>
           </div>
-        </PageHeader>
+          <InvAddBtn onClick={handleOpenAdd}>+ Add Category</InvAddBtn>
+        </InvPageHeader>
 
-        {/* ── Form ── */}
-        <FormContent>
-          <form onSubmit={handleSubmit}>
-            <FormRow columns="1fr">
-              <InputWrapper>
-                <Label required>Category Name</Label>
-                <Input
-                  type="text"
-                  name="category_name"
-                  value={formData.category_name}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="Enter Category Name"
-                />
-              </InputWrapper>
-            </FormRow>
-
-            <ButtonContainer>
-              <Button secondary type="button" onClick={handleReset}>
-                Reset
-              </Button>
-              <Button type="submit">
-                {editingId ? "Update Category" : "Add Category"}
-              </Button>
-            </ButtonContainer>
-          </form>
-        </FormContent>
+        {/* ── Top Toolbar (Show Upto, Search) ── */}
+        <InvTopToolbar
+          pageSize={pageSize}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
+          search={search}
+          onSearchChange={(val) => {
+            setSearch(val);
+            setCurrentPage(1);
+          }}
+          searchPlaceholder="Search Category ID / Name..."
+          totalRecords={totalCount}
+        />
 
         {/* ── Table ── */}
-        <div style={{ padding: "0 24px 24px" }}>
-          <SectionTitle>Category List</SectionTitle>
-          <TableWrapper>
-            <Table>
-              <thead>
+        <InvTableWrapper>
+          <InvTable>
+            <thead>
+              <tr>
+                <InvTh style={{ width: 60 }}>#</InvTh>
+                <InvTh style={{ width: 140 }}>Category ID</InvTh>
+                <InvTh>Category Name</InvTh>
+                <InvTh style={{ textAlign: "center", width: 150 }}>Actions</InvTh>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
                 <tr>
-                  <Th>Category ID</Th>
-                  <Th>Category Name</Th>
-                  <Th>Actions</Th>
+                  <InvTd colSpan={4} style={{ textAlign: "center", padding: "40px" }}>
+                    Loading categories...
+                  </InvTd>
                 </tr>
-              </thead>
-              <tbody>
-                {categories.length === 0 ? (
-                  <Tr>
-                    <Td colSpan="3" style={{ textAlign: "center" }}>
-                      No categories found
-                    </Td>
-                  </Tr>
-                ) : (
-                  categories.map((category) => (
-                    <Tr key={category.category_id}>
-                      <Td>{category.category_id}</Td>
-                      <Td>{category.category_name}</Td>
-                      <Td>
-                        <div style={{ display: "flex", gap: "10px" }}>
-                          <Button
-                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleEdit(category)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            danger
-                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleDelete(category)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </Td>
-                    </Tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
-          </TableWrapper>
-        </div>
+              ) : categories.length === 0 ? (
+                <tr>
+                  <InvTd colSpan={4}>
+                    <InvEmptyState>
+                      No categories found for the selected filter.
+                    </InvEmptyState>
+                  </InvTd>
+                </tr>
+              ) : (
+                categories.map((cat, idx) => (
+                  <InvTr key={cat.category_id || idx}>
+                    <InvTd>{startIdx + idx}</InvTd>
+                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>
+                      CAT-{cat.category_id}
+                    </InvTd>
+                    <InvTd style={{ fontWeight: 600 }}>{cat.category_name}</InvTd>
+                    <InvTd style={{ textAlign: "center" }}>
+                      <div style={{ display: "inline-flex", gap: 6 }}>
+                        <InvActionBtn onClick={() => handleEdit(cat)}>Edit</InvActionBtn>
+                        <InvActionBtn danger onClick={() => handleDelete(cat)}>
+                          Delete
+                        </InvActionBtn>
+                      </div>
+                    </InvTd>
+                  </InvTr>
+                ))
+              )}
+            </tbody>
+          </InvTable>
+        </InvTableWrapper>
 
-      </Container>
-    </PageWrapper>
+        {/* ── Bottom Pagination ── */}
+        <InvPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalRecords={totalCount}
+          onPageChange={setCurrentPage}
+        />
+      </ContentCard>
+
+      {/* ── Add / Edit Modal ── */}
+      {showModal && (
+        <InvModalOverlay onClick={() => setShowModal(false)}>
+          <InvModalContainer maxWidth="500px" onClick={(e) => e.stopPropagation()}>
+            <InvModalHeader>
+              <InvModalTitle>
+                🗂️ {editingId ? "Edit Pharmacy Category" : "Add Pharmacy Category"}
+              </InvModalTitle>
+              <InvModalCloseBtn onClick={() => setShowModal(false)}>✕</InvModalCloseBtn>
+            </InvModalHeader>
+
+            <form onSubmit={handleSubmit}>
+              <InvModalBody>
+                <InvFormGrid minWidth="100%">
+                  <InvFormField>
+                    <InvFormLabel required>Category Name</InvFormLabel>
+                    <InvInput
+                      autoFocus
+                      value={categoryName}
+                      onChange={(e) => {
+                        setCategoryName(e.target.value);
+                        if (error) setError("");
+                      }}
+                      placeholder="e.g. TABLETS, SYRUPS, INJECTIONS, SURGICAL"
+                      style={error ? { borderColor: InvTheme.danger } : {}}
+                    />
+                    {error && <InvFormError>{error}</InvFormError>}
+                  </InvFormField>
+                </InvFormGrid>
+              </InvModalBody>
+
+              <InvModalFooter>
+                <InvAddBtn secondary type="button" onClick={() => setShowModal(false)}>
+                  Cancel
+                </InvAddBtn>
+                <InvAddBtn type="submit" disabled={loading}>
+                  {loading ? "Saving..." : editingId ? "Update Category" : "Save Category"}
+                </InvAddBtn>
+              </InvModalFooter>
+            </form>
+          </InvModalContainer>
+        </InvModalOverlay>
+      )}
+    </PageContainer>
   );
 };
 

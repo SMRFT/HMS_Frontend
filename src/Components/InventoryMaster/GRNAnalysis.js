@@ -8,6 +8,7 @@ import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import { Eye, CheckCircle, X, Printer } from "lucide-react"
 import styled from "styled-components"
+import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
 
 /* ─── Styled Components ─────────────────────────────────────────────────── */
 const PageHeader = styled.div`
@@ -25,6 +26,65 @@ const FilterBar = styled.div`
 `
 const Lbl = styled(Label)`font-size: 0.72rem; margin-bottom: 2px; display: block;`
 const FInp = styled(Input)`font-size: 0.8rem; height: 34px; min-width: 140px;`
+
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+`;
+
+const TableSelect = styled.select`
+  height: 28px;
+  width: 72px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: ${colors.primary};
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid #e5e7eb;
+  font-size: .75rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+`;
+
+const PB = styled.button`
+  height: 28px;
+  padding: 0 13px;
+  font-size: .75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: ${p => p.active ? colors.primary : '#fff'};
+  color: ${p => p.active ? '#fff' : '#374151'};
+  cursor: pointer;
+  &:disabled {
+    opacity: .45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${p => p.active ? colors.primary : '#f3f4f6'};
+  }
+`;
 
 const ScrollTable = styled.div`width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;`
 
@@ -401,35 +461,61 @@ const GRNDocument = ({ grn, vendorInfo, items }) => {
 const GRNAnalysis = () => {
   const [grnList, setGrnList] = useState([])
   const [vendors, setVendors] = useState([])
-  const [fromDate, setFromDate] = useState("")
-  const [toDate, setToDate] = useState("")
+  const [fromDate, setFromDate] = useState(getTodayDateString())
+  const [toDate, setToDate] = useState(getTodayDateString())
   const [search, setSearch] = useState("")
   const [viewGrn, setViewGrn] = useState(null)
   const [viewItems, setViewItems] = useState([])
   const [confirmId, setConfirmId] = useState(null)
   const printRef = useRef()
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   const fetchVendors = useCallback(async () => {
-    try { const r = await apiRequest(`${baseUrl}vendors/`, "GET"); if (r.success) setVendors(Array.isArray(r.data?.data) ? r.data.data : (Array.isArray(r.data) ? r.data : [])) } catch { }
+    try {
+      const r = await apiRequest(`${baseUrl}vendors/`, "GET");
+      const payload = r?.data;
+      const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
+      if (r.success) setVendors(list);
+    } catch { }
   }, [])
-  const fetchGRNList = useCallback(async () => {
-    try { const r = await apiRequest(`${baseUrl}grn/`, "GET"); if (r.success) setGrnList(Array.isArray(r.data?.data) ? r.data.data : (Array.isArray(r.data) ? r.data : [])) } catch { }
-  }, [])
-  useEffect(() => { fetchVendors(); fetchGRNList() }, [fetchVendors, fetchGRNList])
+
+  const fetchGRNList = useCallback(async (p = page, size = pageSize, q = search, from = fromDate, to = toDate) => {
+    try {
+      const query = new URLSearchParams({
+        page: p,
+        page_size: size,
+      });
+      if (q && q.trim()) query.append("search", q.trim());
+      if (from) query.append("from_date", from);
+      if (to) query.append("to_date", to);
+      const r = await apiRequest(`${baseUrl}grn/?${query.toString()}`, "GET");
+      if (r && r.success) {
+        const payload = r.data;
+        const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
+        const total = payload?.total_records ?? payload?.count ?? r?.count ?? (Array.isArray(payload) ? payload.length : list.length);
+        const pages = payload?.total_pages ?? r?.total_pages ?? Math.max(1, Math.ceil(total / size));
+        setGrnList(list);
+        setTotalCount(total);
+        setTotalPages(pages);
+        setPage(payload?.current_page || p);
+      }
+    } catch { }
+  }, [page, pageSize, search, fromDate, toDate])
+
+  useEffect(() => {
+    fetchVendors();
+  }, [fetchVendors]);
+
+  useEffect(() => {
+    fetchGRNList(page, pageSize, search, fromDate, toDate);
+  }, [page, pageSize, search, fromDate, toDate, fetchGRNList]);
 
   const getVendor = (id) => vendors.find(x => Number(x.vendor_id) === Number(id)) || null
   const getVendorName = (id) => { const v = getVendor(id); return v ? v.name : String(id || "") }
-
-  const filtered = grnList.filter(g => {
-    const d = g.date?.split("T")[0] || ""
-    const inRange = (!fromDate || d >= fromDate) && (!toDate || d <= toDate)
-    const q = search.toLowerCase()
-    return inRange && (!q ||
-      g.draft_number?.toLowerCase().includes(q) ||
-      g.grn_number?.toLowerCase().includes(q) ||
-      getVendorName(g.vendor_id)?.toLowerCase().includes(q) ||
-      g.invoice_no?.toLowerCase().includes(q))
-  })
 
   const openView = (grn) => {
     try { setViewItems(JSON.parse(grn.items || "[]")) } catch { setViewItems([]) }
@@ -482,18 +568,30 @@ const GRNAnalysis = () => {
         </PageHeader>
 
         <FormContent style={{ padding: "10px 0" }}>
-          <FilterBar>
-            <div><Lbl>From Date</Lbl><FInp type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
-            <div><Lbl>To Date</Lbl>  <FInp type="date" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <Lbl>Search</Lbl>
-              <FInp placeholder="Draft No, GRN No, Vendor, Invoice…" value={search} onChange={e => setSearch(e.target.value)} style={{ width: "100%" }} />
-            </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
-              <Button onClick={fetchGRNList} style={{ height: 34, fontSize: "0.8rem", padding: "0 14px" }}>🔄 Refresh</Button>
-              <span style={{ color: colors.textMuted, fontSize: "0.78rem", alignSelf: "center" }}>{filtered.length} record(s)</span>
-            </div>
-          </FilterBar>
+          <InvTopToolbar
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            search={search}
+            onSearchChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
+            searchPlaceholder="Draft No, GRN No, Vendor, Invoice…"
+            fromDate={fromDate}
+            toDate={toDate}
+            onFromDateChange={(val) => {
+              setFromDate(val);
+              setPage(1);
+            }}
+            onToDateChange={(val) => {
+              setToDate(val);
+              setPage(1);
+            }}
+            totalRecords={totalCount}
+          />
 
           <ScrollTable>
             <Table style={{ minWidth: 1000 }}>
@@ -505,15 +603,15 @@ const GRNAnalysis = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={12}><div style={{ textAlign: "center", padding: "36px", color: colors.textMuted, fontSize: "0.85rem" }}>No GRN records found for the selected date range.</div></td></tr>
-                ) : filtered.map((grn, idx) => (
-                  <Tr key={grn.grn_id}>
-                    <Td style={{ fontSize: "0.73rem" }}>{idx + 1}</Td>
+                {grnList.length === 0 ? (
+                  <tr><td colSpan={12}><div style={{ textAlign: "center", padding: "36px", color: colors.textMuted, fontSize: "0.85rem" }}>No GRN records found for the selected filter.</div></td></tr>
+                ) : grnList.map((grn, idx) => (
+                  <Tr key={grn.grn_id || idx}>
+                    <Td style={{ fontSize: "0.73rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                     <Td><DraftBadge>{grn.draft_number || "—"}</DraftBadge></Td>
                     <Td>{grn.grn_number ? <GrnBadge>{grn.grn_number}</GrnBadge> : <PendingText>Pending</PendingText>}</Td>
                     <Td style={{ fontSize: "0.73rem" }}>{fmtDate(grn.date)}</Td>
-                    <Td style={{ fontWeight: 600, fontSize: "0.73rem" }}>{getVendorName(grn.vendor_id)}</Td>
+                    <Td style={{ fontWeight: 600, fontSize: "0.73rem" }}>{grn.vendor_name || getVendorName(grn.vendor_id)}</Td>
                     <Td style={{ fontSize: "0.7rem" }}>{PURCHASE_CATEGORIES.find(c => c.value === grn.purchase_category)?.label || grn.purchase_category}</Td>
                     <Td style={{ fontSize: "0.73rem" }}>{grn.invoice_no}</Td>
                     <Td style={{ fontSize: "0.73rem" }}>{fmtDate(grn.invoice_date)}</Td>
@@ -538,6 +636,14 @@ const GRNAnalysis = () => {
               </tbody>
             </Table>
           </ScrollTable>
+
+          <InvPagination
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={(p) => setPage(p)}
+          />
         </FormContent>
       </Container>
 

@@ -33,11 +33,33 @@ const NewAdmBtn = styled.button`
 `;
 
 // ─── Stat Cards ────────────────────────────────────────────────────────────────
-const StatStrip = styled.div`display:grid;grid-template-columns:repeat(2,1fr);border-bottom:1px solid #e5e7eb;`;
+const StatStrip = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  width: 100%;
+  border-bottom: 1px solid #e5e7eb;
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
+`;
 const StatCard = styled.div`
-  padding:14px 22px;display:flex;align-items:center;gap:14px;
-  border-right:1px solid #e5e7eb;&:last-child{border-right:none;}
-  animation:${fadeIn} .35s ease both;animation-delay:${p => p.i * .08}s;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-right: 1px solid #e5e7eb;
+  &:last-child { border-right: none; }
+  animation: ${fadeIn} .35s ease both;
+  animation-delay: ${p => p.i * .08}s;
+  cursor: pointer;
+  user-select: none;
+  transition: all .18s ease;
+  background: ${p => p.active ? (p.activeBg || '#ecfdf5') : '#fff'};
+  border-bottom: ${p => p.active ? `3px solid ${p.activeBorder || '#0d9488'}` : '3px solid transparent'};
+  position: relative;
+  &:hover {
+    background: ${p => p.active ? (p.activeBg || '#ecfdf5') : '#f9fafb'};
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
 `;
 const SIcon = styled.div`width:44px;height:44px;border-radius:10px;background:${p => p.bg || '#f0fdf4'};display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;`;
 const SLabel = styled.div`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;`;
@@ -178,10 +200,35 @@ const ReasonBtns = styled.div`display:flex;gap:10px;justify-content:flex-end;mar
 
 // ─── Table ─────────────────────────────────────────────────────────────────────
 const TTBar = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;gap:8px;`;
+const TableSelect = styled.select`
+  height: 28px;
+  width: 72px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: #0d9488;
+  }
+`;
 const TWrap = styled.div`overflow-x:auto;`;
 const Tbl = styled.table`width:100%;border-collapse:collapse;font-size:.82rem;`;
 const Thead = styled.thead`background:#f9fafb;`;
 const Th = styled.th`padding:10px 12px;text-align:left;font-size:.72rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb;white-space:nowrap;`;
+const SortTh = styled(Th)`
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  &:hover {
+    color: #0d9488;
+    background-color: #f0fdf4;
+  }
+`;
 const Tr = styled.tr`border-bottom:1px solid #f3f4f6;animation:${fadeIn} .28s ease both;animation-delay:${p => p.i * .035}s;&:hover{background:#f0fdf4;}`;
 const Td = styled.td`padding:9px 12px;color:#374151;white-space:nowrap;`;
 const Badge = styled.span`padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:${p => p.t === 'admitted' ? '#dcfce7' : p.t === 'discharged' ? '#dbeafe' : '#fee2e2'};color:${p => p.t === 'admitted' ? '#166534' : p.t === 'discharged' ? '#1d4ed8' : '#991b1b'};`;
@@ -456,6 +503,7 @@ const EMPTY = {
   salutation: "", firstName: "", middleName: "", lastName: "",
   dob: "", age: "", age_type: "Y", gender: "", mobilePhone: "", permanent_address: "",
   area: "", zipcode: "", city: "", state: "",
+  spouseName: "", fatherName: "", relationship: "", aadhaar: "",
   customerType: "General", insuranceCompanyName: "", company_code: "",
   room_details: [], roomShitingDetails: [], edit_history: [],
 };
@@ -524,17 +572,44 @@ const getRoomStatus = beds => {
 };
 
 const getActiveRoom = adm => {
-  const shifts = safeParseList(adm.roomShitingDetails);
-  for (const s of shifts) {
-    if (s && s.is_roomActive === true)
-      return { roomNo: s.newRoomNo || "-", bedNo: s.newBedNo || "-", source: "shifting" };
+  if (!adm) return { roomNo: "-", bedNo: "-", source: "fallback", isActive: false };
+  const isAdmActive = Boolean(adm.is_admitted && !adm.is_discharged && !adm.is_cancelled);
+  const shifts = safeParseList(adm.roomShitingDetails || adm.room_shifting_details);
+  // 1. Look for active shift first
+  for (let i = shifts.length - 1; i >= 0; i--) {
+    const s = shifts[i];
+    if (s && s.is_roomActive === true && (s.newRoomNo || s.roomNo)) {
+      return { roomNo: s.newRoomNo || s.roomNo || "-", bedNo: s.newBedNo || s.bedNo || "-", source: "shifting", isActive: isAdmActive && Boolean(s.is_roomActive) };
+    }
   }
-  const rooms = safeParseList(adm.room_details);
-  for (const r of rooms) {
-    if (r && r.is_roomActive === true)
-      return { roomNo: r.roomNo || "-", bedNo: r.bedNo || "-", source: "room_details" };
+
+  const rooms = safeParseList(adm.room_details || adm.roomDetails);
+  // 2. Look for active room
+  for (let i = rooms.length - 1; i >= 0; i--) {
+    const r = rooms[i];
+    if (r && r.is_roomActive === true && (r.roomNo || r.room_no)) {
+      return { roomNo: r.roomNo || r.room_no || "-", bedNo: r.bedNo || r.bed_no || "-", source: "room_details", isActive: isAdmActive && Boolean(r.is_roomActive) };
+    }
   }
-  return { roomNo: adm.roomNo || "-", bedNo: adm.bedNo || "-", source: "fallback" };
+
+  // 3. Fallback to latest shift record if any
+  for (let i = shifts.length - 1; i >= 0; i--) {
+    const s = shifts[i];
+    if (s && (s.newRoomNo || s.roomNo)) {
+      return { roomNo: s.newRoomNo || s.roomNo || "-", bedNo: s.newBedNo || s.bedNo || "-", source: "shifting", isActive: false };
+    }
+  }
+
+  // 4. Fallback to latest room_details record
+  for (let i = rooms.length - 1; i >= 0; i--) {
+    const r = rooms[i];
+    if (r && (r.roomNo || r.room_no)) {
+      return { roomNo: r.roomNo || r.room_no || "-", bedNo: r.bedNo || r.bed_no || "-", source: "room_details", isActive: false };
+    }
+  }
+
+  // 5. Fallback to top-level fields
+  return { roomNo: adm.roomNo || adm.room_no || "-", bedNo: adm.bedNo || adm.bed_no || "-", source: "fallback", isActive: false };
 };
 
 const getAdmStatus = adm => {
@@ -544,8 +619,61 @@ const getAdmStatus = adm => {
   return "cancelled";
 };
 
-const fmtDate = d => { try { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return "-"; } };
-const fmtTime = d => { try { return new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }); } catch { return "-"; } };
+const parseTimestamp = (d) => {
+  if (!d) return 0;
+  if (typeof d === "number") return d;
+  if (d instanceof Date) return isNaN(d.getTime()) ? 0 : d.getTime();
+  const str = String(d).trim();
+  if (!str) return 0;
+
+  let t = new Date(str).getTime();
+  if (!isNaN(t)) return t;
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  const dmy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(AM|PM)?)?/i);
+  if (dmy) {
+    const day = parseInt(dmy[1], 10);
+    const month = parseInt(dmy[2], 10) - 1;
+    const year = parseInt(dmy[3], 10);
+    let hours = dmy[4] ? parseInt(dmy[4], 10) : 0;
+    const minutes = dmy[5] ? parseInt(dmy[5], 10) : 0;
+    const seconds = dmy[6] ? parseInt(dmy[6], 10) : 0;
+    const ampm = dmy[7] ? dmy[7].toUpperCase() : null;
+    if (ampm === "PM" && hours < 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+    return new Date(year, month, day, hours, minutes, seconds).getTime();
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
+  const ymd = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(AM|PM)?)?/i);
+  if (ymd) {
+    const year = parseInt(ymd[1], 10);
+    const month = parseInt(ymd[2], 10) - 1;
+    const day = parseInt(ymd[3], 10);
+    let hours = ymd[4] ? parseInt(ymd[4], 10) : 0;
+    const minutes = ymd[5] ? parseInt(ymd[5], 10) : 0;
+    const seconds = ymd[6] ? parseInt(ymd[6], 10) : 0;
+    const ampm = ymd[7] ? ymd[7].toUpperCase() : null;
+    if (ampm === "PM" && hours < 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+    return new Date(year, month, day, hours, minutes, seconds).getTime();
+  }
+
+  return 0;
+};
+
+const fmtDate = d => {
+  if (!d) return "-";
+  const ts = parseTimestamp(d);
+  if (!ts) return typeof d === "string" ? d : "-";
+  try { return new Date(ts).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return "-"; }
+};
+const fmtTime = d => {
+  if (!d) return "-";
+  const ts = parseTimestamp(d);
+  if (!ts) return "-";
+  try { return new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }); } catch { return "-"; }
+};
 const fmtDateTime = d => { if (!d) return "—"; try { return `${fmtDate(d)}, ${fmtTime(d)}`; } catch { return "—"; } };
 
 function calcDuration(start, end) {
@@ -553,6 +681,47 @@ function calcDuration(start, end) {
   const ms = (end ? new Date(end) : new Date()) - new Date(start);
   if (ms < 0) return { days: 0, hours: 0 };
   return { days: Math.floor(ms / 86400000), hours: Math.floor((ms % 86400000) / 3600000) };
+}
+
+function calculateAgeFromDob(dobValue) {
+  if (!dobValue) return { age: "", age_type: "Y" };
+  try {
+    let dob = null;
+    const str = String(dobValue).trim();
+    if (str.includes("T")) {
+      dob = new Date(str);
+    } else if (str.match(/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/)) {
+      const parts = str.split(/[-/]/);
+      dob = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    } else if (str.match(/^\d{1,2}[-/]\d{1,2}[-/]\d{4}/)) {
+      const parts = str.split(/[-/]/);
+      dob = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    } else {
+      dob = new Date(str);
+    }
+
+    if (!dob || isNaN(dob.getTime())) return { age: "", age_type: "Y" };
+
+    const today = new Date();
+    let years = today.getFullYear() - dob.getFullYear();
+    let months = today.getMonth() - dob.getMonth();
+    let days = today.getDate() - dob.getDate();
+
+    if (days < 0) {
+      months -= 1;
+      days += 30;
+    }
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    if (years >= 1) return { age: years, age_type: "Y" };
+    if (months >= 1) return { age: months, age_type: "M" };
+    return { age: Math.max(0, days), age_type: "D" };
+  } catch {
+    return { age: "", age_type: "Y" };
+  }
 }
 
 function pName(d) {
@@ -637,16 +806,16 @@ function ReasonModal({ mode = "cancel", onConfirm, onCancel }) {
   );
 }
 
-function RoomTimeline({ roomDetails = [], shiftingDetails = [] }) {
+function RoomTimeline({ roomDetails = [], shiftingDetails = [], isDischarged = false }) {
   const roomEntries = roomDetails.map(r => ({
     key: `rd-${r.room_entry_id ?? Math.random()}`, roomNo: r.roomNo || "—", bedNo: r.bedNo || "—",
-    isActive: Boolean(r.is_roomActive), isCleaned: Boolean(r.is_roomCleaned),
+    isActive: !isDischarged && Boolean(r.is_roomActive), isCleaned: Boolean(r.is_roomCleaned),
     start: r.startDateTime, end: r.endDateTime,
     label: `Entry #${r.room_entry_id || "?"}`, isShift: false,
   }));
   const shiftEntries = shiftingDetails.map(s => ({
     key: `sh-${s.shifting_id}`, roomNo: s.newRoomNo || "—", bedNo: s.newBedNo || "—",
-    isActive: Boolean(s.is_roomActive), isCleaned: Boolean(s.is_roomCleaned),
+    isActive: !isDischarged && Boolean(s.is_roomActive), isCleaned: Boolean(s.is_roomCleaned),
     start: s.startDateTime, end: s.endDateTime,
     label: `Shifted from ${s.oldRoomNo || "?"}/${s.oldBedNo || "?"}`,
     shiftId: s.shifting_id, isShift: true,
@@ -693,17 +862,21 @@ function RoomHistoryModal({ adm, onClose }) {
   const roomDetails = Array.isArray(adm.room_details) ? adm.room_details : [];
   const shiftDetails = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails : [];
   const totalCount = roomDetails.length + shiftDetails.length;
+  const isAdmDischarged = Boolean(adm.is_discharged);
+  const isAdmCancelled = Boolean(adm.is_cancelled);
 
   const roomEntries = roomDetails.map((r, idx) => ({
     key: `rd-${r.room_entry_id ?? idx}`, roomNo: r.roomNo || "—", bedNo: r.bedNo || "—",
-    isActive: Boolean(r.is_roomActive), isCleaned: Boolean(r.is_roomCleaned),
+    isActive: !isAdmDischarged && !isAdmCancelled && Boolean(r.is_roomActive),
+    isCleaned: Boolean(r.is_roomCleaned),
     start: r.startDateTime, end: r.endDateTime,
     label: `Admission room entry #${r.room_entry_id || idx + 1}`, isShift: false,
   })).sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
 
   const shiftEntries = shiftDetails.map((s, idx) => ({
     key: `sh-${s.shifting_id ?? idx}`, roomNo: s.newRoomNo || "—", bedNo: s.newBedNo || "—",
-    isActive: Boolean(s.is_roomActive), isCleaned: Boolean(s.is_roomCleaned),
+    isActive: !isAdmDischarged && !isAdmCancelled && Boolean(s.is_roomActive),
+    isCleaned: Boolean(s.is_roomCleaned),
     start: s.startDateTime, end: s.endDateTime,
     label: `Shifted from Room ${s.oldRoomNo || "?"}/${s.oldBedNo || "?"}`,
     shiftId: s.shifting_id, isShift: true,
@@ -719,7 +892,7 @@ function RoomHistoryModal({ adm, onClose }) {
             <RHRoomSub>{r.label}{r.shiftId ? ` · ID: ${r.shiftId}` : ""}</RHRoomSub>
           </div>
           <RHStatusPill active={r.isActive} cleaned={r.isCleaned} shift={r.isShift && !r.isActive}>
-            {r.isActive ? "🟢 Currently Active" : r.isCleaned ? "✅ Cleaned" : r.isShift ? "🔄 Shifted" : "⬜ Past"}
+            {r.isActive ? "🟢 Currently Active" : r.isCleaned ? "✅ Cleaned" : r.isShift ? "🔄 Shifted" : isAdmDischarged ? "🚪 Discharged" : "⬜ Past"}
           </RHStatusPill>
         </RHCardHead>
         <RHGrid>
@@ -728,7 +901,7 @@ function RoomHistoryModal({ adm, onClose }) {
         </RHGrid>
         <RHFooter active={r.isActive} shift={r.isShift && !r.isActive}>
           ⏱ Duration: {dur ? `${dur.days}d ${dur.hours}h` : "—"}
-          {r.isActive && " (ongoing)"}{!r.isActive && !r.end && " · no checkout recorded"}
+          {r.isActive && " (ongoing)"}{!r.isActive && !r.end && (isAdmDischarged ? " · Discharged" : " · no checkout recorded")}
         </RHFooter>
       </RHCard>
     );
@@ -754,9 +927,31 @@ function RoomHistoryModal({ adm, onClose }) {
             🔄 {shiftEntries.length} shifting{shiftEntries.length !== 1 ? "s" : ""}
           </span>
           {(() => {
-            const { roomNo, bedNo, source } = getActiveRoom(adm); return (
-              <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", color: "#166534", fontWeight: 700 }}>
-                🟢 Active: Room {roomNo} / Bed {bedNo}{source === "shifting" && " 🔄"}
+            const { roomNo, bedNo, source, isActive } = getActiveRoom(adm);
+            if (isAdmDischarged) {
+              return (
+                <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#f1f5f9", border: "1px solid #cbd5e1", color: "#475569", fontWeight: 700 }}>
+                  🚪 Discharged Room: {roomNo}{bedNo && bedNo !== "-" ? ` / Bed ${bedNo}` : ""}{source === "shifting" && " 🔄"}
+                </span>
+              );
+            }
+            if (isAdmCancelled) {
+              return (
+                <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontWeight: 700 }}>
+                  ❌ Cancelled Room: {roomNo}{bedNo && bedNo !== "-" ? ` / Bed ${bedNo}` : ""}
+                </span>
+              );
+            }
+            if (isActive) {
+              return (
+                <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", color: "#166534", fontWeight: 700 }}>
+                  🟢 Active: Room {roomNo} / Bed {bedNo}{source === "shifting" && " 🔄"}
+                </span>
+              );
+            }
+            return (
+              <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#f3f4f6", border: "1px solid #e5e7eb", color: "#6b7280", fontWeight: 700 }}>
+                🏨 Last Room: {roomNo}{bedNo && bedNo !== "-" ? ` / Bed ${bedNo}` : ""}
               </span>
             );
           })()}
@@ -938,6 +1133,15 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
               <InfoItem>
                 <InfoLbl>Ward Status</InfoLbl>
                 <InfoVal>{adm.ward_status || "—"}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Room / Bed</InfoLbl>
+                <InfoVal style={{ fontWeight: 700, color: "#0f766e" }}>
+                  {(() => {
+                    const { roomNo, bedNo } = getActiveRoom(adm);
+                    return roomNo !== "-" ? `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}` : "—";
+                  })()}
+                </InfoVal>
               </InfoItem>
               <InfoItem style={{ gridColumn: "span 2" }}>
                 <InfoLbl>Reason for Admission</InfoLbl>
@@ -1380,6 +1584,8 @@ export default function Admission() {
   const [tSearch, setTSearch] = useState("");
   const [perPage, setPerPage] = useState(15);
   const [page, setPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState({ key: "admissionDateTime", direction: "asc" });
+  const [activeStatFilter, setActiveStatFilter] = useState(null); // "today_admissions" | "today_discharges" | "total_admissions" | "total_discharges" | null
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -1613,17 +1819,26 @@ export default function Admission() {
       } else {
         setAlreadyAdmInfo(null);
         setEditingId(null);
+        const dobVal = d.dob || d.dateOfBirth || "";
+        const calcAge = calculateAgeFromDob(dobVal);
+        const finalAge = calcAge.age !== "" ? calcAge.age : (d.age || "");
+        const finalAgeType = calcAge.age_type || d.age_type || "Y";
+
         setForm(p => ({
           ...p,
           salutation: d.salutation || "", firstName: d.firstName || "",
           middleName: d.middleName || "", lastName: d.lastName || "",
-          dob: d.dob || d.dateOfBirth || "",
-          age: d.age || "",             // Calculated from DOB by backend
-          age_type: d.age_type || "Y",
+          dob: dobVal,
+          age: finalAge,             // Calculated current age from DOB
+          age_type: finalAgeType,
           gender: d.gender || "",
           mobilePhone: d.mobilePhone || d.phone || "",
           permanent_address: d.permanent_address || "", area: d.area || "",
           zipcode: d.zipcode || "", city: d.city || "", state: d.state || "",
+          spouseName: d.spouseName || "",
+          fatherName: d.fatherName || "",
+          relationship: d.relationship || "",
+          aadhaar: d.aadhaar || d.aadhar || "",
           customerType: d.customerType || d.customer_type || "General",
           insuranceCompanyName: d.insuranceCompanyName || d.company_name || "",
           company_code: d.company_code || "",
@@ -1677,6 +1892,10 @@ export default function Admission() {
     const { roomNo, bedNo } = getActiveRoom(adm);
     const storedPackageNo = adm.packageNo || "";
     const resolvedName = resolvePackageName(storedPackageNo);
+    const dobStr = adm.dob || "";
+    const calcAge = calculateAgeFromDob(dobStr);
+    const currentAge = calcAge.age !== "" ? calcAge.age : (adm.age || "");
+    const currentAgeType = calcAge.age_type || adm.age_type || "Y";
     setPendingEditReason("");
     setForm({
       ...EMPTY,
@@ -1699,9 +1918,9 @@ export default function Admission() {
       firstName: adm.firstName || "",
       middleName: adm.middleName || "",
       lastName: adm.lastName || "",
-      dob: adm.dob || "",
-      age: adm.age || "",
-      age_type: adm.age_type || "Y",
+      dob: dobStr,
+      age: currentAge,
+      age_type: currentAgeType,
       gender: adm.gender || "",
       mobilePhone: adm.mobilePhone || "",
       permanent_address: adm.permanent_address || "",
@@ -1709,6 +1928,10 @@ export default function Admission() {
       zipcode: adm.zipcode || "",
       city: adm.city || "",
       state: adm.state || "",
+      spouseName: adm.spouseName || "",
+      fatherName: adm.fatherName || "",
+      relationship: adm.relationship || adm.attender_relationship || "",
+      aadhaar: adm.aadhaar || adm.aadhar || "",
       customerType: adm.customerType || adm.customer_type || "General",
       insuranceCompanyName: adm.insuranceCompanyName || adm.insurance_company || "",
       company_code: adm.company_code || "",
@@ -1721,22 +1944,185 @@ export default function Admission() {
     });
   }
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
-  const stats = {
-    admitted: admissions.filter(a => getAdmStatus(a) === "admitted").length,
-    discharged: admissions.filter(a => a.is_discharged).length,
+  // ── Date & Today Helpers ───────────────────────────────────────────────────
+  const isDateToday = (d) => {
+    if (!d) return false;
+    const ts = parseTimestamp(d);
+    if (!ts) return false;
+    const dateObj = new Date(ts);
+    const now = new Date();
+    return dateObj.getFullYear() === now.getFullYear() &&
+           dateObj.getMonth() === now.getMonth() &&
+           dateObj.getDate() === now.getDate();
   };
+
+  const isTodayAdmission = (a) => {
+    return isDateToday(a.admissionDateTime) || isDateToday(a.created_date);
+  };
+
+  const isTodayDischarge = (a) => {
+    if (!a.is_discharged) return false;
+    if (isDateToday(a.discharge_date) || isDateToday(a.dischargeDateTime)) return true;
+    if (isDateToday(a.lastmodified_date)) return true;
+    const rooms = safeParseList(a.room_details);
+    const shifts = safeParseList(a.roomShitingDetails);
+    return [...rooms, ...shifts].some(r => isDateToday(r?.endDateTime || r?.end_date_time));
+  };
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    let todayAdmitted = 0;
+    let todayDischarged = 0;
+    let admitted = 0;
+    let discharged = 0;
+
+    admissions.forEach(a => {
+      const isAdm = getAdmStatus(a) === "admitted";
+      const isDis = Boolean(a.is_discharged);
+
+      if (isAdm) admitted++;
+      if (isDis) discharged++;
+
+      if (isTodayAdmission(a) && (isAdm || !a.is_cancelled)) {
+        todayAdmitted++;
+      }
+      if (isTodayDischarge(a) || (isDis && isTodayAdmission(a))) {
+        todayDischarged++;
+      }
+    });
+
+    return { todayAdmitted, todayDischarged, admitted, discharged };
+  }, [admissions]);
 
   const getDrName = id =>
     doctors.find(d => String(d.employeeId) === String(id))?.employeeName || String(id || "-");
 
-  const filtered = admissions.filter(a => {
-    if (!tSearch) return true;
-    const q = tSearch.toLowerCase();
-    const { roomNo, bedNo } = getActiveRoom(a);
-    return `${a.uhid} ${a.ipNumber} ${pName(a)} ${getDrName(a.admittingDoctor)} ${roomNo} ${bedNo}`
-      .toLowerCase().includes(q);
-  });
+  const handleSort = (key) => {
+    setSortConfig(prev => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { key, direction: "asc" };
+    });
+    setPage(1);
+  };
+
+  const renderSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return <span style={{ color: "#9ca3af", marginLeft: 4, fontSize: ".68rem", fontWeight: 400 }}>⇅</span>;
+    }
+    return (
+      <span style={{ color: "#0d9488", marginLeft: 4, fontSize: ".68rem", fontWeight: 800 }}>
+        {sortConfig.direction === "asc" ? "▲" : "▼"}
+      </span>
+    );
+  };
+
+  const getPaginationItems = (currentPage, total) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, "...", total];
+    }
+    if (currentPage >= total - 3) {
+      return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", total];
+  };
+
+  const filtered = useMemo(() => {
+    let list = admissions;
+
+    // Apply Active Stat Card Filter
+    if (activeStatFilter === "today_admissions") {
+      list = list.filter(a => isTodayAdmission(a) && (getAdmStatus(a) === "admitted" || !a.is_cancelled));
+    } else if (activeStatFilter === "today_discharges") {
+      list = list.filter(a => isTodayDischarge(a) || (a.is_discharged && isTodayAdmission(a)));
+    } else if (activeStatFilter === "total_admissions") {
+      list = list.filter(a => getAdmStatus(a) === "admitted");
+    } else if (activeStatFilter === "total_discharges") {
+      list = list.filter(a => a.is_discharged);
+    }
+
+    if (tSearch && tSearch.trim()) {
+      const q = tSearch.trim().toLowerCase();
+      list = list.filter(a => {
+        const { roomNo, bedNo } = getActiveRoom(a);
+        const name = pName(a);
+        const admDr = getDrName(a.admittingDoctor);
+        const conDr = getDrName(a.consultingDoctor);
+        const status = getAdmStatus(a);
+        const dStr = a.admissionDateTime ? fmtDate(a.admissionDateTime) : "";
+        const tStr = a.admissionDateTime ? fmtTime(a.admissionDateTime) : "";
+        const allRooms = [
+          roomNo,
+          bedNo,
+          ...(Array.isArray(a.room_details) ? a.room_details.flatMap(r => [r.roomNo, r.bedNo]) : []),
+          ...(Array.isArray(a.roomShitingDetails) ? a.roomShitingDetails.flatMap(r => [r.newRoomNo, r.newBedNo]) : []),
+        ].filter(Boolean).join(" ");
+
+        const fullSearchString = [
+          a.uhid,
+          a.ipNumber,
+          name,
+          a.firstName,
+          a.middleName,
+          a.lastName,
+          admDr,
+          a.admittingDoctorName,
+          conDr,
+          status,
+          a.gender,
+          a.age ? `${a.age} ${a.age_type || "Y"}` : "",
+          a.mobilePhone,
+          a.permanent_address,
+          a.area,
+          a.city,
+          a.state,
+          a.zipcode,
+          a.customerType,
+          a.customer_type,
+          a.insuranceCompanyName,
+          a.insurance_company,
+          a.company_code,
+          a.packageNo,
+          a.packageName,
+          a.reasonForAdmission,
+          a.attender_name,
+          a.attender_phone,
+          a.attender_relationship,
+          a.mlc_type,
+          a.mlc_remarks,
+          allRooms,
+          dStr,
+          tStr,
+          a.admissionDateTime
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        return fullSearchString.includes(q);
+      });
+    }
+
+    if (!sortConfig.key) return list;
+
+    return [...list].sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+
+      if (sortConfig.key === "admissionDateTime") {
+        const aTime = parseTimestamp(aVal);
+        const bTime = parseTimestamp(bVal);
+        return sortConfig.direction === "asc" ? aTime - bTime : bTime - aTime;
+      }
+
+      const aStr = String(aVal || "");
+      const bStr = String(bVal || "");
+      const cmp = aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: "base" });
+      return sortConfig.direction === "asc" ? cmp : -cmp;
+    });
+  }, [admissions, tSearch, sortConfig, doctors, activeStatFilter]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
@@ -1818,14 +2204,28 @@ export default function Admission() {
 
   const _doSave = async (editReason = "") => {
     setSaving(true);
+    let saveAge = form.age;
+    let saveAgeType = form.age_type || "Y";
+    if (form.dob) {
+      const c = calculateAgeFromDob(form.dob);
+      if (c && c.age !== "") {
+        saveAge = c.age;
+        saveAgeType = c.age_type || "Y";
+      }
+    }
+
     const payload = new FormData();
     ["uhid", "admittingDoctor", "consultingDoctor", "roomNo", "bedNo",
       "reasonForAdmission", "mlc_type", "mlc_remarks", "attender_name", "attender_relationship", "attender_phone", "customerType", "company_code",
-      "insuranceCompanyName", "age", "age_type"].forEach(k => {
+      "insuranceCompanyName"].forEach(k => {
         if (form[k] !== undefined && form[k] !== null && form[k] !== "") {
           payload.append(k, form[k]);
         }
       });
+    if (saveAge !== undefined && saveAge !== null && saveAge !== "") {
+      payload.append("age", saveAge);
+      payload.append("age_type", saveAgeType);
+    }
     if (form.packageNo) payload.append("packageNo", form.packageNo);
     payload.append("admissionDateTime", new Date().toISOString());
     payload.append("is_high_risk", form.is_high_risk ? "true" : "false");
@@ -1862,12 +2262,17 @@ export default function Admission() {
           uhid: form.uhid,
           dob: form.dob,
           age: form.age,
+          age_type: form.age_type,
           gender: form.gender,
           mobilePhone: form.mobilePhone,
           permanent_address: form.permanent_address,
           area: form.area,
           city: form.city,
           state: form.state,
+          spouseName: form.spouseName,
+          fatherName: form.fatherName,
+          relationship: form.relationship,
+          aadhaar: form.aadhaar,
           customerType: form.customerType,
           insuranceCompanyName: form.insuranceCompanyName,
           admissionDateTime: admDateTime,
@@ -1944,17 +2349,104 @@ export default function Admission() {
   };
 
   const doPrint = () => {
-    const pd = printData;
+    const pd = printData || {};
     const admDT = pd.admissionDateTime ? new Date(pd.admissionDateTime) : new Date();
     const ipStr = pd.ipNumber || "";
     const { roomNo, bedNo } = getActiveRoom(pd);
     const encoded = encodeCode128(ipStr);
-    const bW = 240, modW = bW / encoded.length;
+    const bW = 200, modW = bW / encoded.length;
     let barsHtml = "", xPos = 0;
-    for (let i = 0; i < encoded.length; i++) { if (i % 2 === 0) barsHtml += `<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW, 0.6).toFixed(2)}" height="50" fill="black"/>`; xPos += modW; }
-    const attenderLine = pd.attender_name ? `<div class="line">Attender: ${pd.attender_name}${pd.attender_relationship ? ` (${pd.attender_relationship})` : ""}${pd.attender_phone ? ` - ${pd.attender_phone}` : ""}</div>` : "";
-    const w = window.open("", "_blank", "width=640,height=440");
-    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}.slip{width:540px;border:2px solid #000;padding:14px;}.row{display:flex;justify-content:space-between;gap:14px;}.right{text-align:right;}.big{font-size:18px;font-weight:900;letter-spacing:.5px;}.bold{font-weight:700;font-size:12px;}.line{margin:2px 0;font-size:11px;}.bc-label{font-family:'Courier New',monospace;font-size:9px;text-align:center;display:block;letter-spacing:1.5px;margin-bottom:4px;}@media print{body{padding:0;}.slip{border:none;}}</style></head><body><div class="slip"><div class="row"><div class="left"><svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="50" viewBox="0 0 ${bW} 50">${barsHtml}</svg><span class="bc-label">${ipStr}</span><div class="bold">${pName(pd)}</div><div class="line">${pd.age || ""} ${pd.gender || ""}</div><div class="line">${pd.permanent_address || ""}</div><div class="line">${[pd.area, pd.city, pd.state].filter(Boolean).join(", ")}</div><div class="line">${pd.mobilePhone || ""}</div>${attenderLine}<div class="line">Admitted: Dr. ${pd.admittingDoctorName || getDrName(pd.admittingDoctor)}</div></div><div class="right"><div class="big">IP NO: ${ipStr}</div><div class="line">${pd.insuranceCompanyName || ""}</div><div class="line">UHID : ${pd.uhid || ""}</div><div class="line">DOB  : ${pd.dob || "-"}</div><div class="line">Age  : ${pd.age || "-"}</div><div class="line">DOA  : ${admDT.toLocaleDateString("en-IN")}</div><div class="line">TIME : ${admDT.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}</div><div class="line">Room : ${roomNo} / ${bedNo}</div></div></div></div><script>window.onload=function(){window.print();window.close();};<\/script></body></html>`);
+    for (let i = 0; i < encoded.length; i++) {
+      if (i % 2 === 0) barsHtml += `<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW, 0.6).toFixed(2)}" height="38" fill="black"/>`;
+      xPos += modW;
+    }
+
+    // Relationship line (W/o, S/o, D/o, H/o, or Attender)
+    let relLine = "";
+    if (pd.spouseName) {
+      const prefix = String(pd.gender || "").toUpperCase() === "MALE" ? "H/o" : "W/o";
+      relLine = `<div class="line bold">${prefix} . ${pd.spouseName.toUpperCase()}</div>`;
+    } else if (pd.fatherName) {
+      const prefix = String(pd.gender || "").toUpperCase() === "FEMALE" ? "D/o" : "S/o";
+      relLine = `<div class="line bold">${prefix} . ${pd.fatherName.toUpperCase()}</div>`;
+    } else if (pd.attender_name) {
+      const rel = pd.attender_relationship ? (
+        pd.attender_relationship.toLowerCase() === "spouse" ? (String(pd.gender || "").toUpperCase() === "MALE" ? "H/o" : "W/o") :
+        pd.attender_relationship.toLowerCase() === "father" ? (String(pd.gender || "").toUpperCase() === "FEMALE" ? "D/o" : "S/o") :
+        pd.attender_relationship.toLowerCase() === "mother" ? (String(pd.gender || "").toUpperCase() === "FEMALE" ? "D/o" : "S/o") :
+        `${pd.attender_relationship} :`
+      ) : "W/o .";
+      relLine = `<div class="line bold">${rel} ${pd.attender_name.toUpperCase()}</div>`;
+    }
+
+    // Address
+    const addr1 = (pd.permanent_address || "").toUpperCase();
+    const addrParts = [pd.area, pd.city, pd.state].filter(Boolean).map(s => s.toUpperCase());
+    const addr2 = addrParts.join(" ,");
+
+    // Company / Insurance
+    const compName = (pd.insuranceCompanyName || pd.insurance_company || (pd.customerType !== "General" ? pd.customerType : "") || "").toUpperCase();
+
+    // Doctor
+    const rawDr = (pd.admittingDoctorName || getDrName(pd.admittingDoctor) || "").toUpperCase();
+    const docDisplay = rawDr ? (rawDr.startsWith("DR") ? rawDr : `DR.${rawDr}`) : "";
+
+    // Aadhaar / Adhar
+    const adharNo = pd.aadhaar || pd.aadhar || "";
+
+    // Room
+    const roomDisplay = roomNo !== "-" ? `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}` : "-";
+
+    const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }); // DD/MM/YYYY
+    const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }); // HH:MM:SS
+
+    const w = window.open("", "_blank", "width=600,height=420");
+    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{font-family:'Arial',sans-serif;font-size:12px;padding:16px;color:#000;background:#fff;}
+      .slip{width:460px;border:2px solid #000;padding:10px 14px;background:#fff;}
+      .header-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+      .bc-box{display:flex;flex-direction:column;align-items:flex-start;}
+      .ip-box{text-align:right;}
+      .ip-title{font-size:14px;font-weight:900;letter-spacing:.3px;}
+      .comp-title{font-size:12px;font-weight:900;margin-top:2px;}
+      .grid{display:grid;grid-template-columns:1.45fr 1fr;gap:6px 12px;}
+      .col-left{display:flex;flex-direction:column;gap:3px;}
+      .col-right{display:flex;flex-direction:column;gap:3px;text-align:left;}
+      .bold{font-weight:900;}
+      .line{font-size:11.5px;line-height:1.3;word-break:break-word;}
+      @media print{body{padding:0;}.slip{border:none;}}
+    </style></head><body>
+      <div class="slip">
+        <div class="header-row">
+          <div class="bc-box">
+            <svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="38" viewBox="0 0 ${bW} 38">${barsHtml}</svg>
+          </div>
+          <div class="ip-box">
+            <div class="ip-title">IP NO: ${ipStr}</div>
+            ${compName ? `<div class="comp-title">${compName}</div>` : ""}
+          </div>
+        </div>
+        <div class="grid">
+          <div class="col-left">
+            <div class="line bold">${pName(pd).toUpperCase()} / ${pd.age || ""} ${String(pd.gender || "").toUpperCase()}</div>
+            ${relLine}
+            ${addr1 ? `<div class="line bold">${addr1}</div>` : ""}
+            ${addr2 ? `<div class="line bold">${addr2}</div>` : ""}
+            ${pd.mobilePhone ? `<div class="line bold">${pd.mobilePhone}</div>` : ""}
+            <div class="line bold" style="margin-top:2px;">Admitted : ${docDisplay}</div>
+            <div class="line bold">Adhar Number : ${adharNo}</div>
+          </div>
+          <div class="col-right">
+            <div class="line bold">UHID : ${pd.uhid || ""}</div>
+            <div class="line bold">DOA  :${doaDate}</div>
+            <div class="line bold">AD.TIME: ${doaTime}</div>
+            <div class="line bold">Room: ${roomDisplay}</div>
+          </div>
+        </div>
+      </div>
+      <script>window.onload=function(){window.print();window.close();};<\/script>
+    </body></html>`);
     w.document.close();
   };
 
@@ -2080,14 +2572,56 @@ export default function Admission() {
 
         <StatStrip>
           {[
-            { label: "Total Admissions", value: stats.admitted, icon: "🛏️", bg: "#f0fdf4" },
-            { label: "Total Discharges", value: stats.discharged, icon: "📤", bg: "#eff6ff" },
-          ].map((s, i) => (
-            <StatCard key={i} i={i}>
-              <SIcon bg={s.bg}>{s.icon}</SIcon>
-              <div><SLabel>{s.label}</SLabel><SValue>{s.value}</SValue></div>
-            </StatCard>
-          ))}
+            {
+              id: "today_admissions",
+              label: "Today Admissions",
+              value: stats.todayAdmitted,
+              icon: "🛏️",
+              bg: "#f0fdf4",
+              activeBg: "#dcfce7",
+              activeBorder: "#16a34a",
+              activeColor: "#15803d"
+            },
+            {
+              id: "today_discharges",
+              label: "Today Discharges",
+              value: stats.todayDischarged,
+              icon: "📤",
+              bg: "#eff6ff",
+              activeBg: "#dbeafe",
+              activeBorder: "#2563eb",
+              activeColor: "#1d4ed8"
+            },
+          ].map((s, i) => {
+            const isActive = activeStatFilter === s.id;
+            return (
+              <StatCard
+                key={s.id}
+                i={i}
+                active={isActive}
+                activeBg={s.activeBg}
+                activeBorder={s.activeBorder}
+                onClick={() => {
+                  setActiveStatFilter(prev => prev === s.id ? null : s.id);
+                  setPage(1);
+                }}
+                title={`Click to filter table by ${s.label}`}
+              >
+                <SIcon bg={s.bg}>{s.icon}</SIcon>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+                    <SLabel style={{ color: isActive ? s.activeColor : undefined }}>{s.label}</SLabel>
+                    {isActive && (
+                      <span style={{ fontSize: ".62rem", fontWeight: 700, background: s.activeBorder, color: "#fff", padding: "1px 6px", borderRadius: 10, whiteSpace: "nowrap" }}>
+                        Filtered
+                      </span>
+                    )}
+                  </div>
+                  <SValue style={{ color: isActive ? s.activeColor : undefined }}>{s.value}</SValue>
+                </div>
+              </StatCard>
+            );
+          })}
         </StatStrip>
 
         <FilterBar>
@@ -2179,9 +2713,18 @@ export default function Admission() {
                 <Field><Lbl>DOB</Lbl><Inp value={form.dob || ""} readOnly style={{ background: "#f3f4f6" }} /></Field>
                 <Field>
                   <Lbl>Age (calculated)</Lbl>
-                  <Inp value={form.age ? `${form.age} ${form.age_type || "Y"}` : ""} readOnly
+                  <Inp
+                    value={(() => {
+                      if (form.dob) {
+                        const c = calculateAgeFromDob(form.dob);
+                        if (c && c.age !== "") return `${c.age} ${c.age_type || "Y"}`;
+                      }
+                      return form.age ? `${form.age} ${form.age_type || "Y"}` : "";
+                    })()}
+                    readOnly
                     style={{ background: "#f0fdf4", fontWeight: 700, color: "#0d9488" }}
-                    title="Automatically calculated from Date of Birth" />
+                    title="Automatically calculated from Date of Birth"
+                  />
                 </Field>
                 <Field><Lbl>Gender</Lbl><Inp value={form.gender} readOnly /></Field>
                 <Field span={2}>
@@ -2392,7 +2935,7 @@ export default function Admission() {
                 <Field span={2} />
 
                 {editingId && (
-                  <RoomTimeline roomDetails={form.room_details} shiftingDetails={form.roomShitingDetails} />
+                  <RoomTimeline roomDetails={form.room_details} shiftingDetails={form.roomShitingDetails} isDischarged={Boolean(form.is_discharged)} />
                 )}
 
                 <SecDiv>Admission &amp; Package</SecDiv>
@@ -2467,17 +3010,24 @@ export default function Admission() {
             {/* ── Table Controls ── */}
             <TTBar>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
-                Show&nbsp;
-                <FSel style={{ width: 60, height: 28 }} value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}>
-                  {[10, 15, 25, 50].map(n => <option key={n}>{n}</option>)}
-                </FSel>
-                &nbsp;entries
+                Show up to&nbsp;
+                <TableSelect value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}>
+                  {[10, 15, 20, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                </TableSelect>
               </div>
+              {activeStatFilter && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "3px 10px", borderRadius: 12, fontSize: ".72rem", color: "#166534" }}>
+                  <span>Filtering: <strong>{
+                    activeStatFilter === "today_admissions" ? "Today Admissions" : "Today Discharges"
+                  }</strong> ({filtered.length} records)</span>
+                  <button onClick={() => { setActiveStatFilter(null); setPage(1); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontWeight: 800, padding: "0 2px", fontSize: ".75rem" }} title="Clear Filter">✕</button>
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
                 Search:&nbsp;
                 <input value={tSearch} onChange={e => { setTSearch(e.target.value); setPage(1); }}
-                  placeholder="Name / UHID / IP / Room…"
-                  style={{ height: 28, padding: "0 8px", fontSize: ".75rem", border: "1px solid #d1d5db", borderRadius: 4, outline: "none" }} />
+                  placeholder="Name / UHID / IP / Room / Dr / Phone…"
+                  style={{ width: "320px", height: 28, padding: "0 10px", fontSize: ".75rem", border: "1px solid #d1d5db", borderRadius: 4, outline: "none", background: "#fff" }} />
               </div>
             </TTBar>
 
@@ -2486,9 +3036,15 @@ export default function Admission() {
               <Tbl>
                 <Thead>
                   <tr>
-                    <Th>Status</Th><Th>Adm Date</Th><Th>Time</Th>
-                    <Th>UHID</Th><Th>IP No.</Th><Th>Name</Th><Th>Age</Th><Th>Gender</Th>
-                    <Th>Admitting Dr.</Th><Th>Active Room / Bed</Th><Th>Room History</Th><Th>Actions</Th>
+                    <Th>Status</Th>
+                    <SortTh onClick={() => handleSort("admissionDateTime")}>
+                      Adm Date {renderSortIcon("admissionDateTime")}
+                    </SortTh>
+                    <Th>Time</Th>
+                    <Th>UHID</Th>
+                    <Th>IP No.</Th>
+                    <Th>Name</Th><Th>Age</Th><Th>Gender</Th>
+                    <Th>Admitting Dr.</Th><Th>Room / Bed</Th><Th>Room History</Th><Th>Actions</Th>
                   </tr>
                 </Thead>
                 <tbody>
@@ -2542,8 +3098,12 @@ export default function Admission() {
                           {roomNo !== "-" ? (
                             <span>
                               <span style={{ fontWeight: 700 }}>{roomNo}</span>
-                              <span style={{ color: "#6b7280" }}>/</span>
-                              <span style={{ fontWeight: 700 }}>{bedNo}</span>
+                              {bedNo && bedNo !== "-" && (
+                                <>
+                                  <span style={{ color: "#6b7280" }}> / </span>
+                                  <span style={{ fontWeight: 700 }}>{bedNo}</span>
+                                </>
+                              )}
                               {source === "shifting" && <RoomSourceTag src="shifting" title="Room from shifting record">🔄</RoomSourceTag>}
                               {source === "room_details" && <RoomSourceTag src="room_details" title="Room from admission details">📋</RoomSourceTag>}
                             </span>
@@ -2568,11 +3128,24 @@ export default function Admission() {
             </TWrap>
 
             <Pager>
-              <span>Showing {filtered.length === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of {filtered.length} entries</span>
-              <div style={{ display: "flex", gap: 4 }}>
+              <span>Showing {filtered.length === 0 ? 0 : (page - 1) * perPage + 1} to {Math.min(page * perPage, filtered.length)} of {filtered.length} entries</span>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <PB onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</PB>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, page - 3), page + 2).map(n => <PB key={n} active={n === page} onClick={() => setPage(n)}>{n}</PB>)}
-                <PB onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</PB>
+                {getPaginationItems(page, totalPages).map((item, idx) => {
+                  if (item === "...") {
+                    return (
+                      <PB key={`ellipsis-${idx}`} disabled style={{ cursor: "default", opacity: 0.8, color: "#6b7280" }}>
+                        ...
+                      </PB>
+                    );
+                  }
+                  return (
+                    <PB key={item} active={item === page} onClick={() => setPage(item)}>
+                      {item}
+                    </PB>
+                  );
+                })}
+                <PB onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages || totalPages === 0}>Next</PB>
               </div>
             </Pager>
           </>

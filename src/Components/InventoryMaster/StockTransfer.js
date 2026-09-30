@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
+import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper";
 import {
   Container,
   PageWrapper,
@@ -163,6 +164,67 @@ const SearchBtn = styled.button`
   transition: background 0.15s, transform 0.1s;
   &:hover { background: #0f766e; }
 `;
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #fff;
+`;
+
+const TableSelect = styled.select`
+  height: 32px;
+  width: 72px;
+  padding: 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1.5px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: #0d9488;
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.82rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+`;
+
+const PB = styled.button`
+  height: 32px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: ${(p) => (p.active ? "#0d9488" : "#fff")};
+  color: ${(p) => (p.active ? "#fff" : "#374151")};
+  cursor: pointer;
+  transition: all 0.15s;
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${(p) => (p.active ? "#0f766e" : "#f3f4f6")};
+  }
+`;
+
 const FormPanel = styled.div`
   animation: ${slideDown} 0.3s ease forwards;
   border-bottom: 2px solid #d1fae5;
@@ -1021,18 +1083,25 @@ const StockTransfer = () => {
   const { outletCode, isDrugPurchase } = getAuthContext();
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [outlets, setOutlets]     = useState([]);
-  const [transfers, setTransfers] = useState([]);
-  const [showForm, setShowForm]   = useState(false);
+  const [outlets, setOutlets]         = useState([]);
+  const [transfers, setTransfers]     = useState([]);
+  const [loading, setLoading]         = useState(false);
+  const [showForm, setShowForm]       = useState(false);
 
-  const [fromOutlet, setFromOutlet] = useState(isDrugPurchase ? null : outletCode);
-  const [toOutlet, setToOutlet]     = useState(null);
+  const [page, setPage]               = useState(1);
+  const [pageSize, setPageSize]       = useState(10);
+  const [totalCount, setTotalCount]   = useState(0);
+  const [totalPages, setTotalPages]   = useState(1);
+  const [searchQ, setSearchQ]         = useState("");
+
+  const [fromOutlet, setFromOutlet]   = useState(isDrugPurchase ? null : outletCode);
+  const [toOutlet, setToOutlet]       = useState(null);
 
   // ── NEW: Remarks state ─────────────────────────────────────────────────────
-  const [remarks, setRemarks]           = useState("");
-  const [remarksTouched, setRemarksTouched] = useState(false);
+  const [remarks, setRemarks]                 = useState("");
+  const [remarksTouched, setRemarksTouched]   = useState(false);
 
-  const [addedItems, setAddedItems] = useState([]);
+  const [addedItems, setAddedItems]   = useState([]);
 
   const [medicineSearch, setMedicineSearch]   = useState("");
   const [medicineResults, setMedicineResults] = useState([]);
@@ -1043,14 +1112,8 @@ const StockTransfer = () => {
   const [selectedBatchIdx, setSelectedBatchIdx] = useState("");
   const [transferQty, setTransferQty]           = useState("");
 
-  const [filterFromDate, setFilterFromDate] = useState(() => {
-    const d  = new Date();
-    const yr = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
-    return `${yr}-04-01`;
-  });
-  const [filterToDate, setFilterToDate] = useState(
-    () => new Date().toISOString().split("T")[0]
-  );
+  const [filterFromDate, setFilterFromDate] = useState(getTodayDateString);
+  const [filterToDate, setFilterToDate]     = useState(getTodayDateString);
 
   const [printSlip, setPrintSlip]       = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
@@ -1060,19 +1123,6 @@ const StockTransfer = () => {
   // ── Derived ────────────────────────────────────────────────────────────────
   const selectedBatch =
     selectedBatchIdx !== "" ? availableBatches[selectedBatchIdx] : null;
-
-  // ── Effects ────────────────────────────────────────────────────────────────
-  useEffect(() => { fetchOutlets(); }, []); // eslint-disable-line
-  useEffect(() => { fetchTransfers(); }, []); // eslint-disable-line
-
-  useEffect(() => {
-    const h = (e) => {
-      if (medicineSearchRef.current && !medicineSearchRef.current.contains(e.target))
-        setShowMedDropdown(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const getOutletName = useCallback((code) => {
@@ -1096,24 +1146,50 @@ const StockTransfer = () => {
     }
   }, [HmsBaseUrl]);
 
-  // ── Fetch transfers ────────────────────────────────────────────────────────
-  const fetchTransfers = useCallback(async (extra = {}) => {
+  // ── Effects ────────────────────────────────────────────────────────────────
+  useEffect(() => { fetchOutlets(); }, [fetchOutlets]);
+
+  useEffect(() => {
+    const h = (e) => {
+      if (medicineSearchRef.current && !medicineSearchRef.current.contains(e.target))
+        setShowMedDropdown(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const fetchTransfers = useCallback(async (p = page, size = pageSize, q = searchQ, from = filterFromDate, to = filterToDate) => {
+    setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (extra.from_date) params.append("from_date", extra.from_date);
-      if (extra.to_date)   params.append("to_date",   extra.to_date);
-      const qs  = params.toString();
+      const params = new URLSearchParams({
+        page: p,
+        page_size: size,
+      });
+      if (q && q.trim()) params.append("search", q.trim());
+      if (from) params.append("from_date", from);
+      if (to)   params.append("to_date", to);
+
       const res = await apiRequest(
-        `${HmsBaseUrl}stock-transfer/${qs ? "?" + qs : ""}`, "GET"
+        `${HmsBaseUrl}stock-transfer/?${params.toString()}`, "GET"
       );
-      const rows = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
+      const payload = res?.data;
+      const rows = payload?.data ?? (Array.isArray(payload) ? payload : (Array.isArray(res?.data) ? res.data : []));
       const all  = Array.isArray(rows) ? rows : [];
-      const filtered = filterTransfersByOutlet(all, outletCode, isDrugPurchase);
-      setTransfers(filtered);
+      setTransfers(all);
+      const count = payload?.count !== undefined ? payload.count : (res?.count !== undefined ? res.count : all.length);
+      setTotalCount(count);
+      setTotalPages(payload?.total_pages || Math.ceil(count / size) || 1);
+      setPage(payload?.current_page || p);
     } catch {
       toast.error("Failed to fetch transfers");
+    } finally {
+      setLoading(false);
     }
-  }, [HmsBaseUrl, outletCode, isDrugPurchase]);
+  }, [HmsBaseUrl, page, pageSize, searchQ, filterFromDate, filterToDate]);
+
+  useEffect(() => {
+    fetchTransfers(page, pageSize, searchQ, filterFromDate, filterToDate);
+  }, [page, pageSize, searchQ, filterFromDate, filterToDate, fetchTransfers]);
 
   // ── Search medicines ───────────────────────────────────────────────────────
   const searchMedicines = useCallback(async (query) => {
@@ -1122,10 +1198,11 @@ const StockTransfer = () => {
     }
     if (fromOutlet === null) { setMedicineResults([]); setShowMedDropdown(false); return; }
     try {
-      const params = new URLSearchParams({ search: query });
+      const params = new URLSearchParams({ search: query, page: "all" });
       params.append("outlet_code", fromOutlet);
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
-      const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+      const payload = res?.data;
+      const raw = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(res) ? res : []));
       const seen = new Set();
       const unique = raw.filter((s) => {
         if (seen.has(s.item_id)) return false;
@@ -1142,10 +1219,11 @@ const StockTransfer = () => {
   const fetchBatchesForItem = useCallback(async (itemId) => {
     if (fromOutlet === null) return;
     try {
-      const params = new URLSearchParams({ item_id: itemId });
+      const params = new URLSearchParams({ item_id: itemId, page: "all" });
       params.append("outlet_code", fromOutlet);
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
-      const stocks = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+      const payload = res?.data;
+      const stocks = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(res) ? res : []));
       const batches = stocks
         .filter((s) => Number(s.available_qty ?? 0) > 0)
         .map((s) => ({
@@ -1634,162 +1712,186 @@ const StockTransfer = () => {
           </FormPanel>
         )}
 
-        {/* Date Filters */}
-        <FilterRow>
-          <FilterGroup>
-            <FilterLabel>From Date</FilterLabel>
-            <FilterInput
-              type="date"
-              value={filterFromDate}
-              onChange={(e) => setFilterFromDate(e.target.value)}
-            />
-          </FilterGroup>
-          <FilterGroup>
-            <FilterLabel>To Date</FilterLabel>
-            <FilterInput
-              type="date"
-              value={filterToDate}
-              onChange={(e) => setFilterToDate(e.target.value)}
-            />
-          </FilterGroup>
-          <SearchBtn onClick={handleSearch}>🔍 Search</SearchBtn>
-        </FilterRow>
+        {/* Top Toolbar */}
+        <InvTopToolbar
+          pageSize={pageSize}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+          search={searchQ}
+          onSearchChange={(val) => {
+            setSearchQ(val);
+            setPage(1);
+          }}
+          searchPlaceholder="Search ref no, outlet, status, remarks..."
+          fromDate={filterFromDate}
+          toDate={filterToDate}
+          onFromDateChange={(val) => {
+            setFilterFromDate(val);
+            setPage(1);
+          }}
+          onToDateChange={(val) => {
+            setFilterToDate(val);
+            setPage(1);
+          }}
+          totalRecords={totalCount}
+        />
 
         {/* Transfer Records Table */}
-        <div style={{ padding: "20px 26px 28px" }}>
-          <SectionTitle>
+        <div style={{ padding: "0 26px 28px" }}>
+          <SectionTitle style={{ marginTop: 16 }}>
             📋 Transfer Records — {getOutletName(outletCode)}
             <span style={{
               background: "#e5e7eb", color: "#6b7280",
               fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: 600,
             }}>
-              {transfers.length}
+              {totalCount}
             </span>
           </SectionTitle>
+
           <TableWrapper>
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Status</Th>
-                  <Th>Date</Th>
-                  <Th>Ref No</Th>
-                  <Th>From</Th>
-                  <Th>To</Th>
-                  <Th>Items</Th>
-                  <Th>Remarks</Th>
-                  <Th>Approved / Rejected Info</Th>
-                  <Th style={{ textAlign: "center" }}>Actions</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {transfers.length === 0 ? (
-                  <Tr>
-                    <Td colSpan="9" style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0" }}>
-                      📭 No transfer records found
-                    </Td>
-                  </Tr>
-                ) : (
-                  transfers.map((t) => {
-                    const status = t.is_verified || "Draft";
-                    const items  = Array.isArray(t.items) ? t.items : [];
-                    return (
-                      <Tr key={t.transfer_ref_number || t.id}>
-                        <Td>
-                          <StatusBadge $status={status}>{status}</StatusBadge>
-                        </Td>
-                        <Td style={{ color: "#374151" }}>
-                          {t.created_date
-                            ? new Date(t.created_date).toLocaleDateString("en-GB")
-                            : "-"}
-                        </Td>
-                        <Td style={{ fontWeight: 700, color: "#0d9488", fontFamily: "monospace" }}>
-                          {t.transfer_ref_number}
-                        </Td>
-                        <Td>{getOutletName(t.from_outlet ?? t.outlet_code)}</Td>
-                        <Td>{getOutletName(t.to_outlet)}</Td>
-                        <Td>
-                          <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>
-                            {items.length} item{items.length !== 1 ? "s" : ""}
-                          </span>
-                        </Td>
-
-                        {/* ── NEW: Remarks column ────────────────────────── */}
-                        <Td style={{ maxWidth: 180 }}>
-                          {t.remarks ? (
-                            <span style={{
-                              fontSize: "0.8rem", color: "#374151",
-                              display: "-webkit-box", WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical", overflow: "hidden",
-                            }} title={t.remarks}>
-                              {t.remarks}
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>
+                ⏳ Loading transfer records...
+              </div>
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>#</Th>
+                    <Th>Status</Th>
+                    <Th>Date</Th>
+                    <Th>Ref No</Th>
+                    <Th>From</Th>
+                    <Th>To</Th>
+                    <Th>Items</Th>
+                    <Th>Remarks</Th>
+                    <Th>Approved / Rejected Info</Th>
+                    <Th style={{ textAlign: "center" }}>Actions</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transfers.length === 0 ? (
+                    <Tr>
+                      <Td colSpan="10" style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0" }}>
+                        📭 No transfer records found
+                      </Td>
+                    </Tr>
+                  ) : (
+                    transfers.map((t, idx) => {
+                      const status = t.is_verified || "Draft";
+                      const items  = Array.isArray(t.items) ? t.items : [];
+                      return (
+                        <Tr key={t.transfer_ref_number || t.id || idx}>
+                          <Td style={{ color: "#6b7280", fontSize: "0.8rem" }}>
+                            {(page - 1) * pageSize + idx + 1}
+                          </Td>
+                          <Td>
+                            <StatusBadge $status={status}>{status}</StatusBadge>
+                          </Td>
+                          <Td style={{ color: "#374151" }}>
+                            {t.created_date
+                              ? new Date(t.created_date).toLocaleDateString("en-GB")
+                              : "-"}
+                          </Td>
+                          <Td style={{ fontWeight: 700, color: "#0d9488", fontFamily: "monospace" }}>
+                            {t.transfer_ref_number}
+                          </Td>
+                          <Td>{getOutletName(t.from_outlet ?? t.outlet_code)}</Td>
+                          <Td>{getOutletName(t.to_outlet)}</Td>
+                          <Td>
+                            <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>
+                              {items.length} item{items.length !== 1 ? "s" : ""}
                             </span>
-                          ) : (
-                            <span style={{ color: "#d1d5db", fontSize: "0.78rem" }}>—</span>
-                          )}
-                        </Td>
+                          </Td>
 
-                        {/* ── NEW: Approved / Rejected Info column ──────── */}
-                        <Td style={{ minWidth: 160 }}>
-                          {status === "Approved" && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              {t.approved_by && (
-                                <InfoChip $color="#166534" $bg="#dcfce7" $border="#86efac">
-                                  ✔ {t.approved_by}
-                                </InfoChip>
-                              )}
-                              {t.approved_date && (
-                                <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
-                                  {fmtDateTime(t.approved_date)}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {status === "Rejected" && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              {t.rejected_by && (
-                                <InfoChip $color="#991b1b" $bg="#fee2e2" $border="#fca5a5">
-                                  ✕ {t.rejected_by}
-                                </InfoChip>
-                              )}
-                              {t.rejected_date && (
-                                <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
-                                  {fmtDateTime(t.rejected_date)}
-                                </span>
-                              )}
-                              {t.rejected_reason && (
-                                <span style={{
-                                  fontSize: "0.75rem", color: "#991b1b",
-                                  background: "#fff1f2", border: "1px solid #fecaca",
-                                  borderRadius: 4, padding: "2px 6px",
-                                  display: "-webkit-box", WebkitLineClamp: 2,
-                                  WebkitBoxOrient: "vertical", overflow: "hidden",
-                                }} title={t.rejected_reason}>
-                                  {t.rejected_reason}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {status === "Draft" && (
-                            <span style={{ color: "#d1d5db", fontSize: "0.78rem" }}>—</span>
-                          )}
-                        </Td>
+                          {/* ── NEW: Remarks column ────────────────────────── */}
+                          <Td style={{ maxWidth: 180 }}>
+                            {t.remarks ? (
+                              <span style={{
+                                fontSize: "0.8rem", color: "#374151",
+                                display: "-webkit-box", WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical", overflow: "hidden",
+                              }} title={t.remarks}>
+                                {t.remarks}
+                              </span>
+                            ) : (
+                              <span style={{ color: "#d1d5db", fontSize: "0.78rem" }}>—</span>
+                            )}
+                          </Td>
 
-                        <Td style={{ textAlign: "center" }}>
-                          <RowKebabMenu
-                            transfer={t}
-                            canApprove={canApprove(t)}
-                            onApprove={() => handleApproveClick(t)}
-                            onReject={() => handleRejectClick(t)}
-                            onPrint={() => setPrintSlip(t)}
-                          />
-                        </Td>
-                      </Tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </Table>
+                          {/* ── NEW: Approved / Rejected Info column ──────── */}
+                          <Td style={{ minWidth: 160 }}>
+                            {status === "Approved" && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                {t.approved_by && (
+                                  <InfoChip $color="#166534" $bg="#dcfce7" $border="#86efac">
+                                    ✔ {t.approved_by}
+                                  </InfoChip>
+                                )}
+                                {t.approved_date && (
+                                  <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
+                                    {fmtDateTime(t.approved_date)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {status === "Rejected" && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                {t.rejected_by && (
+                                  <InfoChip $color="#991b1b" $bg="#fee2e2" $border="#fca5a5">
+                                    ✕ {t.rejected_by}
+                                  </InfoChip>
+                                )}
+                                {t.rejected_date && (
+                                  <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
+                                    {fmtDateTime(t.rejected_date)}
+                                  </span>
+                                )}
+                                {t.rejected_reason && (
+                                  <span style={{
+                                    fontSize: "0.75rem", color: "#991b1b",
+                                    background: "#fff1f2", border: "1px solid #fecaca",
+                                    borderRadius: 4, padding: "2px 6px",
+                                    display: "-webkit-box", WebkitLineClamp: 2,
+                                    WebkitBoxOrient: "vertical", overflow: "hidden",
+                                  }} title={t.rejected_reason}>
+                                    {t.rejected_reason}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {status === "Draft" && (
+                              <span style={{ color: "#d1d5db", fontSize: "0.78rem" }}>—</span>
+                            )}
+                          </Td>
+
+                          <Td style={{ textAlign: "center" }}>
+                            <RowKebabMenu
+                              transfer={t}
+                              canApprove={canApprove(t)}
+                              onApprove={() => handleApproveClick(t)}
+                              onReject={() => handleRejectClick(t)}
+                              onPrint={() => setPrintSlip(t)}
+                            />
+                          </Td>
+                        </Tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </Table>
+            )}
           </TableWrapper>
+
+          <InvPagination
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={(p) => setPage(p)}
+          />
         </div>
 
       </Container>

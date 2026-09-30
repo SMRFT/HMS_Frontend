@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
+import { InvTopToolbar, InvPagination, getTodayDateString, InvSelect } from "./InventoryUIHelper"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -184,6 +185,65 @@ const Trow    = styled.tr`transition:background .1s;&:hover{background:#fafafa;}
 /* ── Filter bar ── */
 const FBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:13px 18px;background:${C.faint};border-bottom:1px solid ${C.border};`
 
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
+`;
+
+const TableSelect = styled.select`
+  height: 28px;
+  width: 72px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: ${C.primary};
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid #e5e7eb;
+  font-size: .75rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: #fff;
+`;
+
+const PB = styled.button`
+  height: 28px;
+  padding: 0 13px;
+  font-size: .75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: ${p => p.active ? C.primary : '#fff'};
+  color: ${p => p.active ? '#fff' : '#374151'};
+  cursor: pointer;
+  &:disabled {
+    opacity: .45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${p => p.active ? C.primary : '#f3f4f6'};
+  }
+`;
+
 /* ── Modal ── */
 const MOverlay = styled.div`position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1050;display:flex;align-items:center;justify-content:center;padding:16px;`
 const MBox     = styled.div`background:#fff;border-radius:12px;padding:28px 32px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.22);${css`animation:${fadeSlide} .18s ease forwards;`}`
@@ -250,6 +310,11 @@ export default function PurchaseOrder() {
   const [openMenuId,  setOpenMenuId]  = useState(null)
   const menuRef = useRef(null)
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   /* form state */
   const [vendorId, setVendorId] = useState("")
   const [lines,    setLines]    = useState([EMPTY_LINE()])
@@ -258,8 +323,8 @@ export default function PurchaseOrder() {
   /* list filters */
   const [searchQ,    setSearchQ]    = useState("")
   const [filterStat, setFilterStat] = useState("")
-  const [fromDate,   setFromDate]   = useState("")
-  const [toDate,     setToDate]     = useState("")
+  const [fromDate,   setFromDate]   = useState(getTodayDateString())
+  const [toDate,     setToDate]     = useState(getTodayDateString())
 
   /* per-row medicine autocomplete */
   const [medSearch,  setMedSearch]  = useState({})   // { [lineId]: inputText }
@@ -286,35 +351,49 @@ export default function PurchaseOrder() {
     } catch { toast.error("Failed to load vendors") }
   }, [])
 
-  /* ── fetch PO list ──
-     items arrive as a native array from MongoDB — no parsing needed.  */
-  const fetchList = useCallback(async () => {
+  /* ── fetch PO list with server-side pagination ── */
+  const fetchList = useCallback(async (p = page, size = pageSize, q = searchQ, stat = filterStat, from = fromDate, to = toDate) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (fromDate) params.append("from_date", fromDate)
-      if (toDate)   params.append("to_date",   toDate)
-      const qs = params.toString()
+      const params = new URLSearchParams({
+        page: p,
+        page_size: size,
+      })
+      if (q && q.trim()) params.append("search", q.trim())
+      if (stat) params.append("status", stat)
+      if (from) params.append("from_date", from)
+      if (to)   params.append("to_date",   to)
 
-      const r    = await apiRequest(`${BASE}purchase-order/${qs ? "?" + qs : ""}`, "GET")
-      const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
+      const r    = await apiRequest(`${BASE}purchase-order/?${params.toString()}`, "GET")
+      const payload = r?.data
+      const rows = payload?.data ?? (Array.isArray(payload) ? payload : [])
 
-      // items is always a native array from the backend — just guarantee with safeItems()
       const normalized = (Array.isArray(rows) ? rows : []).map(po => ({
         ...po,
         items: safeItems(po.items),
       }))
 
       setPoList(normalized)
+      setTotalCount(payload?.count !== undefined ? payload.count : (r?.count !== undefined ? r.count : normalized.length))
+      setTotalPages(payload?.total_pages || Math.ceil((payload?.count || normalized.length) / size) || 1)
+      setPage(payload?.current_page || p)
     } catch (err) {
       console.error(err)
       toast.error("Failed to load purchase orders")
     } finally {
       setLoading(false)
     }
-  }, [fromDate, toDate])
+  }, [page, pageSize, searchQ, filterStat, fromDate, toDate])
 
-  useEffect(() => { fetchVendors(); fetchList() }, [fetchVendors, fetchList])
+  useEffect(() => {
+    fetchVendors()
+  }, [fetchVendors])
+
+  useEffect(() => {
+    if (tab === "list") {
+      fetchList(page, pageSize, searchQ, filterStat, fromDate, toDate)
+    }
+  }, [tab, page, pageSize, searchQ, filterStat, fromDate, toDate, fetchList])
 
   /* ── medicine autocomplete ── */
   const searchMeds = useCallback(async (lineId, query) => {
@@ -373,16 +452,13 @@ export default function PurchaseOrder() {
     return Object.keys(e).length === 0
   }
 
-  /* ── build payload ──
-     items is sent as a plain JS array — DRF serialises it natively to MongoDB array.
-     Never JSON.stringify items. */
+  /* ── build payload ── */
   const buildPayload = (editedReason) => {
     const vendorObj = vendors.find(v => String(v.vendor_id) === String(vendorId))
     return {
       vendor_id:   vendorId,
       vendor_name: vendorObj?.name || "",
       supplier:    vendorObj?.name || "",
-      // Native array — not JSON string
       items: lines.map(l => ({
         item_id:       l.item_id || null,
         medicine_name: l.medicine_name.trim(),
@@ -426,8 +502,7 @@ export default function PurchaseOrder() {
     finally { setSaving(false) }
   }
 
-  /* ── load PO into edit form ──
-     po.items is already a native array from MongoDB — just use safeItems(). */
+  /* ── load PO into edit form ── */
   const handleEdit = po => {
     if (po.status === "Approved" || po.status === "Rejected") {
       toast.warning(`Cannot edit a ${po.status} Purchase Order`)
@@ -448,7 +523,6 @@ export default function PurchaseOrder() {
 
     setLines(loadedLines.length ? loadedLines : [EMPTY_LINE()])
 
-    // Pre-populate medSearch so inputs show existing medicine names
     const ms = {}
     loadedLines.forEach(l => { ms[l._id] = l.medicine_name })
     setMedSearch(ms)
@@ -466,16 +540,6 @@ export default function PurchaseOrder() {
     setMedSearch({}); setMedResults({}); setShowDrop({})
     setErrs({})
   }
-
-  /* ── client-side filter for list tab ── */
-  const filtered = poList.filter(r => {
-    const q  = searchQ.toLowerCase()
-    const okQ = !q ||
-      (r.po_number   || "").toLowerCase().includes(q) ||
-      (r.vendor_name || "").toLowerCase().includes(q) ||
-      (r.supplier    || "").toLowerCase().includes(q)
-    return okQ && (!filterStat || r.status === filterStat)
-  })
 
   /* ── date formatters ── */
   const fmtDT = d => {
@@ -639,45 +703,65 @@ export default function PurchaseOrder() {
             <CardHead>
               📄 Purchase Orders
               <span style={{ background: "#e5e7eb", color: C.muted, fontSize: ".7rem", padding: "1px 8px", borderRadius: 12, fontWeight: 700 }}>
-                {poList.length}
+                {totalCount}
               </span>
             </CardHead>
 
-            {/* Filters */}
-            <FBar>
-              <FG style={{ flex: 1, minWidth: 200, margin: 0 }}>
-                <Lbl>Search</Lbl>
-                <Inp value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="PO No, Vendor…" />
-              </FG>
-              <FG style={{ minWidth: 155, margin: 0 }}>
-                <Lbl>Status</Lbl>
-                <Sel value={filterStat} onChange={e => setFilterStat(e.target.value)}>
+            {/* Filters & Show Upto Toolbar */}
+            <InvTopToolbar
+              pageSize={pageSize}
+              onPageSizeChange={(sz) => {
+                setPageSize(sz);
+                setPage(1);
+              }}
+              pageSizeOptions={[10, 25, 50, 100]}
+              fromDate={fromDate}
+              toDate={toDate}
+              onFromDateChange={(d) => {
+                setFromDate(d);
+                setPage(1);
+              }}
+              onToDateChange={(d) => {
+                setToDate(d);
+                setPage(1);
+              }}
+              onSetToday={() => {
+                setFromDate(getTodayDateString());
+                setToDate(getTodayDateString());
+                setPage(1);
+              }}
+              onClearDate={() => {
+                setFromDate("");
+                setToDate("");
+                setPage(1);
+              }}
+              search={searchQ}
+              onSearchChange={(val) => {
+                setSearchQ(val);
+                setPage(1);
+              }}
+              searchPlaceholder="Search PO No, Vendor…"
+              totalRecords={totalCount}
+              customFilters={
+                <InvSelect
+                  value={filterStat}
+                  onChange={(e) => {
+                    setFilterStat(e.target.value);
+                    setPage(1);
+                  }}
+                >
                   <option value="">All Status</option>
-                  {["Draft", "Verified", "Approved", "Rejected"].map(s =>
+                  {["Draft", "Verified", "Approved", "Rejected"].map((s) => (
                     <option key={s} value={s}>{s}</option>
-                  )}
-                </Sel>
-              </FG>
-              <FG style={{ margin: 0 }}>
-                <Lbl>From Date</Lbl>
-                <Inp type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} style={{ width: "auto" }} />
-              </FG>
-              <FG style={{ margin: 0 }}>
-                <Lbl>To Date</Lbl>
-                <Inp type="date" value={toDate} onChange={e => setToDate(e.target.value)} style={{ width: "auto" }} />
-              </FG>
-              <Btn
-                onClick={fetchList}
-                style={{ background: C.primary, color: "#fff", alignSelf: "flex-end", padding: "9px 16px", fontSize: ".82rem", border: "none" }}
-              >
-                🔍 Search
-              </Btn>
-            </FBar>
+                  ))}
+                </InvSelect>
+              }
+            />
 
             <TblWrap>
               {loading ? (
                 <div style={{ textAlign: "center", padding: "44px", color: C.muted, fontSize: ".85rem" }}>Loading…</div>
-              ) : filtered.length === 0 ? (
+              ) : poList.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "44px", color: C.muted, fontSize: ".85rem" }}>📭 No purchase orders found</div>
               ) : (
                 <Tbl>
@@ -695,12 +779,12 @@ export default function PurchaseOrder() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((po, idx) => {
+                    {poList.map((po, idx) => {
                       const canEdit = po.status === "Draft" || po.status === "Verified"
                       const items   = safeItems(po.items)
                       return (
-                        <Trow key={po.po_number}>
-                          <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
+                        <Trow key={po.po_number || idx}>
+                          <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                           <Td><Pill>{po.po_number}</Pill></Td>
                           <Td style={{ fontWeight: 700 }}>{po.vendor_name || po.vendor_id || "—"}</Td>
 
@@ -777,6 +861,14 @@ export default function PurchaseOrder() {
                 </Tbl>
               )}
             </TblWrap>
+
+            <InvPagination
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalRecords={totalCount}
+              onPageChange={setPage}
+            />
           </Card>
         )}
       </Body>
@@ -849,5 +941,5 @@ export default function PurchaseOrder() {
         </MOverlay>
       )}
     </Wrap>
-  )
+  );
 }

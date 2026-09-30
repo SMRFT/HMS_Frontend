@@ -9,6 +9,7 @@ import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import { Plus, Trash2, X, ShoppingCart, Lock, Camera, Upload, ScanLine, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
 import styled, { keyframes } from "styled-components"
+import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
 
 /* ─── Styled Components ─────────────────────────────────────────────────── */
 const PageHeader = styled.div`
@@ -138,6 +139,65 @@ const MrpCard = styled.div`
   padding: 6px 10px;
 `
 const MrpLabel = styled.div`font-size: 0.62rem; color: ${colors.textMuted}; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;`
+
+const TTBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+`;
+
+const TableSelect = styled.select`
+  height: 28px;
+  width: 72px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  outline: none;
+  &:focus {
+    border-color: ${colors.primary};
+  }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid #e5e7eb;
+  font-size: .75rem;
+  color: #6b7280;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+`;
+
+const PB = styled.button`
+  height: 28px;
+  padding: 0 13px;
+  font-size: .75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: ${p => p.active ? colors.primary : '#fff'};
+  color: ${p => p.active ? '#fff' : '#374151'};
+  cursor: pointer;
+  &:disabled {
+    opacity: .45;
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    background: ${p => p.active ? colors.primary : '#f3f4f6'};
+  }
+`;
 const MrpValue = styled.div`font-size: 0.88rem; font-weight: 700; color: ${colors.textMain};`
 const LastLine  = styled.div`font-size: 0.62rem; color: ${colors.primary}; font-weight: 600; margin-top: 2px;`
 
@@ -785,8 +845,15 @@ const GRNGeneration = () => {
   const [editDraftNo, setEditDraftNo] = useState("")
   const [editStatus,  setEditStatus]  = useState("")
   const [search,      setSearch]      = useState("")
+  const [fromDate,    setFromDate]    = useState(getTodayDateString())
+  const [toDate,      setToDate]      = useState(getTodayDateString())
   const [loading,     setLoading]     = useState(false)
   const [ocrApplied,  setOcrApplied]  = useState(false)
+
+  const [listPage, setListPage] = useState(1);
+  const [listPageSize, setListPageSize] = useState(10);
+  const [listTotalCount, setListTotalCount] = useState(0);
+  const [listTotalPages, setListTotalPages] = useState(1);
 
   // ── NEW: edit reason modal state ──────────────────────────────────────────
   const [showEditReasonModal, setShowEditReasonModal] = useState(false)
@@ -795,14 +862,43 @@ const GRNGeneration = () => {
 
   /* ── Fetchers ── */
   const fetchVendors   = useCallback(async () => {
-    try { const r = await apiRequest(`${baseUrl}vendors/`,"GET"); if(r.success) setVendors(Array.isArray(r.data)?r.data:[]) } catch {}
+    try {
+      const r = await apiRequest(`${baseUrl}vendors/`,"GET");
+      const payload = r?.data;
+      const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
+      if(r.success) setVendors(list)
+    } catch {}
   },[])
   const fetchMedicines = useCallback(async () => {
-    try { const r = await apiRequest(`${baseUrl}pharmacy_items/`,"GET"); if(r.success) setMedicines(Array.isArray(r.data)?r.data:[]) } catch {}
+    try {
+      const r = await apiRequest(`${baseUrl}pharmacy_items/`,"GET");
+      const payload = r?.data;
+      const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
+      if(r.success) setMedicines(list)
+    } catch {}
   },[])
-  const fetchGRNList   = useCallback(async () => {
-    try { const r = await apiRequest(`${baseUrl}grn/`,"GET"); if(r.success) setGrnList(Array.isArray(r.data.data)?r.data.data:[]) } catch {}
-  },[])
+  const fetchGRNList   = useCallback(async (p = listPage, size = listPageSize, q = search, from = fromDate, to = toDate) => {
+    try {
+      const query = new URLSearchParams({
+        page: p,
+        page_size: size,
+      });
+      if (q && q.trim()) query.append("search", q.trim());
+      if (from) query.append("from_date", from);
+      if (to)   query.append("to_date", to);
+      const r = await apiRequest(`${baseUrl}grn/?${query.toString()}`, "GET");
+      if (r && r.success) {
+        const payload = r.data;
+        const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
+        const total = payload?.total_records ?? payload?.count ?? r?.count ?? (Array.isArray(payload) ? payload.length : list.length);
+        const pages = payload?.total_pages ?? r?.total_pages ?? Math.max(1, Math.ceil(total / size));
+        setGrnList(list);
+        setListTotalCount(total);
+        setListTotalPages(pages);
+        setListPage(payload?.current_page || p);
+      }
+    } catch {}
+  }, [listPage, listPageSize, search, fromDate, toDate])
 
   const fetchOutlets = useCallback(async () => {
     try {
@@ -822,8 +918,17 @@ const GRNGeneration = () => {
     }
   }, [])
 
-  useEffect(()=>{ fetchVendors(); fetchMedicines(); fetchGRNList(); fetchOutlets() },
-    [fetchVendors, fetchMedicines, fetchGRNList, fetchOutlets])
+  useEffect(() => {
+    fetchVendors();
+    fetchMedicines();
+    fetchOutlets();
+  }, [fetchVendors, fetchMedicines, fetchOutlets]);
+
+  useEffect(() => {
+    if (activeTab === "list") {
+      fetchGRNList(listPage, listPageSize, search, fromDate, toDate);
+    }
+  }, [activeTab, listPage, listPageSize, search, fromDate, toDate, fetchGRNList]);
 
   const fetchLastStock = useCallback(async (item_id) => {
     if (!item_id) { setLastStock(null); return }
@@ -1819,19 +1924,30 @@ const GRNGeneration = () => {
           {activeTab==="list"&&(
             <>
               <SectionTitle><h3>GRN Records</h3></SectionTitle>
-              <ControlsContainer>
-                <SearchContainer>
-                  <InputWrapper>
-                    <Label>Search</Label>
-                    <Input style={{minWidth:220,fontSize:"0.82rem"}}
-                      placeholder="Draft No, GRN No, Vendor, Invoice…"
-                      value={search} onChange={e=>setSearch(e.target.value)} />
-                  </InputWrapper>
-                </SearchContainer>
-                <div style={{color:colors.textMuted,fontSize:"0.8rem",alignSelf:"flex-end"}}>
-                  {filtered.length} record(s)
-                </div>
-              </ControlsContainer>
+              <InvTopToolbar
+                pageSize={listPageSize}
+                onPageSizeChange={(newSize) => {
+                  setListPageSize(newSize);
+                  setListPage(1);
+                }}
+                search={search}
+                onSearchChange={(val) => {
+                  setSearch(val);
+                  setListPage(1);
+                }}
+                searchPlaceholder="Draft No, GRN No, Vendor, Invoice…"
+                fromDate={fromDate}
+                toDate={toDate}
+                onFromDateChange={(val) => {
+                  setFromDate(val);
+                  setListPage(1);
+                }}
+                onToDateChange={(val) => {
+                  setToDate(val);
+                  setListPage(1);
+                }}
+                totalRecords={listTotalCount}
+              />
               <ScrollTable>
                 <Table>
                   <thead><tr>
@@ -1851,17 +1967,17 @@ const GRNGeneration = () => {
                     <Th style={{fontSize:"0.72rem"}}>Actions</Th>
                   </tr></thead>
                   <tbody>
-                    {filtered.length===0?(
+                    {grnList.length===0?(
                       <tr>
                         <td colSpan={13}>
                           <div style={{textAlign:"center",padding:"32px",color:colors.textMuted,fontSize:"0.85rem"}}>
-                            No GRN records found.
+                            No GRN records found for the selected date range.
                           </div>
                         </td>
                       </tr>
-                    ):filtered.map((grn,idx)=>(
-                      <Tr key={grn.grn_id}>
-                        <Td style={{fontSize:"0.75rem"}}>{idx+1}</Td>
+                    ):grnList.map((grn,idx)=>(
+                      <Tr key={grn.grn_id || idx}>
+                        <Td style={{fontSize:"0.75rem"}}>{(listPage - 1) * listPageSize + idx + 1}</Td>
                         <Td><DraftBadge>{grn.draft_number||"—"}</DraftBadge></Td>
                         <Td>
                           {grn.grn_number
@@ -1869,7 +1985,7 @@ const GRNGeneration = () => {
                             : <PendingText>Pending</PendingText>}
                         </Td>
                         <Td style={{fontSize:"0.75rem"}}>{grn.date?.split("T")[0]}</Td>
-                        <Td style={{fontWeight:600,fontSize:"0.75rem"}}>{getVendorName(grn.vendor_id)}</Td>
+                        <Td style={{fontWeight:600,fontSize:"0.75rem"}}>{grn.vendor_name || getVendorName(grn.vendor_id)}</Td>
                         <Td style={{fontSize:"0.72rem"}}>{grn.purchase_category}</Td>
                         <Td style={{fontSize:"0.75rem"}}>{grn.invoice_no}</Td>
                         <Td style={{fontSize:"0.75rem"}}>{grn.invoice_date?.split("T")[0]}</Td>
@@ -1921,6 +2037,13 @@ const GRNGeneration = () => {
                   </tbody>
                 </Table>
               </ScrollTable>
+              <InvPagination
+                currentPage={listPage}
+                totalPages={listTotalPages}
+                pageSize={listPageSize}
+                totalRecords={listTotalCount}
+                onPageChange={(p) => setListPage(p)}
+              />
             </>
           )}
         </FormContent>
