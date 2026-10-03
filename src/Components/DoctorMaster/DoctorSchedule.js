@@ -471,6 +471,7 @@ function DoctorSchedule() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [scheduleExists, setScheduleExists] = useState(false);
   const [allDoctors, setAllDoctors] = useState([]);
 
@@ -622,19 +623,27 @@ function DoctorSchedule() {
       return;
     }
 
-    const method = scheduleExists ? 'PATCH' : 'POST';
-    const result = await apiRequest(
-      `${HMSURL}doctor_schedule_upsert/${employee_id}/`,
-      method,
-      formData
-    );
+    setSaving(true);
+    try {
+      const method = scheduleExists ? 'PATCH' : 'POST';
+      const result = await apiRequest(
+        `${HMSURL}doctor_schedule_upsert/${employee_id}/`,
+        method,
+        formData
+      );
 
-    if (result.success) {
-      toast.success(result.data.message || "Doctor schedule saved successfully!");
-      setScheduleExists(true);
-      setInitialData({ ...formData });
-    } else {
-      toast.error(result.error || 'Failed to save doctor schedule');
+      if (result.success) {
+        toast.success(result.data?.message || "Doctor schedule saved successfully!");
+        setScheduleExists(true);
+        setInitialData({ ...formData });
+        navigate(-1);
+      } else {
+        toast.error(result.error || 'Failed to save doctor schedule');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to save doctor schedule');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -895,9 +904,11 @@ function DoctorSchedule() {
         </FooterValidationText>
 
         <FooterActions>
-          <RevertButton onClick={handleRevert}>Revert</RevertButton>
-          <SaveScheduleButton onClick={handleSubmit} disabled={!isValidToSubmit}>
-            {scheduleExists ? "Update schedule" : "Create schedule"}
+          <RevertButton onClick={handleRevert} disabled={saving}>Revert</RevertButton>
+          <SaveScheduleButton onClick={handleSubmit} disabled={!isValidToSubmit || saving}>
+            {saving
+              ? (scheduleExists ? "Updating schedule..." : "Creating schedule...")
+              : (scheduleExists ? "Update schedule" : "Create schedule")}
           </SaveScheduleButton>
         </FooterActions>
       </StickyFooterBar>

@@ -491,7 +491,7 @@ const OTLabBilling = () => {
             billTypeNo: bt.billTypeNo ?? bt.BillTypeNo ?? 0,
           }))
           .filter((bt) =>
-            ["LAB01", "LAB02"].includes(
+            ["LAB01", "LAB02", "LAB03"].includes(
               String(bt.billTypeNo).trim().toUpperCase(),
             ),
           );

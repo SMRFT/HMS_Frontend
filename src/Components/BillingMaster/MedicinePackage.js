@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import apiRequest from "../../Auth/apiRequest";
 import {
@@ -478,6 +478,7 @@ const MedicinePackage = () => {
 
   /* ── state ── */
   const [packages, setPackages] = useState([]);
+  const [loadingPackages, setLoadingPackages] = useState(false);
   const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -485,10 +486,12 @@ const MedicinePackage = () => {
   const [viewPkg, setViewPkg] = useState(null);
   const [filters, setFilters] = useState({ search: "" });
 
-  /* pharmacy item picker */
-  const [allItems, setAllItems] = useState([]); // full list from API
+  /* pharmacy item picker (keystroke-based search) */
+  const [pickerItems, setPickerItems] = useState([]); // items for current search query
+  const [loadingItems, setLoadingItems] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
-  const [selectedPickerIds, setSelectedPickerIds] = useState([]); // multi-select staging
+  const [selectedPickerMap, setSelectedPickerMap] = useState({}); // { [item_id]: { item_id, item_name } }
+  const lastSearchRequestId = useRef(0);
 
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
@@ -498,73 +501,148 @@ const MedicinePackage = () => {
 
   /* ── fetch packages ── */
   const fetchPackages = async (params = {}) => {
-    const q = new URLSearchParams();
-    if (params.search) q.append("search", params.search);
-    const url = `${HMSURL}medicine-packages/${q.toString() ? "?" + q : ""}`;
-    const result = await apiRequest(url, "GET");
-    if (result.success) {
-      const d = result.data;
-      setPackages(
-        Array.isArray(d?.packages) ? d.packages : Array.isArray(d) ? d : [],
-      );
-    } else {
-      console.error("Error fetching medicine packages:", result.error);
+    setLoadingPackages(true);
+    try {
+      const q = new URLSearchParams();
+      if (params.search) q.append("search", params.search);
+      const url = `${HMSURL}medicine-packages/${q.toString() ? "?" + q : ""}`;
+      const result = await apiRequest(url, "GET");
+      if (result.success) {
+        const d = result.data;
+        setPackages(
+          Array.isArray(d?.packages) ? d.packages : Array.isArray(d) ? d : [],
+        );
+      } else {
+        console.error("Error fetching medicine packages:", result.error);
+        setPackages([]);
+      }
+    } catch (err) {
+      console.error("Error fetching medicine packages:", err);
       setPackages([]);
+    } finally {
+      setLoadingPackages(false);
     }
   };
 
-  /* ── fetch pharmacy items (is_active=true, outlet OLET001) ── */
-  const fetchPharmacyItems = async () => {
-    const result = await apiRequest(
-      `${HMSURL}pharmacy-items/?outlet_code=${TARGET_OUTLET_CODE}&is_active=true`,
-      "GET",
-    );
-    if (result.success) {
-      const d = result.data;
-      setAllItems(
-        Array.isArray(d?.items) ? d.items : Array.isArray(d) ? d : [],
+  /* ── fetch pharmacy items on keystroke / on-demand ── */
+  const fetchPharmacyItems = async (searchQuery = "") => {
+    const currentRequestId = ++lastSearchRequestId.current;
+    setLoadingItems(true);
+    try {
+      const q = new URLSearchParams();
+      q.append("is_active", "true");
+      q.append("limit", "50");
+      if (searchQuery.trim()) {
+        q.append("search", searchQuery.trim());
+      }
+      const result = await apiRequest(
+        `${HMSURL}pharmacy-items/?${q.toString()}`,
+        "GET",
       );
-    } else {
-      console.error("Error fetching pharmacy items:", result.error);
+      if (currentRequestId === lastSearchRequestId.current) {
+        if (result.success) {
+          const d = result.data;
+          const items = Array.isArray(d?.items)
+            ? d.items
+            : Array.isArray(d)
+            ? d
+            : [];
+          setPickerItems(items);
+        } else {
+          console.error("Error fetching pharmacy items:", result.error);
+          setPickerItems([]);
+        }
+      }
+    } catch (err) {
+      if (currentRequestId === lastSearchRequestId.current) {
+        console.error("Error fetching pharmacy items:", err);
+        setPickerItems([]);
+      }
+    } finally {
+      if (currentRequestId === lastSearchRequestId.current) {
+        setLoadingItems(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchPackages();
-    fetchPharmacyItems();
   }, []);
 
-  /* ── filtered picker list ── */
-  const filteredPickerItems = allItems.filter((it) =>
-    it.item_name.toLowerCase().includes(pickerSearch.toLowerCase()),
-  );
+  /* ── Debounced item search on keystroke ── */
+  useEffect(() => {
+    if (!showModal) return;
+    setLoadingItems(true);
+    const timer = setTimeout(() => {
+      fetchPharmacyItems(pickerSearch);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [pickerSearch, showModal]);
+
+  /* ── client-side filter applied instantly to picker results ── */
+  const displayedPickerItems = pickerSearch.trim()
+    ? pickerItems.filter((it) => {
+        const q = pickerSearch.toLowerCase().trim();
+        return (
+          String(it.item_name || "").toLowerCase().includes(q) ||
+          String(it.item_id || "") === q
+        );
+      })
+    : pickerItems;
 
   /* ── toggle picker selection ── */
-  const togglePickerItem = (item_id) => {
-    setSelectedPickerIds((prev) =>
-      prev.includes(item_id)
-        ? prev.filter((id) => id !== item_id)
-        : [...prev, item_id],
-    );
+  const togglePickerItem = (item) => {
+    setSelectedPickerMap((prev) => {
+      const next = { ...prev };
+      if (next[item.item_id]) {
+        delete next[item.item_id];
+      } else {
+        next[item.item_id] = {
+          item_id: item.item_id,
+          item_name: item.item_name,
+          qty: 1,
+        };
+      }
+      return next;
+    });
+  };
+
+  /* ── update picker item quantity ── */
+  const setPickerItemQty = (item, qtyVal) => {
+    const parsedQty = Math.max(1, parseInt(qtyVal) || 1);
+    setSelectedPickerMap((prev) => ({
+      ...prev,
+      [item.item_id]: {
+        item_id: item.item_id,
+        item_name: item.item_name,
+        qty: parsedQty,
+      },
+    }));
   };
 
   /* ── add selected picker items to formData.items ── */
   const addSelectedToTable = () => {
-    if (!selectedPickerIds.length) {
+    const selectedList = Object.values(selectedPickerMap);
+    if (!selectedList.length) {
       alert("Please select at least one item.");
       return;
     }
-    const toAdd = allItems
-      .filter((it) => selectedPickerIds.includes(it.item_id))
-      .map((it) => ({ item_id: it.item_id, item_name: it.item_name, qty: 1 }));
+    const toAdd = selectedList.map((it) => ({
+      item_id: it.item_id,
+      item_name: it.item_name,
+      qty: Math.max(1, parseInt(it.qty) || 1),
+    }));
 
     setFormData((prev) => {
-      const existingIds = new Set(prev.items.map((i) => i.item_id));
-      const fresh = toAdd.filter((it) => !existingIds.has(it.item_id));
-      return { ...prev, items: [...prev.items, ...fresh] };
+      const existingMap = new Map(prev.items.map((i) => [i.item_id, i]));
+      toAdd.forEach((newItem) => {
+        if (!existingMap.has(newItem.item_id)) {
+          existingMap.set(newItem.item_id, newItem);
+        }
+      });
+      return { ...prev, items: Array.from(existingMap.values()) };
     });
-    setSelectedPickerIds([]);
-    setPickerSearch("");
+    setSelectedPickerMap({});
   };
 
   /* ── remove item row ── */
@@ -600,13 +678,47 @@ const MedicinePackage = () => {
     setFormData({ ...EMPTY_FORM });
     setIsEditMode(false);
     setEditingId(null);
-    setSelectedPickerIds([]);
+    setSelectedPickerMap({});
     setPickerSearch("");
+    setPickerItems([]);
   };
 
   const openCreate = () => {
     resetForm();
     setShowModal(true);
+  };
+
+  /* ── check and merge any pending selected items from picker before submit ── */
+  const checkAndMergePendingItems = () => {
+    const unaddedList = Object.values(selectedPickerMap);
+    if (!unaddedList.length) {
+      return formData.items;
+    }
+
+    const count = unaddedList.length;
+    const confirmAdd = window.confirm(
+      `⚠️ You have selected ${count} item${count > 1 ? "s" : ""} from the list that ${count > 1 ? "have" : "has"} NOT been added to the package table yet!\n\n• Click "OK" to automatically include ${count > 1 ? "these" : "this"} ${count} item${count > 1 ? "s" : ""} in the package and save.\n• Click "Cancel" to go back and review your items.`
+    );
+
+    if (!confirmAdd) {
+      return null; // User chose Cancel to review
+    }
+
+    // Merge into formData.items
+    const existingMap = new Map(formData.items.map((i) => [i.item_id, i]));
+    unaddedList.forEach((it) => {
+      if (!existingMap.has(it.item_id)) {
+        existingMap.set(it.item_id, {
+          item_id: it.item_id,
+          item_name: it.item_name,
+          qty: Math.max(1, parseInt(it.qty) || 1),
+        });
+      }
+    });
+    const mergedItems = Array.from(existingMap.values());
+    setFormData((prev) => ({ ...prev, items: mergedItems }));
+    setSelectedPickerMap({});
+    return mergedItems;
   };
 
   /* ── create ── */
@@ -615,7 +727,11 @@ const MedicinePackage = () => {
       alert("Package name is required.");
       return;
     }
-    if (!formData.items.length) {
+
+    const finalItems = checkAndMergePendingItems();
+    if (!finalItems) return;
+
+    if (!finalItems.length) {
       alert("Add at least one medicine item.");
       return;
     }
@@ -625,7 +741,7 @@ const MedicinePackage = () => {
       "POST",
       {
         ...formData,
-        items: formData.items.map((i) => ({
+        items: finalItems.map((i) => ({
           item_id: i.item_id,
           item_name: i.item_name,
           qty: i.qty ?? 1,
@@ -654,7 +770,7 @@ const MedicinePackage = () => {
     });
     setEditingId(pkg.medPackage_id);
     setIsEditMode(true);
-    setSelectedPickerIds([]);
+    setSelectedPickerMap({});
     setPickerSearch("");
     setShowModal(true);
   };
@@ -665,7 +781,11 @@ const MedicinePackage = () => {
       alert("Package name is required.");
       return;
     }
-    if (!formData.items.length) {
+
+    const finalItems = checkAndMergePendingItems();
+    if (!finalItems) return;
+
+    if (!finalItems.length) {
       alert("Add at least one medicine item.");
       return;
     }
@@ -675,7 +795,7 @@ const MedicinePackage = () => {
       "PATCH",
       {
         ...formData,
-        items: formData.items.map((i) => ({
+        items: finalItems.map((i) => ({
           item_id: i.item_id,
           item_name: i.item_name,
           qty: i.qty ?? 1,
@@ -948,7 +1068,18 @@ const MedicinePackage = () => {
           </div>
 
           {/* table body */}
-          {packages.length === 0 ? (
+          {loadingPackages ? (
+            <div style={{ textAlign: "center", padding: 40 }}>
+              <div
+                className="spinner-border text-primary"
+                role="status"
+                style={{ width: 28, height: 28, marginBottom: 8 }}
+              />
+              <p style={{ color: tokens.muted, fontSize: 13, margin: 0 }}>
+                Loading medicine packages...
+              </p>
+            </div>
+          ) : packages.length === 0 ? (
             <p
               style={{ textAlign: "center", padding: 40, color: tokens.muted }}
             >
@@ -1104,29 +1235,101 @@ const MedicinePackage = () => {
                 {/* ── Item picker ── */}
                 <div style={css.pickerPanel}>
                   <div style={css.pickerTitle}>
-                    💊 Select Medicine Items (Outlet: {TARGET_OUTLET_CODE})
+                    💊 Select Medicine Items
                   </div>
 
                   {/* search within picker */}
-                  <input
-                    value={pickerSearch}
-                    onChange={(e) => setPickerSearch(e.target.value)}
-                    placeholder="Search medicine name…"
-                    style={{ ...css.input, marginBottom: 10 }}
-                  />
+                  <div style={{ position: "relative", marginBottom: 10 }}>
+                    <input
+                      value={pickerSearch}
+                      onChange={(e) => {
+                        setPickerSearch(e.target.value);
+                        setLoadingItems(true);
+                      }}
+                      placeholder="Type medicine name or ID to search…"
+                      style={{
+                        ...css.input,
+                        paddingRight: pickerSearch ? 54 : (loadingItems ? 36 : 12),
+                      }}
+                    />
+                    {pickerSearch && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPickerSearch("");
+                          setLoadingItems(true);
+                        }}
+                        style={{
+                          position: "absolute",
+                          right: loadingItems ? 30 : 8,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "transparent",
+                          border: "none",
+                          color: tokens.muted,
+                          cursor: "pointer",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          padding: "2px 6px",
+                          outline: "none",
+                        }}
+                        title="Clear search"
+                      >
+                        ✕
+                      </button>
+                    )}
+                    {loadingItems && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 10,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          pointerEvents: "none",
+                        }}
+                      >
+                        <div
+                          className="spinner-border text-primary"
+                          role="status"
+                          style={{ width: 16, height: 16, borderWidth: 2 }}
+                        />
+                      </div>
+                    )}
+                  </div>
 
-                  {allItems.length === 0 ? (
+                  {loadingItems && displayedPickerItems.length === 0 ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "24px 0",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <div
+                        className="spinner-border text-primary"
+                        role="status"
+                        style={{ width: 24, height: 24 }}
+                      />
+                      <span style={{ fontSize: 13, color: tokens.muted, fontWeight: 500 }}>
+                        Searching medicine items{pickerSearch.trim() ? ` for "${pickerSearch.trim()}"` : ""}...
+                      </span>
+                    </div>
+                  ) : displayedPickerItems.length === 0 ? (
                     <p style={css.emptyPicker}>
-                      No active medicine items found for {TARGET_OUTLET_CODE}.
+                      {pickerSearch.trim()
+                        ? `No medicine items match "${pickerSearch.trim()}".`
+                        : "No active medicine items found."}
                     </p>
-                  ) : filteredPickerItems.length === 0 ? (
-                    <p style={css.emptyPicker}>No items match your search.</p>
                   ) : (
                     <>
                       {/* scrollable checklist */}
                       <div
                         style={{
-                          maxHeight: 200,
+                          maxHeight: 220,
                           overflowY: "auto",
                           border: `1px solid ${tokens.border}`,
                           borderRadius: 8,
@@ -1134,13 +1337,11 @@ const MedicinePackage = () => {
                           marginBottom: 10,
                         }}
                       >
-                        {filteredPickerItems.map((item) => {
+                        {displayedPickerItems.map((item) => {
                           const alreadyAdded = formData.items.some(
                             (i) => i.item_id === item.item_id,
                           );
-                          const isSelected = selectedPickerIds.includes(
-                            item.item_id,
-                          );
+                          const isSelected = !!selectedPickerMap[item.item_id];
                           return (
                             <label
                               key={item.item_id}
@@ -1167,13 +1368,13 @@ const MedicinePackage = () => {
                                 disabled={alreadyAdded}
                                 onChange={() =>
                                   !alreadyAdded &&
-                                  togglePickerItem(item.item_id)
+                                  togglePickerItem(item)
                                 }
                                 style={{ accentColor: tokens.indigo }}
                               />
                               <span
                                 style={{
-                                  fontSize: 13,
+                                 fontSize: 13,
                                   fontWeight: 500,
                                   color: tokens.text,
                                   flex: 1,
@@ -1190,6 +1391,51 @@ const MedicinePackage = () => {
                               >
                                 ID: {item.item_id}
                               </span>
+
+                              {isSelected && !alreadyAdded && (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    background: tokens.white,
+                                    padding: "2px 8px",
+                                    borderRadius: 6,
+                                    border: `1px solid ${tokens.indigo}`,
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: tokens.indigoDk,
+                                    }}
+                                  >
+                                    Qty:
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={selectedPickerMap[item.item_id]?.qty ?? 1}
+                                    onChange={(e) => setPickerItemQty(item, e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      width: 48,
+                                      height: 22,
+                                      textAlign: "center",
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      border: `1px solid ${tokens.border}`,
+                                      borderRadius: 4,
+                                      outline: "none",
+                                      padding: "0 2px",
+                                      color: tokens.text,
+                                    }}
+                                  />
+                                </div>
+                              )}
+
                               {alreadyAdded && (
                                 <span
                                   style={{
@@ -1214,8 +1460,8 @@ const MedicinePackage = () => {
                         }}
                       >
                         <span style={{ fontSize: 12, color: tokens.muted }}>
-                          {selectedPickerIds.length} item
-                          {selectedPickerIds.length !== 1 ? "s" : ""} selected
+                          {Object.keys(selectedPickerMap).length} item
+                          {Object.keys(selectedPickerMap).length !== 1 ? "s" : ""} selected
                         </span>
                         <button
                           style={css.addSelectedBtn}
@@ -1348,6 +1594,41 @@ const MedicinePackage = () => {
 
             {/* footer */}
             <div style={css.modalFoot}>
+              {Object.keys(selectedPickerMap).length > 0 && (
+                <div
+                  style={{
+                    marginRight: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    background: "#FEF3C7",
+                    border: "1px solid #F59E0B",
+                    color: "#92400E",
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>⚠️ {Object.keys(selectedPickerMap).length} selected item(s) not added yet</span>
+                  <button
+                    type="button"
+                    onClick={addSelectedToTable}
+                    style={{
+                      background: "#D97706",
+                      color: tokens.white,
+                      border: "none",
+                      borderRadius: 4,
+                      padding: "2px 8px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    ✚ Add Now
+                  </button>
+                </div>
+              )}
               <button
                 style={css.btn("danger")}
                 onClick={() => {
