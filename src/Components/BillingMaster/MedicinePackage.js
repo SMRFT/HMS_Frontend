@@ -542,7 +542,11 @@ const MedicinePackage = () => {
       if (currentRequestId === lastSearchRequestId.current) {
         if (result.success) {
           const d = result.data;
-          const items = Array.isArray(d?.items)
+          const items = Array.isArray(d?.data)
+            ? d.data
+            : Array.isArray(d?.results)
+            ? d.results
+            : Array.isArray(d?.items)
             ? d.items
             : Array.isArray(d)
             ? d
