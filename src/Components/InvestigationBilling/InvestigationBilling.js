@@ -450,6 +450,17 @@ const SearchableDropdown = ({
   );
 };
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const normalizeGender = (g) => {
+  if (!g) return "";
+  const s = String(g).trim().toUpperCase();
+  if (s === "FEMALE" || s === "F") return "Female";
+  if (s === "MALE" || s === "M") return "Male";
+  if (s === "OTHER" || s === "O" || s === "TRANSGENDER") return "Other";
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const InvestigationBilling = () => {
@@ -595,7 +606,7 @@ const InvestigationBilling = () => {
       firstName: data.firstName || "",
       lastName: data.lastName || "",
       age: data.age || "",
-      gender: data.gender || "",
+      gender: normalizeGender(data.gender),
       referredBy: data.referredBy || "",
       discountPercent: data.discountPercent || "",
       discount: data.discount || "",
@@ -798,7 +809,11 @@ const InvestigationBilling = () => {
     );
     if (result.success) {
       const data = result.data;
-      const { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
+      let { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
+      if (!calculatedAge && (data.age || data.calculatedAge)) {
+        calculatedAge = String(data.age || data.calculatedAge || "");
+        ageType = data.ageType || data.age_type || "Y";
+      }
       setFormData((prev) => ({
         ...prev,
         salutation: data.salutation || "",
@@ -807,7 +822,7 @@ const InvestigationBilling = () => {
         dob: data.dob || "",
         calculatedAge,
         ageType,
-        gender: data.gender || "",
+        gender: normalizeGender(data.gender),
         customer_type: data.customer_type || "",
         company_name: data.company_name || "",
         company_code: data.company_code || "",
@@ -829,7 +844,11 @@ const InvestigationBilling = () => {
     );
     if (result.success) {
       const data = result.data;
-      const { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
+      let { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
+      if (!calculatedAge && (data.age || data.calculatedAge)) {
+        calculatedAge = String(data.age || data.calculatedAge || "");
+        ageType = data.ageType || data.age_type || "Y";
+      }
       setFormData((prev) => ({
         ...prev,
         uhid: data.uhid || "",
@@ -839,7 +858,7 @@ const InvestigationBilling = () => {
         dob: data.dob || "",
         calculatedAge,
         ageType,
-        gender: data.gender || "",
+        gender: normalizeGender(data.gender),
         customer_type: data.customer_type || "",
         company_name: data.company_name || "",
         company_code: data.company_code || "",
@@ -1244,7 +1263,7 @@ const InvestigationBilling = () => {
               <Label>Gender</Label>
               <Select
                 name="gender"
-                value={formData.gender}
+                value={normalizeGender(formData.gender)}
                 onChange={handleInputChange}
                 disabled={isPatientFetched}
               >
