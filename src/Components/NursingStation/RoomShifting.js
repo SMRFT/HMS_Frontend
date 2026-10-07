@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import styled, { keyframes, css } from "styled-components";
 import { toast } from "react-toastify";
 
@@ -1064,8 +1065,11 @@ const EMPTY = {
 };
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-const RoomShifting = ({ patient, onClose, onSaved }) => {
+const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const location = useLocation();
+  const navState = location.state || {};
+  const patient = propPatient || navState.patient || navState.patient_details || (navState.uhid || navState.ipNumber ? navState : null);
 
   const [activeTab,     setActiveTab] = useState("create");
   const [form,          setForm]      = useState(EMPTY);
@@ -1113,7 +1117,7 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
   useEffect(() => {
     if (patient) {
       const uhid = patient.uhid || patient.patient_details?.uhid;
-      const ipNumber = patient.ipNumber || patient.patient_details?.ipNumber;
+      const ipNumber = patient.ipNumber || patient.patient_details?.ipNumber || patient.ip_number;
       if (uhid || ipNumber) {
         const newFilters = { ...filters, uhid: uhid || "", ipNumber: ipNumber || "" };
         setFilters(newFilters);
@@ -1178,7 +1182,6 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
 
       if (adm.has_shifted) toast.info("Already shifted — use Edit in the table.");
       else if (hasRes) toast.success(`Loaded: ${adm.ipNumber} — Reserved room auto-filled.`);
-      else toast.success(`Admission loaded: ${adm.ipNumber}`);
     } catch (err) {
       toast.error(err?.message || "Failed to fetch admission");
     }

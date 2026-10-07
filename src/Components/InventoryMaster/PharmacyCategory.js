@@ -14,6 +14,7 @@ import {
   InvTh,
   InvTd,
   InvTr,
+  InvActionGroup,
   InvActionBtn,
   InvModalOverlay,
   InvModalContainer,
@@ -261,12 +262,14 @@ const PharmacyCategory = () => {
                     </InvTd>
                     <InvTd style={{ fontWeight: 600 }}>{cat.category_name}</InvTd>
                     <InvTd style={{ textAlign: "center" }}>
-                      <div style={{ display: "inline-flex", gap: 6 }}>
-                        <InvActionBtn onClick={() => handleEdit(cat)}>Edit</InvActionBtn>
-                        <InvActionBtn danger onClick={() => handleDelete(cat)}>
-                          Delete
+                      <InvActionGroup>
+                        <InvActionBtn variant="edit" onClick={() => handleEdit(cat)} title="Edit Category">
+                          ✏️ Edit
                         </InvActionBtn>
-                      </div>
+                        <InvActionBtn variant="delete" onClick={() => handleDelete(cat)} title="Delete Category">
+                          🗑️ Delete
+                        </InvActionBtn>
+                      </InvActionGroup>
                     </InvTd>
                   </InvTr>
                 ))

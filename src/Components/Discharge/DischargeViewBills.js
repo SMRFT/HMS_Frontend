@@ -223,10 +223,10 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
   const [listBusy, setListBusy] = useState(false);
   const [listErr,  setListErr]  = useState("");
 
-  // Filters — default to today
-  const [from, setFrom] = useState(today());
-  const [to,   setTo]   = useState(today());
-  const [q,    setQ]    = useState("");
+  // Filter input states (default to current date)
+  const [inputFrom, setInputFrom] = useState(today());
+  const [inputTo,   setInputTo]   = useState(today());
+  const [inputQ,    setInputQ]    = useState("");
 
   // Pagination
   const [page,    setPage]    = useState(1);
@@ -245,19 +245,35 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
   const menuRef = useRef(null);
   const printRef = useRef(null);
 
-  const fetchBills = useCallback(async () => {
+  const fetchBills = useCallback(async (fromDate = inputFrom, toDate = inputTo, searchQuery = inputQ) => {
     setListBusy(true);
     setListErr("");
     try {
-      const res  = await apiRequest(`${BASE}discharge-billing/?status=Billed`, "GET");
-      const list = res.success && res.data && Array.isArray(res.data.data) ? res.data.data : [];
+      const params = new URLSearchParams({ status: "Billed" });
+      if (fromDate) params.append("from_date", fromDate);
+      if (toDate) params.append("to_date", toDate);
+      if (searchQuery && searchQuery.trim()) params.append("search", searchQuery.trim());
+
+      const res = await apiRequest(`${BASE}discharge-billing/?${params.toString()}`, "GET");
+      let list = [];
+      if (res && res.success) {
+        if (Array.isArray(res.data?.data)) {
+          list = res.data.data;
+        } else if (Array.isArray(res.data)) {
+          list = res.data;
+        } else if (Array.isArray(res.data?.results)) {
+          list = res.data.results;
+        }
+      }
       setBills(list);
-    } catch {
+      setPage(1);
+    } catch (err) {
+      console.error("fetchBills error:", err);
       setListErr("Failed to load bills. Please try again.");
     } finally {
       setListBusy(false);
     }
-  }, []);
+  }, [inputFrom, inputTo, inputQ]);
 
   const handleOpenPrint = async (b) => {
     let updatedBill = { ...b };
@@ -322,8 +338,26 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
     }
   };
 
-  useEffect(() => { fetchBills(); }, [fetchBills, onRefreshTrigger]);
-  useEffect(() => { setPage(1); }, [from, to, q]);
+  useEffect(() => { 
+    fetchBills(inputFrom, inputTo, inputQ); 
+  }, [onRefreshTrigger]);
+
+  const handleSearch = () => {
+    fetchBills(inputFrom, inputTo, inputQ);
+  };
+
+  const handleReset = () => {
+    setInputFrom(today());
+    setInputTo(today());
+    setInputQ("");
+    fetchBills(today(), today(), "");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
 
   // ── 3-dots Menu positioning & toggle ─────────────────────────────────────────
   const handleMenuToggle = (id, e) => {
@@ -375,18 +409,8 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
     };
   }, [openMenu]);
 
-  // ── Filtering ──────────────────────────────────────────────────────────────
-  const filtered = bills.filter(b => {
-    if (from && b.bill_date && new Date(b.bill_date) < new Date(from)) return false;
-    if (to   && b.bill_date && new Date(b.bill_date) > new Date(to + "T23:59:59")) return false;
-    if (q) {
-      const lq = q.toLowerCase();
-      const pd = b.patient_details || {};
-      return [b.bill_no || "", b.uhid || "", b.ip_number || "", pd.patient_name || ""]
-        .some(v => v.toLowerCase().includes(lq));
-    }
-    return true;
-  });
+  // ── Filtering (Safety local client-side filter) ──────────────────────────────
+  const filtered = bills;
 
   // ── Summary totals ─────────────────────────────────────────────────────────
   const summary = filtered.reduce((acc, b) => {
@@ -465,25 +489,39 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
       <DateBar>
         <FG $w="135px">
           <FL>From</FL>
-          <FInput type="date" value={from} onChange={e => setFrom(e.target.value)} />
+          <FInput 
+            type="date" 
+            value={inputFrom} 
+            onChange={e => setInputFrom(e.target.value)} 
+            onKeyDown={handleKeyDown}
+          />
         </FG>
         <FG $w="135px">
           <FL>To</FL>
-          <FInput type="date" value={to} onChange={e => setTo(e.target.value)} />
+          <FInput 
+            type="date" 
+            value={inputTo} 
+            onChange={e => setInputTo(e.target.value)} 
+            onKeyDown={handleKeyDown}
+          />
         </FG>
         <FG $flex="1" style={{ minWidth: 210 }}>
           <FL>Search</FL>
           <FInput
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder="Name, UHID, IP, Bill No…"
+            value={inputQ}
+            onChange={e => setInputQ(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Name, UHID, IP, Bill No, Doctor…"
           />
         </FG>
-        <div style={{ display: "flex", gap: 6 }}>
-          <Btn $ghost $sm onClick={() => { setFrom(today()); setTo(today()); setQ(""); }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <Btn $primary onClick={handleSearch}>
+            🔍 Search
+          </Btn>
+          <Btn $ghost onClick={handleReset}>
             ↺ Reset
           </Btn>
-          <Btn $outline onClick={fetchBills} disabled={listBusy}>
+          <Btn $outline onClick={() => fetchBills(inputFrom, inputTo, inputQ)} disabled={listBusy}>
             {listBusy ? <Spinner /> : "↻"} Refresh
           </Btn>
         </div>
@@ -890,24 +928,47 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
       </div>
 
       {/* Items Table */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", marginBottom: 12 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem", marginBottom: 12 }}>
         <thead>
           <tr style={{ borderBottom: "1.5px solid #000", borderTop: "1.5px solid #000" }}>
-            <th style={{ textAlign: "left", padding: "6px 4px", width: "40px" }}>SlNo</th>
+            <th style={{ textAlign: "left", padding: "6px 4px", width: "35px" }}>SlNo</th>
+            <th style={{ textAlign: "left", padding: "6px 4px", width: "75px" }}>Code</th>
+            <th style={{ textAlign: "left", padding: "6px 4px", width: "95px" }}>NABH Code</th>
             <th style={{ textAlign: "left", padding: "6px 4px" }}>Description</th>
-            <th style={{ textAlign: "right", padding: "6px 4px", width: "80px" }}>Quantity</th>
-            <th style={{ textAlign: "right", padding: "6px 4px", width: "100px" }}>Amount</th>
+            <th style={{ textAlign: "right", padding: "6px 4px", width: "60px" }}>Quantity</th>
+            <th style={{ textAlign: "right", padding: "6px 4px", width: "80px" }}>Rate</th>
+            <th style={{ textAlign: "right", padding: "6px 4px", width: "90px" }}>Amount</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((it, idx) => (
-            <tr key={idx}>
-              <td style={{ padding: "5px 4px", verticalAlign: "top" }}>{idx + 1}</td>
-              <td style={{ padding: "5px 4px", verticalAlign: "top" }}>{it.itemName}</td>
-              <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{it.quantity || 1}</td>
-              <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{fmt(it.amount)}</td>
-            </tr>
-          ))}
+          {items.map((it, idx) => {
+            const itemCode = it.code || it.item_code || (it.test_id != null ? String(it.test_id) : "") || (it.sl_no != null ? String(it.sl_no) : "") || it.billTypeNo || "—";
+            let nabhCode = it.nabh_code || it.nabhCode || "";
+            if (!nabhCode && it.item_description && it.item_description.includes("NABH:")) {
+              const match = it.item_description.match(/NABH:\s*([^\s·,]+)/i);
+              if (match) nabhCode = match[1];
+            }
+            if (!nabhCode) nabhCode = "—";
+
+            return (
+              <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
+                <td style={{ padding: "5px 4px", verticalAlign: "top" }}>{idx + 1}</td>
+                <td style={{ padding: "5px 4px", verticalAlign: "top", fontFamily: "monospace", fontSize: "0.74rem" }}>{itemCode}</td>
+                <td style={{ padding: "5px 4px", verticalAlign: "top", fontFamily: "monospace", fontSize: "0.74rem" }}>{nabhCode}</td>
+                <td style={{ padding: "5px 4px", verticalAlign: "top" }}>
+                  <div style={{ fontWeight: 600 }}>{it.itemName}</div>
+                  {it.package_name && (
+                    <div style={{ fontSize: "0.68rem", color: "#475569" }}>
+                      Scheme: {it.package_name}
+                    </div>
+                  )}
+                </td>
+                <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{it.quantity || 1}</td>
+                <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{fmt(it.rate)}</td>
+                <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top", fontWeight: "bold" }}>{fmt(it.amount)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 

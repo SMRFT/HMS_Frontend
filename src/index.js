@@ -21,7 +21,7 @@ function setforlocaldev() {
     localStorage.setItem("selected_branch", selectedBranch);
     const selectedOutlet = "OLET003";
     localStorage.setItem("selected_outlet", selectedOutlet);
-    
+
   }
   return dev_token;
 }
