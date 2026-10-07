@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { 
     Table, Button, DatePicker, Select, Input, Radio, 
-    Space, Spin, message, Row, Col, Card 
+    Space, Spin, message, Row, Col, Card, Popconfirm 
 } from "antd";
 import { 
     FaSearch, FaPlus, FaPrint, FaTimes, FaSave, FaShieldAlt, FaEdit, FaTrash 
@@ -104,6 +104,8 @@ const InsuranceClaim = () => {
     const [filterCompany, setFilterCompany] = useState("ALL");
     const [fromDate, setFromDate] = useState(dayjs());
     const [toDate, setToDate] = useState(dayjs());
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState("ALL");
     
     // Form Data
     const [formData, setFormData] = useState({
@@ -142,12 +144,17 @@ const InsuranceClaim = () => {
         }
     }, [HmsBaseUrl]);
 
-    const fetchClaims = useCallback(async () => {
+    const fetchClaims = useCallback(async (customFrom, customTo, customComp) => {
         setLoading(true);
         try {
-            const fDate = fromDate.format("YYYY-MM-DD");
-            const tDate = toDate.format("YYYY-MM-DD");
-            const url = `${HmsBaseUrl}insurance-claims/?from_date=${fDate}&to_date=${tDate}&company=${filterCompany}`;
+            const curFrom = customFrom !== undefined ? customFrom : fromDate;
+            const curTo = customTo !== undefined ? customTo : toDate;
+            const curComp = customComp !== undefined ? customComp : filterCompany;
+
+            const fDate = curFrom ? dayjs(curFrom).format("YYYY-MM-DD") : "";
+            const tDate = curTo ? dayjs(curTo).format("YYYY-MM-DD") : "";
+            const companyQuery = curComp && curComp !== "ALL" ? `&company=${encodeURIComponent(curComp)}` : "";
+            const url = `${HmsBaseUrl}insurance-claims/?from_date=${fDate}&to_date=${tDate}${companyQuery}`;
             const res = await apiRequest(url, "GET");
             if (res.success) setClaims(res.data.data || res.data || []);
         } catch (error) {
@@ -160,7 +167,8 @@ const InsuranceClaim = () => {
     useEffect(() => {
         fetchInitialData();
         fetchClaims();
-    }, [fetchInitialData, fetchClaims]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleSearchPatient = async (type) => {
         const val = type === 'uhid' ? formData.uhid : formData.ip_number;
@@ -205,9 +213,9 @@ const InsuranceClaim = () => {
         try {
             const payload = {
                 ...formData,
-                admission_date: formData.admission_date?.format("YYYY-MM-DD"),
-                policy_date: formData.policy_date?.format("YYYY-MM-DD"),
-                approved_date: formData.approved_date?.format("YYYY-MM-DD"),
+                admission_date: formData.admission_date ? dayjs(formData.admission_date).format("YYYY-MM-DD") : null,
+                policy_date: formData.policy_date ? dayjs(formData.policy_date).format("YYYY-MM-DD") : null,
+                approved_date: formData.approved_date ? dayjs(formData.approved_date).format("YYYY-MM-DD") : null,
             };
             
             const isEdit = !!formData.claim_id;
@@ -303,15 +311,15 @@ const InsuranceClaim = () => {
                     </div>
                     
                     <div class="section-title">PATIENT INFORMATION</div>
-                    <div class="row"><div class="label">Patient Name:</div><div class="value">${record.patient_details?.firstName} ${record.patient_details?.lastName}</div></div>
+                    <div class="row"><div class="label">Patient Name:</div><div class="value">${record.patient_details?.firstName || ''} ${record.patient_details?.lastName || ''}</div></div>
                     <div class="row"><div class="label">UHID:</div><div class="value">${record.uhid}</div></div>
                     <div class="row"><div class="label">IP Number:</div><div class="value">${record.ip_number}</div></div>
                     
                     <div class="section-title">CLAIM INFORMATION</div>
                     <div class="row"><div class="label">Insurance Company:</div><div class="value">${record.insurance_company}</div></div>
                     <div class="row"><div class="label">Policy Number:</div><div class="value">${record.policy_no || '-'}</div></div>
-                    <div class="row"><div class="label">Estimate Amount:</div><div class="value">₹${record.estimate_amount}</div></div>
-                    <div class="row"><div class="label">Approved Amount:</div><div class="value">₹${record.approved_amount}</div></div>
+                    <div class="row"><div class="label">Estimate Amount:</div><div class="value">Rs. ${record.estimate_amount}</div></div>
+                    <div class="row"><div class="label">Approved Amount:</div><div class="value">Rs. ${record.approved_amount}</div></div>
                     <div class="row"><div class="label">Status:</div><div class="value">${record.claim_status}</div></div>
                     <div class="row"><div class="label">Claim Date:</div><div class="value">${dayjs(record.claim_date).format('DD/MM/YYYY')}</div></div>
                     
@@ -376,7 +384,7 @@ const InsuranceClaim = () => {
             dataIndex: "claim_date",
             key: "claim_date",
             width: 120,
-            render: date => dayjs(date).format("DD/MM/YYYY")
+            render: date => date ? dayjs(date).format("DD/MM/YYYY") : "-"
         },
         {
             title: "Approved On",
@@ -408,6 +416,24 @@ const InsuranceClaim = () => {
             width: 130,
         },
         {
+            title: "Status",
+            dataIndex: "claim_status",
+            key: "claim_status",
+            width: 120,
+            render: (status) => {
+                const isApp = status === 'Approved';
+                const isRej = status === 'Rejected';
+                return (
+                    <StatusBadge
+                        bg={isApp ? '#dcfce7' : (isRej ? '#fee2e2' : '#fef3c7')}
+                        color={isApp ? '#15803d' : (isRej ? '#dc2626' : '#b45309')}
+                    >
+                        {status || 'Pending'}
+                    </StatusBadge>
+                );
+            }
+        },
+        {
             title: "Action",
             key: "action",
             fixed: 'right',
@@ -426,16 +452,41 @@ const InsuranceClaim = () => {
                         onClick={() => handlePrint(record)}
                         style={{ color: '#64748b' }}
                     />
-                    <Button 
-                        size="small" 
-                        danger 
-                        icon={<FaTrash />} 
-                        onClick={() => handleDelete(record.claim_id)}
-                    />
+                    <Popconfirm
+                        title="Delete Claim"
+                        description="Are you sure to delete this claim?"
+                        onConfirm={() => handleDelete(record.claim_id)}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Button 
+                            size="small" 
+                            danger 
+                            icon={<FaTrash />} 
+                        />
+                    </Popconfirm>
                 </Space>
             )
         }
     ];
+
+    const filteredClaims = claims.filter(c => {
+        if (statusFilter !== "ALL" && c.claim_status !== statusFilter) return false;
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        const patientName = `${c.patient_details?.firstName || ''} ${c.patient_details?.lastName || ''}`.toLowerCase();
+        const uhid = (c.uhid || '').toLowerCase();
+        const ip = (c.ip_number || '').toLowerCase();
+        const claimId = String(c.claim_id || '').toLowerCase();
+        const policy = (c.policy_no || '').toLowerCase();
+        const company = (c.insurance_company || '').toLowerCase();
+        return patientName.includes(q) || uhid.includes(q) || ip.includes(q) || claimId.includes(q) || policy.includes(q) || company.includes(q);
+    });
+
+    const totalApprovedVal = filteredClaims.reduce((acc, c) => acc + (parseFloat(c.approved_amount) || 0), 0);
+    const totalEstimateVal = filteredClaims.reduce((acc, c) => acc + (parseFloat(c.estimate_amount) || 0), 0);
+    const approvedCount = filteredClaims.filter(c => c.claim_status === 'Approved').length;
+    const pendingCount = filteredClaims.filter(c => !c.claim_status || c.claim_status === 'Pending').length;
 
     return (
         <PageWrapper>
@@ -472,25 +523,29 @@ const InsuranceClaim = () => {
                             <FormLabel>From Date</FormLabel>
                             <DatePicker 
                                 style={{ width: '100%' }} 
-                                value={fromDate} 
-                                onChange={setFromDate}
+                                value={fromDate ? dayjs(fromDate) : null} 
+                                onChange={(date) => setFromDate(date)}
                                 format="DD/MM/YYYY"
+                                allowClear={false}
+                                needConfirm={false}
                             />
                         </Col>
                         <Col span={4}>
                             <FormLabel>To Date</FormLabel>
                             <DatePicker 
                                 style={{ width: '100%' }} 
-                                value={toDate} 
-                                onChange={setToDate}
+                                value={toDate ? dayjs(toDate) : null} 
+                                onChange={(date) => setToDate(date)}
                                 format="DD/MM/YYYY"
+                                allowClear={false}
+                                needConfirm={false}
                             />
                         </Col>
                         <Col span={3}>
                             <ActionButton 
                                 type="primary" 
                                 icon={<FaSearch />} 
-                                onClick={fetchClaims}
+                                onClick={() => fetchClaims()}
                                 loading={loading}
                                 style={{ width: '100%' }}
                             >
@@ -554,7 +609,7 @@ const InsuranceClaim = () => {
                                         </Col>
                                         <Col span={6}>
                                             <FormLabel>Admission Date</FormLabel>
-                                            <InfoBox>{formData.admission_date ? formData.admission_date.format("DD/MM/YYYY") : "-"}</InfoBox>
+                                            <InfoBox>{formData.admission_date ? dayjs(formData.admission_date).format("DD/MM/YYYY") : "-"}</InfoBox>
                                         </Col>
                                         <Col span={6}>
                                             <FormLabel>Customer Type</FormLabel>
@@ -562,21 +617,16 @@ const InsuranceClaim = () => {
                                         </Col>
 
                                         <Col span={12}>
-                                            <FormLabel>Admitting Doctor</FormLabel>
+                                            <FormLabel>Doctor Name</FormLabel>
                                             <InfoBox>{formData.admitting_doctor || "-"}</InfoBox>
                                         </Col>
-                                        <Col span={8}>
+                                        <Col span={6}>
                                             <FormLabel>Room No</FormLabel>
                                             <InfoBox>{formData.room_no || "-"}</InfoBox>
                                         </Col>
-                                        <Col span={4}>
+                                        <Col span={6}>
                                             <FormLabel>Bed No</FormLabel>
                                             <InfoBox>{formData.bed_no || "-"}</InfoBox>
-                                        </Col>
-
-                                        <Col span={24}>
-                                            <FormLabel>Insurance Company</FormLabel>
-                                            <InfoBox>{formData.insurance_company || "-"}</InfoBox>
                                         </Col>
                                     </Row>
                                 </Col>
@@ -584,62 +634,75 @@ const InsuranceClaim = () => {
                                 {/* Right Side: Claim Details */}
                                 <Col span={10}>
                                     <Row gutter={[16, 16]}>
+                                        <Col span={24}>
+                                            <FormLabel>Insurance Company <span>*</span></FormLabel>
+                                            <Select 
+                                                style={{ width: '100%' }} 
+                                                value={formData.insurance_company} 
+                                                onChange={(val, opt) => setFormData({
+                                                    ...formData, 
+                                                    insurance_company: val,
+                                                    insurance_id: opt?.key || ''
+                                                })}
+                                                placeholder="Select Insurance Provider"
+                                                showSearch
+                                                optionFilterProp="children"
+                                            >
+                                                {providers.map(p => (
+                                                    <Option key={p.company_code} value={p.company_name}>{p.company_name}</Option>
+                                                ))}
+                                            </Select>
+                                        </Col>
+
+                                        <Col span={12}>
+                                            <FormLabel>Policy No</FormLabel>
+                                            <Input 
+                                                placeholder="Policy / Card No"
+                                                value={formData.policy_no}
+                                                onChange={e => setFormData({...formData, policy_no: e.target.value})}
+                                            />
+                                        </Col>
                                         <Col span={12}>
                                             <FormLabel>Policy Date</FormLabel>
                                             <DatePicker 
                                                 style={{ width: '100%' }} 
-                                                value={formData.policy_date} 
-                                                onChange={val => setFormData({...formData, policy_date: val})}
+                                                value={formData.policy_date ? dayjs(formData.policy_date) : null} 
+                                                onChange={date => setFormData(prev => ({...prev, policy_date: date}))}
                                                 format="DD/MM/YYYY"
-                                            />
-                                        </Col>
-                                        <Col span={12}>
-                                            <FormLabel>Approved Amount</FormLabel>
-                                            <Input 
-                                                type="number" 
-                                                prefix="₹"
-                                                value={formData.approved_amount} 
-                                                onChange={e => setFormData({...formData, approved_amount: e.target.value})}
+                                                allowClear={true}
+                                                needConfirm={false}
                                             />
                                         </Col>
 
                                         <Col span={12}>
                                             <FormLabel>Estimate Amount</FormLabel>
                                             <Input 
-                                                type="number" 
-                                                prefix="₹"
-                                                value={formData.estimate_amount} 
-                                                onChange={e => setFormData({...formData, estimate_amount: e.target.value})}
+                                                type="number"
+                                                placeholder="Estimate Amount"
+                                                value={formData.estimate_amount}
+                                                onChange={e => setFormData({...formData, estimate_amount: parseFloat(e.target.value) || 0})}
                                             />
                                         </Col>
+                                        <Col span={12}>
+                                            <FormLabel>Approved Amount</FormLabel>
+                                            <Input 
+                                                type="number"
+                                                placeholder="Approved Amount"
+                                                value={formData.approved_amount}
+                                                onChange={e => setFormData({...formData, approved_amount: parseFloat(e.target.value) || 0})}
+                                            />
+                                        </Col>
+
                                         <Col span={12}>
                                             <FormLabel>Approved Date</FormLabel>
                                             <DatePicker 
                                                 style={{ width: '100%' }} 
-                                                value={formData.approved_date} 
-                                                onChange={val => setFormData({...formData, approved_date: val})}
+                                                value={formData.approved_date ? dayjs(formData.approved_date) : null} 
+                                                onChange={date => setFormData(prev => ({...prev, approved_date: date}))}
                                                 format="DD/MM/YYYY"
+                                                allowClear={true}
+                                                needConfirm={false}
                                             />
-                                        </Col>
-
-                                        <Col span={12}>
-                                            <FormLabel>Insurance ID</FormLabel>
-                                            <Input 
-                                                placeholder="ID"
-                                                value={formData.insurance_id} 
-                                                onChange={e => setFormData({...formData, insurance_id: e.target.value})}
-                                            />
-                                        </Col>
-                                        <Col span={12}>
-                                            <FormLabel>Policy Number</FormLabel>
-                                            <Input 
-                                                placeholder="Policy No"
-                                                value={formData.policy_no} 
-                                                onChange={e => setFormData({...formData, policy_no: e.target.value})}
-                                            />
-                                        </Col>
-
-                                        <Col span={12}>
                                         </Col>
                                         <Col span={12}>
                                             <FormLabel>Claim Status</FormLabel>
@@ -693,18 +756,67 @@ const InsuranceClaim = () => {
                     </ClaimFormCard>
                 )}
 
-                {/* Claims Table */}
+                {/* Summary KPI Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                    <Card bodyStyle={{ padding: '16px 20px' }} style={{ borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                        <div style={{ color: colors.textMuted, fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Claims</div>
+                        <div style={{ fontSize: '1.6rem', fontWeight: '800', color: colors.primary, marginTop: '4px' }}>{filteredClaims.length}</div>
+                        <div style={{ fontSize: '0.75rem', color: colors.textMuted, marginTop: '4px' }}>Approved: <strong style={{ color: '#16a34a' }}>{approvedCount}</strong> | Pending: <strong style={{ color: '#d97706' }}>{pendingCount}</strong></div>
+                    </Card>
+                    <Card bodyStyle={{ padding: '16px 20px' }} style={{ borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                        <div style={{ color: colors.textMuted, fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Approved Amount</div>
+                        <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>₹{totalApprovedVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                        <div style={{ fontSize: '0.75rem', color: colors.textMuted, marginTop: '4px' }}>From approved insurance claims</div>
+                    </Card>
+                    <Card bodyStyle={{ padding: '16px 20px' }} style={{ borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                        <div style={{ color: colors.textMuted, fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Estimate Amount</div>
+                        <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#0284c7', marginTop: '4px' }}>₹{totalEstimateVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                        <div style={{ fontSize: '0.75rem', color: colors.textMuted, marginTop: '4px' }}>Initial hospital claim estimations</div>
+                    </Card>
+                </div>
+
+                {/* Claims Table Card */}
                 <Card style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                    <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600 }}>Active Claims List</span>
+                    <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                            <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#1e293b' }}>Active Claims List</span>
+                            <span style={{ marginLeft: '10px', fontSize: '0.8rem', background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '12px', fontWeight: '600' }}>
+                                {filteredClaims.length} records
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <Input 
+                                placeholder="Quick search UHID, Name, Policy, IP..." 
+                                prefix={<FaSearch style={{ color: '#94a3b8' }} />}
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                allowClear
+                                style={{ width: 280, borderRadius: 8 }}
+                            />
+                            <Select 
+                                value={statusFilter} 
+                                onChange={setStatusFilter}
+                                style={{ width: 140 }}
+                            >
+                                <Option value="ALL">All Status</Option>
+                                <Option value="Approved">Approved</Option>
+                                <Option value="Pending">Pending</Option>
+                                <Option value="Rejected">Rejected</Option>
+                            </Select>
+                        </div>
                     </div>
                     <Table 
-                        dataSource={claims} 
+                        dataSource={filteredClaims} 
                         columns={columns} 
                         rowKey="claim_id"
                         loading={loading}
-                        pagination={{ pageSize: 10 }}
-                        scroll={{ x: 1000 }}
+                        pagination={{
+                            pageSizeOptions: ['10', '15', '25', '50', '100'],
+                            showSizeChanger: true,
+                            defaultPageSize: 15,
+                            showTotal: (total, range) => `Showing ${range[0]} - ${range[1]} of ${total} claims`
+                        }}
+                        scroll={{ x: 1100 }}
                     />
                 </Card>
             </Container>

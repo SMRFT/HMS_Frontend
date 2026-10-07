@@ -65,6 +65,9 @@ import VendorManagement from "./Components/InventoryMaster/VendorManagement";
 // Insurance
 import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 
+import InsuranceMemberMaster from "./Components/Insurance/InsuranceMemberMaster";
+import InsuranceMemberVisit from "./Components/Insurance/InsuranceMemberVisit";
+
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import DischargeBilling from "./Components/Discharge/DischargeBilling";
@@ -1935,6 +1938,18 @@ function App() {
               <Route path="/outpatientqrscan" element={<OutPatientQRScan />} />
               <Route path="/OutpatientFeedbackreports" element={<OutpatientFeedbackreports />} />
               <Route path="/OutpatientFeedbackReports" element={<OutpatientFeedbackreports />} />
+
+              {/* Insurance */}
+              <Route path="/InsuranceMemberMaster" element={<InsuranceMemberMaster />} />
+              <Route path="/insurancemembermaster" element={<InsuranceMemberMaster />} />
+              <Route path="/InsuranceMemberVisit" element={<InsuranceMemberVisit />} />
+              <Route path="/insurancemembervisit" element={<InsuranceMemberVisit />} />
+              <Route path="/InsuranceMemberVisits" element={<InsuranceMemberVisit />} />
+              <Route path="/insurancemembervisits" element={<InsuranceMemberVisit />} />
+              <Route path="/InsuranceClaim" element={<InsuranceClaim />} />
+              <Route path="/insuranceclaim" element={<InsuranceClaim />} />
+              <Route path="/InsuranceProvider" element={<InsuranceProvider />} />
+              <Route path="/insuranceprovider" element={<InsuranceProvider />} />
             </Routes>
 
 

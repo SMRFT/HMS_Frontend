@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import styled, { createGlobalStyle } from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { DatePicker, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
+import { 
+    Pencil, CheckCheck, CreditCard, Printer, Trash2, 
+    MoreVertical, Eye
+} from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
+import TablePagination, { usePagination } from './TablePagination';
 import {
     PageWrapper,
     Container,
@@ -113,6 +119,168 @@ const SummaryRow = ({ label, value, color }) => (
     </div>
 );
 
+const GRNActionPopover = ({
+    grn,
+    anchorEl,
+    onClose,
+    onView,
+    onEdit,
+    onApprove,
+    onPayment,
+    onPrint,
+    onDelete
+}) => {
+    const isApproved = !!grn.is_approved;
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+
+    useEffect(() => {
+        if (anchorEl) {
+            const rect = anchorEl.getBoundingClientRect();
+            const popoverWidth = 320;
+            let targetLeft = rect.right - popoverWidth + window.scrollX;
+            if (targetLeft < 10) {
+                targetLeft = Math.max(10, rect.left + window.scrollX);
+            }
+            setPos({
+                top: rect.bottom + window.scrollY + 6,
+                left: targetLeft,
+            });
+        }
+    }, [anchorEl]);
+
+    const items = [
+        {
+            icon: <Eye size={18} strokeWidth={1.8} />,
+            label: "View",
+            color: "#0284c7",
+            disabled: false,
+            title: "View GRN Details",
+            onClick: onView,
+        },
+        {
+            icon: <Pencil size={18} strokeWidth={1.8} />,
+            label: "Edit",
+            color: "#0d9488",
+            disabled: isApproved,
+            title: isApproved ? "Cannot edit verified GRN" : "Edit GRN",
+            onClick: onEdit,
+        },
+        {
+            icon: <Trash2 size={18} strokeWidth={1.8} />,
+            label: "Cancel",
+            color: "#ef4444",
+            disabled: isApproved,
+            title: isApproved ? "Cannot delete verified GRN" : "Delete GRN",
+            onClick: onDelete,
+        },
+        {
+            icon: <CreditCard size={18} strokeWidth={1.8} />,
+            label: "Payment",
+            color: "#0284c7",
+            disabled: false,
+            title: "Record Payment",
+            onClick: onPayment,
+        },
+        {
+            icon: <Printer size={18} strokeWidth={1.8} />,
+            label: "Print",
+            color: "#7c3aed",
+            disabled: false,
+            title: "Print GRN Voucher",
+            onClick: onPrint,
+        },
+        {
+            icon: <CheckCheck size={18} strokeWidth={1.8} />,
+            label: isApproved ? "Verified" : "Confirm",
+            color: isApproved ? "#10b981" : "#ea580c",
+            disabled: isApproved,
+            title: isApproved ? "Already Approved" : "Approve GRN",
+            onClick: onApprove,
+        },
+    ];
+
+    const popover = (
+        <div
+            className="grn-action-popover"
+            style={{
+                position: "absolute",
+                top: pos.top,
+                left: pos.left,
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 12,
+                padding: "8px 10px",
+                zIndex: 99999,
+                minWidth: 320,
+                boxShadow: "0 12px 35px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.04)",
+                animation: "fadeIn 0.15s ease-out"
+            }}
+        >
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(6, 1fr)",
+                    gap: 3,
+                }}
+            >
+                {items.map((item, ii) => (
+                    <button
+                        key={ii}
+                        disabled={item.disabled}
+                        title={item.title || item.label}
+                        onMouseDown={(e) => {
+                            e.stopPropagation();
+                            if (!item.disabled) {
+                                item.onClick();
+                            }
+                        }}
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "8px 2px",
+                            border: "1px solid transparent",
+                            borderRadius: 8,
+                            background: "none",
+                            cursor: item.disabled ? "not-allowed" : "pointer",
+                            opacity: item.disabled ? 0.35 : 1,
+                            transition: "all 0.12s ease",
+                            color: item.color,
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!item.disabled) {
+                                e.currentTarget.style.background = "#f8fafc";
+                                e.currentTarget.style.borderColor = "#e2e8f0";
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "none";
+                            e.currentTarget.style.borderColor = "transparent";
+                        }}
+                    >
+                        {item.icon}
+                        <span
+                            style={{
+                                fontSize: "0.72rem",
+                                fontWeight: "500",
+                                color: item.disabled ? "#94a3b8" : "#475569",
+                                lineHeight: 1.2,
+                                textAlign: "center",
+                                whiteSpace: "nowrap"
+                            }}
+                        >
+                            {item.label}
+                        </span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+
+    return createPortal(popover, document.body);
+};
+
 const StoresGRNReport = () => {
     const navigate = useNavigate();
     const [grns, setGrns] = useState([]);
@@ -124,11 +292,19 @@ const StoresGRNReport = () => {
     const oneMonthAgo = dayjs().subtract(1, 'month').format('YYYY-MM-DD');
     const [fromDate, setFromDate] = useState(oneMonthAgo);
     const [toDate, setToDate] = useState(today);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState('ALL');
+
+    const [openPopover, setOpenPopover] = useState(null);
+    const [popoverData, setPopoverData] = useState(null);
+    const anchorRefs = useRef({});
 
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showApproveModal, setShowApproveModal] = useState(false);
+    const [showViewModal, setShowViewModal] = useState(false);
     const [selectedGrn, setSelectedGrn] = useState(null);
     const [selectedGrnForApproval, setSelectedGrnForApproval] = useState(null);
+    const [selectedGrnForView, setSelectedGrnForView] = useState(null);
     const [paymentData, setPaymentData] = useState({
         amount_paid: '',
         payment_method: 'Cash',
@@ -139,6 +315,18 @@ const StoresGRNReport = () => {
     useEffect(() => { 
         fetchGRNs(); 
         fetchVendors();
+    }, []);
+
+    useEffect(() => {
+        const handleDocClick = (e) => {
+            if (e.target.closest('.grn-action-popover-wrap') || e.target.closest('.grn-action-popover')) {
+                return;
+            }
+            setOpenPopover(null);
+            setPopoverData(null);
+        };
+        document.addEventListener('mousedown', handleDocClick);
+        return () => document.removeEventListener('mousedown', handleDocClick);
     }, []);
 
     const fetchVendors = async () => {
@@ -719,9 +907,11 @@ const StoresGRNReport = () => {
         if (!vendors || vendors.length === 0) return vendorId;
         const vendor = vendors.find(v => 
             String(v.vendor_id) === String(vendorId) || 
-            String(v.id) === String(vendorId)
+            String(v.id) === String(vendorId) ||
+            String(v.vendor_code) === String(vendorId) ||
+            String(v.code) === String(vendorId)
         );
-        return vendor ? (vendor.name || vendor.vendorName || vendor.vendor_name || vendorId) : vendorId;
+        return vendor ? (vendor.vendor_name || vendor.name || vendor.vendorName || vendor.vendor_id || vendorId) : vendorId;
     };
 
     const getStatusBadge = (status) => {
@@ -764,6 +954,35 @@ const StoresGRNReport = () => {
     };
 
     const stats = getTotalStats();
+
+    const filteredGrns = grns.filter(grn => {
+        const vName = getVendorName(grn.vendor_id)?.toLowerCase() || '';
+        const grnNo = (grn.grn_number || '').toLowerCase();
+        const invNo = (grn.invoice_no || '').toLowerCase();
+        const cat = (grn.purchase_category || '').toLowerCase();
+        const q = searchTerm.toLowerCase().trim();
+        const matchesSearch = !q || vName.includes(q) || grnNo.includes(q) || invNo.includes(q) || cat.includes(q);
+
+        if (!matchesSearch) return false;
+        if (filterStatus === 'ALL') return true;
+        if (filterStatus === 'APPROVED') return !!grn.is_approved;
+        if (filterStatus === 'UNAPPROVED') return !grn.is_approved;
+        const { latest } = getPaymentInfo(grn);
+        if (filterStatus === 'PAID') return latest.status === 'Paid';
+        if (filterStatus === 'PENDING') return latest.status !== 'Paid';
+        return true;
+    });
+
+    const {
+        currentPage,
+        pageSize,
+        totalPages,
+        pageData,
+        goTo,
+        handlePageSizeChange,
+        startIdx,
+        totalItems
+    } = usePagination(filteredGrns, 15);
 
     return (
         <PageWrapper>
@@ -869,8 +1088,8 @@ const StoresGRNReport = () => {
                                 <div style={{ position: 'relative' }}>
                                     <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', zIndex: 1, color: colors.textMuted, fontWeight: '700', pointerEvents: 'none', fontSize: '0.85rem' }}>From</span>
                                     <DatePicker 
-                                        value={fromDate ? dayjs(fromDate) : null}
-                                        onChange={(d) => setFromDate(d ? d.format('YYYY-MM-DD') : '')}
+                                        value={fromDate ? dayjs(fromDate) : dayjs(oneMonthAgo)}
+                                        onChange={(d) => d && setFromDate(d.format('YYYY-MM-DD'))}
                                         format="DD/MM/YYYY"
                                         placeholder="17/03/2026"
                                         suffixIcon={null}
@@ -885,36 +1104,13 @@ const StoresGRNReport = () => {
                                             fontWeight: '600'
                                         }}
                                     />
-                                    {fromDate && (
-                                        <span 
-                                            onClick={() => setFromDate('')} 
-                                            style={{ 
-                                                cursor: 'pointer', 
-                                                position: 'absolute', 
-                                                right: '12px', 
-                                                top: '50%', 
-                                                transform: 'translateY(-50%)', 
-                                                background: colors.primary, 
-                                                color: 'white', 
-                                                borderRadius: '50%', 
-                                                width: '18px', 
-                                                height: '18px', 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                justifyContent: 'center', 
-                                                fontSize: '10px'
-                                            }}
-                                        >
-                                            ✕
-                                        </span>
-                                    )}
                                 </div>
 
                                 <div style={{ position: 'relative' }}>
                                     <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', zIndex: 1, color: colors.textMuted, fontWeight: '700', pointerEvents: 'none', fontSize: '0.85rem' }}>To</span>
                                     <DatePicker 
-                                        value={toDate ? dayjs(toDate) : null}
-                                        onChange={(d) => setToDate(d ? d.format('YYYY-MM-DD') : '')}
+                                        value={toDate ? dayjs(toDate) : dayjs(today)}
+                                        onChange={(d) => d && setToDate(d.format('YYYY-MM-DD'))}
                                         format="DD/MM/YYYY"
                                         placeholder="17/03/2026"
                                         suffixIcon={null}
@@ -929,49 +1125,41 @@ const StoresGRNReport = () => {
                                             fontWeight: '600'
                                         }}
                                     />
-                                    {toDate && (
-                                        <span 
-                                            onClick={() => setToDate('')} 
-                                            style={{ 
-                                                cursor: 'pointer', 
-                                                position: 'absolute', 
-                                                right: '12px', 
-                                                top: '50%', 
-                                                transform: 'translateY(-50%)', 
-                                                background: colors.primary, 
-                                                color: 'white', 
-                                                borderRadius: '50%', 
-                                                width: '18px', 
-                                                height: '18px', 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                justifyContent: 'center', 
-                                                fontSize: '10px'
-                                            }}
-                                        >
-                                            ✕
-                                        </span>
-                                    )}
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px' }}>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Search GRN, Vendor, Invoice..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    style={{
+                                        padding: '10px 16px',
+                                        borderRadius: '12px',
+                                        border: `1.5px solid ${colors.border}`,
+                                        height: '48px',
+                                        minWidth: '220px',
+                                        fontSize: '0.9rem',
+                                        outline: 'none'
+                                    }}
+                                />
                                 <Button 
                                     onClick={fetchGRNs} 
-                                    style={{ padding: '10px 24px', borderRadius: '8px', height: '48px' }}
+                                    style={{ padding: '10px 20px', borderRadius: '8px', height: '48px' }}
                                 >
                                     🔍 Search
                                 </Button>
                                 <Button 
                                     secondary 
                                     onClick={clearFilter} 
-                                    style={{ padding: '10px 24px', borderRadius: '8px', height: '48px' }}
+                                    style={{ padding: '10px 18px', borderRadius: '8px', height: '48px' }}
                                 >
-                                    ✕ Clear
+                                    ✕ Reset
                                 </Button>
                             </div>
                             <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                                <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>Total Documents</div>
-                                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: colors.primary }}>{grns.length}</div>
+                                <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>Total / Filtered</div>
+                                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: colors.primary }}>{filteredGrns.length} / {grns.length}</div>
                             </div>
                         </div>
                     </div>
@@ -989,73 +1177,138 @@ const StoresGRNReport = () => {
                         <div style={{ overflowX: 'auto' }}>
                             <Table>
                                 <thead>
-                                    <Tr>
-                                        <Th style={{ background: colors.tabBg, color: colors.textMain }}>GRN Details</Th>
-                                        <Th style={{ background: colors.tabBg, color: colors.textMain }}>Vendor & Category</Th>
-                                        <Th style={{ background: colors.tabBg, color: colors.textMain }}>Financials</Th>
-                                        <Th style={{ background: colors.tabBg, color: colors.textMain }}>Status</Th>
-                                        <Th style={{ background: colors.tabBg, color: colors.textMain, textAlign: 'center' }}>Actions</Th>
+                                    <Tr style={{ background: '#e6f4f1' }}>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>#</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>GRN NO</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>DATE</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>VENDOR</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>CATEGORY</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>INVOICE NO</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>INVOICE DATE</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>PAYMENT</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>NET AMOUNT</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>STATUS</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px', textAlign: 'center' }}>ACTIONS</Th>
                                     </Tr>
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <Tr><Td colSpan="5" style={{ textAlign: 'center', padding: '100px' }}>
+                                        <Tr><Td colSpan="11" style={{ textAlign: 'center', padding: '100px' }}>
                                             <div style={{ fontSize: '2.5rem', animation: 'spin 2s linear infinite', display: 'inline-block' }}>⏳</div>
                                             <div style={{ color: colors.textMuted, marginTop: '20px', fontWeight: '700', fontSize: '1.1rem' }}>Updating Records...</div>
                                         </Td></Tr>
-                                    ) : grns.length === 0 ? (
-                                        <Tr><Td colSpan="5" style={{ textAlign: 'center', padding: '120px' }}>
+                                    ) : filteredGrns.length === 0 ? (
+                                        <Tr><Td colSpan="11" style={{ textAlign: 'center', padding: '120px' }}>
                                             <div style={{ fontSize: '5rem', opacity: 0.3, marginBottom: '20px' }}>📦</div>
                                             <div style={{ color: colors.textMuted, fontSize: '1.4rem', fontWeight: '800' }}>No GRNs found</div>
-                                            <div style={{ color: colors.textMuted, marginTop: '8px', fontSize: '0.9rem' }}>Try adjusting your date filters</div>
+                                            <div style={{ color: colors.textMuted, marginTop: '8px', fontSize: '0.9rem' }}>Try adjusting your search or date filters</div>
                                             <Button secondary onClick={clearFilter} style={{ marginTop: '30px', borderRadius: '12px', padding: '12px 30px' }}>Reset Filters</Button>
                                         </Td></Tr>
-                                    ) : grns.map(grn => {
-                                        const { latest, totalPaid, netAmt, pending } = getPaymentInfo(grn);
+                                    ) : pageData.map((grn, idx) => {
+                                        const { totalPaid, netAmt, pending, latest } = getPaymentInfo(grn);
+                                        const serialNo = startIdx + idx + 1;
                                         return (
-                                            <Tr key={grn.grn_number}>
-                                                <Td style={{ fontWeight: '600', color: colors.primary }}>{grn.grn_number}</Td>
-                                                <Td>
-                                                    <div style={{ fontWeight: '600', color: colors.textMain }}>{getVendorName(grn.vendor_id)}</div>
-                                                    <div style={{ fontSize: '0.8rem', color: colors.textMuted }}>{grn.purchase_category} • {grn.date ? dayjs(grn.date).format('DD MMM, YYYY') : '-'}</div>
+                                            <Tr key={grn.grn_number} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                <Td style={{ color: '#64748b', fontWeight: '600', fontSize: '0.84rem', padding: '12px 10px' }}>
+                                                    {serialNo}
                                                 </Td>
-                                                <Td>
-                                                    <div style={{ fontWeight: '700', color: colors.textMain }}>₹{netAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                                                    {pending > 0 && <div style={{ fontSize: '0.8rem', color: colors.danger, fontWeight: '600' }}>Outstanding: ₹{pending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>}
+                                                <Td style={{ padding: '12px 10px' }}>
+                                                    <span style={{ 
+                                                        background: '#dcfce7', 
+                                                        color: '#15803d', 
+                                                        fontWeight: '700', 
+                                                        fontSize: '0.78rem', 
+                                                        padding: '3px 10px', 
+                                                        borderRadius: '16px', 
+                                                        display: 'inline-block', 
+                                                        letterSpacing: '0.02em',
+                                                        border: '1px solid #bbf7d0'
+                                                    }}>
+                                                        {grn.grn_number}
+                                                    </span>
                                                 </Td>
-                                                <Td>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                        {getStatusBadge(latest.status)}
-                                                        {grn.is_approved && <span style={{ fontSize: '0.65rem', color: colors.primary, fontWeight: '700' }}>VERIFIED</span>}
-                                                    </div>
+                                                <Td style={{ color: '#334155', fontSize: '0.82rem', whiteSpace: 'nowrap', padding: '12px 10px' }}>
+                                                    {grn.date ? dayjs(grn.date).format('YYYY-MM-DD') : '-'}
                                                 </Td>
-                                                <Td style={{ textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                        <Button 
-                                                            small 
-                                                            onClick={() => !grn.is_approved && handleApprove(grn)} 
-                                                            title={grn.is_approved ? "Already Approved" : "Approve"}
-                                                            disabled={grn.is_approved}
-                                                            style={{ opacity: grn.is_approved ? 0.4 : 1, cursor: grn.is_approved ? 'not-allowed' : 'pointer' }}
-                                                        >✅</Button>
-                                                        <Button small secondary onClick={() => { setSelectedGrn(grn); setShowPaymentModal(true); }} title="Payment">💳</Button>
-                                                        <Button 
-                                                            small 
-                                                            secondary 
-                                                            onClick={() => !grn.is_approved && navigate('/StoresGRNGeneration', { state: { editGrn: grn, fromAnalysis: true } })} 
-                                                            title={grn.is_approved ? "Cannot edit verified GRN" : "Edit"}
-                                                            disabled={grn.is_approved}
-                                                            style={{ opacity: grn.is_approved ? 0.4 : 1, cursor: grn.is_approved ? 'not-allowed' : 'pointer' }}
-                                                        >✏️</Button>
-                                                        <Button small secondary onClick={() => handlePrintRow(grn)} title="Print">🖨️</Button>
-                                                        <Button 
-                                                            small 
-                                                            danger 
-                                                            onClick={() => !grn.is_approved && handleDelete(grn.grn_number, grn)} 
-                                                            title={grn.is_approved ? "Cannot delete verified GRN" : "Delete"}
-                                                            disabled={grn.is_approved}
-                                                            style={{ opacity: grn.is_approved ? 0.4 : 1, cursor: grn.is_approved ? 'not-allowed' : 'pointer' }}
-                                                        >🗑️</Button>
+                                                <Td style={{ color: '#1e293b', fontWeight: '600', fontSize: '0.82rem', padding: '12px 10px' }}>
+                                                    {getVendorName(grn.vendor_id)}
+                                                </Td>
+                                                <Td style={{ color: '#475569', fontSize: '0.78rem', fontWeight: '600', textTransform: 'uppercase', padding: '12px 10px' }}>
+                                                    {grn.purchase_category || '-'}
+                                                </Td>
+                                                <Td style={{ color: '#334155', fontSize: '0.82rem', fontWeight: '500', padding: '12px 10px' }}>
+                                                    {grn.invoice_no || grn.invoice_number || '-'}
+                                                </Td>
+                                                <Td style={{ color: '#334155', fontSize: '0.82rem', whiteSpace: 'nowrap', padding: '12px 10px' }}>
+                                                    {grn.invoice_date ? dayjs(grn.invoice_date).format('YYYY-MM-DD') : (grn.date ? dayjs(grn.date).format('YYYY-MM-DD') : '-')}
+                                                </Td>
+                                                <Td style={{ color: '#334155', fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', padding: '12px 10px' }}>
+                                                    {grn.payment_mode || (latest && latest.payment_method) || 'CHEQUE'}
+                                                </Td>
+                                                <Td style={{ color: '#0f766e', fontWeight: '800', fontSize: '0.85rem', whiteSpace: 'nowrap', padding: '12px 10px' }}>
+                                                    ₹{netAmt.toFixed(2)}
+                                                </Td>
+                                                <Td style={{ padding: '12px 10px' }}>
+                                                    <span style={{ 
+                                                        background: grn.is_approved ? '#ecfdf5' : '#fffbeb', 
+                                                        color: grn.is_approved ? '#059669' : '#d97706', 
+                                                        border: `1px solid ${grn.is_approved ? '#a7f3d0' : '#fde68a'}`, 
+                                                        padding: '3px 9px', 
+                                                        borderRadius: '6px', 
+                                                        fontWeight: '700', 
+                                                        fontSize: '0.74rem',
+                                                        display: 'inline-block'
+                                                    }}>
+                                                        {grn.is_approved ? 'Verified' : 'Pending'}
+                                                    </span>
+                                                </Td>
+                                                <Td style={{ textAlign: 'center', padding: '12px 10px' }}>
+                                                    <div className="grn-action-popover-wrap" style={{ position: 'relative', display: 'inline-block' }}>
+                                                        <button
+                                                            ref={(el) => { anchorRefs.current[grn.grn_number] = el; }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (openPopover === grn.grn_number) {
+                                                                    setOpenPopover(null);
+                                                                    setPopoverData(null);
+                                                                } else {
+                                                                    setOpenPopover(grn.grn_number);
+                                                                    setPopoverData(grn);
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                background: openPopover === grn.grn_number ? '#f0fdfa' : '#ffffff',
+                                                                border: openPopover === grn.grn_number ? '1.5px solid #0d9488' : '1px solid #cbd5e1',
+                                                                borderRadius: '8px',
+                                                                padding: '5px 12px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.8rem',
+                                                                fontWeight: '600',
+                                                                color: openPopover === grn.grn_number ? '#0d9488' : '#334155',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '5px',
+                                                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
+                                                            <span>Action</span>
+                                                            <MoreVertical size={13} style={{ opacity: 0.7 }} />
+                                                        </button>
+
+                                                        {openPopover === grn.grn_number && popoverData && (
+                                                            <GRNActionPopover
+                                                                grn={popoverData}
+                                                                anchorEl={anchorRefs.current[grn.grn_number]}
+                                                                onClose={() => { setOpenPopover(null); setPopoverData(null); }}
+                                                                onView={() => { setOpenPopover(null); setSelectedGrnForView(popoverData); setShowViewModal(true); }}
+                                                                onApprove={() => { setOpenPopover(null); handleApprove(popoverData); }}
+                                                                onPayment={() => { setOpenPopover(null); setSelectedGrn(popoverData); setShowPaymentModal(true); }}
+                                                                onEdit={() => { setOpenPopover(null); navigate('/StoresGRNGeneration', { state: { editGrn: popoverData, fromAnalysis: true } }); }}
+                                                                onPrint={() => { setOpenPopover(null); handlePrintRow(popoverData); }}
+                                                                onDelete={() => { setOpenPopover(null); handleDelete(popoverData.grn_number, popoverData); }}
+                                                            />
+                                                        )}
                                                     </div>
                                                 </Td>
                                             </Tr>
@@ -1063,6 +1316,17 @@ const StoresGRNReport = () => {
                                     })}
                                 </tbody>
                             </Table>
+                            <TablePagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                pageSize={pageSize}
+                                totalItems={totalItems}
+                                startIdx={startIdx}
+                                goTo={goTo}
+                                onPageSizeChange={handlePageSizeChange}
+                                itemName="GRN"
+                                themeColor={colors.primary}
+                            />
                         </div>
                     </div>
                 </div>
@@ -1317,6 +1581,234 @@ const StoresGRNReport = () => {
                                         style={{ background: '#16a34a', color: 'white', padding: '10px 35px', fontSize: '1rem' }}
                                     >
                                         {submitting ? 'Approving...' : '🚀 Confirm & Approve'}
+                                    </Button>
+                                </div>
+                            </ModalBody>
+                        </ModalContainer>
+                    </ModalOverlay>
+                );
+            })()}
+
+            {/* View GRN Modal */}
+            {showViewModal && selectedGrnForView && (() => {
+                let itemsList = [];
+                if (Array.isArray(selectedGrnForView.items)) {
+                    itemsList = selectedGrnForView.items;
+                } else if (typeof selectedGrnForView.items === 'string') {
+                    try { itemsList = JSON.parse(selectedGrnForView.items); } catch(e) { itemsList = []; }
+                }
+
+                const { totalPaid, netAmt, pending, latest } = getPaymentInfo(selectedGrnForView);
+                const totalQty = itemsList.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0), 0);
+
+                return (
+                    <ModalOverlay onClick={e => e.target === e.currentTarget && setShowViewModal(false)}>
+                        <ModalContainer style={{ maxWidth: '1000px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <ModalHeader style={{ borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                    <ModalTitle style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Eye size={20} color={colors.primary} />
+                                        <span>GRN Details:</span>
+                                        <span style={{ color: colors.primary, fontWeight: '800' }}>{selectedGrnForView.grn_number}</span>
+                                    </ModalTitle>
+                                    <span style={{ 
+                                        background: selectedGrnForView.is_approved ? '#ecfdf5' : '#fffbeb', 
+                                        color: selectedGrnForView.is_approved ? '#059669' : '#d97706', 
+                                        border: `1px solid ${selectedGrnForView.is_approved ? '#a7f3d0' : '#fde68a'}`, 
+                                        padding: '3px 10px', 
+                                        borderRadius: '6px', 
+                                        fontWeight: '700', 
+                                        fontSize: '0.75rem' 
+                                    }}>
+                                        {selectedGrnForView.is_approved ? 'VERIFIED' : 'PENDING APPROVAL'}
+                                    </span>
+                                </div>
+                                <CloseButton onClick={() => setShowViewModal(false)}>✕</CloseButton>
+                            </ModalHeader>
+
+                            <ModalBody style={{ padding: '20px' }}>
+                                {/* Header Info Banner */}
+                                <div style={{
+                                    background: '#f8fafc',
+                                    border: `1px solid ${colors.border}`,
+                                    borderRadius: '12px',
+                                    padding: '16px 20px',
+                                    marginBottom: '20px',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                                    gap: '14px'
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Vendor</div>
+                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.textMain, marginTop: '2px' }}>
+                                            {getVendorName(selectedGrnForView.vendor_id)}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {selectedGrnForView.vendor_id || '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>GRN Date</div>
+                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.textMain, marginTop: '2px' }}>
+                                            {selectedGrnForView.date ? dayjs(selectedGrnForView.date).format('DD MMM, YYYY') : '-'}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Invoice No & Date</div>
+                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.textMain, marginTop: '2px' }}>
+                                            {selectedGrnForView.invoice_no || selectedGrnForView.invoice_number || '-'}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>
+                                            {selectedGrnForView.invoice_date ? dayjs(selectedGrnForView.invoice_date).format('DD/MM/YYYY') : '-'}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Purchase Category</div>
+                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.primary, marginTop: '2px' }}>
+                                            {selectedGrnForView.purchase_category || '-'}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Payment Mode</div>
+                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.textMain, marginTop: '2px' }}>
+                                            {selectedGrnForView.payment_mode || (latest && latest.payment_method) || 'CHEQUE'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Financial Summary Cards */}
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                                    gap: '12px',
+                                    marginBottom: '20px'
+                                }}>
+                                    <div style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '14px', borderRadius: '10px' }}>
+                                        <div style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: '700', textTransform: 'uppercase' }}>Net Amount</div>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#0f766e', marginTop: '4px' }}>₹{netAmt.toFixed(2)}</div>
+                                    </div>
+                                    <div style={{ background: '#f0fdf4', border: '1px solid #dcfce7', padding: '14px', borderRadius: '10px' }}>
+                                        <div style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase' }}>Total Paid</div>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>₹{totalPaid.toFixed(2)}</div>
+                                    </div>
+                                    <div style={{ background: '#fff5f5', border: '1px solid #fee2e2', padding: '14px', borderRadius: '10px' }}>
+                                        <div style={{ fontSize: '0.72rem', color: '#991b1b', fontWeight: '700', textTransform: 'uppercase' }}>Outstanding</div>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>₹{pending.toFixed(2)}</div>
+                                    </div>
+                                    <div style={{ background: '#f8fafc', border: `1px solid ${colors.border}`, padding: '14px', borderRadius: '10px' }}>
+                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Total Items / Qty</div>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: '800', color: colors.textMain, marginTop: '4px' }}>
+                                            {itemsList.length} <span style={{ fontSize: '0.85rem', fontWeight: '600', color: colors.textMuted }}>({totalQty} units)</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Items Table */}
+                                <div style={{ marginBottom: '20px' }}>
+                                    <div style={{ fontSize: '0.85rem', fontWeight: '700', color: colors.textMain, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        📦 Items Received ({itemsList.length})
+                                    </div>
+                                    <div style={{ overflowX: 'auto', border: `1px solid ${colors.border}`, borderRadius: '10px' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                            <thead>
+                                                <tr style={{ background: '#e6f4f1', color: '#1e293b' }}>
+                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>#</th>
+                                                    <th style={{ padding: '10px 10px', textAlign: 'left', borderBottom: `1px solid ${colors.border}` }}>Item Name</th>
+                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>HSN</th>
+                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Batch</th>
+                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Expiry</th>
+                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Packing</th>
+                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Qty</th>
+                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Free</th>
+                                                    <th style={{ padding: '10px 10px', textAlign: 'right', borderBottom: `1px solid ${colors.border}` }}>Rate</th>
+                                                    <th style={{ padding: '10px 10px', textAlign: 'right', borderBottom: `1px solid ${colors.border}` }}>MRP</th>
+                                                    <th style={{ padding: '10px 10px', textAlign: 'right', borderBottom: `1px solid ${colors.border}` }}>Tax %</th>
+                                                    <th style={{ padding: '10px 10px', textAlign: 'right', borderBottom: `1px solid ${colors.border}` }}>Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {itemsList.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="12" style={{ textAlign: 'center', padding: '30px', color: colors.textMuted }}>No items data available</td>
+                                                    </tr>
+                                                ) : itemsList.map((item, idx) => {
+                                                    const qty = parseFloat(item.quantity) || 0;
+                                                    const rate = parseFloat(item.itemValue || item.rate || item.purchase_rate || 0);
+                                                    const totalAmt = parseFloat(item.total_amount || item.amount || (qty * rate));
+                                                    return (
+                                                        <tr key={idx} style={{ borderBottom: `1px solid #f1f5f9`, background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: colors.textMuted }}>{idx + 1}</td>
+                                                            <td style={{ padding: '10px 10px', fontWeight: '600', color: colors.primary }}>
+                                                                {item.name || item.itemName || item.item_name || '-'}
+                                                            </td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: colors.textMuted }}>{item.hsn || '-'}</td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '600' }}>{item.batch || item.batch_no || '-'}</td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: colors.textMuted }}>{item.expiry || item.expDate || '-'}</td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center' }}>{item.packing || '1'}</td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '700', color: colors.textMain }}>{qty}</td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: colors.textMuted }}>{item.free || 0}</td>
+                                                            <td style={{ padding: '10px 10px', textAlign: 'right' }}>₹{rate.toFixed(2)}</td>
+                                                            <td style={{ padding: '10px 10px', textAlign: 'right' }}>₹{(parseFloat(item.mrp) || 0).toFixed(2)}</td>
+                                                            <td style={{ padding: '10px 10px', textAlign: 'right', color: colors.textMuted }}>{item.tax_percentage || (item.cgst ? `${(parseFloat(item.cgst||0) + parseFloat(item.sgst||0) + parseFloat(item.igst||0))}%` : '-')}</td>
+                                                            <td style={{ padding: '10px 10px', textAlign: 'right', fontWeight: '700', color: '#0f766e' }}>₹{totalAmt.toFixed(2)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Tax and Additional Info Details */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                                    <div style={{ background: '#f8fafc', border: `1px solid ${colors.border}`, borderRadius: '10px', padding: '14px' }}>
+                                        <div style={{ fontSize: '0.78rem', fontWeight: '700', color: colors.textMuted, marginBottom: '10px', textTransform: 'uppercase' }}>Tax Breakdown</div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
+                                            <span style={{ color: colors.textMuted }}>CGST</span>
+                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.cgst) || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
+                                            <span style={{ color: colors.textMuted }}>SGST</span>
+                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.sgst) || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
+                                            <span style={{ color: colors.textMuted }}>IGST</span>
+                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.igst) || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: `1px dashed ${colors.border}`, fontSize: '0.85rem', fontWeight: '700' }}>
+                                            <span>Total Tax</span>
+                                            <span style={{ color: colors.primary }}>₹{((parseFloat(selectedGrnForView.cgst) || 0) + (parseFloat(selectedGrnForView.sgst) || 0) + (parseFloat(selectedGrnForView.igst) || 0)).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ background: '#f8fafc', border: `1px solid ${colors.border}`, borderRadius: '10px', padding: '14px' }}>
+                                        <div style={{ fontSize: '0.78rem', fontWeight: '700', color: colors.textMuted, marginBottom: '10px', textTransform: 'uppercase' }}>Additional Adjustments</div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
+                                            <span style={{ color: colors.textMuted }}>Total Discount</span>
+                                            <span style={{ color: colors.danger, fontWeight: '600' }}>-₹{(parseFloat(selectedGrnForView.total_discount) || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
+                                            <span style={{ color: colors.textMuted }}>Transport / Courier</span>
+                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.courier_transport_charge) || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
+                                            <span style={{ color: colors.textMuted }}>Round Off</span>
+                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.round_amount) || 0).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Modal Footer Actions */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px' }}>
+                                    <Button secondary onClick={() => setShowViewModal(false)} style={{ padding: '8px 22px' }}>
+                                        Close
+                                    </Button>
+                                    <Button 
+                                        onClick={() => {
+                                            handlePrintRow(selectedGrnForView);
+                                        }}
+                                        style={{ padding: '8px 22px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        <Printer size={16} />
+                                        <span>Print Voucher</span>
                                     </Button>
                                 </div>
                             </ModalBody>
