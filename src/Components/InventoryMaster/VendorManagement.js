@@ -15,14 +15,14 @@ import {
   InvTd,
   InvTr,
   InvBadge,
+  InvActionGroup,
   InvActionBtn,
-  InvModalOverlay,
-  InvModalContainer,
-  InvModalHeader,
-  InvModalTitle,
-  InvModalCloseBtn,
-  InvModalBody,
-  InvModalFooter,
+  InvSlideFormPanel,
+  InvSlideFormHead,
+  InvSlideFormTitle,
+  InvSlideFormCloseBtn,
+  InvSlideFormBody,
+  InvSlideFormFooter,
   InvFormGrid,
   InvFormField,
   InvFormLabel,
@@ -31,7 +31,6 @@ import {
   InvSelect,
   InvEmptyState,
   InvToast,
-  getTodayDateString,
 } from "./InventoryUIHelper";
 
 const PageContainer = styled.div`
@@ -76,13 +75,12 @@ const VendorManagement = () => {
 
   // Filters & Pagination State
   const [search, setSearch] = useState("");
-  const [vendorTypeFilter, setVendorTypeFilter] = useState("");
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Modal & Form State
+  // Form State
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState(null);
@@ -101,7 +99,7 @@ const VendorManagement = () => {
 
   // ── Fetch Vendors from Backend ──────────────────────────────────────────
   const fetchVendors = useCallback(
-    async (page = currentPage, size = pageSize, q = search, vType = vendorTypeFilter) => {
+    async (page = currentPage, size = pageSize, q = search) => {
       setLoading(true);
       try {
         const query = new URLSearchParams({
@@ -110,7 +108,6 @@ const VendorManagement = () => {
         });
 
         if (q && q.trim()) query.append("search", q.trim());
-        if (vType && vType.trim()) query.append("vendor_type", vType.trim());
 
         const response = await apiRequest(`${baseUrl}vendors/?${query.toString()}`, "GET");
         if (response && response.success) {
@@ -145,12 +142,12 @@ const VendorManagement = () => {
         setLoading(false);
       }
     },
-    [currentPage, pageSize, search, vendorTypeFilter]
+    [currentPage, pageSize, search]
   );
 
   useEffect(() => {
-    fetchVendors(currentPage, pageSize, search, vendorTypeFilter);
-  }, [currentPage, pageSize, search, vendorTypeFilter, fetchVendors]);
+    fetchVendors(currentPage, pageSize, search);
+  }, [currentPage, pageSize, search, fetchVendors]);
 
   // ── Load India States on Mount ──────────────────────────────────────────
   useEffect(() => {
@@ -329,128 +326,40 @@ const VendorManagement = () => {
             <InvPageTitle>🏢 Vendor Management</InvPageTitle>
             <InvPageSubtitle>Manage suppliers, manufacturers, contact details, and payment terms</InvPageSubtitle>
           </div>
-          <InvAddBtn onClick={handleOpenAdd}>+ Add Vendor</InvAddBtn>
+          <InvAddBtn
+            secondary={showModal}
+            onClick={() => {
+              if (showModal) {
+                setShowModal(false);
+                setEditId(null);
+              } else {
+                handleOpenAdd();
+              }
+            }}
+          >
+            {showModal ? "✕ Close Form" : "+ Add Vendor"}
+          </InvAddBtn>
         </InvPageHeader>
 
-        {/* ── Top Toolbar (Show Upto, Search, Filters) ── */}
-        <InvTopToolbar
-          pageSize={pageSize}
-          onPageSizeChange={handlePageSizeChange}
-          pageSizeOptions={[10, 25, 50, 100]}
-          search={search}
-          onSearchChange={handleSearchChange}
-          searchPlaceholder="Search name, GSTIN, city, phone..."
-          totalRecords={totalCount}
-          customFilters={
-            <InvSelect
-              value={vendorTypeFilter}
-              onChange={(e) => {
-                setVendorTypeFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">All Types</option>
-              {SUPPLIER_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </InvSelect>
-          }
-        />
+        {/* ── Slide-Down Add / Edit Vendor Form ── */}
+        {showModal && (
+          <InvSlideFormPanel>
+            <InvSlideFormHead>
+              <InvSlideFormTitle>
+                🏢 {editId ? "Edit Vendor Details" : "Add New Vendor"}
+              </InvSlideFormTitle>
+              <InvSlideFormCloseBtn
+                onClick={() => {
+                  setShowModal(false);
+                  setEditId(null);
+                }}
+                title="Close Form"
+              >
+                ✕
+              </InvSlideFormCloseBtn>
+            </InvSlideFormHead>
 
-        {/* ── Table ── */}
-        <InvTableWrapper>
-          <InvTable>
-            <thead>
-              <tr>
-                <InvTh style={{ width: 50 }}>#</InvTh>
-                <InvTh>Vendor Name</InvTh>
-                <InvTh>Type</InvTh>
-                <InvTh>Address</InvTh>
-                <InvTh>City / State</InvTh>
-                <InvTh>GSTIN</InvTh>
-                <InvTh>Contact Person</InvTh>
-                <InvTh>Phone / Email</InvTh>
-                <InvTh>Payment Terms</InvTh>
-                <InvTh style={{ textAlign: "center", width: 140 }}>Actions</InvTh>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <InvTd colSpan={10} style={{ textAlign: "center", padding: "40px" }}>
-                    Loading vendor records...
-                  </InvTd>
-                </tr>
-              ) : vendors.length === 0 ? (
-                <tr>
-                  <InvTd colSpan={10}>
-                    <InvEmptyState>
-                      No vendors found for the selected criteria.
-                    </InvEmptyState>
-                  </InvTd>
-                </tr>
-              ) : (
-                vendors.map((v, idx) => (
-                  <InvTr key={v.vendor_id || v._id || idx}>
-                    <InvTd>{startIdx + idx}</InvTd>
-                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>{v.name}</InvTd>
-                    <InvTd>
-                      <InvBadge
-                        bg={v.vendor_type === "SUPPLIER" ? "#dbeafe" : "#fef3c7"}
-                        color={v.vendor_type === "SUPPLIER" ? "#1e40af" : "#92400e"}
-                        border={v.vendor_type === "SUPPLIER" ? "#bfdbfe" : "#fde68a"}
-                      >
-                        {v.vendor_type || "SUPPLIER"}
-                      </InvBadge>
-                    </InvTd>
-                    <InvTd style={{ maxWidth: 220, fontSize: "0.8rem" }}>
-                      {[v.address_line1 || v.address_line_1, v.address_line2 || v.address_line_2]
-                        .filter(Boolean)
-                        .join(", ") || "—"}
-                    </InvTd>
-                    <InvTd>{[v.city, v.state].filter(Boolean).join(", ") || "—"}</InvTd>
-                    <InvTd style={{ fontFamily: "monospace", fontWeight: 600 }}>{v.gstin || "—"}</InvTd>
-                    <InvTd>{v.contact_person || "—"}</InvTd>
-                    <InvTd style={{ fontSize: "0.8rem" }}>
-                      <div>{v.phone || "—"}</div>
-                      {v.email && <div style={{ color: InvTheme.textMuted, fontSize: "0.75rem" }}>{v.email}</div>}
-                    </InvTd>
-                    <InvTd>{v.payment_terms || "—"}</InvTd>
-                    <InvTd style={{ textAlign: "center" }}>
-                      <div style={{ display: "inline-flex", gap: 6 }}>
-                        <InvActionBtn onClick={() => handleEdit(v)}>Edit</InvActionBtn>
-                        <InvActionBtn danger onClick={() => handleDelete(v.vendor_id || v._id)}>
-                          Delete
-                        </InvActionBtn>
-                      </div>
-                    </InvTd>
-                  </InvTr>
-                ))
-              )}
-            </tbody>
-          </InvTable>
-        </InvTableWrapper>
-
-        {/* ── Bottom Pagination ── */}
-        <InvPagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          totalRecords={totalCount}
-          onPageChange={handlePageChange}
-        />
-      </ContentCard>
-
-      {/* ── Add / Edit Vendor Modal ── */}
-      {showModal && (
-        <InvModalOverlay onClick={() => setShowModal(false)}>
-          <InvModalContainer maxWidth="880px" onClick={(e) => e.stopPropagation()}>
-            <InvModalHeader>
-              <InvModalTitle>🏢 {editId ? "Edit Vendor Details" : "Add New Vendor"}</InvModalTitle>
-              <InvModalCloseBtn onClick={() => setShowModal(false)}>✕</InvModalCloseBtn>
-            </InvModalHeader>
-
-            <InvModalBody>
+            <InvSlideFormBody>
               <InvFormGrid minWidth="240px">
                 <InvFormField>
                   <InvFormLabel required>Supplier / Manufacturer</InvFormLabel>
@@ -615,19 +524,121 @@ const VendorManagement = () => {
                   </InvSelect>
                 </InvFormField>
               </InvFormGrid>
-            </InvModalBody>
+            </InvSlideFormBody>
 
-            <InvModalFooter>
-              <InvAddBtn secondary onClick={() => setShowModal(false)}>
+            <InvSlideFormFooter>
+              <InvAddBtn
+                secondary
+                onClick={() => {
+                  setShowModal(false);
+                  setEditId(null);
+                }}
+              >
                 Cancel
               </InvAddBtn>
               <InvAddBtn onClick={handleFormSubmit} disabled={loading}>
                 {loading ? "Saving..." : editId ? "Update Vendor" : "Save Vendor"}
               </InvAddBtn>
-            </InvModalFooter>
-          </InvModalContainer>
-        </InvModalOverlay>
-      )}
+            </InvSlideFormFooter>
+          </InvSlideFormPanel>
+        )}
+
+        {/* ── Top Toolbar (Show Upto, Search) ── */}
+        <InvTopToolbar
+          pageSize={pageSize}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={[10, 25, 50, 100]}
+          search={search}
+          onSearchChange={handleSearchChange}
+          searchPlaceholder="Search name, GSTIN, city, phone..."
+          totalRecords={totalCount}
+        />
+
+        {/* ── Table ── */}
+        <InvTableWrapper>
+          <InvTable>
+            <thead>
+              <tr>
+                <InvTh style={{ width: 50 }}>#</InvTh>
+                <InvTh>Vendor Name</InvTh>
+                <InvTh>Type</InvTh>
+                <InvTh>Address</InvTh>
+                <InvTh>City / State</InvTh>
+                <InvTh>GSTIN</InvTh>
+                <InvTh>Contact Person</InvTh>
+                <InvTh>Phone / Email</InvTh>
+                <InvTh>Payment Terms</InvTh>
+                <InvTh style={{ textAlign: "center", width: 140 }}>Actions</InvTh>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <InvTd colSpan={10} style={{ textAlign: "center", padding: "40px" }}>
+                    Loading vendor records...
+                  </InvTd>
+                </tr>
+              ) : vendors.length === 0 ? (
+                <tr>
+                  <InvTd colSpan={10}>
+                    <InvEmptyState>
+                      No vendors found for the selected criteria.
+                    </InvEmptyState>
+                  </InvTd>
+                </tr>
+              ) : (
+                vendors.map((v, idx) => (
+                  <InvTr key={v.vendor_id || v._id || idx}>
+                    <InvTd>{startIdx + idx}</InvTd>
+                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>{v.name}</InvTd>
+                    <InvTd>
+                      <InvBadge
+                        bg={v.vendor_type === "SUPPLIER" ? "#dbeafe" : "#fef3c7"}
+                        color={v.vendor_type === "SUPPLIER" ? "#1e40af" : "#92400e"}
+                        border={v.vendor_type === "SUPPLIER" ? "#bfdbfe" : "#fde68a"}
+                      >
+                        {v.vendor_type || "SUPPLIER"}
+                      </InvBadge>
+                    </InvTd>
+                    <InvTd style={{ maxWidth: 220, fontSize: "0.8rem" }}>
+                      {[v.address_line1 || v.address_line_1, v.address_line2 || v.address_line_2]
+                        .filter(Boolean)
+                        .join(", ") || "—"}
+                    </InvTd>
+                    <InvTd>{[v.city, v.state].filter(Boolean).join(", ") || "—"}</InvTd>
+                    <InvTd style={{ fontFamily: "monospace", fontWeight: 600 }}>{v.gstin || "—"}</InvTd>
+                    <InvTd>{v.contact_person || "—"}</InvTd>
+                    <InvTd style={{ fontSize: "0.8rem" }}>
+                      <div>{v.phone || "—"}</div>
+                      {v.email && <div style={{ color: InvTheme.textMuted, fontSize: "0.75rem" }}>{v.email}</div>}
+                    </InvTd>
+                    <InvTd>{v.payment_terms || "—"}</InvTd>
+                    <InvTd style={{ textAlign: "center" }}>
+                      <InvActionGroup>
+                        <InvActionBtn variant="edit" onClick={() => handleEdit(v)} title="Edit Vendor Details">
+                          ✏️ Edit
+                        </InvActionBtn>
+                        <InvActionBtn variant="delete" onClick={() => handleDelete(v.vendor_id || v._id)} title="Delete Vendor">
+                          🗑️ Delete
+                        </InvActionBtn>
+                      </InvActionGroup>
+                    </InvTd>
+                  </InvTr>
+                ))
+              )}
+            </tbody>
+          </InvTable>
+        </InvTableWrapper>
+
+        {/* ── Bottom Pagination ── */}
+        <InvPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalRecords={totalCount}
+          onPageChange={handlePageChange}
+        />
+      </ContentCard>
     </PageContainer>
   );
 };

@@ -133,45 +133,62 @@ export const InvFieldLabel = styled.label`
 `;
 
 export const InvSelect = styled.select`
-  height: 32px;
-  padding: 0 8px;
-  font-size: 0.8rem;
-  border: 1px solid ${InvTheme.borderMedium};
-  border-radius: 6px;
-  background: #ffffff;
-  color: ${InvTheme.textMain};
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s;
-  &:focus {
-    border-color: ${InvTheme.primary};
-    box-shadow: 0 0 0 2px ${InvTheme.primaryBorder};
-  }
-`;
-
-export const InvInput = styled.input`
-  height: 32px;
-  padding: 0 8px;
-  font-size: 0.8rem;
+  height: 35px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 0.81rem;
+  font-family: ${InvTheme.font};
   border: 1px solid ${InvTheme.borderMedium};
   border-radius: 6px;
   background: #ffffff;
   color: ${InvTheme.textMain};
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.15s;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  &:hover {
+    border-color: #94a3b8;
+  }
   &:focus {
     border-color: ${InvTheme.primary};
-    box-shadow: 0 0 0 2px ${InvTheme.primaryBorder};
+    box-shadow: 0 0 0 3px ${InvTheme.primaryBorder};
+  }
+`;
+
+export const InvInput = styled.input`
+  height: 35px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 0.81rem;
+  font-family: ${InvTheme.font};
+  border: 1px solid ${InvTheme.borderMedium};
+  border-radius: 6px;
+  background: #ffffff;
+  color: ${InvTheme.textMain};
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.18s ease;
+  &:hover {
+    border-color: #94a3b8;
+  }
+  &:focus {
+    border-color: ${InvTheme.primary};
+    box-shadow: 0 0 0 3px ${InvTheme.primaryBorder};
+  }
+  &::placeholder {
+    color: #94a3b8;
+    font-size: 0.8rem;
   }
 `;
 
 export const InvPillBtn = styled.button`
   height: 30px;
-  padding: 0 9px;
+  padding: 0 10px;
   font-size: 0.74rem;
   font-weight: 600;
-  border-radius: 5px;
+  border-radius: 6px;
   border: 1px solid ${p => p.active ? InvTheme.primary : InvTheme.borderMedium};
   background: ${p => p.active ? InvTheme.primaryLight : "#ffffff"};
   color: ${p => p.active ? InvTheme.primaryDark : "#475569"};
@@ -179,8 +196,8 @@ export const InvPillBtn = styled.button`
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  transition: all 0.15s;
+  gap: 4px;
+  transition: all 0.15s ease;
   &:hover {
     border-color: ${InvTheme.primary};
     background: ${InvTheme.primaryLight};
@@ -191,10 +208,11 @@ export const InvPillBtn = styled.button`
 export const InvCountBadge = styled.span`
   display: inline-flex;
   align-items: center;
-  padding: 4px 9px;
-  background: #e2e8f0;
+  padding: 4px 10px;
+  background: #f1f5f9;
   color: #334155;
-  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
   font-size: 0.72rem;
   font-weight: 700;
   white-space: nowrap;
@@ -238,12 +256,13 @@ export const InvTopToolbar = ({
 
   return (
     <InvToolbarWrapper>
-      {/* Left: Show Entries & Date Filters */}
+      {/* Left: Show Entries, Date Filters & Custom Filters */}
       <InvToolbarLeft>
         {onPageSizeChange && (
           <InvFieldGroup>
             <InvFieldLabel>Show:</InvFieldLabel>
             <InvSelect
+              style={{ width: "auto", minWidth: 68 }}
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
             >
@@ -299,16 +318,17 @@ export const InvTopToolbar = ({
             ✕ Clear
           </InvPillBtn>
         )}
+
+        {/* Custom Filters (e.g. Category Filter) on the same line */}
+        {customFilters}
       </InvToolbarLeft>
 
-      {/* Right: Custom Filters, Search & Live Count */}
+      {/* Right: Search & Live Count */}
       <InvToolbarRight>
-        {customFilters}
-
         {onSearchChange && (
           <InvFieldGroup>
             <InvInput
-              style={{ minWidth: 180, width: "100%", maxWidth: 260 }}
+              style={{ minWidth: 220, width: "100%", maxWidth: 320 }}
               type="text"
               placeholder={searchPlaceholder}
               value={search || ""}
@@ -454,76 +474,103 @@ export const InvModalOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding: 16px;
+  animation: ${fadeIn} 0.2s ease-out;
 `;
 
 export const InvModalContainer = styled.div`
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 12px;
   width: 100%;
-  max-width: ${p => p.maxWidth || "850px"};
+  max-width: ${p => p.maxWidth || "860px"};
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: ${InvTheme.shadowLg};
-  animation: ${popIn} 0.25s ease both;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(226, 232, 240, 0.9);
+  animation: ${popIn} 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
   overflow: hidden;
+  box-sizing: border-box;
 `;
 
 export const InvModalHeader = styled.div`
   background: linear-gradient(135deg, ${InvTheme.primary} 0%, ${InvTheme.primaryDark} 100%);
   color: #ffffff;
-  padding: 14px 20px;
+  padding: 14px 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
 `;
 
 export const InvModalTitle = styled.h3`
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.02rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `;
 
 export const InvModalCloseBtn = styled.button`
-  background: transparent;
-  border: none;
-  color: rgba(255,255,255,0.85);
-  font-size: 1.3rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  font-size: 1rem;
   cursor: pointer;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: all 0.15s;
+  border-radius: 6px;
+  transition: all 0.16s ease;
   &:hover {
-    background: rgba(255,255,255,0.18);
+    background: #ef4444;
+    border-color: #ef4444;
     color: #ffffff;
+    transform: scale(1.06);
   }
 `;
 
 export const InvModalBody = styled.div`
-  padding: 20px;
+  padding: 20px 24px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
+  box-sizing: border-box;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
 `;
 
 export const InvModalFooter = styled.div`
-  padding: 12px 20px;
+  padding: 12px 24px;
   border-top: 1px solid ${InvTheme.border};
   background: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+  flex-shrink: 0;
 `;
 
 /* ─── Modern Table Components ────────────────────────────────────────────── */
@@ -545,13 +592,14 @@ export const InvTable = styled.table`
 export const InvTh = styled.th`
   background: #0d9488;
   color: #ffffff;
-  padding: 10px 14px;
+  padding: 11px 14px;
   font-weight: 700;
   text-align: ${p => p.align || "left"};
   border-right: 1px solid rgba(255,255,255,0.12);
   white-space: nowrap;
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
+  font-size: 0.77rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   &:last-child {
     border-right: none;
   }
@@ -572,10 +620,10 @@ export const InvTd = styled.td`
 export const InvTr = styled.tr`
   transition: background 0.12s ease;
   &:nth-child(even) {
-    background: #fcfdfd;
+    background: #fbfdfc;
   }
   &:hover {
-    background: ${InvTheme.primaryLight} !important;
+    background: #f0fdfa !important;
   }
 `;
 
@@ -586,27 +634,115 @@ export const InvBadge = styled.span`
   border-radius: 12px;
   font-size: 0.72rem;
   font-weight: 700;
+  white-space: nowrap;
   background: ${p => p.bg || InvTheme.primaryLight};
   color: ${p => p.color || InvTheme.primaryDark};
   border: 1px solid ${p => p.border || InvTheme.primaryBorder};
 `;
 
+export const InvActionGroup = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+`;
+
 export const InvActionBtn = styled.button`
-  padding: 5px 10px;
-  border-radius: 4px;
-  border: none;
-  font-size: 0.75rem;
-  font-weight: 700;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  transition: all 0.15s;
-  background: ${p => p.danger ? "#fee2e2" : (p.secondary ? "#e2e8f0" : InvTheme.primaryLight)};
-  color: ${p => p.danger ? "#b91c1c" : (p.secondary ? "#334155" : InvTheme.primaryDark)};
-  &:hover {
-    background: ${p => p.danger ? "#fca5a5" : (p.secondary ? "#cbd5e1" : "#ccfbf1")};
-    transform: translateY(-1px);
+  white-space: nowrap;
+  transition: all 0.16s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  line-height: 1;
+
+  ${(p) => {
+    if (p.danger || p.variant === "danger" || p.variant === "delete") {
+      return css`
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        &:hover {
+          background: #dc2626;
+          color: #ffffff;
+          border-color: #dc2626;
+          box-shadow: 0 2px 6px rgba(220, 38, 38, 0.22);
+          transform: translateY(-1px);
+        }
+      `;
+    }
+    if (p.variant === "track" || p.variant === "info") {
+      return css`
+        background: #f0fdfa;
+        color: #0d9488;
+        border: 1px solid #99f6e4;
+        &:hover {
+          background: #0d9488;
+          color: #ffffff;
+          border-color: #0d9488;
+          box-shadow: 0 2px 6px rgba(13, 148, 136, 0.22);
+          transform: translateY(-1px);
+        }
+      `;
+    }
+    if (p.variant === "edit") {
+      return css`
+        background: #f0f9ff;
+        color: #0284c7;
+        border: 1px solid #bae6fd;
+        &:hover {
+          background: #0284c7;
+          color: #ffffff;
+          border-color: #0284c7;
+          box-shadow: 0 2px 6px rgba(2, 132, 199, 0.22);
+          transform: translateY(-1px);
+        }
+      `;
+    }
+    if (p.secondary || p.variant === "secondary") {
+      return css`
+        background: #f8fafc;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+        &:hover {
+          background: #475569;
+          color: #ffffff;
+          border-color: #475569;
+          transform: translateY(-1px);
+        }
+      `;
+    }
+    // Default
+    return css`
+      background: #f0fdfa;
+      color: #0f766e;
+      border: 1px solid #ccfbf1;
+      &:hover {
+        background: #0d9488;
+        color: #ffffff;
+        border-color: #0d9488;
+        box-shadow: 0 2px 6px rgba(13, 148, 136, 0.2);
+        transform: translateY(-1px);
+      }
+    `;
+  }}
+
+  &:active {
+    transform: translateY(0);
+  }
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none !important;
   }
 `;
 
@@ -648,8 +784,10 @@ export const InvCardBody = styled.div`
 export const InvFormGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(${p => p.minWidth || "220px"}, 1fr));
-  gap: 16px;
+  gap: 14px 16px;
   margin-bottom: 16px;
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 export const InvFormField = styled.div`
@@ -657,10 +795,12 @@ export const InvFormField = styled.div`
   flex-direction: column;
   gap: 5px;
   position: relative;
+  min-width: 0;
+  box-sizing: border-box;
 `;
 
 export const InvFormLabel = styled.label`
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: #334155;
   ${p => p.required && css`
@@ -722,4 +862,78 @@ export const InvToast = styled.div`
   box-shadow: ${InvTheme.shadowMd};
   animation: ${fadeIn} 0.3s ease;
 `;
+
+/* ─── Slide Down Form Panel Components ───────────────────────────────────── */
+const slideDownAnim = keyframes`
+  from {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    max-height: 2500px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
+
+export const InvSlideFormPanel = styled.div`
+  background: #ffffff;
+  border-bottom: 2px solid ${InvTheme.primary};
+  overflow: hidden;
+  animation: ${slideDownAnim} 0.35s ease both;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+`;
+
+export const InvSlideFormHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+  border-bottom: 1px solid #99f6e4;
+`;
+
+export const InvSlideFormTitle = styled.div`
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: ${InvTheme.primaryDark};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+export const InvSlideFormCloseBtn = styled.button`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #99f6e4;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  &:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fca5a5;
+  }
+`;
+
+export const InvSlideFormBody = styled.div`
+  padding: 18px 22px;
+`;
+
+export const InvSlideFormFooter = styled.div`
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 12px 22px 16px;
+  background: #f8fafc;
+  border-top: 1px solid ${InvTheme.border};
+`;
+
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import styled, { createGlobalStyle, keyframes } from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -811,8 +812,11 @@ const EMPTY_COMMON = {
 
 const today = () => new Date().toISOString().split("T")[0];
 
-export default function IPAdvance() {
+export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumber: propIpNumber, onClose, onSaved }) {
   const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const location = useLocation();
+  const navState = location?.state || {};
+  const patient = propPatient || navState.patient || navState.patient_details || navState.patientData || navState.admission || navState.record || (navState.uhid || navState.ipNumber || navState.ip_number ? navState : null);
 
   // ── Admission ─────────────────────────────────────────────────────────────
   const [common, setCommon]     = useState(EMPTY_COMMON);
@@ -964,23 +968,92 @@ export default function IPAdvance() {
     fetchAdvancesByDate(today(), today());
   };
 
+  const prefillFromPatient = (pat) => {
+    if (!pat || typeof pat !== "object") return;
+    const pt = pat.patient || pat.patient_details || pat.patientData || {};
+    const uhid = pat.uhid || pt.uhid || "";
+    const ipNumber = pat.ipNumber || pat.ip_number || pt.ipNumber || pt.ip_number || "";
+    const name = (
+      pat.name || pat.patientname || pat.patient_name || pt.patientname || pt.name ||
+      [pat.salutation || pt.salutation, pat.firstName || pt.firstName, pat.middleName || pt.middleName, pat.lastName || pt.lastName].filter(Boolean).join(" ") ||
+      ""
+    ).trim();
+    const age = pat.age || pt.age || "";
+    const gender = pat.gender || pt.gender || "";
+    const customer_type = pat.customerType || pat.customer_type || pt.customerType || pt.customer_type || "";
+    const company = pat.insuranceCompanyName || pat.company_name || pat.company || pt.insuranceCompanyName || pt.company || "";
+    const address = pat.permanent_address || pat.address || pt.permanent_address || pt.address || [pt.area, pt.city, pt.state, pt.zipcode].filter(Boolean).join(", ") || "";
+    const roomNo = pat.roomNo || pat.room_no || pat.newRoomNo || "";
+    const bedNo = pat.bedNo || pat.bed_no || pat.newBedNo || "";
+    const admittingDate = pat.admissionDateTime || (pat.admissionDate && pat.admissionTime ? `${pat.admissionDate} ${pat.admissionTime}` : pat.admissionDate) || "";
+    const admittingDoctor = pat.admittingDoctorName || pat.admittingDoctor || pat.doctor || "";
+
+    setCommon(prev => ({
+      ...prev,
+      uhid: uhid || prev.uhid,
+      ipNumber: ipNumber || prev.ipNumber,
+      name: name || prev.name,
+      age: age || prev.age,
+      gender: gender || prev.gender,
+      customer_type: customer_type || prev.customer_type,
+      company: company || prev.company,
+      address: address || prev.address,
+      roomNo: roomNo || prev.roomNo,
+      bedNo: bedNo || prev.bedNo,
+      admittingDate: admittingDate || prev.admittingDate,
+      admittingDoctor: admittingDoctor || prev.admittingDoctor,
+    }));
+    if (ipNumber) setAdmId(ipNumber);
+  };
+
+  useEffect(() => {
+    if (patient || propUhid || propIpNumber) {
+      const u = propUhid || patient?.uhid || patient?.patient_details?.uhid || patient?.patient?.uhid;
+      const ip = propIpNumber || patient?.ipNumber || patient?.ip_number || patient?.patient_details?.ipNumber || patient?.patient_details?.ip_number || patient?.patient?.ipNumber;
+      if (patient) {
+        prefillFromPatient(patient);
+      }
+      if (ip) {
+        const ipStr = String(ip).trim();
+        setCommon(prev => ({ ...prev, ipNumber: ipStr, uhid: u ? String(u).trim() : prev.uhid }));
+        loadActiveAdmission({ ip_number: ipStr });
+      } else if (u) {
+        const uStr = String(u).trim();
+        setCommon(prev => ({ ...prev, uhid: uStr }));
+        loadActiveAdmission({ uhid: uStr });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient, propUhid, propIpNumber]);
+
   // ── Load admission ─────────────────────────────────────────────────────────
   const loadActiveAdmission = async (params) => {
     try {
       const qs  = new URLSearchParams(params).toString();
-      const res = await apiRequest(`${BASE}get_active_admission/?${qs}`, "GET");
-      if (!res.success) {
-        setAdmId(null);
-        setCommon(prev => ({
-          ...EMPTY_COMMON,
-          uhid: params.uhid !== undefined ? params.uhid : prev.uhid,
-          ipNumber: params.ip_number !== undefined ? params.ip_number : prev.ipNumber,
-        }));
-        return toast.error(res.error || res.message || "No active admission found");
+      let adm = null;
+      try {
+        const res = await apiRequest(`${BASE}get_active_admission/?${qs}`, "GET");
+        if (res.success && res.data) {
+          adm = res?.data?.data ?? res?.data;
+        }
+      } catch (e) {
+        console.warn("get_active_admission failed:", e);
       }
-      const adm = res?.data?.data ?? res?.data ?? res;
 
-      if (!adm?.ipNumber && !adm?.uhid) {
+      // Fallback to admission-list if not found
+      if (!adm || (!adm.ipNumber && !adm.uhid)) {
+        try {
+          const admRes = await apiRequest(`${BASE}admission-list/?${params.ip_number ? `ip_number=${encodeURIComponent(params.ip_number)}` : `uhid=${encodeURIComponent(params.uhid)}`}`, "GET");
+          const admList = Array.isArray(admRes.data?.data) ? admRes.data.data : Array.isArray(admRes.data) ? admRes.data : [];
+          if (admList.length) {
+            adm = admList[0];
+          }
+        } catch (e) {
+          console.warn("admission-list fallback failed:", e);
+        }
+      }
+
+      if (!adm || (!adm.ipNumber && !adm.uhid)) {
         setAdmId(null);
         setCommon(prev => ({
           ...EMPTY_COMMON,
@@ -1007,12 +1080,11 @@ export default function IPAdvance() {
         }
       }
 
-      const nameParts = [
-        adm.salutation  || patient.salutation,
-        adm.firstName   || patient.firstName || patient.patientname,
-        adm.middleName  || patient.middleName,
-        adm.lastName    || patient.lastName,
-      ].filter(Boolean);
+      const pName = (
+        patient.patientname ||
+        [adm.salutation || patient.salutation, adm.firstName || patient.firstName, adm.middleName || patient.middleName, adm.lastName || patient.lastName].filter(Boolean).join(" ") ||
+        adm.name || adm.patient_name || ""
+      ).trim();
 
       let formattedDateTime = "";
       if (adm.admissionDateTime) {
@@ -1035,7 +1107,7 @@ export default function IPAdvance() {
         ...prev,
         uhid:            adm.uhid || prev.uhid,
         ipNumber:        adm.ipNumber || prev.ipNumber,
-        name:            nameParts.join(" ") || prev.name,
+        name:            pName || prev.name,
         age:             adm.age || patient.age || prev.age,
         gender:          adm.gender || patient.gender || prev.gender,
         address:
@@ -1049,8 +1121,6 @@ export default function IPAdvance() {
         admittingDoctor: doctor,
         creditLimit:     adm.creditLimit != null ? adm.creditLimit : prev.creditLimit,
       }));
-
-      toast.success(`Admission loaded: ${adm.ipNumber}`);
     } catch (err) {
       console.error(err);
       toast.error(err?.message || "No active admission found");
@@ -1141,6 +1211,9 @@ export default function IPAdvance() {
       fetchAdvancesByDate(filterFromDate, filterToDate);
       if (savedRecord) {
         openPrintModal(savedRecord);
+        if (onSaved && typeof onSaved === "function") {
+          onSaved(savedRecord);
+        }
       }
     } catch (e) {
       toast.error(e.message || "Failed to save advance");
@@ -1446,6 +1519,27 @@ export default function IPAdvance() {
                 {tab.label}
               </button>
             ))}
+            {onClose && typeof onClose === "function" && (
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  background: "rgba(255,255,255,0.18)",
+                  color: "white",
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  borderRadius: 6,
+                  padding: "6px 14px",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                ✕ Close
+              </button>
+            )}
           </div>
         </PageHeader>
 

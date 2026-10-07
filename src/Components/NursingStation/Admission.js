@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import styled, { keyframes, css } from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -1562,11 +1563,15 @@ function SearchSelect({
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
-export default function Admission() {
+export default function Admission({ patient: propPatient, uhid: propUhid, ipNumber: propIpNumber, onClose, onSaved }) {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
   const API_ADMISSION_LIST = `${HmsBaseUrl}admission-list/`;
   const API_ADMISSION_DETAIL = (ipNumber) => `${HmsBaseUrl}admission-detail/${encodeURIComponent(ipNumber)}/`;
   const API_ROOM_SEARCH = `${HmsBaseUrl}admission-room-search/`;
+
+  const location = useLocation();
+  const navState = location?.state || {};
+  const patient = propPatient || navState.patient || navState.patient_details || navState.patientData || navState.admission || navState.record || (navState.uhid || navState.ipNumber || navState.ip_number ? navState : null);
 
   const [admissions, setAdmissions] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -1590,6 +1595,18 @@ export default function Admission() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY);
+  const [nextIpPreview, setNextIpPreview] = useState("");
+
+  const fetchNextIp = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}autoipNumber/`, "GET");
+      if (res && res.success && res.next_ipNumber) {
+        setNextIpPreview(res.next_ipNumber);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch next IP preview:", e);
+    }
+  };
 
   // ── When form is in edit mode, store the editReason until submit ──────────
   // ── Grid View ─────────────────────────────────────────────────────────────
@@ -1642,6 +1659,74 @@ export default function Admission() {
     return pkg ? pkg.packageName : "";
   };
 
+  const prefillPatientData = (pat) => {
+    if (!pat || typeof pat !== "object") return;
+    const uhid = pat.uhid || pat.patient_details?.uhid || pat.patient?.uhid || "";
+    const ipNumber = pat.ipNumber || pat.ip_number || pat.patient_details?.ipNumber || pat.patient_details?.ip_number || pat.patient?.ipNumber || "";
+    const firstName = pat.firstName || pat.patient_name || pat.patientname || pat.name || pat.patient_details?.firstName || pat.patient_details?.name || "";
+    const middleName = pat.middleName || pat.patient_details?.middleName || "";
+    const lastName = pat.lastName || pat.patient_details?.lastName || "";
+    const salutation = pat.salutation || pat.patient_details?.salutation || "";
+    const dob = pat.dob || pat.dateOfBirth || pat.patient_details?.dob || "";
+    const calcAge = calculateAgeFromDob(dob);
+    const age = calcAge.age !== "" ? calcAge.age : (pat.age || pat.patient_details?.age || "");
+    const age_type = calcAge.age_type || pat.age_type || pat.patient_details?.age_type || "Y";
+    const gender = pat.gender || pat.patient_details?.gender || "";
+    const mobilePhone = pat.mobilePhone || pat.phone || pat.mobile || pat.mobile_number || pat.patient_details?.mobilePhone || pat.patient_details?.phone || "";
+    const permanent_address = pat.permanent_address || pat.address || pat.patient_details?.permanent_address || pat.patient_details?.address || "";
+    const area = pat.area || pat.patient_details?.area || "";
+    const zipcode = pat.zipcode || pat.patient_details?.zipcode || "";
+    const city = pat.city || pat.patient_details?.city || "";
+    const state = pat.state || pat.patient_details?.state || "";
+    const spouseName = pat.spouseName || pat.patient_details?.spouseName || "";
+    const fatherName = pat.fatherName || pat.patient_details?.fatherName || "";
+    const relationship = pat.relationship || pat.attender_relationship || pat.patient_details?.relationship || "";
+    const aadhaar = pat.aadhaar || pat.aadhar || pat.patient_details?.aadhaar || "";
+    const customerType = pat.customerType || pat.customer_type || pat.patient_details?.customerType || "General";
+    const insuranceCompanyName = pat.insuranceCompanyName || pat.company_name || pat.insurance_company || pat.patient_details?.insuranceCompanyName || "";
+    const company_code = pat.company_code || pat.patient_details?.company_code || "";
+    const admittingDoctor = pat.admittingDoctor || pat.admitting_doctor || pat.doctorId || pat.doctor || "";
+    const consultingDoctor = pat.consultingDoctor || pat.consulting_doctor || "";
+    const roomNo = pat.roomNo || pat.room_no || pat.newRoomNo || "";
+    const bedNo = pat.bedNo || pat.bed_no || pat.newBedNo || "";
+    const reasonForAdmission = pat.reasonForAdmission || pat.reason_for_admission || pat.reason || "";
+    const packageNo = pat.packageNo || pat.package_no || "";
+
+    setForm(prev => ({
+      ...prev,
+      uhid: uhid || prev.uhid,
+      ipNumber: ipNumber || prev.ipNumber,
+      firstName: firstName || prev.firstName,
+      middleName: middleName || prev.middleName,
+      lastName: lastName || prev.lastName,
+      salutation: salutation || prev.salutation,
+      dob: dob || prev.dob,
+      age: age || prev.age,
+      age_type: age_type || prev.age_type,
+      gender: gender || prev.gender,
+      mobilePhone: mobilePhone || prev.mobilePhone,
+      permanent_address: permanent_address || prev.permanent_address,
+      area: area || prev.area,
+      zipcode: zipcode || prev.zipcode,
+      city: city || prev.city,
+      state: state || prev.state,
+      spouseName: spouseName || prev.spouseName,
+      fatherName: fatherName || prev.fatherName,
+      relationship: relationship || prev.relationship,
+      aadhaar: aadhaar || prev.aadhaar,
+      customerType: customerType || prev.customerType,
+      insuranceCompanyName: insuranceCompanyName || prev.insuranceCompanyName,
+      company_code: company_code || prev.company_code,
+      admittingDoctor: admittingDoctor || prev.admittingDoctor,
+      consultingDoctor: consultingDoctor || prev.consultingDoctor,
+      roomNo: roomNo || prev.roomNo,
+      bedNo: bedNo || prev.bedNo,
+      reasonForAdmission: reasonForAdmission || prev.reasonForAdmission,
+      packageNo: packageNo || prev.packageNo,
+      packageName: packageNo ? resolvePackageName(packageNo) : prev.packageName,
+    }));
+  };
+
   useEffect(() => {
     const handleOutsideClick = e => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -1670,6 +1755,29 @@ export default function Admission() {
     fetchCustomerTypes();
     fetchInsuranceProviders();
   }, []);
+
+  useEffect(() => {
+    if (patient || propUhid || propIpNumber) {
+      setFormOpen(true);
+      const targetUhid = propUhid || patient?.uhid || patient?.patient_details?.uhid || patient?.patient?.uhid;
+      const targetIp = propIpNumber || patient?.ipNumber || patient?.ip_number || patient?.patient_details?.ipNumber || patient?.patient_details?.ip_number || patient?.patient?.ipNumber;
+
+      if (patient) {
+        prefillPatientData(patient);
+      }
+
+      if (targetIp && String(targetIp).trim()) {
+        const ipStr = String(targetIp).trim();
+        setTSearch(ipStr);
+        fetchAdmissionByIP(ipStr);
+      } else if (targetUhid && String(targetUhid).trim()) {
+        const uhidStr = String(targetUhid).trim();
+        setTSearch(uhidStr);
+        fetchPatientByUHID(uhidStr);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient, propUhid, propIpNumber]);
 
   const fetchGridData = async () => {
     setGridLoading(true);
@@ -1775,8 +1883,9 @@ export default function Admission() {
   };
 
   // ── Fetch patient by UHID — also checks for active admission ─────────────
-  const fetchPatientByUHID = async () => {
-    const uhid = form.uhid.trim();
+  const fetchPatientByUHID = async (explicitUhid = null) => {
+    const isStr = typeof explicitUhid === "string" && explicitUhid.trim().length > 0;
+    const uhid = (isStr ? explicitUhid : form.uhid || "").trim();
     if (!uhid) {
       setErrors(p => ({ ...p, uhid: "This field is required" }));
       return;
@@ -1826,22 +1935,28 @@ export default function Admission() {
 
         setForm(p => ({
           ...p,
-          salutation: d.salutation || "", firstName: d.firstName || "",
-          middleName: d.middleName || "", lastName: d.lastName || "",
-          dob: dobVal,
-          age: finalAge,             // Calculated current age from DOB
-          age_type: finalAgeType,
-          gender: d.gender || "",
-          mobilePhone: d.mobilePhone || d.phone || "",
-          permanent_address: d.permanent_address || "", area: d.area || "",
-          zipcode: d.zipcode || "", city: d.city || "", state: d.state || "",
-          spouseName: d.spouseName || "",
-          fatherName: d.fatherName || "",
-          relationship: d.relationship || "",
-          aadhaar: d.aadhaar || d.aadhar || "",
-          customerType: d.customerType || d.customer_type || "General",
-          insuranceCompanyName: d.insuranceCompanyName || d.company_name || "",
-          company_code: d.company_code || "",
+          uhid: uhid,
+          salutation: d.salutation || p.salutation || "",
+          firstName: d.firstName || d.patientname || d.patient_name || d.name || p.firstName || "",
+          middleName: d.middleName || p.middleName || "",
+          lastName: d.lastName || p.lastName || "",
+          dob: dobVal || p.dob || "",
+          age: finalAge || p.age || "",
+          age_type: finalAgeType || p.age_type || "Y",
+          gender: d.gender || p.gender || "",
+          mobilePhone: d.mobilePhone || d.phone || d.mobile || p.mobilePhone || "",
+          permanent_address: d.permanent_address || d.address || p.permanent_address || "",
+          area: d.area || p.area || "",
+          zipcode: d.zipcode || p.zipcode || "",
+          city: d.city || p.city || "",
+          state: d.state || p.state || "",
+          spouseName: d.spouseName || p.spouseName || "",
+          fatherName: d.fatherName || p.fatherName || "",
+          relationship: d.relationship || p.relationship || "",
+          aadhaar: d.aadhaar || d.aadhar || p.aadhaar || "",
+          customerType: d.customerType || d.customer_type || p.customerType || "General",
+          insuranceCompanyName: d.insuranceCompanyName || d.company_name || d.insurance_company || p.insuranceCompanyName || "",
+          company_code: d.company_code || p.company_code || "",
         }));
         toast.success("Patient loaded");
       }
@@ -1850,8 +1965,9 @@ export default function Admission() {
     }
   };
 
-  const fetchAdmissionByIP = async () => {
-    const ip = form.ipNumber.trim();
+  const fetchAdmissionByIP = async (explicitIp = null) => {
+    const isStr = typeof explicitIp === "string" && explicitIp.trim().length > 0;
+    const ip = (isStr ? explicitIp : form.ipNumber || "").trim();
     if (!ip) {
       setErrors(p => ({ ...p, ipNumber: "This field is required" }));
       return;
@@ -1881,7 +1997,6 @@ export default function Admission() {
         setAlreadyAdmInfo(null);
       }
       loadAdmissionIntoForm(found);
-      toast.success(`Admission loaded: ${found.ipNumber || ip}`);
     } catch (err) {
       toast.error(err.message || "Could not retrieve admission.");
     }
@@ -2127,7 +2242,7 @@ export default function Admission() {
   const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
-  const openNewForm = () => { setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); setFormOpen(true); };
+  const openNewForm = () => { setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); setFormOpen(true); fetchNextIp(); };
   const handleGridBedClick = (room, bed) => {
     setEditingId(null);
     setForm({ ...EMPTY, roomNo: room.room_number, bedNo: bed.bed_number });
@@ -2135,9 +2250,10 @@ export default function Admission() {
     setErrors({});
     setAlreadyAdmInfo(null);
     setFormOpen(true);
+    fetchNextIp();
   };
   const openEditForm = adm => { setOpenMenu(null); loadAdmissionIntoForm(adm); setErrors({}); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const closeForm = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); };
+  const closeForm = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); if (onClose && typeof onClose === "function") onClose(); };
 
   const handleFormChange = e => {
     const { name, value, type, files } = e.target;
@@ -2284,6 +2400,9 @@ export default function Admission() {
         closeForm();
         fetchAdmissions();
         setPrintData(slipData);
+        if (onSaved && typeof onSaved === "function") {
+          onSaved(slipData);
+        }
       } else if (res.already_admitted) {
         setAlreadyAdmInfo({ ipNumber: res.ipNumber, admissionDateTime: res.admissionDateTime, roomNo: res.roomNo, bedNo: res.bedNo });
       } else {
@@ -2688,13 +2807,20 @@ export default function Admission() {
                 </Field>
 
                 <Field span={2}>
-                  <Lbl>IP Number</Lbl>
+                  <Lbl>
+                    IP Number{" "}
+                    {!editingId && nextIpPreview && (
+                      <span style={{ fontSize: "0.72rem", color: "#0d9488", fontWeight: 600 }}>
+                        (Auto: {nextIpPreview})
+                      </span>
+                    )}
+                  </Lbl>
                   <IRow>
                     <Inp
                       name="ipNumber"
                       value={form.ipNumber}
                       onChange={handleFormChange}
-                      placeholder={editingId ? "" : "Enter IP to load admission"}
+                      placeholder={editingId ? "" : (nextIpPreview ? `Auto: ${nextIpPreview}` : "Enter IP to load admission")}
                       readOnly={!!editingId}
                       style={{ ...(editingId ? { background: "#f3f4f6" } : {}), ...(errors.ipNumber ? { borderColor: "#ef4444" } : {}) }}
                     />
@@ -3269,14 +3395,9 @@ export default function Admission() {
                  onSaved triggers a refresh and closes the modal.
                */}
               <IPAdvance
-                patient={{
-                  uhid: ipAdvAdm.uhid,
-                  ipNumber: ipAdvAdm.ipNumber,
-                  patient_details: {
-                    uhid: ipAdvAdm.uhid,
-                    ipNumber: ipAdvAdm.ipNumber,
-                  }
-                }}
+                patient={ipAdvAdm}
+                uhid={ipAdvAdm.uhid}
+                ipNumber={ipAdvAdm.ipNumber}
                 onClose={() => setIpAdvAdm(null)}
                 onSaved={() => { setIpAdvAdm(null); fetchAdmissions(); }}
               />

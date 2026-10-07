@@ -561,7 +561,7 @@ const EMPTY_FORM = {
   bill_upto: new Date().toISOString().split("T")[0],
 };
 const EMPTY_ITEM = {
-  itemName: "", quantity: 1, rate: "", discount: 0, amount: 0,
+  itemName: "", code: "", nabh_code: "", quantity: 1, rate: "", discount: 0, amount: 0,
   doctor: "", doctor_fee: "", item_description: "", package_name: ""
 };
 
@@ -661,6 +661,8 @@ const investToRow = it => {
   const amt = it.amount != null ? parseFloat(it.amount) : Math.max(0, qty * rate - disc);
   return {
     itemName: it.itemName || "",
+    code: it.code || it.item_code || (it.test_id != null ? String(it.test_id) : "") || (it.sl_no != null ? String(it.sl_no) : "") || "",
+    nabh_code: it.nabh_code || it.nabhCode || "",
     quantity: qty,
     rate: rate,
     discount: disc,
@@ -733,9 +735,17 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
   const inputRef = useRef(null);
   const dropRef = useRef(null);
 
-  const filtered = value.trim()
-    ? allItems.filter(it => it.itemName?.toLowerCase().includes(value.trim().toLowerCase()))
-    : allItems;
+  const filtered = useMemo(() => {
+    if (!value.trim()) return allItems;
+    const q = value.trim().toLowerCase();
+    return allItems.filter(it => {
+      const name = (it.itemName || it.name || "").toLowerCase();
+      const nabh = (it.nabh_code || "").toLowerCase();
+      const cat = (it.category || "").toLowerCase();
+      const dept = (it.department || "").toLowerCase();
+      return name.includes(q) || nabh.includes(q) || cat.includes(q) || dept.includes(q);
+    });
+  }, [allItems, value]);
 
   useEffect(() => {
     const onMouseDown = e => {
@@ -798,24 +808,25 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
             position: "fixed",
             top: dropPos.top,
             left: dropPos.left,
-            width: Math.max(dropPos.width, 380),
+            width: Math.max(dropPos.width, 420),
             background: "#fff",
             border: `1px solid ${T.border}`,
             borderRadius: "6px",
             boxShadow: "0 8px 24px rgba(0,0,0,0.14)",
             zIndex: 99999,
-            maxHeight: "320px",
+            maxHeight: "340px",
             overflowY: "auto",
           }}
         >
           {!itemsLoading && allItems.length > 0 && (
             <div style={{
-              padding: "5px 10px 4px", fontSize: "0.65rem", fontWeight: 700,
-              color: T.surface, background: T.primary, borderRadius: "6px 6px 0 0",
+              padding: "6px 12px", fontSize: "0.68rem", fontWeight: 700,
+              color: T.surface, background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+              borderRadius: "6px 6px 0 0",
               display: "flex", alignItems: "center", justifyContent: "space-between",
             }}>
               <span>📋 {billTypeName || "Items"}</span>
-              <span style={{ opacity: 0.8 }}>{value.trim() ? `${filtered.length} / ${allItems.length}` : `${allItems.length} items`}</span>
+              <span style={{ opacity: 0.85 }}>{value.trim() ? `${filtered.length} / ${allItems.length} matches` : `${allItems.length} items total`}</span>
             </div>
           )}
 
@@ -827,28 +838,59 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
               </div>
             </SugEmpty>
           ) : filtered.length === 0 ? (
-            <SugEmpty>{allItems.length === 0 ? `No items found` : `No match — try different keywords`}</SugEmpty>
+            <SugEmpty>{allItems.length === 0 ? `No items found for ${billTypeName}` : `No match for "${value}" — try different keywords`}</SugEmpty>
           ) : (
             <>
               {value.trim() && filtered.length < allItems.length && (
-                <div style={{ padding: "3px 10px", fontSize: "0.65rem", fontWeight: 600, color: T.textMuted, background: "#f8fafc", borderBottom: `1px solid ${T.border}` }}>
-                  Showing {filtered.length} of {allItems.length} items
+                <div style={{ padding: "4px 12px", fontSize: "0.66rem", fontWeight: 600, color: T.textMuted, background: "#f8fafc", borderBottom: `1px solid ${T.border}` }}>
+                  Showing top {filtered.length} of {allItems.length} items
                 </div>
               )}
-              {filtered.map((s, i) => (
-                <SuggestionItem
-                  key={`${s.itemName}-${i}`}
-                  onMouseDown={e => { e.preventDefault(); handleSelect(s); }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    <SugName>{s.itemName}</SugName>
-                    {s.package_name && <span style={{ fontSize: "0.67rem", color: T.textMuted }}>{s.package_name}</span>}
-                  </div>
-                  {s.price != null && String(s.price) !== "0" && String(s.price) !== "" && (
-                    <SugPrice>₹{parseFloat(s.price).toLocaleString("en-IN")}</SugPrice>
-                  )}
-                </SuggestionItem>
-              ))}
+              {filtered.map((s, i) => {
+                const sName = s.itemName || s.name || "";
+                const sRate = s.price != null && s.price !== "" ? s.price : (s.nabh_rate || s.rate || 0);
+                return (
+                  <SuggestionItem
+                    key={`${sName}-${s.nabh_code || ""}-${i}`}
+                    onMouseDown={e => { e.preventDefault(); handleSelect(s); }}
+                    style={{ padding: "8px 12px" }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 0, paddingRight: 8 }}>
+                      <SugName style={{ fontSize: "0.82rem", lineHeight: 1.3 }}>{sName}</SugName>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                        {s.nabh_code && (
+                          <span style={{
+                            fontSize: "0.64rem", fontWeight: 700, padding: "1px 6px",
+                            background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0",
+                            borderRadius: "4px", fontFamily: "monospace"
+                          }}>
+                            NABH: {s.nabh_code}
+                          </span>
+                        )}
+                        {s.category && (
+                          <span style={{
+                            fontSize: "0.64rem", fontWeight: 600, padding: "1px 6px",
+                            background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0",
+                            borderRadius: "4px"
+                          }}>
+                            {s.category}
+                          </span>
+                        )}
+                        {s.package_name && (
+                          <span style={{ fontSize: "0.64rem", color: T.primary, fontWeight: 700 }}>
+                            {s.package_name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {sRate != null && String(sRate) !== "0" && String(sRate) !== "" && (
+                      <SugPrice style={{ marginLeft: 10, fontSize: "0.82rem", flexShrink: 0 }}>
+                        ₹{parseFloat(sRate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </SugPrice>
+                    )}
+                  </SuggestionItem>
+                );
+              })}
             </>
           )}
         </div>
@@ -1332,7 +1374,25 @@ const ItemsSection = ({
                 onChange={e => onEdit(item._key, "itemName", e.target.value)}
                 style={{ fontWeight: 600 }}
               />
-              {item.package_name && <div style={{ fontSize: "0.68rem", color: T.textMuted, fontWeight: 400 }}>{item.package_name}</div>}
+              {(item.package_name || item.nabh_code || item.code) && (
+                <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center", flexWrap: "wrap" }}>
+                  {item.code && (
+                    <span style={{ fontSize: "0.64rem", color: "#1e40af", fontWeight: 700, background: "#eff6ff", padding: "1px 5px", borderRadius: 3, border: "1px solid #bfdbfe", fontFamily: "monospace" }}>
+                      CODE: {item.code}
+                    </span>
+                  )}
+                  {item.nabh_code && (
+                    <span style={{ fontSize: "0.64rem", color: "#065f46", fontWeight: 700, background: "#ecfdf5", padding: "1px 5px", borderRadius: 3, border: "1px solid #a7f3d0", fontFamily: "monospace" }}>
+                      NABH: {item.nabh_code}
+                    </span>
+                  )}
+                  {item.package_name && (
+                    <span style={{ fontSize: "0.65rem", color: T.primary, fontWeight: 700, background: "#f0fdfa", padding: "1px 5px", borderRadius: 3, border: "1px solid #99f6e4" }}>
+                      {item.package_name}
+                    </span>
+                  )}
+                </div>
+              )}
             </ITD>
             <ITD><TInput $align="right" type="number" min={1} value={item.quantity} onChange={e => onEdit(item._key, "quantity", Number(e.target.value) || 1)} /></ITD>
             <ITD><TInput $align="right" type="number" min={0} value={item.rate} onChange={e => onEdit(item._key, "rate", e.target.value)} /></ITD>
@@ -1398,9 +1458,14 @@ const DischargeBilling = () => {
     billTypeNo: "",
     bill_type: null,
     bill_name: "",
+    isInsurance: false,
   });
 
-  const [patientWard, setPatientWard] = useState("GENERAL WARD");
+  // Insurance Packages Schemes & active selection
+  const [insuranceSchemes, setInsuranceSchemes] = useState([]);
+  const [selectedInsuranceScheme, setSelectedInsuranceScheme] = useState("");
+
+  const [patientWard, setPatientWard] = useState("SEMI-PRIVATE WARD");
   const [uhid, setUhid] = useState("");
   const [ipNumber, setIpNumber] = useState("");
   const [searching, setSearching] = useState(false);
@@ -1423,7 +1488,7 @@ const DischargeBilling = () => {
   const [toast, setToast] = useState(null);
   const showToast = (msg, err = false) => { setToast({ msg, err }); setTimeout(() => setToast(null), 3800); };
 
-  // ── Fetch doctors & bill types on mount ────────────────────────────────────
+  // ── Fetch doctors, bill types & insurance schemes on mount ────────────────
   useEffect(() => {
     const fetchMasterData = async () => {
       setMasterLoading(true);
@@ -1450,38 +1515,82 @@ const DischargeBilling = () => {
             billTypeNo: list[0].billTypeNo || list[0].bill_type_no || "",
             bill_type: list[0].bill_type,
             bill_name: list[0].bill_name,
+            isInsurance: false,
           });
         }
       } catch { }
+
+      // Fetch 7 Insurance Package Schemes
+      try {
+        const sRes = await apiRequest(`${BASE}insurance-packages/schemes/`, "GET");
+        const sList =
+          Array.isArray(sRes?.schemes) ? sRes.schemes :
+            Array.isArray(sRes?.data?.schemes) ? sRes.data.schemes :
+              Array.isArray(sRes?.data) ? sRes.data :
+                Array.isArray(sRes) ? sRes :
+                  [];
+        setInsuranceSchemes(sList);
+        if (sList.length > 0) {
+          setSelectedInsuranceScheme(sList[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to load insurance schemes:", err);
+      }
 
       setMasterLoading(false);
     };
     fetchMasterData();
   }, []);
 
-  // ── Fetch items whenever selected bill type changes ────────────────────────
-  // Items are loaded ONCE per bill-type change, not on every keystroke.
-  // API call: GET /investigation-items/?billTypeNo=DIS01&billType=2
+  // ── Options for Bill Type dropdown (including Insurance Packages) ──────────
+  const billTypeOptions = useMemo(() => {
+    const opts = billTypes.map(b => ({
+      value: String(b.bill_type),
+      label: b.bill_name,
+      subLabel: b.billTypeNo,
+    }));
+    // Add Insurance Packages option at top of list
+    opts.unshift({
+      value: "INSURANCE_PACKAGES",
+      label: "🛡️ INSURANCE PACKAGES",
+      subLabel: `${insuranceSchemes.length || 7} Schemes`,
+    });
+    return opts;
+  }, [billTypes, insuranceSchemes]);
+
+  // ── Fetch items whenever selected bill type or insurance scheme changes ────
   useEffect(() => {
     if (selectedBT.bill_type == null) return;
     let cancelled = false;
 
     const fetchItems = async () => {
       setItemsLoading(true);
-      setAllItems([]); // clear stale items immediately so dropdown shows loading
+      setAllItems([]); // clear stale items immediately
       try {
-        const btNoParam = selectedBT.billTypeNo ? `billTypeNo=${encodeURIComponent(selectedBT.billTypeNo)}&` : "";
-        const url = `${BASE}investigation-items/?${btNoParam}billType=${encodeURIComponent(String(selectedBT.bill_type))}`;
-        const res = await apiRequest(url, "GET");
-
-        const list =
-          Array.isArray(res?.data?.items) ? res.data.items :
+        if (selectedBT.bill_type === "INSURANCE_PACKAGES" || selectedBT.isInsurance) {
+          const scheme = selectedInsuranceScheme || "cghs";
+          const res = await apiRequest(`${BASE}insurance-packages/items/?scheme=${encodeURIComponent(scheme)}`, "GET");
+          const list =
             Array.isArray(res?.items) ? res.items :
-              Array.isArray(res?.data) ? res.data :
-                Array.isArray(res) ? res :
-                  [];
+              Array.isArray(res?.data?.items) ? res.data.items :
+                Array.isArray(res?.data) ? res.data :
+                  Array.isArray(res) ? res :
+                    [];
+          if (!cancelled) setAllItems(normaliseItems(list));
+        } else {
+          const btNoParam = selectedBT.billTypeNo ? `billTypeNo=${encodeURIComponent(selectedBT.billTypeNo)}&` : "";
+          const url = `${BASE}investigation-items/?${btNoParam}billType=${encodeURIComponent(String(selectedBT.bill_type))}`;
+          const res = await apiRequest(url, "GET");
 
-        if (!cancelled) setAllItems(normaliseItems(list));
+          const list =
+            Array.isArray(res?.data?.items) ? res.data.items :
+              Array.isArray(res?.items) ? res.items :
+                Array.isArray(res?.data) ? res.data :
+                  Array.isArray(res) ? res :
+                    [];
+
+          if (!cancelled) setAllItems(normaliseItems(list));
+        }
       } catch {
         if (!cancelled) setAllItems([]);
       } finally {
@@ -1491,17 +1600,28 @@ const DischargeBilling = () => {
 
     fetchItems();
     return () => { cancelled = true; };
-  }, [selectedBT.billTypeNo, selectedBT.bill_type]);
+  }, [selectedBT.billTypeNo, selectedBT.bill_type, selectedBT.isInsurance, selectedInsuranceScheme]);
 
   // ── Bill type change handler ────────────────────────────────────────────────
   const handleBillTypeChange = e => {
     const selectedVal = e.target.value;
+    if (selectedVal === "INSURANCE_PACKAGES") {
+      setSelectedBT({
+        billTypeNo: "INSPKG",
+        bill_type: "INSURANCE_PACKAGES",
+        bill_name: "INSURANCE PACKAGES",
+        isInsurance: true,
+      });
+      setNewItem(EMPTY_ITEM);
+      return;
+    }
     const chosen = billTypes.find(b => String(b.bill_type) === String(selectedVal));
     if (!chosen) return;
     setSelectedBT({
       billTypeNo: chosen.billTypeNo || "",
       bill_type: chosen.bill_type,
       bill_name: chosen.bill_name,
+      isInsurance: false,
     });
     // Reset new item row so name input is blank (stale item from old type removed)
     setNewItem(EMPTY_ITEM);
@@ -1545,6 +1665,8 @@ const DischargeBilling = () => {
     return {
       ...EMPTY_ITEM,
       ...inv,
+      code: inv.code || inv.item_code || (inv.test_id != null ? String(inv.test_id) : "") || (inv.sl_no != null ? String(inv.sl_no) : "") || "",
+      nabh_code: inv.nabh_code || inv.nabhCode || "",
       _baseRate: baseRate,
       rate: adjRate,
       amount: adjAmount,
@@ -1583,7 +1705,7 @@ const DischargeBilling = () => {
         setPatient(norm);
         if (norm.uhid) setUhid(norm.uhid);
         if (norm.ip_number) setIpNumber(norm.ip_number);
-        if (norm.room_category) setPatientWard(norm.room_category);
+        setPatientWard(norm.room_category || "SEMI-PRIVATE WARD");
         if (norm.advance_amount != null && norm.advance_amount !== "") {
           setForm("advance_amount", String(norm.advance_amount));
         }
@@ -1615,16 +1737,31 @@ const DischargeBilling = () => {
 
   const handleItemSelect = useCallback(item => {
     setNewItem(p => {
-      const itemName = item.itemName || "";
-      const baseRate = parseFloat(item.price) || 0;
+      const itemName = item.itemName || item.name || "";
+      const baseRate = parseFloat(item.price != null && item.price !== "" ? item.price : (item.nabh_rate || item.rate || 0)) || 0;
       const mult = getWardMultiplier(patientWard);
       const rate = parseFloat((baseRate * mult).toFixed(2));
       const qty = parseFloat(p.quantity) || 1;
       const disc = parseFloat(p.discount) || 0;
       const amount = Math.max(0, parseFloat((rate * qty - disc).toFixed(2)));
-      return { ...p, itemName, _baseRate: baseRate, rate, amount };
+      const desc = item.nabh_code
+        ? `NABH: ${item.nabh_code}${item.category ? ` · ${item.category}` : ""}`
+        : (item.category || p.item_description || "");
+      const itemCode = item.code || item.item_code || (item.test_id != null ? String(item.test_id) : "") || (item.sl_no != null ? String(item.sl_no) : "");
+      const nabhCode = item.nabh_code || item.nabhCode || "";
+      return {
+        ...p,
+        itemName,
+        code: itemCode,
+        nabh_code: nabhCode,
+        _baseRate: baseRate,
+        rate,
+        amount,
+        package_name: item.package_name || (selectedBT.isInsurance ? selectedBT.bill_name : p.package_name || ""),
+        item_description: desc || p.item_description,
+      };
     });
-  }, [patientWard, getWardMultiplier]);
+  }, [patientWard, getWardMultiplier, selectedBT]);
 
   const handleAddItem = () => {
     if (!newItem.itemName.trim()) { showToast("Enter item name first", true); return; }
@@ -1637,6 +1774,7 @@ const DischargeBilling = () => {
     setPatient(null); setItems([]); setNewItem(EMPTY_ITEM);
     setUhid(""); setIpNumber(""); setSearchErr(""); setFormRaw(EMPTY_FORM);
     setEditingEst(null);
+    setPatientWard("SEMI-PRIVATE WARD");
   };
 
   // ── Edit / Convert from estimates list ─────────────────────────────────────
@@ -1865,8 +2003,8 @@ const DischargeBilling = () => {
                   <FG>
                     <FL>Patient Ward</FL>
                     <FSelect value={patientWard} onChange={handleWardChange}>
-                      <option value="GENERAL WARD">GENERAL WARD (-5%)</option>
                       <option value="SEMI-PRIVATE WARD">SEMI-PRIVATE WARD (Normal)</option>
+                      <option value="GENERAL WARD">GENERAL WARD (-5%)</option>
                       <option value="PRIVATE WARD">PRIVATE WARD (+5%)</option>
                     </FSelect>
                   </FG>
@@ -1983,11 +2121,7 @@ const DischargeBilling = () => {
               </span>
               <div style={{ maxWidth: 320, flex: "0 1 320px" }}>
                 <SearchSelect
-                  options={billTypes.map(b => ({
-                    value: String(b.bill_type),
-                    label: b.bill_name,
-                    subLabel: b.billTypeNo,
-                  }))}
+                  options={billTypeOptions}
                   value={selectedBT.bill_type != null ? String(selectedBT.bill_type) : ""}
                   onChange={e => handleBillTypeChange({ target: { value: e.target.value } })}
                   placeholder="Search Bill Type..."
@@ -1995,6 +2129,27 @@ const DischargeBilling = () => {
                   height="32px"
                 />
               </div>
+
+              {(selectedBT.bill_type === "INSURANCE_PACKAGES" || selectedBT.isInsurance) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.76rem", fontWeight: 700, color: T.primary, flexShrink: 0 }}>
+                    🛡️ Insurance Scheme:
+                  </span>
+                  <div style={{ minWidth: 260, maxWidth: 360, flex: "0 1 340px" }}>
+                    <SearchSelect
+                      options={insuranceSchemes.map(s => ({
+                        value: s.id,
+                        label: s.name,
+                        subLabel: `${s.total_items} items`,
+                      }))}
+                      value={selectedInsuranceScheme}
+                      onChange={e => setSelectedInsuranceScheme(e.target.value)}
+                      placeholder="Select Insurance Scheme..."
+                      height="32px"
+                    />
+                  </div>
+                </div>
+              )}
 
               {masterLoading && (
                 <span style={{ fontSize: "0.73rem", color: T.textMuted, display: "flex", alignItems: "center", gap: 5 }}>

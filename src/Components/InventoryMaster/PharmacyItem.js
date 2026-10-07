@@ -15,6 +15,7 @@ import {
   InvTd,
   InvTr,
   InvBadge,
+  InvActionGroup,
   InvActionBtn,
   InvModalOverlay,
   InvModalContainer,
@@ -23,15 +24,23 @@ import {
   InvModalCloseBtn,
   InvModalBody,
   InvModalFooter,
+  InvSlideFormPanel,
+  InvSlideFormHead,
+  InvSlideFormTitle,
+  InvSlideFormCloseBtn,
+  InvSlideFormBody,
+  InvSlideFormFooter,
   InvFormGrid,
   InvFormField,
   InvFormLabel,
   InvFormError,
   InvInput,
   InvSelect,
+  InvFieldGroup,
+  InvFieldLabel,
+  InvPillBtn,
   InvEmptyState,
   InvToast,
-  getTodayDateString,
 } from "./InventoryUIHelper";
 
 const PageContainer = styled.div`
@@ -53,8 +62,8 @@ const FormSectionTitle = styled.h4`
   font-size: 0.84rem;
   font-weight: 700;
   color: ${InvTheme.primaryDark};
-  margin: 14px 0 8px;
-  padding-bottom: 4px;
+  margin: 16px 0 10px;
+  padding-bottom: 6px;
   border-bottom: 1px solid ${InvTheme.border};
   display: flex;
   align-items: center;
@@ -63,28 +72,76 @@ const FormSectionTitle = styled.h4`
 
 const OutletGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 const OutletCard = styled.div`
-  background: #f8fafc;
-  border: 1px solid ${InvTheme.border};
-  border-radius: 6px;
-  padding: 12px;
+  background: ${p => p.active ? "#f0fdfa" : "#f8fafc"};
+  border: 1px solid ${p => p.active ? "#99f6e4" : InvTheme.border};
+  border-radius: 8px;
+  padding: 12px 14px;
+  box-sizing: border-box;
+  min-width: 0;
+  transition: all 0.2s ease;
+  ${p => p.active && `
+    box-shadow: 0 2px 6px rgba(13, 148, 136, 0.08);
+  `}
 `;
 
 const CheckboxLabel = styled.label`
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 0.8rem;
   font-weight: 600;
   color: ${InvTheme.textMain};
   cursor: pointer;
+  user-select: none;
   input[type="checkbox"] {
     accent-color: ${InvTheme.primary};
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+  }
+`;
+
+const FlagsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 10px 0 14px;
+  width: 100%;
+  box-sizing: border-box;
+`;
+
+const FlagCard = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.77rem;
+  font-weight: 600;
+  border: 1px solid ${p => (p.checked ? p.borderColor || "#cbd5e1" : "#e2e8f0")};
+  background: ${p => (p.checked ? p.bgColor || "#f8fafc" : "#ffffff")};
+  color: ${p => (p.checked ? p.textColor || InvTheme.textMain : "#64748b")};
+  transition: all 0.16s ease;
+  box-sizing: border-box;
+  min-width: 0;
+
+  &:hover {
+    border-color: ${p => p.borderColor || InvTheme.borderMedium};
+    transform: translateY(-1px);
+  }
+
+  input[type="checkbox"] {
+    accent-color: ${p => p.accentColor || InvTheme.primary};
     width: 15px;
     height: 15px;
     cursor: pointer;
@@ -299,9 +356,15 @@ const PharmacyItem = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await apiRequest(`${baseUrl}pharmacy-category/`, "GET");
+      const res = await apiRequest(`${baseUrl}pharmacy-category/?page=all`, "GET");
       const payload = res?.data;
-      const list = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.results)
+        ? payload.results
+        : [];
       setCategories(list);
     } catch {
       console.error("Failed to load categories");
@@ -310,9 +373,15 @@ const PharmacyItem = () => {
 
   const fetchCompositions = async () => {
     try {
-      const res = await apiRequest(`${baseUrl}chemical-composition/`, "GET");
+      const res = await apiRequest(`${baseUrl}chemical-composition/?page=all`, "GET");
       const payload = res?.data;
-      const list = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.results)
+        ? payload.results
+        : [];
       setCompositions(list);
     } catch {
       console.error("Failed to load compositions");
@@ -348,14 +417,26 @@ const PharmacyItem = () => {
   };
 
   const getCompositionName = (id) => {
-    if (!id) return "—";
-    const comp = compositions.find((c) => String(c.composition_id) === String(id));
+    if (id === null || id === undefined || id === "") return "—";
+    const strId = String(id).trim();
+    if (!strId) return "—";
+    const comp = compositions.find(
+      (c) =>
+        String(c.composition_id).trim() === strId ||
+        String(c.composition_name || "").trim().toLowerCase() === strId.toLowerCase()
+    );
     return comp ? comp.composition_name : String(id);
   };
 
   const getCategoryName = (id) => {
-    if (!id) return "—";
-    const cat = categories.find((c) => String(c.category_id) === String(id));
+    if (id === null || id === undefined || id === "") return "—";
+    const strId = String(id).trim();
+    if (!strId) return "—";
+    const cat = categories.find(
+      (c) =>
+        String(c.category_id).trim() === strId ||
+        String(c.category_name || "").trim().toLowerCase() === strId.toLowerCase()
+    );
     return cat ? cat.category_name : String(id);
   };
 
@@ -480,152 +561,40 @@ const PharmacyItem = () => {
             <InvPageTitle>💊 Pharmacy Item Master</InvPageTitle>
             <InvPageSubtitle>Master catalogue for medicines, formulations, generic compositions, and outlets</InvPageSubtitle>
           </div>
-          <InvAddBtn onClick={handleOpenAdd}>+ Add Pharmacy Item</InvAddBtn>
+          <InvAddBtn
+            secondary={showModal}
+            onClick={() => {
+              if (showModal) {
+                setShowModal(false);
+                setEditId(null);
+              } else {
+                handleOpenAdd();
+              }
+            }}
+          >
+            {showModal ? "✕ Close Form" : "+ Add Pharmacy Item"}
+          </InvAddBtn>
         </InvPageHeader>
 
-        {/* ── Top Toolbar (Show Upto, Search, Category Filter) ── */}
-        <InvTopToolbar
-          pageSize={pageSize}
-          onPageSizeChange={(sz) => {
-            setPageSize(sz);
-            setCurrentPage(1);
-          }}
-          pageSizeOptions={[10, 25, 50, 100]}
-          search={search}
-          onSearchChange={(val) => {
-            setSearch(val);
-            setCurrentPage(1);
-          }}
-          searchPlaceholder="Search Item name, composition, brand, HSN..."
-          totalRecords={totalCount}
-          customFilters={
-            <InvSelect
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.category_id} value={c.category_id}>
-                  {c.category_name}
-                </option>
-              ))}
-            </InvSelect>
-          }
-        />
+        {/* ── Slide-Down Add / Edit Item Form ── */}
+        {showModal && (
+          <InvSlideFormPanel>
+            <InvSlideFormHead>
+              <InvSlideFormTitle>
+                💊 {editId ? "Edit Pharmacy Item" : "Add Pharmacy Item"}
+              </InvSlideFormTitle>
+              <InvSlideFormCloseBtn
+                onClick={() => {
+                  setShowModal(false);
+                  setEditId(null);
+                }}
+                title="Close Form"
+              >
+                ✕
+              </InvSlideFormCloseBtn>
+            </InvSlideFormHead>
 
-        {/* ── Table ── */}
-        <InvTableWrapper>
-          <InvTable>
-            <thead>
-              <tr>
-                <InvTh style={{ width: 50 }}>#</InvTh>
-                <InvTh>Item Name</InvTh>
-                <InvTh>Category</InvTh>
-                <InvTh>Brand Name</InvTh>
-                <InvTh>Chemical Composition</InvTh>
-                <InvTh>HSN</InvTh>
-                <InvTh>Reorder</InvTh>
-                <InvTh>Outlet Avail.</InvTh>
-                <InvTh>Flags</InvTh>
-                <InvTh style={{ textAlign: "center", width: 170 }}>Actions</InvTh>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <InvTd colSpan={10} style={{ textAlign: "center", padding: "40px" }}>
-                    Loading pharmacy items...
-                  </InvTd>
-                </tr>
-              ) : items.length === 0 ? (
-                <tr>
-                  <InvTd colSpan={10}>
-                    <InvEmptyState>
-                      No pharmacy items found for the selected filter.
-                    </InvEmptyState>
-                  </InvTd>
-                </tr>
-              ) : (
-                items.map((item, idx) => (
-                  <InvTr key={item.item_id || item._id || idx}>
-                    <InvTd>{startIdx + idx}</InvTd>
-                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>
-                      {item.item_name}
-                      {item.item_last_name && (
-                        <span style={{ color: InvTheme.textMuted, fontWeight: 400, marginLeft: 4 }}>
-                          ({item.item_last_name})
-                        </span>
-                      )}
-                    </InvTd>
-                    <InvTd>
-                      <InvBadge bg="#f1f5f9" color="#334155" border="#cbd5e1">
-                        {getCategoryName(item.category)}
-                      </InvBadge>
-                    </InvTd>
-                    <InvTd>{item.brand_name || "—"}</InvTd>
-                    <InvTd style={{ fontSize: "0.8rem", maxWidth: 180 }}>
-                      {getCompositionName(item.chemical_composition)}
-                    </InvTd>
-                    <InvTd style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{item.hsn || "—"}</InvTd>
-                    <InvTd style={{ fontWeight: 700, color: InvTheme.accent }}>
-                      {item.reorder_level ?? "0"}
-                    </InvTd>
-                    <InvTd style={{ fontSize: "0.76rem" }}>
-                      <span style={{ color: item.IP_available ? "#16a34a" : "#94a3b8" }}>IP</span>
-                      {" · "}
-                      <span style={{ color: item.OP_available ? "#16a34a" : "#94a3b8" }}>OP</span>
-                      {" · "}
-                      <span style={{ color: item.G_available ? "#16a34a" : "#94a3b8" }}>GEN</span>
-                    </InvTd>
-                    <InvTd>
-                      <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-                        {item.high_risk && <InvBadge bg="#fee2e2" color="#b91c1c" border="#fca5a5">HR</InvBadge>}
-                        {item.look_alike && <InvBadge bg="#fef3c7" color="#92400e" border="#fde68a">LA</InvBadge>}
-                        {item.sound_alike && <InvBadge bg="#fef3c7" color="#92400e" border="#fde68a">SA</InvBadge>}
-                        {item.is_blocked && <InvBadge bg="#fee2e2" color="#b91c1c" border="#fca5a5">Blocked</InvBadge>}
-                      </div>
-                    </InvTd>
-                    <InvTd style={{ textAlign: "center" }}>
-                      <div style={{ display: "inline-flex", gap: 4 }}>
-                        <InvActionBtn onClick={() => handleTrackItem(item)} title="Track Batch & Stock">
-                          🔍 Track
-                        </InvActionBtn>
-                        <InvActionBtn onClick={() => handleEdit(item)}>Edit</InvActionBtn>
-                        <InvActionBtn danger onClick={() => handleDelete(item.item_id)}>
-                          ✕
-                        </InvActionBtn>
-                      </div>
-                    </InvTd>
-                  </InvTr>
-                ))
-              )}
-            </tbody>
-          </InvTable>
-        </InvTableWrapper>
-
-        {/* ── Bottom Pagination ── */}
-        <InvPagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          totalRecords={totalCount}
-          onPageChange={setCurrentPage}
-        />
-      </ContentCard>
-
-      {/* ── Add / Edit Item Modal ── */}
-      {showModal && (
-        <InvModalOverlay onClick={() => setShowModal(false)}>
-          <InvModalContainer maxWidth="900px" onClick={(e) => e.stopPropagation()}>
-            <InvModalHeader>
-              <InvModalTitle>💊 {editId ? "Edit Pharmacy Item" : "Add Pharmacy Item"}</InvModalTitle>
-              <InvModalCloseBtn onClick={() => setShowModal(false)}>✕</InvModalCloseBtn>
-            </InvModalHeader>
-
-            <InvModalBody>
+            <InvSlideFormBody>
               <FormSectionTitle>📋 Basic Information</FormSectionTitle>
               <InvFormGrid minWidth="240px">
                 <InvFormField>
@@ -711,8 +680,8 @@ const PharmacyItem = () => {
 
               <FormSectionTitle>🏬 Outlet Availability & Storage Location (Shelf / Rack)</FormSectionTitle>
               <OutletGrid>
-                <OutletCard>
-                  <div style={{ marginBottom: 8 }}>
+                <OutletCard active={form.IP_available}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: form.IP_available ? 8 : 0 }}>
                     <CheckboxLabel>
                       <input
                         type="checkbox"
@@ -722,11 +691,14 @@ const PharmacyItem = () => {
                       />
                       Available in IP Pharmacy
                     </CheckboxLabel>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: form.IP_available ? "#0d9488" : "#94a3b8" }}>
+                      {form.IP_available ? "Active" : "Disabled"}
+                    </span>
                   </div>
                   {form.IP_available && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <InvFormField>
-                        <InvFormLabel>Shelf No.</InvFormLabel>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, minWidth: 0 }}>
+                      <InvFormField style={{ minWidth: 0 }}>
+                        <InvFormLabel style={{ fontSize: "0.72rem" }}>Shelf No.</InvFormLabel>
                         <InvInput
                           name="IP_shelf_no"
                           value={form.IP_shelf_no}
@@ -734,8 +706,8 @@ const PharmacyItem = () => {
                           placeholder="e.g. S-12"
                         />
                       </InvFormField>
-                      <InvFormField>
-                        <InvFormLabel>Rack No.</InvFormLabel>
+                      <InvFormField style={{ minWidth: 0 }}>
+                        <InvFormLabel style={{ fontSize: "0.72rem" }}>Rack No.</InvFormLabel>
                         <InvInput
                           name="IP_rack_no"
                           value={form.IP_rack_no}
@@ -747,8 +719,8 @@ const PharmacyItem = () => {
                   )}
                 </OutletCard>
 
-                <OutletCard>
-                  <div style={{ marginBottom: 8 }}>
+                <OutletCard active={form.OP_available}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: form.OP_available ? 8 : 0 }}>
                     <CheckboxLabel>
                       <input
                         type="checkbox"
@@ -758,11 +730,14 @@ const PharmacyItem = () => {
                       />
                       Available in OP Pharmacy
                     </CheckboxLabel>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: form.OP_available ? "#0d9488" : "#94a3b8" }}>
+                      {form.OP_available ? "Active" : "Disabled"}
+                    </span>
                   </div>
                   {form.OP_available && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <InvFormField>
-                        <InvFormLabel>Shelf No.</InvFormLabel>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, minWidth: 0 }}>
+                      <InvFormField style={{ minWidth: 0 }}>
+                        <InvFormLabel style={{ fontSize: "0.72rem" }}>Shelf No.</InvFormLabel>
                         <InvInput
                           name="OP_shelf_no"
                           value={form.OP_shelf_no}
@@ -770,8 +745,8 @@ const PharmacyItem = () => {
                           placeholder="e.g. S-02"
                         />
                       </InvFormField>
-                      <InvFormField>
-                        <InvFormLabel>Rack No.</InvFormLabel>
+                      <InvFormField style={{ minWidth: 0 }}>
+                        <InvFormLabel style={{ fontSize: "0.72rem" }}>Rack No.</InvFormLabel>
                         <InvInput
                           name="OP_rack_no"
                           value={form.OP_rack_no}
@@ -783,8 +758,8 @@ const PharmacyItem = () => {
                   )}
                 </OutletCard>
 
-                <OutletCard>
-                  <div style={{ marginBottom: 8 }}>
+                <OutletCard active={form.G_available}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: form.G_available ? 8 : 0 }}>
                     <CheckboxLabel>
                       <input
                         type="checkbox"
@@ -794,11 +769,14 @@ const PharmacyItem = () => {
                       />
                       Available in General Store
                     </CheckboxLabel>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: form.G_available ? "#0d9488" : "#94a3b8" }}>
+                      {form.G_available ? "Active" : "Disabled"}
+                    </span>
                   </div>
                   {form.G_available && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <InvFormField>
-                        <InvFormLabel>Shelf No.</InvFormLabel>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, minWidth: 0 }}>
+                      <InvFormField style={{ minWidth: 0 }}>
+                        <InvFormLabel style={{ fontSize: "0.72rem" }}>Shelf No.</InvFormLabel>
                         <InvInput
                           name="G_shelf_no"
                           value={form.G_shelf_no}
@@ -806,8 +784,8 @@ const PharmacyItem = () => {
                           placeholder="e.g. G-05"
                         />
                       </InvFormField>
-                      <InvFormField>
-                        <InvFormLabel>Rack No.</InvFormLabel>
+                      <InvFormField style={{ minWidth: 0 }}>
+                        <InvFormLabel style={{ fontSize: "0.72rem" }}>Rack No.</InvFormLabel>
                         <InvInput
                           name="G_rack_no"
                           value={form.G_rack_no}
@@ -821,44 +799,71 @@ const PharmacyItem = () => {
               </OutletGrid>
 
               <FormSectionTitle>⚠️ Safety & Compliance Flags</FormSectionTitle>
-              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", margin: "10px 0" }}>
-                <CheckboxLabel>
+              <FlagsGrid>
+                <FlagCard
+                  checked={form.high_risk}
+                  bgColor="#fef2f2"
+                  borderColor="#fca5a5"
+                  textColor="#b91c1c"
+                  accentColor="#dc2626"
+                >
                   <input
                     type="checkbox"
                     name="high_risk"
                     checked={form.high_risk}
                     onChange={handleChange}
                   />
-                  High Risk (High Alert Drug)
-                </CheckboxLabel>
-                <CheckboxLabel>
+                  🚨 High Risk (High Alert)
+                </FlagCard>
+
+                <FlagCard
+                  checked={form.look_alike}
+                  bgColor="#fffbeb"
+                  borderColor="#fde68a"
+                  textColor="#92400e"
+                  accentColor="#d97706"
+                >
                   <input
                     type="checkbox"
                     name="look_alike"
                     checked={form.look_alike}
                     onChange={handleChange}
                   />
-                  Look-Alike (LASA)
-                </CheckboxLabel>
-                <CheckboxLabel>
+                  👁️ Look-Alike (LASA)
+                </FlagCard>
+
+                <FlagCard
+                  checked={form.sound_alike}
+                  bgColor="#fffbeb"
+                  borderColor="#fde68a"
+                  textColor="#92400e"
+                  accentColor="#d97706"
+                >
                   <input
                     type="checkbox"
                     name="sound_alike"
                     checked={form.sound_alike}
                     onChange={handleChange}
                   />
-                  Sound-Alike (LASA)
-                </CheckboxLabel>
-                <CheckboxLabel style={{ color: InvTheme.danger }}>
+                  🔊 Sound-Alike (LASA)
+                </FlagCard>
+
+                <FlagCard
+                  checked={form.is_blocked}
+                  bgColor="#fef2f2"
+                  borderColor="#fca5a5"
+                  textColor="#991b1b"
+                  accentColor="#dc2626"
+                >
                   <input
                     type="checkbox"
                     name="is_blocked"
                     checked={form.is_blocked}
                     onChange={handleChange}
                   />
-                  Block / Restrict Item
-                </CheckboxLabel>
-              </div>
+                  ⛔ Block / Restrict Item
+                </FlagCard>
+              </FlagsGrid>
 
               {form.is_blocked && (
                 <InvFormField style={{ marginTop: 10 }}>
@@ -873,19 +878,157 @@ const PharmacyItem = () => {
                   {errors.blocked_reason && <InvFormError>{errors.blocked_reason}</InvFormError>}
                 </InvFormField>
               )}
-            </InvModalBody>
+            </InvSlideFormBody>
 
-            <InvModalFooter>
-              <InvAddBtn secondary onClick={() => setShowModal(false)}>
+            <InvSlideFormFooter>
+              <InvAddBtn
+                secondary
+                onClick={() => {
+                  setShowModal(false);
+                  setEditId(null);
+                }}
+              >
                 Cancel
               </InvAddBtn>
               <InvAddBtn onClick={handleSubmit} disabled={loading}>
                 {loading ? "Saving..." : editId ? "Update Item" : "Save Item"}
               </InvAddBtn>
-            </InvModalFooter>
-          </InvModalContainer>
-        </InvModalOverlay>
-      )}
+            </InvSlideFormFooter>
+          </InvSlideFormPanel>
+        )}
+
+        {/* ── Top Toolbar (Show, Category Filter, Search all in same line) ── */}
+        <InvTopToolbar
+          pageSize={pageSize}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
+          search={search}
+          onSearchChange={(val) => {
+            setSearch(val);
+            setCurrentPage(1);
+          }}
+          searchPlaceholder="Search Item name, composition, brand, HSN..."
+          totalRecords={totalCount}
+          customFilters={
+            <InvFieldGroup>
+              <InvFieldLabel>Category:</InvFieldLabel>
+              <InvSelect
+                style={{ width: "auto", minWidth: 160, maxWidth: 220 }}
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c.category_id} value={c.category_id}>
+                    {c.category_name}
+                  </option>
+                ))}
+              </InvSelect>
+              {categoryFilter && (
+                <InvPillBtn
+                  onClick={() => {
+                    setCategoryFilter("");
+                    setCurrentPage(1);
+                  }}
+                  title="Clear category filter"
+                >
+                  ✕
+                </InvPillBtn>
+              )}
+            </InvFieldGroup>
+          }
+        />
+
+        {/* ── Table ── */}
+        <InvTableWrapper>
+          <InvTable>
+            <thead>
+              <tr>
+                <InvTh style={{ width: 50 }}>#</InvTh>
+                <InvTh>Item Name</InvTh>
+                <InvTh>Category</InvTh>
+                <InvTh>Brand Name</InvTh>
+                <InvTh>Chemical Composition</InvTh>
+                <InvTh>HSN</InvTh>
+                <InvTh>Reorder</InvTh>
+                <InvTh style={{ textAlign: "center", width: 220 }}>Actions</InvTh>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <InvTd colSpan={8} style={{ textAlign: "center", padding: "40px" }}>
+                    Loading pharmacy items...
+                  </InvTd>
+                </tr>
+              ) : items.length === 0 ? (
+                <tr>
+                  <InvTd colSpan={8}>
+                    <InvEmptyState>
+                      No pharmacy items found for the selected filter.
+                    </InvEmptyState>
+                  </InvTd>
+                </tr>
+              ) : (
+                items.map((item, idx) => (
+                  <InvTr key={item.item_id || item._id || idx}>
+                    <InvTd>{startIdx + idx}</InvTd>
+                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>
+                      {item.item_name}
+                      {item.item_last_name && (
+                        <span style={{ color: InvTheme.textMuted, fontWeight: 400, marginLeft: 4 }}>
+                          ({item.item_last_name})
+                        </span>
+                      )}
+                    </InvTd>
+                    <InvTd>
+                      <InvBadge bg="#f1f5f9" color="#334155" border="#cbd5e1">
+                        {item.category_name || getCategoryName(item.category)}
+                      </InvBadge>
+                    </InvTd>
+                    <InvTd>{item.brand_name || "—"}</InvTd>
+                    <InvTd style={{ fontSize: "0.8rem", maxWidth: 240 }}>
+                      {item.chemical_composition_name || getCompositionName(item.chemical_composition)}
+                    </InvTd>
+                    <InvTd style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{item.hsn || "—"}</InvTd>
+                    <InvTd style={{ fontWeight: 700, color: InvTheme.accent }}>
+                      {item.reorder_level ?? "0"}
+                    </InvTd>
+                    <InvTd style={{ textAlign: "center" }}>
+                      <InvActionGroup>
+                        <InvActionBtn variant="track" onClick={() => handleTrackItem(item)} title="Track Batch & Stock">
+                          🔍 Track
+                        </InvActionBtn>
+                        <InvActionBtn variant="edit" onClick={() => handleEdit(item)} title="Edit Pharmacy Item">
+                          ✏️ Edit
+                        </InvActionBtn>
+                        <InvActionBtn variant="delete" onClick={() => handleDelete(item.item_id)} title="Delete Item">
+                          ✕
+                        </InvActionBtn>
+                      </InvActionGroup>
+                    </InvTd>
+                  </InvTr>
+                ))
+              )}
+            </tbody>
+          </InvTable>
+        </InvTableWrapper>
+
+        {/* ── Bottom Pagination ── */}
+        <InvPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalRecords={totalCount}
+          onPageChange={setCurrentPage}
+        />
+      </ContentCard>
 
       {/* ── Tracking Modal ── */}
       {trackingModalOpen && (
