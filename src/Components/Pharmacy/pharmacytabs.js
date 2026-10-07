@@ -243,6 +243,13 @@ const OPPharmacyTabs = () => {
     setWardRequestToLoad(null);
   };
 
+  const [visitedTabs, setVisitedTabs] = useState(new Set(["pharmacy_bill"]));
+
+  const handleTabClick = (key) => {
+    setActiveTab(key);
+    setVisitedTabs((prev) => new Set(prev).add(key));
+  };
+
   return (
     <Wrapper>
       {/* ── Tab Bar ── */}
@@ -251,7 +258,7 @@ const OPPharmacyTabs = () => {
           <TabButton
             key={key}
             $active={activeTab === key}
-            onClick={() => setActiveTab(key)}
+            onClick={() => handleTabClick(key)}
           >
             <Icon />
             {label}
@@ -275,32 +282,42 @@ const OPPharmacyTabs = () => {
       </TabPanel>
 
       {/* ── View Estimate tab ── */}
-      <TabPanel $visible={activeTab === "view_estimate"}>
-        <ViewEstimate onConvertEstimate={handleConvertEstimate} refreshTrigger={estimateRefreshKey} />
-      </TabPanel>
+      {visitedTabs.has("view_estimate") && (
+        <TabPanel $visible={activeTab === "view_estimate"}>
+          <ViewEstimate onConvertEstimate={handleConvertEstimate} refreshTrigger={estimateRefreshKey} />
+        </TabPanel>
+      )}
 
       {/* ── View Bills tab ── */}
-      <TabPanel $visible={activeTab === "view_bills"}>
-        <PharmacyViewBills
-          onEditBill={handleEditBill}
-          onSwitchToPharmacy={handleSwitchToPharmacy}
-        />
-      </TabPanel>
+      {visitedTabs.has("view_bills") && (
+        <TabPanel $visible={activeTab === "view_bills"}>
+          <PharmacyViewBills
+            onEditBill={handleEditBill}
+            onSwitchToPharmacy={handleSwitchToPharmacy}
+          />
+        </TabPanel>
+      )}
 
       {/* ── Medicine Chart tab ── */}
-      <TabPanel $visible={activeTab === "medichart"}>
-        <MedicineChart onConvertToBill={handleConvertMedicineChart} />
-      </TabPanel>
+      {visitedTabs.has("medichart") && (
+        <TabPanel $visible={activeTab === "medichart"}>
+          <MedicineChart onConvertToBill={handleConvertMedicineChart} />
+        </TabPanel>
+      )}
 
       {/* ── Ward Returns tab ── */}
-      <TabPanel $visible={activeTab === "ward_returns"}>
-        <WardReturnApprovals />
-      </TabPanel>
+      {visitedTabs.has("ward_returns") && (
+        <TabPanel $visible={activeTab === "ward_returns"}>
+          <WardReturnApprovals />
+        </TabPanel>
+      )}
 
       {/* ── Prescription Details tab ── */}
-      <TabPanel $visible={activeTab === "prescription_details"}>
-        <PrescriptionDetails onConvertToBill={handleConvertPrescription} />
-      </TabPanel>
+      {visitedTabs.has("prescription_details") && (
+        <TabPanel $visible={activeTab === "prescription_details"}>
+          <PrescriptionDetails onConvertToBill={handleConvertPrescription} />
+        </TabPanel>
+      )}
     </Wrapper>
   );
 };

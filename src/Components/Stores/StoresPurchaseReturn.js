@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
+import TablePagination, { usePagination } from './TablePagination';
 import { 
     RotateCcw, Plus, Search, Calendar, RefreshCw, Printer, 
     CheckCircle, X, Download, Trash2, Building2, Eye, AlertTriangle, FileText
@@ -105,6 +106,21 @@ const StoresPurchaseReturn = () => {
     const [toDate, setToDate] = useState(today);
     const [selectedVendor, setSelectedVendor] = useState('');
     const [totalReturnValue, setTotalReturnValue] = useState(0);
+
+    const filteredReturns = returnsList.filter(ret => {
+        if (!searchTerm) return true;
+        const q = searchTerm.toLowerCase();
+        const retId = (ret.return_id || '').toLowerCase();
+        const debitNo = (ret.debit_note_no || '').toLowerCase();
+        const grnNo = (ret.grn_number || '').toLowerCase();
+        const vendorName = (ret.vendor_name || ret.vendor_id || '').toLowerCase();
+        const reason = (ret.return_reason || '').toLowerCase();
+        return retId.includes(q) || debitNo.includes(q) || grnNo.includes(q) || vendorName.includes(q) || reason.includes(q);
+    });
+
+    const totalQtyReturned = filteredReturns.reduce((acc, r) => acc + (parseFloat(r.total_return_quantity || 0) || (r.items || []).reduce((sum, it) => sum + (parseFloat(it.return_quantity || it.quantity || 0)), 0)), 0);
+
+    const pagination = usePagination(filteredReturns, 15);
 
     // Modal state
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -761,20 +777,27 @@ const StoresPurchaseReturn = () => {
                 </ControlsContainer>
 
                 {/* Summary Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '16px', marginBottom: '20px' }}>
                     <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                            <div style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL RETURN RECORDS</div>
-                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>{returnsList.length}</div>
+                            <div style={{ color: colors.textMuted, fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Return Records</div>
+                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>{filteredReturns.length}</div>
                         </div>
-                        <RotateCcw size={32} color="#dc2626" opacity={0.3} />
+                        <RotateCcw size={30} color="#dc2626" opacity={0.35} />
                     </div>
                     <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                            <div style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL RETURN VALUE</div>
+                            <div style={{ color: colors.textMuted, fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Return Debit Value</div>
                             <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>₹{totalReturnValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                         </div>
-                        <AlertTriangle size={32} color="#dc2626" opacity={0.3} />
+                        <AlertTriangle size={30} color="#dc2626" opacity={0.35} />
+                    </div>
+                    <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ color: colors.textMuted, fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Returned Units</div>
+                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#0284c7', marginTop: '4px' }}>{totalQtyReturned}</div>
+                        </div>
+                        <Building2 size={30} color="#0284c7" opacity={0.35} />
                     </div>
                 </div>
 
@@ -808,7 +831,7 @@ const StoresPurchaseReturn = () => {
                                     </Td>
                                 </Tr>
                             ) : (
-                                returnsList.map(ret => (
+                                pagination.pageData.map(ret => (
                                     <Tr key={ret.return_id}>
                                         <Td style={{ fontWeight: '700', color: '#dc2626' }}>{ret.return_id}</Td>
                                         <Td style={{ fontWeight: '600', color: colors.primary }}>{ret.debit_note_no || 'N/A'}</Td>
@@ -849,6 +872,17 @@ const StoresPurchaseReturn = () => {
                             )}
                         </tbody>
                     </Table>
+                    <TablePagination
+                        currentPage={pagination.currentPage}
+                        totalPages={pagination.totalPages}
+                        pageSize={pagination.pageSize}
+                        totalItems={pagination.totalItems}
+                        startIdx={pagination.startIdx}
+                        goTo={pagination.goTo}
+                        onPageSizeChange={pagination.handlePageSizeChange}
+                        itemName="purchase returns"
+                        themeColor="#dc2626"
+                    />
                 </TableWrapper>
 
                 {/* Create Return Modal */}

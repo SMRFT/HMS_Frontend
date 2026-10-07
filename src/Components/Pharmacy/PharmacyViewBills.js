@@ -1188,6 +1188,13 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
       const params = new URLSearchParams();
       if (fromDate) params.append("from_date", fromDate);
       if (toDate)   params.append("to_date", toDate);
+      if (searchText && searchText.trim()) {
+        params.append("search_by", searchBy);
+        params.append("search_value", searchText.trim());
+      }
+      if (billTypeFilter && billTypeFilter !== "ALL") {
+        params.append("bill_type", billTypeFilter);
+      }
       const queryStr = params.toString() ? `?${params.toString()}` : "";
 
       const response = await apiRequest(`${HmsBaseUrl}pharmacy_view_bills/${queryStr}`, "GET");
@@ -1210,7 +1217,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, searchBy, searchText]);
+  }, [fromDate, toDate, searchBy, searchText, billTypeFilter]);
 
   useEffect(() => { fetchBills(); }, []); // eslint-disable-line
 
