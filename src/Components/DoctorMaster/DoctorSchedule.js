@@ -332,24 +332,6 @@ const DarkInput = styled.input`
   }
 `;
 
-const DarkFeeFooter = styled.div`
-  border-top: 1px solid #2d4037;
-  padding-top: 14px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-`;
-
-const TotalLabel = styled.span`
-  font-size: 12px;
-  color: #94a3b8;
-`;
-
-const TotalAmountText = styled.span`
-  font-size: 26px;
-  font-weight: 800;
-  color: #ffffff;
-`;
 
 // Summary & Info Cards
 const SummaryCard = styled.div`
@@ -483,6 +465,8 @@ function DoctorSchedule() {
     department: "",
     designation: "",
     consulting_fee: "",
+    insurance_consulting_fee: "",
+    review_fee: "",
     registration_fee: "",
     day_schedule: [],
     time_schedule: []
@@ -524,8 +508,10 @@ function DoctorSchedule() {
         mobileNumber: data.mobileNumber || "",
         department: data.department || "",
         designation: data.designation || "",
-        consulting_fee: data.consulting_fee || "",
-        registration_fee: data.registration_fee || "",
+        consulting_fee: data.consulting_fee !== undefined && data.consulting_fee !== null ? data.consulting_fee : "",
+        insurance_consulting_fee: data.insurance_consulting_fee !== undefined && data.insurance_consulting_fee !== null ? data.insurance_consulting_fee : "",
+        review_fee: data.review_fee !== undefined && data.review_fee !== null ? data.review_fee : "",
+        registration_fee: data.registration_fee !== undefined && data.registration_fee !== null ? data.registration_fee : "",
         day_schedule: data.day_schedule || [],
         time_schedule: data.time_schedule || []
       };
@@ -658,10 +644,6 @@ function DoctorSchedule() {
     );
   }
 
-  // Calculate totals for sidebar summary
-  const consultingFeeNum = parseFloat(formData.consulting_fee) || 0;
-  const registrationFeeNum = parseFloat(formData.registration_fee) || 0;
-  const totalFirstVisit = consultingFeeNum + registrationFeeNum;
   const totalDaysCount = formData.day_schedule.length;
   const totalSlotsCount = formData.time_schedule.length;
   const totalWeeklyCapacity = totalDaysCount * totalSlotsCount;
@@ -831,7 +813,29 @@ function DoctorSchedule() {
             </FeeFormGroup>
 
             <FeeFormGroup>
-              <FeeLabel>registration fee ₹ *</FeeLabel>
+              <FeeLabel>Insurance Consulting fee ₹</FeeLabel>
+              <DarkInput
+                type="number"
+                name="insurance_consulting_fee"
+                value={formData.insurance_consulting_fee}
+                onChange={(e) => setFormData({ ...formData, insurance_consulting_fee: e.target.value })}
+                placeholder="0"
+              />
+            </FeeFormGroup>
+
+            <FeeFormGroup>
+              <FeeLabel>Review fee ₹</FeeLabel>
+              <DarkInput
+                type="number"
+                name="review_fee"
+                value={formData.review_fee}
+                onChange={(e) => setFormData({ ...formData, review_fee: e.target.value })}
+                placeholder="0"
+              />
+            </FeeFormGroup>
+
+            <FeeFormGroup>
+              <FeeLabel>Registration fee ₹ *</FeeLabel>
               <DarkInput
                 type="number"
                 name="registration_fee"
@@ -840,11 +844,6 @@ function DoctorSchedule() {
                 placeholder="0"
               />
             </FeeFormGroup>
-
-            <DarkFeeFooter>
-              <TotalLabel>First visit total</TotalLabel>
-              <TotalAmountText>₹{totalFirstVisit}</TotalAmountText>
-            </DarkFeeFooter>
           </DarkFeeCard>
 
           {/* THIS SCHEDULE Summary */}
@@ -899,7 +898,7 @@ function DoctorSchedule() {
       <StickyFooterBar>
         <FooterValidationText>
           {isValidToSubmit
-            ? `${totalDaysCount} days × ${totalSlotsCount} slots · ₹${totalFirstVisit} first visit`
+            ? `${totalDaysCount} days × ${totalSlotsCount} slots`
             : "Days, slots and both fees are required"}
         </FooterValidationText>
 

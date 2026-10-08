@@ -430,15 +430,18 @@ const KpiCard = styled.div`
 // ─── SECONDARY STATS BAR ──────────────────────────────────────────────────────
 const MiniStatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 12px;
   margin-bottom: 22px;
 
-  @media (max-width: 1200px) {
-    grid-template-columns: repeat(3, 1fr);
+  @media (max-width: 1400px) {
+    grid-template-columns: repeat(4, 1fr);
   }
-  @media (max-width: 700px) {
+  @media (max-width: 900px) {
     grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 500px) {
+    grid-template-columns: 1fr;
   }
 `;
 
@@ -923,25 +926,45 @@ const VelavanDashboard = () => {
       const toF = (v) => parseFloat(v || 0);
 
       const grossSales = salesList.reduce((acc, s) => acc + toF(s.total_amount), 0);
-      const salesRet = salesRetList.reduce((acc, s) => acc + toF(s.total_amount), 0);
-      const netSales = Math.max(0, grossSales - salesRet);
+      const salesTaxable = salesList.reduce((acc, s) => acc + toF(s.taxable_amount), 0);
+      const salesRetTaxable = salesRetList.reduce((acc, s) => acc + toF(s.taxable_amount || s.total_amount), 0);
+      const netSalesWithoutGst = Math.max(0, salesTaxable - salesRetTaxable);
 
       const grossPurchases = invList.reduce(
         (acc, i) => acc + toF(i.net_invoice_amount || i.total_amount),
         0,
       );
-      const purRet = purRetList.reduce((acc, p) => acc + toF(p.total_amount), 0);
-      const netPurchases = Math.max(0, grossPurchases - purRet);
+      const purchaseTaxable = invList.reduce((acc, i) => {
+        let items = i.items || [];
+        if (typeof items === "string") {
+          try { items = JSON.parse(items); } catch (e) { items = []; }
+        }
+        if (Array.isArray(items) && items.length > 0) {
+          const invSum = items.reduce((iacc, itm) => {
+            let itTax = toF(itm.purchaseCostBeforeGst);
+            if (!itTax && itm.taxable_amount) itTax = toF(itm.taxable_amount);
+            if (!itTax) {
+              const pc = toF(itm.purchaseCost);
+              const tp = toF(itm.tax || toF(itm.cgstPercent) + toF(itm.sgstPercent) + toF(itm.igstPercent));
+              itTax = pc > 0 ? (tp > 0 ? pc / (1 + tp / 100) : pc) : (toF(itm.unitPrice) * toF(itm.quantity || 1) - toF(itm.discountedAmt));
+            }
+            return iacc + itTax;
+          }, 0);
+          return acc + invSum;
+        }
+        const tot = toF(i.net_invoice_amount || i.total_amount);
+        const gst = toF(i.cgst) + toF(i.sgst) + toF(i.igst);
+        return acc + (tot > gst ? tot - gst : toF(i.taxable_amount));
+      }, 0);
+      const purchaseRetTaxable = purRetList.reduce((acc, p) => acc + toF(p.taxable_amount || p.total_amount), 0);
+      const netPurchasesWithoutGst = Math.max(0, purchaseTaxable - purchaseRetTaxable);
 
-      const grossProfit = netSales - netPurchases;
-      const profitMargin = netSales > 0 ? (grossProfit / netSales) * 100 : 0;
-
-      const salesTaxable = salesList.reduce((acc, s) => acc + toF(s.taxable_amount), 0);
+      const grossProfitWithoutGst = netSalesWithoutGst - netPurchasesWithoutGst;
+      const profitMarginWithoutGst = netSalesWithoutGst > 0 ? (grossProfitWithoutGst / netSalesWithoutGst) * 100 : 0;
       const salesCgst = salesList.reduce((acc, s) => acc + toF(s.cgst), 0);
       const salesSgst = salesList.reduce((acc, s) => acc + toF(s.sgst), 0);
       const salesGst = salesCgst + salesSgst;
 
-      const purchaseTaxable = invList.reduce((acc, i) => acc + toF(i.taxable_amount), 0);
       const purchaseCgst = invList.reduce((acc, i) => acc + toF(i.cgst), 0);
       const purchaseSgst = invList.reduce((acc, i) => acc + toF(i.sgst), 0);
       const purchaseIgst = invList.reduce((acc, i) => acc + toF(i.igst), 0);
@@ -977,14 +1000,14 @@ const VelavanDashboard = () => {
         const d = (s.bill_date || "").substring(0, 10);
         if (d) {
           if (!tMap[d]) tMap[d] = { date: d, label: d, sales: 0, purchases: 0 };
-          tMap[d].sales += toF(s.total_amount);
+          tMap[d].sales += toF(s.taxable_amount || s.total_amount);
         }
       });
       invList.forEach((i) => {
         const d = (i.date || i.invoice_date || "").substring(0, 10);
         if (d) {
           if (!tMap[d]) tMap[d] = { date: d, label: d, sales: 0, purchases: 0 };
-          tMap[d].purchases += toF(i.net_invoice_amount || i.total_amount);
+          tMap[d].purchases += toF(i.taxable_amount || i.net_invoice_amount || i.total_amount);
         }
       });
       const timeline = Object.keys(tMap)
@@ -1074,16 +1097,16 @@ const VelavanDashboard = () => {
       setStatsData({
         status: "success",
         kpis: {
-          total_sales: netSales,
-          gross_sales: grossSales,
-          sales_returns: salesRet,
+          total_sales: netSalesWithoutGst,
+          gross_sales: salesTaxable,
+          sales_returns: salesRetTaxable,
           sales_count: salesList.length,
-          total_purchases: netPurchases,
-          gross_purchases: grossPurchases,
-          purchase_returns: purRet,
+          total_purchases: netPurchasesWithoutGst,
+          gross_purchases: purchaseTaxable,
+          purchase_returns: purchaseRetTaxable,
           purchase_count: invList.length,
-          gross_profit: grossProfit,
-          profit_margin: profitMargin,
+          gross_profit: grossProfitWithoutGst,
+          profit_margin: profitMarginWithoutGst,
           sales_taxable: salesTaxable,
           sales_gst: salesGst,
           purchase_taxable: purchaseTaxable,
@@ -1121,6 +1144,31 @@ const VelavanDashboard = () => {
         markup_markdown_variances: fallbackVariances,
         recent_sales: salesList.slice(0, 8),
         recent_purchases: invList.slice(0, 8),
+        purchase_returns_list: purRetList.map((pr) => ({
+          return_number: pr.return_number || "",
+          grn_number: pr.grn_number || "",
+          vendor_id: pr.vendor_id || "",
+          vendor_name: pr.vendor_name || pr.vendor_company || (pr.vendor_id ? `Vendor #${pr.vendor_id}` : "Vendor"),
+          return_date: (pr.return_date || "").substring(0, 10),
+          items_count: Array.isArray(pr.items) ? pr.items.length : 1,
+          taxable_amount: toF(pr.taxable_amount || pr.taxableAmount),
+          cgst: toF(pr.cgst),
+          sgst: toF(pr.sgst),
+          total_amount: toF(pr.total_amount || pr.totalAmount),
+          remarks: pr.remarks || "",
+        })),
+        sales_returns_list: salesRetList.map((sr) => ({
+          return_number: sr.return_number || "",
+          bill_number: sr.bill_number || "",
+          patient_name: sr.patient_name || sr.customer_name || "General Patient",
+          return_date: (sr.return_date || "").substring(0, 10),
+          items_count: Array.isArray(sr.items) ? sr.items.length : 1,
+          taxable_amount: toF(sr.taxable_amount || sr.taxableAmount),
+          cgst: toF(sr.cgst),
+          sgst: toF(sr.sgst),
+          total_amount: toF(sr.total_amount || sr.totalAmount),
+          remarks: sr.remarks || "",
+        })),
       });
     } catch (err) {
       if (fetchId && fetchId !== fetchIdRef.current) return;
@@ -1152,6 +1200,8 @@ const VelavanDashboard = () => {
   const topSellingItems = statsData?.top_selling_items || [];
   const topVendors = statsData?.top_vendors || [];
   const markupMarkdownVariances = statsData?.markup_markdown_variances || [];
+  const purchaseReturnsList = statsData?.purchase_returns_list || [];
+  const salesReturnsList = statsData?.sales_returns_list || [];
 
   const markupAllCount = useMemo(() => {
     return markupMarkdownVariances.filter((v) => v.pricing_mode === "Markup").length;
@@ -1369,7 +1419,7 @@ const VelavanDashboard = () => {
           $pillColor="#15803d"
         >
           <div className="top-row">
-            <div className="label">Net Sales Revenue</div>
+            <div className="label">Net Sales Revenue without GST</div>
             <div className="icon-box">
               <DollarSign size={20} />
             </div>
@@ -1395,7 +1445,7 @@ const VelavanDashboard = () => {
           $pillColor="#1e40af"
         >
           <div className="top-row">
-            <div className="label">Net Purchases (COGS)</div>
+            <div className="label">Net Purchases (COGS) without GST</div>
             <div className="icon-box">
               <ShoppingBag size={20} />
             </div>
@@ -1421,7 +1471,7 @@ const VelavanDashboard = () => {
           $pillColor={kpis.gross_profit >= 0 ? "#0f766e" : "#b91c1c"}
         >
           <div className="top-row">
-            <div className="label">Gross Profit</div>
+            <div className="label">Gross Profit without GST</div>
             <div className="icon-box">
               <TrendingUp size={20} />
             </div>
@@ -1520,6 +1570,18 @@ const VelavanDashboard = () => {
           <div className="mini-info">
             <div className="mini-label">Catalog Items</div>
             <div className="mini-val">{kpis.total_item_catalog_count || 0}</div>
+          </div>
+        </MiniStatCard>
+
+        <MiniStatCard $bg="#fff1f2" $color="#e11d48">
+          <div className="mini-icon">
+            <RotateCcw size={17} />
+          </div>
+          <div className="mini-info">
+            <div className="mini-label">Sales Returns</div>
+            <div className="mini-val">
+              {formatCompactINR(kpis.sales_returns || 0)}
+            </div>
           </div>
         </MiniStatCard>
 
@@ -2000,6 +2062,18 @@ const VelavanDashboard = () => {
             >
               Vendor Summary ({topVendors.length})
             </TabBtn>
+            <TabBtn
+              $active={activeTab === "purchase_returns"}
+              onClick={() => setActiveTab("purchase_returns")}
+            >
+              Purchase Returns ({purchaseReturnsList.length})
+            </TabBtn>
+            <TabBtn
+              $active={activeTab === "sales_returns"}
+              onClick={() => setActiveTab("sales_returns")}
+            >
+              Sales Returns ({salesReturnsList.length})
+            </TabBtn>
           </div>
 
           <TableSearchInput>
@@ -2285,7 +2359,7 @@ const VelavanDashboard = () => {
           </TableWrap>
         )}
 
-        {/* TAB 4: VENDORS SUMMARY */}
+        {/* TAB 3: VENDORS SUMMARY */}
         {activeTab === "vendors" && (
           <TableWrap>
             <table>
@@ -2341,6 +2415,176 @@ const VelavanDashboard = () => {
                   <tr>
                     <td colSpan={6} style={{ textAlign: "center", padding: 30, color: "#94a3b8" }}>
                       No vendor records found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableWrap>
+        )}
+
+        {/* TAB 4: PURCHASE RETURNS */}
+        {activeTab === "purchase_returns" && (
+          <TableWrap>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Return Number</th>
+                  <th>GRN Number</th>
+                  <th>Return Date</th>
+                  <th>Supplier / Vendor</th>
+                  <th style={{ textAlign: "center" }}>Items</th>
+                  <th style={{ textAlign: "right" }}>Taxable Amount</th>
+                  <th style={{ textAlign: "right" }}>GST (CGST + SGST)</th>
+                  <th style={{ textAlign: "right" }}>Total Return</th>
+                  <th>Remarks / Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {purchaseReturnsList.length > 0 ? (
+                  purchaseReturnsList
+                    .filter((pr) => {
+                      if (!tableSearch.trim()) return true;
+                      const q = tableSearch.toLowerCase();
+                      return (
+                        pr.return_number?.toLowerCase().includes(q) ||
+                        pr.grn_number?.toLowerCase().includes(q) ||
+                        pr.vendor_name?.toLowerCase().includes(q) ||
+                        pr.remarks?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((pr, idx) => (
+                      <tr key={`pr-${idx}`}>
+                        <td style={{ fontWeight: 700, color: "#64748b" }}>
+                          #{idx + 1}
+                        </td>
+                        <td style={{ fontWeight: 700, color: "#dc2626" }}>
+                          {pr.return_number}
+                        </td>
+                        <td style={{ fontWeight: 600, color: "#0d9488" }}>
+                          {pr.grn_number || "—"}
+                        </td>
+                        <td style={{ color: "#475569", fontWeight: 600 }}>
+                          {pr.return_date || "—"}
+                        </td>
+                        <td style={{ fontWeight: 600, color: "#0f172a" }}>
+                          {pr.vendor_name || "—"}
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <StatusTag $bg="#f1f5f9" $color="#475569">
+                            {pr.items_count} Item(s)
+                          </StatusTag>
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 600 }}>
+                          {formatINR(pr.taxable_amount)}
+                        </td>
+                        <td style={{ textAlign: "right", color: "#64748b" }}>
+                          {formatINR((parseFloat(pr.cgst) || 0) + (parseFloat(pr.sgst) || 0))}
+                        </td>
+                        <td
+                          style={{
+                            textAlign: "right",
+                            fontWeight: 700,
+                            color: "#dc2626",
+                          }}
+                        >
+                          {formatINR(pr.total_amount)}
+                        </td>
+                        <td style={{ color: "#64748b", fontStyle: pr.remarks ? "normal" : "italic" }}>
+                          {pr.remarks || "No remarks"}
+                        </td>
+                      </tr>
+                    ))
+                ) : (
+                  <tr>
+                    <td colSpan={10} style={{ textAlign: "center", padding: 30, color: "#94a3b8" }}>
+                      No purchase returns for this period.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableWrap>
+        )}
+
+        {/* TAB 5: SALES RETURNS */}
+        {activeTab === "sales_returns" && (
+          <TableWrap>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Return Number</th>
+                  <th>Bill Number</th>
+                  <th>Return Date</th>
+                  <th>Patient / Customer</th>
+                  <th style={{ textAlign: "center" }}>Items</th>
+                  <th style={{ textAlign: "right" }}>Taxable Amount</th>
+                  <th style={{ textAlign: "right" }}>GST (CGST + SGST)</th>
+                  <th style={{ textAlign: "right" }}>Total Return</th>
+                  <th>Remarks / Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {salesReturnsList.length > 0 ? (
+                  salesReturnsList
+                    .filter((sr) => {
+                      if (!tableSearch.trim()) return true;
+                      const q = tableSearch.toLowerCase();
+                      return (
+                        sr.return_number?.toLowerCase().includes(q) ||
+                        sr.bill_number?.toLowerCase().includes(q) ||
+                        sr.patient_name?.toLowerCase().includes(q) ||
+                        sr.remarks?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((sr, idx) => (
+                      <tr key={`sr-${idx}`}>
+                        <td style={{ fontWeight: 700, color: "#64748b" }}>
+                          #{idx + 1}
+                        </td>
+                        <td style={{ fontWeight: 700, color: "#e11d48" }}>
+                          {sr.return_number}
+                        </td>
+                        <td style={{ fontWeight: 600, color: "#0d9488" }}>
+                          {sr.bill_number || "—"}
+                        </td>
+                        <td style={{ color: "#475569", fontWeight: 600 }}>
+                          {sr.return_date || "—"}
+                        </td>
+                        <td style={{ fontWeight: 600, color: "#0f172a" }}>
+                          {sr.patient_name || "—"}
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <StatusTag $bg="#f1f5f9" $color="#475569">
+                            {sr.items_count} Item(s)
+                          </StatusTag>
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 600 }}>
+                          {formatINR(sr.taxable_amount)}
+                        </td>
+                        <td style={{ textAlign: "right", color: "#64748b" }}>
+                          {formatINR((parseFloat(sr.cgst) || 0) + (parseFloat(sr.sgst) || 0))}
+                        </td>
+                        <td
+                          style={{
+                            textAlign: "right",
+                            fontWeight: 700,
+                            color: "#e11d48",
+                          }}
+                        >
+                          {formatINR(sr.total_amount)}
+                        </td>
+                        <td style={{ color: "#64748b", fontStyle: sr.remarks ? "normal" : "italic" }}>
+                          {sr.remarks || "No remarks"}
+                        </td>
+                      </tr>
+                    ))
+                ) : (
+                  <tr>
+                    <td colSpan={10} style={{ textAlign: "center", padding: 30, color: "#94a3b8" }}>
+                      No sales returns for this period.
                     </td>
                   </tr>
                 )}
