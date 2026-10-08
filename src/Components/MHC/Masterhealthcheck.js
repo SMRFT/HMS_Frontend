@@ -651,7 +651,9 @@ export default function Masterhealthcheck() {
       id: rec.id || rec._id || null,
       mhc_no: rec.mhc_no !== undefined && rec.mhc_no !== null ? rec.mhc_no : null,
       patient_name: rec.patient_name || "",
-      age: rec.age !== undefined && rec.age !== null ? rec.age : "",
+      age: rec.age !== undefined && rec.age !== null && String(rec.age).trim() !== ""
+        ? (String(rec.age).match(/\d+/) ? parseInt(String(rec.age).match(/\d+/)[0], 10) : "")
+        : "",
       gender: rec.gender || "",
       contact_number: rec.contact_number || "",
       op_number: rec.op_number || "",
@@ -747,7 +749,18 @@ export default function Masterhealthcheck() {
     if (selectedPkgs.length === 0) { toast.error("Please select at least one Package"); return; }
     setSaving(true);
     try {
-      const res = await apiRequest(`${Hmsbaseurl}mhc_save_details/`, "POST", { ...form });
+      const sanitizedAge = (() => {
+        if (form.age === "" || form.age === null || form.age === undefined) return null;
+        const match = String(form.age).match(/\d+/);
+        return match ? parseInt(match[0], 10) : null;
+      })();
+
+      const payload = {
+        ...form,
+        age: sanitizedAge,
+      };
+
+      const res = await apiRequest(`${Hmsbaseurl}mhc_save_details/`, "POST", payload);
       if (res.success) {
         toast.success(isEditing ? "MHC details updated successfully!" : "MHC registration completed successfully!");
         setForm(initialForm);
@@ -756,7 +769,16 @@ export default function Masterhealthcheck() {
         await fetchRecords();
         setActiveView("list"); // Automatically come back to card page!
       } else {
-        toast.error(res.error || "Failed to save details");
+        const errObj = res.error || res.data;
+        let errMsg = "Failed to save details";
+        if (typeof errObj === "string") {
+          errMsg = errObj;
+        } else if (typeof errObj === "object" && errObj !== null) {
+          errMsg = Object.entries(errObj)
+            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`)
+            .join(" | ");
+        }
+        toast.error(errMsg);
       }
     } catch {
       toast.error("Unexpected error occurred");
