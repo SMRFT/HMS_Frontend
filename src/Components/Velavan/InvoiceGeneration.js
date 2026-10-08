@@ -799,7 +799,10 @@ const Invoice = () => {
     const taxableBase = round(
       items.reduce(
         (s, i) =>
-          s + (parseFloat(i.unitPrice) || 0) * (parseFloat(i.quantity) || 0),
+          s +
+          (parseFloat(i.purchaseCostBeforeGst) ||
+            (parseFloat(i.unitPrice) || 0) * (parseFloat(i.quantity) || 0) -
+              (parseFloat(i.discountedAmt) || 0)),
         0,
       ),
     );
@@ -826,8 +829,8 @@ const Invoice = () => {
     const netInvoiceAmount = round(base + (summary.roundAmount || 0));
     setSummary((prev) => ({
       ...prev,
-      nonTaxableAmount: taxableBase,
-      taxableAmount: totalPurchaseCost,
+      nonTaxableAmount: 0,
+      taxableAmount: taxableBase,
       cgst: totalCGST,
       sgst: totalSGST,
       totalAmount: totalPurchaseCost,

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Calendar,
   Search,
@@ -256,7 +257,37 @@ const actionsBar = {
   padding: "8px 16px",
   background: "#fff",
   borderBottom: `1px solid ${colors.border}`,
+  position: "relative",
+  zIndex: 50,
 };
+
+const dropdownWrap = { position: "relative", zIndex: 60 };
+const dropdownMenu = {
+  position: "absolute",
+  top: "calc(100% + 4px)",
+  right: 0,
+  background: "#fff",
+  border: `1px solid ${colors.border}`,
+  borderRadius: 6,
+  boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+  zIndex: 2000,
+  minWidth: 210,
+  overflow: "hidden",
+};
+const dropdownItem = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  width: "100%",
+  padding: "10px 14px",
+  border: "none",
+  background: "none",
+  cursor: "pointer",
+  fontSize: "0.83rem",
+  textAlign: "left",
+  borderBottom: `1px solid ${colors.border}`,
+};
+const dropdownItemLast = { ...dropdownItem, borderBottom: "none" };
 const paginationBar = {
   display: "flex",
   justifyContent: "space-between",
@@ -322,6 +353,75 @@ const InvoiceReport = () => {
 
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  const [showReportDropdown, setShowReportDropdown] = useState(false);
+  const reportDropdownRef = useRef(null);
+  const reportMenuRef = useRef(null);
+  const [reportMenuPos, setReportMenuPos] = useState({ top: 0, left: 0 });
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const exportDropdownRef = useRef(null);
+  const exportMenuRef = useRef(null);
+  const [exportMenuPos, setExportMenuPos] = useState({ top: 0, left: 0 });
+
+  const MENU_WIDTH = 210;
+  const positionMenuFromRef = (ref) => {
+    if (!ref.current) return { top: 0, left: 0 };
+    const rect = ref.current.getBoundingClientRect();
+    return {
+      top: rect.bottom + 4,
+      left: Math.max(8, rect.right - MENU_WIDTH),
+    };
+  };
+  const toggleReportDropdown = () => {
+    setShowExportDropdown(false);
+    setShowReportDropdown((v) => {
+      const next = !v;
+      if (next) setReportMenuPos(positionMenuFromRef(reportDropdownRef));
+      return next;
+    });
+  };
+  const toggleExportDropdown = () => {
+    setShowReportDropdown(false);
+    setShowExportDropdown((v) => {
+      const next = !v;
+      if (next) setExportMenuPos(positionMenuFromRef(exportDropdownRef));
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const handler = (e) => {
+      const reportOutside =
+        (!reportDropdownRef.current ||
+          !reportDropdownRef.current.contains(e.target)) &&
+        (!reportMenuRef.current || !reportMenuRef.current.contains(e.target));
+      if (reportOutside) setShowReportDropdown(false);
+
+      const exportOutside =
+        (!exportDropdownRef.current ||
+          !exportDropdownRef.current.contains(e.target)) &&
+        (!exportMenuRef.current || !exportMenuRef.current.contains(e.target));
+      if (exportOutside) setShowExportDropdown(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!showReportDropdown && !showExportDropdown) return;
+    const reposition = () => {
+      if (showReportDropdown)
+        setReportMenuPos(positionMenuFromRef(reportDropdownRef));
+      if (showExportDropdown)
+        setExportMenuPos(positionMenuFromRef(exportDropdownRef));
+    };
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [showReportDropdown, showExportDropdown]);
 
   useEffect(() => {
     const id = "velavan-spin-style";
@@ -1258,6 +1358,1196 @@ const InvoiceReport = () => {
     );
   };
 
+  // ── Helper: Item Tax Extraction ──────────────────────────────────────────
+  const getItemTaxInfo = (item) => {
+    const qty = parseFloat(item.quantity || item.qty || 0);
+    const up = parseFloat(item.unitPrice || 0);
+    const pc = parseFloat(item.purchaseCost || 0);
+    const ucWithGst = parseFloat(item.unitCostWithGst || 0);
+    const cgstP = parseFloat(item.cgstPercent || 0);
+    const sgstP = parseFloat(item.sgstPercent || 0);
+    const igstP = parseFloat(item.igstPercent || 0);
+    const rawTax =
+      item.tax !== undefined && item.tax !== null && item.tax !== ""
+        ? parseFloat(item.tax)
+        : (item.purchase_tax_rate !== undefined && item.purchase_tax_rate !== null && item.purchase_tax_rate !== ""
+            ? parseFloat(item.purchase_tax_rate)
+            : null);
+    const taxRate = rawTax !== null ? rawTax : cgstP + sgstP + igstP;
+
+    let taxable = 0;
+    let total = 0;
+    let cgst = parseFloat(item.cgstAmt || 0);
+    let sgst = parseFloat(item.sgstAmt || 0);
+    let igst = parseFloat(item.igstAmt || 0);
+
+    if (
+      item.purchaseCostBeforeGst !== undefined &&
+      item.purchaseCostBeforeGst !== null &&
+      item.purchaseCostBeforeGst !== ""
+    ) {
+      taxable = parseFloat(item.purchaseCostBeforeGst || 0);
+    } else if (
+      item.taxable_amount !== undefined &&
+      item.taxable_amount !== null &&
+      item.taxable_amount !== ""
+    ) {
+      taxable = parseFloat(item.taxable_amount || 0);
+    } else if (pc > 0) {
+      taxable = taxRate > 0 ? pc / (1 + taxRate / 100) : pc;
+    } else if (up > 0 && qty > 0) {
+      const discP = parseFloat(item.purchaseDiscountPercent || 0);
+      taxable = up * qty * (1 - discP / 100);
+    } else if (ucWithGst > 0 && qty > 0) {
+      const lineTot = ucWithGst * qty;
+      taxable = taxRate > 0 ? lineTot / (1 + taxRate / 100) : lineTot;
+    }
+
+    if (cgst === 0 && cgstP > 0 && taxable > 0) {
+      cgst = taxable * (cgstP / 100);
+    }
+    if (sgst === 0 && sgstP > 0 && taxable > 0) {
+      sgst = taxable * (sgstP / 100);
+    }
+    if (igst === 0 && igstP > 0 && taxable > 0) {
+      igst = taxable * (igstP / 100);
+    }
+
+    total = parseFloat(item.total_amount || item.lineTotal || item.purchaseCost || 0);
+    if (total === 0) {
+      total = taxable + cgst + sgst + igst;
+    }
+
+    return { qty, taxRate, taxable, cgst, sgst, igst, total };
+  };
+
+  const getBucketKey = (rate) => {
+    const r = parseFloat(rate || 0);
+    if (r === 0) return "exempt";
+    if (r <= 6) return "5";
+    if (r <= 13) return "12";
+    return "18";
+  };
+
+  const getNumericBucketKey = (rate) => {
+    const r = parseFloat(rate || 0);
+    if (r === 0) return "0";
+    if (r <= 6) return "5";
+    if (r <= 13) return "12";
+    return "18";
+  };
+
+  // ── Purchase Tax Register — grouped by invoice_date / date ────────────────
+  const buildPurchaseTaxRegisterData = () => {
+    const dateGroups = {};
+    filteredData.forEach((row) => {
+      const key = (row.invoice_date || row.date || "").substring(0, 10);
+      if (!dateGroups[key]) dateGroups[key] = [];
+      dateGroups[key].push(row);
+    });
+    const emptyBucket = () => ({ amount: 0, sgst: 0, cgst: 0, total: 0 });
+    const RATE_BUCKETS = ["exempt", "5", "12", "18"];
+    let grand = {
+      exempt: emptyBucket(),
+      5: emptyBucket(),
+      12: emptyBucket(),
+      18: emptyBucket(),
+      total: emptyBucket(),
+    };
+    const sortedDates = Object.keys(dateGroups).sort(
+      (a, b) => new Date(a) - new Date(b),
+    );
+
+    const rows = sortedDates.map((dateKey) => {
+      const dayInvoices = dateGroups[dateKey];
+      const nums = dayInvoices
+        .map((b) => b.grn_number || b.invoice_no)
+        .filter(Boolean)
+        .sort();
+      const grnRange =
+        nums.length <= 1
+          ? nums[0] || "N/A"
+          : `${nums[0]} - ${nums[nums.length - 1].split("/").pop()}`;
+      const buckets = {
+        exempt: emptyBucket(),
+        5: emptyBucket(),
+        12: emptyBucket(),
+        18: emptyBucket(),
+      };
+      dayInvoices.forEach((inv) => {
+        const items = parseItems(inv.items);
+        if (items.length > 0) {
+          items.forEach((item) => {
+            const { taxRate, taxable, cgst, sgst, total } = getItemTaxInfo(item);
+            const key = getBucketKey(taxRate);
+            buckets[key].amount += taxable;
+            buckets[key].sgst += sgst;
+            buckets[key].cgst += cgst;
+            buckets[key].total += total;
+          });
+        } else {
+          const invTaxable = parseFloat(inv.taxable_amount || 0);
+          const invCgst = parseFloat(inv.cgst || 0);
+          const invSgst = parseFloat(inv.sgst || 0);
+          const invTotal = parseFloat(
+            inv.net_invoice_amount || inv.total_amount || 0,
+          );
+          const rate =
+            invTaxable > 0 ? ((invCgst + invSgst) / invTaxable) * 100 : 0;
+          const key = getBucketKey(rate);
+          buckets[key].amount += invTaxable;
+          buckets[key].cgst += invCgst;
+          buckets[key].sgst += invSgst;
+          buckets[key].total += invTotal;
+        }
+      });
+      const rowTotal = RATE_BUCKETS.reduce(
+        (acc, k) => ({
+          amount: acc.amount + buckets[k].amount,
+          sgst: acc.sgst + buckets[k].sgst,
+          cgst: acc.cgst + buckets[k].cgst,
+          total: acc.total + buckets[k].total,
+        }),
+        emptyBucket(),
+      );
+      RATE_BUCKETS.forEach((k) => {
+        grand[k].amount += buckets[k].amount;
+        grand[k].sgst += buckets[k].sgst;
+        grand[k].cgst += buckets[k].cgst;
+        grand[k].total += buckets[k].total;
+      });
+      grand.total.amount += rowTotal.amount;
+      grand.total.sgst += rowTotal.sgst;
+      grand.total.cgst += rowTotal.cgst;
+      grand.total.total += rowTotal.total;
+      return { dateKey, grnRange, buckets, rowTotal };
+    });
+    return { rows, grand, RATE_BUCKETS };
+  };
+
+  const handlePurchaseTaxRegisterPrint = () => {
+    const { rows, grand } = buildPurchaseTaxRegisterData();
+    const fmt = (n) =>
+      n === 0 ? "" : n.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const fmtG = (n) => n.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const cells = (b, g = false) =>
+      `<td class="r${g ? " grand-cell" : ""}">${g ? fmtG(b.amount) : fmt(b.amount)}</td>` +
+      `<td class="r${g ? " grand-cell" : ""}">${g ? fmtG(b.sgst) : fmt(b.sgst)}</td>` +
+      `<td class="r${g ? " grand-cell" : ""}">${g ? fmtG(b.cgst) : fmt(b.cgst)}</td>` +
+      `<td class="r tot-cell${g ? " grand-cell" : ""}">${g ? fmtG(b.total) : fmt(b.total)}</td>`;
+    const tableRows = rows
+      .map(
+        ({ dateKey, grnRange, buckets, rowTotal }) => `
+      <tr>
+        <td class="c">${formatDate(dateKey)}</td><td class="c">VELAVAN HOSPITAL NEEDS</td>
+        <td class="billcol">${grnRange}</td>
+        ${cells(buckets.exempt)}${cells(buckets["5"])}${cells(buckets["12"])}${cells(buckets["18"])}${cells(rowTotal)}
+      </tr>`,
+      )
+      .join("");
+    const css = `
+      body{font-family:Arial,sans-serif;padding:10px;font-size:11px;margin:0}
+      .report-title{font-size:13px;font-weight:bold;margin:0 0 2px}.page-info{text-align:right;font-size:11px;margin-bottom:6px}
+      table{border-collapse:collapse;width:100%;font-size:10px}th,td{border:1px solid #555;padding:4px 5px}
+      th{background:#d9d9d9;font-weight:bold;text-align:center}.r{text-align:right}.c{text-align:center;white-space:nowrap}
+      .billcol{white-space:nowrap;min-width:130px}.tot-cell{font-weight:bold;background:#f0f0f0}
+      .grand-row td{font-weight:bold;background:#d9ead3}.grand-cell{background:#d9ead3}
+      .grp-5{background:#e2efda}.grp-12{background:#dae3f3}.grp-18{background:#fce4d6}.grp-ex{background:#eeeeee}.grp-tot{background:#fff2cc}
+    `;
+    const body = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px">
+        <div class="report-title">Purchase Tax Register From ${getDateRangeLabel()}</div>
+        <div class="page-info">Page : 1/1</div>
+      </div>
+      <table>
+        <thead>
+          <tr><th rowspan="2">PURCHASE DATE</th><th rowspan="2">NAME</th><th rowspan="2">GRN RANGE</th>
+            <th colspan="4" class="grp-ex">EXEMPTED GST</th><th colspan="4" class="grp-5">RATE OF 5%</th>
+            <th colspan="4" class="grp-12">RATE OF 12%</th><th colspan="4" class="grp-18">RATE OF 18%</th>
+            <th colspan="4" class="grp-tot">Total</th></tr>
+          <tr>
+            <th class="grp-ex">AMOUNT</th><th class="grp-ex">SGST</th><th class="grp-ex">CGST</th><th class="grp-ex">TOTAL</th>
+            <th class="grp-5">AMOUNT</th><th class="grp-5">SGST</th><th class="grp-5">CGST</th><th class="grp-5">TOTAL</th>
+            <th class="grp-12">AMOUNT</th><th class="grp-12">SGST</th><th class="grp-12">CGST</th><th class="grp-12">TOTAL</th>
+            <th class="grp-18">AMOUNT</th><th class="grp-18">SGST</th><th class="grp-18">CGST</th><th class="grp-18">TOTAL</th>
+            <th class="grp-tot">AMOUNT</th><th class="grp-tot">SGST</th><th class="grp-tot">CGST</th><th class="grp-tot">TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+          <tr class="grand-row"><td colspan="3" style="text-align:right;padding-right:8px">Grand Total</td>
+            ${cells(grand.exempt, true)}${cells(grand["5"], true)}${cells(grand["12"], true)}${cells(grand["18"], true)}${cells(grand.total, true)}
+          </tr>
+        </tbody>
+      </table>`;
+    openPrintWindow("Purchase Tax Register", css, body);
+  };
+
+  const exportPurchaseTaxRegisterExcel = () => {
+    const XLSX = require("xlsx");
+    const { rows, grand } = buildPurchaseTaxRegisterData();
+    const f = (n) => (n === 0 ? "" : parseFloat(n.toFixed(2)));
+    const fG = (n) => parseFloat(n.toFixed(2));
+
+    const dataRows = rows.map(({ dateKey, grnRange, buckets, rowTotal }) => [
+      formatDate(dateKey),
+      "VELAVAN HOSPITAL NEEDS",
+      grnRange,
+      f(buckets.exempt.amount),
+      f(buckets.exempt.sgst),
+      f(buckets.exempt.cgst),
+      f(buckets.exempt.total),
+      f(buckets["5"].amount),
+      f(buckets["5"].sgst),
+      f(buckets["5"].cgst),
+      f(buckets["5"].total),
+      f(buckets["12"].amount),
+      f(buckets["12"].sgst),
+      f(buckets["12"].cgst),
+      f(buckets["12"].total),
+      f(buckets["18"].amount),
+      f(buckets["18"].sgst),
+      f(buckets["18"].cgst),
+      f(buckets["18"].total),
+      f(rowTotal.amount),
+      f(rowTotal.sgst),
+      f(rowTotal.cgst),
+      f(rowTotal.total),
+    ]);
+    const grandRow = [
+      "Grand Total",
+      "",
+      "",
+      fG(grand.exempt.amount),
+      fG(grand.exempt.sgst),
+      fG(grand.exempt.cgst),
+      fG(grand.exempt.total),
+      fG(grand["5"].amount),
+      fG(grand["5"].sgst),
+      fG(grand["5"].cgst),
+      fG(grand["5"].total),
+      fG(grand["12"].amount),
+      fG(grand["12"].sgst),
+      fG(grand["12"].cgst),
+      fG(grand["12"].total),
+      fG(grand["18"].amount),
+      fG(grand["18"].sgst),
+      fG(grand["18"].cgst),
+      fG(grand["18"].total),
+      fG(grand.total.amount),
+      fG(grand.total.sgst),
+      fG(grand.total.cgst),
+      fG(grand.total.total),
+    ];
+    const titleRow = [`Purchase Tax Register - ${getDateRangeLabel()}`];
+    const groupRow = [
+      "PURCHASE DATE",
+      "NAME",
+      "GRN RANGE",
+      "EXEMPTED GST",
+      "",
+      "",
+      "",
+      "RATE OF 5%",
+      "",
+      "",
+      "",
+      "RATE OF 12%",
+      "",
+      "",
+      "",
+      "RATE OF 18%",
+      "",
+      "",
+      "",
+      "Total",
+      "",
+      "",
+      "",
+    ];
+    const subRow = [
+      "",
+      "",
+      "",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+    ];
+    const wsData = [titleRow, [], groupRow, subRow, ...dataRows, grandRow];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 22 } },
+      { s: { r: 2, c: 0 }, e: { r: 3, c: 0 } },
+      { s: { r: 2, c: 1 }, e: { r: 3, c: 1 } },
+      { s: { r: 2, c: 2 }, e: { r: 3, c: 2 } },
+      { s: { r: 2, c: 3 }, e: { r: 2, c: 6 } },
+      { s: { r: 2, c: 7 }, e: { r: 2, c: 10 } },
+      { s: { r: 2, c: 11 }, e: { r: 2, c: 14 } },
+      { s: { r: 2, c: 15 }, e: { r: 2, c: 18 } },
+      { s: { r: 2, c: 19 }, e: { r: 2, c: 22 } },
+    ];
+    ws["!cols"] = [
+      { wch: 13 },
+      { wch: 24 },
+      { wch: 28 },
+      ...Array(20).fill({ wch: 14 }),
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Purchase Tax Register");
+    XLSX.writeFile(
+      wb,
+      `PurchaseTaxRegister_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+  };
+
+  // ── Purchase Return Register ─────────────────────────────────────────────
+  const buildPurchaseReturnRegisterData = (returns) => {
+    const dateGroups = {};
+    returns.forEach((rr) => {
+      const key = (rr.return_date || "").substring(0, 10);
+      if (!dateGroups[key]) dateGroups[key] = [];
+      dateGroups[key].push(rr);
+    });
+    const emptyBucket = () => ({ amount: 0, sgst: 0, cgst: 0, total: 0 });
+    const RATE_BUCKETS = ["exempt", "5", "12", "18"];
+    let grand = {
+      exempt: emptyBucket(),
+      5: emptyBucket(),
+      12: emptyBucket(),
+      18: emptyBucket(),
+      total: emptyBucket(),
+    };
+    const sortedDates = Object.keys(dateGroups).sort(
+      (a, b) => new Date(a) - new Date(b),
+    );
+
+    const rows = sortedDates.map((dateKey) => {
+      const dayReturns = dateGroups[dateKey];
+      const nums = dayReturns
+        .map((r) => r.return_number)
+        .filter(Boolean)
+        .sort();
+      const range =
+        nums.length <= 1
+          ? nums[0] || "N/A"
+          : `${nums[0]} - ${nums[nums.length - 1].split("/").pop()}`;
+      const buckets = {
+        exempt: emptyBucket(),
+        5: emptyBucket(),
+        12: emptyBucket(),
+        18: emptyBucket(),
+      };
+      dayReturns.forEach((rr) => {
+        const items = parseItems(rr.items);
+        if (items.length > 0) {
+          items.forEach((item) => {
+            const { taxRate, taxable, cgst, sgst, total } = getItemTaxInfo(item);
+            const key = getBucketKey(taxRate);
+            buckets[key].amount += taxable;
+            buckets[key].sgst += sgst;
+            buckets[key].cgst += cgst;
+            buckets[key].total += total;
+          });
+        } else {
+          const retTaxable = parseFloat(rr.taxable_amount || 0);
+          const retCgst = parseFloat(rr.cgst || 0);
+          const retSgst = parseFloat(rr.sgst || 0);
+          const retTotal = parseFloat(rr.total_amount || 0);
+          const rate =
+            retTaxable > 0 ? ((retCgst + retSgst) / retTaxable) * 100 : 0;
+          const key = getBucketKey(rate);
+          buckets[key].amount += retTaxable;
+          buckets[key].cgst += retCgst;
+          buckets[key].sgst += retSgst;
+          buckets[key].total += retTotal;
+        }
+      });
+      const rowTotal = RATE_BUCKETS.reduce(
+        (acc, k) => ({
+          amount: acc.amount + buckets[k].amount,
+          sgst: acc.sgst + buckets[k].sgst,
+          cgst: acc.cgst + buckets[k].cgst,
+          total: acc.total + buckets[k].total,
+        }),
+        emptyBucket(),
+      );
+      RATE_BUCKETS.forEach((k) => {
+        grand[k].amount += buckets[k].amount;
+        grand[k].sgst += buckets[k].sgst;
+        grand[k].cgst += buckets[k].cgst;
+        grand[k].total += buckets[k].total;
+      });
+      grand.total.amount += rowTotal.amount;
+      grand.total.sgst += rowTotal.sgst;
+      grand.total.cgst += rowTotal.cgst;
+      grand.total.total += rowTotal.total;
+      return { dateKey, range, buckets, rowTotal };
+    });
+    return { rows, grand };
+  };
+
+  const handlePurchaseReturnRegisterPrint = async () => {
+    let returns = [];
+    try {
+      returns = await fetchReturnsForRegister();
+    } catch {
+      returns = [];
+    }
+    const { rows, grand } = buildPurchaseReturnRegisterData(returns);
+    const fmt = (n) =>
+      n === 0 ? "" : n.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const fmtG = (n) => n.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const cells = (b, g = false) =>
+      `<td class="r${g ? " grand-cell" : ""}">${g ? fmtG(b.amount) : fmt(b.amount)}</td>` +
+      `<td class="r${g ? " grand-cell" : ""}">${g ? fmtG(b.sgst) : fmt(b.sgst)}</td>` +
+      `<td class="r${g ? " grand-cell" : ""}">${g ? fmtG(b.cgst) : fmt(b.cgst)}</td>` +
+      `<td class="r tot-cell${g ? " grand-cell" : ""}">${g ? fmtG(b.total) : fmt(b.total)}</td>`;
+    const tableRows = rows
+      .map(
+        ({ dateKey, range, buckets, rowTotal }) => `
+    <tr>
+      <td class="c">${formatDate(dateKey)}</td><td class="c">VELAVAN HOSPITAL NEEDS</td>
+      <td class="billcol">${range}</td>
+      ${cells(buckets.exempt)}${cells(buckets["5"])}${cells(buckets["12"])}${cells(buckets["18"])}${cells(rowTotal)}
+    </tr>`,
+      )
+      .join("");
+    const css = `
+    body{font-family:Arial,sans-serif;padding:10px;font-size:11px;margin:0}
+    .report-title{font-size:13px;font-weight:bold;margin:0 0 2px}.page-info{text-align:right;font-size:11px;margin-bottom:6px}
+    table{border-collapse:collapse;width:100%;font-size:10px}th,td{border:1px solid #555;padding:4px 5px}
+    th{background:#d9d9d9;font-weight:bold;text-align:center}.r{text-align:right}.c{text-align:center;white-space:nowrap}
+    .billcol{white-space:nowrap;min-width:130px}.tot-cell{font-weight:bold;background:#f0f0f0}
+    .grand-row td{font-weight:bold;background:#fee2e2}.grand-cell{background:#fee2e2}
+    .grp-5{background:#e2efda}.grp-12{background:#dae3f3}.grp-18{background:#fce4d6}.grp-ex{background:#eeeeee}.grp-tot{background:#fff2cc}
+  `;
+    const body = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px">
+      <div class="report-title">Purchase Return Register From ${getDateRangeLabel()}</div>
+      <div class="page-info">Page : 1/1</div>
+    </div>
+    <table>
+      <thead>
+        <tr><th rowspan="2">RETURN DATE</th><th rowspan="2">NAME</th><th rowspan="2">RETURNS</th>
+          <th colspan="4" class="grp-ex">EXEMPTED GST</th><th colspan="4" class="grp-5">RATE OF 5%</th>
+          <th colspan="4" class="grp-12">RATE OF 12%</th><th colspan="4" class="grp-18">RATE OF 18%</th>
+          <th colspan="4" class="grp-tot">Total</th></tr>
+        <tr>
+          <th class="grp-ex">AMOUNT</th><th class="grp-ex">SGST</th><th class="grp-ex">CGST</th><th class="grp-ex">TOTAL</th>
+          <th class="grp-5">AMOUNT</th><th class="grp-5">SGST</th><th class="grp-5">CGST</th><th class="grp-5">TOTAL</th>
+          <th class="grp-12">AMOUNT</th><th class="grp-12">SGST</th><th class="grp-12">CGST</th><th class="grp-12">TOTAL</th>
+          <th class="grp-18">AMOUNT</th><th class="grp-18">SGST</th><th class="grp-18">CGST</th><th class="grp-18">TOTAL</th>
+          <th class="grp-tot">AMOUNT</th><th class="grp-tot">SGST</th><th class="grp-tot">CGST</th><th class="grp-tot">TOTAL</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows}
+        <tr class="grand-row"><td colspan="3" style="text-align:right;padding-right:8px">Grand Total</td>
+          ${cells(grand.exempt, true)}${cells(grand["5"], true)}${cells(grand["12"], true)}${cells(grand["18"], true)}${cells(grand.total, true)}
+        </tr>
+      </tbody>
+    </table>`;
+    openPrintWindow("Purchase Return Register", css, body);
+  };
+
+  const exportPurchaseReturnRegisterExcel = async () => {
+    const XLSX = require("xlsx");
+    let returns = [];
+    try {
+      returns = await fetchReturnsForRegister();
+    } catch {
+      returns = [];
+    }
+    const { rows, grand } = buildPurchaseReturnRegisterData(returns);
+    const f = (n) => (n === 0 ? "" : parseFloat(n.toFixed(2)));
+    const fG = (n) => parseFloat(n.toFixed(2));
+
+    const dataRows = rows.map(({ dateKey, range, buckets, rowTotal }) => [
+      formatDate(dateKey),
+      "VELAVAN HOSPITAL NEEDS",
+      range,
+      f(buckets.exempt.amount),
+      f(buckets.exempt.sgst),
+      f(buckets.exempt.cgst),
+      f(buckets.exempt.total),
+      f(buckets["5"].amount),
+      f(buckets["5"].sgst),
+      f(buckets["5"].cgst),
+      f(buckets["5"].total),
+      f(buckets["12"].amount),
+      f(buckets["12"].sgst),
+      f(buckets["12"].cgst),
+      f(buckets["12"].total),
+      f(buckets["18"].amount),
+      f(buckets["18"].sgst),
+      f(buckets["18"].cgst),
+      f(buckets["18"].total),
+      f(rowTotal.amount),
+      f(rowTotal.sgst),
+      f(rowTotal.cgst),
+      f(rowTotal.total),
+    ]);
+    const grandRow = [
+      "Grand Total",
+      "",
+      "",
+      fG(grand.exempt.amount),
+      fG(grand.exempt.sgst),
+      fG(grand.exempt.cgst),
+      fG(grand.exempt.total),
+      fG(grand["5"].amount),
+      fG(grand["5"].sgst),
+      fG(grand["5"].cgst),
+      fG(grand["5"].total),
+      fG(grand["12"].amount),
+      fG(grand["12"].sgst),
+      fG(grand["12"].cgst),
+      fG(grand["12"].total),
+      fG(grand["18"].amount),
+      fG(grand["18"].sgst),
+      fG(grand["18"].cgst),
+      fG(grand["18"].total),
+      fG(grand.total.amount),
+      fG(grand.total.sgst),
+      fG(grand.total.cgst),
+      fG(grand.total.total),
+    ];
+    const titleRow = [`Purchase Return Register - ${getDateRangeLabel()}`];
+    const groupRow = [
+      "RETURN DATE",
+      "NAME",
+      "RETURNS",
+      "EXEMPTED GST",
+      "",
+      "",
+      "",
+      "RATE OF 5%",
+      "",
+      "",
+      "",
+      "RATE OF 12%",
+      "",
+      "",
+      "",
+      "RATE OF 18%",
+      "",
+      "",
+      "",
+      "Total",
+      "",
+      "",
+      "",
+    ];
+    const subRow = [
+      "",
+      "",
+      "",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+      "AMOUNT",
+      "SGST",
+      "CGST",
+      "TOTAL",
+    ];
+    const wsData = [titleRow, [], groupRow, subRow, ...dataRows, grandRow];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 22 } },
+      { s: { r: 2, c: 0 }, e: { r: 3, c: 0 } },
+      { s: { r: 2, c: 1 }, e: { r: 3, c: 1 } },
+      { s: { r: 2, c: 2 }, e: { r: 3, c: 2 } },
+      { s: { r: 2, c: 3 }, e: { r: 2, c: 6 } },
+      { s: { r: 2, c: 7 }, e: { r: 2, c: 10 } },
+      { s: { r: 2, c: 11 }, e: { r: 2, c: 14 } },
+      { s: { r: 2, c: 15 }, e: { r: 2, c: 18 } },
+      { s: { r: 2, c: 19 }, e: { r: 2, c: 22 } },
+    ];
+    ws["!cols"] = [
+      { wch: 13 },
+      { wch: 24 },
+      { wch: 28 },
+      ...Array(20).fill({ wch: 14 }),
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Purchase Return Register");
+    XLSX.writeFile(
+      wb,
+      `PurchaseReturnRegister_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+  };
+
+  // ── GSTR1 B2B for Purchase (Invoice-wise offline tool layout) ────────────
+  const buildGSTR1B2BData = () => {
+    const rows = [];
+    filteredData.forEach((b) => {
+      const items = parseItems(b.items);
+      const invoiceNo = b.invoice_no || b.grn_number;
+      const supplierName =
+        b.vendor || b.vendor_name || b.vendor_company || b.vendor_id || "N/A";
+      const gstin = b.vendor_gstin || b.gstin || "";
+      const invoiceDate = formatDate(b.invoice_date || b.date);
+      const invoiceValue = parseFloat(
+        b.net_invoice_amount ?? b.total_amount ?? 0,
+      );
+      const stateOfSupply =
+        b.state_of_supply || b.vendor_state || "Tamil Nadu";
+      const isInterState = stateOfSupply.toLowerCase() !== "tamil nadu";
+      const reverseCharge = b.reverse_charge || "N";
+
+      if (items.length === 0) {
+        const taxable = parseFloat(b.taxable_amount || 0);
+        const cgst = parseFloat(b.cgst || 0);
+        const sgst = parseFloat(b.sgst || 0);
+        const igst = parseFloat(b.igst || (isInterState ? cgst + sgst : 0));
+        const rate =
+          taxable > 0 ? Math.round(((cgst + sgst + igst) / taxable) * 100) : 0;
+        rows.push({
+          invoiceNo,
+          invoiceDateRaw: b.invoice_date || b.date,
+          customerName: supplierName,
+          gstin,
+          invoiceDate,
+          invoiceValue,
+          taxRate: rate,
+          taxableValue: taxable,
+          igst: isInterState ? igst : 0,
+          centralTax: isInterState ? 0 : cgst,
+          stateTax: isInterState ? 0 : sgst,
+          cess: 0,
+          stateOfSupply,
+          reverseCharge,
+        });
+        return;
+      }
+
+      const buckets = {};
+      items.forEach((item) => {
+        const { taxRate, taxable, cgst, sgst } = getItemTaxInfo(item);
+        const key = getNumericBucketKey(taxRate);
+        if (!buckets[key]) buckets[key] = { amount: 0, cgst: 0, sgst: 0 };
+        buckets[key].amount += taxable;
+        buckets[key].cgst += cgst;
+        buckets[key].sgst += sgst;
+      });
+
+      Object.keys(buckets).forEach((key) => {
+        const bucket = buckets[key];
+        rows.push({
+          invoiceNo,
+          invoiceDateRaw: b.invoice_date || b.date,
+          customerName: supplierName,
+          gstin,
+          invoiceDate,
+          invoiceValue,
+          taxRate: parseFloat(key),
+          taxableValue: bucket.amount,
+          igst: isInterState ? bucket.cgst + bucket.sgst : 0,
+          centralTax: isInterState ? 0 : bucket.cgst,
+          stateTax: isInterState ? 0 : bucket.sgst,
+          cess: 0,
+          stateOfSupply,
+          reverseCharge,
+        });
+      });
+    });
+
+    rows.sort(
+      (a, b) =>
+        new Date(a.invoiceDateRaw) - new Date(b.invoiceDateRaw) ||
+        (a.invoiceNo || "").localeCompare(b.invoiceNo || ""),
+    );
+
+    const uniqueInvoiceTotal = Array.from(
+      new Map(rows.map((r) => [r.invoiceNo, r.invoiceValue])).values(),
+    ).reduce((s, v) => s + v, 0);
+
+    const grand = rows.reduce(
+      (acc, r) => ({
+        taxableValue: acc.taxableValue + r.taxableValue,
+        igst: acc.igst + r.igst,
+        centralTax: acc.centralTax + r.centralTax,
+        stateTax: acc.stateTax + r.stateTax,
+        cess: acc.cess + r.cess,
+      }),
+      { taxableValue: 0, igst: 0, centralTax: 0, stateTax: 0, cess: 0 },
+    );
+    grand.invoiceValue = uniqueInvoiceTotal;
+
+    return { rows, grand };
+  };
+
+  const handleGSTR1B2BPrint = () => {
+    const { rows, grand } = buildGSTR1B2BData();
+    const fmt = (n) =>
+      parseFloat(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+
+    const tableRows = rows
+      .map(
+        (r) => `
+      <tr>
+        <td class="c">${r.invoiceNo}</td>
+        <td class="l">${r.customerName}</td>
+        <td class="c">${r.gstin}</td>
+        <td class="c">${r.invoiceDate}</td>
+        <td class="r">${fmt(r.invoiceValue)}</td>
+        <td class="c">${r.taxRate}</td>
+        <td class="r">${fmt(r.taxableValue)}</td>
+        <td class="r">${r.igst > 0 ? fmt(r.igst) : ""}</td>
+        <td class="r">${r.centralTax > 0 ? fmt(r.centralTax) : ""}</td>
+        <td class="r">${r.stateTax > 0 ? fmt(r.stateTax) : ""}</td>
+        <td class="r">${r.cess > 0 ? fmt(r.cess) : ""}</td>
+        <td class="c">${r.stateOfSupply}</td>
+        <td class="c">${r.reverseCharge}</td>
+      </tr>`,
+      )
+      .join("");
+
+    const css = `
+      body{font-family:Arial,sans-serif;padding:10px;font-size:11px;margin:0}
+      .report-title{font-size:13px;font-weight:bold;margin:0 0 6px}
+      table{border-collapse:collapse;width:100%;font-size:10px}
+      th,td{border:1px solid #555;padding:4px 6px}
+      th{background:#d9d9d9;font-weight:bold;text-align:center}
+      .r{text-align:right}.c{text-align:center;white-space:nowrap}.l{text-align:left}
+      .grand-row td{font-weight:bold;background:#d9ead3}
+    `;
+    const body = `
+      <div class="report-title">GSTR1 - B2B Invoices (Purchase) From ${getDateRangeLabel()}</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Invoice No.</th><th>Supplier Name</th><th>GSTIN</th><th>Invoice Date</th>
+            <th>Invoice Value</th><th>Tax Rate(%)</th><th>Taxable value</th>
+            <th>IGST</th><th>Central Tax</th><th>State Tax</th><th>Cess</th>
+            <th>State of supply</th><th>Reverse Charge</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+          <tr class="grand-row">
+            <td colspan="4" style="text-align:right">Grand Total</td>
+            <td class="r">${fmt(grand.invoiceValue)}</td>
+            <td></td>
+            <td class="r">${fmt(grand.taxableValue)}</td>
+            <td class="r">${fmt(grand.igst)}</td>
+            <td class="r">${fmt(grand.centralTax)}</td>
+            <td class="r">${fmt(grand.stateTax)}</td>
+            <td class="r">${fmt(grand.cess)}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tbody>
+      </table>`;
+    openPrintWindow("GSTR1_B2B", css, body);
+  };
+
+  const exportGSTR1B2BExcel = () => {
+    const XLSX = require("xlsx");
+    const { rows, grand } = buildGSTR1B2BData();
+    const f = (n) => parseFloat((n || 0).toFixed(2));
+
+    const header = [
+      "Invoice No.",
+      "Supplier Name",
+      "GSTIN",
+      "Invoice Date",
+      "Invoice Value",
+      "Tax Rate(%)",
+      "Taxable value",
+      "IGST",
+      "Central Tax",
+      "State Tax",
+      "Cess",
+      "State of supply",
+      "Reverse Charge",
+    ];
+    const dataRows = rows.map((r) => [
+      r.invoiceNo,
+      r.customerName,
+      r.gstin,
+      r.invoiceDate,
+      f(r.invoiceValue),
+      r.taxRate,
+      f(r.taxableValue),
+      r.igst > 0 ? f(r.igst) : "",
+      r.centralTax > 0 ? f(r.centralTax) : "",
+      r.stateTax > 0 ? f(r.stateTax) : "",
+      r.cess > 0 ? f(r.cess) : "",
+      r.stateOfSupply,
+      r.reverseCharge,
+    ]);
+    const grandRow = [
+      "Grand Total",
+      "",
+      "",
+      "",
+      f(grand.invoiceValue),
+      "",
+      f(grand.taxableValue),
+      f(grand.igst),
+      f(grand.centralTax),
+      f(grand.stateTax),
+      f(grand.cess),
+      "",
+      "",
+    ];
+    const titleRow = [`GSTR1_B2B (Purchase) - ${getDateRangeLabel()}`];
+    const wsData = [titleRow, [], header, ...dataRows, grandRow];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 12 } }];
+    ws["!cols"] = [
+      { wch: 16 },
+      { wch: 26 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 11 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 14 },
+      { wch: 14 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "GSTR1_B2B");
+    XLSX.writeFile(
+      wb,
+      `GSTR1_B2B_Purchase_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+  };
+
+  // ── GSTR1 HSN-wise Summary for Purchase ──────────────────────────────────
+  const buildGSTR1HSNData = () => {
+    const groups = {};
+    filteredData.forEach((b) => {
+      const items = parseItems(b.items);
+      const stateOfSupply =
+        b.state_of_supply || b.vendor_state || "Tamil Nadu";
+      const isInterState = stateOfSupply.toLowerCase() !== "tamil nadu";
+      items.forEach((item) => {
+        const hsn = item.hsn || "N/A";
+        const { qty, taxRate, taxable, cgst, sgst } = getItemTaxInfo(item);
+        const rateKey = getNumericBucketKey(taxRate);
+        const key = `${hsn}|${rateKey}`;
+        if (!groups[key])
+          groups[key] = {
+            hsn,
+            taxRate: parseFloat(rateKey),
+            quantity: 0,
+            taxableValue: 0,
+            igst: 0,
+            centralTax: 0,
+            stateTax: 0,
+            cess: 0,
+          };
+        groups[key].quantity += qty;
+        groups[key].taxableValue += taxable;
+        if (isInterState) groups[key].igst += cgst + sgst;
+        else {
+          groups[key].centralTax += cgst;
+          groups[key].stateTax += sgst;
+        }
+      });
+    });
+
+    const rows = Object.values(groups).sort(
+      (a, b) => a.hsn.localeCompare(b.hsn) || a.taxRate - b.taxRate,
+    );
+
+    const grand = rows.reduce(
+      (acc, r) => ({
+        quantity: acc.quantity + r.quantity,
+        taxableValue: acc.taxableValue + r.taxableValue,
+        igst: acc.igst + r.igst,
+        centralTax: acc.centralTax + r.centralTax,
+        stateTax: acc.stateTax + r.stateTax,
+        cess: acc.cess + r.cess,
+      }),
+      {
+        quantity: 0,
+        taxableValue: 0,
+        igst: 0,
+        centralTax: 0,
+        stateTax: 0,
+        cess: 0,
+      },
+    );
+
+    return { rows, grand };
+  };
+
+  const handleGSTR1HSNPrint = () => {
+    const { rows, grand } = buildGSTR1HSNData();
+    const fmt = (n) =>
+      parseFloat(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const fmtQ = (n) =>
+      parseFloat(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 });
+
+    const tableRows = rows
+      .map(
+        (r) => `
+      <tr>
+        <td class="l">SURGICAL / IMPLANT</td>
+        <td class="c">${r.hsn}</td>
+        <td class="c">Numbers</td>
+        <td class="r">${fmtQ(r.quantity)}</td>
+        <td class="c">${r.taxRate}</td>
+        <td class="r">${fmt(r.taxableValue)}</td>
+        <td class="r">${r.igst > 0 ? fmt(r.igst) : ""}</td>
+        <td class="r">${r.centralTax > 0 ? fmt(r.centralTax) : ""}</td>
+        <td class="r">${r.stateTax > 0 ? fmt(r.stateTax) : ""}</td>
+        <td class="r">${r.cess > 0 ? fmt(r.cess) : ""}</td>
+      </tr>`,
+      )
+      .join("");
+
+    const css = `
+      body{font-family:Arial,sans-serif;padding:10px;font-size:11px;margin:0}
+      .report-title{font-size:13px;font-weight:bold;margin:0 0 6px}
+      table{border-collapse:collapse;width:100%;font-size:10px}
+      th,td{border:1px solid #555;padding:4px 6px}
+      th{background:#d9d9d9;font-weight:bold;text-align:center}
+      .r{text-align:right}.c{text-align:center;white-space:nowrap}.l{text-align:left}
+      .section-row td{font-weight:bold;color:#1e40af;border:none;padding:4px 6px}
+      .grand-row td{font-weight:bold;background:#d9ead3}
+    `;
+    const body = `
+      <div class="report-title">GSTR1 - HSN Summary (Purchase) From ${getDateRangeLabel()}</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="l">Description</th><th>HSN</th><th>Unit of measurement</th>
+            <th>Total Quantity</th><th>Tax Rate(%)</th><th>Total Taxable Value</th>
+            <th>IGST</th><th>Central Tax</th><th>State Tax</th><th>Cess</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section-row"><td colspan="10">Registered Supplies</td></tr>
+          ${tableRows}
+          <tr class="grand-row">
+            <td colspan="3" style="text-align:right">Grand Total</td>
+            <td class="r">${fmtQ(grand.quantity)}</td>
+            <td></td>
+            <td class="r">${fmt(grand.taxableValue)}</td>
+            <td class="r">${fmt(grand.igst)}</td>
+            <td class="r">${fmt(grand.centralTax)}</td>
+            <td class="r">${fmt(grand.stateTax)}</td>
+            <td class="r">${fmt(grand.cess)}</td>
+          </tr>
+        </tbody>
+      </table>`;
+    openPrintWindow("GSTR1_HSN_wise", css, body);
+  };
+
+  const exportGSTR1HSNExcel = () => {
+    const XLSX = require("xlsx");
+    const { rows, grand } = buildGSTR1HSNData();
+    const f = (n) => parseFloat((n || 0).toFixed(2));
+    const fQ = (n) => parseFloat((n || 0).toFixed(0));
+
+    const header = [
+      "Description",
+      "HSN",
+      "Unit of measurement",
+      "Total Quantity",
+      "Tax Rate(%)",
+      "Total Taxable Value",
+      "IGST",
+      "Central Tax",
+      "State Tax",
+      "Cess",
+    ];
+    const sectionRow = ["Registered Supplies", "", "", "", "", "", "", "", "", ""];
+    const dataRows = rows.map((r) => [
+      "SURGICAL / IMPLANT",
+      r.hsn,
+      "Numbers",
+      fQ(r.quantity),
+      r.taxRate,
+      f(r.taxableValue),
+      r.igst > 0 ? f(r.igst) : "",
+      r.centralTax > 0 ? f(r.centralTax) : "",
+      r.stateTax > 0 ? f(r.stateTax) : "",
+      r.cess > 0 ? f(r.cess) : "",
+    ]);
+    const grandRow = [
+      "Grand Total",
+      "",
+      "",
+      fQ(grand.quantity),
+      "",
+      f(grand.taxableValue),
+      f(grand.igst),
+      f(grand.centralTax),
+      f(grand.stateTax),
+      f(grand.cess),
+    ];
+    const titleRow = [`GSTR1_HSN_wise (Purchase) - ${getDateRangeLabel()}`];
+    const wsData = [titleRow, [], header, sectionRow, ...dataRows, grandRow];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 9 } },
+    ];
+    ws["!cols"] = [
+      { wch: 22 },
+      { wch: 14 },
+      { wch: 20 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 10 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "GSTR1_HSN_wise");
+    XLSX.writeFile(
+      wb,
+      `GSTR1_HSN_wise_Purchase_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+  };
+
+  // ── GSTR1 Doc Issued Summary for Purchase ────────────────────────────────
+  const buildGSTR1DocsData = () => {
+    const nums = filteredData
+      .map((b) => b.grn_number || b.invoice_no)
+      .filter(Boolean)
+      .sort();
+    const totalCount = filteredData.length;
+    const cancelled = 0;
+    const netIssued = totalCount - cancelled;
+    return {
+      rows: [
+        {
+          particulars: "Invoices for inward supplies (GRN)",
+          slNoFrom: nums[0] || "N/A",
+          slNoTo: nums[nums.length - 1] || "N/A",
+          totalCount,
+          cancelled,
+          netIssued,
+        },
+      ],
+    };
+  };
+
+  const handleGSTR1DocsPrint = () => {
+    const { rows } = buildGSTR1DocsData();
+
+    const tableRows = rows
+      .map(
+        (r) => `
+      <tr>
+        <td class="l">${r.particulars}</td>
+        <td class="c">${r.slNoFrom}</td>
+        <td class="c">${r.slNoTo}</td>
+        <td class="r">${r.totalCount}</td>
+        <td class="r">${r.cancelled}</td>
+        <td class="r">${r.netIssued}</td>
+      </tr>`,
+      )
+      .join("");
+
+    const css = `
+      body{font-family:Arial,sans-serif;padding:10px;font-size:11px;margin:0}
+      .report-title{font-size:13px;font-weight:bold;margin:0 0 6px}
+      table{border-collapse:collapse;width:100%;font-size:10px}
+      th,td{border:1px solid #555;padding:4px 6px}
+      th{background:#d9d9d9;font-weight:bold;text-align:center}
+      .r{text-align:right}.c{text-align:center;white-space:nowrap}.l{text-align:left}
+      .section-row td{font-weight:bold;color:#1e40af;border:none;padding:4px 6px}
+    `;
+    const body = `
+      <div class="report-title">GSTR1 - Documents Issued Summary (Purchase) From ${getDateRangeLabel()}</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">Particulars</th><th>Sl. No. From</th><th>Sl. No. To</th>
+            <th>Total count</th><th>Cancelled</th><th>Net issued</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section-row"><td colspan="6">Nature of document</td></tr>
+          ${tableRows}
+        </tbody>
+      </table>`;
+    openPrintWindow("GSTR1_Docs", css, body);
+  };
+
+  const exportGSTR1DocsExcel = () => {
+    const XLSX = require("xlsx");
+    const { rows } = buildGSTR1DocsData();
+
+    const header = [
+      "Particulars",
+      "Sl. No. From",
+      "Sl. No. To",
+      "Total count",
+      "Cancelled",
+      "Net issued",
+    ];
+    const sectionRow = ["Nature of document", "", "", "", "", ""];
+    const dataRows = rows.map((r) => [
+      r.particulars,
+      r.slNoFrom,
+      r.slNoTo,
+      r.totalCount,
+      r.cancelled,
+      r.netIssued,
+    ]);
+    const titleRow = [`GSTR1_Docs (Purchase) - ${getDateRangeLabel()}`];
+    const wsData = [titleRow, [], header, sectionRow, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+    ws["!cols"] = [
+      { wch: 32 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "GSTR1_Docs");
+    XLSX.writeFile(
+      wb,
+      `GSTR1_Docs_Purchase_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+  };
+
   // ── Pagination ───────────────────────────────────────────────────
   const totalPages = Math.ceil(filteredData.length / pageSize);
   const currentData = filteredData.slice(
@@ -1815,18 +3105,184 @@ const InvoiceReport = () => {
             ? "No records found"
             : `Showing ${currentData.length} of ${filteredData.length} records`}
         </span>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {canPurP && (
-            <Button success onClick={handlePurchasePrint}>
-              <Printer size={14} /> Purchase Report
-            </Button>
+            <div ref={reportDropdownRef} style={dropdownWrap}>
+              <Button
+                style={{
+                  background: "#0891b2",
+                  borderColor: "#0891b2",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+                onClick={toggleReportDropdown}
+              >
+                <Printer size={14} /> Report{" "}
+                <span style={{ fontSize: "0.7rem" }}>▾</span>
+              </Button>
+            </div>
           )}
 
+          {canPurP &&
+            showReportDropdown &&
+            createPortal(
+              <div
+                ref={reportMenuRef}
+                style={{
+                  ...dropdownMenu,
+                  position: "fixed",
+                  top: reportMenuPos.top,
+                  left: reportMenuPos.left,
+                }}
+              >
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    handlePurchasePrint();
+                    setShowReportDropdown(false);
+                  }}
+                >
+                  <Printer size={14} color="#7c3aed" /> Purchase Report
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    handlePurchaseTaxRegisterPrint();
+                    setShowReportDropdown(false);
+                  }}
+                >
+                  <Printer size={14} color="#0891b2" /> Purchase Tax Register
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    handlePurchaseReturnRegisterPrint();
+                    setShowReportDropdown(false);
+                  }}
+                >
+                  <RotateCcw size={14} color="#dc2626" /> Purchase Return Register
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    handleGSTR1B2BPrint();
+                    setShowReportDropdown(false);
+                  }}
+                >
+                  <Printer size={14} color="#b45309" /> GSTR1_B2B
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    handleGSTR1HSNPrint();
+                    setShowReportDropdown(false);
+                  }}
+                >
+                  <Printer size={14} color="#059669" /> GSTR1_HSN_wise
+                </button>
+                <button
+                  style={dropdownItemLast}
+                  onClick={() => {
+                    handleGSTR1DocsPrint();
+                    setShowReportDropdown(false);
+                  }}
+                >
+                  <Printer size={14} color="#4338ca" /> GSTR1_Docs
+                </button>
+              </div>,
+              document.body,
+            )}
+
           {canPurP && (
-            <Button onClick={exportToExcel}>
-              <Download size={14} /> Export CSV
-            </Button>
+            <div ref={exportDropdownRef} style={dropdownWrap}>
+              <Button
+                success
+                onClick={toggleExportDropdown}
+                style={{
+                  background: "#16a34a",
+                  borderColor: "#16a34a",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <Download size={14} /> Export{" "}
+                <span style={{ fontSize: "0.7rem" }}>▾</span>
+              </Button>
+            </div>
           )}
+
+          {canPurP &&
+            showExportDropdown &&
+            createPortal(
+              <div
+                ref={exportMenuRef}
+                style={{
+                  ...dropdownMenu,
+                  position: "fixed",
+                  top: exportMenuPos.top,
+                  left: exportMenuPos.left,
+                }}
+              >
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    exportToExcel();
+                    setShowExportDropdown(false);
+                  }}
+                >
+                  <Download size={14} color="#7c3aed" /> Purchase Report
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    exportPurchaseTaxRegisterExcel();
+                    setShowExportDropdown(false);
+                  }}
+                >
+                  <Download size={14} color="#0891b2" /> Purchase Tax Register
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    exportPurchaseReturnRegisterExcel();
+                    setShowExportDropdown(false);
+                  }}
+                >
+                  <Download size={14} color="#dc2626" /> Purchase Return Register
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    exportGSTR1B2BExcel();
+                    setShowExportDropdown(false);
+                  }}
+                >
+                  <Download size={14} color="#b45309" /> GSTR1_B2B
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    exportGSTR1HSNExcel();
+                    setShowExportDropdown(false);
+                  }}
+                >
+                  <Download size={14} color="#059669" /> GSTR1_HSN_wise
+                </button>
+                <button
+                  style={dropdownItemLast}
+                  onClick={() => {
+                    exportGSTR1DocsExcel();
+                    setShowExportDropdown(false);
+                  }}
+                >
+                  <Download size={14} color="#4338ca" /> GSTR1_Docs
+                </button>
+              </div>,
+              document.body,
+            )}
         </div>
       </div>
 
