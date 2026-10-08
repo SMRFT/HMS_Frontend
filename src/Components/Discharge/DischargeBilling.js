@@ -5,6 +5,7 @@ import styled, { keyframes, createGlobalStyle } from "styled-components";
 
 import DischargeViewBills from "./DischargeViewBills";
 import DischargeViewEstimates from "./DischargeViewEstimates";
+import PatientSearchModal from "../Common/PatientSearchModal";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -1470,6 +1471,36 @@ const DischargeBilling = () => {
   const [ipNumber, setIpNumber] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchErr, setSearchErr] = useState("");
+
+  // ── Patient search modal state & handlers ──────────────────────────────────
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchMode, setPatientSearchMode] = useState("uhid");
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+
+  const openUhidSearch = () => {
+    setPatientSearchMode("uhid");
+    setPatientSearchQuery(uhid || "");
+    setShowPatientModal(true);
+  };
+
+  const openIpSearch = () => {
+    setPatientSearchMode("ip");
+    setPatientSearchQuery(ipNumber || "");
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelect = (data) => {
+    const selectedIp = data.ipNumber || data.ip_number || "";
+    const selectedUhid = data.uhid || data.UHID || "";
+    if (selectedIp) {
+      setIpNumber(selectedIp);
+      if (selectedUhid) setUhid(selectedUhid);
+      doSearch("ip", selectedIp);
+    } else if (selectedUhid) {
+      setUhid(selectedUhid);
+      doSearch("uhid", selectedUhid);
+    }
+  };
   const [patient, setPatient] = useState(null);
   const [items, setItems] = useState([]);
   const [newItem, setNewItem] = useState(EMPTY_ITEM);
@@ -1962,10 +1993,15 @@ const DischargeBilling = () => {
                       value={uhid}
                       onChange={e => { setUhid(e.target.value); setSearchErr(""); }}
                       placeholder="e.g. S026/00548"
-                      onKeyDown={e => e.key === "Enter" && doSearch("uhid")}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          openUhidSearch();
+                        }
+                      }}
                       style={{ paddingRight: 38 }}
                     />
-                    <SearchActionBtn onClick={() => doSearch("uhid")} disabled={searching} title="Search UHID">
+                    <SearchActionBtn onClick={openUhidSearch} disabled={searching} title="Search UHID">
                       {searching ? <MiniSpinner /> : "🔍"}
                     </SearchActionBtn>
                   </SearchInputWrap>
@@ -1979,10 +2015,15 @@ const DischargeBilling = () => {
                       value={ipNumber}
                       onChange={e => { setIpNumber(e.target.value); setSearchErr(""); }}
                       placeholder="e.g. S026/500017"
-                      onKeyDown={e => e.key === "Enter" && doSearch("ip")}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          openIpSearch();
+                        }
+                      }}
                       style={{ paddingRight: 38 }}
                     />
-                    <SearchActionBtn onClick={() => doSearch("ip")} disabled={searching} title="Search IP Number">
+                    <SearchActionBtn onClick={openIpSearch} disabled={searching} title="Search IP Number">
                       {searching ? <MiniSpinner /> : "🔍"}
                     </SearchActionBtn>
                   </SearchInputWrap>
@@ -2256,6 +2297,14 @@ const DischargeBilling = () => {
           </div>
         </div>
       )}
+      {/* ── Patient Search Modal ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientSelect}
+        initialQuery={patientSearchQuery}
+        mode={patientSearchMode}
+      />
     </PageWrap>
   );
 };

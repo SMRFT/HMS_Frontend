@@ -4,6 +4,7 @@ import styled, { createGlobalStyle, keyframes } from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
+import PatientSearchModal from "../Common/PatientSearchModal";
 
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -822,6 +823,35 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   const [common, setCommon]     = useState(EMPTY_COMMON);
   const [admissionId, setAdmId] = useState(null);
 
+  // ── Patient search modal state & handlers ──────────────────────────────────
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchMode, setPatientSearchMode] = useState("ip");
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+
+  const openUhidSearch = () => {
+    setPatientSearchMode("uhid");
+    setPatientSearchQuery(common.uhid || "");
+    setShowPatientModal(true);
+  };
+
+  const openIpSearch = () => {
+    setPatientSearchMode("ip");
+    setPatientSearchQuery(common.ipNumber || "");
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelect = (data) => {
+    const ip = data.ipNumber || data.ip_number || "";
+    const uhid = data.uhid || data.UHID || "";
+    if (ip) {
+      setCommon(p => ({ ...p, ipNumber: ip, uhid: uhid || p.uhid }));
+      loadActiveAdmission({ ip_number: ip });
+    } else if (uhid) {
+      setCommon(p => ({ ...p, uhid: uhid }));
+      loadActiveAdmission({ uhid: uhid });
+    }
+  };
+
   // ── Entry form ────────────────────────────────────────────────────────────
   const [date, setDate]               = useState(today());
   const [amount, setAmount]           = useState("");
@@ -1127,24 +1157,12 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     }
   };
 
-  const searchByUHID = () => {
-    const u = common.uhid.trim();
-    if (!u) return toast.warning("Enter UHID");
-    loadActiveAdmission({ uhid: u });
-  };
-
-  const searchByIP = () => {
-    const ip = common.ipNumber.trim();
-    if (!ip) return toast.warning("Enter IP Number");
-    loadActiveAdmission({ ip_number: ip });
-  };
-
   const handleSearch = () => {
     const ip = common.ipNumber.trim();
     const u = common.uhid.trim();
-    if (ip) searchByIP();
-    else if (u) searchByUHID();
-    else toast.warning("Enter UHID or IP Number to search");
+    if (ip) openIpSearch();
+    else if (u) openUhidSearch();
+    else openIpSearch();
   };
 
   // ── Save (new or edited) ──────────────────────────────────────────────────
@@ -1557,13 +1575,23 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                     <Lbl>UHID</Lbl>
                     <Inp value={common.uhid} placeholder="Enter UHID"
                       onChange={e => setCommon(p => ({ ...p, uhid: e.target.value }))}
-                      onKeyDown={e => e.key === "Enter" && searchByUHID()} />
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          openUhidSearch();
+                        }
+                      }} />
                   </F>
                   <F span={2}>
                     <Lbl>IP No</Lbl>
                     <Inp value={common.ipNumber} placeholder="Enter IP No"
                       onChange={e => setCommon(p => ({ ...p, ipNumber: e.target.value }))}
-                      onKeyDown={e => e.key === "Enter" && searchByIP()} />
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          openIpSearch();
+                        }
+                      }} />
                   </F>
                   <F span={1}><Lbl>&nbsp;</Lbl><Btn onClick={handleSearch}>🔍 Search</Btn></F>
                   <F span={1}><Lbl>&nbsp;</Lbl><Btn v="reset" onClick={handleResetForm}>↺ Reset</Btn></F>
@@ -2184,6 +2212,14 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
           </ModalBox>
         </ModalOverlay>
       )}
+      {/* ── Patient Search Modal ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientSelect}
+        initialQuery={patientSearchQuery}
+        mode={patientSearchMode}
+      />
     </>
   );
 }

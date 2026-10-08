@@ -14,6 +14,7 @@ import {
   ModalBody,
 } from "../GlobalStyles";
 import apiRequest from "../../Auth/apiRequest";
+import PatientSearchModal from "../Common/PatientSearchModal";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -1079,6 +1080,35 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
   const [currentPage,   setCurrentPage] = useState(1);
   const [editRecord,    setEditRecord]= useState(null);
   const [editOpen,      setEditOpen]  = useState(false);
+
+  // ── Patient search modal state & handlers ──────────────────────────────────
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchMode, setPatientSearchMode] = useState("ip");
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+
+  const openUhidSearch = () => {
+    setPatientSearchMode("uhid");
+    setPatientSearchQuery(form.uhid || "");
+    setShowPatientModal(true);
+  };
+
+  const openIpSearch = () => {
+    setPatientSearchMode("ip");
+    setPatientSearchQuery(form.ipNumber || "");
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelect = (data) => {
+    const ip = data.ipNumber || data.ip_number || "";
+    const uhid = data.uhid || data.UHID || "";
+    if (ip) {
+      setForm(p => ({ ...p, ipNumber: ip, uhid: uhid || p.uhid }));
+      loadAdmission({ ip_number: ip });
+    } else if (uhid) {
+      setForm(p => ({ ...p, uhid: uhid }));
+      loadAdmission({ uhid });
+    }
+  };
   const [filters, setFilters] = useState({
     fromDate: new Date().toISOString().split("T")[0],
     toDate:   new Date().toISOString().split("T")[0],
@@ -1187,8 +1217,6 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
     }
   };
 
-  const fetchByUHID = () => { const u = form.uhid.trim(); if (!u) return toast.warning("Enter UHID"); loadAdmission({ uhid: u }); };
-  const fetchByIP   = () => { const ip = form.ipNumber.trim(); if (!ip) return toast.warning("Enter IP Number"); loadAdmission({ ip_number: ip }); };
   const handleReset = () => setForm(EMPTY);
 
   const handleSubmit = async () => {
@@ -1288,13 +1316,23 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
               <Grid>
                 <Field label="UHID" value={form.uhid}
                   onChange={e => setForm(p => ({ ...p, uhid: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && fetchByUHID()}
-                  onSearch={fetchByUHID}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      openUhidSearch();
+                    }
+                  }}
+                  onSearch={openUhidSearch}
                   placeholder="Enter UHID" />
                 <Field label="IP Number" value={form.ipNumber}
                   onChange={e => setForm(p => ({ ...p, ipNumber: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && fetchByIP()}
-                  onSearch={fetchByIP}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      openIpSearch();
+                    }
+                  }}
+                  onSearch={openIpSearch}
                   placeholder="Enter IP No" />
                 <Field label="IP Serial No" value={form.ipserial_number} readOnly />
                 <Field label="Patient Name" value={form.name} readOnly />
@@ -1525,6 +1563,15 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
         onClose={() => setEditOpen(false)}
         onSave={handleEditSave}
         baseUrl={HmsBaseUrl}
+      />
+
+      {/* ── Patient Search Modal ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientSelect}
+        initialQuery={patientSearchQuery}
+        mode={patientSearchMode}
       />
     </PageWrapper>
   );
