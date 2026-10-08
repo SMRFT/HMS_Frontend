@@ -1,803 +1,1168 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import styled, { keyframes, createGlobalStyle } from "styled-components";
+import styled, { keyframes, createGlobalStyle, css } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import {
+  Search,
+  Calendar,
+  RefreshCw,
+  Printer,
+  Receipt,
+  Pill,
+  ChevronDown,
+  ChevronUp,
+  Shield,
+  User,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  X,
+  Repeat,
+  Bed,
+  Phone,
+  DollarSign,
+  Layers,
+  Building2,
+  Activity,
+  AlertTriangle
+} from "lucide-react";
 
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 // ─── Global Font ──────────────────────────────────────────────────────────────
 const GlobalStyle = createGlobalStyle`
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
 `;
 
-// ─── Animations ───────────────────────────────────────────────────────────────
+// ─── Keyframe Animations ──────────────────────────────────────────────────────
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 `;
 
 const slideDown = keyframes`
-  from { opacity: 0; transform: translateY(-6px); max-height: 0; }
-  to   { opacity: 1; transform: translateY(0); max-height: 2000px; }
+  from { opacity: 0; transform: translateY(-8px); max-height: 0; }
+  to   { opacity: 1; transform: translateY(0); max-height: 2500px; }
 `;
 
-const spin = keyframes`to { transform: rotate(360deg); }`;
+const spin = keyframes`
+  to { transform: rotate(360deg); }
+`;
 
-const pulse = keyframes`
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.45; }
+const pulseDot = keyframes`
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.5); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(13, 148, 136, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
 `;
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const T = {
-  teal:      "#0d9488",
-  tealDark:  "#0f766e",
-  tealLight: "#ccfbf1",
-  tealBg:    "#f0fdfa",
-  slate:     "#0f172a",
-  slateMid:  "#475569",
-  slateLight:"#94a3b8",
-  border:    "#e2e8f0",
-  surface:   "#ffffff",
-  bg:        "#f8fafc",
+  primary:     "#0f766e",
+  primaryHover:"#115e59",
+  primaryLight:"#ccfbf1",
+  primaryBg:   "#f0fdfa",
+  accent:      "#0d9488",
+  slateDark:   "#0f172a",
+  slateMid:    "#334155",
+  slateMuted:  "#64748b",
+  slateLight:  "#94a3b8",
+  border:      "#e2e8f0",
+  borderLight: "#f1f5f9",
+  surface:     "#ffffff",
+  surfaceAlt:  "#f8fafc",
+  bg:          "#f4f7fa",
 };
 
-// ─── Styled Components ────────────────────────────────────────────────────────
-const Wrapper = styled.div`
-  padding: 28px 24px;
-  font-family: 'Inter', sans-serif;
-  background: ${T.bg};
+// ─── Outer Layout ─────────────────────────────────────────────────────────────
+const PageContainer = styled.div`
   min-height: 100vh;
+  background: ${T.bg};
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 24px 28px 48px;
+  color: ${T.slateDark};
+
+  @media (max-width: 768px) {
+    padding: 16px 12px;
+  }
 `;
 
-const Header = styled.div`
+// ─── Hero Header ──────────────────────────────────────────────────────────────
+const HeaderContainer = styled.div`
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 24px;
   flex-wrap: wrap;
   gap: 16px;
 `;
 
-const TitleBlock = styled.div``;
+const HeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`;
 
-const Title = styled.h2`
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: ${T.slate};
-  margin: 0 0 2px;
+const HeaderIconBox = styled.div`
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 8px 18px -4px rgba(13, 148, 136, 0.4);
+`;
+
+const HeaderTitleGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const HeaderTitle = styled.h1`
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: ${T.slateDark};
+  margin: 0;
+  letter-spacing: -0.02em;
   display: flex;
   align-items: center;
   gap: 10px;
+`;
+
+const HeaderBadge = styled.span`
+  background: #ccfbf1;
+  color: #0f766e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #99f6e4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+`;
+
+const HeaderSubtitle = styled.p`
+  margin: 0;
+  font-size: 0.82rem;
+  color: ${T.slateMuted};
+  font-weight: 500;
+`;
+
+// ─── Stats Overview Grid ──────────────────────────────────────────────────────
+const StatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+`;
+
+const StatCard = styled.div`
+  background: ${T.surface};
+  border-radius: 16px;
+  border: 1px solid ${T.border};
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02), 0 8px 20px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: ${({ $color }) => $color || T.accent};
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+  }
+`;
+
+const StatInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+`;
+
+const StatLabel = styled.span`
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: ${T.slateMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+`;
+
+const StatValue = styled.span`
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: ${T.slateDark};
+  font-family: 'JetBrains Mono', monospace;
   letter-spacing: -0.02em;
 `;
 
-const TitleIcon = styled.span`
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, ${T.tealDark}, ${T.teal});
-  border-radius: 8px;
-  display: inline-flex;
+const StatSubtext = styled.span`
+  font-size: 0.72rem;
+  color: ${T.slateMuted};
+  font-weight: 500;
+`;
+
+const StatIconWrapper = styled.div`
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: ${({ $bg }) => $bg || "#f0fdfa"};
+  color: ${({ $color }) => $color || "#0d9488"};
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
   flex-shrink: 0;
 `;
 
-const Subtitle = styled.p`
-  margin: 0;
-  font-size: 0.78rem;
-  color: ${T.slateLight};
+// ─── Filter & Search Bar ──────────────────────────────────────────────────────
+const FilterToolbar = styled.div`
+  background: ${T.surface};
+  border-radius: 16px;
+  border: 1px solid ${T.border};
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02), 0 6px 16px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 `;
 
-const Controls = styled.div`
+const FilterTopRow = styled.div`
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+`;
+
+const SearchBox = styled.div`
+  position: relative;
+  flex: 1;
+  min-width: 280px;
+`;
+
+const SearchIcon = styled.div`
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: ${T.slateMuted};
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+`;
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 10px 38px 10px 42px;
+  background: ${T.surfaceAlt};
+  border: 1.5px solid ${T.border};
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: ${T.slateDark};
+  outline: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+
+  &:focus {
+    background: #fff;
+    border-color: ${T.accent};
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
+
+  &::placeholder {
+    color: ${T.slateLight};
+  }
+`;
+
+const ClearSearchBtn = styled.button`
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: ${T.slateMuted};
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  &:hover { color: ${T.slateDark}; }
+`;
+
+const ControlsRight = styled.div`
+  display: flex;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 `;
 
-const DateGroup = styled.div`
+const DatePresetGroup = styled.div`
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  background: ${T.surface};
-  border: 1.5px solid ${T.border};
+  align-items: center;
+  gap: 4px;
+  background: ${T.surfaceAlt};
+  padding: 3px 4px;
   border-radius: 10px;
-  padding: 8px 12px;
+  border: 1.5px solid ${T.border};
 `;
 
-const DateLabel = styled.label`
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: ${T.slateLight};
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+const DatePresetBtn = styled.button`
+  background: ${({ $active }) => ($active ? "#0f766e" : "transparent")};
+  color: ${({ $active }) => ($active ? "#ffffff" : T.slateMid)};
+  border: none;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: ${({ $active }) => ($active ? "#0f766e" : "#e2e8f0")};
+    color: ${({ $active }) => ($active ? "#ffffff" : T.slateDark)};
+  }
+`;
+
+const DateRangePill = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
+  background: ${T.surfaceAlt};
+  border: 1.5px solid ${T.border};
+  border-radius: 10px;
+  padding: 6px 12px;
 `;
 
 const DateInput = styled.input`
-  padding: 5px 8px;
-  border: 1.5px solid ${T.border};
-  border-radius: 6px;
+  border: none;
+  background: transparent;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.78rem;
-  color: ${T.slate};
-  background: ${T.bg};
+  color: ${T.slateDark};
+  font-weight: 600;
   cursor: pointer;
   outline: none;
-  transition: border-color 0.15s;
-  &:focus { border-color: ${T.teal}; }
+  padding: 2px 0;
 `;
 
 const DateSep = styled.span`
   color: ${T.slateLight};
-  font-size: 0.85rem;
-  padding-bottom: 4px;
-  align-self: flex-end;
+  font-size: 0.8rem;
+  font-weight: 600;
 `;
 
-const RefreshBtn = styled.button`
+const RefreshButton = styled.button`
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 9px 18px;
-  background: linear-gradient(135deg, ${T.tealDark}, ${T.teal});
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%);
   color: #fff;
   border: none;
-  border-radius: 9px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.83rem;
-  font-weight: 600;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
-  box-shadow: 0 2px 8px rgba(13,148,136,0.3);
-  &:hover  { opacity: 0.9; transform: translateY(-1px); }
-  &:active { transform: translateY(0); }
-  &:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
 `;
 
-const SpinIcon = styled.span`
-  display: inline-block;
-  animation: ${spin} 0.7s linear infinite;
+const SpinIcon = styled(RefreshCw)`
+  animation: ${spin} 0.8s linear infinite;
 `;
 
-// ─── Table Card ───────────────────────────────────────────────────────────────
+const FilterPillsRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-top: 1px solid ${T.borderLight};
+  padding-top: 12px;
+`;
+
+const FilterPillsGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const FilterPill = styled.button`
+  padding: 6px 13px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  border: 1px solid ${({ $active }) => ($active ? T.accent : T.border)};
+  background: ${({ $active }) => ($active ? T.primaryBg : T.surfaceAlt)};
+  color: ${({ $active }) => ($active ? T.primary : T.slateMid)};
+
+  &:hover {
+    border-color: ${T.accent};
+    color: ${T.primary};
+  }
+`;
+
+const PillCount = styled.span`
+  background: ${({ $active }) => ($active ? T.primary : "#e2e8f0")};
+  color: ${({ $active }) => ($active ? "#fff" : T.slateMid)};
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', monospace;
+`;
+
+// ─── Table Card Container ─────────────────────────────────────────────────────
 const TableCard = styled.div`
   background: ${T.surface};
-  border-radius: 14px;
+  border-radius: 18px;
   border: 1px solid ${T.border};
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 20px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02), 0 12px 30px rgba(0, 0, 0, 0.04);
   overflow: hidden;
-  animation: ${fadeIn} 0.3s ease;
+  animation: ${fadeIn} 0.25s ease;
+`;
+
+const TableWrapper = styled.div`
+  width: 100%;
+  overflow-x: auto;
 `;
 
 const StyledTable = styled.table`
   width: 100%;
-  border-collapse: collapse;
-  font-size: 0.84rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.83rem;
 `;
 
 const Thead = styled.thead`
-  background: linear-gradient(to right, ${T.tealDark}, #0d9488);
-  color: #fff;
+  background: #0f172a;
+  color: #f8fafc;
+
   th {
-    padding: 13px 14px;
+    padding: 14px 16px;
     text-align: left;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.72rem;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
+    border-bottom: 1px solid #1e293b;
   }
 `;
 
 const PatientRow = styled.tr`
   cursor: pointer;
-  background: ${({ $active }) => ($active ? T.tealBg : T.surface)};
-  border-bottom: 1px solid ${({ $active }) => ($active ? "#a7f3d0" : T.border)};
-  transition: background 0.12s;
-  &:hover { background: ${({ $active }) => ($active ? T.tealBg : "#f8fafc")}; }
+  background: ${({ $active }) => ($active ? "#f0fdfa" : T.surface)};
+  border-bottom: 1px solid ${({ $active }) => ($active ? "#99f6e4" : T.borderLight)};
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: ${({ $active }) => ($active ? "#e6fffa" : "#f8fafc")};
+  }
+
   td {
-    padding: 11px 14px;
-    color: ${T.slate};
-    font-size: 0.84rem;
-    white-space: nowrap;
+    padding: 13px 16px;
+    color: ${T.slateDark};
+    vertical-align: middle;
+    border-bottom: 1px solid ${T.borderLight};
   }
 `;
 
-const UHIDCell = styled.td`
+const UHIDBadge = styled.span`
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.77rem !important;
-  color: ${T.tealDark} !important;
-  font-weight: 600;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: ${T.primary};
+  background: #ccfbf1;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #99f6e4;
 `;
 
-const PrintIcon = styled.td`
-  width: 44px;
-  text-align: center;
-`;
-
-const PrintIconBtn = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1rem;
-  padding: 5px 7px;
-  border-radius: 7px;
-  color: ${T.tealDark};
-  transition: background 0.12s, transform 0.1s;
-  &:hover { background: ${T.tealLight}; transform: scale(1.1); }
-`;
-
-const MedicinesBtn = styled.button`
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  background: ${({ $active }) => ($active ? T.tealDark : T.tealBg)};
-  color: ${({ $active }) => ($active ? "#fff" : T.tealDark)};
-  border: 1.5px solid ${({ $active }) => ($active ? T.tealDark : "#99f6e4")};
-  border-radius: 20px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.77rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-  &:hover { background: ${T.tealDark}; color: #fff; border-color: ${T.tealDark}; }
-`;
-
-// ─── Convert to Bill — one per patient row (bill-level) ──────────────────────
-const ConvertBillBtn = styled.button`
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
-  background: linear-gradient(135deg, ${T.tealDark}, ${T.teal});
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.74rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.14s;
-  white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(13,148,136,0.25);
-  &:hover  { opacity: 0.88; transform: translateY(-1px); }
-  &:active { transform: translateY(0); }
-`;
-
-// ─── Expandable Detail Panel ──────────────────────────────────────────────────
-const DetailPanel = styled.tr`background: #fafffe;`;
-
-const DetailCell = styled.td`
-  padding: 0 !important;
-  border-bottom: 2px solid #99f6e4;
-`;
-
-const DetailInner = styled.div`
-  animation: ${slideDown} 0.25s ease;
-  overflow: hidden;
-`;
-
-const DetailHeader = styled.div`
+const PatientInfoCell = styled.div`
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px 8px;
-  background: linear-gradient(to right, #f0fdfa, #ecfdf5);
-  border-bottom: 1px solid #d1fae5;
+  gap: 12px;
 `;
 
-const DetailLabel = styled.span`
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: ${T.tealDark};
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-`;
-
-const ItemCount = styled.span`
-  font-size: 0.7rem;
-  background: ${T.tealDark};
-  color: #fff;
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-weight: 600;
-`;
-
-const ItemTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.82rem;
-`;
-
-const ItemThead = styled.thead`
-  background: #f8fffe;
-  th {
-    padding: 8px 14px;
-    text-align: left;
-    font-weight: 600;
-    color: ${T.slateMid};
-    font-size: 0.7rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    border-bottom: 1px solid #e4f5f2;
-    white-space: nowrap;
-  }
-`;
-
-const ItemRow = styled.tr`
-  border-bottom: 1px solid #f0f9f8;
-  transition: background 0.1s;
-  &:last-child { border-bottom: none; }
-  &:hover { background: #f0fdfa; }
-  td {
-    padding: 10px 14px;
-    color: ${T.slate};
-    vertical-align: middle;
-  }
-`;
-
-const StatusDot = styled.span`
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
+const PatientAvatar = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: ${({ $isInsurance }) => ($isInsurance ? "#ecfdf5" : "#f1f5f9")};
+  color: ${({ $isInsurance }) => ($isInsurance ? "#059669" : "#475569")};
+  border: 1.5px solid ${({ $isInsurance }) => ($isInsurance ? "#a7f3d0" : "#cbd5e1")};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.8rem;
   flex-shrink: 0;
-  background: ${({ $type }) =>
-    $type === "substitute" ? "#3b82f6" :
-    $type === "emergency"  ? "#ef4444" :
-    $type === "insurance"  ? "#22c55e" :
-    "#cbd5e1"};
 `;
 
-const QtyBadge = styled.span`
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-radius: 6px;
-  padding: 2px 8px;
+const PatientMeta = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+`;
+
+const PatientName = styled.span`
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.77rem;
+  color: ${T.slateDark};
+  font-size: 0.86rem;
 `;
 
-const StockBadge = styled.span`
-  background: ${({ $low }) => ($low ? "#fee2e2" : "#dcfce7")};
-  color: ${({ $low }) => ($low ? "#dc2626" : "#16a34a")};
+const PatientSubPills = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+`;
+
+const TypeTag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 7px;
   border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.02em;
+  background: ${({ $isInsurance }) => ($isInsurance ? "#ecfdf5" : "#f1f5f9")};
+  color: ${({ $isInsurance }) => ($isInsurance ? "#047857" : "#475569")};
+  border: 1px solid ${({ $isInsurance }) => ($isInsurance ? "#a7f3d0" : "#cbd5e1")};
 `;
 
-const BillingStatusBadge = styled.span`
-  display: inline-block;
-  padding: 3px 9px;
+const AdvanceTag = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #0d9488;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  padding: 1px 7px;
+  border-radius: 6px;
+`;
+
+const StatusPill = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
   border-radius: 20px;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   white-space: nowrap;
-  background: ${({ $status }) =>
-    $status === "Pending"    ? "#fef3c7" :
-    $status === "Processing" ? "#ede9fe" :
-    $status === "Approved"   ? "#dcfce7" :
-    $status === "Cancelled"  ? "#fee2e2" :
-    $status === "Billed"     ? "#dbeafe" :
-    "#f1f5f9"};
-  color: ${({ $status }) =>
-    $status === "Pending"    ? "#b45309" :
-    $status === "Processing" ? "#7c3aed" :
-    $status === "Approved"   ? "#16a34a" :
-    $status === "Cancelled"  ? "#dc2626" :
-    $status === "Billed"     ? "#1d4ed8" :
-    "#64748b"};
-  border: 1px solid ${({ $status }) =>
-    $status === "Pending"    ? "#fcd34d" :
-    $status === "Processing" ? "#c4b5fd" :
-    $status === "Approved"   ? "#86efac" :
-    $status === "Cancelled"  ? "#fca5a5" :
-    $status === "Billed"     ? "#93c5fd" :
-    "#e2e8f0"};
+
+  ${({ $status }) => {
+    switch ($status) {
+      case "Pending":
+        return css`
+          background: #fffbeb;
+          color: #b45309;
+          border: 1px solid #fde68a;
+        `;
+      case "Processing":
+        return css`
+          background: #f5f3ff;
+          color: #6d28d9;
+          border: 1px solid #ddd6fe;
+        `;
+      case "Billed":
+        return css`
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+        `;
+      case "Approved":
+        return css`
+          background: #f0fdf4;
+          color: #15803d;
+          border: 1px solid #bbf7d0;
+        `;
+      case "Cancelled":
+        return css`
+          background: #fef2f2;
+          color: #b91c1c;
+          border: 1px solid #fecaca;
+        `;
+      default:
+        return css`
+          background: #f1f5f9;
+          color: #64748b;
+          border: 1px solid #e2e8f0;
+        `;
+    }
+  }}
 `;
 
-const SubstituteBadge = styled.span`
+const StatusDotAnim = styled.span`
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+  animation: ${pulseDot} 2s infinite;
+`;
+
+const ActionBtnToBill = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-  border-radius: 5px;
-  padding: 1px 6px;
-  font-size: 0.66rem;
+  gap: 6px;
+  padding: 7px 14px;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.76rem;
   font-weight: 700;
-  margin-left: 6px;
-  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
+
+  &:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(13, 148, 136, 0.35);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 `;
 
-// ─── Per-item Substitute button (standalone in its own column) ────────────────
-const SubstBtn = styled.button`
+const ActionBtnMedicines = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  background: ${({ $active }) => ($active ? "#0f766e" : "#f0fdfa")};
+  color: ${({ $active }) => ($active ? "#fff" : "#0f766e")};
+  border: 1.5px solid ${({ $active }) => ($active ? "#0f766e" : "#99f6e4")};
+  border-radius: 20px;
+  font-family: inherit;
+  font-size: 0.77rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: #0f766e;
+    color: #fff;
+    border-color: #0f766e;
+  }
+`;
+
+const PrintBtnIcon = styled.button`
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1.5px solid ${T.border};
+  background: ${T.surface};
+  color: ${T.slateMid};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f0fdfa;
+    border-color: #99f6e4;
+    color: #0f766e;
+    transform: scale(1.05);
+  }
+`;
+
+// ─── Expandable Medicine Detail Drawer ────────────────────────────────────────
+const DetailDrawerRow = styled.tr`
+  background: #f8fafc;
+`;
+
+const DetailDrawerCell = styled.td`
+  padding: 0 !important;
+  border-bottom: 2px solid #99f6e4 !important;
+`;
+
+const DetailDrawerInner = styled.div`
+  animation: ${slideDown} 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  padding: 16px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+// Patient Context Card Strip
+const ContextStrip = styled.div`
+  background: #ffffff;
+  border: 1px solid ${T.border};
+  border-radius: 14px;
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+`;
+
+const ContextItem = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+`;
+
+const ContextIconBox = styled.div`
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f0fdfa;
+  color: #0f766e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+`;
+
+const ContextText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+`;
+
+const ContextKey = styled.span`
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: ${T.slateMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+`;
+
+const ContextVal = styled.span`
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: ${T.slateDark};
+`;
+
+// Advance Financial Card
+const FinancialSummaryCard = styled.div`
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);
+  border: 1.5px solid #99f6e4;
+  border-radius: 14px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.06);
+`;
+
+const FinCardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #99f6e4;
+`;
+
+const FinCardTitle = styled.div`
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #0f766e;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const FinGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+`;
+
+const FinStat = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const FinLabel = styled.span`
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: ${T.slateMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+`;
+
+const FinValue = styled.span`
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: ${({ $color }) => $color || T.slateDark};
+  font-family: 'JetBrains Mono', monospace;
+`;
+
+// Medicine Items Table inside Drawer
+const MedicineTableCard = styled.div`
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid ${T.border};
+  overflow: hidden;
+`;
+
+const SubThead = styled.thead`
+  background: #f8fafc;
+  th {
+    padding: 10px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: ${T.slateMuted};
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-bottom: 1px solid ${T.border};
+  }
+`;
+
+const SubRow = styled.tr`
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.1s;
+  &:last-child { border-bottom: none; }
+  &:hover { background: #f0fdfa; }
+
+  td {
+    padding: 10px 14px;
+    font-size: 0.81rem;
+    vertical-align: middle;
+  }
+`;
+
+const ItemDot = styled.span`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background: ${({ $type }) =>
+    $type === "substitute" ? "#3b82f6" :
+    $type === "emergency"  ? "#ef4444" :
+    $type === "insurance"  ? "#10b981" :
+    "#94a3b8"};
+`;
+
+const ConsumableTag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+
+const CoveredTag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+
+const StockIndicator = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  background: ${({ $low }) => ($low ? "#fef2f2" : "#f0fdf4")};
+  color: ${({ $low }) => ($low ? "#dc2626" : "#16a34a")};
+  border: 1px solid ${({ $low }) => ($low ? "#fecaca" : "#bbf7d0")};
+`;
+
+const SubstituteActionBtn = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  background: linear-gradient(135deg, ${T.tealDark}, ${T.teal});
-  color: #fff;
-  border: none;
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1.5px solid #99f6e4;
   border-radius: 7px;
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.13s;
+  transition: all 0.15s ease;
   white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(13,148,136,0.25);
-  &:hover  { opacity: 0.88; transform: translateY(-1px); }
-  &:active { transform: translateY(0); }
+
+  &:hover {
+    background: #0f766e;
+    color: #fff;
+    border-color: #0f766e;
+  }
 `;
 
-const Legend = styled.div`
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  align-items: center;
-  padding: 11px 18px;
-  margin-top: 14px;
-  background: ${T.surface};
-  border-radius: 10px;
-  border: 1px solid ${T.border};
-  font-size: 0.78rem;
-  color: ${T.slateMid};
-`;
-
-const LegendItem = styled.span`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 52px 20px;
-  color: ${T.slateLight};
-  font-size: 0.9rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  &::before { content: '🫙'; font-size: 2rem; }
-`;
-
-const LoadingState = styled.div`
-  text-align: center;
-  padding: 52px 20px;
-  color: ${T.teal};
-  font-size: 0.9rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  animation: ${pulse} 1.4s ease-in-out infinite;
-`;
-
-const ErrorMsg = styled.div`
-  background: #fef2f2;
-  color: #dc2626;
-  padding: 12px 16px;
-  border-radius: 9px;
-  border: 1px solid #fecaca;
-  margin-bottom: 16px;
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  &::before { content: '⚠'; }
-`;
-
-// ─── Print Modal ──────────────────────────────────────────────────────────────
-const PrintOverlay = styled.div`
+// ─── Modals (Substitute & Print) ─────────────────────────────────────────────
+const ModalOverlay = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
   z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(2px);
+  padding: 20px;
 `;
 
-const PrintModalBox = styled.div`
-  background: ${T.surface};
-  border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-  width: 700px;
-  max-width: 96vw;
-  max-height: 92vh;
-  overflow-y: auto;
-  animation: ${fadeIn} 0.22s ease;
+const ModalBox = styled.div`
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 25px 60px -10px rgba(15, 23, 42, 0.3);
+  width: 540px;
+  max-width: 100%;
+  animation: ${fadeIn} 0.2s ease;
+  overflow: hidden;
+  border: 1px solid ${T.border};
 `;
 
-const PrintModalHeader = styled.div`
+const ModalHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 22px;
-  border-bottom: 1px solid ${T.border};
-  background: linear-gradient(to right, ${T.tealBg}, #f0fdf4);
-`;
-
-const PrintModalTitle = styled.span`
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: ${T.tealDark};
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-const PrintCloseBtn = styled.button`
-  width: 30px; height: 30px;
-  border-radius: 8px;
-  background: none;
-  border: 1.5px solid ${T.border};
-  font-size: 1rem;
-  cursor: pointer;
-  color: ${T.slateMid};
-  display: flex; align-items: center; justify-content: center;
-  &:hover { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
-`;
-
-const PrintContent = styled.div`
-  padding: 24px 28px;
-  font-family: Arial, sans-serif;
-  font-size: 0.85rem;
-  color: #1e293b;
-`;
-
-const PrintHospitalHeader = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 14px;
-  border-bottom: 2px solid ${T.border};
-  padding-bottom: 12px;
-`;
-
-const PrintHospitalLogo = styled.div`
-  width: 56px; height: 56px;
-  background: linear-gradient(135deg, ${T.tealDark}, ${T.teal});
-  border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 1.4rem; flex-shrink: 0;
-`;
-
-const PrintHospitalInfo = styled.div`flex: 1;`;
-const PrintHospitalName = styled.div`font-size: 1.05rem; font-weight: 800; color: ${T.tealDark};`;
-const PrintHospitalSub  = styled.div`font-size: 0.76rem; color: #64748b; margin-top: 2px;`;
-const PrintSectionTitle = styled.div`
-  background: #f1f5f9;
-  text-align: right;
-  padding: 5px 12px;
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: ${T.slate};
-  margin-bottom: 12px;
-  border-radius: 5px;
-`;
-
-const PrintMetaGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px 24px;
-  margin-bottom: 14px;
-  font-size: 0.82rem;
-`;
-
-const PrintMetaRow  = styled.div`display: flex; gap: 6px;`;
-const PrintMetaKey  = styled.span`color: #64748b; white-space: nowrap; min-width: 80px;`;
-const PrintMetaVal  = styled.span`font-weight: 600; color: #1e293b;`;
-const PrintDateRow  = styled.div`font-weight: 700; font-size: 0.8rem; margin-bottom: 2px;`;
-const PrintDoctorRow = styled.div`font-weight: 700; font-size: 0.82rem; color: ${T.tealDark}; margin-bottom: 14px;`;
-
-const PrintItemTable = styled.table`
-  width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-bottom: 12px;
-`;
-const PrintItemTh = styled.th`
-  border: 1px solid #d1d5db; padding: 7px 10px;
-  background: #f8fafc; text-align: left; font-weight: 700; font-size: 0.75rem;
-`;
-const PrintItemTd = styled.td`border: 1px solid ${T.border}; padding: 6px 10px;`;
-
-const PrintFooterBtns = styled.div`
-  display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid ${T.border};
-`;
-
-const PrintBtn = styled.button`
-  padding: 9px 22px;
-  background: linear-gradient(135deg, ${T.tealDark}, ${T.teal});
-  color: #fff; border: none; border-radius: 9px;
-  font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-  display: flex; align-items: center; gap: 7px;
-  box-shadow: 0 2px 8px rgba(13,148,136,0.25);
-  &:hover { opacity: 0.9; }
-`;
-
-const CancelBtn = styled.button`
-  padding: 9px 20px;
-  background: ${T.bg}; color: ${T.slateMid};
-  border: 1.5px solid ${T.border}; border-radius: 9px;
-  font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-  &:hover { background: ${T.border}; }
-`;
-
-// ─── Substitute Modal ─────────────────────────────────────────────────────────
-const SubstOverlay = styled.div`
-  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5);
-  z-index: 999999; display: flex; align-items: center; justify-content: center;
-  backdrop-filter: blur(2px);
-`;
-
-const SubstModalBox = styled.div`
-  background: ${T.surface}; border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.22);
-  width: 520px; max-width: 96vw;
-  animation: ${fadeIn} 0.2s ease; overflow: hidden;
-`;
-
-const SubstModalHeader = styled.div`
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 22px;
-  background: linear-gradient(135deg, ${T.tealDark}, ${T.teal});
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
   color: #fff;
 `;
 
-const SubstModalTitle = styled.span`
-  font-weight: 700; font-size: 0.95rem;
-  display: flex; align-items: center; gap: 8px;
-`;
-
-const SubstCloseX = styled.button`
-  width: 28px; height: 28px; border-radius: 7px;
-  background: rgba(255,255,255,0.2); border: none; color: #fff;
-  font-size: 1rem; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  &:hover { background: rgba(255,255,255,0.3); }
-`;
-
-const SubstBody = styled.div`padding: 22px 24px 18px;`;
-
-const SubstFieldLabel = styled.label`
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: ${T.slateMid};
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 7px;
-`;
-
-const SubstOriginalInfo = styled.div`
-  background: #f8fafc;
-  border: 1.5px solid ${T.border};
-  border-radius: 9px;
-  padding: 10px 14px;
-  margin-bottom: 18px;
-  font-size: 0.82rem;
-  color: ${T.slateMid};
-  display: flex; align-items: center; gap: 8px;
-  span { font-weight: 700; color: ${T.slate}; }
-`;
-
-const SubstInputWrapper = styled.div`position: relative;`;
-
-const SubstInput = styled.input`
-  width: 100%;
-  padding: 10px 14px;
-  border: 1.5px solid ${T.border};
-  border-radius: 9px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.875rem;
-  color: ${T.slate};
-  background: ${T.surface};
-  box-sizing: border-box;
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  &:focus { border-color: ${T.teal}; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
-`;
-
-const SubstDropList = styled.ul`
-  position: absolute;
-  top: calc(100% + 4px); left: 0; right: 0;
-  background: ${T.surface};
-  border: 1.5px solid #99f6e4;
-  border-radius: 9px;
-  box-shadow: 0 8px 28px rgba(13,148,136,0.15);
-  max-height: 220px; overflow-y: auto;
-  z-index: 1000; margin: 0; padding: 4px 0; list-style: none;
-`;
-
-const SubstDropItem = styled.li`
-  padding: 9px 14px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  color: ${T.slate};
-  font-weight: 500;
-  transition: background 0.1s;
-  &:hover { background: ${T.tealBg}; color: ${T.tealDark}; }
-`;
-
-const SubstSelectedTag = styled.div`
-  display: inline-flex;
+const ModalTitle = styled.div`
+  font-weight: 800;
+  font-size: 0.95rem;
+  display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
-  padding: 7px 14px;
-  background: ${T.tealBg};
-  border: 1.5px solid #99f6e4;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: ${T.tealDark};
 `;
 
-const SubstTagClose = styled.button`
-  background: none; border: none; cursor: pointer;
-  color: ${T.teal}; font-size: 0.95rem; line-height: 1; padding: 0;
-  display: flex; align-items: center;
-  &:hover { color: #dc2626; }
+const ModalCloseBtn = styled.button`
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
 `;
 
-const SubstFooter = styled.div`
-  display: flex; justify-content: flex-end; gap: 10px;
+const ModalBody = styled.div`
+  padding: 22px 24px;
+`;
+
+const ModalFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
   padding: 14px 24px;
   border-top: 1px solid ${T.border};
-  background: ${T.bg};
+  background: ${T.surfaceAlt};
 `;
 
-const SubstCloseBtn = styled.button`
+const PrimaryBtn = styled.button`
   padding: 9px 20px;
-  background: ${T.bg}; color: ${T.slateMid};
-  border: 1.5px solid ${T.border}; border-radius: 9px;
-  font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-  &:hover { background: ${T.border}; }
+  background: linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.83rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+
+  &:hover { opacity: 0.92; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
-const SubstConfirmBtn = styled.button`
-  padding: 9px 22px;
-  background: linear-gradient(135deg, ${T.tealDark}, ${T.teal});
-  color: #fff; border: none; border-radius: 9px;
-  font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-  display: flex; align-items: center; gap: 6px;
-  box-shadow: 0 2px 8px rgba(13,148,136,0.25);
-  &:hover { opacity: 0.9; }
-  &:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+const SecondaryBtn = styled.button`
+  padding: 9px 18px;
+  background: ${T.surface};
+  color: ${T.slateMid};
+  border: 1.5px solid ${T.border};
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.83rem;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover { background: #f1f5f9; }
 `;
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// Autocomplete Dropdown in Substitute Modal
+const DropdownList = styled.ul`
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1.5px solid #99f6e4;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(13, 148, 136, 0.18);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+`;
+
+const DropdownItem = styled.li`
+  padding: 10px 14px;
+  font-size: 0.83rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.1s;
+
+  &:hover {
+    background: #f0fdfa;
+    color: #0f766e;
+    font-weight: 600;
+  }
+`;
+
+// ─── Utility Helpers ──────────────────────────────────────────────────────────
 const getBillKey = (patient) =>
   `bill-${patient?.Bill_id ?? patient?.bill_id ?? patient?.uhid}`;
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// Safely extracts YYYY-MM-DD from ISO datetime or local string
+const extractWardDate = (dateVal) => {
+  if (!dateVal) return "";
+  if (typeof dateVal === "string" && dateVal.includes("T")) {
+    return dateVal.split("T")[0];
+  }
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-CA");
+  } catch {
+    return "";
+  }
+};
+
+// Returns Selling_Price in place of Unit Price, with fallbacks to price and mrp
+const getUnitPrice = (item) => {
+  if (!item) return 0;
+  // 1. Selling_Price or selling_price
+  const sp = item.Selling_Price !== undefined ? item.Selling_Price : item.selling_price;
+  if (sp !== undefined && sp !== null && sp !== "") {
+    const num = Number(sp);
+    if (!isNaN(num) && num > 0) return num;
+  }
+  // 2. Direct price
+  if (item.price !== undefined && item.price !== null && item.price !== "") {
+    const num = Number(item.price);
+    if (!isNaN(num) && num > 0) return num;
+  }
+  // 3. MRP
+  if (item.mrp !== undefined && item.mrp !== null && item.mrp !== "") {
+    const num = Number(item.mrp);
+    if (!isNaN(num) && num > 0) return num;
+  }
+  // 4. Zero value if explicitly numeric
+  if (sp !== undefined && sp !== null && !isNaN(Number(sp))) {
+    return Number(sp);
+  }
+  return 0;
+};
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const MedicineChart = ({ onConvertToBill }) => {
-  const todayStr = new Date().toLocaleDateString("en-CA");
+  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toLocaleDateString("en-CA");
+  }, []);
+  const last7Str = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return d.toLocaleDateString("en-CA");
+  }, []);
 
   const [medicineData, setMedicineData]       = useState([]);
   const [loading, setLoading]                 = useState(false);
   const [error, setError]                     = useState(null);
   const [expandedKey, setExpandedKey]         = useState(null);
+  // Default to today's date initially as requested
   const [fromDate, setFromDate]               = useState(todayStr);
   const [toDate, setToDate]                   = useState(todayStr);
+  const [searchQuery, setSearchQuery]         = useState("");
+  const [activeFilter, setActiveFilter]       = useState("All"); // All, Pending, Processing, Insurance, General
   const [printPatient, setPrintPatient]       = useState(null);
 
-  // Substitute modal — per individual item
+  // Substitute modal
   const [substituteModal, setSubstituteModal] = useState(null);
   const [substSearch, setSubstSearch]         = useState("");
   const [substSelected, setSubstSelected]     = useState(null);
@@ -806,7 +1171,7 @@ const MedicineChart = ({ onConvertToBill }) => {
 
   const HmsBaseUrl = Hmsbaseurl;
 
-  // ─── Helper: fetch patient_details ─────────────────────────────────────────
+  // ─── Patient details fetcher ──────────────────────────────────────────────
   const fetchPatientDetails = async (uhid) => {
     try {
       const res = await apiRequest(
@@ -822,7 +1187,7 @@ const MedicineChart = ({ onConvertToBill }) => {
     } catch { return null; }
   };
 
-  // ─── Helper: fetch admissionstatus ─────────────────────────────────────────
+  // ─── Admission details fetcher ────────────────────────────────────────────
   const fetchAdmissionDetails = async (uhid) => {
     try {
       const res = await apiRequest(
@@ -848,12 +1213,32 @@ const MedicineChart = ({ onConvertToBill }) => {
         roomLabel = `${activeFromShift.newRoomNo} / Bed ${activeFromShift.newBedNo}`;
       }
 
+      const rawCustType = admData?.customer_type || "General";
+      const is_insurance = String(rawCustType).trim().toLowerCase() === "insurance";
+      const advance_payments = Array.isArray(admData?.advance_payments) ? admData.advance_payments : [];
+      const total_ip_advance = advance_payments.reduce((sum, ap) => {
+        if (
+          ap &&
+          ap.is_advanceActive !== false &&
+          String(ap.status || "").toLowerCase() !== "cancelled" &&
+          !ap.is_refund
+        ) {
+          return sum + (Number(ap.ip_advance) || 0);
+        }
+        return sum;
+      }, 0);
+
       return {
         admitted:          true,
         ipNumber:          admData?.ipNumber         || "",
         admissionDateTime: admData?.admissionDateTime || "",
         admittingDoctor:   admData?.admittingDoctor   || "",
         consultingDoctor:  admData?.consultingDoctor  || "",
+        customer_type:     rawCustType,
+        is_insurance,
+        insurance_company: admData?.insurance_company || "",
+        advance_payments,
+        total_ip_advance,
         roomLabel,
       };
     } catch { return null; }
@@ -871,16 +1256,24 @@ const MedicineChart = ({ onConvertToBill }) => {
     return `${years}Y ${months}M ${days}D`;
   };
 
-  // ─── Fetch + enrich medicine chart ─────────────────────────────────────────
+  // ─── Fetch main chart data ────────────────────────────────────────────────
   const fetchMedicineChart = async () => {
     try {
       setLoading(true);
       setError(null);
 
+      const activeOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+      const activeBranch = localStorage.getItem("selected_branch") || localStorage.getItem("branch_code") || "";
+      const activeHospital = localStorage.getItem("selected_hospital") || localStorage.getItem("hospital_code") || "";
+
       const response = await apiRequest(
         `${Hmsbaseurl}pharmacy_medicinechart/`,
         "POST",
-        {}
+        {
+          outlet_code: activeOutlet,
+          branch_code: activeBranch,
+          hospital_code: activeHospital,
+        }
       );
 
       if (!response.success) {
@@ -935,6 +1328,11 @@ const MedicineChart = ({ onConvertToBill }) => {
             admission_datetime: adm.admissionDateTime || "",
             room_no:            adm.roomLabel         || patient.room_no || patient.ward_name || "",
             ward_name:          adm.roomLabel         || patient.ward_name || patient.room_no || "",
+            customer_type:      adm.customer_type     || patient.customer_type || "General",
+            is_insurance:       adm.is_insurance      ?? patient.is_insurance ?? (String(patient.customer_type || '').toLowerCase() === 'insurance'),
+            insurance_company:  adm.insurance_company || patient.insurance_company || "",
+            advance_payments:   adm.advance_payments  || patient.advance_payments || [],
+            total_ip_advance:   adm.total_ip_advance  ?? patient.total_ip_advance ?? 0,
           } : {};
 
           return { ...patient, ...pdMerge, ...admMerge };
@@ -952,21 +1350,128 @@ const MedicineChart = ({ onConvertToBill }) => {
 
   useEffect(() => { fetchMedicineChart(); }, []);
 
-  // ─── Date filter ───────────────────────────────────────────────────────────
-  const filteredData = medicineData.filter((patient) => {
-    const raw = patient.ward_request_date || patient.created_date;
-    if (!raw) return true;
-    const wardDate = new Date(raw).toLocaleDateString("en-CA");
-    if (fromDate && wardDate < fromDate) return false;
-    if (toDate   && wardDate > toDate)   return false;
-    return true;
-  });
+  // ─── Fetch stocks for replacement ─────────────────────────────────────────
+  useEffect(() => {
+    if (!HmsBaseUrl) return;
+    const fetchMedicines = async () => {
+      try {
+        const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST");
+        const medicineArray = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response.data?.data) ? response.data.data : [];
+        if (response.success) {
+          const formatted = medicineArray.map((item) => ({
+            name:            item.item_name || "",
+            item_id:         item.item_id,
+            batch_number:    item.batch_number  || "N/A",
+            expiry_date:     item.expiry_date   || "N/A",
+            mrp:             parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
+            price:           parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
+            available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
+            category:        item.category || "",
+          }));
+          const seen = new Set();
+          const unique = formatted.filter(m => {
+            if (seen.has(m.item_id)) return false;
+            seen.add(m.item_id);
+            return true;
+          });
+          setMedicines(unique);
+        }
+      } catch (err) {
+        console.error("Error fetching medicines for substitute:", err);
+      }
+    };
+    fetchMedicines();
+  }, [HmsBaseUrl]);
+
+  // ─── Filter based strictly on ward_request_date ───────────────────────────
+  const dateFilteredData = useMemo(() => {
+    return medicineData.filter((patient) => {
+      if (!fromDate && !toDate) return true;
+      const raw = patient.ward_request_date || patient.created_date;
+      const wardDate = extractWardDate(raw);
+      if (fromDate && (!wardDate || wardDate < fromDate)) return false;
+      if (toDate   && (!wardDate || wardDate > toDate))   return false;
+      return true;
+    });
+  }, [medicineData, fromDate, toDate]);
+
+  // ─── Computed Statistics for KPI cards (reflecting active date range) ──────
+  const stats = useMemo(() => {
+    const total = dateFilteredData.length;
+    let pending = 0;
+    let processing = 0;
+    let insuranceCount = 0;
+    let totalAdvance = 0;
+
+    dateFilteredData.forEach((p) => {
+      if (p.billing_status === "Pending") pending += 1;
+      if (p.billing_status === "Processing") processing += 1;
+      if (p.is_insurance) insuranceCount += 1;
+      totalAdvance += Number(p.total_ip_advance || 0);
+    });
+
+    return { total, pending, processing, insuranceCount, totalAdvance };
+  }, [dateFilteredData]);
+
+  // ─── Filtered Data (by status tabs and search query) ──────────────────────
+  const filteredData = useMemo(() => {
+    return dateFilteredData.filter((patient) => {
+      // 1. Active Tab Filter
+      if (activeFilter === "Pending" && patient.billing_status !== "Pending") return false;
+      if (activeFilter === "Processing" && patient.billing_status !== "Processing") return false;
+      if (activeFilter === "Insurance" && !patient.is_insurance) return false;
+      if (activeFilter === "General" && patient.is_insurance) return false;
+
+      // 2. Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const pName   = (patient.patient_details?.patient_name || patient.patient_name || "").toLowerCase();
+        const uhid    = String(patient.uhid || "").toLowerCase();
+        const ipNo    = String(patient.inpatient_number || patient.ip_number || "").toLowerCase();
+        const ward    = String(patient.ward_name || patient.room_no || "").toLowerCase();
+        const doc     = String(patient.doctor_name || "").toLowerCase();
+        const mobile  = String(patient.patient_details?.mobile || patient.mobile || "").toLowerCase();
+        const company = String(patient.insurance_company || "").toLowerCase();
+
+        return (
+          pName.includes(q) ||
+          uhid.includes(q) ||
+          ipNo.includes(q) ||
+          ward.includes(q) ||
+          doc.includes(q) ||
+          mobile.includes(q) ||
+          company.includes(q)
+        );
+      }
+
+      return true;
+    });
+  }, [dateFilteredData, activeFilter, searchQuery]);
+
+  // Date range presets helper
+  const handleSetDatePreset = (preset) => {
+    if (preset === "today") {
+      setFromDate(todayStr);
+      setToDate(todayStr);
+    } else if (preset === "yesterday") {
+      setFromDate(yesterdayStr);
+      setToDate(yesterdayStr);
+    } else if (preset === "last7") {
+      setFromDate(last7Str);
+      setToDate(todayStr);
+    } else if (preset === "all") {
+      setFromDate("");
+      setToDate("");
+    }
+  };
 
   const handleToggleMedicines = (key) => {
     setExpandedKey(prev => (prev === key ? null : key));
   };
 
-  // ─── Convert to Bill — ONE per bill (patient-level action) ─────────────────
+  // ─── Convert to Bill action ────────────────────────────────────────────────
   const handleConvertToBillSafe = useCallback(async (patient, e) => {
     if (e) e.stopPropagation();
     if (typeof onConvertToBill !== "function") return;
@@ -994,44 +1499,22 @@ const MedicineChart = ({ onConvertToBill }) => {
       )
     );
 
-    onConvertToBill({ ...patient, medicine_items: items });
+    // Ensure selling price is provided in place of unit price & mrp for the billing screen
+    const normalizedItems = items.map(it => {
+      const up = getUnitPrice(it);
+      return {
+        ...it,
+        price: up,
+        mrp: up > 0 ? up : (Number(it.mrp) || 0),
+        selling_price: up,
+        Selling_Price: up,
+      };
+    });
+
+    onConvertToBill({ ...patient, medicine_items: normalizedItems });
   }, [onConvertToBill, HmsBaseUrl]);
 
-  // ─── Fetch pharmacy stock ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!HmsBaseUrl) return;
-    const fetchMedicines = async () => {
-      try {
-        const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST");
-        const medicineArray = Array.isArray(response.data)
-          ? response.data
-          : Array.isArray(response.data?.data) ? response.data.data : [];
-        if (response.success) {
-          const formatted = medicineArray.map((item) => ({
-            name:            item.item_name || "",
-            item_id:         item.item_id,
-            batch_number:    item.batch_number  || "N/A",
-            expiry_date:     item.expiry_date   || "N/A",
-            mrp:             parseFloat(item.mrp || 0),
-            available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
-            category:        item.category || "",
-          }));
-          const seen = new Set();
-          const unique = formatted.filter(m => {
-            if (seen.has(m.item_id)) return false;
-            seen.add(m.item_id);
-            return true;
-          });
-          setMedicines(unique);
-        }
-      } catch (err) {
-        console.error("Error fetching medicines for substitute:", err);
-      }
-    };
-    fetchMedicines();
-  }, [HmsBaseUrl]);
-
-  // ─── Open substitute modal — per individual item ──────────────────────────
+  // ─── Substitute Medicine Modal Handlers ────────────────────────────────────
   const openSubstituteModal = (patient, item, e) => {
     if (e) e.stopPropagation();
     setSubstituteModal({
@@ -1045,14 +1528,11 @@ const MedicineChart = ({ onConvertToBill }) => {
     setSubstDropOpen(false);
   };
 
-  // ─── Confirm substitution ─────────────────────────────────────────────────
   const handleSubstituteConfirm = async () => {
     if (!substSelected || !substituteModal) return;
 
     const { billId, originalItemId, originalItem } = substituteModal;
-
     if (!originalItem) {
-      console.error("Substitute: original item snapshot missing");
       setSubstituteModal(null);
       return;
     }
@@ -1108,298 +1588,754 @@ const MedicineChart = ({ onConvertToBill }) => {
     ? medicines.filter(m => m.name.toLowerCase().includes(substSearch.toLowerCase()))
     : [];
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <>
       <GlobalStyle />
-      <Wrapper>
-        {/* ── Header ── */}
-        <Header>
-          <TitleBlock>
-            <Title>
-              <TitleIcon>💊</TitleIcon>
-              Pharmacy Medicine Chart
-            </Title>
-            <Subtitle>Ward prescriptions &amp; dispensing tracker</Subtitle>
-          </TitleBlock>
+      <PageContainer>
+        {/* ── Top Header ── */}
+        <HeaderContainer>
+          <HeaderLeft>
+            <HeaderIconBox>
+              <Pill size={28} />
+            </HeaderIconBox>
+            <HeaderTitleGroup>
+              <HeaderTitle>
+                Medicine Chart
+                <HeaderBadge>Ward Prescriptions</HeaderBadge>
+              </HeaderTitle>
+              <HeaderSubtitle>
+                Inpatient prescription tracking, insurance consumable separation &amp; dispensing workflow
+              </HeaderSubtitle>
+            </HeaderTitleGroup>
+          </HeaderLeft>
 
-          <Controls>
-            <DateGroup>
-              <DateLabel>
-                From
-                <DateInput
-                  type="date"
-                  value={fromDate}
-                  onChange={e => setFromDate(e.target.value)}
-                />
-              </DateLabel>
+          <ControlsRight>
+            <DatePresetGroup>
+              <DatePresetBtn
+                type="button"
+                $active={fromDate === todayStr && toDate === todayStr}
+                onClick={() => handleSetDatePreset("today")}
+                title="Show only today's ward requests"
+              >
+                Today
+              </DatePresetBtn>
+              <DatePresetBtn
+                type="button"
+                $active={fromDate === yesterdayStr && toDate === yesterdayStr}
+                onClick={() => handleSetDatePreset("yesterday")}
+                title="Show yesterday's ward requests"
+              >
+                Yesterday
+              </DatePresetBtn>
+              <DatePresetBtn
+                type="button"
+                $active={fromDate === last7Str && toDate === todayStr}
+                onClick={() => handleSetDatePreset("last7")}
+                title="Show last 7 days ward requests"
+              >
+                Last 7 Days
+              </DatePresetBtn>
+              <DatePresetBtn
+                type="button"
+                $active={!fromDate && !toDate}
+                onClick={() => handleSetDatePreset("all")}
+                title="Show all requests across all dates"
+              >
+                All Dates
+              </DatePresetBtn>
+            </DatePresetGroup>
+
+            <DateRangePill>
+              <Calendar size={15} color={T.slateMuted} />
+              <DateInput
+                type="date"
+                value={fromDate}
+                onChange={e => setFromDate(e.target.value)}
+                placeholder="From"
+                title="From Ward Request Date"
+              />
               <DateSep>→</DateSep>
-              <DateLabel>
-                To
-                <DateInput
-                  type="date"
-                  value={toDate}
-                  onChange={e => setToDate(e.target.value)}
-                />
-              </DateLabel>
-            </DateGroup>
-
-            <RefreshBtn onClick={fetchMedicineChart} disabled={loading}>
-              {loading ? <SpinIcon>↻</SpinIcon> : "↻"} Refresh
-            </RefreshBtn>
-          </Controls>
-        </Header>
-
-        {error && <ErrorMsg>{error}</ErrorMsg>}
-
-        <TableCard>
-          <StyledTable>
-            <Thead>
-              <tr>
-                <th>Print</th>
-                <th>UHID</th>
-                <th>Patient Name</th>
-                <th>Address</th>
-                <th>Ward / Room</th>
-                <th>IP Number</th>
-                <th>Mobile</th>
-                <th>Status</th>
-                <th>Bill</th>
-                <th>Medicines</th>
-              </tr>
-            </Thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="10">
-                    <LoadingState>Loading medicine chart…</LoadingState>
-                  </td>
-                </tr>
-              ) : filteredData.length === 0 ? (
-                <tr>
-                  <td colSpan="10">
-                    <EmptyState>No records found for the selected date range</EmptyState>
-                  </td>
-                </tr>
-              ) : (
-                filteredData.map((patient) => {
-                  const patientKey = getBillKey(patient);
-                  const isExpanded = expandedKey === patientKey;
-                  const items = Array.isArray(patient?.medicine_items) ? patient.medicine_items : [];
-
-                  return (
-                    <React.Fragment key={patientKey}>
-                      {/* ── Patient Row ── */}
-                      <PatientRow
-                        $active={isExpanded}
-                        onClick={() => handleToggleMedicines(patientKey)}
-                      >
-                        <PrintIcon>
-                          <PrintIconBtn
-                            title="Print prescription"
-                            onClick={(e) => { e.stopPropagation(); setPrintPatient(patient); }}
-                          >
-                            🖨
-                          </PrintIconBtn>
-                        </PrintIcon>
-
-                        <UHIDCell>{patient.uhid}</UHIDCell>
-
-                        <td style={{ fontWeight: isExpanded ? 700 : 500 }}>
-                          {patient.patient_details?.patient_name || patient.patient_name || `Patient (${patient.uhid})`}
-                        </td>
-
-                        <td style={{ color: "#64748b", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {patient.patient_details?.address || patient.address || "—"}
-                        </td>
-
-                        <td>{patient.ward_name || patient.room_no || "—"}</td>
-
-                        <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.77rem" }}>
-                          {patient.inpatient_number || patient.ip_number || "—"}
-                        </td>
-
-                        <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.77rem" }}>
-                          {patient.patient_details?.mobile || patient.mobile || "—"}
-                        </td>
-
-                        <td>
-                          {patient.billing_status ? (
-                            <BillingStatusBadge $status={patient.billing_status}>
-                              {patient.billing_status}
-                            </BillingStatusBadge>
-                          ) : (
-                            <span style={{ color: "#cbd5e1" }}>—</span>
-                          )}
-                        </td>
-
-                        {/* Convert to Bill — ONE button per bill (patient row) */}
-                        <td>
-                          <ConvertBillBtn
-                            title="Convert entire prescription to a single bill"
-                            onClick={(e) => handleConvertToBillSafe(patient, e)}
-                          >
-                            🧾 To Bill
-                          </ConvertBillBtn>
-                        </td>
-
-                        <td>
-                          <MedicinesBtn
-                            $active={isExpanded}
-                            onClick={(e) => { e.stopPropagation(); handleToggleMedicines(patientKey); }}
-                          >
-                            💊 {items.length} {isExpanded ? "▲" : "▼"}
-                          </MedicinesBtn>
-                        </td>
-                      </PatientRow>
-
-                      {/* ── Expandable Medicine Detail Panel ── */}
-                      {isExpanded && (
-                        <DetailPanel onClick={(e) => e.stopPropagation()}>
-                          <DetailCell colSpan="10">
-                            <DetailInner>
-                              <DetailHeader>
-                                <DetailLabel>Medicine Items</DetailLabel>
-                                <ItemCount>{items.length} item{items.length !== 1 ? "s" : ""}</ItemCount>
-                              </DetailHeader>
-
-                              <ItemTable>
-                                <ItemThead>
-                                  <tr>
-                                    <th>Item Name</th>
-                                    <th>Qty</th>
-                                    <th>Stock</th>
-                                    <th>Dosage</th>
-                                    <th>Ward Request Date</th>
-                                    <th>Time</th>
-                                    {/* Substitute is per-item — standalone column */}
-                                    <th>Substitute</th>
-                                  </tr>
-                                </ItemThead>
-                                <tbody>
-                                  {items.length > 0 ? (
-                                    items.map((item, i) => {
-                                      if (!item) return null;
-
-                                      const wardReqRaw = patient.ward_request_date || patient.created_date;
-                                      let wardDateStr = "—", wardTimeStr = "—";
-                                      if (wardReqRaw) {
-                                        const d = new Date(wardReqRaw);
-                                        wardDateStr = d.toLocaleDateString("en-GB");
-                                        wardTimeStr = d.toLocaleTimeString("en-IN", {
-                                          hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true,
-                                        });
-                                      }
-
-                                      const stockLow      = item.available_stock !== undefined && item.available_stock < 10;
-                                      const isSubstituted = item.is_substitute || item.substituted;
-                                      const dotType =
-                                        isSubstituted     ? "substitute" :
-                                        item.is_emergency ? "emergency"  :
-                                        item.is_insurance ? "insurance"  :
-                                        "regular";
-
-                                      return (
-                                        <ItemRow key={`${item.item_id ?? i}-${i}`}>
-                                          <td>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                                              <StatusDot $type={dotType} />
-                                              <span style={{ fontWeight: 600, color: "#1e293b" }}>
-                                                {item.item_name || item.medicine_name || "—"}
-                                              </span>
-                                              {isSubstituted && (
-                                                <SubstituteBadge>⇄ Subst.</SubstituteBadge>
-                                              )}
-                                            </div>
-                                          </td>
-
-                                          <td><QtyBadge>{item.qty ?? item.quantity ?? "—"}</QtyBadge></td>
-
-                                          <td>
-                                            {item.available_stock !== undefined && item.available_stock !== null ? (
-                                              <StockBadge $low={stockLow}>{item.available_stock}</StockBadge>
-                                            ) : (
-                                              <span style={{ color: "#cbd5e1" }}>—</span>
-                                            )}
-                                          </td>
-
-                                          <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.77rem", color: "#475569" }}>
-                                            {item.dosage || item.dose || <span style={{ color: "#cbd5e1" }}>—</span>}
-                                          </td>
-
-                                          <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.77rem", color: "#64748b" }}>
-                                            {wardDateStr}
-                                          </td>
-
-                                          <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.77rem", color: "#64748b" }}>
-                                            {wardTimeStr}
-                                          </td>
-
-                                          {/* Substitute — per item, standalone button */}
-                                          <td>
-                                            <SubstBtn
-                                              title={`Substitute ${item.item_name || "this item"}`}
-                                              onClick={(e) => openSubstituteModal(patient, item, e)}
-                                            >
-                                              ⇄ Substitute
-                                            </SubstBtn>
-                                          </td>
-                                        </ItemRow>
-                                      );
-                                    })
-                                  ) : (
-                                    <tr>
-                                      <td colSpan="7">
-                                        <EmptyState style={{ padding: "24px" }}>
-                                          No medicine items found.
-                                        </EmptyState>
-                                      </td>
-                                    </tr>
-                                  )}
-                                </tbody>
-                              </ItemTable>
-                            </DetailInner>
-                          </DetailCell>
-                        </DetailPanel>
-                      )}
-                    </React.Fragment>
-                  );
-                })
+              <DateInput
+                type="date"
+                value={toDate}
+                onChange={e => setToDate(e.target.value)}
+                placeholder="To"
+                title="To Ward Request Date"
+              />
+              {(fromDate || toDate) && (
+                <button
+                  type="button"
+                  onClick={() => { setFromDate(""); setToDate(""); }}
+                  title="Clear date filter (show all dates)"
+                  style={{ background: "none", border: "none", color: T.slateMuted, cursor: "pointer", padding: "0 2px", display: "flex", alignItems: "center" }}
+                >
+                  <X size={14} />
+                </button>
               )}
-            </tbody>
-          </StyledTable>
+            </DateRangePill>
+
+            <RefreshButton onClick={fetchMedicineChart} disabled={loading}>
+              {loading ? <SpinIcon size={15} /> : <RefreshCw size={15} />}
+              Refresh
+            </RefreshButton>
+          </ControlsRight>
+        </HeaderContainer>
+
+        {/* ── Top Statistics Overview Cards ── */}
+        <StatsGrid>
+          <StatCard $color="#0d9488">
+            <StatInfo>
+              <StatLabel>Total Prescriptions</StatLabel>
+              <StatValue>{stats.total}</StatValue>
+              <StatSubtext>Active ward requests</StatSubtext>
+            </StatInfo>
+            <StatIconWrapper $bg="#f0fdfa" $color="#0d9488">
+              <Layers size={22} />
+            </StatIconWrapper>
+          </StatCard>
+
+          <StatCard $color="#f59e0b">
+            <StatInfo>
+              <StatLabel>Pending Dispense</StatLabel>
+              <StatValue>{stats.pending}</StatValue>
+              <StatSubtext>Awaiting pharmacy action</StatSubtext>
+            </StatInfo>
+            <StatIconWrapper $bg="#fffbeb" $color="#d97706">
+              <Clock size={22} />
+            </StatIconWrapper>
+          </StatCard>
+
+          <StatCard $color="#8b5cf6">
+            <StatInfo>
+              <StatLabel>Processing</StatLabel>
+              <StatValue>{stats.processing}</StatValue>
+              <StatSubtext>In billing queue</StatSubtext>
+            </StatInfo>
+            <StatIconWrapper $bg="#f5f3ff" $color="#7c3aed">
+              <Activity size={22} />
+            </StatIconWrapper>
+          </StatCard>
+
+          <StatCard $color="#10b981">
+            <StatInfo>
+              <StatLabel>Insurance Cases</StatLabel>
+              <StatValue>{stats.insuranceCount}</StatValue>
+              <StatSubtext>Consumable payable rules applied</StatSubtext>
+            </StatInfo>
+            <StatIconWrapper $bg="#ecfdf5" $color="#059669">
+              <Shield size={22} />
+            </StatIconWrapper>
+          </StatCard>
+
+        </StatsGrid>
+
+        {/* ── Filter & Search Toolbar ── */}
+        <FilterToolbar>
+          <FilterTopRow>
+            <SearchBox>
+              <SearchIcon>
+                <Search size={16} />
+              </SearchIcon>
+              <SearchInput
+                type="text"
+                placeholder="Search by UHID, Patient Name, Room/Ward, IP Number, or Doctor..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <ClearSearchBtn onClick={() => setSearchQuery("")}>
+                  <X size={15} />
+                </ClearSearchBtn>
+              )}
+            </SearchBox>
+          </FilterTopRow>
+
+          <FilterPillsRow>
+            <FilterPillsGroup>
+              {[
+                { id: "All", label: "All Requests", count: stats.total },
+                { id: "Pending", label: "Pending", count: stats.pending },
+                { id: "Processing", label: "Processing", count: stats.processing },
+                { id: "Insurance", label: "Insurance", count: stats.insuranceCount },
+                { id: "General", label: "General", count: stats.total - stats.insuranceCount },
+              ].map(f => (
+                <FilterPill
+                  key={f.id}
+                  $active={activeFilter === f.id}
+                  onClick={() => setActiveFilter(f.id)}
+                >
+                  {f.label}
+                  <PillCount $active={activeFilter === f.id}>{f.count}</PillCount>
+                </FilterPill>
+              ))}
+            </FilterPillsGroup>
+
+            <span style={{ fontSize: "0.76rem", color: T.slateMuted, fontWeight: 600 }}>
+              Showing {filteredData.length} of {medicineData.length} prescriptions
+            </span>
+          </FilterPillsRow>
+        </FilterToolbar>
+
+        {/* ── Error Banner ── */}
+        {error && (
+          <div style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 12, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, fontSize: "0.85rem" }}>
+            <AlertTriangle size={18} />
+            {error}
+          </div>
+        )}
+
+        {/* ── Main Prescriptions Table Card ── */}
+        <TableCard>
+          <TableWrapper>
+            <StyledTable>
+              <Thead>
+                <tr>
+                  <th style={{ width: 44, textAlign: "center" }}>Print</th>
+                  <th>UHID</th>
+                  <th>Patient Details</th>
+                  <th>Ward &amp; Room</th>
+                  <th>IP Number</th>
+                  <th>Contact</th>
+                  <th>Status</th>
+                  <th>Billing Action</th>
+                  <th>Prescribed Medicines</th>
+                </tr>
+              </Thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan="9" style={{ textAlign: "center", padding: "48px 20px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, color: T.primary }}>
+                        <SpinIcon size={26} />
+                        <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>Loading medicine charts…</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredData.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" style={{ textAlign: "center", padding: "52px 20px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, color: T.slateLight }}>
+                        <Pill size={38} color={T.slateLight} />
+                        <span style={{ fontWeight: 800, fontSize: "0.95rem", color: T.slateDark }}>
+                          {fromDate || toDate
+                            ? `No ward prescriptions found for ${fromDate === toDate ? fromDate : `${fromDate || 'Start'} to ${toDate || 'End'}`}`
+                            : "No prescriptions found"}
+                        </span>
+                        <span style={{ fontSize: "0.8rem", color: T.slateMuted, maxWidth: 440 }}>
+                          {medicineData.length > 0
+                            ? `There are ${medicineData.length} total ward prescriptions on other dates. You can change the date filter or view all records.`
+                            : "No ward request prescriptions are currently awaiting dispense."}
+                        </span>
+                        {medicineData.length > 0 && (
+                          <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap", justifyContent: "center" }}>
+                            <button
+                              type="button"
+                              onClick={() => handleSetDatePreset("all")}
+                              style={{
+                                background: "#0f766e",
+                                color: "#fff",
+                                border: "none",
+                                padding: "6px 14px",
+                                borderRadius: 8,
+                                fontSize: "0.78rem",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              View All Dates ({medicineData.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSetDatePreset("yesterday")}
+                              style={{
+                                background: "#f1f5f9",
+                                color: T.slateMid,
+                                border: `1px solid ${T.border}`,
+                                padding: "6px 14px",
+                                borderRadius: 8,
+                                fontSize: "0.78rem",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Check Yesterday
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSetDatePreset("last7")}
+                              style={{
+                                background: "#f1f5f9",
+                                color: T.slateMid,
+                                border: `1px solid ${T.border}`,
+                                padding: "6px 14px",
+                                borderRadius: 8,
+                                fontSize: "0.78rem",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Last 7 Days
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredData.map((patient, idx) => {
+                    const patientKey = `${getBillKey(patient)}-${idx}`;
+                    const isExpanded = expandedKey === patientKey;
+                    const items = Array.isArray(patient?.medicine_items) ? patient.medicine_items : [];
+                    const pName = patient.patient_details?.patient_name || patient.patient_name || `Patient (${patient.uhid})`;
+                    const initials = pName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase() || "PT";
+                    const wardRawDate = patient.ward_request_date || patient.created_date;
+
+                    return (
+                      <React.Fragment key={patientKey}>
+                        <PatientRow
+                          $active={isExpanded}
+                          onClick={() => handleToggleMedicines(patientKey)}
+                        >
+                          {/* Print Icon Button */}
+                          <td style={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                            <PrintBtnIcon
+                              title="Print Ward Prescription"
+                              onClick={() => setPrintPatient(patient)}
+                            >
+                              <Printer size={16} />
+                            </PrintBtnIcon>
+                          </td>
+
+                          {/* UHID */}
+                          <td>
+                            <UHIDBadge>{patient.uhid}</UHIDBadge>
+                          </td>
+
+                          {/* Patient Name & Tags */}
+                          <td>
+                            <PatientInfoCell>
+                              <PatientAvatar $isInsurance={patient.is_insurance}>
+                                {initials}
+                              </PatientAvatar>
+                              <PatientMeta>
+                                <PatientName>{pName}</PatientName>
+                                <PatientSubPills>
+                                  <TypeTag $isInsurance={patient.is_insurance}>
+                                    {patient.is_insurance ? (
+                                      <>
+                                        <Shield size={10} />
+                                        <span>Insurance {patient.insurance_company ? `(${patient.insurance_company})` : ""}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <User size={10} />
+                                        <span>General</span>
+                                      </>
+                                    )}
+                                  </TypeTag>
+                                  {Number(patient.total_ip_advance || 0) > 0 && (
+                                    <AdvanceTag>
+                                      Adv: ₹{Number(patient.total_ip_advance).toLocaleString("en-IN")}
+                                    </AdvanceTag>
+                                  )}
+                                </PatientSubPills>
+                              </PatientMeta>
+                            </PatientInfoCell>
+                          </td>
+
+                          {/* Ward & Room + Ward Request Date */}
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+                              <Bed size={15} color={T.primary} />
+                              <span>{patient.ward_name || patient.room_no || "General Ward"}</span>
+                            </div>
+                            {wardRawDate && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.71rem", color: T.slateMuted, marginTop: 3 }}>
+                                <Clock size={11} />
+                                <span>
+                                  {new Date(wardRawDate).toLocaleDateString("en-GB")}
+                                  {" "}
+                                  {new Date(wardRawDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* IP Number */}
+                          <td>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.78rem", fontWeight: 700, color: T.slateMid }}>
+                              {patient.inpatient_number || patient.ip_number || "—"}
+                            </span>
+                          </td>
+
+                          {/* Mobile */}
+                          <td>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.78rem", color: T.slateMuted }}>
+                              {patient.patient_details?.mobile || patient.mobile || "—"}
+                            </span>
+                          </td>
+
+                          {/* Status */}
+                          <td>
+                            <StatusPill $status={patient.billing_status || "Pending"}>
+                              <StatusDotAnim />
+                              {patient.billing_status || "Pending"}
+                            </StatusPill>
+                          </td>
+
+                          {/* To Bill action */}
+                          <td onClick={e => e.stopPropagation()}>
+                            <ActionBtnToBill
+                              title="Convert entire prescription to a single pharmacy bill"
+                              onClick={(e) => handleConvertToBillSafe(patient, e)}
+                            >
+                              <Receipt size={14} />
+                              Convert to Bill
+                            </ActionBtnToBill>
+                          </td>
+
+                          {/* Medicines pill button */}
+                          <td onClick={e => e.stopPropagation()}>
+                            <ActionBtnMedicines
+                              $active={isExpanded}
+                              onClick={() => handleToggleMedicines(patientKey)}
+                            >
+                              <Pill size={14} />
+                              <span>{items.length} Items</span>
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </ActionBtnMedicines>
+                          </td>
+                        </PatientRow>
+
+                        {/* ── Expanded Detail Drawer ── */}
+                        {isExpanded && (() => {
+                          const isInsurance = Boolean(patient.is_insurance);
+                          const totalPrescriptionAmount = items.reduce((acc, it) => {
+                            const q = Number(it.qty ?? it.quantity ?? 0);
+                            const p = getUnitPrice(it);
+                            return acc + (q * p);
+                          }, 0);
+
+                          const consumablePayableAmount = items.reduce((acc, it) => {
+                            if (Boolean(it.is_consumable_items)) {
+                              const q = Number(it.qty ?? it.quantity ?? 0);
+                              const p = getUnitPrice(it);
+                              return acc + (q * p);
+                            }
+                            return acc;
+                          }, 0);
+
+                          const insuranceCoveredAmount = totalPrescriptionAmount - consumablePayableAmount;
+                          const availableIpAdvance = Number(patient.total_ip_advance || 0);
+                          const amountDeducted = isInsurance
+                            ? Math.min(consumablePayableAmount, availableIpAdvance)
+                            : Math.min(totalPrescriptionAmount, availableIpAdvance);
+                          const remainingIpAdvance = isInsurance
+                            ? Math.max(0, availableIpAdvance - consumablePayableAmount)
+                            : Math.max(0, availableIpAdvance - totalPrescriptionAmount);
+                          const excessPayable = isInsurance
+                            ? Math.max(0, consumablePayableAmount - availableIpAdvance)
+                            : Math.max(0, totalPrescriptionAmount - availableIpAdvance);
+
+                          return (
+                            <DetailDrawerRow onClick={e => e.stopPropagation()}>
+                              <DetailDrawerCell colSpan="9">
+                                <DetailDrawerInner>
+                                  {/* 1. Context Information Strip */}
+                                  <ContextStrip>
+                                    <ContextItem>
+                                      <ContextIconBox><User size={16} /></ContextIconBox>
+                                      <ContextText>
+                                        <ContextKey>Patient UHID</ContextKey>
+                                        <ContextVal>{patient.uhid}</ContextVal>
+                                      </ContextText>
+                                    </ContextItem>
+
+                                    <ContextItem>
+                                      <ContextIconBox><Building2 size={16} /></ContextIconBox>
+                                      <ContextText>
+                                        <ContextKey>IP Number</ContextKey>
+                                        <ContextVal>{patient.inpatient_number || "—"}</ContextVal>
+                                      </ContextText>
+                                    </ContextItem>
+
+                                    <ContextItem>
+                                      <ContextIconBox><Bed size={16} /></ContextIconBox>
+                                      <ContextText>
+                                        <ContextKey>Ward / Bed</ContextKey>
+                                        <ContextVal>{patient.ward_name || patient.room_no || "—"}</ContextVal>
+                                      </ContextText>
+                                    </ContextItem>
+
+                                    <ContextItem>
+                                      <ContextIconBox><Activity size={16} /></ContextIconBox>
+                                      <ContextText>
+                                        <ContextKey>Admitting Doctor</ContextKey>
+                                        <ContextVal>Dr. {patient.doctor_name || "Assigned Doctor"}</ContextVal>
+                                      </ContextText>
+                                    </ContextItem>
+
+                                    <ContextItem>
+                                      <ContextIconBox><Phone size={16} /></ContextIconBox>
+                                      <ContextText>
+                                        <ContextKey>Contact</ContextKey>
+                                        <ContextVal>{patient.patient_details?.mobile || patient.mobile || "—"}</ContextVal>
+                                      </ContextText>
+                                    </ContextItem>
+                                  </ContextStrip>
+
+                                  {/* 2. Advance & Consumable Financial Summary Card */}
+                                  <FinancialSummaryCard>
+                                    <FinCardHeader>
+                                      <FinCardTitle>
+                                        {isInsurance ? <Shield size={16} /> : <DollarSign size={16} />}
+                                        {isInsurance ? "Insurance & IP Advance Breakdown" : "IP Advance Settlement Summary"}
+                                      </FinCardTitle>
+                                      <TypeTag $isInsurance={isInsurance}>
+                                        {isInsurance ? `🛡️ Insurance: ${patient.insurance_company || "Approved"}` : "👤 General Patient"}
+                                      </TypeTag>
+                                    </FinCardHeader>
+
+                                    <FinGrid>
+                                      <FinStat>
+                                        <FinLabel>Total Prescription</FinLabel>
+                                        <FinValue>₹{totalPrescriptionAmount.toFixed(2)}</FinValue>
+                                      </FinStat>
+
+                                      {isInsurance && (
+                                        <>
+                                          <FinStat>
+                                            <FinLabel>Insurance Covered</FinLabel>
+                                            <FinValue $color="#16a34a">₹{insuranceCoveredAmount.toFixed(2)}</FinValue>
+                                          </FinStat>
+
+                                          <FinStat>
+                                            <FinLabel>Payable (Consumables)</FinLabel>
+                                            <FinValue $color="#ea580c">₹{consumablePayableAmount.toFixed(2)}</FinValue>
+                                          </FinStat>
+                                        </>
+                                      )}
+
+                                      <FinStat>
+                                        <FinLabel>Available IP Advance</FinLabel>
+                                        <FinValue $color="#0d9488">₹{availableIpAdvance.toFixed(2)}</FinValue>
+                                      </FinStat>
+
+                                      <FinStat>
+                                        <FinLabel>{isInsurance ? "Deducted for Consumables" : "Deducted from Advance"}</FinLabel>
+                                        <FinValue $color="#0284c7">- ₹{amountDeducted.toFixed(2)}</FinValue>
+                                      </FinStat>
+
+                                      <FinStat>
+                                        <FinLabel>Remaining IP Advance</FinLabel>
+                                        <FinValue $color={remainingIpAdvance > 0 ? "#16a34a" : "#dc2626"}>
+                                          ₹{remainingIpAdvance.toFixed(2)}
+                                        </FinValue>
+                                      </FinStat>
+
+                                      {excessPayable > 0 && (
+                                        <FinStat>
+                                          <FinLabel style={{ color: "#dc2626" }}>Excess Payable by Patient</FinLabel>
+                                          <FinValue $color="#dc2626">₹{excessPayable.toFixed(2)}</FinValue>
+                                        </FinStat>
+                                      )}
+                                    </FinGrid>
+                                  </FinancialSummaryCard>
+
+                                  {/* 3. Medicine Items Table */}
+                                  <MedicineTableCard>
+                                    <StyledTable>
+                                      <SubThead>
+                                        <tr>
+                                          <th>Medicine Item</th>
+                                          <th>Type / Payable</th>
+                                          <th>Qty</th>
+                                          <th>Unit Price (₹)</th>
+                                          <th>Amount (₹)</th>
+                                          <th>Stock Status</th>
+                                          <th>Dosage</th>
+                                          <th>Ward Request Date &amp; Time</th>
+                                          <th>Action</th>
+                                        </tr>
+                                      </SubThead>
+                                      <tbody>
+                                        {items.length > 0 ? (
+                                          items.map((item, i) => {
+                                            if (!item) return null;
+
+                                            const wardReqRaw = patient.ward_request_date || patient.created_date;
+                                            let wardDateStr = "—", wardTimeStr = "—";
+                                            if (wardReqRaw) {
+                                              const d = new Date(wardReqRaw);
+                                              wardDateStr = d.toLocaleDateString("en-GB");
+                                              wardTimeStr = d.toLocaleTimeString("en-IN", {
+                                                hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true,
+                                              });
+                                            }
+
+                                            const stockLow = item.available_stock !== undefined && item.available_stock < 10;
+                                            const isSubstituted = item.is_substitute || item.substituted;
+                                            const dotType =
+                                              isSubstituted     ? "substitute" :
+                                              item.is_emergency ? "emergency"  :
+                                              item.is_insurance ? "insurance"  :
+                                              "regular";
+
+                                            const q = Number(item.qty ?? item.quantity ?? 0);
+                                            // Displays Selling_Price in place of Unit Price
+                                            const unitPrice = getUnitPrice(item);
+                                            const lineAmt = (q * unitPrice).toFixed(2);
+                                            const isConsumable = Boolean(item.is_consumable_items);
+
+                                            return (
+                                              <SubRow key={`${item.item_id ?? i}-${i}`}>
+                                                <td>
+                                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                    <ItemDot $type={dotType} />
+                                                    <span style={{ fontWeight: 700, color: T.slateDark }}>
+                                                      {item.item_name || item.medicine_name || "—"}
+                                                    </span>
+                                                    {isSubstituted && (
+                                                      <span style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: 4, padding: "1px 6px", fontSize: "0.66rem", fontWeight: 700 }}>
+                                                        Substituted
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </td>
+
+                                                <td>
+                                                  {isConsumable ? (
+                                                    <ConsumableTag title="Consumable item — Payable by patient from IP Advance">
+                                                      🟠 Consumable (Payable)
+                                                    </ConsumableTag>
+                                                  ) : isInsurance ? (
+                                                    <CoveredTag title="Covered under insurance claim">
+                                                      🛡️ Insurance Covered
+                                                    </CoveredTag>
+                                                  ) : (
+                                                    <span style={{ fontSize: "0.74rem", color: T.slateMuted, fontWeight: 600 }}>Regular</span>
+                                                  )}
+                                                </td>
+
+                                                <td>
+                                                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, background: "#f1f5f9", padding: "2px 8px", borderRadius: 6, fontSize: "0.78rem" }}>
+                                                    {q}
+                                                  </span>
+                                                </td>
+
+                                                <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.78rem", color: T.slateMid }}>
+                                                  ₹{unitPrice.toFixed(2)}
+                                                </td>
+
+                                                <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.82rem", fontWeight: 800, color: T.slateDark }}>
+                                                  ₹{lineAmt}
+                                                </td>
+
+                                                <td>
+                                                  {item.available_stock !== undefined && item.available_stock !== null ? (
+                                                    <StockIndicator $low={stockLow}>
+                                                      {stockLow ? <AlertCircle size={11} /> : <CheckCircle2 size={11} />}
+                                                      {item.available_stock} in stock
+                                                    </StockIndicator>
+                                                  ) : (
+                                                    <span style={{ color: T.slateLight }}>—</span>
+                                                  )}
+                                                </td>
+
+                                                <td style={{ fontSize: "0.77rem", color: T.slateMid, fontWeight: 500 }}>
+                                                  {item.dosage || item.dose || "—"}
+                                                </td>
+
+                                                <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.74rem", color: T.slateMuted }}>
+                                                  {wardDateStr} {wardTimeStr !== "—" ? `• ${wardTimeStr}` : ""}
+                                                </td>
+
+                                                <td>
+                                                  <SubstituteActionBtn
+                                                    title={`Substitute ${item.item_name || "this item"}`}
+                                                    onClick={(e) => openSubstituteModal(patient, item, e)}
+                                                  >
+                                                    <Repeat size={12} />
+                                                    Substitute
+                                                  </SubstituteActionBtn>
+                                                </td>
+                                              </SubRow>
+                                            );
+                                          })
+                                        ) : (
+                                          <tr>
+                                            <td colSpan="9" style={{ textAlign: "center", padding: "24px", color: T.slateLight }}>
+                                              No prescribed medicine items.
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </tbody>
+                                    </StyledTable>
+                                  </MedicineTableCard>
+                                </DetailDrawerInner>
+                              </DetailDrawerCell>
+                            </DetailDrawerRow>
+                          );
+                        })()}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </StyledTable>
+          </TableWrapper>
         </TableCard>
 
-        {/* Legend */}
-        <Legend>
-          <span style={{ fontWeight: 700, color: T.slate, fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>Legend</span>
-          <LegendItem><StatusDot $type="substitute" /> Substitute Given</LegendItem>
-          <LegendItem><StatusDot $type="emergency"  /> Emergency</LegendItem>
-          <LegendItem><StatusDot $type="insurance"  /> Insurance</LegendItem>
-          <LegendItem><StatusDot $type="regular"    /> Regular</LegendItem>
-        </Legend>
-      </Wrapper>
+        {/* ── Legend ── */}
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center", padding: "12px 18px", marginTop: 16, background: "#ffffff", borderRadius: 12, border: `1px solid ${T.border}`, fontSize: "0.76rem", color: T.slateMid }}>
+          <span style={{ fontWeight: 800, color: T.slateDark, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.7rem" }}>Legend</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+            <ItemDot $type="substitute" /> Substitute Given
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+            <ItemDot $type="emergency" /> Emergency
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+            <ItemDot $type="insurance" /> Insurance Covered
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+            <ItemDot $type="regular" /> Regular
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b" }} /> Consumable (Patient Payable)
+          </span>
+        </div>
+      </PageContainer>
 
-      {/* ── Substitute Modal (per individual item) ── */}
+      {/* ── Substitute Medicine Modal ── */}
       {substituteModal && createPortal(
-        <SubstOverlay onClick={() => setSubstituteModal(null)}>
-          <SubstModalBox onClick={e => e.stopPropagation()}>
-            <SubstModalHeader>
-              <SubstModalTitle>⇄ Substitute Medicine</SubstModalTitle>
-              <SubstCloseX onClick={() => setSubstituteModal(null)}>✕</SubstCloseX>
-            </SubstModalHeader>
-            <SubstBody>
-              <SubstOriginalInfo>
-                <span style={{ fontSize: "1rem" }}>🔁</span>
-                Replacing: <span>{substituteModal.originalItemName || `Item ID ${substituteModal.originalItemId}`}</span>
-              </SubstOriginalInfo>
+        <ModalOverlay onClick={() => setSubstituteModal(null)}>
+          <ModalBox onClick={e => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>
+                <Repeat size={18} />
+                Substitute Medicine
+              </ModalTitle>
+              <ModalCloseBtn onClick={() => setSubstituteModal(null)}>✕</ModalCloseBtn>
+            </ModalHeader>
+            <ModalBody>
+              <div style={{ background: "#f8fafc", border: `1.5px solid ${T.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 18, fontSize: "0.83rem", color: T.slateMid }}>
+                <span style={{ color: T.slateMuted, fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 700, display: "block", marginBottom: 3 }}>
+                  Replacing Prescription Item
+                </span>
+                <span style={{ fontWeight: 800, color: T.slateDark, fontSize: "0.95rem" }}>
+                  {substituteModal.originalItemName || `Item ID ${substituteModal.originalItemId}`}
+                </span>
+              </div>
 
-              <SubstFieldLabel>Search Replacement</SubstFieldLabel>
-              <SubstInputWrapper>
-                <SubstInput
+              <label style={{ display: "block", fontSize: "0.74rem", fontWeight: 700, color: T.slateMid, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                Search Available Replacement
+              </label>
+              <div style={{ position: "relative" }}>
+                <SearchInput
                   type="text"
                   autoComplete="off"
-                  placeholder="Type at least 2 letters to search…"
+                  placeholder="Type at least 2 letters to search pharmacy stock…"
                   value={substSearch}
                   onChange={e => {
                     setSubstSearch(e.target.value);
@@ -1407,11 +2343,12 @@ const MedicineChart = ({ onConvertToBill }) => {
                     if (!e.target.value) setSubstSelected(null);
                   }}
                   onFocus={() => substSearch.length >= 2 && setSubstDropOpen(true)}
+                  style={{ background: "#fff", paddingLeft: 14 }}
                 />
                 {substDropOpen && substSuggestions.length > 0 && (
-                  <SubstDropList>
+                  <DropdownList>
                     {substSuggestions.map((med, idx) => (
-                      <SubstDropItem
+                      <DropdownItem
                         key={`${med.item_id}-${idx}`}
                         onMouseDown={e => e.preventDefault()}
                         onClick={() => {
@@ -1420,39 +2357,47 @@ const MedicineChart = ({ onConvertToBill }) => {
                           setSubstDropOpen(false);
                         }}
                       >
-                        {med.name}
-                      </SubstDropItem>
+                        <span style={{ fontWeight: 600 }}>{med.name}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.75rem", color: T.primary }}>
+                          Stock: {med.available_stock}
+                        </span>
+                      </DropdownItem>
                     ))}
-                  </SubstDropList>
+                  </DropdownList>
                 )}
-              </SubstInputWrapper>
+              </div>
 
               {substSelected && (
-                <SubstSelectedTag>
-                  💊 {substSelected.name}
-                  <SubstTagClose
-                    title="Remove"
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 14, padding: "8px 16px", background: "#f0fdfa", border: "1.5px solid #99f6e4", borderRadius: 20, fontSize: "0.82rem", fontWeight: 700, color: "#0f766e" }}>
+                  <Pill size={15} />
+                  <span>{substSelected.name}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.75rem", color: T.slateMuted }}>
+                    (₹{substSelected.mrp} • Stock {substSelected.available_stock})
+                  </span>
+                  <button
                     onClick={() => { setSubstSelected(null); setSubstSearch(""); }}
+                    style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", marginLeft: 4, display: "flex", alignItems: "center" }}
                   >
-                    ✕
-                  </SubstTagClose>
-                </SubstSelectedTag>
+                    <X size={14} />
+                  </button>
+                </div>
               )}
-            </SubstBody>
-            <SubstFooter>
-              <SubstCloseBtn onClick={() => setSubstituteModal(null)}>Cancel</SubstCloseBtn>
-              <SubstConfirmBtn disabled={!substSelected} onClick={handleSubstituteConfirm}>
-                ⇄ Confirm Substitute
-              </SubstConfirmBtn>
-            </SubstFooter>
-          </SubstModalBox>
-        </SubstOverlay>,
+            </ModalBody>
+            <ModalFooter>
+              <SecondaryBtn onClick={() => setSubstituteModal(null)}>Cancel</SecondaryBtn>
+              <PrimaryBtn disabled={!substSelected} onClick={handleSubstituteConfirm}>
+                <Repeat size={15} />
+                Confirm Substitute
+              </PrimaryBtn>
+            </ModalFooter>
+          </ModalBox>
+        </ModalOverlay>,
         document.body
       )}
 
-      {/* ── Print Modal ── */}
+      {/* ── Print Prescription Modal ── */}
       {printPatient && (() => {
-        const p     = printPatient;
+        const p = printPatient;
         const items = Array.isArray(p?.medicine_items) ? p.medicine_items : [];
         const wardReqRaw = p.ward_request_date || p.created_date;
         let wardDateStr = "—", wardTimeStr = "—";
@@ -1464,8 +2409,42 @@ const MedicineChart = ({ onConvertToBill }) => {
           });
         }
 
+        const isInsurance = Boolean(p.is_insurance || String(p.customer_type || '').toLowerCase() === 'insurance');
+        const custTypeLabel = isInsurance
+          ? `INSURANCE${p.insurance_company ? ` - ${p.insurance_company}` : ""}`
+          : "GENERAL";
+
+        const totalPrescriptionAmount = items.reduce((acc, it) => {
+          const q = Number(it.qty ?? it.quantity ?? 0);
+          const pr = getUnitPrice(it);
+          return acc + (q * pr);
+        }, 0);
+
+        const consumablePayableAmount = items.reduce((acc, it) => {
+          if (Boolean(it.is_consumable_items)) {
+            const q = Number(it.qty ?? it.quantity ?? 0);
+            const pr = getUnitPrice(it);
+            return acc + (q * pr);
+          }
+          return acc;
+        }, 0);
+
+        const insuranceCoveredAmount = totalPrescriptionAmount - consumablePayableAmount;
+        const availableIpAdvance = Number(p.total_ip_advance || 0);
+        const amountDeductedFromAdvance = isInsurance
+          ? Math.min(consumablePayableAmount, availableIpAdvance)
+          : Math.min(totalPrescriptionAmount, availableIpAdvance);
+
+        const remainingIpAdvance = isInsurance
+          ? Math.max(0, availableIpAdvance - consumablePayableAmount)
+          : Math.max(0, availableIpAdvance - totalPrescriptionAmount);
+
+        const patientExcessToPay = isInsurance
+          ? Math.max(0, consumablePayableAmount - availableIpAdvance)
+          : Math.max(0, totalPrescriptionAmount - availableIpAdvance);
+
         const handlePrint = () => {
-          const printWindow = window.open("", "_blank", "width=800,height=600");
+          const printWindow = window.open("", "_blank", "width=850,height=700");
           const html = `
             <html><head><title>Ward Prescription</title>
             <style>
@@ -1473,16 +2452,18 @@ const MedicineChart = ({ onConvertToBill }) => {
               .hosp-header { display: flex; align-items: flex-start; gap: 14px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 10px; }
               .hosp-name { font-size: 18px; font-weight: 800; color: #0f766e; }
               .hosp-sub { font-size: 12px; color: #666; }
-              .section-title { background: #e5e7eb; text-align: right; padding: 3px 10px; font-weight: 700; font-size: 12px; margin-bottom: 10px; }
+              .section-title { background: #e5e7eb; text-align: right; padding: 4px 10px; font-weight: 700; font-size: 12px; margin-bottom: 10px; border-radius: 4px; }
               .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin-bottom: 10px; }
               .meta-row { display: flex; gap: 6px; font-size: 12px; }
-              .meta-key { color: #666; min-width: 80px; }
+              .meta-key { color: #666; min-width: 90px; }
               .meta-val { font-weight: 600; }
               .bold { font-weight: 700; margin-bottom: 4px; }
               .doctor { font-weight: 700; color: #0f766e; margin-bottom: 14px; }
               table { width: 100%; border-collapse: collapse; font-size: 12px; }
               th { border: 1px solid #ccc; padding: 6px 8px; background: #f3f4f6; text-align: left; }
               td { border: 1px solid #e5e7eb; padding: 6px 8px; }
+              .badge-payable { background: #fef3c7; color: #b45309; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; border: 1px solid #fde68a; display: inline-block; }
+              .badge-covered { background: #ecfdf5; color: #047857; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; border: 1px solid #a7f3d0; display: inline-block; }
             </style></head><body>
             <div class="hosp-header">
               <div>
@@ -1491,7 +2472,7 @@ const MedicineChart = ({ onConvertToBill }) => {
                 <div class="hosp-sub">Ph: 04272706666</div>
               </div>
             </div>
-            <div class="section-title">**Ward Prescription Details</div>
+            <div class="section-title">** Ward Prescription Details</div>
             <div class="meta-grid">
               <div class="meta-row"><span class="meta-key">UHID</span><span>:</span><span class="meta-val">${p.uhid || "—"}</span></div>
               <div class="meta-row"><span class="meta-key">Age/Gender</span><span>:</span><span class="meta-val">${p.age || "—"} / ${p.gender || "—"}</span></div>
@@ -1499,23 +2480,94 @@ const MedicineChart = ({ onConvertToBill }) => {
               <div class="meta-row"><span class="meta-key">Req Ref</span><span>:</span><span class="meta-val">${p.Bill_id || p.bill_no || "—"}</span></div>
               <div class="meta-row"><span class="meta-key">Address</span><span>:</span><span class="meta-val">${p.patient_details?.address || p.address || "—"}</span></div>
               <div class="meta-row"><span class="meta-key">Ward Name</span><span>:</span><span class="meta-val">${p.ward_name || p.room_no || "—"}</span></div>
+              <div class="meta-row"><span class="meta-key">Customer Type</span><span>:</span><span class="meta-val" style="color: ${isInsurance ? '#047857' : '#1e293b'}">${custTypeLabel}</span></div>
+              <div class="meta-row"><span class="meta-key">IP Advance</span><span>:</span><span class="meta-val">₹${availableIpAdvance.toFixed(2)}</span></div>
             </div>
-            <div class="bold">${wardDateStr} &nbsp; ${wardTimeStr}</div>
+            <div class="bold">Ward Request Date: ${wardDateStr} &nbsp; ${wardTimeStr}</div>
             <div class="doctor">Dr. ${p.doctor_name || "—"}</div>
             <table>
-              <thead><tr><th>Sl</th><th>Brand Name</th><th>Dosage</th><th>Qty</th><th>Remarks</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Sl</th>
+                  <th>Brand / Item Name</th>
+                  <th>Category / Payable</th>
+                  <th>Dosage</th>
+                  <th>Qty</th>
+                  <th>Unit Price</th>
+                  <th>Amount</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
               <tbody>
-                ${items.map((item, i) => `
-                  <tr>
-                    <td>${i + 1}</td>
-                    <td>${item.item_name || item.medicine_name || "—"}${item.is_substitute || item.substituted ? " (Substituted)" : ""}</td>
-                    <td>${item.dosage || item.dose || "—"}</td>
-                    <td>${item.qty ?? item.quantity ?? "—"}</td>
-                    <td>${item.remark || ""}</td>
-                  </tr>
-                `).join("")}
+                ${items.map((item, i) => {
+                  const isConsumable = Boolean(item.is_consumable_items);
+                  const q = Number(item.qty ?? item.quantity ?? 0);
+                  const unitPrice = getUnitPrice(item);
+                  const lineAmt = (q * unitPrice).toFixed(2);
+                  let badgeHtml = "";
+                  if (isConsumable) {
+                    badgeHtml = `<span class="badge-payable">PAYABLE (Consumable)</span>`;
+                  } else if (isInsurance) {
+                    badgeHtml = `<span class="badge-covered">Covered (Insurance)</span>`;
+                  } else {
+                    badgeHtml = `<span style="color: #64748b;">Regular</span>`;
+                  }
+
+                  return `
+                    <tr>
+                      <td>${i + 1}</td>
+                      <td>${item.item_name || item.medicine_name || "—"}${item.is_substitute || item.substituted ? " (Substituted)" : ""}</td>
+                      <td>${badgeHtml}</td>
+                      <td>${item.dosage || item.dose || "—"}</td>
+                      <td>${q}</td>
+                      <td>₹${unitPrice.toFixed(2)}</td>
+                      <td style="font-weight: 600;">₹${lineAmt}</td>
+                      <td>${item.remark || ""}</td>
+                    </tr>
+                  `;
+                }).join("")}
               </tbody>
             </table>
+
+            <div style="margin-top: 16px; border: 1.5px solid #0d9488; border-radius: 6px; padding: 12px 16px; background: #f0fdfa;">
+              <div style="font-weight: 700; font-size: 12px; color: #0f766e; margin-bottom: 8px; border-bottom: 1px dashed #99f6e4; padding-bottom: 4px;">
+                ${isInsurance ? "INSURANCE & IP ADVANCE BILLING BREAKDOWN" : "IP ADVANCE BILLING SUMMARY"}
+              </div>
+              <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                <tr>
+                  <td style="border: none; padding: 3px 0; color: #334155;">Total Prescription Amount:</td>
+                  <td style="border: none; padding: 3px 0; text-align: right; font-weight: 700;">₹${totalPrescriptionAmount.toFixed(2)}</td>
+                </tr>
+                ${isInsurance ? `
+                <tr>
+                  <td style="border: none; padding: 3px 0; color: #047857;">Insurance Covered Amount (Non-Payable):</td>
+                  <td style="border: none; padding: 3px 0; text-align: right; font-weight: 600; color: #047857;">₹${insuranceCoveredAmount.toFixed(2)}</td>
+                </tr>
+                <tr style="font-weight: 700; color: #b45309;">
+                  <td style="border: none; padding: 3px 0;">Patient Payable Amount (Consumable Items):</td>
+                  <td style="border: none; padding: 3px 0; text-align: right;">₹${consumablePayableAmount.toFixed(2)}</td>
+                </tr>
+                ` : ""}
+                <tr style="border-top: 1px solid #cbd5e1;">
+                  <td style="border: none; padding: 3px 0; color: #334155;">Available IP Advance:</td>
+                  <td style="border: none; padding: 3px 0; text-align: right; font-weight: 600;">₹${availableIpAdvance.toFixed(2)}</td>
+                </tr>
+                <tr style="color: #0284c7; font-weight: 700;">
+                  <td style="border: none; padding: 3px 0;">${isInsurance ? "Deducted for Consumable Items:" : "Deducted from IP Advance:"}</td>
+                  <td style="border: none; padding: 3px 0; text-align: right;">- ₹${amountDeductedFromAdvance.toFixed(2)}</td>
+                </tr>
+                <tr style="border-top: 1.5px solid #0f766e; font-weight: 700; font-size: 13px;">
+                  <td style="border: none; padding: 5px 0; color: #0f766e;">Remaining IP Advance Balance:</td>
+                  <td style="border: none; padding: 5px 0; text-align: right; color: #0f766e;">₹${remainingIpAdvance.toFixed(2)}</td>
+                </tr>
+                ${patientExcessToPay > 0 ? `
+                <tr style="color: #dc2626; font-weight: 700;">
+                  <td style="border: none; padding: 3px 0;">Excess Payable by Patient (Advance Exceeded):</td>
+                  <td style="border: none; padding: 3px 0; text-align: right;">₹${patientExcessToPay.toFixed(2)}</td>
+                </tr>
+                ` : ""}
+              </table>
+            </div>
           </body></html>`;
           printWindow.document.write(html);
           printWindow.document.close();
@@ -1524,88 +2576,114 @@ const MedicineChart = ({ onConvertToBill }) => {
         };
 
         return createPortal(
-          <PrintOverlay onClick={() => setPrintPatient(null)}>
-            <PrintModalBox onClick={e => e.stopPropagation()}>
-              <PrintModalHeader>
-                <PrintModalTitle>🖨 Ward Prescription</PrintModalTitle>
-                <PrintCloseBtn onClick={() => setPrintPatient(null)}>✕</PrintCloseBtn>
-              </PrintModalHeader>
-              <PrintContent>
-                <PrintHospitalHeader>
-                  <PrintHospitalLogo>🏥</PrintHospitalLogo>
-                  <PrintHospitalInfo>
-                    <PrintHospitalName>SHANMUGA HOSPITAL LIMITED</PrintHospitalName>
-                    <PrintHospitalSub>51/24, Saradha College Road, Salem - 636007</PrintHospitalSub>
-                    <PrintHospitalSub>Ph: 04272706666</PrintHospitalSub>
-                  </PrintHospitalInfo>
-                </PrintHospitalHeader>
+          <ModalOverlay onClick={() => setPrintPatient(null)}>
+            <ModalBox style={{ width: 720 }} onClick={e => e.stopPropagation()}>
+              <ModalHeader>
+                <ModalTitle>
+                  <Printer size={18} />
+                  Ward Prescription Details
+                </ModalTitle>
+                <ModalCloseBtn onClick={() => setPrintPatient(null)}>✕</ModalCloseBtn>
+              </ModalHeader>
+              <ModalBody style={{ maxHeight: "78vh", overflowY: "auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, borderBottom: `2px solid ${T.border}`, paddingBottom: 12, marginBottom: 16 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1.2rem" }}>
+                    SH
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#0f766e" }}>SHANMUGA HOSPITAL LIMITED</div>
+                    <div style={{ fontSize: "0.76rem", color: T.slateMuted }}>51/24, Saradha College Road, Salem - 636007 • Ph: 04272706666</div>
+                  </div>
+                </div>
 
-                <PrintSectionTitle>** Ward Prescription Details</PrintSectionTitle>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px", fontSize: "0.82rem", marginBottom: 16 }}>
+                  <div><strong style={{ color: T.slateMuted }}>UHID:</strong> {p.uhid || "—"}</div>
+                  <div><strong style={{ color: T.slateMuted }}>Patient Name:</strong> {p.patient_details?.patient_name || p.patient_name || "—"}</div>
+                  <div><strong style={{ color: T.slateMuted }}>Ward / Room:</strong> {p.ward_name || p.room_no || "—"}</div>
+                  <div><strong style={{ color: T.slateMuted }}>IP Number:</strong> {p.inpatient_number || p.ip_number || "—"}</div>
+                  <div><strong style={{ color: T.slateMuted }}>Customer Type:</strong> <span style={{ color: isInsurance ? "#047857" : T.slateDark, fontWeight: 700 }}>{custTypeLabel}</span></div>
+                  <div><strong style={{ color: T.slateMuted }}>IP Advance:</strong> ₹{availableIpAdvance.toFixed(2)}</div>
+                </div>
 
-                <PrintMetaGrid>
-                  <PrintMetaRow>
-                    <PrintMetaKey>UHID</PrintMetaKey><span>:</span>
-                    <PrintMetaVal>{p.uhid || "—"}</PrintMetaVal>
-                  </PrintMetaRow>
-                  <PrintMetaRow>
-                    <PrintMetaKey>Age/Gender</PrintMetaKey><span>:</span>
-                    <PrintMetaVal>{p.age || "—"} / {p.gender || "—"}</PrintMetaVal>
-                  </PrintMetaRow>
-                  <PrintMetaRow>
-                    <PrintMetaKey>Name</PrintMetaKey><span>:</span>
-                    <PrintMetaVal>{p.patient_details?.patient_name || p.patient_name || "—"}</PrintMetaVal>
-                  </PrintMetaRow>
-                  <PrintMetaRow>
-                    <PrintMetaKey>Req Ref</PrintMetaKey><span>:</span>
-                    <PrintMetaVal>{p.Bill_id || p.bill_no || "—"}</PrintMetaVal>
-                  </PrintMetaRow>
-                  <PrintMetaRow>
-                    <PrintMetaKey>Address</PrintMetaKey><span>:</span>
-                    <PrintMetaVal>{p.patient_details?.address || p.address || "—"}</PrintMetaVal>
-                  </PrintMetaRow>
-                  <PrintMetaRow>
-                    <PrintMetaKey>Ward Name</PrintMetaKey><span>:</span>
-                    <PrintMetaVal>{p.ward_name || p.room_no || "—"}</PrintMetaVal>
-                  </PrintMetaRow>
-                </PrintMetaGrid>
-
-                <PrintDateRow>{wardDateStr} &nbsp; {wardTimeStr}</PrintDateRow>
-                <PrintDoctorRow>Dr. {p.doctor_name || "—"}</PrintDoctorRow>
-
-                <PrintItemTable>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", marginBottom: 16 }}>
                   <thead>
-                    <tr>
-                      <PrintItemTh>Sl</PrintItemTh>
-                      <PrintItemTh>Brand Name</PrintItemTh>
-                      <PrintItemTh>Dosage</PrintItemTh>
-                      <PrintItemTh>Qty</PrintItemTh>
-                      <PrintItemTh>Remarks</PrintItemTh>
+                    <tr style={{ background: "#f8fafc", textAlign: "left" }}>
+                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Item Name</th>
+                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Type</th>
+                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Qty</th>
+                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Unit Price</th>
+                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Amount</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item, i) => (
-                      <tr key={i}>
-                        <PrintItemTd>{i + 1}</PrintItemTd>
-                        <PrintItemTd style={{ fontWeight: 600 }}>
-                          {item.item_name || item.medicine_name || "—"}
-                          {(item.is_substitute || item.substituted) && (
-                            <span style={{ marginLeft: 6, color: "#4f46e5", fontSize: "0.75rem" }}>(Substituted)</span>
-                          )}
-                        </PrintItemTd>
-                        <PrintItemTd>{item.dosage || item.dose || "—"}</PrintItemTd>
-                        <PrintItemTd>{item.qty ?? item.quantity ?? "—"}</PrintItemTd>
-                        <PrintItemTd>{item.remark || ""}</PrintItemTd>
-                      </tr>
-                    ))}
+                    {items.map((it, idx) => {
+                      const isCons = Boolean(it.is_consumable_items);
+                      const q = Number(it.qty ?? it.quantity ?? 0);
+                      const unitPrice = getUnitPrice(it);
+                      return (
+                        <tr key={idx}>
+                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}`, fontWeight: 600 }}>{it.item_name || it.medicine_name}</td>
+                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}` }}>
+                            {isCons ? <span style={{ color: "#c2410c", fontWeight: 700 }}>Consumable</span> : isInsurance ? <span style={{ color: "#15803d", fontWeight: 700 }}>Insurance</span> : "Regular"}
+                          </td>
+                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}` }}>{q}</td>
+                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}` }}>₹{unitPrice.toFixed(2)}</td>
+                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}`, fontWeight: 700 }}>₹{(q * unitPrice).toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
-                </PrintItemTable>
-              </PrintContent>
-              <PrintFooterBtns>
-                <CancelBtn onClick={() => setPrintPatient(null)}>Cancel</CancelBtn>
-                <PrintBtn onClick={handlePrint}>🖨 Print</PrintBtn>
-              </PrintFooterBtns>
-            </PrintModalBox>
-          </PrintOverlay>,
+                </table>
+
+                <div style={{ background: "#f0fdfa", border: "1.5px solid #99f6e4", borderRadius: 8, padding: "12px 16px", fontSize: "0.82rem" }}>
+                  <div style={{ fontWeight: 800, color: "#0f766e", marginBottom: 6 }}>
+                    {isInsurance ? "INSURANCE & IP ADVANCE BREAKDOWN" : "IP ADVANCE SUMMARY"}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                    <span>Total Prescription Amount:</span>
+                    <strong>₹{totalPrescriptionAmount.toFixed(2)}</strong>
+                  </div>
+                  {isInsurance && (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, color: "#15803d" }}>
+                        <span>Insurance Covered (Non-Payable):</span>
+                        <strong>₹{insuranceCoveredAmount.toFixed(2)}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, color: "#c2410c", fontWeight: 700 }}>
+                        <span>Payable Consumable Amount:</span>
+                        <strong>₹{consumablePayableAmount.toFixed(2)}</strong>
+                      </div>
+                    </>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, borderTop: "1px solid #cbd5e1", paddingTop: 4 }}>
+                    <span>Available IP Advance:</span>
+                    <span>₹{availableIpAdvance.toFixed(2)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, color: "#0284c7", fontWeight: 700 }}>
+                    <span>{isInsurance ? "Deducted for Consumables:" : "Deducted from IP Advance:"}</span>
+                    <span>- ₹{amountDeductedFromAdvance.toFixed(2)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, color: "#0f766e", borderTop: "1.5px solid #0f766e", paddingTop: 4 }}>
+                    <span>Remaining IP Advance:</span>
+                    <span>₹{remainingIpAdvance.toFixed(2)}</span>
+                  </div>
+                  {patientExcessToPay > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "#dc2626", fontWeight: 800, marginTop: 4 }}>
+                      <span>Excess Payable by Patient:</span>
+                      <span>₹{patientExcessToPay.toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              </ModalBody>
+              <ModalFooter>
+                <SecondaryBtn onClick={() => setPrintPatient(null)}>Close</SecondaryBtn>
+                <PrimaryBtn onClick={handlePrint}>
+                  <Printer size={15} />
+                  Print Now
+                </PrimaryBtn>
+              </ModalFooter>
+            </ModalBox>
+          </ModalOverlay>,
           document.body
         );
       })()}
