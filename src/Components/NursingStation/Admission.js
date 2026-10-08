@@ -7,6 +7,7 @@ import apiRequest from "../../Auth/apiRequest";
 import RoomShifting from "./RoomShifting";          // ← Room Shifting component
 import IPAdvance from "./IPAdvance";                // ← IP Advance component
 import AdmissionGrid from "./AdmissionGrid";
+import PatientSearchModal from "../Common/PatientSearchModal";
 import {
   PageWrapper, Container, ModalOverlay, ModalContainer,
   ModalHeader, ModalTitle, CloseButton, ModalBody,
@@ -1644,6 +1645,39 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   // ── IP Advance modal ─────────────────────────────────────────────────────
   const [ipAdvAdm, setIpAdvAdm] = useState(null); // adm object to prefill
 
+  // ── Patient search modal state & handlers ──────────────────────────────────
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchMode, setPatientSearchMode] = useState("uhid");
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+
+  const openUhidSearch = () => {
+    setPatientSearchMode("uhid");
+    setPatientSearchQuery(form.uhid || "");
+    setShowPatientModal(true);
+  };
+
+  const openIpSearch = () => {
+    setPatientSearchMode("ip");
+    setPatientSearchQuery(form.ipNumber || "");
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelect = (data) => {
+    if (patientSearchMode === "ip") {
+      const ip = data.ipNumber || data.ip_number || "";
+      if (ip) {
+        setForm(p => ({ ...p, ipNumber: ip }));
+        fetchAdmissionByIP(ip);
+      }
+    } else {
+      const uhid = data.uhid || data.UHID || "";
+      if (uhid) {
+        setForm(p => ({ ...p, uhid: uhid }));
+        fetchPatientByUHID(uhid);
+      }
+    }
+  };
+
   const showConfirm = (opts) => new Promise(resolve => {
     setConfirmModal({
       ...opts,
@@ -2800,8 +2834,14 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       placeholder="Enter UHID"
                       readOnly={!!editingId}
                       style={errors.uhid ? { borderColor: "#ef4444" } : {}}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !editingId) {
+                          e.preventDefault();
+                          openUhidSearch();
+                        }
+                      }}
                     />
-                    <IconBtn type="button" onClick={fetchPatientByUHID} disabled={!!editingId}>🔍</IconBtn>
+                    <IconBtn type="button" onClick={openUhidSearch} disabled={!!editingId} title="Search Patient">🔍</IconBtn>
                   </IRow>
                   {errors.uhid && <FieldError>{errors.uhid}</FieldError>}
                 </Field>
@@ -2823,8 +2863,14 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       placeholder={editingId ? "" : (nextIpPreview ? `Auto: ${nextIpPreview}` : "Enter IP to load admission")}
                       readOnly={!!editingId}
                       style={{ ...(editingId ? { background: "#f3f4f6" } : {}), ...(errors.ipNumber ? { borderColor: "#ef4444" } : {}) }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !editingId) {
+                          e.preventDefault();
+                          openIpSearch();
+                        }
+                      }}
                     />
-                    {!editingId && <IconBtn type="button" onClick={fetchAdmissionByIP} title="Search by IP">🔍</IconBtn>}
+                    {!editingId && <IconBtn type="button" onClick={openIpSearch} title="Search by IP">🔍</IconBtn>}
                   </IRow>
                   {errors.ipNumber && <FieldError>{errors.ipNumber}</FieldError>}
                 </Field>
@@ -3696,6 +3742,15 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           </ModalOverlay>
         );
       })()}
+
+      {/* ── Patient Search Modal ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientSelect}
+        initialQuery={patientSearchQuery}
+        mode={patientSearchMode}
+      />
 
     </PageWrapper>
   );
