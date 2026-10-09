@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import styled, { keyframes, css } from "styled-components";
 import { toast } from "react-toastify";
 
@@ -1066,6 +1067,7 @@ const EMPTY = {
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const RoomShifting = ({ patient, onClose, onSaved }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const location = useLocation();
 
   const [activeTab,     setActiveTab] = useState("create");
   const [form,          setForm]      = useState(EMPTY);
@@ -1111,9 +1113,13 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
   };
 
   useEffect(() => {
-    if (patient) {
-      const uhid = patient.uhid || patient.patient_details?.uhid;
-      const ipNumber = patient.ipNumber || patient.patient_details?.ipNumber;
+    const activePatient = patient || location.state?.patient;
+    const navIpNo = location.state?.ipNo;
+    const navUhid = location.state?.uhid;
+
+    if (activePatient || navIpNo || navUhid) {
+      const uhid = activePatient?.uhid || activePatient?.patient_details?.uhid || navUhid;
+      const ipNumber = activePatient?.ipNumber || activePatient?.ipNo || activePatient?.patient_details?.ipNumber || navIpNo;
       if (uhid || ipNumber) {
         const newFilters = { ...filters, uhid: uhid || "", ipNumber: ipNumber || "" };
         setFilters(newFilters);
@@ -1125,7 +1131,7 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
       fetchShiftings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patient]);
+  }, [patient, location.state]);
 
   const loadAdmission = async (params) => {
     try {

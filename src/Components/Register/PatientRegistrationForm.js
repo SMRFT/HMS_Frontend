@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import styled from "styled-components"
 import apiRequest from "../../Auth/apiRequest"
 import { useNavigate } from "react-router-dom"
@@ -60,6 +60,9 @@ const PatientRegistrationForm = () => {
   const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
+  const [modalFilterTerm, setModalFilterTerm] = useState("")
+  const [modalSearchLoading, setModalSearchLoading] = useState(false)
+  const [validationErrors, setValidationErrors] = useState({})
 
   // Clock state
   const [currentTime, setCurrentTime] = useState("");
@@ -129,6 +132,8 @@ const PatientRegistrationForm = () => {
   const [patients, setPatients] = useState([])
   const [motherName, setMotherName] = useState("")
   const [searchDoctorTerm, setSearchDoctorTerm] = useState("")
+  const [isRefDoctorDropdownOpen, setIsRefDoctorDropdownOpen] = useState(false)
+  const [refDoctorSearchQuery, setRefDoctorSearchQuery] = useState("")
   const [lastUhid, setLastUhid] = useState("")
   const [insuranceProviders, setInsuranceProviders] = useState([])
   const [customerTypes, setCustomerTypes] = useState([])
@@ -523,6 +528,10 @@ const PatientRegistrationForm = () => {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
 
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({ ...prev, [name]: false }))
+    }
+
     if (name === "firstName" || name === "lastName") {
       const newPatient = { ...patient, [name]: value }
       const fullName = `${newPatient.firstName} ${newPatient.lastName}`.trim()
@@ -569,23 +578,61 @@ const PatientRegistrationForm = () => {
   const handleSubmit = async (e) => {
     if (e) e.preventDefault()
 
-    if (!patient.emergencyContact) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Missing Information',
-        text: 'Please enter an Emergency Contact.'
-      });
-      return;
+    const errors = {}
+
+    if (!patient.customerType) errors.customerType = true
+    if (patient.customerType === "Insurance" && !patient.insuranceProviderCode) errors.insuranceProviderCode = true
+    if (!patient.salutation) errors.salutation = true
+    if (!patient.firstName || !patient.firstName.trim()) errors.firstName = true
+    if (!patient.lastName || !patient.lastName.trim()) errors.lastName = true
+    if (!patient.dob) errors.dob = true
+    if (!patient.gender) errors.gender = true
+    if (!patient.zipcode || !patient.zipcode.trim()) errors.zipcode = true
+
+    const cleanMobile = (patient.mobilePhone || "").replace(/\D/g, "")
+    if (!cleanMobile || cleanMobile.length !== 10) errors.mobilePhone = true
+
+    if (!patient.emergencyContact || !patient.emergencyContact.trim()) errors.emergencyContact = true
+    if (!patient.referredBy || !patient.referredBy.trim()) errors.referredBy = true
+    if (!patient.doctorId && !patient.doctorName) errors.consultingDoctor = true
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors)
+
+      const fieldOrder = [
+        "customerType",
+        "insuranceProviderCode",
+        "salutation",
+        "firstName",
+        "lastName",
+        "dob",
+        "gender",
+        "zipcode",
+        "mobilePhone",
+        "emergencyContact",
+        "referredBy",
+        "consultingDoctor"
+      ]
+
+      const firstErrorKey = fieldOrder.find(k => errors[k])
+      if (firstErrorKey) {
+        const elementId = firstErrorKey === "referredBy" ? "referredByContainer" : firstErrorKey
+        const el = document.getElementById(elementId) || document.getElementById(firstErrorKey)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          setTimeout(() => {
+            const inputEl = el.tagName === "INPUT" || el.tagName === "SELECT" ? el : el.querySelector("input, select")
+            if (inputEl) inputEl.focus()
+            else el.focus()
+          }, 350)
+        }
+      }
+
+      toast.error("Please fill all mandatory fields marked in red.")
+      return
     }
 
-    if (!patient.referredBy) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Missing Information',
-        text: 'Please select a Referred By doctor.'
-      });
-      return;
-    }
+    setValidationErrors({})
 
     const confirmResult = await Swal.fire({
       title: 'Confirm Registration Details',
@@ -738,36 +785,92 @@ const PatientRegistrationForm = () => {
     }
   }
 
-  const fetchPatients = async () => {
-    let query = ""
-    if (uhid) query = `uhid=${uhid}`
-    else if (ipNumber) query = `ip_number=${ipNumber}`
-    else if (mobile) query = `mobile=${mobile}`
+  const fetchPatients = async (queryOverride) => {
+    const params = new URLSearchParams()
+    if (uhid && typeof uhid === "string") params.append("uhid", uhid.trim())
+    if (ipNumber && typeof ipNumber === "string") params.append("ip_number", ipNumber.trim())
+    if (mobile && typeof mobile === "string") params.append("mobile", mobile.trim())
 
-    if (!query) {
-      toast.info("Please enter UHID, IP Number, or Mobile to search.");
-      return;
+    const customText = typeof queryOverride === "string" ? queryOverride.trim() : ""
+    const fallbackText = [uhid, ipNumber, mobile]
+      .filter(val => typeof val === "string" && val.trim())
+      .join(" ")
+      .trim()
+    const anyQuery = customText || fallbackText
+
+    if (!anyQuery) {
+      toast.info("Please enter UHID, IP Number, or Mobile (last 4 digits accepted) to search.")
+      return
     }
+    params.append("q", anyQuery)
 
-    const result = await apiRequest(`${Hmsbaseurl}create/?${query}`)
+    setModalSearchLoading(true)
+    const result = await apiRequest(`${Hmsbaseurl}create/?${params.toString()}`)
+    setModalSearchLoading(false)
     if (result.success) {
-      setPatients(result.data)
+      setPatients(result.data || [])
+      setModalFilterTerm(anyQuery)
       setShowSearchModal(true)
+    } else {
+      toast.error(result.error || "Search failed.")
     }
   }
 
+  const handleModalSearch = async (termToSearch) => {
+    const rawTerm = typeof termToSearch === "string" ? termToSearch : (modalFilterTerm || "")
+    const term = (typeof rawTerm === "string" ? rawTerm : "").trim()
+    if (!term) {
+      toast.info("Please enter search text (UHID, IP Number, Mobile, or Name).")
+      return
+    }
+    setModalSearchLoading(true)
+    try {
+      const result = await apiRequest(`${Hmsbaseurl}create/?q=${encodeURIComponent(term)}`)
+      if (result.success) {
+        setPatients(result.data || [])
+        if ((result.data || []).length === 0) {
+          toast.info("No matching patients found.")
+        }
+      } else {
+        toast.error(result.error || "Search failed.")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error performing search.")
+    } finally {
+      setModalSearchLoading(false)
+    }
+  }
+
+  const filteredModalPatients = useMemo(() => {
+    if (!modalFilterTerm || !modalFilterTerm.trim()) return patients
+    const term = modalFilterTerm.trim().toLowerCase()
+    return patients.filter((p) => {
+      const uhidVal = (p.uhid || "").toLowerCase()
+      const ipVal = (p.ip_number || "").toLowerCase()
+      const mobVal = (p.mobilePhone || "").toLowerCase()
+      const nameVal = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.toLowerCase()
+      return (
+        uhidVal.includes(term) ||
+        ipVal.includes(term) ||
+        mobVal.includes(term) ||
+        nameVal.includes(term)
+      )
+    })
+  }, [patients, modalFilterTerm])
+
   const handleSelectPatient = (selectedPatient) => {
     const fullName = `${selectedPatient.salutation || ""} ${selectedPatient.firstName || ""} ${selectedPatient.lastName || ""}`.trim()
-    let parsedWeight = selectedPatient.weight || "";
-    let parsedWeightUnit = "kg";
+    let parsedWeight = selectedPatient.weight || ""
+    let parsedWeightUnit = "kg"
     if (parsedWeight && typeof parsedWeight === 'string') {
-      const w = parsedWeight.trim();
+      const w = parsedWeight.trim()
       if (w.endsWith(" kg")) {
-        parsedWeight = w.replace(" kg", "");
-        parsedWeightUnit = "kg";
+        parsedWeight = w.replace(" kg", "")
+        parsedWeightUnit = "kg"
       } else if (w.endsWith(" g")) {
-        parsedWeight = w.replace(" g", "");
-        parsedWeightUnit = "g";
+        parsedWeight = w.replace(" g", "")
+        parsedWeightUnit = "g"
       }
     }
 
@@ -779,24 +882,47 @@ const PatientRegistrationForm = () => {
     }
 
     setPatient(mappedPatient)
+    if (selectedPatient.uhid) setUhid(selectedPatient.uhid)
+    if (selectedPatient.ip_number) setIpNumber(selectedPatient.ip_number)
+    if (selectedPatient.mobilePhone) setMobile(selectedPatient.mobilePhone)
+    setRefDoctorSearchQuery(selectedPatient.referredBy || "")
+    setIsRefDoctorDropdownOpen(false)
+    setModalFilterTerm("")
     setShowSearchModal(false)
   }
 
   const loadDoctors = async () => {
     const todayDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     const result = await apiRequest(`${Hmsbaseurl}doctor_schedule/`);
-    if (result.success) {
-      const doctorsData = result.data
-        .filter((doctor) => doctor.day_schedule && doctor.day_schedule.includes(todayDay))
-        .map((doctor) => ({
+    if (result.success && Array.isArray(result.data)) {
+      const doctorsData = result.data.map((doctor) => {
+        let fullName = (doctor.employeeName || `${doctor.first_name || ""} ${doctor.middle_name || ""} ${doctor.last_name || ""}`).trim();
+        if (!fullName) fullName = doctor.employeeId || "Doctor";
+        const displayName = fullName.startsWith("Dr.") || fullName.startsWith("DR.") ? fullName : `Dr. ${fullName}`;
+        const isScheduledToday = Boolean(doctor.day_schedule && doctor.day_schedule.includes(todayDay));
+        return {
           id: doctor.employeeId,
-          name: `${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name}`.trim(),
+          employeeId: doctor.employeeId,
+          name: displayName,
+          rawName: fullName,
           registrationFee: Number.parseFloat(doctor.registration_fee) || 0,
           consultingFee: Number.parseFloat(doctor.consulting_fee) || 0,
-          specialty: doctor.specialty,
+          specialty: doctor.specialty || doctor.department || "General",
+          department: doctor.department || "",
+          daySchedule: doctor.day_schedule || [],
+          isScheduledToday: isScheduledToday,
           type: "Internal"
-        }))
-      setDoctors(doctorsData)
+        };
+      });
+
+      // Sort: Today's scheduled doctors first, then alphabetical by name
+      doctorsData.sort((a, b) => {
+        if (a.isScheduledToday && !b.isScheduledToday) return -1;
+        if (!a.isScheduledToday && b.isScheduledToday) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      setDoctors(doctorsData);
     }
   };
 
@@ -840,6 +966,35 @@ const PatientRegistrationForm = () => {
     ...doctors.map(d => ({ ...d, label: `${d.name} (Internal)` })),
     ...referenceDoctors.map(d => ({ ...d, label: `${d.name} (${d.qualification || 'Ext'}) - ${d.area || ''}` }))
   ];
+
+  const handleRefDoctorSelect = (doc) => {
+    let phone = patient.referredDoctorPhone;
+    if (doc.type === "Reference") {
+      phone = doc.clinic_phone || doc.mobile1 || doc.mobile || "";
+    }
+    setPatient(prev => ({
+      ...prev,
+      referredBy: doc.name,
+      referredDoctorPhone: phone
+    }));
+    setRefDoctorSearchQuery(doc.name);
+    setSearchDoctorTerm(doc.name);
+    if (validationErrors.referredBy) {
+      setValidationErrors(prev => ({ ...prev, referredBy: false }));
+    }
+    setIsRefDoctorDropdownOpen(false);
+  };
+
+  const handleClearRefDoctor = (e) => {
+    if (e) e.stopPropagation();
+    setPatient(prev => ({
+      ...prev,
+      referredBy: "",
+      referredDoctorPhone: ""
+    }));
+    setRefDoctorSearchQuery("");
+    setSearchDoctorTerm("");
+  };
 
   const handleDoctorChange = (event) => {
     const doctorName = event.target.value
@@ -1033,6 +1188,8 @@ const PatientRegistrationForm = () => {
     setUhid("");
     setIpNumber("");
     setMobile("");
+    setRefDoctorSearchQuery("");
+    setIsRefDoctorDropdownOpen(false);
     setIsMlc(false);
     resetFeeCalculator(true);
     toast.info("Form cleared");
@@ -1096,28 +1253,31 @@ const PatientRegistrationForm = () => {
         <LookupField>
           <LookupInput
             type="text"
-            placeholder="UHID"
+            placeholder="UHID / Last 4 digits"
             value={uhid}
             onChange={(e) => setUhid(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && fetchPatients()}
           />
         </LookupField>
         <LookupField>
           <LookupInput
             type="text"
-            placeholder="IP number"
+            placeholder="IP number / Last 4 digits"
             value={ipNumber}
             onChange={(e) => setIpNumber(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && fetchPatients()}
           />
         </LookupField>
         <LookupField>
           <LookupInput
             type="text"
-            placeholder="Mobile"
+            placeholder="Mobile / Last 4 digits"
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && fetchPatients()}
           />
         </LookupField>
-        <SearchBtn onClick={fetchPatients}>
+        <SearchBtn onClick={() => fetchPatients()}>
           <Search size={14} /> Search
         </SearchBtn>
         <ClearBtn onClick={clearWholeForm}>Clear form</ClearBtn>
@@ -1143,13 +1303,17 @@ const PatientRegistrationForm = () => {
 
             <FormGrid columns={3}>
               <FormGroup>
-                <FormLabel htmlFor="customerType">Customer type *</FormLabel>
+                <FormLabel htmlFor="customerType">Customer type <ReqAsterisk>*</ReqAsterisk></FormLabel>
                 <FormSelect
                   id="customerType"
                   name="customerType"
+                  $hasError={Boolean(validationErrors.customerType)}
                   value={patient.customerType}
                   onChange={(e) => {
                     const selectedValue = e.target.value;
+                    if (validationErrors.customerType) {
+                      setValidationErrors(prev => ({ ...prev, customerType: false }));
+                    }
                     const typeObj = customerTypes.find(t => t.type_name === selectedValue);
                     const fee = typeObj ? parseFloat(typeObj.registration_fee) : 0;
                     setRegistrationFee(fee);
@@ -1180,10 +1344,11 @@ const PatientRegistrationForm = () => {
 
               {patient.customerType === "Insurance" && (
                 <FormGroup>
-                  <FormLabel htmlFor="insuranceProviderCode">Insurance Provider *</FormLabel>
+                  <FormLabel htmlFor="insuranceProviderCode">Insurance Provider <ReqAsterisk>*</ReqAsterisk></FormLabel>
                   <FormSelect
                     id="insuranceProviderCode"
                     name="insuranceProviderCode"
+                    $hasError={Boolean(validationErrors.insuranceProviderCode)}
                     value={patient.insuranceProviderCode}
                     onChange={handleChange}
                     required
@@ -1199,10 +1364,11 @@ const PatientRegistrationForm = () => {
               )}
 
               <FormGroup>
-                <FormLabel htmlFor="salutation">Salutation *</FormLabel>
+                <FormLabel htmlFor="salutation">Salutation <ReqAsterisk>*</ReqAsterisk></FormLabel>
                 <FormSelect
                   id="salutation"
                   name="salutation"
+                  $hasError={Boolean(validationErrors.salutation)}
                   value={patient.salutation}
                   onChange={handleChange}
                   required
@@ -1218,11 +1384,12 @@ const PatientRegistrationForm = () => {
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="firstName">First name *</FormLabel>
+                <FormLabel htmlFor="firstName">First name <ReqAsterisk>*</ReqAsterisk></FormLabel>
                 <FormInput
                   type="text"
                   id="firstName"
                   name="firstName"
+                  $hasError={Boolean(validationErrors.firstName)}
                   value={patient.firstName}
                   onChange={handleChange}
                   placeholder="First name"
@@ -1231,11 +1398,12 @@ const PatientRegistrationForm = () => {
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="lastName">Last name *</FormLabel>
+                <FormLabel htmlFor="lastName">Last name <ReqAsterisk>*</ReqAsterisk></FormLabel>
                 <FormInput
                   type="text"
                   id="lastName"
                   name="lastName"
+                  $hasError={Boolean(validationErrors.lastName)}
                   value={patient.lastName}
                   onChange={handleChange}
                   placeholder="Last name"
@@ -1244,11 +1412,12 @@ const PatientRegistrationForm = () => {
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="dob">Date of birth *</FormLabel>
+                <FormLabel htmlFor="dob">Date of birth <ReqAsterisk>*</ReqAsterisk></FormLabel>
                 <FormInput
                   type="date"
                   id="dob"
                   name="dob"
+                  $hasError={Boolean(validationErrors.dob)}
                   value={patient.dob}
                   onChange={handleChange}
                   required
@@ -1270,10 +1439,11 @@ const PatientRegistrationForm = () => {
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="gender">Gender *</FormLabel>
+                <FormLabel htmlFor="gender">Gender <ReqAsterisk>*</ReqAsterisk></FormLabel>
                 <FormSelect
                   id="gender"
                   name="gender"
+                  $hasError={Boolean(validationErrors.gender)}
                   value={patient.gender}
                   onChange={handleChange}
                   required
@@ -1406,11 +1576,12 @@ const PatientRegistrationForm = () => {
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="zipcode">Post code *</FormLabel>
+                <FormLabel htmlFor="zipcode">Post code <ReqAsterisk>*</ReqAsterisk></FormLabel>
                 <FormInput
                   type="text"
                   id="zipcode"
                   name="zipcode"
+                  $hasError={Boolean(validationErrors.zipcode)}
                   value={patient.zipcode}
                   onChange={handleChange}
                   placeholder="6 digits"
@@ -1456,17 +1627,29 @@ const PatientRegistrationForm = () => {
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="mobilePhone">Mobile phone *</FormLabel>
-                <FormInput
-                  type="text"
-                  id="mobilePhone"
-                  name="mobilePhone"
-                  value={patient.mobilePhone}
-                  onChange={handleChange}
-                  placeholder="10 digits"
-                  maxLength={10}
-                  required
-                />
+                <FormLabel htmlFor="mobilePhone">Mobile phone <ReqAsterisk>*</ReqAsterisk></FormLabel>
+                <PhoneInputWrapper id="mobilePhoneWrapper" $hasError={Boolean(validationErrors.mobilePhone)}>
+                  <CountryCodePrefix>+91</CountryCodePrefix>
+                  <PhoneInput
+                    type="text"
+                    id="mobilePhone"
+                    name="mobilePhone"
+                    value={patient.mobilePhone ? patient.mobilePhone.replace(/^\+?91\s*/, "") : ""}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (val.startsWith("+91")) val = val.slice(3).trim();
+                      if (val.startsWith("91") && val.length > 10) val = val.slice(2).trim();
+                      val = val.replace(/\D/g, "").slice(0, 10);
+                      if (validationErrors.mobilePhone) {
+                        setValidationErrors(prev => ({ ...prev, mobilePhone: false }));
+                      }
+                      setPatient(prev => ({ ...prev, mobilePhone: val }));
+                    }}
+                    placeholder="10 digit mobile number"
+                    maxLength={10}
+                    required
+                  />
+                </PhoneInputWrapper>
               </FormGroup>
 
               <FormGroup>
@@ -1482,11 +1665,12 @@ const PatientRegistrationForm = () => {
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="emergencyContact">Emergency contact *</FormLabel>
+                <FormLabel htmlFor="emergencyContact">Emergency contact <ReqAsterisk>*</ReqAsterisk></FormLabel>
                 <FormInput
                   type="text"
                   id="emergencyContact"
                   name="emergencyContact"
+                  $hasError={Boolean(validationErrors.emergencyContact)}
                   value={patient.emergencyContact}
                   onChange={handleChange}
                   placeholder="Name and number"
@@ -1496,100 +1680,89 @@ const PatientRegistrationForm = () => {
             </FormGrid>
           </DenseCardSection>
 
-          {/* 03 · VISIT & REFERRAL */}
+          {/* 03 · REFERRAL */}
           <DenseCardSection>
             <CardHeaderRow>
               <CardTitleGroup>
                 <SectionNumber>03</SectionNumber>
-                <SectionName>VISIT & REFERRAL</SectionName>
+                <SectionName>REFERRAL</SectionName>
               </CardTitleGroup>
               <InfoBadge>doctor set in fee panel</InfoBadge>
             </CardHeaderRow>
 
-            <FormGrid columns={3}>
+            <FormGrid columns={2}>
               <FormGroup>
-                <FormLabel htmlFor="visitType">Visit type</FormLabel>
-                <FormSelect
-                  id="visitType"
-                  name="visitType"
-                  value={patient.visitType}
-                  onChange={handleChange}
-                >
-                  <option value="New">New</option>
-                  <option value="Revisit">Revisit</option>
-                </FormSelect>
-              </FormGroup>
-
-              <FormGroup>
-                <FormLabel htmlFor="department">Department</FormLabel>
-                <FormSelect
-                  id="department"
-                  name="department"
-                  value={patient.department}
-                  onChange={handleChange}
-                >
-                  <option value="">Select</option>
-                  <option value="General Medicine">General Medicine</option>
-                  <option value="Cardiology">Cardiology</option>
-                  <option value="Pediatrics">Pediatrics</option>
-                  <option value="Orthopedics">Orthopedics</option>
-                  <option value="Gynecology">Gynecology</option>
-                  <option value="Neurology">Neurology</option>
-                  <option value="Dermatology">Dermatology</option>
-                  <option value="ENT">ENT</option>
-                  <option value="Ophthalmology">Ophthalmology</option>
-                </FormSelect>
-              </FormGroup>
-
-              <FormGroup>
-                <FormLabel htmlFor="referredBy">Referred by *</FormLabel>
-                <InputGroupInline>
-                  <ReactSelect
-                    options={allDoctors.map(d => ({ value: d.name, label: d.label, original: d }))}
-                    value={patient.referredBy ? { value: patient.referredBy, label: allDoctors.find(d => d.name === patient.referredBy)?.label || patient.referredBy } : null}
-                    onChange={(selected) => {
-                      const value = selected ? selected.value : "";
-                      setSearchDoctorTerm(value);
-                      let phone = patient.referredDoctorPhone;
-                      if (selected && selected.original && selected.original.type === "Reference") {
-                         phone = selected.original.clinic_phone || selected.original.mobile1 || selected.original.mobile || "";
-                      }
-                      setPatient(prev => ({
-                        ...prev,
-                        referredBy: value,
-                        referredDoctorPhone: phone
-                      }));
-                    }}
-                    placeholder="Doctor or hospital"
-                    isClearable
-                    styles={{
-                      container: (base) => ({
-                        ...base,
-                        flex: 1,
-                      }),
-                      control: (base) => ({
-                        ...base,
-                        minHeight: '38px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '0.375rem',
-                        boxShadow: 'none',
-                        '&:hover': {
-                          border: '1px solid #0f766e',
+                <FormLabel htmlFor="referredBy">Referred by <ReqAsterisk>*</ReqAsterisk></FormLabel>
+                <InputGroupInline id="referredByContainer">
+                  <SearchableSelectWrapper style={{ flex: 1 }}>
+                    <FormInput
+                      type="text"
+                      id="referredBy"
+                      name="referredBy"
+                      placeholder="Search or select doctor / hospital"
+                      value={patient.referredBy || ""}
+                      $hasError={Boolean(validationErrors.referredBy)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRefDoctorSearchQuery(val);
+                        setPatient(prev => ({ ...prev, referredBy: val }));
+                        setSearchDoctorTerm(val);
+                        if (validationErrors.referredBy) {
+                          setValidationErrors(prev => ({ ...prev, referredBy: false }));
                         }
-                      }),
-                      menu: (base) => ({
-                        ...base,
-                        zIndex: 9999,
-                        backgroundColor: 'white',
-                      }),
-                      option: (base, state) => ({
-                        ...base,
-                        backgroundColor: state.isFocused ? '#f3f4f6' : 'white',
-                        color: '#1f2937',
-                        cursor: 'pointer',
-                      })
-                    }}
-                  />
+                        setIsRefDoctorDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsRefDoctorDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setIsRefDoctorDropdownOpen(false), 250)}
+                      style={{ paddingRight: patient.referredBy ? '28px' : '8px' }}
+                      autoComplete="off"
+                    />
+                    {patient.referredBy && (
+                      <ClearRefDoctorBtn onClick={handleClearRefDoctor} type="button" title="Clear doctor">
+                        <X size={14} />
+                      </ClearRefDoctorBtn>
+                    )}
+                    {isRefDoctorDropdownOpen && (
+                      <LightDropdownList>
+                        {allDoctors
+                          .filter(doc => {
+                            const query = (refDoctorSearchQuery || patient.referredBy || "").toLowerCase();
+                            if (!query) return true;
+                            const name = (doc.name || "").toLowerCase();
+                            const qual = (doc.qualification || doc.specialty || "").toLowerCase();
+                            const area = (doc.area || "").toLowerCase();
+                            const clinic = (doc.clinic_name || "").toLowerCase();
+                            return name.includes(query) || qual.includes(query) || area.includes(query) || clinic.includes(query);
+                          })
+                          .map((doc, index) => (
+                            <LightDropdownItem key={index} onMouseDown={() => handleRefDoctorSelect(doc)}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: '600', color: '#111827', fontSize: '12px' }}>{doc.name}</span>
+                                <DoctorTypeTag isRef={doc.type === "Reference"}>
+                                  {doc.type === "Reference" ? "External" : "Internal"}
+                                </DoctorTypeTag>
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                                {[doc.qualification || doc.specialty, doc.area, doc.clinic_name].filter(Boolean).join(" · ")}
+                              </div>
+                            </LightDropdownItem>
+                          ))}
+                        {allDoctors.filter(doc => {
+                          const query = (refDoctorSearchQuery || patient.referredBy || "").toLowerCase();
+                          if (!query) return true;
+                          const name = (doc.name || "").toLowerCase();
+                          const qual = (doc.qualification || doc.specialty || "").toLowerCase();
+                          const area = (doc.area || "").toLowerCase();
+                          const clinic = (doc.clinic_name || "").toLowerCase();
+                          return name.includes(query) || qual.includes(query) || area.includes(query) || clinic.includes(query);
+                        }).length === 0 && (
+                          <div style={{ padding: '10px 12px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
+                            No matching doctor. Type freely or click + to add.
+                          </div>
+                        )}
+                      </LightDropdownList>
+                    )}
+                  </SearchableSelectWrapper>
                   <AddDoctorBtn type="button" onClick={() => setIsModalOpen(true)} title="Add Ref Doctor">
                     <Plus size={14} />
                   </AddDoctorBtn>
@@ -1793,17 +1966,20 @@ const PatientRegistrationForm = () => {
             <FeeCardHeader>FEE CALCULATOR</FeeCardHeader>
 
             <FeeFieldGroup>
-              <FeeLabel htmlFor="consultingDoctor">Consulting doctor *</FeeLabel>
+              <FeeLabel htmlFor="consultingDoctor">Consulting doctor <ReqAsterisk>*</ReqAsterisk></FeeLabel>
               <SearchableSelectWrapper>
                 <FeeSelectInput
                   type="text"
                   id="consultingDoctor"
+                  $hasError={Boolean(validationErrors.consultingDoctor)}
                   placeholder="Search or select doctor"
                   value={patient.doctorName || ""}
                   onChange={handleDoctorChange}
                   onFocus={() => setIsDoctorDropdownOpen(true)}
+                  onClick={() => setIsDoctorDropdownOpen(true)}
                   onBlur={() => setTimeout(() => setIsDoctorDropdownOpen(false), 250)}
                   style={{ paddingRight: patient.doctorName ? '28px' : '8px' }}
+                  autoComplete="off"
                 />
                 {patient.doctorName && (
                   <ClearDoctorBtn onClick={handleClearDoctor} type="button" title="Change or clear doctor">
@@ -1814,20 +1990,58 @@ const PatientRegistrationForm = () => {
                   <DarkDropdownList>
                     {doctors
                       .filter(doc => {
-                        const search = (doctorSearchQuery || patient.doctorName || "").toLowerCase();
-                        if (!search || search === (patient.doctorName || "").toLowerCase()) return true;
-                        return doc.name.toLowerCase().includes(search) || (doc.specialty && doc.specialty.toLowerCase().includes(search));
+                        const rawQuery = (doctorSearchQuery !== undefined && doctorSearchQuery !== null ? doctorSearchQuery : "").trim();
+                        // If no search query typed, or query equals current selected doctor, show all doctors!
+                        if (!rawQuery || rawQuery.toLowerCase() === (patient.doctorName || "").trim().toLowerCase()) {
+                          return true;
+                        }
+                        const q = rawQuery.toLowerCase();
+                        const cleanQ = q.replace(/^dr\.?\s*/i, "");
+                        const docName = (doc.name || "").toLowerCase();
+                        const rawName = (doc.rawName || "").toLowerCase();
+                        const specialty = (doc.specialty || "").toLowerCase();
+                        const dept = (doc.department || "").toLowerCase();
+                        return (
+                          docName.includes(q) ||
+                          rawName.includes(q) ||
+                          (cleanQ && (docName.includes(cleanQ) || rawName.includes(cleanQ))) ||
+                          specialty.includes(q) ||
+                          dept.includes(q)
+                        );
                       })
                       .map((doctor, index) => (
                         <DarkDropdownItem key={index} onMouseDown={() => handleDoctorSelect(doctor)}>
-                          <div style={{ fontWeight: '600' }}>{doctor.name}</div>
-                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>{doctor.specialty || 'General'} · Consulting: ₹{doctor.consultingFee || 0}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: '600' }}>{doctor.name}</span>
+                            {doctor.isScheduledToday && (
+                              <span style={{ fontSize: '10px', color: '#34d399', background: 'rgba(52, 211, 153, 0.15)', padding: '1px 5px', borderRadius: '3px' }}>
+                                Today
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+                            {[doctor.specialty || doctor.department, `Consulting: ₹${doctor.consultingFee || 0}`].filter(Boolean).join(" · ")}
+                          </div>
                         </DarkDropdownItem>
                       ))}
                     {doctors.length > 0 && doctors.filter(doc => {
-                      const search = (doctorSearchQuery || patient.doctorName || "").toLowerCase();
-                      if (!search || search === (patient.doctorName || "").toLowerCase()) return true;
-                      return doc.name.toLowerCase().includes(search) || (doc.specialty && doc.specialty.toLowerCase().includes(search));
+                      const rawQuery = (doctorSearchQuery !== undefined && doctorSearchQuery !== null ? doctorSearchQuery : "").trim();
+                      if (!rawQuery || rawQuery.toLowerCase() === (patient.doctorName || "").trim().toLowerCase()) {
+                        return true;
+                      }
+                      const q = rawQuery.toLowerCase();
+                      const cleanQ = q.replace(/^dr\.?\s*/i, "");
+                      const docName = (doc.name || "").toLowerCase();
+                      const rawName = (doc.rawName || "").toLowerCase();
+                      const specialty = (doc.specialty || "").toLowerCase();
+                      const dept = (doc.department || "").toLowerCase();
+                      return (
+                        docName.includes(q) ||
+                        rawName.includes(q) ||
+                        (cleanQ && (docName.includes(cleanQ) || rawName.includes(cleanQ))) ||
+                        specialty.includes(q) ||
+                        dept.includes(q)
+                      );
                     }).length === 0 && (
                       <DarkDropdownItem style={{ color: '#9ca3af', cursor: 'default' }}>No doctors found</DarkDropdownItem>
                     )}
@@ -1932,10 +2146,58 @@ const PatientRegistrationForm = () => {
         title="Search Results"
         footer={<CancelBtn onClick={() => setShowSearchModal(false)}>Close</CancelBtn>}
       >
+        <ModalSearchContainer>
+          <ModalSearchInputWrapper>
+            <Search size={15} color="#004d40" />
+            <ModalSearchInput
+              type="text"
+              placeholder="Search or filter in modal (UHID, IP Number, Mobile, Name)..."
+              value={modalFilterTerm}
+              onChange={(e) => setModalFilterTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleModalSearch(modalFilterTerm);
+                }
+              }}
+              autoFocus
+            />
+            {modalFilterTerm && (
+              <ModalClearBtn type="button" onClick={() => setModalFilterTerm("")} title="Clear filter">
+                <X size={14} />
+              </ModalClearBtn>
+            )}
+          </ModalSearchInputWrapper>
+          <SearchBtn
+            type="button"
+            onClick={() => handleModalSearch(modalFilterTerm)}
+            disabled={modalSearchLoading}
+            style={{ height: '36px', whiteSpace: 'nowrap' }}
+          >
+            <Search size={14} />
+            {modalSearchLoading ? "Searching..." : "Search"}
+          </SearchBtn>
+        </ModalSearchContainer>
+
+        <ModalResultCountBar>
+          <span>
+            {filteredModalPatients.length === patients.length ? (
+              `Showing all ${patients.length} results`
+            ) : (
+              `Filtered ${filteredModalPatients.length} of ${patients.length} results`
+            )}
+          </span>
+          {modalFilterTerm && (
+            <span style={{ color: '#0d9488' }}>
+              Filter: "<strong>{modalFilterTerm}</strong>"
+            </span>
+          )}
+        </ModalResultCountBar>
+
         <Table>
           <TableHeader>
             <TableRow>
               <TableHeaderCell>UHID</TableHeaderCell>
+              <TableHeaderCell>IP Number</TableHeaderCell>
               <TableHeaderCell>Name</TableHeaderCell>
               <TableHeaderCell>Gender</TableHeaderCell>
               <TableHeaderCell>Mobile</TableHeaderCell>
@@ -1943,21 +2205,26 @@ const PatientRegistrationForm = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {patients.length > 0 ? (
-              patients.map((p, idx) => (
+            {filteredModalPatients.length > 0 ? (
+              filteredModalPatients.map((p, idx) => (
                 <TableRow key={idx}>
-                  <TableCell>{p.uhid}</TableCell>
-                  <TableCell>{`${p.salutation || ""} ${p.firstName} ${p.lastName}`.trim()}</TableCell>
+                  <TableCell><strong>{p.uhid}</strong></TableCell>
+                  <TableCell>{p.ip_number || "-"}</TableCell>
+                  <TableCell>{`${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim()}</TableCell>
                   <TableCell>{p.gender}</TableCell>
                   <TableCell>{p.mobilePhone}</TableCell>
                   <TableCell>
-                    <HeaderBtn small onClick={() => handleSelectPatient(p)}>Renew</HeaderBtn>
+                    <HeaderBtn small onClick={() => handleSelectPatient(p)}>Select / Renew</HeaderBtn>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center">No patients found</TableCell>
+                <TableCell colSpan={6} className="text-center" style={{ padding: '24px 12px', color: '#6b7280' }}>
+                  {patients.length > 0
+                    ? `No loaded patients match "${modalFilterTerm}". Click "Search" above to query server.`
+                    : "No patients found. Try searching with another UHID, Mobile number, or IP Number."}
+                </TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -2178,9 +2445,11 @@ const PatientRegistrationForm = () => {
           closeModal={() => setIsModalOpen(false)}
           setReferredBy={(name) => {
             setPatient(prev => ({ ...prev, referredBy: name }));
+            setRefDoctorSearchQuery(name);
             setSearchDoctorTerm(name);
           }}
           fetchReferenceDoctors={loadReferenceDoctors}
+          areaOptions={areaOptions}
         />
       )}
     </PageWrapper>
@@ -2497,38 +2766,94 @@ const FormLabel = styled.label`
   font-size: 11px;
   font-weight: 600;
   color: #4b5563;
+  display: flex;
+  align-items: center;
+`
+
+const ReqAsterisk = styled.span`
+  color: #ef4444;
+  font-weight: 700;
+  margin-left: 3px;
+  font-size: 13px;
 `
 
 const FormInput = styled.input`
   height: 32px;
   padding: 0 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid ${props => props.$hasError ? '#ef4444' : '#d1d5db'};
+  background-color: ${props => props.$hasError ? '#fef2f2' : '#ffffff'};
   border-radius: 4px;
   font-size: 12px;
   color: #111827;
   outline: none;
   width: 100%;
   box-sizing: border-box;
+  transition: all 0.15s ease;
 
   &:focus {
-    border-color: #004d40;
+    border-color: ${props => props.$hasError ? '#ef4444' : '#004d40'};
+    box-shadow: ${props => props.$hasError ? '0 0 0 2px rgba(239, 68, 68, 0.25)' : 'none'};
   }
+`
+
+const PhoneInputWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  border: 1px solid ${props => props.$hasError ? '#ef4444' : '#d1d5db'};
+  background-color: ${props => props.$hasError ? '#fef2f2' : 'white'};
+  border-radius: 4px;
+  overflow: hidden;
+  height: 32px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+
+  &:focus-within {
+    border-color: ${props => props.$hasError ? '#ef4444' : '#004d40'};
+    box-shadow: ${props => props.$hasError ? '0 0 0 2px rgba(239, 68, 68, 0.25)' : '0 0 0 1px #004d40'};
+  }
+`
+
+const CountryCodePrefix = styled.span`
+  background-color: #f3f4f6;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 8px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid #d1d5db;
+  user-select: none;
+  white-space: nowrap;
+`
+
+const PhoneInput = styled.input`
+  height: 100%;
+  padding: 0 8px;
+  border: none;
+  font-size: 12px;
+  color: #111827;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
 `
 
 const FormSelect = styled.select`
   height: 32px;
   padding: 0 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid ${props => props.$hasError ? '#ef4444' : '#d1d5db'};
+  background-color: ${props => props.$hasError ? '#fef2f2' : 'white'};
   border-radius: 4px;
   font-size: 12px;
   color: #111827;
   outline: none;
-  background-color: white;
   width: 100%;
   box-sizing: border-box;
+  transition: all 0.15s ease;
 
   &:focus {
-    border-color: #004d40;
+    border-color: ${props => props.$hasError ? '#ef4444' : '#004d40'};
+    box-shadow: ${props => props.$hasError ? '0 0 0 2px rgba(239, 68, 68, 0.25)' : 'none'};
   }
 `
 
@@ -2645,19 +2970,23 @@ const FeeLabel = styled.label`
   font-size: 11px;
   font-weight: 600;
   color: #e5e7eb;
+  display: flex;
+  align-items: center;
 `
 
 const FeeSelectInput = styled.input`
   width: 100%;
   height: 32px;
   padding: 0 8px;
-  background: #24342d;
-  border: 1px solid #374151;
+  background: ${props => props.$hasError ? '#451a1a' : '#24342d'};
+  border: 1px solid ${props => props.$hasError ? '#ef4444' : '#374151'};
   border-radius: 4px;
   color: white;
   font-size: 12px;
   outline: none;
   box-sizing: border-box;
+  box-shadow: ${props => props.$hasError ? '0 0 0 2px rgba(239, 68, 68, 0.3)' : 'none'};
+  transition: all 0.15s ease;
 
   &::placeholder {
     color: #9ca3af;
@@ -2691,12 +3020,75 @@ const ClearDoctorBtn = styled.button`
   }
 `
 
+const ClearRefDoctorBtn = styled.button`
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 50%;
+  z-index: 5;
+
+  &:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+  }
+`
+
+const LightDropdownList = styled.ul`
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  z-index: 9999;
+  list-style: none;
+  padding: 4px 0;
+  margin: 4px 0 0 0;
+`
+
+const LightDropdownItem = styled.li`
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.12s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: #f0fdfa;
+  }
+`
+
+const DoctorTypeTag = styled.span`
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: ${props => props.isRef ? '#e0f2fe' : '#d1fae5'};
+  color: ${props => props.isRef ? '#0369a1' : '#047857'};
+`
+
 const DarkDropdownList = styled.ul`
   position: absolute;
   top: 100%;
   left: 0;
   width: 100%;
-  max-height: 160px;
+  max-height: 220px;
   overflow-y: auto;
   background: #17231e;
   border: 1px solid #374151;
@@ -3028,6 +3420,72 @@ const DetailLine = styled.div`
   strong {
     color: #111827;
   }
+`
+
+const ModalSearchContainer = styled.div`
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+`
+
+const ModalSearchInputWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0 10px;
+  height: 36px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+
+  &:focus-within {
+    border-color: #004d40;
+    background: #ffffff;
+    box-shadow: 0 0 0 2px rgba(0, 77, 64, 0.15);
+  }
+`
+
+const ModalSearchInput = styled.input`
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: #111827;
+  width: 100%;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+`
+
+const ModalClearBtn = styled.button`
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 50%;
+
+  &:hover {
+    color: #ef4444;
+  }
+`
+
+const ModalResultCountBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 10px;
+  padding: 0 2px;
 `
 
 export default PatientRegistrationForm

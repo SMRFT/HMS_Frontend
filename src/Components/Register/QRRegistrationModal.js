@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { QRCodeCanvas } from 'qrcode.react';
-import { X, RefreshCw, Search, Printer, Send } from 'lucide-react';
+import { X, RefreshCw, Search, Printer, Send, Copy, Check, ExternalLink } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 
 const Overlay = styled.div`
@@ -476,6 +476,7 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
   const [pendingList, setPendingList] = useState([]);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending' or 'consumed'
   const [searchTerm, setSearchTerm] = useState("");
+  const [copied, setCopied] = useState(false);
   const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   useEffect(() => {
@@ -544,7 +545,16 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
 
   if (!isOpen) return null;
 
-  const registrationUrl = `${window.location.origin}/MobileRegistration`;
+  const publicBase = process.env.PUBLIC_URL || '';
+  const registrationUrl = `${window.location.origin}${publicBase}/MobileRegistration`;
+
+  const handleCopyLink = () => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(registrationUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const filteredList = pendingList.filter(p =>
     (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -565,8 +575,55 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
           <LeftSubtitle>Ask the patient to scan with their phone camera.</LeftSubtitle>
 
           <QRCard>
-            <QRCodeCanvas value={registrationUrl} size={180} />
-            <QRSubtext>hms.smrft.org/self-register</QRSubtext>
+            <QRCodeCanvas value={registrationUrl} size={180} level="H" />
+            <QRSubtext title={registrationUrl}>
+              {registrationUrl.replace(/^https?:\/\//, '')}
+            </QRSubtext>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', width: '100%' }}>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  background: copied ? '#ecfdf5' : '#f8fafc',
+                  color: copied ? '#059669' : '#334155',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? "Copied" : "Copy Link"}
+              </button>
+              <a
+                href={registrationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  textDecoration: 'none'
+                }}
+              >
+                <ExternalLink size={14} /> Open
+              </a>
+            </div>
           </QRCard>
 
           <HowItWorksSection>
