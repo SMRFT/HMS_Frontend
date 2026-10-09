@@ -24,6 +24,7 @@ import {
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import styled from "styled-components";
+import PatientSearchModal from "../Common/PatientSearchModal";
 import {
   colors,
   Container,
@@ -1388,63 +1389,95 @@ const SurgerySchedule = () => {
   // Maps API response fields (firstName, lastName, age, etc.) to form state
   const applyPatientData = (p, extra = {}) => {
     // Build address line from area / city / state / zipcode
-    const addressParts = [p.area, p.city, p.state, p.zipcode].filter(Boolean);
+    const addressParts = [p.area, p.city, p.state, p.zipcode, p.permanent_address].filter(Boolean);
     const addressLine = addressParts.join(", ");
 
     setFormData((prev) => ({
       ...prev,
       patient_name:
-        `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim(),
+        `${p.salutation || ""} ${p.firstName || p.first_name || ""} ${p.lastName || p.last_name || ""}`.trim(),
       gender: p.gender || "",
       age: String(p.age || ""),
-      age_type: String(p.age_type || ""),
-      customer_type: p.customer_type || "",
-      company_name: p.company_name || "",
+      age_type: String(p.age_type || p.ageType || ""),
+      customer_type: p.customer_type || p.customerType || "",
+      company_name: p.company_name || p.insuranceCompanyName || "",
       company_code: p.company_code || "",
-      address: addressLine,
+      address: addressLine || prev.address || "",
       ...extra,
     }));
   };
 
-  const lookupByUHID = async () => {
-    if (!formData.uhid_no.trim()) {
-      toast.error("Enter UHID No");
-      return;
-    }
-    try {
-      const res = await apiRequest(
-        `${HMSURL}op-patient/${encodeURIComponent(formData.uhid_no)}/`,
-        "GET",
-      );
-      if (res.success && res.data) {
-        applyPatientData(res.data);
-      } else {
-        toast.error(res.error || "Patient not found");
-      }
-    } catch {
-      toast.error("UHID lookup failed");
-    }
+  // ── Patient search modal state & handlers ──────────────────────────────────
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchMode, setPatientSearchMode] = useState("uhid");
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+
+  const openUhidModal = () => {
+    setPatientSearchMode("uhid");
+    setPatientSearchQuery(formData.uhid_no || "");
+    setShowPatientModal(true);
   };
 
-  const lookupByIP = async () => {
-    if (!formData.ip_number.trim()) {
-      toast.error("Enter IP No");
-      return;
-    }
-    try {
-      const res = await apiRequest(
-        `${HMSURL}ip-patient/${encodeURIComponent(formData.ip_number)}/`,
-        "GET",
-      );
-      if (res.success && res.data) {
-        // IP lookup also fills UHID back into the form
-        applyPatientData(res.data, { uhid_no: res.data.uhid || "" });
-      } else {
-        toast.error(res.error || "Patient not found");
+  const openIpModal = () => {
+    setPatientSearchMode("ip");
+    setPatientSearchQuery(formData.ip_number || "");
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelect = (p) => {
+    let calculatedAge = p.age || "";
+    let ageType = p.age_type || p.ageType || "Y";
+    if (p.dob) {
+      const birth = new Date(p.dob);
+      const today = new Date();
+      let years = today.getFullYear() - birth.getFullYear();
+      let months = today.getMonth() - birth.getMonth();
+      let days = today.getDate() - birth.getDate();
+      if (days < 0) {
+        months -= 1;
+        days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
       }
-    } catch {
-      toast.error("IP lookup failed");
+      if (months < 0) {
+        years -= 1;
+        months += 12;
+      }
+      if (years >= 1) {
+        calculatedAge = String(years);
+        ageType = "Y";
+      } else if (months >= 1) {
+        calculatedAge = String(months);
+        ageType = "M";
+      } else {
+        calculatedAge = String(days);
+        ageType = "D";
+      }
     }
+
+    const addressParts = [p.area, p.city, p.state, p.zipcode, p.permanent_address].filter(Boolean);
+    const addressLine = addressParts.join(", ");
+
+    setFormData((prev) => ({
+      ...prev,
+      uhid_no: p.uhid || p.UHID || prev.uhid_no || "",
+      ip_number: p.ipNumber || p.ip_number || prev.ip_number || "",
+      patient_name:
+        `${p.salutation || ""} ${p.firstName || p.first_name || ""} ${p.lastName || p.last_name || ""}`.trim(),
+      gender: p.gender || "",
+      age: String(calculatedAge || ""),
+      age_type: String(ageType || ""),
+      customer_type: p.customer_type || p.customerType || "",
+      company_name: p.company_name || p.insuranceCompanyName || "",
+      company_code: p.company_code || "",
+      address: addressLine || prev.address || "",
+    }));
+  };
+
+  const lookupByUHID = () => {
+    openUhidModal();
+  };
+
+  const lookupByIP = () => {
+    openIpModal();
   };
 
   // ── Form helpers ──────────────────────────────────────────────────────────
@@ -2177,32 +2210,47 @@ const SurgerySchedule = () => {
           <FormPanel>
             <FormGrid>
               {/* UHID */}
-              {/* <FormGroup span={2}>
-                <Label>
-                  UHID No <Required>*</Required>
-                </Label>
+              {/* UHID No */}
+              <FormGroup span={2}>
+                <Label>UHID No</Label>
                 <SearchIconInput>
                   <input
                     name="uhid_no"
+                    placeholder="e.g. 022 or 22"
                     value={formData.uhid_no}
                     onChange={handleChange}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        openUhidModal();
+                      }
+                    }}
                   />
-                  <button onClick={lookupByUHID}>
+                  <button type="button" onClick={openUhidModal}>
                     <Search size={14} />
                   </button>
                 </SearchIconInput>
-              </FormGroup> */}
+              </FormGroup>
 
               {/* IP No */}
               <FormGroup span={2}>
-                <Label>IP No</Label>
+                <Label>
+                  IP No <Required>*</Required>
+                </Label>
                 <SearchIconInput>
                   <input
                     name="ip_number"
+                    placeholder="e.g. 022 or 22"
                     value={formData.ip_number}
                     onChange={handleChange}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        openIpModal();
+                      }
+                    }}
                   />
-                  <button onClick={lookupByIP}>
+                  <button type="button" onClick={openIpModal}>
                     <Search size={14} />
                   </button>
                 </SearchIconInput>
@@ -3612,6 +3660,16 @@ const SurgerySchedule = () => {
           </PostponeBox>
         </ModalBackdrop>
       )}
+
+      {/* ── Patient Search Suggestions Modal ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientSelect}
+        initialQuery={patientSearchQuery}
+        mode={patientSearchMode}
+      />
+
       <div id="popover-root" />
     </Container>
   );

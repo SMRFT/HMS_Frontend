@@ -4,7 +4,7 @@ import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import { 
     BarChart3, TrendingUp, Calendar, RefreshCw, Download, 
-    Building2, Package, DollarSign, PieChart, ArrowUpRight, Search
+    Building2, Package, PieChart, Search
 } from 'lucide-react';
 import {
     PageWrapper,

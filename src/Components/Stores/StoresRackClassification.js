@@ -4,8 +4,9 @@ import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
 import { 
     Grid, Barcode, Search, RefreshCw, Download, 
-    Save, Edit, CheckCircle, Package, Layers, X, Plus, Trash2, Tag, Box
+    Save, Edit, CheckCircle, Package, Layers, X, Plus, Trash2, Tag, Box, AlertCircle
 } from 'lucide-react';
+import TablePagination, { usePagination } from './TablePagination';
 import {
     PageWrapper,
     Container,
@@ -119,6 +120,24 @@ const StoresRackClassification = () => {
     const [newShelfRackId, setNewShelfRackId] = useState('');
     const [newShelfDesc, setNewShelfDesc] = useState('');
     const [masterLoading, setMasterLoading] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ASSIGNED' | 'UNASSIGNED'
+
+    const filteredItemsList = itemsList.filter(it => {
+        if (statusFilter === 'ASSIGNED') return !!it.rack_no;
+        if (statusFilter === 'UNASSIGNED') return !it.rack_no;
+        return true;
+    });
+
+    const {
+        currentPage,
+        pageSize,
+        totalPages,
+        pageData,
+        goTo,
+        handlePageSizeChange,
+        startIdx,
+        totalItems
+    } = usePagination(filteredItemsList, 15);
 
     useEffect(() => {
         fetchItems();
@@ -359,61 +378,126 @@ const StoresRackClassification = () => {
                     </div>
                 </div>
 
-                {/* Filters */}
-                <ControlsContainer style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Filter Rack</label>
-                        <ReactSelect
-                            options={[
-                                { value: '', label: 'All Racks' },
-                                ...racks.map(r => ({ value: r, label: `Rack ${r}` }))
-                            ]}
-                            value={[
-                                { value: '', label: 'All Racks' },
-                                ...racks.map(r => ({ value: r, label: `Rack ${r}` }))
-                            ].find(opt => opt.value === selectedRack) || { value: '', label: 'All Racks' }}
-                            onChange={opt => setSelectedRack(opt ? opt.value : '')}
-                            styles={customSelectStyles}
-                            menuPortalTarget={document.body}
-                            isSearchable
-                            placeholder="Search Rack..."
-                        />
+                {/* KPI Summary Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+                    <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Catalog Items</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0284c7', marginTop: '2px' }}>{itemsList.length}</div>
+                        </div>
+                        <Package size={28} color="#0284c7" style={{ opacity: 0.35 }} />
                     </div>
-                    <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Filter Shelf</label>
-                        <ReactSelect
-                            options={[
-                                { value: '', label: 'All Shelves' },
-                                ...shelves.map(s => ({ value: s, label: `Shelf ${s}` }))
-                            ]}
-                            value={[
-                                { value: '', label: 'All Shelves' },
-                                ...shelves.map(s => ({ value: s, label: `Shelf ${s}` }))
-                            ].find(opt => opt.value === selectedShelf) || { value: '', label: 'All Shelves' }}
-                            onChange={opt => setSelectedShelf(opt ? opt.value : '')}
-                            styles={customSelectStyles}
-                            menuPortalTarget={document.body}
-                            isSearchable
-                            placeholder="Search Shelf..."
-                        />
+                    <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Assigned to Racks</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#16a34a', marginTop: '2px' }}>{itemsList.filter(it => it.rack_no).length}</div>
+                        </div>
+                        <CheckCircle size={28} color="#16a34a" style={{ opacity: 0.35 }} />
                     </div>
-                    <div style={{ flex: '1 1 250px', minWidth: '200px' }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Scan / Search Barcode or Item</label>
-                        <Input 
-                            type="text" 
-                            placeholder="Scan Barcode, Item Name, Rack..." 
-                            value={searchTerm} 
-                            onChange={e => setSearchTerm(e.target.value)} 
-                            style={{ width: '100%' }}
-                        />
+                    <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: itemsList.filter(it => !it.rack_no).length > 0 ? '1px solid #fca5a5' : '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ color: itemsList.filter(it => !it.rack_no).length > 0 ? '#dc2626' : '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Unassigned (Pending)</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: itemsList.filter(it => !it.rack_no).length > 0 ? '#dc2626' : '#64748b', marginTop: '2px' }}>{itemsList.filter(it => !it.rack_no).length}</div>
+                        </div>
+                        <AlertCircle size={28} color={itemsList.filter(it => !it.rack_no).length > 0 ? '#dc2626' : '#64748b'} style={{ opacity: 0.35 }} />
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end' }}>
-                        <Button onClick={fetchItems} style={{ background: '#0284c7', color: '#fff', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600' }}>
-                            <Search size={16} /> Search
-                        </Button>
-                        <Button onClick={() => { setSelectedRack(''); setSelectedShelf(''); setSearchTerm(''); }} style={{ background: '#e2e8f0', color: colors.textMain, padding: '9px 14px', borderRadius: '8px', border: 'none' }}>
-                            <RefreshCw size={16} />
-                        </Button>
+                    <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Registered Master Racks</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#7c3aed', marginTop: '2px' }}>{rackMasters.length}</div>
+                        </div>
+                        <Grid size={28} color="#7c3aed" style={{ opacity: 0.35 }} />
+                    </div>
+                </div>
+
+                {/* Quick Status Filter Pills & Search Controls */}
+                <ControlsContainer style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {[
+                            { key: 'ALL', label: 'All Items', count: itemsList.length },
+                            { key: 'ASSIGNED', label: 'Assigned to Racks', count: itemsList.filter(it => it.rack_no).length },
+                            { key: 'UNASSIGNED', label: 'Unassigned (Pending)', count: itemsList.filter(it => !it.rack_no).length }
+                        ].map(st => (
+                            <button
+                                key={st.key}
+                                onClick={() => setStatusFilter(st.key)}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '6px 14px',
+                                    borderRadius: '20px',
+                                    border: statusFilter === st.key ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                                    background: statusFilter === st.key ? '#e0f2fe' : '#ffffff',
+                                    color: statusFilter === st.key ? '#0369a1' : '#475569',
+                                    fontWeight: '700',
+                                    fontSize: '0.82rem',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <span>{st.label}</span>
+                                <span style={{ fontSize: '0.72rem', background: statusFilter === st.key ? '#0284c7' : '#f1f5f9', color: statusFilter === st.key ? '#ffffff' : '#64748b', padding: '1px 6px', borderRadius: '10px' }}>
+                                    {st.count}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Filter Rack</label>
+                            <ReactSelect
+                                options={[
+                                    { value: '', label: 'All Racks' },
+                                    ...racks.map(r => ({ value: r, label: `Rack ${r}` }))
+                                ]}
+                                value={[
+                                    { value: '', label: 'All Racks' },
+                                    ...racks.map(r => ({ value: r, label: `Rack ${r}` }))
+                                ].find(opt => opt.value === selectedRack) || { value: '', label: 'All Racks' }}
+                                onChange={opt => setSelectedRack(opt ? opt.value : '')}
+                                styles={customSelectStyles}
+                                menuPortalTarget={document.body}
+                                isSearchable
+                                placeholder="Search Rack..."
+                            />
+                        </div>
+                        <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Filter Shelf</label>
+                            <ReactSelect
+                                options={[
+                                    { value: '', label: 'All Shelves' },
+                                    ...shelves.map(s => ({ value: s, label: `Shelf ${s}` }))
+                                ]}
+                                value={[
+                                    { value: '', label: 'All Shelves' },
+                                    ...shelves.map(s => ({ value: s, label: `Shelf ${s}` }))
+                                ].find(opt => opt.value === selectedShelf) || { value: '', label: 'All Shelves' }}
+                                onChange={opt => setSelectedShelf(opt ? opt.value : '')}
+                                styles={customSelectStyles}
+                                menuPortalTarget={document.body}
+                                isSearchable
+                                placeholder="Search Shelf..."
+                            />
+                        </div>
+                        <div style={{ flex: '1 1 250px', minWidth: '200px' }}>
+                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Scan / Search Barcode or Item</label>
+                            <Input 
+                                type="text" 
+                                placeholder="Scan Barcode, Item Name, Rack..." 
+                                value={searchTerm} 
+                                onChange={e => setSearchTerm(e.target.value)} 
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end' }}>
+                            <Button onClick={fetchItems} style={{ background: '#0284c7', color: '#fff', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600' }}>
+                                <Search size={16} /> Search
+                            </Button>
+                            <Button onClick={() => { setSelectedRack(''); setSelectedShelf(''); setSearchTerm(''); setStatusFilter('ALL'); }} style={{ background: '#e2e8f0', color: colors.textMain, padding: '9px 14px', borderRadius: '8px', border: 'none' }}>
+                                <RefreshCw size={16} />
+                            </Button>
+                        </div>
                     </div>
                 </ControlsContainer>
 
@@ -448,9 +532,9 @@ const StoresRackClassification = () => {
                                     </Td>
                                 </Tr>
                             ) : (
-                                itemsList.map((item, idx) => (
+                                pageData.map((item, idx) => (
                                     <Tr key={item.item_id}>
-                                        <Td>{idx + 1}</Td>
+                                        <Td>{startIdx + idx + 1}</Td>
                                         <Td>
                                             <div style={{ fontWeight: '700', color: colors.textMain }}>{item.itemName}</div>
                                             <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {item.item_id}</div>
@@ -495,6 +579,17 @@ const StoresRackClassification = () => {
                             )}
                         </tbody>
                     </Table>
+                    <TablePagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        pageSize={pageSize}
+                        totalItems={totalItems}
+                        startIdx={startIdx}
+                        goTo={goTo}
+                        onPageSizeChange={handlePageSizeChange}
+                        itemName="item"
+                        themeColor="#0284c7"
+                    />
                 </TableWrapper>
 
                 {/* Edit Location Modal */}

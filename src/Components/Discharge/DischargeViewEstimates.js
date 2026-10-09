@@ -166,10 +166,10 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
   const [listBusy,  setListBusy]  = useState(false);
   const [listErr,   setListErr]   = useState("");
 
-  // Filters — default to today
-  const [from, setFrom] = useState(todayStr());
-  const [to,   setTo]   = useState(todayStr());
-  const [q,    setQ]    = useState("");
+  // Filter input states (default to current date)
+  const [inputFrom, setInputFrom] = useState(todayStr());
+  const [inputTo,   setInputTo]   = useState(todayStr());
+  const [inputQ,    setInputQ]    = useState("");
 
   // Pagination
   const [page,    setPage]    = useState(1);
@@ -180,19 +180,56 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
   const [menuPos, setMenuPos]   = useState({ top: 0, bottom: 0, left: 0, placement: "bottom", maxHeight: 280 });
   const menuRef = useRef(null);
 
-  const fetchEstimates = useCallback(async () => {
-    setListBusy(true); setListErr("");
+  const fetchEstimates = useCallback(async (fromDate = inputFrom, toDate = inputTo, searchQuery = inputQ) => {
+    setListBusy(true); 
+    setListErr("");
     try {
-      const res  = await apiRequest(`${BASE}discharge-billing/?status=Estimate`, "GET");
-      const list = res.success && res.data && Array.isArray(res.data.data) ? res.data.data : [];
-      setEstimates(list);
-    } catch {
-      setListErr("Failed to load estimates. Please try again.");
-    } finally { setListBusy(false); }
-  }, []);
+      const params = new URLSearchParams({ status: "Estimate" });
+      if (fromDate) params.append("from_date", fromDate);
+      if (toDate) params.append("to_date", toDate);
+      if (searchQuery && searchQuery.trim()) params.append("search", searchQuery.trim());
 
-  useEffect(() => { fetchEstimates(); }, [fetchEstimates, onRefreshTrigger]);
-  useEffect(() => { setPage(1); }, [from, to, q]);
+      const res = await apiRequest(`${BASE}discharge-billing/?${params.toString()}`, "GET");
+      let list = [];
+      if (res && res.success) {
+        if (Array.isArray(res.data?.data)) {
+          list = res.data.data;
+        } else if (Array.isArray(res.data)) {
+          list = res.data;
+        } else if (Array.isArray(res.data?.results)) {
+          list = res.data.results;
+        }
+      }
+      setEstimates(list);
+      setPage(1);
+    } catch (err) {
+      console.error("fetchEstimates error:", err);
+      setListErr("Failed to load estimates. Please try again.");
+    } finally { 
+      setListBusy(false); 
+    }
+  }, [inputFrom, inputTo, inputQ]);
+
+  useEffect(() => { 
+    fetchEstimates(inputFrom, inputTo, inputQ); 
+  }, [onRefreshTrigger]);
+
+  const handleSearch = () => {
+    fetchEstimates(inputFrom, inputTo, inputQ);
+  };
+
+  const handleReset = () => {
+    setInputFrom(todayStr());
+    setInputTo(todayStr());
+    setInputQ("");
+    fetchEstimates(todayStr(), todayStr(), "");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
 
   // ── 3-dots Menu positioning & toggle ─────────────────────────────────────────
   const handleMenuToggle = (id, e) => {
@@ -244,18 +281,8 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
     };
   }, [openMenu]);
 
-  // ── Filter ─────────────────────────────────────────────────────────────────
-  const filtered = estimates.filter(e => {
-    if (from && e.bill_date && new Date(e.bill_date) < new Date(from))            return false;
-    if (to   && e.bill_date && new Date(e.bill_date) > new Date(to+"T23:59:59")) return false;
-    if (q) {
-      const lq = q.toLowerCase();
-      const pd = e.patient_details || {};
-      return [e.estimate_number||"", e.uhid||"", e.ip_number||"", pd.patient_name||""]
-        .some(v => v.toLowerCase().includes(lq));
-    }
-    return true;
-  });
+  // ── Filter (Safety local filter) ───────────────────────────────────────────
+  const filtered = estimates;
 
   // ── Pagination ─────────────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
@@ -292,25 +319,39 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
       <DateBar>
         <FG $w="135px">
           <FL>From</FL>
-          <FInput type="date" value={from} onChange={e => setFrom(e.target.value)} />
+          <FInput 
+            type="date" 
+            value={inputFrom} 
+            onChange={e => setInputFrom(e.target.value)} 
+            onKeyDown={handleKeyDown}
+          />
         </FG>
         <FG $w="135px">
           <FL>To</FL>
-          <FInput type="date" value={to} onChange={e => setTo(e.target.value)} />
+          <FInput 
+            type="date" 
+            value={inputTo} 
+            onChange={e => setInputTo(e.target.value)} 
+            onKeyDown={handleKeyDown}
+          />
         </FG>
         <FG $flex="1" style={{ minWidth: 210 }}>
           <FL>Search</FL>
           <FInput
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder="Name, UHID, IP, Estimate No…"
+            value={inputQ}
+            onChange={e => setInputQ(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Name, UHID, IP, Estimate No, Doctor…"
           />
         </FG>
-        <div style={{ display: "flex", gap: 6 }}>
-          <Btn $ghost $sm onClick={() => { setFrom(todayStr()); setTo(todayStr()); setQ(""); }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <Btn $primary style={{ background: T.amber, borderColor: T.amber, color: "#fff" }} onClick={handleSearch}>
+            🔍 Search
+          </Btn>
+          <Btn $ghost onClick={handleReset}>
             ↺ Reset
           </Btn>
-          <Btn $outline onClick={fetchEstimates} disabled={listBusy}>
+          <Btn $outline onClick={() => fetchEstimates(inputFrom, inputTo, inputQ)} disabled={listBusy}>
             {listBusy ? <Spinner /> : "↻"} Refresh
           </Btn>
         </div>

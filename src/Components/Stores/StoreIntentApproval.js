@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'react-toastify';
 import styled, { createGlobalStyle } from 'styled-components';
 import { useNavigate } from 'react-router-dom';
@@ -7,10 +8,323 @@ import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
 import * as S from '../GlobalStyles';
-import { RotateCcw, CheckCircle, Clock, X, Download, RefreshCw, Search, ShieldCheck, FileText, AlertCircle } from 'lucide-react';
+import { RotateCcw, CheckCircle, Clock, X, Download, RefreshCw, Search, ShieldCheck, FileText, AlertCircle, MoreVertical, Eye, CheckCheck, Printer, Trash2, Ban } from 'lucide-react';
+import TablePagination, { usePagination } from './TablePagination';
 
 const { Option } = Select;
 const { TextArea } = Input;
+
+const IntentActionPopover = ({
+    item,
+    anchorEl,
+    onClose,
+    onView,
+    onApprove,
+    onPrint,
+    onReject,
+    onDelete,
+    status
+}) => {
+    const isApproved = status === 'Approved';
+    const isRejected = status === 'Rejected';
+    const isPending = status === 'Pending';
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+
+    useEffect(() => {
+        if (anchorEl) {
+            const rect = anchorEl.getBoundingClientRect();
+            const popoverWidth = 280;
+            let targetLeft = rect.right - popoverWidth + window.scrollX;
+            if (targetLeft < 10) {
+                targetLeft = Math.max(10, rect.left + window.scrollX);
+            }
+            setPos({
+                top: rect.bottom + window.scrollY + 6,
+                left: targetLeft,
+            });
+        }
+    }, [anchorEl]);
+
+    const items = [
+        {
+            icon: <Eye size={18} strokeWidth={1.8} />,
+            label: "View",
+            color: "#0284c7",
+            disabled: false,
+            title: "View Intent Details",
+            onClick: onView,
+        },
+        {
+            icon: <CheckCheck size={18} strokeWidth={1.8} />,
+            label: isApproved ? "Verified" : "Approve",
+            color: isApproved ? "#10b981" : "#10b981",
+            disabled: isRejected || isApproved,
+            title: isApproved ? "Already fully approved" : isRejected ? "Cannot approve rejected intent" : "Approve Intent",
+            onClick: onApprove,
+        },
+        {
+            icon: <Printer size={18} strokeWidth={1.8} />,
+            label: "Print",
+            color: "#7c3aed",
+            disabled: false,
+            title: "Print Intent Document",
+            onClick: onPrint,
+        },
+        {
+            icon: <Ban size={18} strokeWidth={1.8} />,
+            label: "Reject",
+            color: "#ef4444",
+            disabled: !isPending,
+            title: !isPending ? "Can only reject pending intents" : "Reject Intent",
+            onClick: onReject,
+        },
+        {
+            icon: <Trash2 size={18} strokeWidth={1.8} />,
+            label: "Delete",
+            color: "#64748b",
+            disabled: isApproved,
+            title: isApproved ? "Cannot delete approved intent" : "Delete Intent",
+            onClick: onDelete,
+        },
+    ];
+
+    const popover = (
+        <div
+            className="intent-action-popover"
+            style={{
+                position: "absolute",
+                top: pos.top,
+                left: pos.left,
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 12,
+                padding: "8px 10px",
+                zIndex: 99999,
+                minWidth: 280,
+                boxShadow: "0 12px 35px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.04)",
+                animation: "fadeIn 0.15s ease-out"
+            }}
+        >
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${items.length}, 1fr)`,
+                    gap: 4,
+                }}
+            >
+                {items.map((itemObj, ii) => (
+                    <button
+                        key={ii}
+                        disabled={itemObj.disabled}
+                        title={itemObj.title || itemObj.label}
+                        onMouseDown={(e) => {
+                            e.stopPropagation();
+                            if (!itemObj.disabled) {
+                                itemObj.onClick();
+                            }
+                        }}
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "8px 2px",
+                            border: "1px solid transparent",
+                            borderRadius: 8,
+                            background: "none",
+                            cursor: itemObj.disabled ? "not-allowed" : "pointer",
+                            opacity: itemObj.disabled ? 0.35 : 1,
+                            transition: "all 0.12s ease",
+                            color: itemObj.color,
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!itemObj.disabled) {
+                                e.currentTarget.style.background = "#f8fafc";
+                                e.currentTarget.style.borderColor = "#e2e8f0";
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "none";
+                            e.currentTarget.style.borderColor = "transparent";
+                        }}
+                    >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {itemObj.icon}
+                        </div>
+                        <span
+                            style={{
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                                letterSpacing: "-0.01em",
+                            }}
+                        >
+                            {itemObj.label}
+                        </span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+
+    return createPortal(popover, document.body);
+};
+
+const ReturnActionPopover = ({
+    ret,
+    anchorEl,
+    onClose,
+    onView,
+    onApprove,
+    onPrint,
+    onReject,
+    onDelete,
+    status
+}) => {
+    const isApproved = status === 'Approved';
+    const isRejected = status === 'Rejected';
+    const isPending = status === 'Pending';
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+
+    useEffect(() => {
+        if (anchorEl) {
+            const rect = anchorEl.getBoundingClientRect();
+            const popoverWidth = 280;
+            let targetLeft = rect.right - popoverWidth + window.scrollX;
+            if (targetLeft < 10) {
+                targetLeft = Math.max(10, rect.left + window.scrollX);
+            }
+            setPos({
+                top: rect.bottom + window.scrollY + 6,
+                left: targetLeft,
+            });
+        }
+    }, [anchorEl]);
+
+    const items = [
+        {
+            icon: <Eye size={18} strokeWidth={1.8} />,
+            label: "View",
+            color: "#0284c7",
+            disabled: false,
+            title: "View Indent Return Details",
+            onClick: onView,
+        },
+        {
+            icon: <CheckCheck size={18} strokeWidth={1.8} />,
+            label: isApproved ? "Approved" : "Approve",
+            color: isApproved ? "#10b981" : "#10b981",
+            disabled: isApproved || isRejected,
+            title: isApproved ? "Already Approved" : isRejected ? "Cannot approve rejected return" : "Approve Indent Return",
+            onClick: onApprove,
+        },
+        {
+            icon: <Printer size={18} strokeWidth={1.8} />,
+            label: "Print",
+            color: "#7c3aed",
+            disabled: false,
+            title: "Print Return Voucher",
+            onClick: onPrint,
+        },
+        {
+            icon: <Ban size={18} strokeWidth={1.8} />,
+            label: "Reject",
+            color: "#ef4444",
+            disabled: !isPending,
+            title: !isPending ? "Can only reject pending returns" : "Reject Indent Return",
+            onClick: onReject,
+        },
+        {
+            icon: <Trash2 size={18} strokeWidth={1.8} />,
+            label: "Delete",
+            color: "#64748b",
+            disabled: isApproved,
+            title: isApproved ? "Cannot delete approved return" : "Delete Indent Return",
+            onClick: onDelete,
+        },
+    ];
+
+    const popover = (
+        <div
+            className="return-action-popover"
+            style={{
+                position: "absolute",
+                top: pos.top,
+                left: pos.left,
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 12,
+                padding: "8px 10px",
+                zIndex: 99999,
+                minWidth: 280,
+                boxShadow: "0 12px 35px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.04)",
+                animation: "fadeIn 0.15s ease-out"
+            }}
+        >
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${items.length}, 1fr)`,
+                    gap: 4,
+                }}
+            >
+                {items.map((itemObj, ii) => (
+                    <button
+                        key={ii}
+                        disabled={itemObj.disabled}
+                        title={itemObj.title || itemObj.label}
+                        onMouseDown={(e) => {
+                            e.stopPropagation();
+                            if (!itemObj.disabled) {
+                                itemObj.onClick();
+                            }
+                        }}
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "8px 2px",
+                            border: "1px solid transparent",
+                            borderRadius: 8,
+                            background: "none",
+                            cursor: itemObj.disabled ? "not-allowed" : "pointer",
+                            opacity: itemObj.disabled ? 0.35 : 1,
+                            transition: "all 0.12s ease",
+                            color: itemObj.color,
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!itemObj.disabled) {
+                                e.currentTarget.style.background = "#f8fafc";
+                                e.currentTarget.style.borderColor = "#e2e8f0";
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "none";
+                            e.currentTarget.style.borderColor = "transparent";
+                        }}
+                    >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {itemObj.icon}
+                        </div>
+                        <span
+                            style={{
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                                letterSpacing: "-0.01em",
+                            }}
+                        >
+                            {itemObj.label}
+                        </span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+
+    return createPortal(popover, document.body);
+};
 
 const CalendarGlobalStyles = createGlobalStyle`
     .ant-picker-dropdown {
@@ -156,6 +470,7 @@ const StoresApprovalManager = () => {
     // Intent Approval State
     const [intents, setIntents] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [intentSearch, setIntentSearch] = useState('');
     const [filter, setFilter] = useState({
         from_date: dayjs().subtract(1, 'month').format('YYYY-MM-DD'),
         to_date: dayjs().format('YYYY-MM-DD')
@@ -175,14 +490,44 @@ const StoresApprovalManager = () => {
     const [showReturnApproveModal, setShowReturnApproveModal] = useState(false);
     const [selectedReturn, setSelectedReturn] = useState(null);
     const [returnApprovalItems, setReturnApprovalItems] = useState([]);
-
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectingReturnId, setRejectingReturnId] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
 
+    // Action Popover States
+    const [openPopover, setOpenPopover] = useState(null);
+    const [popoverData, setPopoverData] = useState(null);
+    const anchorRefs = useRef({});
+
+    const [openReturnPopover, setOpenReturnPopover] = useState(null);
+    const [returnPopoverData, setReturnPopoverData] = useState(null);
+    const returnAnchorRefs = useRef({});
+
+    // View Modals State
+    const [showViewIntentModal, setShowViewIntentModal] = useState(false);
+    const [selectedIntentForView, setSelectedIntentForView] = useState(null);
+
+    const [showViewReturnModal, setShowViewReturnModal] = useState(false);
+    const [selectedReturnForView, setSelectedReturnForView] = useState(null);
+
     useEffect(() => {
         loadPendingIntents();
         loadIndentReturns();
+    }, []);
+
+    useEffect(() => {
+        const handleOutsideClick = (e) => {
+            if (!e.target.closest('.intent-action-popover') && !e.target.closest('.intent-action-popover-wrap')) {
+                setOpenPopover(null);
+                setPopoverData(null);
+            }
+            if (!e.target.closest('.return-action-popover') && !e.target.closest('.return-action-popover-wrap')) {
+                setOpenReturnPopover(null);
+                setReturnPopoverData(null);
+            }
+        };
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
     }, []);
 
     // -------------------------------------------------------------
@@ -648,6 +993,16 @@ const StoresApprovalManager = () => {
     const safeIndentReturns = Array.isArray(indentReturns) ? indentReturns : [];
     const safeIntents = Array.isArray(intents) ? intents : [];
 
+    // Filtered intents based on search
+    const filteredIntents = safeIntents.filter(item => {
+        if (!intentSearch) return true;
+        const q = intentSearch.toLowerCase().trim();
+        const id = (item.intent_id || '').toLowerCase();
+        const dept = (item.department_name || item.department || '').toLowerCase();
+        const itemNames = (item.items || []).map(i => (i.name || i.item_name || '').toLowerCase()).join(' ');
+        return id.includes(q) || dept.includes(q) || itemNames.includes(q);
+    });
+
     // Filtered returns based on text search
     const filteredReturns = safeIndentReturns.filter(item => {
         if (!returnFilter.search) return true;
@@ -658,6 +1013,9 @@ const StoresApprovalManager = () => {
         const itemNames = (item.items || []).map(i => (i.name || i.item_name || '').toLowerCase()).join(' ');
         return retId.includes(q) || intId.includes(q) || dept.includes(q) || itemNames.includes(q);
     });
+
+    const intentPagination = usePagination(filteredIntents, 15);
+    const returnPagination = usePagination(filteredReturns, 15);
 
     const pendingIntentsCount = safeIntents.filter(i => !i.is_approved).length;
     const pendingReturnsCount = safeIndentReturns.filter(r => r.status === 'Pending').length;
@@ -814,8 +1172,17 @@ const StoresApprovalManager = () => {
                                             style={{ height: '38px', borderRadius: '8px' }}
                                         />
                                     </div>
+                                    <div style={{ minWidth: '220px', flex: '1 1 200px' }}>
+                                        <Input
+                                            prefix={<Search size={16} style={{ color: '#94a3b8', marginRight: '6px' }} />}
+                                            placeholder="Search Intent ID, Department, Item..."
+                                            value={intentSearch}
+                                            onChange={(e) => setIntentSearch(e.target.value)}
+                                            style={{ height: '38px', borderRadius: '8px' }}
+                                        />
+                                    </div>
                                     <S.Button onClick={() => loadPendingIntents()} style={{ background: '#0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>🔍 Search</S.Button>
-                                    <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }} onClick={handleClearFilter}>✕ Clear</S.Button>
+                                    <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }} onClick={() => { setIntentSearch(''); handleClearFilter(); }}>✕ Clear</S.Button>
                                     <S.Button secondary onClick={handleExportIntentExcel} style={{ background: '#f8fafc', color: '#0d9488', border: '1px solid #0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>
                                         📥 Export Excel
                                     </S.Button>
@@ -836,14 +1203,14 @@ const StoresApprovalManager = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {intents.length === 0 ? (
+                                    {filteredIntents.length === 0 ? (
                                         <S.Tr>
                                             <S.Td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
                                                 No intent records found for the selected period
                                             </S.Td>
                                         </S.Tr>
                                     ) : (
-                                        intents.map((item) => (
+                                        intentPagination.pageData.map((item) => (
                                             <S.Tr key={item.intent_id}>
                                                 <S.Td style={{ padding: '15px' }}>
                                                     <div style={{ color: S.colors.primary, fontWeight: '800', fontSize: '0.95rem' }}>{item.intent_id}</div>
@@ -882,22 +1249,53 @@ const StoresApprovalManager = () => {
                                                         {getIntentStatus(item)}
                                                     </Badge>
                                                 </S.Td>
-                                                <S.Td>
-                                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                                                        <ActionSquare
-                                                            bg="#10b981"
-                                                            title="Approve"
-                                                            disabled={getIntentStatus(item) === 'Rejected'}
-                                                            onClick={() => openApprovalModal(item)}
-                                                        >✔</ActionSquare>
-                                                        <ActionSquare bg="#3b82f6" title="Print" onClick={() => handlePrintIntent(item)}>⎙</ActionSquare>
-                                                        <ActionSquare
-                                                            bg="#ef4444"
-                                                            title="Reject"
-                                                            disabled={getIntentStatus(item) !== 'Pending'}
-                                                            onClick={() => handleRejectIntent(item)}
-                                                        >✖</ActionSquare>
-                                                        <ActionSquare bg="#64748b" title="Delete" onClick={() => handleDeleteIntent(item.intent_id)}>🗑</ActionSquare>
+                                                <S.Td style={{ textAlign: 'center', padding: '12px 10px' }}>
+                                                    <div className="intent-action-popover-wrap" style={{ position: 'relative', display: 'inline-block' }}>
+                                                        <button
+                                                            ref={(el) => { anchorRefs.current[item.intent_id] = el; }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (openPopover === item.intent_id) {
+                                                                    setOpenPopover(null);
+                                                                    setPopoverData(null);
+                                                                } else {
+                                                                    setOpenPopover(item.intent_id);
+                                                                    setPopoverData(item);
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                background: openPopover === item.intent_id ? '#f0fdfa' : '#ffffff',
+                                                                border: openPopover === item.intent_id ? '1.5px solid #0d9488' : '1px solid #cbd5e1',
+                                                                borderRadius: '8px',
+                                                                padding: '5px 12px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.8rem',
+                                                                fontWeight: '600',
+                                                                color: openPopover === item.intent_id ? '#0d9488' : '#334155',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '5px',
+                                                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
+                                                            <span>Action</span>
+                                                            <MoreVertical size={13} style={{ opacity: 0.7 }} />
+                                                        </button>
+
+                                                        {openPopover === item.intent_id && popoverData && (
+                                                            <IntentActionPopover
+                                                                item={popoverData}
+                                                                status={getIntentStatus(popoverData)}
+                                                                anchorEl={anchorRefs.current[item.intent_id]}
+                                                                onClose={() => { setOpenPopover(null); setPopoverData(null); }}
+                                                                onView={() => { setOpenPopover(null); setSelectedIntentForView(popoverData); setShowViewIntentModal(true); }}
+                                                                onApprove={() => { setOpenPopover(null); openApprovalModal(popoverData); }}
+                                                                onPrint={() => { setOpenPopover(null); handlePrintIntent(popoverData); }}
+                                                                onReject={() => { setOpenPopover(null); handleRejectIntent(popoverData); }}
+                                                                onDelete={() => { setOpenPopover(null); handleDeleteIntent(popoverData.intent_id); }}
+                                                            />
+                                                        )}
                                                     </div>
                                                 </S.Td>
                                             </S.Tr>
@@ -905,6 +1303,17 @@ const StoresApprovalManager = () => {
                                     )}
                                 </tbody>
                             </S.Table>
+                            <TablePagination
+                                currentPage={intentPagination.currentPage}
+                                totalPages={intentPagination.totalPages}
+                                pageSize={intentPagination.pageSize}
+                                totalItems={intentPagination.totalItems}
+                                startIdx={intentPagination.startIdx}
+                                goTo={intentPagination.goTo}
+                                onPageSizeChange={intentPagination.handlePageSizeChange}
+                                itemName="intent"
+                                themeColor="#0d9488"
+                            />
                         </S.TableWrapper>
                     </>
                 )}
@@ -1033,7 +1442,7 @@ const StoresApprovalManager = () => {
                                             </S.Td>
                                         </S.Tr>
                                     ) : (
-                                        filteredReturns.map((ret) => (
+                                        returnPagination.pageData.map((ret) => (
                                             <S.Tr key={ret.return_id}>
                                                 <S.Td style={{ padding: '15px' }}>
                                                     <div style={{ color: '#0d9488', fontWeight: '800', fontSize: '0.95rem' }}>{ret.return_id}</div>
@@ -1106,39 +1515,53 @@ const StoresApprovalManager = () => {
                                                         </div>
                                                     )}
                                                 </S.Td>
-                                                <S.Td>
-                                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                                                        <ActionSquare
-                                                            bg="#10b981"
-                                                            title="Approve Indent Return"
-                                                            disabled={ret.status === 'Approved' || ret.status === 'Rejected'}
-                                                            onClick={() => openReturnApprovalModal(ret)}
+                                                <S.Td style={{ textAlign: 'center', padding: '12px 10px' }}>
+                                                    <div className="return-action-popover-wrap" style={{ position: 'relative', display: 'inline-block' }}>
+                                                        <button
+                                                            ref={(el) => { returnAnchorRefs.current[ret.return_id] = el; }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (openReturnPopover === ret.return_id) {
+                                                                    setOpenReturnPopover(null);
+                                                                    setReturnPopoverData(null);
+                                                                } else {
+                                                                    setOpenReturnPopover(ret.return_id);
+                                                                    setReturnPopoverData(ret);
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                background: openReturnPopover === ret.return_id ? '#f0fdfa' : '#ffffff',
+                                                                border: openReturnPopover === ret.return_id ? '1.5px solid #0d9488' : '1px solid #cbd5e1',
+                                                                borderRadius: '8px',
+                                                                padding: '5px 12px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.8rem',
+                                                                fontWeight: '600',
+                                                                color: openReturnPopover === ret.return_id ? '#0d9488' : '#334155',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '5px',
+                                                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
                                                         >
-                                                            ✔
-                                                        </ActionSquare>
-                                                        <ActionSquare
-                                                            bg="#3b82f6"
-                                                            title="Print Voucher"
-                                                            onClick={() => handlePrintReturn(ret)}
-                                                        >
-                                                            ⎙
-                                                        </ActionSquare>
-                                                        <ActionSquare
-                                                            bg="#ef4444"
-                                                            title="Reject Return"
-                                                            disabled={ret.status !== 'Pending'}
-                                                            onClick={() => handleOpenRejectModal(ret.return_id)}
-                                                        >
-                                                            ✖
-                                                        </ActionSquare>
-                                                        <ActionSquare
-                                                            bg="#64748b"
-                                                            title="Delete"
-                                                            disabled={ret.status === 'Approved'}
-                                                            onClick={() => handleDeleteReturn(ret.return_id)}
-                                                        >
-                                                            🗑
-                                                        </ActionSquare>
+                                                            <span>Action</span>
+                                                            <MoreVertical size={13} style={{ opacity: 0.7 }} />
+                                                        </button>
+
+                                                        {openReturnPopover === ret.return_id && returnPopoverData && (
+                                                            <ReturnActionPopover
+                                                                ret={returnPopoverData}
+                                                                status={returnPopoverData.status}
+                                                                anchorEl={returnAnchorRefs.current[ret.return_id]}
+                                                                onClose={() => { setOpenReturnPopover(null); setReturnPopoverData(null); }}
+                                                                onView={() => { setOpenReturnPopover(null); setSelectedReturnForView(returnPopoverData); setShowViewReturnModal(true); }}
+                                                                onApprove={() => { setOpenReturnPopover(null); openReturnApprovalModal(returnPopoverData); }}
+                                                                onPrint={() => { setOpenReturnPopover(null); handlePrintReturn(returnPopoverData); }}
+                                                                onReject={() => { setOpenReturnPopover(null); handleOpenRejectModal(returnPopoverData.return_id); }}
+                                                                onDelete={() => { setOpenReturnPopover(null); handleDeleteReturn(returnPopoverData.return_id); }}
+                                                            />
+                                                        )}
                                                     </div>
                                                 </S.Td>
                                             </S.Tr>
@@ -1146,6 +1569,17 @@ const StoresApprovalManager = () => {
                                     )}
                                 </tbody>
                             </S.Table>
+                            <TablePagination
+                                currentPage={returnPagination.currentPage}
+                                totalPages={returnPagination.totalPages}
+                                pageSize={returnPagination.pageSize}
+                                totalItems={returnPagination.totalItems}
+                                startIdx={returnPagination.startIdx}
+                                goTo={returnPagination.goTo}
+                                onPageSizeChange={returnPagination.handlePageSizeChange}
+                                itemName="indent returns"
+                                themeColor="#0d9488"
+                            />
                         </S.TableWrapper>
                     </>
                 )}
@@ -1446,6 +1880,326 @@ const StoresApprovalManager = () => {
                         </S.ModalContainer>
                     </S.ModalOverlay>
                 )}
+
+                {/* ========================================================= */}
+                {/* MODAL 4: VIEW INTENT DETAILS MODAL */}
+                {/* ========================================================= */}
+                {showViewIntentModal && selectedIntentForView && (() => {
+                    const itemsList = Array.isArray(selectedIntentForView.items) ? selectedIntentForView.items : [];
+                    const status = getIntentStatus(selectedIntentForView);
+                    const totalReq = itemsList.reduce((acc, it) => acc + (parseFloat(it.quantity) || 0), 0);
+                    const totalApprv = itemsList.reduce((acc, it) => acc + (parseFloat(it.approved_quantity) || 0), 0);
+
+                    return (
+                        <S.ModalOverlay onClick={e => e.target === e.currentTarget && setShowViewIntentModal(false)}>
+                            <S.ModalContainer style={{ maxWidth: '900px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
+                                <S.ModalHeader style={{ borderBottom: `1px solid ${S.colors.border}`, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <S.ModalTitle style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Eye size={20} color="#0d9488" />
+                                            <span>Intent Details:</span>
+                                            <span style={{ color: '#0d9488', fontWeight: '800' }}>{selectedIntentForView.intent_id}</span>
+                                        </S.ModalTitle>
+                                        <Badge
+                                            type={
+                                                status === 'Approved' ? 'SUCCESS' :
+                                                    (status === 'Rejected' ? 'DANGER' : 'WARNING')
+                                            }
+                                        >
+                                            {status.toUpperCase()}
+                                        </Badge>
+                                    </div>
+                                    <S.CloseButton onClick={() => setShowViewIntentModal(false)}>✕</S.CloseButton>
+                                </S.ModalHeader>
+
+                                <S.ModalBody style={{ padding: '20px' }}>
+                                    {/* Header Info Banner */}
+                                    <div style={{
+                                        background: '#f8fafc',
+                                        border: `1px solid ${S.colors.border}`,
+                                        borderRadius: '12px',
+                                        padding: '16px 20px',
+                                        marginBottom: '20px',
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                                        gap: '14px'
+                                    }}>
+                                        <div>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Department</div>
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px' }}>
+                                                {selectedIntentForView.department_name || selectedIntentForView.department || '-'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Intent Date</div>
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px' }}>
+                                                {selectedIntentForView.date ? dayjs(selectedIntentForView.date).format('DD MMM, YYYY') : '-'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Created By</div>
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px' }}>
+                                                {selectedIntentForView.created_by || selectedIntentForView.user || 'Department User'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Stats Highlights */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                        gap: '12px',
+                                        marginBottom: '20px'
+                                    }}>
+                                        <div style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '14px', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: '700', textTransform: 'uppercase' }}>Total Items</div>
+                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#0f766e', marginTop: '4px' }}>{itemsList.length}</div>
+                                        </div>
+                                        <div style={{ background: '#f0fdf4', border: '1px solid #dcfce7', padding: '14px', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase' }}>Total Requested Qty</div>
+                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>{totalReq}</div>
+                                        </div>
+                                        <div style={{ background: '#f8fafc', border: `1px solid ${S.colors.border}`, padding: '14px', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Total Approved Qty</div>
+                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: S.colors.primary, marginTop: '4px' }}>{totalApprv}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Items Table */}
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: '700', color: S.colors.textMain, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            📦 Requested Items List ({itemsList.length})
+                                        </div>
+                                        <div style={{ overflowX: 'auto', border: `1px solid ${S.colors.border}`, borderRadius: '10px' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                                <thead>
+                                                    <tr style={{ background: '#f0fdfa', color: '#1e293b', borderBottom: `1px solid ${S.colors.border}` }}>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>#</th>
+                                                        <th style={{ padding: '10px 10px', textAlign: 'left' }}>Item Name</th>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>HSN</th>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Available Stock</th>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Req Qty</th>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Apprv Qty</th>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Returned Qty</th>
+                                                        <th style={{ padding: '10px 10px', textAlign: 'center' }}>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {itemsList.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: S.colors.textMuted }}>No items data available</td>
+                                                        </tr>
+                                                    ) : itemsList.map((it, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: `1px solid #f1f5f9`, background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{idx + 1}</td>
+                                                            <td style={{ padding: '10px 10px', fontWeight: '600', color: '#0d9488' }}>
+                                                                {it.name || it.item_name}
+                                                            </td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{it.hsn || '-'}</td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{it.available_stock !== undefined ? it.available_stock : '-'}</td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '700', color: S.colors.textMain }}>{it.quantity}</td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '700', color: '#16a34a' }}>{it.approved_quantity || 0}</td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: it.returned_quantity > 0 ? '#f59e0b' : S.colors.textMuted }}>{it.returned_quantity || 0}</td>
+                                                            <td style={{ padding: '10px 10px', textAlign: 'center' }}>
+                                                                <Badge
+                                                                    type={
+                                                                        it.status === 'Approved' ? 'SUCCESS' :
+                                                                            (it.status === 'Rejected' ? 'DANGER' : 'WARNING')
+                                                                    }
+                                                                >
+                                                                    {it.status || 'Pending'}
+                                                                </Badge>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Modal Footer Actions */}
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: `1px solid ${S.colors.border}`, paddingTop: '16px' }}>
+                                        <S.Button secondary onClick={() => setShowViewIntentModal(false)} style={{ padding: '8px 22px' }}>
+                                            Close
+                                        </S.Button>
+                                        <S.Button 
+                                            onClick={() => {
+                                                handlePrintIntent(selectedIntentForView);
+                                            }}
+                                            style={{ padding: '8px 22px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#0d9488', color: 'white' }}
+                                        >
+                                            <Printer size={16} />
+                                            <span>Print Intent Document</span>
+                                        </S.Button>
+                                    </div>
+                                </S.ModalBody>
+                            </S.ModalContainer>
+                        </S.ModalOverlay>
+                    );
+                })()}
+
+                {/* ========================================================= */}
+                {/* MODAL 5: VIEW RETURN DETAILS MODAL */}
+                {/* ========================================================= */}
+                {showViewReturnModal && selectedReturnForView && (() => {
+                    const itemsList = Array.isArray(selectedReturnForView.items) ? selectedReturnForView.items : [];
+                    const totalQty = Number(selectedReturnForView.total_returned_qty || 0);
+                    const totalVal = Number(selectedReturnForView.total_returned_value || 0);
+
+                    return (
+                        <S.ModalOverlay onClick={e => e.target === e.currentTarget && setShowViewReturnModal(false)}>
+                            <S.ModalContainer style={{ maxWidth: '900px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
+                                <S.ModalHeader style={{ borderBottom: `1px solid ${S.colors.border}`, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <S.ModalTitle style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Eye size={20} color="#0d9488" />
+                                            <span>Indent Return Details:</span>
+                                            <span style={{ color: '#0d9488', fontWeight: '800' }}>{selectedReturnForView.return_id}</span>
+                                        </S.ModalTitle>
+                                        <Badge
+                                            type={
+                                                selectedReturnForView.status === 'Approved' ? 'SUCCESS' :
+                                                    (selectedReturnForView.status === 'Rejected' ? 'DANGER' : 'WARNING')
+                                            }
+                                        >
+                                            {selectedReturnForView.status}
+                                        </Badge>
+                                    </div>
+                                    <S.CloseButton onClick={() => setShowViewReturnModal(false)}>✕</S.CloseButton>
+                                </S.ModalHeader>
+
+                                <S.ModalBody style={{ padding: '20px' }}>
+                                    {/* Header Info Banner */}
+                                    <div style={{
+                                        background: '#f8fafc',
+                                        border: `1px solid ${S.colors.border}`,
+                                        borderRadius: '12px',
+                                        padding: '16px 20px',
+                                        marginBottom: '20px',
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                                        gap: '14px'
+                                    }}>
+                                        <div>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Department</div>
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px' }}>
+                                                {selectedReturnForView.department_name || selectedReturnForView.department || '-'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Original Intent ID</div>
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: '#0d9488', marginTop: '2px' }}>
+                                                {selectedReturnForView.intent_id}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Return Date</div>
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px' }}>
+                                                {selectedReturnForView.return_date ? dayjs(selectedReturnForView.return_date).format('DD MMM, YYYY') : '-'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Return Reason</div>
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: '#0284c7', marginTop: '2px' }}>
+                                                {selectedReturnForView.return_reason || 'EXCESS'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Financial & Quantity Highlights */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                        gap: '12px',
+                                        marginBottom: '20px'
+                                    }}>
+                                        <div style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '14px', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: '700', textTransform: 'uppercase' }}>Total Return Value</div>
+                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#0f766e', marginTop: '4px' }}>₹{totalVal.toFixed(2)}</div>
+                                        </div>
+                                        <div style={{ background: '#f0fdf4', border: '1px solid #dcfce7', padding: '14px', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase' }}>Total Returned Qty</div>
+                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>{totalQty} Units</div>
+                                        </div>
+                                        <div style={{ background: '#f8fafc', border: `1px solid ${S.colors.border}`, padding: '14px', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Total Items</div>
+                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: S.colors.textMain, marginTop: '4px' }}>{itemsList.length}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Items Table */}
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: '700', color: S.colors.textMain, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            📦 Returned Items List ({itemsList.length})
+                                        </div>
+                                        <div style={{ overflowX: 'auto', border: `1px solid ${S.colors.border}`, borderRadius: '10px' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                                <thead>
+                                                    <tr style={{ background: '#f0fdfa', color: '#1e293b', borderBottom: `1px solid ${S.colors.border}` }}>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>#</th>
+                                                        <th style={{ padding: '10px 10px', textAlign: 'left' }}>Item Name</th>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>HSN</th>
+                                                        <th style={{ padding: '10px 10px', textAlign: 'left' }}>Reason</th>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Returned Qty</th>
+                                                        <th style={{ padding: '10px 10px', textAlign: 'right' }}>Unit Rate</th>
+                                                        <th style={{ padding: '10px 10px', textAlign: 'right' }}>Total Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {itemsList.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: S.colors.textMuted }}>No return items data</td>
+                                                        </tr>
+                                                    ) : itemsList.map((it, idx) => {
+                                                        const qty = Number(it.return_quantity || it.quantity || 0);
+                                                        const price = Number(it.unit_price || 0);
+                                                        const totalAmt = qty * price;
+                                                        return (
+                                                            <tr key={idx} style={{ borderBottom: `1px solid #f1f5f9`, background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{idx + 1}</td>
+                                                                <td style={{ padding: '10px 10px', fontWeight: '600', color: '#0d9488' }}>
+                                                                    {it.name || it.item_name}
+                                                                </td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{it.hsn || '-'}</td>
+                                                                <td style={{ padding: '10px 10px', color: S.colors.textMuted }}>{it.reason || selectedReturnForView.return_reason || 'EXCESS'}</td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '700', color: S.colors.textMain }}>{qty}</td>
+                                                                <td style={{ padding: '10px 10px', textAlign: 'right' }}>₹{price.toFixed(2)}</td>
+                                                                <td style={{ padding: '10px 10px', textAlign: 'right', fontWeight: '700', color: '#0f766e' }}>₹{totalAmt.toFixed(2)}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Remarks or Rejection info */}
+                                    {selectedReturnForView.rejection_reason && (
+                                        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '8px', padding: '12px', marginBottom: '16px', color: '#e11d48', fontSize: '0.85rem' }}>
+                                            <strong>Rejection Reason:</strong> {selectedReturnForView.rejection_reason}
+                                        </div>
+                                    )}
+
+                                    {/* Modal Footer Actions */}
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: `1px solid ${S.colors.border}`, paddingTop: '16px' }}>
+                                        <S.Button secondary onClick={() => setShowViewReturnModal(false)} style={{ padding: '8px 22px' }}>
+                                            Close
+                                        </S.Button>
+                                        <S.Button 
+                                            onClick={() => {
+                                                handlePrintReturn(selectedReturnForView);
+                                            }}
+                                            style={{ padding: '8px 22px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#0d9488', color: 'white' }}
+                                        >
+                                            <Printer size={16} />
+                                            <span>Print Voucher</span>
+                                        </S.Button>
+                                    </div>
+                                </S.ModalBody>
+                            </S.ModalContainer>
+                        </S.ModalOverlay>
+                    );
+                })()}
 
             </S.Container>
         </S.PageWrapper>

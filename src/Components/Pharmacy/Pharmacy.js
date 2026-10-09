@@ -76,6 +76,17 @@ const formatPatientName = (salutation, firstName, lastName) => {
   return s ? `${s} ${name}`.trim() : name;
 };
 
+// Helper to format expiry date as date/month/year (DD/MM/YYYY)
+const formatExpiryDate = (dateStr) => {
+  if (!dateStr || dateStr === "—" || dateStr === "N/A") return "—";
+  const raw = String(dateStr).split("T")[0].trim();
+  const parts = raw.split("-");
+  if (parts.length === 3 && parts[0].length === 4) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return raw;
+};
+
 const Card = styled.div`
   background: #ffffff;
   border-radius: 16px;
@@ -502,6 +513,338 @@ const StyledToastContainer = styled(ToastContainer)`
   .Toastify__toast--warning .Toastify__progress-bar { background: #f59e0b; }
 `;
 
+// ── Elegant Pharmacy Tax Invoice Generator ──────────────────────────────────
+const buildPrintBillHtml = (data) => {
+  const {
+    billNo = "—",
+    billDate = "—",
+    patientName = "—",
+    uhid = "—",
+    patientAge = "—",
+    doctorName = "—",
+    roomNo = "",
+    billTypeName = "OP Pharmacy",
+    paymentMode = "Cash",
+    employeeName = "Pharmacist",
+    medicines = [],
+    totalAmount = 0,
+    totalItemDiscount = 0,
+    overallDiscountType = "percent",
+    overallDiscountValue = 0,
+    netAmount = 0,
+  } = (data || {});
+
+  const overallDiscAmt = overallDiscountType === "amount"
+    ? parseFloat(overallDiscountValue || 0)
+    : Number(totalAmount || 0) * (parseFloat(overallDiscountValue || 0) / 100);
+
+  const totalDiscount = (Number(totalItemDiscount) || 0) + overallDiscAmt;
+
+  const medicineRows = (medicines || []).map((m, index) => {
+    const qty = Number(m.quantity || 0);
+    const rate = Number(m.mrp || m.price || m.Selling_Price || m.selling_price || 0);
+    const gross = qty * rate;
+    const discVal = parseFloat(m.discount_value || 0);
+    const discAmt = m.discount_type === "amount" ? discVal : gross * (discVal / 100);
+    const discPct = m.discount_type === "percent" ? discVal : (gross > 0 ? (discVal / gross) * 100 : 0);
+    const cgstPct = Number(m.cgst_rate || 0);
+    const sgstPct = Number(m.sgst_rate || 0);
+    const totalGstPct = cgstPct + sgstPct;
+    const rowNet = Number(m.total != null ? m.total : (gross - discAmt));
+
+    return `
+      <tr>
+        <td style="text-align: center; width: 28px; padding: 6px 4px; border: 1px solid #cbd5e1;">${index + 1}</td>
+        <td style="font-weight: 600; color: #0f172a; padding: 6px 8px; border: 1px solid #cbd5e1;">${m.name || "—"}</td>
+        <td style="text-align: center; padding: 6px 6px; border: 1px solid #cbd5e1; white-space: nowrap;">${m.hsn_code || "—"}</td>
+        <td style="text-align: center; padding: 6px 6px; border: 1px solid #cbd5e1; white-space: nowrap;">${m.batch_number || "—"}</td>
+        <td style="text-align: center; padding: 6px 6px; border: 1px solid #cbd5e1; white-space: nowrap;">${formatExpiryDate(m.expiry_date)}</td>
+        <td style="text-align: center; font-weight: 700; padding: 6px 6px; border: 1px solid #cbd5e1;">${qty}</td>
+        <td style="text-align: right; padding: 6px 6px; border: 1px solid #cbd5e1; white-space: nowrap;">₹${rate.toFixed(2)}</td>
+        <td style="text-align: center; padding: 6px 6px; border: 1px solid #cbd5e1;">${discPct > 0 ? `${discPct.toFixed(0)}%` : "—"}</td>
+        <td style="text-align: center; padding: 6px 6px; border: 1px solid #cbd5e1;">${totalGstPct > 0 ? `${totalGstPct.toFixed(0)}%` : "0%"}</td>
+        <td style="text-align: right; font-weight: 700; color: #0f172a; padding: 6px 8px; border: 1px solid #cbd5e1; white-space: nowrap;">₹${rowNet.toFixed(2)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pharmacy Bill - ${billNo}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm 10mm 12mm;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      background: #ffffff;
+      font-size: 11px;
+      line-height: 1.4;
+      padding: 6px;
+    }
+    .bill-wrapper {
+      width: 100%;
+      max-width: 840px;
+      margin: 0 auto;
+      border: 1.5px solid #0f766e;
+      border-radius: 8px;
+      padding: 16px 20px;
+      background: #ffffff;
+    }
+    .bill-header {
+      text-align: center;
+      border-bottom: 2px solid #0f766e;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .bill-header img {
+      max-height: 75px;
+      max-width: 100%;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 6px auto;
+    }
+    .badge-wrap {
+      display: flex;
+      justify-content: center;
+      margin-top: 4px;
+    }
+    .invoice-badge {
+      background: #0f766e;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 3px 18px;
+      border-radius: 9999px;
+      display: inline-block;
+    }
+    .meta-box {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+    }
+    .meta-col { display: flex; flex-direction: column; gap: 4px; }
+    .meta-row { display: flex; font-size: 11px; line-height: 1.4; }
+    .meta-lbl { width: 90px; color: #64748b; font-weight: 600; flex-shrink: 0; }
+    .meta-val { color: #0f172a; font-weight: 700; flex: 1; }
+    .bill-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      font-size: 10.5px;
+    }
+    .bill-table th {
+      background: #f1f5f9;
+      color: #0f766e;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 9.5px;
+      letter-spacing: 0.5px;
+      padding: 7px 6px;
+      border: 1px solid #cbd5e1;
+      border-top: 2px solid #0f766e;
+      border-bottom: 2px solid #0f766e;
+    }
+    .bill-table td { vertical-align: middle; }
+    .bill-table tr:nth-child(even) { background: #fafafa; }
+    .summary-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-top: 8px;
+      gap: 16px;
+    }
+    .terms-box {
+      flex: 1;
+      font-size: 9.5px;
+      color: #475569;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 12px;
+      line-height: 1.5;
+    }
+    .totals-box {
+      width: 280px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .t-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 12px;
+      font-size: 11px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .t-row.net {
+      background: #ecfdf5;
+      border-top: 2px solid #059669;
+      border-bottom: none;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #047857;
+    }
+    .sig-area {
+      margin-top: 22px;
+      padding-top: 10px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      font-size: 11px;
+    }
+    .sig-line {
+      width: 170px;
+      border-bottom: 1.5px solid #64748b;
+      margin-bottom: 4px;
+      margin-left: auto;
+    }
+    .disclaimer {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 9px;
+      color: #64748b;
+      font-style: italic;
+      border-top: 1px dashed #e2e8f0;
+      padding-top: 6px;
+    }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .bill-wrapper { border: none; border-radius: 0; padding: 0; }
+      @page { margin: 8mm 10mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bill-wrapper">
+    <div class="bill-header">
+      <img src="${SummaryHead}" alt="Shanmuga Hospital" />
+      <div class="badge-wrap">
+        <span class="invoice-badge">TAX INVOICE — OP PHARMACY</span>
+      </div>
+    </div>
+
+    <div class="meta-box">
+      <div class="meta-col">
+        <div class="meta-row">
+          <span class="meta-lbl">Patient Name:</span>
+          <span class="meta-val">${patientName}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-lbl">UHID No:</span>
+          <span class="meta-val">${uhid}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-lbl">Age / Gender:</span>
+          <span class="meta-val">${patientAge || "—"}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-lbl">Consultant:</span>
+          <span class="meta-val" style="color: #0f766e;">${doctorName}</span>
+        </div>
+        ${roomNo ? `<div class="meta-row"><span class="meta-lbl">Ward / Room:</span><span class="meta-val">${roomNo}</span></div>` : ""}
+      </div>
+
+      <div class="meta-col">
+        <div class="meta-row">
+          <span class="meta-lbl">Invoice No:</span>
+          <span class="meta-val" style="color: #0f766e; font-size: 12px;">${billNo}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-lbl">Invoice Date:</span>
+          <span class="meta-val">${billDate}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-lbl">Bill Type:</span>
+          <span class="meta-val">${billTypeName}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-lbl">Pay Mode:</span>
+          <span class="meta-val">${paymentMode || "Cash"}</span>
+        </div>
+      </div>
+    </div>
+
+    <table class="bill-table">
+      <thead>
+        <tr>
+          <th style="width:28px; text-align:center;">#</th>
+          <th style="text-align:left;">Particulars</th>
+          <th style="width:65px; text-align:center;">HSN</th>
+          <th style="width:75px; text-align:center;">Batch</th>
+          <th style="width:75px; text-align:center;">Expiry</th>
+          <th style="width:40px; text-align:center;">Qty</th>
+          <th style="width:65px; text-align:right;">Rate</th>
+          <th style="width:48px; text-align:center;">Disc</th>
+          <th style="width:48px; text-align:center;">GST</th>
+          <th style="width:75px; text-align:right;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${medicineRows}
+      </tbody>
+    </table>
+
+    <div class="summary-area">
+      <div class="terms-box">
+        <strong>Terms & Conditions:</strong><br />
+        • Goods once sold cannot be returned or exchanged.<br />
+        • Store medicines in a cool, dry place away from direct sunlight.<br />
+        • Keep out of reach of children.
+      </div>
+
+      <div class="totals-box">
+        <div class="t-row">
+          <span style="color:#64748b;">Gross Total:</span>
+          <span style="font-weight:600;">₹${Number(totalAmount || 0).toFixed(2)}</span>
+        </div>
+        ${totalDiscount > 0 ? `
+          <div class="t-row" style="color:#dc2626; font-weight:600;">
+            <span>Total Discount:</span>
+            <span>- ₹${Number(totalDiscount || 0).toFixed(2)}</span>
+          </div>
+        ` : ""}
+        <div class="t-row net">
+          <span>NET PAYABLE:</span>
+          <span>₹${Number(netAmount || 0).toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sig-area">
+      <div>
+        <div style="font-size:11px; color:#334155;">Prepared / Dispensed By: <strong>${employeeName}</strong></div>
+        <div style="font-size:9.5px; color:#64748b; margin-top:2px;">Shanmuga Hospital Pharmacy Department</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="sig-line"></div>
+        <div style="font-weight:700; color:#0f172a;">Authorized Pharmacist</div>
+        <div style="font-size:9.5px; color:#64748b;">(Signature & Stamp)</div>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      "Every prescription filled with care, every patient treated with compassion." &nbsp;•&nbsp; Wishing you a speedy recovery!
+    </div>
+  </div>
+</body>
+</html>`;
+};
+
 const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoaded, wardRequestToLoad, onWardRequestLoaded, prescriptionToLoad, onPrescriptionLoaded, onEstimateSaved }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -578,17 +921,25 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     inpatientNo: "",
     name: "",
     doctor_id: "",
+    doctor_name: "",
     roomNo: "",
     billDate: "",
     billType: "",
     billTypeName: "",
     dob: "",
+    cashier_id: localStorage.getItem("employeeId") || "",
   });
 
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    if (name === "doctor_id") {
+      const match = doctor_names.find((d) => String(d.employeeId) === String(value));
+      const docName = match ? match.employeeName : "";
+      setFormData((prev) => ({ ...prev, doctor_id: value, doctor_name: docName }));
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleCancelConfirm = () => {
@@ -975,8 +1326,64 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
   const isMedicineSearchEnabled = Boolean(formData.doctor_id);
 
+  // Helper to format doctor name for display and print
+  const formatDoctorDisplay = useCallback((docId, rawDocName) => {
+    let name = (rawDocName || formData.doctor_name || "").trim();
+    if (!name && docId) {
+      const match = doctor_names.find((d) => String(d.employeeId) === String(docId));
+      if (match?.employeeName) name = match.employeeName.trim();
+    }
+    if (!name && docId) name = String(docId).trim();
+    if (!name) return "—";
+    if (name.toLowerCase().startsWith("dr")) return name;
+    if (/^\d+$/.test(name)) return `Dr. (${name})`;
+    return `Dr. ${name}`;
+  }, [formData.doctor_name, doctor_names]);
+
+  // Helper to format employee name for signature
+  const getSignatureEmployeeName = useCallback((createdByName, createdById) => {
+    if (createdByName && createdByName.trim() && createdByName !== "Unknown") {
+      return createdByName.trim();
+    }
+    const loggedName = localStorage.getItem("name");
+    const loggedEmpId = localStorage.getItem("employeeId");
+    if (createdById && String(createdById) === String(loggedEmpId) && loggedName) {
+      return loggedName;
+    }
+    if (loggedName) return loggedName;
+    return createdById || "Authorized Pharmacist";
+  }, []);
+
+  // Dynamically resolve doctor name when doctor_id is present but not in doctor_names
+  useEffect(() => {
+    const docId = formData.doctor_id;
+    if (!docId) return;
+
+    const existing = doctor_names.find((d) => String(d.employeeId) === String(docId));
+    if (existing && existing.employeeName) {
+      if (!formData.doctor_name || formData.doctor_name !== existing.employeeName) {
+        setFormData((prev) => ({ ...prev, doctor_name: existing.employeeName }));
+      }
+    } else {
+      apiRequest(`${HmsBaseUrl}get_employee_name/?employee_id=${encodeURIComponent(docId)}`, "GET")
+        .then((res) => {
+          if (res?.success && res.data?.name) {
+            const resolvedName = res.data.name;
+            setdoctor_names((prev) => {
+              if (prev.some((d) => String(d.employeeId) === String(docId))) return prev;
+              return [...prev, { employeeId: String(docId), employeeName: resolvedName }];
+            });
+            setFormData((prev) => ({ ...prev, doctor_name: resolvedName }));
+          }
+        })
+        .catch((err) => {
+          console.warn("Could not resolve employee name for doctor ID", docId, err);
+        });
+    }
+  }, [formData.doctor_id, doctor_names, HmsBaseUrl, formData.doctor_name]);
+
   const fetchMedicines = useCallback(async () => {
-    if (!HmsBaseUrl) return;
+    if (!HmsBaseUrl) return [];
     try {
       const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST");
       const medicineArray = Array.isArray(response.data)
@@ -986,47 +1393,61 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         : [];
 
       if (response.success) {
-        const formattedMedicines = medicineArray.map((item) => ({
-          name: item.item_name || `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim(),
-          item_id: item.item_id,
-          batch_number: item.batch_number || "N/A",
-          grn_number: item.grn_number || "",
-          expiry_date: item.expiry_date || "N/A",
-          mrp: parseFloat(item.mrp || 0),
-          price: parseFloat(item.price || item.mrp || 0),
-          hsn_code: item.hsn_code || "—",
-          cgst_rate: item.CGST_Percentage || 0,
-          cgst_amount: item.CGST_Amt || 0,
-          sgst_rate: item.SGST_Percentage || 0,
-          sgst_amount: item.SGST_Amt || 0,
-          category: item.category || "",
-          reorder_level: item.reorder_level || 0,
-          total_stock: Number(item.total_stock ?? 0),
-          available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
-          is_low_stock: item.is_low_stock === true,
-          is_nil_stock: item.available_stock != null ? Number(item.available_stock) <= 0 : false,
-          high_risk: item.high_risk === true,
-          look_alike: item.look_alike === true,
-          sound_alike: item.sound_alike === true,
-          chemical_composition: item.chemical_composition || "—",
-          composition_name: item.composition_name || "—",
-          shelf_no: item.shelf_no || "—",
-          rack_no: item.rack_no || "—",
-          quantity: 0,
-          total: 0,
-        }));
+        const formattedMedicines = medicineArray.map((item) => {
+          const rate = (() => {
+            const sp = item.Selling_Price !== undefined ? item.Selling_Price : item.selling_price;
+            if (sp !== undefined && sp !== null && sp !== "" && !isNaN(Number(sp)) && Number(sp) > 0) return Number(sp);
+            if (item.price !== undefined && item.price !== null && item.price !== "" && !isNaN(Number(item.price)) && Number(item.price) > 0) return Number(item.price);
+            if (item.mrp !== undefined && item.mrp !== null && item.mrp !== "" && !isNaN(Number(item.mrp)) && Number(item.mrp) > 0) return Number(item.mrp);
+            return Number(sp || item.price || item.mrp || 0);
+          })();
+
+          return {
+            name: item.item_name || `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim(),
+            item_id: item.item_id,
+            batch_number: item.batch_number || "N/A",
+            grn_number: item.grn_number || "",
+            expiry_date: item.expiry_date || "N/A",
+            mrp: rate,
+            price: rate,
+            Selling_Price: rate,
+            selling_price: rate,
+            hsn_code: item.hsn_code || "—",
+            cgst_rate: item.CGST_Percentage || 0,
+            cgst_amount: item.CGST_Amt || 0,
+            sgst_rate: item.SGST_Percentage || 0,
+            sgst_amount: item.SGST_Amt || 0,
+            category: item.category || "",
+            reorder_level: item.reorder_level || 0,
+            total_stock: Number(item.total_stock ?? 0),
+            available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
+            is_low_stock: item.is_low_stock === true,
+            is_nil_stock: item.available_stock != null ? Number(item.available_stock) <= 0 : false,
+            high_risk: item.high_risk === true,
+            look_alike: item.look_alike === true,
+            sound_alike: item.sound_alike === true,
+            chemical_composition: item.chemical_composition || "—",
+            composition_name: item.composition_name || "—",
+            shelf_no: item.shelf_no || "—",
+            rack_no: item.rack_no || "—",
+            quantity: 1,
+            total: rate,
+          };
+        });
         setMedicines(formattedMedicines);
+        return formattedMedicines;
       } else {
         console.error("API failed:", response.error);
+        return [];
       }
     } catch (error) {
       console.error("Error fetching medicines:", error);
+      return [];
     }
   }, [HmsBaseUrl]);
 
-  useEffect(() => {
-    fetchMedicines();
-  }, [fetchMedicines]);
+  // Requirement 1: Do NOT call get_pharmacy_stock initially on mount!
+  // API is now called on-demand when user searches medicine name.
 
 
   useEffect(() => {
@@ -1060,18 +1481,31 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setSearchTerm(e.target.value);
   };
 
-  const openMedicineModal = (term) => {
+  const openMedicineModal = async (term) => {
     const normalizedTerm = (term ?? "").trim().toLowerCase();
 
+    // Requirement 1: Only call get_pharmacy_stock API when medicine is searched
+    let currentStock = medicines;
+    try {
+      const fetched = await fetchMedicines();
+      if (Array.isArray(fetched) && fetched.length > 0) {
+        currentStock = fetched;
+      }
+    } catch (err) {
+      console.error("Error fetching stock on search:", err);
+    }
+
     const filtered = normalizedTerm
-      ? medicines.filter((m) =>
-        (m.name || "").toLowerCase().startsWith(normalizedTerm)
-      )
-      : medicines;
+      ? currentStock.filter((m) =>
+          (m.name || "").toLowerCase().includes(normalizedTerm) ||
+          (m.chemical_composition || "").toLowerCase().includes(normalizedTerm) ||
+          (m.composition_name || "").toLowerCase().includes(normalizedTerm)
+        )
+      : currentStock;
 
     setFilteredModalMedicines(filtered);
     setSelectedMedicines([]);
-    setModalSearch("");
+    setModalSearch(term || "");
     setModalPage(1);
     setShowNilStock(false);
     setShowModal(true);
@@ -1120,18 +1554,51 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     }
   };
 
-  const handleAddSelected = () => {
+  const handleAddSelected = useCallback(() => {
     const medicinesToAdd = selectedMedicines.filter(
       (medicine) => !addedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(medicine))
     );
-    const medicinesWithQuantity = medicinesToAdd.map((medicine) => ({
-      ...medicine,
-      quantity: 0,
-      total: 0
-    }));
-    setAddedMedicines([...addedMedicines, ...medicinesWithQuantity]);
+    const medicinesWithQuantity = medicinesToAdd.map((medicine) => {
+      const rate = parseFloat(medicine.mrp || medicine.price || medicine.Selling_Price || medicine.selling_price || 0);
+      const qty = 1;
+      const cgstR = parseFloat(medicine.cgst_rate || 0);
+      const sgstR = parseFloat(medicine.sgst_rate || 0);
+      const gross = parseFloat((qty * rate).toFixed(2));
+      const cgstAmt = parseFloat(((gross * cgstR) / 100).toFixed(2));
+      const sgstAmt = parseFloat(((gross * sgstR) / 100).toFixed(2));
+      return {
+        ...medicine,
+        quantity: qty,
+        mrp: rate,
+        price: rate,
+        Selling_Price: rate,
+        selling_price: rate,
+        cgst_rate: cgstR,
+        cgst_amount: cgstAmt,
+        sgst_rate: sgstR,
+        sgst_amount: sgstAmt,
+        total: gross,
+      };
+    });
+    setAddedMedicines((prev) => [...prev, ...medicinesWithQuantity]);
     handleModalClose();
-  };
+  }, [selectedMedicines, addedMedicines]);
+
+  // Requirement 2: when medicine is selected from modal, pressing Enter loads the medicine
+  useEffect(() => {
+    if (!showModal) return;
+    const handleModalKeyDown = (e) => {
+      if (e.key === "Enter") {
+        if (selectedMedicines.length > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleAddSelected();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleModalKeyDown);
+    return () => window.removeEventListener("keydown", handleModalKeyDown);
+  }, [showModal, selectedMedicines, handleAddSelected]);
 
  const handleQuantityChange = (index, value) => {
   const updatedMedicines = [...addedMedicines];
@@ -1179,12 +1646,14 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       inpatientNo: "",
       name: "",
       doctor_id: "",
+      doctor_name: "",
       roomNo: "",
       billNo: "",
       billDate: "",
       billType: "",
       billTypeName: "",
       dob: "",
+      cashier_id: localStorage.getItem("employeeId") || "",
     });
     setAddedMedicines([]);
     setSearchTerm("");
@@ -1303,6 +1772,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             quantity:         qty,           // belt-and-braces
             price,
             mrp:              parseFloat(m.mrp || price),
+            Selling_Price:    price,
+            selling_price:    price,
             calculated_price: parseFloat((qty * price).toFixed(2)),
             edit_history:     m.edit_history || [],
             CGST_Percentage:  m.cgst_rate    || 0,
@@ -1311,6 +1782,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             SGST_Amt:         m.sgst_amount  || 0,
             discount:         m.discount     || 0,
             expiry_date:      m.expiry_date  || "",
+            is_consumable_items: Boolean(m.is_consumable_items),
           };
         });
 
@@ -1356,11 +1828,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             autoClose: 2000,
           });
 
-          const selectedDoctor = doctor_names.find(
-            (d) => String(d.employeeId) === String(formData.doctor_id)
-          );
-          const doctorName =
-            selectedDoctor ? selectedDoctor.employeeName : formData.doctor_id || "—";
+          const rawDocName = finalizeRes.data?.doctor_name || finalizeRes.doctor_name || formData.doctor_name;
+          const doctorName = formatDoctorDisplay(formData.doctor_id, rawDocName);
+          const rawEmpName = finalizeRes.data?.created_by_name || finalizeRes.data?.employee_name || finalizeRes.created_by_name || finalizeRes.employee_name;
+          const employeeName = getSignatureEmployeeName(rawEmpName, formData.cashier_id);
 
           setPrintBillData({
             billNo:               savedBillNo,
@@ -1368,8 +1839,11 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             patientName:          formData.name,
             uhid:                 formData.uhid,
             doctorName,
+            employeeName,
             patientAge:           patientAge || "",
             cashierId:            formData.cashier_id || "",
+            roomNo:               formData.roomNo || "",
+            billTypeName:         formData.billTypeName || "OP Pharmacy",
             medicines:            [...addedMedicines],
             totalAmount:          updatedTotalAmount,
             totalItemDiscount,
@@ -1381,7 +1855,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           setShowPrintModal(true);
           resetForm();
           setTodayBillDate();
-          fetchMedicines();
         } else {
           // ── Surface ip_advance exceed error prominently ───────────────────
           const backendErr =
@@ -1533,20 +2006,25 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           if (typeof onEstimateSaved === "function") onEstimateSaved();
           resetForm();
           setTodayBillDate();
-          fetchMedicines();
         } else {
           toast.success(backendMsg || `Bill saved successfully! #${response.data?.bill_no || ""}`, { autoClose: 2000 });
           const savedBillNo = response.data?.bill_no || response.bill_no || "";
-          const selectedDoctor = doctor_names.find(d => String(d.employeeId) === String(formData.doctor_id));
-          const doctorName = selectedDoctor ? selectedDoctor.employeeName : formData.doctor_id || "—";
+          const rawDocName = response.data?.doctor_name || response.doctor_name || formData.doctor_name;
+          const doctorName = formatDoctorDisplay(formData.doctor_id, rawDocName);
+          const rawEmpName = response.data?.created_by_name || response.data?.employee_name || response.created_by_name || response.employee_name;
+          const employeeName = getSignatureEmployeeName(rawEmpName, formData.cashier_id);
+
           setPrintBillData({
             billNo: savedBillNo,
             billDate: formData.billDate,
             patientName: formData.name,
             uhid: formData.uhid,
             doctorName,
+            employeeName,
             patientAge: patientAge || "",
             cashierId: formData.cashier_id || "",
+            roomNo: formData.roomNo || "",
+            billTypeName: formData.billTypeName || "OP Pharmacy",
             medicines: [...addedMedicines],
             totalAmount,
             totalItemDiscount,
@@ -1558,7 +2036,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           setShowPrintModal(true);
           resetForm();
           setTodayBillDate();
-          fetchMedicines();
         }
       } else {
         const backendErr = response.data?.error || response.error;
@@ -1799,6 +2276,7 @@ const loadedMedicines = rawMeds.map((item) => {
       inpatientNo:  wardReq.inpatient_number || "",
       name:         wardReq.patient_name || wardReq.patient_details?.patient_name || "",
       doctor_id:    wardReq.doctor_id        || "",
+      doctor_name:  wardReq.doctor_name      || wardReq.patient_details?.doctor_name || "",
       roomNo:       wardReq.room_no          || wardReq.ward_name || "",
       billType:     wardReq.bill_type        || "",
       billTypeName: wardReq.bill_name        || "",
@@ -1883,27 +2361,76 @@ const loadedMedicines = rawMeds.map((item) => {
         ) ||
         medicines.find((s) => String(s.item_id) === String(item.item_id));
 
-      const price  = parseFloat(stockMatch?.price || stockMatch?.mrp || 0);
-      const qty    = Number(item.qty || item.quantity || 0);
+      // Resolve unit price / rate:
+      // Prioritize item's explicit selling price/price/mrp sent from MedicineChart/Ward Request, then stockMatch
+      const resolveRate = () => {
+        const candidates = [
+          item?.Selling_Price,
+          item?.selling_price,
+          item?.price,
+          item?.mrp,
+          stockMatch?.Selling_Price,
+          stockMatch?.selling_price,
+          stockMatch?.price,
+          stockMatch?.mrp,
+        ];
+        for (const c of candidates) {
+          if (c !== undefined && c !== null && c !== "") {
+            const num = parseFloat(c);
+            if (!isNaN(num) && num > 0) return num;
+          }
+        }
+        return 0;
+      };
+
+      const resolvedRate = resolveRate();
+      const qty = Number(item.qty ?? item.quantity ?? 0);
+      const gross = parseFloat((qty * resolvedRate).toFixed(2));
+
+      // Resolve GST rates
+      const cgstRate = parseFloat(item.CGST_Percentage ?? stockMatch?.cgst_rate ?? 0);
+      const sgstRate = parseFloat(item.SGST_Percentage ?? stockMatch?.sgst_rate ?? 0);
+
+      // Resolve GST amounts: compute from gross or scale per-unit amount by qty
+      const cgstAmt = (cgstRate > 0 && gross > 0)
+        ? parseFloat(((gross * cgstRate) / 100).toFixed(2))
+        : (item.CGST_Amt != null && !isNaN(parseFloat(item.CGST_Amt)) && parseFloat(item.CGST_Amt) > 0)
+          ? parseFloat((parseFloat(item.CGST_Amt) * (parseFloat(item.CGST_Amt) > gross ? 1 : qty)).toFixed(2))
+          : parseFloat(stockMatch?.cgst_amount || 0);
+
+      const sgstAmt = (sgstRate > 0 && gross > 0)
+        ? parseFloat(((gross * sgstRate) / 100).toFixed(2))
+        : (item.SGST_Amt != null && !isNaN(parseFloat(item.SGST_Amt)) && parseFloat(item.SGST_Amt) > 0)
+          ? parseFloat((parseFloat(item.SGST_Amt) * (parseFloat(item.SGST_Amt) > gross ? 1 : qty)).toFixed(2))
+          : parseFloat(stockMatch?.sgst_amount || 0);
 
       return {
-        item_id:         item.item_id,
-        name:            stockMatch?.name || item.item_name || `Item #${item.item_id}`,
-        batch_number:    item.batch_number || stockMatch?.batch_number || "",
-        quantity:        qty,
-        price:           price,
-        mrp:             stockMatch?.mrp ?? price,
-        hsn_code:        stockMatch?.hsn_code    || "—",
-        cgst_rate:       item.CGST_Percentage    ?? stockMatch?.cgst_rate   ?? 0,
-        cgst_amount:     item.CGST_Amt           ?? stockMatch?.cgst_amount ?? 0,
-        sgst_rate:       item.SGST_Percentage    ?? stockMatch?.sgst_rate   ?? 0,
-        sgst_amount:     item.SGST_Amt           ?? stockMatch?.sgst_amount ?? 0,
-        expiry_date:     stockMatch?.expiry_date  || "—",
-        available_stock: item.available_stock     ?? stockMatch?.available_stock ?? 9999,
-        dosage:          item.dosage              || stockMatch?.dosage || "",
-        noOfDays:        item.noOfDays            || "",
-        total:           qty * price,
-        edit_history:    [],
+        item_id:             item.item_id,
+        name:                stockMatch?.name || item.item_name || `Item #${item.item_id}`,
+        batch_number:        item.batch_number || stockMatch?.batch_number || "",
+        quantity:            qty,
+        price:               resolvedRate,
+        mrp:                 resolvedRate,
+        selling_price:       resolvedRate,
+        Selling_Price:       resolvedRate,
+        hsn_code:            stockMatch?.hsn_code    || item.hsn_code || "—",
+        cgst_rate:           cgstRate,
+        cgst_amount:         cgstAmt,
+        sgst_rate:           sgstRate,
+        sgst_amount:         sgstAmt,
+        expiry_date:         stockMatch?.expiry_date  || item.expiry_date || "—",
+        available_stock:     item.available_stock     ?? stockMatch?.available_stock ?? 0,
+        dosage:              item.dosage              || stockMatch?.dosage || "",
+        noOfDays:            item.noOfDays            || "",
+        total:               gross,
+        discount_type:       item.discount_type || "percent",
+        discount_value:      item.discount_value || 0,
+        is_consumable_items: Boolean(item.is_consumable_items),
+        high_risk:           Boolean(item.high_risk || stockMatch?.high_risk),
+        look_alike:          Boolean(item.look_alike || stockMatch?.look_alike),
+        sound_alike:         Boolean(item.sound_alike || stockMatch?.sound_alike),
+        is_low_stock:        Boolean(item.is_low_stock || stockMatch?.is_low_stock),
+        edit_history:        [],
       };
     });
 
@@ -2281,160 +2808,39 @@ const loadedMedicines = rawMeds.map((item) => {
   }, [billToEdit]);
 
   const handlePrint = () => {
-    const selectedDoctor = doctor_names.find(d => String(d.employeeId) === String(formData.doctor_id));
-    const doctorName = selectedDoctor ? selectedDoctor.employeeName : formData.doctor_id || "—";
+    const rawDocName = formData.doctor_name;
+    const docName = formatDoctorDisplay(formData.doctor_id, rawDocName);
+    const empName = getSignatureEmployeeName("", formData.cashier_id);
 
-    const overallDiscAmtPrint = overallDiscountType === "amount"
-      ? parseFloat(overallDiscountValue || 0)
-      : totalAmount * (parseFloat(overallDiscountValue || 0) / 100);
+    const printableContent = buildPrintBillHtml({
+      billNo:               formData.billNo || "DRAFT",
+      billDate:             formData.billDate || new Date().toISOString().split("T")[0],
+      patientName:          formData.name || "—",
+      uhid:                 formData.uhid || "—",
+      patientAge:           patientAge || "—",
+      doctorName:           docName,
+      roomNo:               formData.roomNo || "",
+      billTypeName:         formData.billTypeName || "OP Pharmacy",
+      paymentMode:          selectedPaymentMode || "Cash",
+      employeeName:         empName,
+      medicines:            addedMedicines,
+      totalAmount:          totalAmount,
+      totalItemDiscount:    totalItemDiscount,
+      overallDiscountType:  overallDiscountType,
+      overallDiscountValue: overallDiscountValue,
+      netAmount:            netAmount,
+    });
 
-    const medicineRows = addedMedicines.map((medicine, index) => {
-      const itemGross = (medicine.quantity || 0) * (medicine.mrp || 0);
-      const discVal = parseFloat(medicine.discount_value || 0);
-      const discAmt = medicine.discount_type === "amount"
-        ? discVal
-        : itemGross * (discVal / 100);
-      const discPct = medicine.discount_type === "percent"
-        ? discVal
-        : itemGross > 0 ? ((discVal / itemGross) * 100) : 0;
-
-      return `
-        <tr>
-          <td>${medicine.name || ""}</td>
-          <td>${medicine.hsn_code || "—"}</td>
-          <td>${medicine.batch_number || "—"}</td>
-          <td>${medicine.expiry_date || "—"}</td>
-          <td style="text-align:center">${medicine.quantity}</td>
-          <td style="text-align:right">${medicine.mrp.toFixed(2)}</td>
-          <td style="text-align:center">${discPct.toFixed(1)}</td>
-          <td style="text-align:right">${medicine.cgst_rate.toFixed(2)}</td>
-          <td style="text-align:right">${medicine.cgst_amount.toFixed(2)}</td>
-          <td style="text-align:right">${medicine.sgst_rate.toFixed(2)}</td>
-          <td style="text-align:right">${medicine.sgst_amount.toFixed(2)}</td>
-          <td style="text-align:right">${(itemGross).toFixed(2)}</td>
-          <td style="text-align:right">${medicine.total.toFixed(2)}</td>
-        </tr>`;
-    }).join("");
-
-    const printableContent = `
-      <html>
-      <head>
-        <title>Pharmacy Bill</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; color: #000; font-size: 11px; padding: 12px; }
-          .container { width: 100%; max-width: 900px; margin: 0 auto; border: 1px solid #000; padding: 10px; }
-          .header { text-align: center; border-bottom: 1px solid #000; padding: 0 0 8px 0; margin-bottom: 8px; }
-          .header img { width: 100%; height: auto; display: block; }
-          .badge { font-size: 12px; font-weight: bold; margin: 6px 0 2px; border: 1px solid #000; display: inline-block; padding: 2px 10px; }
-          .info-grid { display: flex; justify-content: space-between; margin: 8px 0; border-bottom: 1px solid #ccc; padding-bottom: 6px; }
-          .info-col { flex: 1; }
-          .info-row { display: flex; font-size: 10px; margin-bottom: 3px; }
-          .info-label { font-weight: bold; min-width: 90px; }
-          .info-val { flex: 1; }
-          table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10px; }
-          th { border: 1px solid #000; padding: 4px 5px; background: #f0f0f0; text-align: left; font-size: 10px; }
-          td { border: 1px solid #ccc; padding: 3px 5px; font-size: 10px; }
-          .totals-section { margin-top: 8px; display: flex; justify-content: flex-end; }
-          .totals-table { width: 260px; border-collapse: collapse; }
-          .totals-table td { border: 1px solid #ccc; padding: 4px 8px; font-size: 11px; }
-          .totals-table .label { font-weight: bold; text-align: right; background: #f9f9f9; }
-          .totals-table .value { text-align: right; }
-          .totals-table .net-row td { font-weight: bold; background: #e8f5e9; font-size: 12px; }
-          .footer { margin-top: 12px; border-top: 1px solid #ccc; padding-top: 6px; display: flex; justify-content: space-between; font-size: 10px; }
-          .sign { text-align: right; }
-          .notice { font-style: italic; font-size: 10px; color: #555; margin-top: 8px; text-align: center; }
-          @media print { body { padding: 0; } }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <img src="${SummaryHead}" alt="Shanmuga Hospital" />
-            <div class="badge">PHARMACY OP GST INVOICE</div>
-          </div>
-
-          <div class="info-grid">
-            <div class="info-col">
-              <div class="info-row"><span class="info-label">Patient</span><span class="info-val">: ${formData.name || "—"}</span></div>
-              <div class="info-row"><span class="info-label">UHID No</span><span class="info-val">: ${formData.uhid || "—"}</span></div>
-              <div class="info-row"><span class="info-label">Age</span><span class="info-val">: ${patientAge || "—"}</span></div>
-              <div class="info-row"><span class="info-label">Doctor</span><span class="info-val">: ${doctorName}</span></div>
-            </div>
-            <div class="info-col" style="text-align:right">
-              <div class="info-row" style="justify-content:flex-end"><span class="info-label">Bill No</span><span class="info-val" style="min-width:unset; margin-left:8px">: ${formData.billNo || "—"}</span></div>
-              <div class="info-row" style="justify-content:flex-end"><span class="info-label">Date</span><span class="info-val" style="min-width:unset; margin-left:8px">: ${formData.billDate || "—"}</span></div>
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Particulars</th>
-                <th>HSN Code</th>
-                <th>Batch</th>
-                <th>Expiry</th>
-                <th>Qty</th>
-                <th>Rate</th>
-                <th>Disc%</th>
-                <th>CGST%</th>
-                <th>CGST Amt</th>
-                <th>SGST%</th>
-                <th>SGST Amt</th>
-                <th>Amount</th>
-                <th>Net Amt</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${medicineRows}
-            </tbody>
-          </table>
-
-          <div class="totals-section">
-            <table class="totals-table">
-              <tr>
-                <td class="label">Total :</td>
-                <td class="value">₹${totalAmount.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td class="label">Discount Amt :</td>
-                <td class="value">₹${(totalItemDiscount + overallDiscAmtPrint).toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td class="label">Overall Discount :</td>
-                <td class="value">₹${overallDiscAmtPrint.toFixed(2)}</td>
-              </tr>
-              <tr class="net-row">
-                <td class="label">Net Amount (Payable) :</td>
-                <td class="value">₹${netAmount.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td class="label">Amount Collected :</td>
-                <td class="value"></td>
-              </tr>
-            </table>
-          </div>
-
-          <div class="footer">
-            <div>
-              <p>Payment Mode :</p>
-              <p style="margin-top:6px">Prepared by : <strong>${formData.cashier_id || ""}</strong></p>
-            </div>
-            <div class="sign">
-              <p style="margin-top:30px">_____________________</p>
-              <p>(Sign-pharmacist)</p>
-            </div>
-          </div>
-          <p class="notice">"Goods once sold will not be taken back"</p>
-        <p class="notice">Every prescription filled with care, every patient treated with compassion.</p>
-        </div>
-      </body>
-      </html>`;
     const printWindow = window.open("", "", "width=960,height=700");
-    printWindow.document.write(printableContent);
-    printWindow.document.close();
-    printWindow.print();
-    printWindow.close();
+    if (printWindow) {
+      printWindow.document.write(printableContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    }
   };
 
   const handleDelete = (key) => {
@@ -2693,6 +3099,11 @@ const loadedMedicines = rawMeds.map((item) => {
                 required
               >
                 <option value="">Select Doctor</option>
+                {formData.doctor_id && !doctor_names.some((doc) => String(doc.employeeId) === String(formData.doctor_id)) && (
+                  <option value={formData.doctor_id}>
+                    {formatDoctorDisplay(formData.doctor_id, formData.doctor_name)}
+                  </option>
+                )}
                 {doctor_names.map((doc) => (
                   <option key={doc.employeeId} value={doc.employeeId}>
                     {doc.employeeName}
@@ -2887,14 +3298,24 @@ const loadedMedicines = rawMeds.map((item) => {
                               );
                             }
 
-                            const gross = newQty * medicine.mrp;
+                            const gross = newQty * (medicine.mrp || 0);
                             const dVal = parseFloat(medicine.discount_value || 0);
                             const dAmt = (medicine.discount_type || "percent") === "amount"
                               ? dVal : gross * (dVal / 100);
                             const newTotal = Math.max(0, gross - dAmt);
+                            const cgstR = parseFloat(medicine.cgst_rate || 0);
+                            const sgstR = parseFloat(medicine.sgst_rate || 0);
+                            const newCgstAmt = parseFloat(((gross * cgstR) / 100).toFixed(2));
+                            const newSgstAmt = parseFloat(((gross * sgstR) / 100).toFixed(2));
                             setAddedMedicines((prev) =>
                               prev.map((m, i) =>
-                                i === index ? { ...m, quantity: newQty, total: newTotal } : m
+                                i === index ? {
+                                  ...m,
+                                  quantity: newQty,
+                                  total: newTotal,
+                                  cgst_amount: newCgstAmt,
+                                  sgst_amount: newSgstAmt,
+                                } : m
                               )
                             );
                             if (newQty > 0) setQtyErrors(prev => { const n = { ...prev }; delete n[index]; return n; });
@@ -2905,40 +3326,30 @@ const loadedMedicines = rawMeds.map((item) => {
                       <Td>₹{(itemGross || 0).toFixed(2)}</Td>
                       <Td>
                         <Select
-                          style={{ width: 80, padding: "4px 6px", fontSize: "0.82rem" }}
-                          value={medicine.discount_type || "percent"}
-                          onChange={(e) => {
-                            const dType = e.target.value;
-                            const gross = (medicine.quantity || 0) * medicine.mrp;
-                            const dVal = parseFloat(medicine.discount_value || 0);
-                            const dAmt = dType === "amount" ? dVal : gross * (dVal / 100);
-                            const newTotal = Math.max(0, gross - dAmt);
-                            setAddedMedicines((prev) =>
-                              prev.map((m, i) =>
-                                i === index ? { ...m, discount_type: dType, total: newTotal } : m
-                              )
-                            );
-                          }}
+                          style={{ width: 68, padding: "4px 6px", fontSize: "0.82rem" }}
+                          value="percent"
+                          onChange={() => {}}
                         >
                           <option value="percent">%</option>
-                          <option value="amount">Amt</option>
                         </Select>
                       </Td>
                       <Td>
                         <QtyInput
                           type="number"
                           min="0"
+                          max="100"
                           value={medicine.discount_value || ""}
                           placeholder="0"
                           onChange={(e) => {
-                            const dVal = parseFloat(e.target.value) || 0;
+                            let dVal = parseFloat(e.target.value) || 0;
+                            if (dVal < 0) dVal = 0;
+                            if (dVal > 100) dVal = 100;
                             const gross = (medicine.quantity || 0) * medicine.mrp;
-                            const dType = medicine.discount_type || "percent";
-                            const dAmt = dType === "amount" ? dVal : gross * (dVal / 100);
+                            const dAmt = gross * (dVal / 100);
                             const newTotal = Math.max(0, gross - dAmt);
                             setAddedMedicines((prev) =>
                               prev.map((m, i) =>
-                                i === index ? { ...m, discount_value: dVal, total: newTotal } : m
+                                i === index ? { ...m, discount_type: "percent", discount_value: dVal, total: newTotal } : m
                               )
                             );
                           }}
@@ -3001,19 +3412,24 @@ const loadedMedicines = rawMeds.map((item) => {
                 <span style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#64748b" }}>Overall Discount</span>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <Select
-                    style={{ width: 68, padding: "4px 4px", fontSize: "0.82rem", borderRadius: 6, border: "1px solid #cbd5e1" }}
-                    value={overallDiscountType}
-                    onChange={e => setOverallDiscountType(e.target.value)}
+                    style={{ width: 55, padding: "4px 4px", fontSize: "0.82rem", borderRadius: 6, border: "1px solid #cbd5e1" }}
+                    value="percent"
+                    onChange={() => {}}
                   >
                     <option value="percent">%</option>
-                    <option value="amount">Amt</option>
                   </Select>
                   <QtyInput
                     type="number"
                     min="0"
+                    max="100"
                     placeholder="0"
                     value={overallDiscountValue}
-                    onChange={e => setOverallDiscountValue(e.target.value)}
+                    onChange={e => {
+                      let val = parseFloat(e.target.value) || 0;
+                      if (val < 0) val = 0;
+                      if (val > 100) val = 100;
+                      setOverallDiscountValue(e.target.value === "" ? "" : val);
+                    }}
                     style={{ width: 90 }}
                   />
                 </div>
@@ -3073,7 +3489,7 @@ const loadedMedicines = rawMeds.map((item) => {
       {/* ── Medicine Selection Modal ── */}
       {showModal && (
         <ModalOverlay onClick={handleModalCloseAndClear}>
-          <ModalContainer style={{ maxWidth: 960 }} onClick={e => e.stopPropagation()}>
+          <ModalContainer style={{ maxWidth: 1120, width: "95%" }} onClick={e => e.stopPropagation()}>
             <ModalHeader>
               <ModalTitle>Items Query — Select Medicines</ModalTitle>
               <CloseButton onClick={handleModalCloseAndClear}>×</CloseButton>
@@ -3085,6 +3501,14 @@ const loadedMedicines = rawMeds.map((item) => {
                     placeholder="Filter results..."
                     value={modalSearch}
                     onChange={e => { setModalSearch(e.target.value); setModalPage(1); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (selectedMedicines.length > 0) {
+                          e.preventDefault();
+                          handleAddSelected();
+                        }
+                      }
+                    }}
                     autoFocus
                     style={{ width: "100%" }}
                   />
@@ -3139,16 +3563,16 @@ const loadedMedicines = rawMeds.map((item) => {
                   <Table>
                     <thead>
                       <tr>
-                        <Th style={{ width: 48 }}>Select</Th>
-                        <Th>Item Name</Th>
-                        <Th>Batch No</Th>
-                        <Th>Expiry</Th>
-                        <Th>MRP</Th>
-                        <Th>Avail. Stock</Th>
-                        <Th>HSN Code</Th>
-                        <Th>Chemical Composition</Th>
-                        <Th>Shelf No</Th>
-                        <Th>Rack No</Th>
+                        <Th style={{ width: 48, textAlign: "center", whiteSpace: "nowrap" }}>Select</Th>
+                        <Th style={{ minWidth: 170 }}>Item Name</Th>
+                        <Th style={{ whiteSpace: "nowrap" }}>Batch No</Th>
+                        <Th style={{ whiteSpace: "nowrap", minWidth: 105 }}>Expiry</Th>
+                        <Th style={{ whiteSpace: "nowrap" }}>MRP</Th>
+                        <Th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Avail. Stock</Th>
+                        <Th style={{ whiteSpace: "nowrap" }}>HSN Code</Th>
+                        <Th style={{ minWidth: 160 }}>Chemical Composition</Th>
+                        <Th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Shelf No</Th>
+                        <Th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Rack No</Th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3176,17 +3600,17 @@ const loadedMedicines = rawMeds.map((item) => {
                             }}
                             onClick={() => { if (!isNilStock) handleMedicineSelect(medicine); }}
                           >
-                            <Td onClick={e => e.stopPropagation()}>
+                            <Td style={{ textAlign: "center", verticalAlign: "middle" }} onClick={e => e.stopPropagation()}>
                               <ModalCheckbox
                                 type="checkbox"
                                 checked={selectedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(medicine))}
                                 onChange={() => { if (!isNilStock) handleMedicineSelect(medicine); }}
                                 disabled={isNilStock}
                                 title={isNilStock ? "Out of stock — cannot select" : ""}
-                                style={{ cursor: isNilStock ? "not-allowed" : "pointer" }}
+                                style={{ cursor: isNilStock ? "not-allowed" : "pointer", verticalAlign: "middle" }}
                               />
                             </Td>
-                            <Td style={{ fontWeight: 500 }}>
+                            <Td style={{ fontWeight: 500, verticalAlign: "middle" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                 <span style={{ color: nameColor, fontWeight: nameColor ? 700 : 500 }}>{medicine.name}</span>
                                 {medicine.dosage && <span style={{ fontSize: "0.75rem", color: "#64748b" }}>({medicine.dosage})</span>}
@@ -3196,7 +3620,7 @@ const loadedMedicines = rawMeds.map((item) => {
                                     <span style={{
                                       fontSize: "0.7rem", fontWeight: 700, color: "#b45309",
                                       background: "#fff7ed", border: "1px solid #fdba74",
-                                      borderRadius: 4, padding: "1px 6px"
+                                      borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap"
                                     }}>LOW STOCK</span>
                                   </>
                                 )}
@@ -3204,15 +3628,17 @@ const loadedMedicines = rawMeds.map((item) => {
                                   <span style={{
                                     fontSize: "0.7rem", fontWeight: 700, color: "#0f766e",
                                     background: "#f0fdfa", border: "1px solid #99f6e4",
-                                    borderRadius: 4, padding: "1px 6px"
+                                    borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap"
                                   }}>RL{medicine.reorder_level}</span>
                                 )}
                               </div>
                             </Td>
-                            <Td>{medicine.batch_number}</Td>
-                            <Td style={{ fontSize: "0.82rem", color: "#64748b" }}>{medicine.expiry_date?.split("T")[0]}</Td>
-                            <Td>₹{medicine.mrp.toFixed(2)}</Td>
-                            <Td>
+                            <Td style={{ whiteSpace: "nowrap", verticalAlign: "middle" }}>{medicine.batch_number || "—"}</Td>
+                            <Td style={{ fontSize: "0.82rem", color: "#64748b", whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                              {formatExpiryDate(medicine.expiry_date)}
+                            </Td>
+                            <Td style={{ whiteSpace: "nowrap", verticalAlign: "middle" }}>₹{Number(medicine.mrp || 0).toFixed(2)}</Td>
+                            <Td style={{ textAlign: "center", verticalAlign: "middle", whiteSpace: "nowrap" }}>
                               <StockBadge
                                 low={isNilStock}
                                 style={
@@ -3226,10 +3652,10 @@ const loadedMedicines = rawMeds.map((item) => {
                                 {isNilStock ? "0 (Nil)" : medicine.available_stock ?? "—"}
                               </StockBadge>
                             </Td>
-                            <Td>{medicine.hsn_code || "—"}</Td>
-                            <Td>{medicine.composition_name || "—"}</Td>
-                            <Td>{medicine.shelf_no || "—"}</Td>
-                            <Td>{medicine.rack_no || "—"}</Td>
+                            <Td style={{ whiteSpace: "nowrap", verticalAlign: "middle" }}>{medicine.hsn_code || "—"}</Td>
+                            <Td style={{ verticalAlign: "middle" }}>{medicine.composition_name || "—"}</Td>
+                            <Td style={{ textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>{medicine.shelf_no || "—"}</Td>
+                            <Td style={{ textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>{medicine.rack_no || "—"}</Td>
                           </Tr>
                         );
                       })}
@@ -3647,115 +4073,143 @@ const loadedMedicines = rawMeds.map((item) => {
             <ModalBody style={{ padding: "0" }}>
               {/* Bill Preview */}
               <div style={{
-                padding: "20px 28px",
-                fontFamily: "Arial, sans-serif",
+                padding: "20px 24px",
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                 fontSize: 11,
-                color: "#000",
-                background: "#fff",
+                color: "#1e293b",
+                background: "#ffffff",
               }}>
                 {/* Hospital Header */}
-                <div style={{ margin: "-20px -28px 8px -28px", borderBottom: "1px solid #000", paddingBottom: 8 }}>
+                <div style={{ textAlign: "center", borderBottom: "2px solid #0f766e", paddingBottom: 10, marginBottom: 12 }}>
                   <img
                     src={SummaryHead}
                     alt="Shanmuga Hospital"
-                    style={{ width: "100%", height: "auto", display: "block" }}
+                    style={{ maxHeight: 70, maxWidth: "100%", objectFit: "contain", display: "block", margin: "0 auto 6px auto" }}
                   />
-                  <div style={{
-                    textAlign: "center", display: "block", margin: "6px 0 2px",
-                    fontWeight: "bold", fontSize: 12
-                  }}><span style={{ border: "1px solid #000", padding: "2px 14px", display: "inline-block" }}>PHARMACY OP GST INVOICE</span></div>
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <span style={{
+                      background: "#0f766e", color: "#ffffff", fontSize: 11, fontWeight: 800,
+                      letterSpacing: 1.5, textTransform: "uppercase", padding: "3px 18px", borderRadius: 9999
+                    }}>
+                      TAX INVOICE — OP PHARMACY
+                    </span>
+                  </div>
                 </div>
 
                 {/* Patient & Bill Info */}
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, borderBottom: "1px solid #ccc", paddingBottom: 6 }}>
-                  <div>
-                    {[
-                      ["Patient", printBillData.patientName || "—"],
-                      ["UHID No", printBillData.uhid || "—"],
-                      ["Age", printBillData.patientAge || "—"],
-                      ["Doctor", printBillData.doctorName || "—"],
-                    ].map(([lbl, val]) => (
-                      <div key={lbl} style={{ display: "flex", fontSize: 10, marginBottom: 3 }}>
-                        <span style={{ fontWeight: "bold", minWidth: 80 }}>{lbl}</span>
-                        <span>: {val}</span>
-                      </div>
-                    ))}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 12,
+                  background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6,
+                  padding: "10px 14px", marginBottom: 12
+                }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div style={{ display: "flex", fontSize: 11 }}>
+                      <span style={{ width: 88, color: "#64748b", fontWeight: 600 }}>Patient:</span>
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{printBillData.patientName || "—"}</span>
+                    </div>
+                    <div style={{ display: "flex", fontSize: 11 }}>
+                      <span style={{ width: 88, color: "#64748b", fontWeight: 600 }}>UHID No:</span>
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{printBillData.uhid || "—"}</span>
+                    </div>
+                    <div style={{ display: "flex", fontSize: 11 }}>
+                      <span style={{ width: 88, color: "#64748b", fontWeight: 600 }}>Age / Gender:</span>
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{printBillData.patientAge || "—"}</span>
+                    </div>
+                    <div style={{ display: "flex", fontSize: 11 }}>
+                      <span style={{ width: 88, color: "#64748b", fontWeight: 600 }}>Consultant:</span>
+                      <span style={{ fontWeight: 700, color: "#0f766e" }}>{printBillData.doctorName || "—"}</span>
+                    </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    {[
-                      ["Bill No", printBillData.billNo || "—"],
-                      ["Date", printBillData.billDate || "—"],
-                    ].map(([lbl, val]) => (
-                      <div key={lbl} style={{ display: "flex", fontSize: 10, marginBottom: 3, justifyContent: "flex-end" }}>
-                        <span style={{ fontWeight: "bold", minWidth: 60 }}>{lbl}</span>
-                        <span style={{ marginLeft: 8 }}>: {val}</span>
-                      </div>
-                    ))}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div style={{ display: "flex", fontSize: 11 }}>
+                      <span style={{ width: 80, color: "#64748b", fontWeight: 600 }}>Invoice No:</span>
+                      <span style={{ fontWeight: 700, color: "#0f766e" }}>{printBillData.billNo || "—"}</span>
+                    </div>
+                    <div style={{ display: "flex", fontSize: 11 }}>
+                      <span style={{ width: 80, color: "#64748b", fontWeight: 600 }}>Date:</span>
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{printBillData.billDate || "—"}</span>
+                    </div>
+                    <div style={{ display: "flex", fontSize: 11 }}>
+                      <span style={{ width: 80, color: "#64748b", fontWeight: 600 }}>Bill Type:</span>
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{printBillData.billTypeName || "OP Pharmacy"}</span>
+                    </div>
+                    <div style={{ display: "flex", fontSize: 11 }}>
+                      <span style={{ width: 80, color: "#64748b", fontWeight: 600 }}>Pay Mode:</span>
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{printBillData.paymentMode || "Cash"}</span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Medicines Table */}
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, marginBottom: 12 }}>
                   <thead>
                     <tr>
-                      {["Particulars", "HSN Code", "Batch", "Expiry", "Qty", "Rate", "CGST%", "CGST Amt", "SGST%", "SGST Amt", "Amount"].map(h => (
-                        <th key={h} style={{ border: "1px solid #000", padding: "3px 5px", background: "#f0f0f0", textAlign: "left" }}>{h}</th>
-                      ))}
+                      <th style={{ width: 28, textAlign: "center", background: "#f1f5f9", color: "#0f766e", border: "1px solid #cbd5e1", padding: "6px 4px" }}>#</th>
+                      <th style={{ textAlign: "left", background: "#f1f5f9", color: "#0f766e", border: "1px solid #cbd5e1", padding: "6px 8px" }}>Particulars</th>
+                      <th style={{ width: 65, textAlign: "center", background: "#f1f5f9", color: "#0f766e", border: "1px solid #cbd5e1", padding: "6px" }}>HSN</th>
+                      <th style={{ width: 75, textAlign: "center", background: "#f1f5f9", color: "#0f766e", border: "1px solid #cbd5e1", padding: "6px" }}>Batch</th>
+                      <th style={{ width: 75, textAlign: "center", background: "#f1f5f9", color: "#0f766e", border: "1px solid #cbd5e1", padding: "6px" }}>Expiry</th>
+                      <th style={{ width: 40, textAlign: "center", background: "#f1f5f9", color: "#0f766e", border: "1px solid #cbd5e1", padding: "6px" }}>Qty</th>
+                      <th style={{ width: 65, textAlign: "right", background: "#f1f5f9", color: "#0f766e", border: "1px solid #cbd5e1", padding: "6px" }}>Rate</th>
+                      <th style={{ width: 75, textAlign: "right", background: "#f1f5f9", color: "#0f766e", border: "1px solid #cbd5e1", padding: "6px" }}>Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     {printBillData.medicines.map((m, i) => (
-                      <tr key={i}>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>{m.name}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>{m.hsn_code || "—"}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>{m.batch_number || "—"}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>{m.expiry_date || "—"}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "center" }}>{m.quantity}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.mrp || 0).toFixed(2)}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.cgst_rate || 0).toFixed(2)}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.cgst_amount || 0).toFixed(2)}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.sgst_rate || 0).toFixed(2)}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.sgst_amount || 0).toFixed(2)}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.total || 0).toFixed(2)}</td>
+                      <tr key={i} style={{ background: i % 2 === 1 ? "#fafafa" : "#ffffff" }}>
+                        <td style={{ border: "1px solid #cbd5e1", padding: "6px 4px", textAlign: "center" }}>{i + 1}</td>
+                        <td style={{ border: "1px solid #cbd5e1", padding: "6px 8px", fontWeight: 600 }}>{m.name}</td>
+                        <td style={{ border: "1px solid #cbd5e1", padding: "6px", textAlign: "center" }}>{m.hsn_code || "—"}</td>
+                        <td style={{ border: "1px solid #cbd5e1", padding: "6px", textAlign: "center", whiteSpace: "nowrap" }}>{m.batch_number || "—"}</td>
+                        <td style={{ border: "1px solid #cbd5e1", padding: "6px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryDate(m.expiry_date)}</td>
+                        <td style={{ border: "1px solid #cbd5e1", padding: "6px", textAlign: "center", fontWeight: 700 }}>{m.quantity}</td>
+                        <td style={{ border: "1px solid #cbd5e1", padding: "6px", textAlign: "right" }}>₹{(m.mrp || m.price || 0).toFixed(2)}</td>
+                        <td style={{ border: "1px solid #cbd5e1", padding: "6px", textAlign: "right", fontWeight: 700 }}>₹{(m.total || 0).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
 
-                {/* Totals */}
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                  <table style={{ width: 260, borderCollapse: "collapse" }}>
-                    {[
-                      ["Total :", `₹${printBillData.totalAmount.toFixed(2)}`, false],
-                      ["Discount Amt :", `₹${(printBillData.totalItemDiscount + (
-                        printBillData.overallDiscountType === "amount"
-                          ? parseFloat(printBillData.overallDiscountValue || 0)
-                          : printBillData.totalAmount * (parseFloat(printBillData.overallDiscountValue || 0) / 100)
-                      )).toFixed(2)}`, false],
-                      ["Net Amount (Payable) :", `₹${printBillData.netAmount.toFixed(2)}`, true],
-                      ["Amount Collected :", "0.00", false],
-                    ].map(([lbl, val, isNet]) => (
-                      <tr key={lbl} style={isNet ? { background: "#e8f5e9" } : {}}>
-                        <td style={{ border: "1px solid #ccc", padding: "4px 8px", fontWeight: "bold", textAlign: "right", background: isNet ? "#e8f5e9" : "#f9f9f9", fontSize: isNet ? 12 : 11 }}>{lbl}</td>
-                        <td style={{ border: "1px solid #ccc", padding: "4px 8px", textAlign: "right", fontWeight: isNet ? "bold" : "normal", fontSize: isNet ? 12 : 11 }}>{val}</td>
-                      </tr>
-                    ))}
-                  </table>
+                {/* Totals & Notes */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+                  <div style={{ flex: 1, fontSize: 9.5, color: "#64748b", background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: 6, padding: "8px 12px" }}>
+                    <strong>Terms & Conditions:</strong><br />
+                    • Goods once sold cannot be returned or exchanged.<br />
+                    • Store medicines in a cool, dry place.
+                  </div>
+                  <div style={{ width: 260, border: "1px solid #cbd5e1", borderRadius: 6, overflow: "hidden" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 12px", borderBottom: "1px solid #f1f5f9" }}>
+                      <span style={{ color: "#64748b" }}>Gross Total:</span>
+                      <span style={{ fontWeight: 600 }}>₹{printBillData.totalAmount.toFixed(2)}</span>
+                    </div>
+                    {(printBillData.totalItemDiscount > 0 || printBillData.overallDiscountValue > 0) && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 12px", borderBottom: "1px solid #f1f5f9", color: "#dc2626", fontWeight: 600 }}>
+                        <span>Discount:</span>
+                        <span>- ₹{(printBillData.totalItemDiscount + (
+                          printBillData.overallDiscountType === "amount"
+                            ? parseFloat(printBillData.overallDiscountValue || 0)
+                            : printBillData.totalAmount * (parseFloat(printBillData.overallDiscountValue || 0) / 100)
+                        )).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#ecfdf5", borderTop: "2px solid #059669", color: "#047857", fontWeight: 800, fontSize: 12 }}>
+                      <span>NET PAYABLE:</span>
+                      <span>₹{printBillData.netAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Footer */}
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, borderTop: "1px solid #ccc", paddingTop: 6, fontSize: 10 }}>
+                {/* Footer Signatures */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 18, borderTop: "1px solid #e2e8f0", paddingTop: 8 }}>
                   <div>
-                    <div>Payment Mode :</div>
-                    {printBillData.cashierId && <div style={{ marginTop: 4 }}>Prepared by : <strong>{printBillData.cashierId}</strong></div>}
+                    <div style={{ fontSize: 10.5, color: "#334155" }}>Prepared / Dispensed By: <strong>{printBillData.employeeName || printBillData.cashierId || "Pharmacist"}</strong></div>
+                    <div style={{ fontSize: 9, color: "#64748b" }}>Shanmuga Hospital Pharmacy Department</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ marginTop: 30 }}>_____________________</div>
-                    <div>(Sign-pharmacist)</div>
+                    <div style={{ width: 150, borderBottom: "1.5px solid #64748b", marginBottom: 3, marginLeft: "auto" }}></div>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: "#0f172a" }}>Authorized Pharmacist</div>
+                    <div style={{ fontSize: 9, color: "#64748b" }}>(Signature & Stamp)</div>
                   </div>
-                </div>
-                <div style={{ textAlign: "center", fontStyle: "italic", fontSize: 10, color: "#555", marginTop: 8 }}>
-                  "Goods once sold will not be taken back"
                 </div>
               </div>
             </ModalBody>
@@ -3766,96 +4220,17 @@ const loadedMedicines = rawMeds.map((item) => {
               </Button>
               <Button
                 onClick={() => {
-                  const d = printBillData;
-                  const overallDiscAmtPrint = d.overallDiscountType === "amount"
-                    ? parseFloat(d.overallDiscountValue || 0)
-                    : d.totalAmount * (parseFloat(d.overallDiscountValue || 0) / 100);
-
-                  const medicineRows = d.medicines.map(m => `
-                    <tr>
-                      <td>${m.name || ""}</td>
-                      <td>${m.hsn_code || "—"}</td>
-                      <td>${m.batch_number || "—"}</td>
-                      <td>${m.expiry_date || "—"}</td>
-                      <td style="text-align:center">${m.quantity}</td>
-                      <td style="text-align:right">${(m.mrp || 0).toFixed(2)}</td>
-                      <td style="text-align:right">${(m.cgst_rate || 0).toFixed(2)}</td>
-                      <td style="text-align:right">${(m.cgst_amount || 0).toFixed(2)}</td>
-                      <td style="text-align:right">${(m.sgst_rate || 0).toFixed(2)}</td>
-                      <td style="text-align:right">${(m.sgst_amount || 0).toFixed(2)}</td>
-                      <td style="text-align:right">${(m.total || 0).toFixed(2)}</td>
-                    </tr>`).join("");
-
-                  const printContent = `<html><head><title>Pharmacy Bill</title>
-                    <style>
-                      *{margin:0;padding:0;box-sizing:border-box}
-                      body{font-family:Arial,sans-serif;color:#000;font-size:11px;padding:12px}
-                      .container{width:100%;max-width:900px;margin:0 auto;border:1px solid #000;padding:10px}
-                      .header{text-align:center;border-bottom:1px solid #000;padding:0 0 8px 0;margin-bottom:8px}
-                      .header img{width:100%;height:auto;display:block}
-                      .badge{font-size:12px;font-weight:bold;margin:6px 0 2px;border:1px solid #000;display:inline-block;padding:2px 10px}
-                      .info-grid{display:flex;justify-content:space-between;margin:8px 0;border-bottom:1px solid #ccc;padding-bottom:6px}
-                      .info-col{flex:1}
-                      .info-row{display:flex;font-size:10px;margin-bottom:3px}
-                      .info-label{font-weight:bold;min-width:90px}
-                      table{width:100%;border-collapse:collapse;margin-top:6px;font-size:10px}
-                      th{border:1px solid #000;padding:4px 5px;background:#f0f0f0;text-align:left;font-size:10px}
-                      td{border:1px solid #ccc;padding:3px 5px;font-size:10px}
-                      .totals-section{margin-top:8px;display:flex;justify-content:flex-end}
-                      .totals-table{width:260px;border-collapse:collapse}
-                      .totals-table td{border:1px solid #ccc;padding:4px 8px;font-size:11px}
-                      .totals-table .label{font-weight:bold;text-align:right;background:#f9f9f9}
-                      .totals-table .value{text-align:right}
-                      .totals-table .net-row td{font-weight:bold;background:#e8f5e9;font-size:12px}
-                      .footer{margin-top:12px;border-top:1px solid #ccc;padding-top:6px;display:flex;justify-content:space-between;font-size:10px}
-                      .notice{font-style:italic;font-size:10px;color:#555;margin-top:8px;text-align:center}
-                      @media print{body{padding:0}}
-                    </style></head><body>
-                    <div class="container">
-                      <div class="header">
-                        <img src="${SummaryHead}" alt="Shanmuga Hospital" />
-                        <div class="badge">PHARMACY OP GST INVOICE</div>
-                      </div>
-                      <div class="info-grid">
-                        <div class="info-col">
-                          <div class="info-row"><span class="info-label">Patient</span><span>: ${d.patientName || "—"}</span></div>
-                          <div class="info-row"><span class="info-label">UHID No</span><span>: ${d.uhid || "—"}</span></div>
-                          <div class="info-row"><span class="info-label">Age</span><span>: ${d.patientAge || "—"}</span></div>
-                          <div class="info-row"><span class="info-label">Doctor</span><span>: ${d.doctorName || "—"}</span></div>
-                        </div>
-                        <div class="info-col" style="text-align:right">
-                          <div class="info-row" style="justify-content:flex-end"><span class="info-label">Bill No</span><span style="margin-left:8px">: ${d.billNo || "—"}</span></div>
-                          <div class="info-row" style="justify-content:flex-end"><span class="info-label">Date</span><span style="margin-left:8px">: ${d.billDate || "—"}</span></div>
-                        </div>
-                      </div>
-                      <table>
-                        <thead><tr>
-                          <th>Particulars</th><th>HSN Code</th><th>Batch</th><th>Expiry</th>
-                          <th>Qty</th><th>Rate</th><th>CGST%</th><th>CGST Amt</th>
-                          <th>SGST%</th><th>SGST Amt</th><th>Amount</th>
-                        </tr></thead>
-                        <tbody>${medicineRows}</tbody>
-                      </table>
-                      <div class="totals-section">
-                        <table class="totals-table">
-                          <tr><td class="label">Total :</td><td class="value">₹${d.totalAmount.toFixed(2)}</td></tr>
-                          <tr><td class="label">Discount Amt :</td><td class="value">₹${(d.totalItemDiscount + overallDiscAmtPrint).toFixed(2)}</td></tr>
-                          <tr class="net-row"><td class="label">Net Amount (Payable) :</td><td class="value">₹${d.netAmount.toFixed(2)}</td></tr>
-                          <tr><td class="label">Amount Collected :</td><td class="value">0.00</td></tr>
-                        </table>
-                      </div>
-                      <div class="footer">
-                        <div><p>Payment Mode :</p>${d.cashierId ? `<p style="margin-top:6px">Prepared by : <strong>${d.cashierId}</strong></p>` : ""}</div>
-                        <div style="text-align:right"><p style="margin-top:30px">_____________________</p><p>(Sign-pharmacist)</p></div>
-                      </div>
-                      <p class="notice">"Goods once sold will not be taken back"</p>
-                    </div></body></html>`;
-
+                  const html = buildPrintBillHtml(printBillData);
                   const pw = window.open("", "", "width=960,height=700");
-                  pw.document.write(printContent);
-                  pw.document.close();
-                  pw.print();
-                  pw.close();
+                  if (pw) {
+                    pw.document.write(html);
+                    pw.document.close();
+                    pw.focus();
+                    setTimeout(() => {
+                      pw.print();
+                      pw.close();
+                    }, 250);
+                  }
                 }}
                 style={{ background: "linear-gradient(135deg, #0f766e, #0d9488)", color: "#fff", border: "none" }}
               >

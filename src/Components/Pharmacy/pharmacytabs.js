@@ -197,12 +197,19 @@ const OPPharmacyTabs = () => {
 
       // ── Doctor / ward ──
       doctor_id:        resolvedDoctor,
+      doctor_name:      patient.doctor_name || patient.patient_details?.doctor_name || "",
       room_no:          resolvedRoom,
       ward_name:        resolvedRoom,              // alias
 
       // ── Discount ──
       overall_discount_type:  patient.overall_discount_type  || "percent",
       overall_discount_value: patient.overall_discount_value ?? 0,
+
+      // ── Customer & Insurance / IP Advance info ──
+      customer_type:     patient.customer_type     || "General",
+      is_insurance:      patient.is_insurance      ?? (String(patient.customer_type || '').toLowerCase() === 'insurance'),
+      insurance_company: patient.insurance_company || "",
+      total_ip_advance:  patient.total_ip_advance  ?? 0,
 
       // ── Patient fields — FLAT (used by many forms that read top-level keys) ──
       patient_name: resolvedName,
@@ -217,22 +224,36 @@ const OPPharmacyTabs = () => {
       },
 
       // ── Medicine items — map ALL fields from the enriched API response ──
-      medicine_items: items.map((item) => ({
-        item_id:         item.item_id,
-        item_name:       item.item_name       || item.medicine_name || "",
-        batch_number:    item.batch_number    || "",
-        qty:             item.qty             ?? item.quantity ?? 0,
-        quantity:        item.qty             ?? item.quantity ?? 0,
-        dosage:          item.dosage          || "",
-        noOfDays:        item.noOfDays        || "",
-        available_stock: item.available_stock ?? 9999,
-        CGST_Percentage: item.CGST_Percentage ?? 0,
-        SGST_Percentage: item.SGST_Percentage ?? 0,
-        CGST_Amt:        item.CGST_Amt        ?? 0,
-        SGST_Amt:        item.SGST_Amt        ?? 0,
-        price:           item.price           ?? item.mrp ?? 0,
-        mrp:             item.mrp             ?? item.price ?? 0,
-      })),
+      medicine_items: items.map((item) => {
+        const rate = (() => {
+          const sp = item.Selling_Price !== undefined ? item.Selling_Price : item.selling_price;
+          if (sp !== undefined && sp !== null && sp !== "" && !isNaN(Number(sp)) && Number(sp) > 0) return Number(sp);
+          if (item.price !== undefined && item.price !== null && item.price !== "" && !isNaN(Number(item.price)) && Number(item.price) > 0) return Number(item.price);
+          if (item.mrp !== undefined && item.mrp !== null && item.mrp !== "" && !isNaN(Number(item.mrp)) && Number(item.mrp) > 0) return Number(item.mrp);
+          return Number(sp || item.price || item.mrp || 0);
+        })();
+
+        return {
+          ...item,
+          item_id:             item.item_id,
+          item_name:           item.item_name       || item.medicine_name || "",
+          batch_number:        item.batch_number    || "",
+          qty:                 item.qty             ?? item.quantity ?? 0,
+          quantity:            item.qty             ?? item.quantity ?? 0,
+          dosage:              item.dosage          || "",
+          noOfDays:            item.noOfDays        || "",
+          available_stock:     item.available_stock ?? 0,
+          CGST_Percentage:     item.CGST_Percentage ?? 0,
+          SGST_Percentage:     item.SGST_Percentage ?? 0,
+          CGST_Amt:            item.CGST_Amt        ?? 0,
+          SGST_Amt:            item.SGST_Amt        ?? 0,
+          price:               rate,
+          mrp:                 rate,
+          selling_price:       rate,
+          Selling_Price:       rate,
+          is_consumable_items: Boolean(item.is_consumable_items),
+        };
+      }),
     };
 
     setWardRequestToLoad(wardPayload);

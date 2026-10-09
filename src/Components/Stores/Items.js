@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import ReactSelect from 'react-select';
-import { LineChart, X } from 'lucide-react';
+import { 
+    LineChart, X, Plus, Search, Edit2, Trash2, FilterX, Layers, 
+    AlertCircle, CheckCircle, Package, Building2, Tag, LayoutGrid, 
+    AlertTriangle, Box, ShieldCheck, Sparkles, ArrowUpDown
+} from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
-import { Plus, Search, Edit2, Trash2, FilterX } from 'lucide-react';
+import TablePagination, { usePagination } from './TablePagination';
 import {
     PageWrapper,
     Container,
@@ -34,11 +38,11 @@ import {
 } from '../GlobalStyles';
 
 const tabs = [
-    { id: 'item', label: 'Item Master', endpoint: 'item-master' },
-    { id: 'department', label: 'Department Master', endpoint: 'department-master' },
-    { id: 'group', label: 'Group Master', endpoint: 'group-master' },
-    { id: 'category', label: 'Category Master', endpoint: 'category-master' },
-    { id: 'grouptype', label: 'Group Type Master', endpoint: 'group-type-master' }
+    { id: 'item', label: 'Item Master', icon: Package, endpoint: 'item-master' },
+    { id: 'department', label: 'Department Master', icon: Building2, endpoint: 'department-master' },
+    { id: 'group', label: 'Group Master', icon: Layers, endpoint: 'group-master' },
+    { id: 'category', label: 'Category Master', icon: Tag, endpoint: 'category-master' },
+    { id: 'grouptype', label: 'Group Type Master', icon: LayoutGrid, endpoint: 'group-type-master' }
 ];
 
 const Items = () => {
@@ -306,6 +310,22 @@ const Items = () => {
         return matchesSearch && matchesDept && matchesCat && matchesGroup && matchesLowStock;
     });
 
+    const {
+        currentPage,
+        pageSize,
+        totalPages,
+        pageData,
+        goTo,
+        handlePageSizeChange,
+        startIdx,
+        totalItems
+    } = usePagination(filteredItems, 15);
+
+    const lowStockCount = items.filter(item => {
+        const avail = Number(item.total_quantity || 0) - Number(item.approved_quantity || 0);
+        return avail <= Number(item.stockReorderLevel || 0);
+    }).length;
+
     const clearFilters = () => {
         setSearchTerm('');
         setFilterDepartment('');
@@ -511,121 +531,247 @@ const Items = () => {
         );
     }
 
+    const totalLowStock = items.filter(it => (Number(it.total_quantity || 0) - Number(it.approved_quantity || 0)) <= Number(it.stockReorderLevel || 0)).length;
+    const totalInventoryUnits = items.reduce((acc, it) => acc + Math.max(0, Number(it.total_quantity || 0) - Number(it.approved_quantity || 0)), 0);
+    const totalVmItems = items.filter(it => it.is_VM).length;
+
     return (
-        <PageWrapper>
-            <Container>
-                <TabContainer>
-                    {tabs.map(tab => (
-                        <Tab
-                            key={tab.id}
-                            active={activeTab.id === tab.id}
-                            onClick={() => setActiveTab(tab)}
-                        >
-                            {tab.label}
-                        </Tab>
-                    ))}
-                </TabContainer>
+        <PageWrapper style={{ background: '#f8fafc', minHeight: '100vh', padding: '24px' }}>
+            <Container style={{ background: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                
+                {/* Modern Segmented Navigation Tabs */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '16px 20px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                    {tabs.map(tab => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab.id === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab)}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 18px',
+                                    borderRadius: '10px',
+                                    border: isActive ? `1px solid ${colors.primary}` : '1px solid transparent',
+                                    background: isActive ? '#ffffff' : 'transparent',
+                                    color: isActive ? colors.primary : '#64748b',
+                                    fontWeight: isActive ? '700' : '600',
+                                    fontSize: '0.88rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: isActive ? '0 2px 8px rgba(13, 148, 136, 0.12)' : 'none'
+                                }}
+                            >
+                                {Icon && <Icon size={17} color={isActive ? colors.primary : '#64748b'} />}
+                                <span>{tab.label}</span>
+                                {isActive && (
+                                    <span style={{
+                                        fontSize: '0.72rem',
+                                        padding: '2px 7px',
+                                        borderRadius: '12px',
+                                        background: '#ccfbf1',
+                                        color: '#0f766e',
+                                        fontWeight: '800'
+                                    }}>
+                                        {filteredItems.length}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
 
                 <div style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <h2 style={{ margin: 0, color: colors.primary, fontSize: '1.5rem', fontWeight: '700' }}>{activeTab.label}</h2>
-                            <span style={{ background: colors.tabBg, color: colors.primary, padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600' }}>
-                                {filteredItems.length} Records
-                            </span>
+                    {/* Header + Add Action */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <h2 style={{ margin: 0, color: '#0f172a', fontSize: '1.45rem', fontWeight: '800' }}>
+                                    {activeTab.label}
+                                </h2>
+                                <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700' }}>
+                                    {filteredItems.length} records
+                                </span>
+                            </div>
+                            <p style={{ margin: '4px 0 0 0', color: colors.textMuted, fontSize: '0.85rem' }}>
+                                Manage and configure central {activeTab.label.toLowerCase()} catalog specifications.
+                            </p>
                         </div>
-                        <Button success onClick={() => setShowForm(true)} style={{ padding: '10px 20px', fontSize: '0.9rem' }}>
+                        <Button 
+                            success 
+                            onClick={() => setShowForm(true)} 
+                            style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                padding: '10px 20px', 
+                                fontSize: '0.9rem', 
+                                borderRadius: '10px', 
+                                fontWeight: '700',
+                                boxShadow: '0 4px 12px rgba(34, 197, 94, 0.25)' 
+                            }}
+                        >
                             <Plus size={18} /> Add {activeTab.label.replace(' Master', '')}
                         </Button>
                     </div>
 
-                    <ControlsContainer style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
-                        <SearchContainer style={{ flex: 1, gap: '16px' }}>
-                            <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
-                                <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: colors.textMuted }} />
+                    {/* Master KPI Metric Cards */}
+                    {activeTab.id === 'item' ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+                            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Items</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: colors.primary, marginTop: '2px' }}>{items.length}</div>
+                                </div>
+                                <Package size={28} color={colors.primary} style={{ opacity: 0.35 }} />
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: totalLowStock > 0 ? '1px solid #fca5a5' : '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ color: totalLowStock > 0 ? '#dc2626' : '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Low Stock Alert</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: totalLowStock > 0 ? '#dc2626' : '#059669', marginTop: '2px' }}>{totalLowStock}</div>
+                                </div>
+                                <AlertTriangle size={28} color={totalLowStock > 0 ? '#dc2626' : '#059669'} style={{ opacity: 0.35 }} />
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Available Stock Units</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0284c7', marginTop: '2px' }}>{totalInventoryUnits}</div>
+                                </div>
+                                <Box size={28} color="#0284c7" style={{ opacity: 0.35 }} />
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Vending Machine Items</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#7c3aed', marginTop: '2px' }}>{totalVmItems}</div>
+                                </div>
+                                <Sparkles size={28} color="#7c3aed" style={{ opacity: 0.35 }} />
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+                            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Registered {activeTab.label.replace(' Master', '')}s</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: colors.primary, marginTop: '2px' }}>{items.length}</div>
+                                </div>
+                                <ShieldCheck size={28} color={colors.primary} style={{ opacity: 0.35 }} />
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Filtered Results</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0284c7', marginTop: '2px' }}>{filteredItems.length}</div>
+                                </div>
+                                <FilterX size={28} color="#0284c7" style={{ opacity: 0.35 }} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Filter Controls Bar */}
+                    <ControlsContainer style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)', marginBottom: '20px' }}>
+                        <SearchContainer style={{ flex: 1, gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+                                <Search size={17} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                                 <Input
-                                    placeholder={`Search by name or ID...`}
+                                    placeholder={`Search by name, ID or code...`}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    style={{ paddingLeft: '40px', height: '42px', borderRadius: '8px' }}
+                                    style={{ paddingLeft: '40px', height: '40px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.88rem' }}
                                 />
                             </div>
 
                             {activeTab.id === 'item' && (
                                 <>
-                                    <div style={{ minWidth: '200px' }}>
+                                    <div style={{ minWidth: '190px' }}>
                                         <ReactSelect
                                             value={allDepartments.find(d => d.department_id === filterDepartment) ? { value: filterDepartment, label: allDepartments.find(d => d.department_id === filterDepartment).department_name } : null}
                                             onChange={(option) => setFilterDepartment(option ? option.value : '')}
                                             options={allDepartments.map(dept => ({ value: dept.department_id, label: dept.department_name }))}
                                             placeholder="All Departments"
                                             isClearable
-                                            styles={{ control: base => ({ ...base, height: '42px', borderRadius: '8px', borderColor: colors.border }) }}
+                                            styles={{ control: base => ({ ...base, minHeight: '40px', height: '40px', borderRadius: '8px', borderColor: '#cbd5e1', fontSize: '0.85rem' }) }}
                                         />
                                     </div>
 
-                                    <div style={{ minWidth: '200px' }}>
+                                    <div style={{ minWidth: '190px' }}>
                                         <ReactSelect
                                             value={allCategories.find(c => c.category_id === filterCategory) ? { value: filterCategory, label: allCategories.find(c => c.category_id === filterCategory).category_name } : null}
                                             onChange={(option) => setFilterCategory(option ? option.value : '')}
                                             options={allCategories.map(cat => ({ value: cat.category_id, label: cat.category_name }))}
                                             placeholder="All Categories"
                                             isClearable
-                                            styles={{ control: base => ({ ...base, height: '42px', borderRadius: '8px', borderColor: colors.border }) }}
+                                            styles={{ control: base => ({ ...base, minHeight: '40px', height: '40px', borderRadius: '8px', borderColor: '#cbd5e1', fontSize: '0.85rem' }) }}
                                         />
                                     </div>
 
-                                    <div style={{ minWidth: '200px' }}>
+                                    <div style={{ minWidth: '190px' }}>
                                         <ReactSelect
                                             value={allGroups.find(g => g.group_id === filterGroup) ? { value: filterGroup, label: allGroups.find(g => g.group_id === filterGroup).group_name } : null}
                                             onChange={(option) => setFilterGroup(option ? option.value : '')}
                                             options={allGroups.map(grp => ({ value: grp.group_id, label: grp.group_name }))}
                                             placeholder="All Groups"
                                             isClearable
-                                            styles={{ control: base => ({ ...base, height: '42px', borderRadius: '8px', borderColor: colors.border }) }}
+                                            styles={{ control: base => ({ ...base, minHeight: '40px', height: '40px', borderRadius: '8px', borderColor: '#cbd5e1', fontSize: '0.85rem' }) }}
                                         />
                                     </div>
 
-                                    <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', background: filterLowStock ? '#fee2e2' : 'transparent', borderRadius: '8px', transition: 'all 0.2s', border: filterLowStock ? `1px solid ${colors.danger}` : `1px solid transparent` }}>
-                                        <input
-                                            type="checkbox"
-                                            id="lowStockCheckbox"
-                                            checked={filterLowStock}
-                                            onChange={(e) => setFilterLowStock(e.target.checked)}
-                                            style={{ marginRight: '8px', width: '18px', height: '18px', cursor: 'pointer', accentColor: colors.danger }}
-                                        />
-                                        <label htmlFor="lowStockCheckbox" style={{ color: filterLowStock ? colors.danger : colors.textMuted, fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
-                                            Low Stock
-                                        </label>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterLowStock(!filterLowStock)}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            height: '40px',
+                                            padding: '0 14px',
+                                            background: filterLowStock ? '#fee2e2' : '#f8fafc',
+                                            borderRadius: '8px',
+                                            border: filterLowStock ? '1px solid #ef4444' : '1px solid #cbd5e1',
+                                            color: filterLowStock ? '#dc2626' : '#475569',
+                                            fontWeight: '700',
+                                            fontSize: '0.85rem',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <AlertTriangle size={15} color={filterLowStock ? '#dc2626' : '#94a3b8'} />
+                                        <span>Low Stock</span>
+                                    </button>
                                 </>
                             )}
 
-                            <Button secondary onClick={clearFilters} style={{ height: '42px', padding: '0 16px', background: '#f1f5f9', color: colors.textMain, border: `1px solid ${colors.border}` }}>
-                                <FilterX size={18} /> Clear
+                            <Button 
+                                secondary 
+                                onClick={clearFilters} 
+                                style={{ height: '40px', padding: '0 14px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                            >
+                                <FilterX size={16} /> Clear
                             </Button>
                         </SearchContainer>
                     </ControlsContainer>
 
-
+                    {/* Modal Form */}
                     {showForm && (
                         <ModalOverlay>
-                            <ModalContainer style={{ maxWidth: '700px' }}>
-                                <ModalHeader>
-                                    <ModalTitle>{isEditing ? `Edit ${activeTab.label}` : `Add New ${activeTab.label}`}</ModalTitle>
-                                    <CloseButton onClick={resetForm}><X size={20} /></CloseButton>
+                            <ModalContainer style={{ maxWidth: '750px', borderRadius: '16px', overflow: 'hidden' }}>
+                                <ModalHeader style={{ background: colors.primary, color: '#ffffff', padding: '16px 24px' }}>
+                                    <ModalTitle style={{ color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.15rem' }}>
+                                        <Plus size={20} /> {isEditing ? `Edit ${activeTab.label}` : `Add New ${activeTab.label}`}
+                                    </ModalTitle>
+                                    <CloseButton onClick={resetForm} style={{ color: '#ffffff' }}><X size={20} /></CloseButton>
                                 </ModalHeader>
-                                <ModalBody>
+                                <ModalBody style={{ padding: '24px' }}>
                                     <form onSubmit={handleSubmit}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', padding: '10px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '18px' }}>
                                             {renderFormFields()}
                                         </div>
-                                        <ButtonContainer style={{ marginTop: '30px', borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
-                                            <Button type="submit" style={{ padding: '10px 30px', fontSize: '0.95rem' }}>
-                                                {isEditing ? 'Update Changes' : 'Save Record'}
-                                            </Button>
-                                            <Button secondary type="button" onClick={resetForm} style={{ padding: '10px 30px', fontSize: '0.95rem' }}>
+                                        <ButtonContainer style={{ marginTop: '28px', borderTop: '1px solid #e2e8f0', paddingTop: '18px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                            <Button secondary type="button" onClick={resetForm} style={{ padding: '10px 24px', fontSize: '0.9rem', borderRadius: '8px' }}>
                                                 Cancel
+                                            </Button>
+                                            <Button type="submit" style={{ padding: '10px 28px', fontSize: '0.9rem', borderRadius: '8px', fontWeight: '700', background: colors.primary }}>
+                                                {isEditing ? 'Update Changes' : 'Save Record'}
                                             </Button>
                                         </ButtonContainer>
                                     </form>
@@ -634,117 +780,185 @@ const Items = () => {
                         </ModalOverlay>
                     )}
 
-
+                    {/* Modern Master Tables */}
                     {!showForm && (
                         <>
-                            {loading ? <p>Loading data...</p> : (
-                                <TableWrapper>
+                            {loading ? (
+                                <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
+                                    <div style={{ display: 'inline-block', width: '36px', height: '36px', border: `3px solid ${colors.primary}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                    <p style={{ marginTop: '12px', fontWeight: '600', fontSize: '0.95rem' }}>Loading {activeTab.label} data...</p>
+                                </div>
+                            ) : (
+                                <TableWrapper style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                                     <Table>
                                         <thead>
-                                            <Tr>
-                                                {/* <Th>ID</Th> */}
-                                                <Th>Name</Th>
-                                                {activeTab.id === 'item' && (
+                                            <Tr style={{ background: '#f8fafc' }}>
+                                                <Th style={{ width: '60px', textAlign: 'center' }}>#</Th>
+                                                <Th>Name & Identity</Th>
+                                                {activeTab.id === 'item' ? (
                                                     <>
+                                                        <Th>Group & Category</Th>
                                                         <Th>HSN</Th>
-                                                        <Th>Group</Th>
-                                                        <Th>Category</Th>
-                                                        <Th>VED</Th>
-                                                        <Th>ABC</Th>
-                                                        <Th>Supplier</Th>
-                                                        <Th>Manufacturer</Th>
-                                                        <Th>Quantity</Th>
-                                                        <Th>Reorder Level</Th>
+                                                        <Th style={{ textAlign: 'center' }}>VED / ABC</Th>
+                                                        <Th style={{ textAlign: 'right' }}>Stock Level</Th>
+                                                        <Th style={{ textAlign: 'right' }}>Unit Rate</Th>
+                                                        <Th>Supplier / Maker</Th>
+                                                        <Th style={{ textAlign: 'center' }}>Price History</Th>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Th>Master Code / ID</Th>
+                                                        <Th style={{ textAlign: 'center' }}>Status</Th>
                                                     </>
                                                 )}
-                                                {/* <Th>Created At</Th> */}
-                                                <Th>Price History</Th>
-                                                <Th>Actions</Th>
+                                                <Th style={{ textAlign: 'center', width: '120px' }}>Actions</Th>
                                             </Tr>
                                         </thead>
                                         <tbody>
-                                            {filteredItems.map(item => {
+                                            {pageData.map((item, idx) => {
                                                 const idField = getIdField();
                                                 const nameField = getNameField();
                                                 const availQty = Number(item.total_quantity || 0) - Number(item.approved_quantity || 0);
-                                                const isLowStock = activeTab.id === 'item' && availQty <= Number(item.stockReorderLevel || 0);
+                                                const reorderLvl = Number(item.stockReorderLevel || 0);
+                                                const isLowStock = activeTab.id === 'item' && availQty <= reorderLvl;
 
                                                 return (
-                                                    <Tr key={item[idField]} style={isLowStock ? { backgroundColor: '#fff1f2' } : {}}>
-                                                        <Td style={{ fontWeight: '500' }}>
-                                                            {item[nameField]}
-                                                            {item.is_VM && (
-                                                                <span style={{ marginLeft: '8px', fontSize: '0.7rem', background: '#ecfdf5', color: '#059669', padding: '2px 6px', borderRadius: '4px', border: '1px solid #a7f3d0', fontWeight: '700' }}>
-                                                                    VM
-                                                                </span>
-                                                            )}
+                                                    <Tr key={item[idField]} style={isLowStock ? { backgroundColor: '#fff5f5' } : {}}>
+                                                        <Td style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.82rem', fontWeight: '600' }}>
+                                                            {startIdx + idx + 1}
                                                         </Td>
-                                                        {activeTab.id === 'item' && (
-                                                             <>
-                                                                <Td>{item.hsn || '-'}</Td>
-                                                                <Td>{getGroupName(item.group)}</Td>
-                                                                <Td>{getCategoryName(item.category)}</Td>
+                                                        <Td>
+                                                            <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                {item[nameField]}
+                                                                {item.is_VM && (
+                                                                    <span style={{ fontSize: '0.68rem', background: '#ecfdf5', color: '#059669', padding: '2px 6px', borderRadius: '4px', border: '1px solid #a7f3d0', fontWeight: '800' }}>
+                                                                        VM
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.74rem', color: colors.primary, marginTop: '2px', fontWeight: '600', fontFamily: 'monospace' }}>
+                                                                ID: {item[idField]}
+                                                            </div>
+                                                        </Td>
+
+                                                        {activeTab.id === 'item' ? (
+                                                            <>
                                                                 <Td>
-                                                                    <span style={{
-                                                                        padding: '3px 8px',
-                                                                        borderRadius: '12px',
-                                                                        fontSize: '0.75rem',
-                                                                        fontWeight: '700',
-                                                                        background: item.ved_category === 'V' ? '#fee2e2' : item.ved_category === 'E' ? '#eff6ff' : '#f1f5f9',
-                                                                        color: item.ved_category === 'V' ? '#dc2626' : item.ved_category === 'E' ? '#2563eb' : '#475569',
-                                                                        border: `1px solid ${item.ved_category === 'V' ? '#fca5a5' : item.ved_category === 'E' ? '#bfdbfe' : '#cbd5e1'}`
-                                                                    }}>
-                                                                        {item.ved_category || 'D'}
+                                                                    <div style={{ fontWeight: '600', color: '#334155' }}>{getGroupName(item.group)}</div>
+                                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{getCategoryName(item.category)}</div>
+                                                                </Td>
+                                                                <Td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{item.hsn || '-'}</Td>
+                                                                <Td style={{ textAlign: 'center' }}>
+                                                                    <div style={{ display: 'inline-flex', gap: '4px' }}>
+                                                                        <span style={{
+                                                                            padding: '2px 7px',
+                                                                            borderRadius: '6px',
+                                                                            fontSize: '0.72rem',
+                                                                            fontWeight: '800',
+                                                                            background: item.ved_category === 'V' ? '#fee2e2' : item.ved_category === 'E' ? '#eff6ff' : '#f1f5f9',
+                                                                            color: item.ved_category === 'V' ? '#dc2626' : item.ved_category === 'E' ? '#2563eb' : '#475569',
+                                                                            border: `1px solid ${item.ved_category === 'V' ? '#fca5a5' : item.ved_category === 'E' ? '#bfdbfe' : '#cbd5e1'}`
+                                                                        }}>
+                                                                            VED: {item.ved_category || 'D'}
+                                                                        </span>
+                                                                        <span style={{
+                                                                            padding: '2px 7px',
+                                                                            borderRadius: '6px',
+                                                                            fontSize: '0.72rem',
+                                                                            fontWeight: '800',
+                                                                            background: item.abc_category === 'A' ? '#f5f3ff' : item.abc_category === 'B' ? '#ecfdf5' : '#f8fafc',
+                                                                            color: item.abc_category === 'A' ? '#7c3aed' : item.abc_category === 'B' ? '#059669' : '#64748b',
+                                                                            border: `1px solid ${item.abc_category === 'A' ? '#ddd6fe' : item.abc_category === 'B' ? '#a7f3d0' : '#e2e8f0'}`
+                                                                        }}>
+                                                                            ABC: {item.abc_category || 'C'}
+                                                                        </span>
+                                                                    </div>
+                                                                </Td>
+                                                                <Td style={{ textAlign: 'right' }}>
+                                                                    <div style={{ fontWeight: '800', fontSize: '0.95rem', color: isLowStock ? '#dc2626' : '#16a34a' }}>
+                                                                        {availQty} units
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                                                        Reorder @ {reorderLvl}
+                                                                    </div>
+                                                                </Td>
+                                                                <Td style={{ textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>
+                                                                    ₹{parseFloat(item.unit_price || 0).toFixed(2)}
+                                                                </Td>
+                                                                <Td style={{ fontSize: '0.82rem' }}>
+                                                                    <div style={{ color: '#1e293b' }}>{getVendorName(item.supplier)}</div>
+                                                                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{getVendorName(item.manufacturer)}</div>
+                                                                </Td>
+                                                                <Td style={{ textAlign: 'center' }}>
+                                                                    <Button
+                                                                        onClick={() => fetchPriceHistory(item, nameField, idField)}
+                                                                        style={{ 
+                                                                            background: '#eff6ff', 
+                                                                            color: '#2563eb', 
+                                                                            border: '1px solid #bfdbfe', 
+                                                                            padding: '5px 10px', 
+                                                                            fontSize: '0.78rem',
+                                                                            borderRadius: '6px',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '4px',
+                                                                            fontWeight: '600'
+                                                                        }}
+                                                                        title="Price History Trends"
+                                                                    >
+                                                                        <LineChart size={14} /> Trends
+                                                                    </Button>
+                                                                </Td>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Td style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.primary }}>
+                                                                    {item[idField]}
+                                                                </Td>
+                                                                <Td style={{ textAlign: 'center' }}>
+                                                                    <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700', background: '#dcfce7', color: '#15803d' }}>
+                                                                        Active
                                                                     </span>
                                                                 </Td>
-                                                                <Td>
-                                                                    <span style={{
-                                                                        padding: '3px 8px',
-                                                                        borderRadius: '12px',
-                                                                        fontSize: '0.75rem',
-                                                                        fontWeight: '700',
-                                                                        background: item.abc_category === 'A' ? '#f5f3ff' : item.abc_category === 'B' ? '#ecfdf5' : '#f8fafc',
-                                                                        color: item.abc_category === 'A' ? '#7c3aed' : item.abc_category === 'B' ? '#059669' : '#64748b',
-                                                                        border: `1px solid ${item.abc_category === 'A' ? '#ddd6fe' : item.abc_category === 'B' ? '#a7f3d0' : '#e2e8f0'}`
-                                                                    }}>
-                                                                        {item.abc_category || 'C'}
-                                                                    </span>
-                                                                </Td>
-                                                                <Td>{getVendorName(item.supplier)}</Td>
-                                                                <Td>{getVendorName(item.manufacturer)}</Td>
-                                                                <Td style={{ fontWeight: '700', color: isLowStock ? colors.danger : colors.success }}>
-                                                                    {availQty}
-                                                                </Td>
-                                                                <Td style={{ color: colors.textMuted }}>{item.stockReorderLevel}</Td>
                                                             </>
                                                         )}
-                                                        <Td>
-                                                            {activeTab.id === 'item' && (
-                                                                <Button
-                                                                    onClick={() => fetchPriceHistory(item, nameField, idField)}
-                                                                    style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '6px 10px', fontSize: '0.8rem' }}
-                                                                    title="Price History"
-                                                                >
-                                                                    <LineChart size={16} style={{ marginRight: '4px' }} /> History
-                                                                </Button>
-                                                            )}
-                                                        </Td>
-                                                        <Td>
-                                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                                <Button
+
+                                                        <Td style={{ textAlign: 'center' }}>
+                                                            <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'center' }}>
+                                                                <button
                                                                     onClick={() => handleEdit(item)}
-                                                                    style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7', padding: '6px 10px' }}
-                                                                    title="Edit"
+                                                                    style={{ 
+                                                                        background: '#f0fdf4', 
+                                                                        color: '#16a34a', 
+                                                                        border: '1px solid #bbf7d0', 
+                                                                        padding: '6px 8px',
+                                                                        borderRadius: '6px',
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center'
+                                                                    }}
+                                                                    title="Edit Record"
                                                                 >
-                                                                    <Edit2 size={16} />
-                                                                </Button>
-                                                                <Button
+                                                                    <Edit2 size={15} />
+                                                                </button>
+                                                                <button
                                                                     onClick={() => handleDelete(item[idField])}
-                                                                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fee2e2', padding: '6px 10px' }}
-                                                                    title="Delete"
+                                                                    style={{ 
+                                                                        background: '#fef2f2', 
+                                                                        color: '#dc2626', 
+                                                                        border: '1px solid #fecaca', 
+                                                                        padding: '6px 8px',
+                                                                        borderRadius: '6px',
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center'
+                                                                    }}
+                                                                    title="Delete Record"
                                                                 >
-                                                                    <Trash2 size={16} />
-                                                                </Button>
+                                                                    <Trash2 size={15} />
+                                                                </button>
                                                             </div>
                                                         </Td>
                                                     </Tr>
@@ -752,11 +966,25 @@ const Items = () => {
                                             })}
                                             {filteredItems.length === 0 && (
                                                 <Tr>
-                                                    <Td colSpan={activeTab.id === 'item' ? "11" : "4"} style={{ textAlign: 'center', padding: '20px' }}>No records found</Td>
+                                                    <Td colSpan={activeTab.id === 'item' ? "10" : "5"} style={{ textAlign: 'center', padding: '50px 20px', color: '#94a3b8' }}>
+                                                        <Package size={36} style={{ opacity: 0.3, marginBottom: '8px' }} />
+                                                        <div>No {activeTab.label.toLowerCase()} records match the filter criteria.</div>
+                                                    </Td>
                                                 </Tr>
                                             )}
                                         </tbody>
                                     </Table>
+                                    <TablePagination
+                                        currentPage={currentPage}
+                                        totalPages={totalPages}
+                                        pageSize={pageSize}
+                                        totalItems={totalItems}
+                                        startIdx={startIdx}
+                                        goTo={goTo}
+                                        onPageSizeChange={handlePageSizeChange}
+                                        itemName={activeTab.label.replace(' Master', '').toLowerCase()}
+                                        themeColor={colors.primary}
+                                    />
                                 </TableWrapper>
                             )}
                         </>

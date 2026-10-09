@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { useNavigate, useLocation } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
 import PrintModal from "./PrintModal"; // ← fast in-page print modal
+import PatientSearchModal from "../Common/PatientSearchModal";
 import {
   PageWrapper,
   FormRow,
@@ -796,77 +797,65 @@ const InvestigationBilling = () => {
     setFormData((prev) => ({ ...prev, item: JSON.stringify(updatedList) }));
   };
 
-  // ── Patient search ──────────────────────────────────────────────────────────
+  // ── Patient search modal state & handlers ──────────────────────────────────
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchMode, setPatientSearchMode] = useState("uhid");
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
 
-  const fetchPatientDetails = async () => {
-    if (!formData.uhid) {
-      alert("Please enter UHID");
-      return;
-    }
-    const result = await apiRequest(
-      `${HMSURL}op-patient/${encodeURIComponent(formData.uhid)}/`,
-      "GET",
-    );
-    if (result.success) {
-      const data = result.data;
-      let { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
-      if (!calculatedAge && (data.age || data.calculatedAge)) {
-        calculatedAge = String(data.age || data.calculatedAge || "");
-        ageType = data.ageType || data.age_type || "Y";
-      }
-      setFormData((prev) => ({
-        ...prev,
-        salutation: data.salutation || "",
-        firstName: data.firstName || "",
-        lastName: data.lastName || "",
-        dob: data.dob || "",
-        calculatedAge,
-        ageType,
-        gender: normalizeGender(data.gender),
-        customer_type: data.customer_type || "",
-        company_name: data.company_name || "",
-        company_code: data.company_code || "",
-        roomNo: "",
-      }));
-    } else {
-      alert(result.error || "Patient not found");
-    }
+  const openUhidSearch = () => {
+    setPatientSearchMode("uhid");
+    setPatientSearchQuery(formData.uhid || "");
+    setShowPatientModal(true);
   };
 
-  const fetchIpPatient = async () => {
-    if (!formData.ipNumber) {
-      alert("Please enter IP Number");
-      return;
+  const openIpSearch = () => {
+    setPatientSearchMode("ip");
+    setPatientSearchQuery(formData.ipNumber || "");
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelect = (data) => {
+    let { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
+    if (!calculatedAge && (data.age || data.calculatedAge)) {
+      calculatedAge = String(data.age || data.calculatedAge || "");
+      ageType = data.ageType || data.age_type || "Y";
     }
-    const result = await apiRequest(
-      `${HMSURL}ip-patient/${encodeURIComponent(formData.ipNumber)}/`,
-      "GET",
-    );
-    if (result.success) {
-      const data = result.data;
-      let { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
-      if (!calculatedAge && (data.age || data.calculatedAge)) {
-        calculatedAge = String(data.age || data.calculatedAge || "");
-        ageType = data.ageType || data.age_type || "Y";
-      }
-      setFormData((prev) => ({
-        ...prev,
-        uhid: data.uhid || "",
-        salutation: data.salutation || "",
-        firstName: data.firstName || "",
-        lastName: data.lastName || "",
-        dob: data.dob || "",
-        calculatedAge,
-        ageType,
-        gender: normalizeGender(data.gender),
-        customer_type: data.customer_type || "",
-        company_name: data.company_name || "",
-        company_code: data.company_code || "",
-        roomNo: data.roomNo || "",
-      }));
-    } else {
-      alert(result.error || "Patient not found");
-    }
+
+    const patientUhid = data.uhid || data.UHID || "";
+    const patientIp = data.ipNumber || data.ip_number || "";
+    const patientSalutation = data.salutation || "";
+    const patientFirstName = data.firstName || data.first_name || "";
+    const patientLastName = data.lastName || data.last_name || "";
+    const patientGender = normalizeGender(data.gender);
+    const patientCustType = data.customer_type || data.customerType || "";
+    const patientCompName = data.company_name || data.insuranceCompanyName || "";
+    const patientCompCode = data.company_code || "";
+    const patientRoomNo = data.roomNo || data.room_no || "";
+
+    setFormData((prev) => ({
+      ...prev,
+      uhid: patientUhid || prev.uhid,
+      ipNumber: patientIp || prev.ipNumber,
+      salutation: patientSalutation,
+      firstName: patientFirstName,
+      lastName: patientLastName,
+      dob: data.dob || "",
+      calculatedAge: calculatedAge || "",
+      ageType: ageType || "Y",
+      gender: patientGender,
+      customer_type: patientCustType,
+      company_name: patientCompName,
+      company_code: patientCompCode,
+      roomNo: patientRoomNo,
+    }));
+  };
+
+  const fetchPatientDetails = () => {
+    openUhidSearch();
+  };
+
+  const fetchIpPatient = () => {
+    openIpSearch();
   };
 
   // ── Form actions ────────────────────────────────────────────────────────────
@@ -889,10 +878,6 @@ const InvestigationBilling = () => {
     }
     if (!formData.doctor?.trim()) {
       alert("Doctor is required!");
-      return false;
-    }
-    if (!formData.referredBy?.trim()) {
-      alert("Referred By is required!");
       return false;
     }
     if (!formData.total || parseFloat(formData.total) <= 0) {
@@ -1155,8 +1140,15 @@ const InvestigationBilling = () => {
               <Input
                 type="text"
                 name="uhid"
+                placeholder="UHID (e.g. 022 or 22)"
                 value={formData.uhid}
                 onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    openUhidSearch();
+                  }
+                }}
               />
               <InlineSearchBtn type="button" onClick={fetchPatientDetails}>
                 🔍 Search
@@ -1168,8 +1160,15 @@ const InvestigationBilling = () => {
               <Input
                 type="text"
                 name="ipNumber"
+                placeholder="IP No (e.g. 022 or 22)"
                 value={formData.ipNumber}
                 onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    openIpSearch();
+                  }
+                }}
               />
               <InlineSearchBtn type="button" onClick={fetchIpPatient}>
                 🔍 Search
@@ -1393,7 +1392,7 @@ const InvestigationBilling = () => {
             </InputWrapper>
 
             <InputWrapper>
-              <Label required>Referred By</Label>
+              <Label>Referred By</Label>
               <SearchableDropdown
                 value={formData.referredBy}
                 onChange={(value) =>
@@ -1604,6 +1603,15 @@ const InvestigationBilling = () => {
           </ProductSection>
         </form>
       </ContentCard>
+
+      {/* ── Patient Search Suggestions Modal ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientSelect}
+        initialQuery={patientSearchQuery}
+        mode={patientSearchMode}
+      />
 
       {/* ── Fast in-page print modal (replaces window.open) ── */}
       {/* Reset/reload only happens when the user explicitly closes the  */}
