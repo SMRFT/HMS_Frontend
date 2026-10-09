@@ -10,37 +10,47 @@ const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 // Styled Components
 const Container = styled.div`
   min-height: 100vh;
-  background-color: #f5f5f5;
-  margin-top: 30px;
+  background-color: #f8fafc;
+  margin-top: 10px;
+  font-family: inherit;
 `;
 
 const MainContent = styled.div`
-  padding: 24px;
+  padding: 24px 32px;
+  max-width: 1600px;
+  margin: 0 auto;
 `;
 
 const TopSection = styled.div`
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 24px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  padding: 22px 26px;
   margin-bottom: 24px;
+  transition: box-shadow 0.2s ease;
 `;
 
 const TopGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 32px;
-  align-items: start;
+  gap: 20px;
+  align-items: stretch;
 
-  @media (max-width: 768px) {
+  @media (max-width: 900px) {
     grid-template-columns: 1fr;
   }
 `;
 
 const InfoColumn = styled.div`
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  border-radius: 12px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 10px;
 `;
 
 const InfoRow = styled.div`
@@ -48,142 +58,200 @@ const InfoRow = styled.div`
   justify-content: space-between;
   align-items: center;
   min-height: 24px;
+  border-bottom: 1px dashed #e2e8f0;
+  padding-bottom: 6px;
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
 `;
 
 const Label = styled.span`
-  font-weight: 500;
-  color: #333;
-  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 `;
 
 const Amount = styled.span`
-  font-weight: bold;
+  font-weight: 800;
   font-size: 18px;
-  color: #333;
+  color: #0f172a;
 `;
 
 const Value = styled.span`
-  color: #333;
-  font-size: 14px;
+  color: #1e293b;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: right;
 `;
 
 const Button = styled.button`
-  background-color: #0d9488;
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   color: white;
-  padding: 10px 20px;
+  padding: 9px 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
   width: fit-content;
 
   &:hover {
-    background-color: #0f766e;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 `;
 
 const ContentWrapper = styled.div`
   display: flex;
   gap: 24px;
+  align-items: flex-start;
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+  }
 `;
 
 const Sidebar = styled.div`
-  width: 256px;
+  width: 250px;
+  flex-shrink: 0;
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  padding: 12px;
 `;
 
 const SidebarButton = styled.button`
   width: 100%;
   text-align: left;
-  padding: 8px 16px;
-  margin-bottom: 8px;
+  padding: 11px 16px;
+  margin-bottom: 6px;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  transition: background-color 0.2s;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: all 0.2s ease;
 
   ${(props) =>
     props.active
       ? `
-    background-color: #fb923c;
+    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
     color: white;
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
   `
       : `
     background-color: transparent;
-    color: #0d9488;
+    color: #475569;
     
     &:hover {
-      background-color: #f9fafb;
+      background-color: #f1f5f9;
+      color: #0f172a;
     }
   `}
 `;
 
 const MainPanel = styled.div`
   flex: 1;
+  min-width: 0;
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
 `;
 
 const PanelContent = styled.div`
-  padding: 24px;
+  padding: 24px 28px;
 `;
 
 const Title = styled.h2`
-  font-size: 20px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 24px;
+  font-size: 19px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 20px;
+  letter-spacing: -0.01em;
 `;
 
 const ControlsWrapper = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  margin-bottom: 24px;
-  padding: 16px;
-  background-color: #f9fafb;
-  border-radius: 4px;
+  margin-bottom: 22px;
+  padding: 14px 18px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
 `;
 
 const ControlGroup = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 `;
 
 const Select = styled.select`
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 14px;
   min-width: 128px;
-  font-size: 14px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #1e293b;
+  background-color: #ffffff;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
 `;
 
 const RadioLabel = styled.label`
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
   cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+  }
 `;
 
 const RadioInput = styled.input`
   margin: 0;
+  accent-color: #0d9488;
+  cursor: pointer;
 `;
 
 const TableControls = styled.div`
@@ -191,25 +259,47 @@ const TableControls = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  color: #64748b;
+  font-weight: 500;
 `;
 
 const SearchWrapper = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #475569;
 `;
 
 const SearchInputWrapper = styled.div`
   position: relative;
+  display: flex;
+  align-items: center;
 `;
 
 const SearchInput = styled.input`
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 6px 12px;
-  padding-right: 40px;
-  font-size: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 14px 8px 36px;
+  min-width: 270px;
+  font-size: 13.5px;
+  color: #0f172a;
+  outline: none;
+  background: #ffffff;
+  transition: all 0.2s;
+
+  &:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+  }
 `;
 
 const MicButton = styled.button`
@@ -217,51 +307,97 @@ const MicButton = styled.button`
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  padding: 4px;
-  background-color: #4b5563;
-  color: white;
-  border: none;
-  border-radius: 2px;
+  padding: 5px 6px;
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+  }
 `;
 
 const Table = styled.table`
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
 `;
 
 const TableHeader = styled.th`
-  border: 1px solid #d1d5db;
-  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 13px 16px;
   text-align: left;
-  background-color: #f3f4f6;
-  font-weight: 600;
-  font-size: 14px;
+  background-color: #f8fafc;
+  font-weight: 700;
+  font-size: 12px;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 `;
 
 const TableCell = styled.td`
-  border: 1px solid #d1d5db;
-  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 13px 16px;
   text-align: ${(props) => (props.center ? "center" : "left")};
-  color: ${(props) => (props.muted ? "#6b7280" : "#333")};
+  color: ${(props) => (props.muted ? "#64748b" : "#1e293b")};
+  font-size: 13.5px;
+  font-weight: 500;
+
+  tr:last-child & {
+    border-bottom: none;
+  }
+
+  tr:hover & {
+    background-color: #fbfcfe;
+  }
 `;
 
 const Pagination = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 16px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
 `;
 
 const PaginationButton = styled.button`
-  padding: 6px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
+  padding: 7px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   background-color: white;
-  color: #6b7280;
-  cursor: not-allowed;
-  font-size: 14px;
+  color: #334155;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    border-color: #0d9488;
+    color: #0d9488;
+    background-color: #f0fdfa;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `;
 
 const LoadingSpinner = styled.div`
@@ -1721,18 +1857,16 @@ export default function CentralCashCounter() {
           <TopGrid>
             <InfoColumn>
               <InfoRow>
-                <Label>SHIFT REFERENCE</Label>
-                <span>:</span>
-                <Value>{activeShift?.shiftno || "—"}</Value>
+                <Label>Shift Reference</Label>
+                <Value style={{ fontWeight: 700, color: "#0f172a" }}>{activeShift?.shiftno || "—"}</Value>
               </InfoRow>
               <InfoRow>
-                <Label>STARTING TIME</Label>
-                <span>:</span>
+                <Label>Starting Time</Label>
                 <Value
                   style={
                     shiftBelongsHere
-                      ? { color: "#0d9488", fontWeight: 600 }
-                      : {}
+                      ? { color: "#0d9488", fontWeight: 700 }
+                      : { fontWeight: 600 }
                   }
                 >
                   {activeShift?.StartingTime
@@ -1752,13 +1886,12 @@ export default function CentralCashCounter() {
                 </Value>
               </InfoRow>
               <InfoRow>
-                <Label>CLOSING TIME</Label>
-                <span>:</span>
+                <Label>Closing Time</Label>
                 <Value
                   style={
                     !shiftBelongsHere && activeShift?.closingTime
-                      ? { color: "#dc2626", fontWeight: 600 }
-                      : {}
+                      ? { color: "#dc2626", fontWeight: 700 }
+                      : { fontWeight: 600 }
                   }
                 >
                   {activeShift?.closingTime
@@ -1780,17 +1913,15 @@ export default function CentralCashCounter() {
                 </Value>
               </InfoRow>
               <InfoRow>
-                <Label>CASHIER ID</Label>
-                <span>:</span>
-                <Value>{activeShift?.CashierID || "—"}</Value>
+                <Label>Cashier ID</Label>
+                <Value style={{ fontWeight: 600 }}>{activeShift?.CashierID || "—"}</Value>
               </InfoRow>
             </InfoColumn>
 
-            <InfoColumn>
-              <InfoRow>
-                <Label>OPENING BALANCE</Label>
-                <span>:</span>
-                <Amount>
+            <InfoColumn style={{ background: "linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%)", border: "1px solid #ccfbf1" }}>
+              <InfoRow style={{ borderBottom: "1px dashed #99f6e4" }}>
+                <Label style={{ color: "#0f766e" }}>Opening Balance</Label>
+                <Amount style={{ color: "#0f766e" }}>
                   {activeShift
                     ? "₹ " +
                       parseFloat(
@@ -1799,10 +1930,9 @@ export default function CentralCashCounter() {
                     : "₹ 0.00"}
                 </Amount>
               </InfoRow>
-              <InfoRow>
-                <Label>CLOSING BALANCE</Label>
-                <span>:</span>
-                <Amount>
+              <InfoRow style={{ borderBottom: "1px dashed #99f6e4" }}>
+                <Label style={{ color: "#0f766e" }}>Closing Balance</Label>
+                <Amount style={{ color: "#0f766e" }}>
                   {activeShift?.ClosingBalance
                     ? "₹ " +
                       parseFloat(activeShift.ClosingBalance).toLocaleString(
@@ -1813,37 +1943,38 @@ export default function CentralCashCounter() {
                 </Amount>
               </InfoRow>
               <InfoRow>
-                <Label>SHIFT STATUS</Label>
-                <span>:</span>
-                <Value
-                  style={{
-                    color:
-                      activeShift?.ShiftStatus === "active"
-                        ? "#10b981"
-                        : "#6b7280",
-                    fontWeight: 600,
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {activeShift?.ShiftStatus || "—"}
+                <Label>Shift Status</Label>
+                <Value>
+                  <span
+                    style={{
+                      padding: "3px 10px",
+                      borderRadius: "9999px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      textTransform: "capitalize",
+                      background: activeShift?.ShiftStatus === "active" ? "#d1fae5" : "#f1f5f9",
+                      color: activeShift?.ShiftStatus === "active" ? "#065f46" : "#64748b",
+                      border: `1px solid ${activeShift?.ShiftStatus === "active" ? "#a7f3d0" : "#e2e8f0"}`,
+                      display: "inline-block"
+                    }}
+                  >
+                    {activeShift?.ShiftStatus || "Inactive"}
+                  </span>
                 </Value>
               </InfoRow>
             </InfoColumn>
 
             <InfoColumn>
               <InfoRow>
-                <Label>CASH COUNTER</Label>
-                <span>:</span>
+                <Label>Cash Counter</Label>
                 <Value>{activeShift?.CashCounter || "—"}</Value>
               </InfoRow>
               <InfoRow>
-                <Label>BRANCH</Label>
-                <span>:</span>
+                <Label>Branch Code</Label>
                 <Value>{activeShift?.branch_code || "—"}</Value>
               </InfoRow>
               <InfoRow>
-                <Label>DATE</Label>
-                <span>:</span>
+                <Label>Session Date</Label>
                 <Value>
                   {activeShift?.date || new Date().toLocaleDateString("en-IN")}
                 </Value>
@@ -1858,7 +1989,7 @@ export default function CentralCashCounter() {
               )}
 
               {!shiftBelongsHere && (
-                <div style={{ marginTop: "16px" }}>
+                <div style={{ marginTop: "10px", display: "flex", justifyContent: "flex-end" }}>
                   <Button onClick={handleShiftDetailsClick}>
                     ▶ Start Counter
                   </Button>
@@ -1866,9 +1997,12 @@ export default function CentralCashCounter() {
               )}
 
               {shiftBelongsHere && (
-                <div style={{ marginTop: "12px" }}>
+                <div style={{ marginTop: "10px", display: "flex", justifyContent: "flex-end" }}>
                   <Button
-                    style={{ backgroundColor: "#dc2626" }}
+                    style={{
+                      background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                      boxShadow: "0 2px 8px rgba(220, 38, 38, 0.25)"
+                    }}
                     onClick={handleShiftDetailsClick}
                   >
                     ⏹ Stop Counter
@@ -1881,16 +2015,24 @@ export default function CentralCashCounter() {
 
         <ContentWrapper>
           <Sidebar>
-            {sidebarItems.map((item, index) => (
-              <SidebarButton
-                key={index}
-                active={activeMenuItem === item.label}
-                onClick={() => handleMenuItemClick(item.label)}
-              >
-                <Search size={16} />
-                {item.label}
-              </SidebarButton>
-            ))}
+            {sidebarItems.map((item, index) => {
+              const iconMap = {
+                "Pending Bills": <CreditCard size={16} />,
+                "IP Advance": <CreditCard size={16} />,
+                "Returns Bills": <RotateCcw size={16} />,
+                "Receipt / Payment": <Search size={16} />,
+              };
+              return (
+                <SidebarButton
+                  key={index}
+                  active={activeMenuItem === item.label}
+                  onClick={() => handleMenuItemClick(item.label)}
+                >
+                  {iconMap[item.label] || <Search size={16} />}
+                  <span>{item.label}</span>
+                </SidebarButton>
+              );
+            })}
           </Sidebar>
 
           <MainPanel>
@@ -2364,18 +2506,6 @@ export default function CentralCashCounter() {
                 <>
                   <ControlsWrapper>
                     <ControlGroup>
-                      <Label>Bill Type</Label>
-                      <Select value={billType} onChange={(e) => setBillType(e.target.value)}>
-                        <option value="ALL">ALL</option>
-                        {allowedBillTypes.map((bt) => (
-                          <option key={bt.bill_type} value={bt.bill_name}>
-                            {bt.bill_name}
-                          </option>
-                        ))}
-                      </Select>
-                    </ControlGroup>
-
-                    <ControlGroup>
                       <Label>Type</Label>
                       <RadioLabel>
                         <RadioInput
@@ -2419,6 +2549,7 @@ export default function CentralCashCounter() {
                     <SearchWrapper>
                       <span>Search:</span>
                       <SearchInputWrapper>
+                        <Search size={15} style={{ position: "absolute", left: 12, color: "#94a3b8", pointerEvents: "none" }} />
                         <SearchInput
                           type="text"
                           placeholder="Patient Name, UHID, or Bill No"
@@ -2615,15 +2746,21 @@ export default function CentralCashCounter() {
                                       title="Collect Payment"
                                       onClick={() => openPaymentModal(bill)}
                                       style={{
-                                        background: "#0d9488",
+                                        background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
                                         color: "white",
                                         border: "none",
-                                        padding: "6px",
-                                        borderRadius: "4px",
-                                        cursor: "pointer"
+                                        padding: "6px 12px",
+                                        borderRadius: "8px",
+                                        cursor: "pointer",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                        boxShadow: "0 2px 6px rgba(13, 148, 136, 0.25)",
+                                        transition: "all 0.2s"
                                       }}
                                     >
-                                      <CreditCard size={16} />
+                                      <CreditCard size={14} />
+                                      <span style={{ fontSize: "12px", fontWeight: 600 }}>Collect</span>
                                     </button>
                                   </TableCell>
                                 </div>
