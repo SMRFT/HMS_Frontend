@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import styled, { keyframes, css } from "styled-components";
 import { toast } from "react-toastify";
 
@@ -13,6 +14,7 @@ import {
   ModalBody,
 } from "../GlobalStyles";
 import apiRequest from "../../Auth/apiRequest";
+import PatientSearchModal from "../Common/PatientSearchModal";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -1064,8 +1066,11 @@ const EMPTY = {
 };
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-const RoomShifting = ({ patient, onClose, onSaved }) => {
+const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const location = useLocation();
+  const navState = location.state || {};
+  const patient = propPatient || navState.patient || navState.patient_details || (navState.uhid || navState.ipNumber ? navState : null);
 
   const [activeTab,     setActiveTab] = useState("create");
   const [form,          setForm]      = useState(EMPTY);
@@ -1075,6 +1080,35 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
   const [currentPage,   setCurrentPage] = useState(1);
   const [editRecord,    setEditRecord]= useState(null);
   const [editOpen,      setEditOpen]  = useState(false);
+
+  // ── Patient search modal state & handlers ──────────────────────────────────
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchMode, setPatientSearchMode] = useState("ip");
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+
+  const openUhidSearch = () => {
+    setPatientSearchMode("uhid");
+    setPatientSearchQuery(form.uhid || "");
+    setShowPatientModal(true);
+  };
+
+  const openIpSearch = () => {
+    setPatientSearchMode("ip");
+    setPatientSearchQuery(form.ipNumber || "");
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelect = (data) => {
+    const ip = data.ipNumber || data.ip_number || "";
+    const uhid = data.uhid || data.UHID || "";
+    if (ip) {
+      setForm(p => ({ ...p, ipNumber: ip, uhid: uhid || p.uhid }));
+      loadAdmission({ ip_number: ip });
+    } else if (uhid) {
+      setForm(p => ({ ...p, uhid: uhid }));
+      loadAdmission({ uhid });
+    }
+  };
   const [filters, setFilters] = useState({
     fromDate: new Date().toISOString().split("T")[0],
     toDate:   new Date().toISOString().split("T")[0],
@@ -1113,7 +1147,7 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
   useEffect(() => {
     if (patient) {
       const uhid = patient.uhid || patient.patient_details?.uhid;
-      const ipNumber = patient.ipNumber || patient.patient_details?.ipNumber;
+      const ipNumber = patient.ipNumber || patient.patient_details?.ipNumber || patient.ip_number;
       if (uhid || ipNumber) {
         const newFilters = { ...filters, uhid: uhid || "", ipNumber: ipNumber || "" };
         setFilters(newFilters);
@@ -1178,14 +1212,11 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
 
       if (adm.has_shifted) toast.info("Already shifted — use Edit in the table.");
       else if (hasRes) toast.success(`Loaded: ${adm.ipNumber} — Reserved room auto-filled.`);
-      else toast.success(`Admission loaded: ${adm.ipNumber}`);
     } catch (err) {
       toast.error(err?.message || "Failed to fetch admission");
     }
   };
 
-  const fetchByUHID = () => { const u = form.uhid.trim(); if (!u) return toast.warning("Enter UHID"); loadAdmission({ uhid: u }); };
-  const fetchByIP   = () => { const ip = form.ipNumber.trim(); if (!ip) return toast.warning("Enter IP Number"); loadAdmission({ ip_number: ip }); };
   const handleReset = () => setForm(EMPTY);
 
   const handleSubmit = async () => {
@@ -1285,13 +1316,23 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
               <Grid>
                 <Field label="UHID" value={form.uhid}
                   onChange={e => setForm(p => ({ ...p, uhid: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && fetchByUHID()}
-                  onSearch={fetchByUHID}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      openUhidSearch();
+                    }
+                  }}
+                  onSearch={openUhidSearch}
                   placeholder="Enter UHID" />
                 <Field label="IP Number" value={form.ipNumber}
                   onChange={e => setForm(p => ({ ...p, ipNumber: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && fetchByIP()}
-                  onSearch={fetchByIP}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      openIpSearch();
+                    }
+                  }}
+                  onSearch={openIpSearch}
                   placeholder="Enter IP No" />
                 <Field label="IP Serial No" value={form.ipserial_number} readOnly />
                 <Field label="Patient Name" value={form.name} readOnly />
@@ -1522,6 +1563,15 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
         onClose={() => setEditOpen(false)}
         onSave={handleEditSave}
         baseUrl={HmsBaseUrl}
+      />
+
+      {/* ── Patient Search Modal ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientSelect}
+        initialQuery={patientSearchQuery}
+        mode={patientSearchMode}
       />
     </PageWrapper>
   );

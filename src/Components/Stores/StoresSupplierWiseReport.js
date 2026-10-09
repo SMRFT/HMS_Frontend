@@ -3,8 +3,8 @@ import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import { 
-    Building2, Phone, Mail, MapPin, Search, RefreshCw, 
-    Download, CheckCircle, Clock, Package, DollarSign
+    Building2, Phone, Mail, Search, RefreshCw, 
+    Download
 } from 'lucide-react';
 import {
     PageWrapper,
