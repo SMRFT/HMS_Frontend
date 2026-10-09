@@ -197,6 +197,7 @@ const OPPharmacyTabs = () => {
 
       // ── Doctor / ward ──
       doctor_id:        resolvedDoctor,
+      doctor_name:      patient.doctor_name || patient.patient_details?.doctor_name || "",
       room_no:          resolvedRoom,
       ward_name:        resolvedRoom,              // alias
 
