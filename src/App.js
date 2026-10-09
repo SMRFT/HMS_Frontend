@@ -513,6 +513,8 @@ function App() {
   // Routes where sidebar is hidden (login page, mobile reg, feedback form, QR scan)
   const publicRoutesList = [
     "/MobileRegistration",
+    "/mobileregistration",
+    "/self-register",
     "/InPatientFeedbackForm",
     "/OutPatientfeedForm",
     "/outpatientfeedform",
@@ -610,6 +612,14 @@ function App() {
             <Routes>
               <Route
                 path="/MobileRegistration"
+                element={<MobileRegistration />}
+              />
+              <Route
+                path="/mobileregistration"
+                element={<MobileRegistration />}
+              />
+              <Route
+                path="/self-register"
                 element={<MobileRegistration />}
               />
               <Route

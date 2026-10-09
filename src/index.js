@@ -78,6 +78,8 @@ function getUserRole(allowedActions) {
 // --- List of public routes that don't require login token ---
 const PUBLIC_ROUTES = [
   "/MobileRegistration",
+  "/mobileregistration",
+  "/self-register",
   "/InPatientFeedbackForm",
   "/OutPatientfeedForm",
   "/outpatientfeedform",

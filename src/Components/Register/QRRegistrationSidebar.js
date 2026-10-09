@@ -223,7 +223,8 @@ const QRRegistrationSidebar = ({ onDataReceived }) => {
         }
     };
 
-    const registrationUrl = `${window.location.origin}/HMS/MobileRegistration`;
+    const publicBase = process.env.PUBLIC_URL || '';
+    const registrationUrl = `${window.location.origin}${publicBase}/MobileRegistration`;
 
     return (
         <SidebarContainer>

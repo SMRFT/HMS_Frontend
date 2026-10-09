@@ -1300,6 +1300,13 @@ const WardRequest = () => {
     setShowActionModal(false);
     if (!selectedPatient) return;
 
+    const patientState = {
+      patient: selectedPatient,
+      ipNo: getField(selectedPatient, "ipNumber") || getField(selectedPatient, "ipNo") || selectedPatient?.ipNumber || selectedPatient?.ipNo || "",
+      uhid: getField(selectedPatient, "uhid") || selectedPatient?.uhid || "",
+      from: "/wardrequest"
+    };
+
     switch (actionType) {
       case "pharmacy":
         setShowMedicineModal(true);
@@ -1323,22 +1330,19 @@ const WardRequest = () => {
         setShowStatusModal(true);
         break;
       case "shift":
-        setShowRoomShiftModal(true);
+        navigate("/RoomShifting", { state: patientState });
+        break;
+      case "discharge_summary":
+        navigate("/Summary", { state: patientState });
         break;
       case "doctor_notes":
-        navigate("/IPEMRDesk", {
-          state: {
-            patient: selectedPatient,
-            from: "/wardrequest"
-          }
-        });
+        navigate("/IPEMRDesk", { state: patientState });
         break;
       case "nursing_notes":
         setShowNursingNotesModal(true);
         break;
       case "billing":
-        setStatusToUpdate("Sent for billing");
-        setShowStatusModal(true);
+        navigate("/DischargeBilling", { state: patientState });
         break;
       default:
         break;
@@ -1671,7 +1675,7 @@ const WardRequest = () => {
                   <div className="sub">Transfer</div>
                 </div>
 
-                <div className="type-card" onClick={() => handleActionOption("status")}>
+                <div className="type-card" onClick={() => handleActionOption("discharge_summary")}>
                   <div className="icon"><MdAssignment /></div>
                   <div className="title">Discharge summary</div>
                   <div className="sub">View / edit</div>

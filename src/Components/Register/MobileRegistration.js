@@ -203,6 +203,48 @@ const InputWrapper = styled.div`
   width: 100%;
 `;
 
+const PhoneInputContainer = styled.div`
+  display: flex;
+  align-items: center;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fdfdfd;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:focus-within {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 4px var(--primary-light);
+    transform: translateY(-1px);
+  }
+`;
+
+const PhonePrefix = styled.span`
+  background: #f1f5f9;
+  color: var(--text-main);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 14px 16px;
+  border-right: 1.5px solid var(--border);
+  user-select: none;
+  white-space: nowrap;
+`;
+
+const InnerPhoneInput = styled.input`
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  font-size: 15px;
+  color: var(--text-main);
+  background: transparent;
+  outline: none;
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+`;
+
 const SelectWrapper = styled.div`
   position: relative;
   width: 100%;
@@ -653,16 +695,25 @@ const MobileRegistration = () => {
           <FormGroup>
             <Label>Mobile Number *</Label>
             <InputWrapper>
-              <Input
-                type="tel"
-                name="mobilePhone"
-                placeholder="10-digit Mobile Number"
-                value={formData.mobilePhone}
-                onChange={handleChange}
-                required
-                maxLength="10"
-                inputMode="numeric"
-              />
+              <PhoneInputContainer>
+                <PhonePrefix>+91</PhonePrefix>
+                <InnerPhoneInput
+                  type="tel"
+                  name="mobilePhone"
+                  placeholder="10-digit Mobile Number"
+                  value={formData.mobilePhone ? formData.mobilePhone.replace(/^\+?91\s*/, "") : ""}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val.startsWith("+91")) val = val.slice(3).trim();
+                    if (val.startsWith("91") && val.length > 10) val = val.slice(2).trim();
+                    val = val.replace(/\D/g, "").slice(0, 10);
+                    setFormData(prev => ({ ...prev, mobilePhone: val }));
+                  }}
+                  required
+                  maxLength="10"
+                  inputMode="numeric"
+                />
+              </PhoneInputContainer>
             </InputWrapper>
           </FormGroup>
 
