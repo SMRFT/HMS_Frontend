@@ -211,11 +211,11 @@ const RadioCheckIcon = styled.div`
 
 // Default Facilities List (from screenshot design)
 const DEFAULT_FACILITIES = [
-  { outlet_code: "OLETO01", outlet_name: "IP PHARMACY" },
-  { outlet_code: "OLETO02", outlet_name: "OP PHARMACY" },
-  { outlet_code: "OLETO03", outlet_name: "MAIN BLOCK" },
-  { outlet_code: "OLETO04", outlet_name: "B BLOCK" },
-  { outlet_code: "OLETO05", outlet_name: "VELAVAN" }
+  { outlet_code: "OLET001", outlet_name: "IP PHARMACY" },
+  { outlet_code: "OLET002", outlet_name: "OP PHARMACY" },
+  { outlet_code: "OLET003", outlet_name: "MAIN BLOCK" },
+  { outlet_code: "OLET004", outlet_name: "CANCER BLOCK" },
+  { outlet_code: "OLET005", outlet_name: "VELAVAN" }
 ];
 
 const OutletSelectionModal = ({ outlets, onSelect, onClose, currentOutletCode }) => {
@@ -229,12 +229,13 @@ const OutletSelectionModal = ({ outlets, onSelect, onClose, currentOutletCode })
   }, []);
 
   const facilityList = (outlets && outlets.length > 0) ? outlets.map((o, idx) => ({
-    outlet_code: o.outlet_code || o.code || `OLETO0${idx + 1}`,
+    outlet_code: o.outlet_code || o.code || `OLET00${idx + 1}`,
     outlet_name: o.outlet_name || o.name || "Facility",
     note: o.note || o.description || o.address || (DEFAULT_FACILITIES[idx]?.note || "Active facility")
   })) : DEFAULT_FACILITIES;
 
-  const activeCode = currentOutletCode || localStorage.getItem("outlet_code") || "OLETO01";
+  const activeCode = currentOutletCode || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+  const storedOutletName = (localStorage.getItem("selected_outlet_name") || "").trim().toLowerCase();
 
   const filteredFacilities = facilityList.filter(f =>
     f.outlet_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -269,8 +270,9 @@ const OutletSelectionModal = ({ outlets, onSelect, onClose, currentOutletCode })
 
         <OutletList>
           {filteredFacilities.map((facility) => {
-            const isSelected = activeCode === facility.outlet_code ||
-              (localStorage.getItem("selected_outlet_name") || "").toLowerCase() === facility.outlet_name.toLowerCase();
+            const isSelected = activeCode
+              ? facility.outlet_code === activeCode
+              : Boolean(storedOutletName && storedOutletName === facility.outlet_name.toLowerCase());
 
             return (
               <OutletCard

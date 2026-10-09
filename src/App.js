@@ -583,7 +583,7 @@ function App() {
 
             const userRole = getUserRole(allowedActions);
             const targetPath =
-              userRole === "Pharmacist" ? "/OPPharmacy" : "/Dashboard";
+              userRole === "Pharmacist" ? "/OPPharmacy" : (location.pathname || "/Dashboard");
 
             navigate(targetPath);
             setTimeout(() => {

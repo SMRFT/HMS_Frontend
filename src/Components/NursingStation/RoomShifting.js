@@ -1143,7 +1143,7 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
   };
 
   useEffect(() => {
-    const activePatient = patient || location.state?.patient;
+    const activePatient = propPatient || location.state?.patient;
     const navIpNo = location.state?.ipNo;
     const navUhid = location.state?.uhid;
 
@@ -1161,7 +1161,7 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
       fetchShiftings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patient, location.state]);
+  }, [propPatient, location.state]);
 
   const loadAdmission = async (params) => {
     try {
