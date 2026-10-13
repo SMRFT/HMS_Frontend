@@ -37,10 +37,10 @@ const NewAdmBtn = styled.button`
 // ─── Stat Cards ────────────────────────────────────────────────────────────────
 const StatStrip = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   width: 100%;
   border-bottom: 1px solid #e5e7eb;
-  @media (max-width: 640px) { grid-template-columns: 1fr; }
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
 `;
 const StatCard = styled.div`
   padding: 16px 24px;
@@ -236,6 +236,26 @@ const Td = styled.td`padding:9px 12px;color:#374151;white-space:nowrap;`;
 const Badge = styled.span`padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:${p => p.t === 'admitted' ? '#dcfce7' : p.t === 'discharged' ? '#dbeafe' : '#fee2e2'};color:${p => p.t === 'admitted' ? '#166534' : p.t === 'discharged' ? '#1d4ed8' : '#991b1b'};`;
 const RoomHistBtn = styled.button`height:26px;padding:0 10px;font-size:.68rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;&:hover{background:#dbeafe;}`;
 const RoomSourceTag = styled.span`font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;background:${p => p.src === 'shifting' ? '#f3e8ff' : '#f0fdf4'};color:${p => p.src === 'shifting' ? '#7e22ce' : '#166534'};`;
+const ConvertActionBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  color: #059669;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  &:hover {
+    background: #059669;
+    color: #ffffff;
+    border-color: #059669;
+    transform: scale(1.08);
+    box-shadow: 0 3px 8px rgba(5, 150, 105, 0.3);
+  }
+`;
 
 // ─── Dropdown ──────────────────────────────────────────────────────────────────
 const AW = styled.div`position:relative;display:inline-block;`;
@@ -1569,6 +1589,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const API_ADMISSION_LIST = `${HmsBaseUrl}admission-list/`;
   const API_ADMISSION_DETAIL = (ipNumber) => `${HmsBaseUrl}admission-detail/${encodeURIComponent(ipNumber)}/`;
   const API_ROOM_SEARCH = `${HmsBaseUrl}admission-room-search/`;
+  const API_TODAY_REGISTERED = `${HmsBaseUrl}today-registered-patients/`;
 
   const location = useLocation();
   const navState = location?.state || {};
@@ -1583,6 +1604,17 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const [saving, setSaving] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
+
+  // ── Today Registered Patients / Admission Requests State ───────────────────
+  const [registeredPatients, setRegisteredPatients] = useState([]);
+  const [loadingRegistered, setLoadingRegistered] = useState(false);
+  const [regDate, setRegDate] = useState(today);
+  const [regSearch, setRegSearch] = useState("");
+  const [regPerPage, setRegPerPage] = useState(10);
+  const [regPage, setRegPage] = useState(1);
+  const [regSort, setRegSort] = useState({ key: "uhid", direction: "desc" });
+  const [todayRegCount, setTodayRegCount] = useState(0);
+
   const [fDoctor, setFDoctor] = useState("ALL");
   const [fFrom, setFFrom] = useState(today);
   const [fTo, setFTo] = useState(today);
@@ -1788,7 +1820,15 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     fetchPackages();
     fetchCustomerTypes();
     fetchInsuranceProviders();
+    fetchRegisteredPatients(today);
   }, []);
+
+  useEffect(() => {
+    if (viewMode === "registered") {
+      fetchRegisteredPatients(regDate, regSearch);
+    }
+  }, [regDate, viewMode]);
+
 
   useEffect(() => {
     if (patient || propUhid || propIpNumber) {
@@ -1888,6 +1928,77 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     finally { setLoading(false); }
   };
 
+  const fetchRegisteredPatients = async (dateVal = regDate, searchVal = regSearch) => {
+    setLoadingRegistered(true);
+    try {
+      const p = new URLSearchParams();
+      if (dateVal) p.append("date", dateVal);
+      if (searchVal) p.append("search", searchVal);
+      const res = await apiRequest(`${API_TODAY_REGISTERED}?${p.toString()}`, "GET");
+      const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
+      setRegisteredPatients(list);
+      if (!dateVal || dateVal === today) {
+        setTodayRegCount(list.length);
+      }
+    } catch (e) {
+      console.error("Error fetching registered patients:", e);
+      setRegisteredPatients([]);
+    } finally {
+      setLoadingRegistered(false);
+    }
+  };
+
+  const handleRegSort = (key) => {
+    setRegSort(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc"
+    }));
+    setRegPage(1);
+  };
+
+  const renderRegSortIcon = (key) => {
+    if (regSort.key !== key) {
+      return <span style={{ color: "#9ca3af", marginLeft: 4, fontSize: ".68rem", fontWeight: 400 }}>⇅</span>;
+    }
+    return (
+      <span style={{ color: "#0d9488", marginLeft: 4, fontSize: ".68rem", fontWeight: 800 }}>
+        {regSort.direction === "asc" ? "▲" : "▼"}
+      </span>
+    );
+  };
+
+  const sortedRegistered = useMemo(() => {
+    let list = [...registeredPatients];
+    if (regSearch) {
+      const q = regSearch.toLowerCase();
+      list = list.filter(p =>
+        (p.uhid && p.uhid.toLowerCase().includes(q)) ||
+        (p.patientName && p.patientName.toLowerCase().includes(q)) ||
+        (p.doctor && p.doctor.toLowerCase().includes(q)) ||
+        (p.mobile && p.mobile.toLowerCase().includes(q))
+      );
+    }
+    if (regSort.key) {
+      list.sort((a, b) => {
+        let valA = a[regSort.key] || "";
+        let valB = b[regSort.key] || "";
+        if (typeof valA === "string") valA = valA.toLowerCase();
+        if (typeof valB === "string") valB = valB.toLowerCase();
+        if (valA < valB) return regSort.direction === "asc" ? -1 : 1;
+        if (valA > valB) return regSort.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return list;
+  }, [registeredPatients, regSearch, regSort]);
+
+  const totalRegPages = Math.ceil(sortedRegistered.length / regPerPage) || 1;
+  const paginatedRegistered = useMemo(() => {
+    const start = (regPage - 1) * regPerPage;
+    return sortedRegistered.slice(start, start + regPerPage);
+  }, [sortedRegistered, regPage, regPerPage]);
+
+
   const fetchPackages = async () => {
     try {
       const res = await apiRequest(`${HmsBaseUrl}packages/`, "GET");
@@ -1917,7 +2028,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   };
 
   // ── Fetch patient by UHID — also checks for active admission ─────────────
-  const fetchPatientByUHID = async (explicitUhid = null) => {
+  const fetchPatientByUHID = async (explicitUhid = null, silent = false) => {
     const isStr = typeof explicitUhid === "string" && explicitUhid.trim().length > 0;
     const uhid = (isStr ? explicitUhid : form.uhid || "").trim();
     if (!uhid) {
@@ -1992,7 +2103,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           insuranceCompanyName: d.insuranceCompanyName || d.company_name || d.insurance_company || p.insuranceCompanyName || "",
           company_code: d.company_code || p.company_code || "",
         }));
-        toast.success("Patient loaded");
+        if (!silent) toast.success("Patient loaded");
       }
     } catch {
       toast.error("Failed to fetch patient details.");
@@ -2289,6 +2400,58 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const openEditForm = adm => { setOpenMenu(null); loadAdmissionIntoForm(adm); setErrors({}); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const closeForm = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); if (onClose && typeof onClose === "function") onClose(); };
 
+  const handleConvertAdmission = async (pat) => {
+    if (!pat || !pat.uhid) {
+      toast.error("Invalid patient data");
+      return;
+    }
+
+    if (pat.is_admitted) {
+      const proceed = await showConfirm({
+        title: "Patient Already Admitted",
+        message: `Patient ${pat.patientName || pat.uhid} already has an active admission (IP: ${pat.ipNumber || "Active"}). Do you want to open and view/edit this admission?`,
+        confirmText: "Open Admission",
+        cancelText: "Cancel"
+      });
+      if (!proceed) return;
+      openEditForm({ ipNumber: pat.ipNumber, uhid: pat.uhid });
+      return;
+    }
+
+    // Open clean new admission form
+    openNewForm();
+
+    // Set UHID
+    setForm(prev => ({
+      ...prev,
+      uhid: pat.uhid
+    }));
+
+    // Fetch full patient data by UHID (silent to prevent duplicate toast)
+    await fetchPatientByUHID(pat.uhid, true);
+
+    // Auto-select doctor if matching
+    if (pat.doctorId || pat.doctor) {
+      const docClean = String(pat.doctor || "").toLowerCase().replace(/^(dr\.?\s*)+/i, "").trim();
+      const matched = doctors.find(d =>
+        (pat.doctorId && String(d.employeeId) === String(pat.doctorId)) ||
+        (docClean && (
+          String(d.employeeName).toLowerCase().includes(docClean) ||
+          docClean.includes(String(d.employeeName).toLowerCase().replace(/^(dr\.?\s*)+/i, "").trim())
+        ))
+      );
+      if (matched) {
+        setForm(prev => ({ ...prev, admittingDoctor: String(matched.employeeId) }));
+      }
+    }
+
+    // Switch view to table view and scroll to top so the user sees the filled form immediately
+    setViewMode("table");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast.success(`Patient ${pat.patientName || pat.uhid} loaded into admission form!`);
+  };
+
+
   const handleFormChange = e => {
     const { name, value, type, files } = e.target;
     if (errors[name]) {
@@ -2400,35 +2563,43 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
       if (res.success) {
         toast.success(editingId ? "Admission updated!" : "Admission saved!");
-        const savedAdm = res.data || res.admission || {};
-        const ipNumber = res.ipNumber || savedAdm.ipNumber || form.ipNumber || editingId;
-        const admDateTime = savedAdm.admissionDateTime || form.admissionDateTime || new Date().toISOString();
+        const savedAdm = res.data?.data || res.data?.admission || (res.data?.ipNumber ? res.data : {}) || res.admission || {};
+        const ipNumber = savedAdm.ipNumber || savedAdm.ip_number || res.data?.ipNumber || res.ipNumber || form.ipNumber || editingId || "";
+        const admDateTime = savedAdm.admissionDateTime || savedAdm.admission_date_time || form.admissionDateTime || new Date().toISOString();
         const admDoctor = form.admittingDoctor || savedAdm.admittingDoctor;
 
         const slipData = {
           ...form,
           ...savedAdm,
           ipNumber: ipNumber,
-          uhid: form.uhid,
-          dob: form.dob,
-          age: form.age,
-          age_type: form.age_type,
-          gender: form.gender,
-          mobilePhone: form.mobilePhone,
-          permanent_address: form.permanent_address,
-          area: form.area,
-          city: form.city,
-          state: form.state,
-          spouseName: form.spouseName,
-          fatherName: form.fatherName,
-          relationship: form.relationship,
-          aadhaar: form.aadhaar,
-          customerType: form.customerType,
-          insuranceCompanyName: form.insuranceCompanyName,
+          uhid: savedAdm.uhid || form.uhid,
+          salutation: savedAdm.salutation || form.salutation || "",
+          firstName: savedAdm.firstName || form.firstName || "",
+          middleName: savedAdm.middleName || form.middleName || "",
+          lastName: savedAdm.lastName || form.lastName || "",
+          dob: savedAdm.dob || form.dob || "",
+          age: savedAdm.age !== undefined && savedAdm.age !== "" ? savedAdm.age : form.age,
+          age_type: savedAdm.age_type || form.age_type || "Y",
+          gender: savedAdm.gender || form.gender || "",
+          mobilePhone: savedAdm.mobilePhone || form.mobilePhone || "",
+          permanent_address: savedAdm.permanent_address || form.permanent_address || "",
+          area: savedAdm.area || form.area || "",
+          city: savedAdm.city || form.city || "",
+          state: savedAdm.state || form.state || "",
+          spouseName: savedAdm.spouseName || form.spouseName || "",
+          fatherName: savedAdm.fatherName || form.fatherName || "",
+          relationship: savedAdm.relationship || form.relationship || "",
+          aadhaar: savedAdm.aadhaar || form.aadhaar || "",
+          customerType: savedAdm.customerType || form.customerType || "General",
+          insuranceCompanyName: savedAdm.insuranceCompanyName || form.insuranceCompanyName || "",
           admissionDateTime: admDateTime,
           admittingDoctor: admDoctor,
           admittingDoctorName: getDrName(admDoctor),
-          room_details: savedAdm.room_details || [{ roomNo: form.roomNo, bedNo: form.bedNo, is_roomActive: true }],
+          roomNo: savedAdm.roomNo || form.roomNo,
+          bedNo: savedAdm.bedNo || form.bedNo,
+          room_details: safeParseList(savedAdm.room_details).length > 0
+            ? safeParseList(savedAdm.room_details)
+            : [{ roomNo: form.roomNo, bedNo: form.bedNo, is_roomActive: true }],
         };
 
         closeForm();
@@ -2709,13 +2880,23 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         <PageHeader>
           <PageTitle>🏥 Admission</PageTitle>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <div style={{ display: "flex", background: "rgba(255,255,255,0.2)", borderRadius: "5px", padding: "2px" }}>
+            <div style={{ display: "flex", background: "rgba(255,255,255,0.2)", borderRadius: "5px", padding: "2px", gap: "2px" }}>
               <button
                 onClick={() => { setViewMode("table"); if (formOpen) closeForm(); }}
-                style={{ padding: "4px 10px", fontSize: ".75rem", fontWeight: 600, border: "none", borderRadius: "4px", cursor: "pointer", background: viewMode === "table" ? "#fff" : "transparent", color: viewMode === "table" ? "#0d9488" : "#fff", transition: "all 0.2s" }}>📋 Table</button>
+                style={{ padding: "4px 10px", fontSize: ".75rem", fontWeight: 600, border: "none", borderRadius: "4px", cursor: "pointer", background: viewMode === "table" ? "#fff" : "transparent", color: viewMode === "table" ? "#0d9488" : "#fff", transition: "all 0.2s" }}>📋 Admissions</button>
               <button
                 onClick={() => { setViewMode("grid"); if (formOpen) closeForm(); }}
-                style={{ padding: "4px 10px", fontSize: ".75rem", fontWeight: 600, border: "none", borderRadius: "4px", cursor: "pointer", background: viewMode === "grid" ? "#fff" : "transparent", color: viewMode === "grid" ? "#0d9488" : "#fff", transition: "all 0.2s" }}>🔲 Grid</button>
+                style={{ padding: "4px 10px", fontSize: ".75rem", fontWeight: 600, border: "none", borderRadius: "4px", cursor: "pointer", background: viewMode === "grid" ? "#fff" : "transparent", color: viewMode === "grid" ? "#0d9488" : "#fff", transition: "all 0.2s" }}>🔲 Bed Grid</button>
+              <button
+                onClick={() => { setViewMode("registered"); if (formOpen) closeForm(); }}
+                style={{ padding: "4px 11px", fontSize: ".75rem", fontWeight: 600, border: "none", borderRadius: "4px", cursor: "pointer", background: viewMode === "registered" ? "#fff" : "transparent", color: viewMode === "registered" ? "#0d9488" : "#fff", transition: "all 0.2s", display: "flex", alignItems: "center", gap: "6px" }}>
+                📥 Registered Patients / Requests
+                {todayRegCount > 0 && (
+                  <span style={{ background: viewMode === "registered" ? "#0d9488" : "#f97316", color: "#fff", padding: "1px 6px", borderRadius: "10px", fontSize: ".62rem", fontWeight: 700 }}>
+                    {todayRegCount}
+                  </span>
+                )}
+              </button>
             </div>
             <NewAdmBtn onClick={() => { formOpen ? closeForm() : openNewForm(); }}>
               {formOpen ? "− Close Form" : "+ New Admission"}
@@ -2745,8 +2926,18 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
               activeBorder: "#2563eb",
               activeColor: "#1d4ed8"
             },
+            {
+              id: "today_registered",
+              label: "Today Registered Patients",
+              value: todayRegCount,
+              icon: "📥",
+              bg: "#f0fdfa",
+              activeBg: "#ccfbf1",
+              activeBorder: "#0d9488",
+              activeColor: "#0f766e"
+            },
           ].map((s, i) => {
-            const isActive = activeStatFilter === s.id;
+            const isActive = s.id === "today_registered" ? viewMode === "registered" : activeStatFilter === s.id;
             return (
               <StatCard
                 key={s.id}
@@ -2755,10 +2946,16 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                 activeBg={s.activeBg}
                 activeBorder={s.activeBorder}
                 onClick={() => {
-                  setActiveStatFilter(prev => prev === s.id ? null : s.id);
-                  setPage(1);
+                  if (s.id === "today_registered") {
+                    setViewMode(prev => prev === "registered" ? "table" : "registered");
+                    if (formOpen) closeForm();
+                  } else {
+                    if (viewMode === "registered") setViewMode("table");
+                    setActiveStatFilter(prev => prev === s.id ? null : s.id);
+                    setPage(1);
+                  }
                 }}
-                title={`Click to filter table by ${s.label}`}
+                title={s.id === "today_registered" ? "Click to view today's registered patients & convert to admission" : `Click to filter table by ${s.label}`}
               >
                 <SIcon bg={s.bg}>{s.icon}</SIcon>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -2766,7 +2963,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     <SLabel style={{ color: isActive ? s.activeColor : undefined }}>{s.label}</SLabel>
                     {isActive && (
                       <span style={{ fontSize: ".62rem", fontWeight: 700, background: s.activeBorder, color: "#fff", padding: "1px 6px", borderRadius: 10, whiteSpace: "nowrap" }}>
-                        Filtered
+                        {s.id === "today_registered" ? "Active View" : "Filtered"}
                       </span>
                     )}
                   </div>
@@ -2777,27 +2974,29 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           })}
         </StatStrip>
 
-        <FilterBar>
-          <FF flex="1 1 200px">
-            <FL>Admitting Doctor</FL>
-            <SearchSelect
-              options={[{ value: "ALL", label: "ALL" }, ...doctors.map(d => ({ value: String(d.employeeId), label: d.employeeName }))]}
-              value={fDoctor}
-              onChange={e => { setFDoctor(e.target.value); setPage(1); }}
-              placeholder="Search Doctor..."
-              height="32px"
-            />
-          </FF>
-          <FF flex="0 0 150px"><FL>From Date</FL><FInp type="date" value={fFrom} onChange={e => { setFFrom(e.target.value); setPage(1); }} /></FF>
-          <FF flex="0 0 150px"><FL>To Date</FL><FInp type="date" value={fTo} onChange={e => { setFTo(e.target.value); setPage(1); }} /></FF>
-          <FF flex="0 0 140px">
-            <FL>Status</FL>
-            <FSel value={fStatus} onChange={e => { setFStatus(e.target.value); setPage(1); }}>
-              <option>All</option><option>Admitted</option><option>Discharged</option>
-            </FSel>
-          </FF>
-          <SearchBtn onClick={fetchAdmissions}>🔍 Search</SearchBtn>
-        </FilterBar>
+        {viewMode === "table" && (
+          <FilterBar>
+            <FF flex="1 1 200px">
+              <FL>Admitting Doctor</FL>
+              <SearchSelect
+                options={[{ value: "ALL", label: "ALL" }, ...doctors.map(d => ({ value: String(d.employeeId), label: d.employeeName }))]}
+                value={fDoctor}
+                onChange={e => { setFDoctor(e.target.value); setPage(1); }}
+                placeholder="Search Doctor..."
+                height="32px"
+              />
+            </FF>
+            <FF flex="0 0 150px"><FL>From Date</FL><FInp type="date" value={fFrom} onChange={e => { setFFrom(e.target.value); setPage(1); }} /></FF>
+            <FF flex="0 0 150px"><FL>To Date</FL><FInp type="date" value={fTo} onChange={e => { setFTo(e.target.value); setPage(1); }} /></FF>
+            <FF flex="0 0 140px">
+              <FL>Status</FL>
+              <FSel value={fStatus} onChange={e => { setFStatus(e.target.value); setPage(1); }}>
+                <option>All</option><option>Admitted</option><option>Discharged</option>
+              </FSel>
+            </FF>
+            <SearchBtn onClick={fetchAdmissions}>🔍 Search</SearchBtn>
+          </FilterBar>
+        )}
 
         {/* ══ FORM PANEL ══ */}
         {formOpen && (
@@ -2845,6 +3044,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                   </IRow>
                   {errors.uhid && <FieldError>{errors.uhid}</FieldError>}
                 </Field>
+
 
                 <Field span={2}>
                   <Lbl>
@@ -3177,7 +3377,165 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
         {viewMode === "grid" ? (
           <AdmissionGrid data={gridData} loading={gridLoading} onBedClick={handleGridBedClick} doctors={doctors} />
+        ) : viewMode === "registered" ? (
+          <>
+            {/* ── Registered Patients / Admission Requests Controls ── */}
+            <TTBar>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
+                  Show up to&nbsp;
+                  <TableSelect value={regPerPage} onChange={e => { setRegPerPage(Number(e.target.value)); setRegPage(1); }}>
+                    {[10, 15, 20, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                  </TableSelect>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#374151" }}>
+                  <span style={{ fontWeight: 600, color: "#6b7280" }}>Date:</span>
+                  <input
+                    type="date"
+                    value={regDate === "all" ? "" : regDate}
+                    onChange={e => { setRegDate(e.target.value); setRegPage(1); }}
+                    style={{ height: 28, padding: "0 8px", fontSize: ".75rem", border: "1px solid #d1d5db", borderRadius: 4, outline: "none", background: "#fff" }}
+                  />
+                  {regDate !== today && (
+                    <button
+                      type="button"
+                      onClick={() => { setRegDate(today); setRegPage(1); }}
+                      style={{ height: 26, padding: "0 8px", fontSize: ".7rem", fontWeight: 700, background: "#0d9488", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}
+                    >
+                      Today
+                    </button>
+                  )}
+                  {regDate !== "all" && (
+                    <button
+                      type="button"
+                      onClick={() => { setRegDate("all"); setRegPage(1); }}
+                      style={{ height: 26, padding: "0 8px", fontSize: ".7rem", fontWeight: 600, background: "#f3f4f6", color: "#374151", border: "1px solid #d1d5db", borderRadius: 4, cursor: "pointer" }}
+                      title="Show all registered patients"
+                    >
+                      All Dates
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
+                  Search:&nbsp;
+                  <input
+                    value={regSearch}
+                    onChange={e => { setRegSearch(e.target.value); setRegPage(1); }}
+                    placeholder="Search UHID / Patient Name / Doctor…"
+                    style={{ width: "320px", height: 28, padding: "0 10px", fontSize: ".75rem", border: "1px solid #d1d5db", borderRadius: 4, outline: "none", background: "#fff" }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fetchRegisteredPatients(regDate, regSearch)}
+                  style={{ height: 28, padding: "0 10px", fontSize: ".75rem", fontWeight: 600, background: "#f3f4f6", color: "#374151", border: "1px solid #d1d5db", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                  title="Refresh list"
+                >
+                  🔄
+                </button>
+              </div>
+            </TTBar>
+
+            {/* ── Table Matching User's Screenshot ── */}
+            <TWrap>
+              <Tbl>
+                <Thead>
+                  <tr>
+                    <SortTh onClick={() => handleRegSort("uhid")}>
+                      UHID {renderRegSortIcon("uhid")}
+                    </SortTh>
+                    <SortTh onClick={() => handleRegSort("patientName")}>
+                      Patient Name {renderRegSortIcon("patientName")}
+                    </SortTh>
+                    <SortTh onClick={() => handleRegSort("doctor")}>
+                      Doctor {renderRegSortIcon("doctor")}
+                    </SortTh>
+                    <Th style={{ textAlign: "center", width: "90px" }}>Actions</Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {loadingRegistered ? (
+                    <tr><Td colSpan={4} style={{ textAlign: "center", padding: 28 }}>Loading registered patients…</Td></tr>
+                  ) : paginatedRegistered.length === 0 ? (
+                    <tr>
+                      <Td colSpan={4} style={{ textAlign: "center", padding: 36, color: "#6b7280" }}>
+                        <div>No registered patients found for {regDate === "all" ? "the current search" : regDate}.</div>
+                        <div style={{ marginTop: 8, fontSize: ".76rem", color: "#9ca3af" }}>
+                          Try selecting another date, clicking "All Dates", or entering a patient name/UHID in the search box.
+                        </div>
+                      </Td>
+                    </tr>
+                  ) : paginatedRegistered.map((pat, idx) => (
+                    <Tr key={pat.uhid || idx} i={idx}>
+                      <Td style={{ fontWeight: 600, color: "#0d9488" }}>
+                        {pat.uhid || "-"}
+                        {pat.is_admitted && (
+                          <span style={{ marginLeft: 6, fontSize: ".62rem", fontWeight: 700, background: "#dcfce7", color: "#166534", padding: "1px 6px", borderRadius: 10, display: "inline-block" }}>
+                            Admitted {pat.ipNumber ? `(IP: ${pat.ipNumber})` : ""}
+                          </span>
+                        )}
+                      </Td>
+                      <Td style={{ fontWeight: 600, color: "#111827" }}>
+                        {pat.patientName || "-"}
+                        {(pat.age || pat.gender) && (
+                          <span style={{ fontSize: ".72rem", color: "#6b7280", marginLeft: 6, fontWeight: 400 }}>
+                            ({[pat.age ? `${pat.age} ${pat.age_type || "Y"}` : "", pat.gender].filter(Boolean).join(", ")})
+                          </span>
+                        )}
+                        {pat.registrationTime && (
+                          <span style={{ fontSize: ".68rem", color: "#9ca3af", marginLeft: 8 }}>
+                            🕒 {pat.registrationTime}
+                          </span>
+                        )}
+                      </Td>
+                      <Td style={{ color: "#374151", fontWeight: 500 }}>
+                        {pat.doctor || "—"}
+                      </Td>
+                      <Td style={{ textAlign: "center" }}>
+                        <ConvertActionBtn
+                          type="button"
+                          onClick={() => handleConvertAdmission(pat)}
+                          title="Convert to Admission — Loads patient details into admission form"
+                        >
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                            <polyline points="15 3 21 3 21 9" />
+                            <line x1="10" y1="14" x2="21" y2="3" />
+                          </svg>
+                        </ConvertActionBtn>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Tbl>
+            </TWrap>
+
+            <Pager>
+              <span>Showing {sortedRegistered.length === 0 ? 0 : (regPage - 1) * regPerPage + 1} to {Math.min(regPage * regPerPage, sortedRegistered.length)} of {sortedRegistered.length} entries</span>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                <PB onClick={() => setRegPage(p => Math.max(1, p - 1))} disabled={regPage === 1}>Previous</PB>
+                {getPaginationItems(regPage, totalRegPages).map((item, idx) => {
+                  if (item === "...") {
+                    return (
+                      <PB key={`ellipsis-${idx}`} disabled style={{ cursor: "default", opacity: 0.8, color: "#6b7280" }}>
+                        ...
+                      </PB>
+                    );
+                  }
+                  return (
+                    <PB key={item} active={item === regPage} onClick={() => setRegPage(item)}>
+                      {item}
+                    </PB>
+                  );
+                })}
+                <PB onClick={() => setRegPage(p => Math.min(totalRegPages, p + 1))} disabled={regPage === totalRegPages || totalRegPages === 0}>Next</PB>
+              </div>
+            </Pager>
+          </>
         ) : (
+
           <>
             {/* ── Table Controls ── */}
             <TTBar>
@@ -3714,7 +4072,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                 <Slip>
                   <SR>
                     <SL>
-                      <BarcodeSVG value={printData.ipNumber} width={240} height={64} showText />
+                      <BarcodeSVG value={printData.ipNumber || printData.ip_number || ""} width={240} height={64} showText />
                       <SBold>{pName(printData)}</SBold>
                       <SLn>
                         {printData.dob ? `DOB: ${printData.dob}  ` : ""}
@@ -3727,7 +4085,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       <SLn>Admitted: Dr. {printData.admittingDoctorName || getDrName(printData.admittingDoctor)}</SLn>
                     </SL>
                     <SRt>
-                      <SBig>IP NO: {printData.ipNumber || ""}</SBig>
+                      <SBig>IP NO: {printData.ipNumber || printData.ip_number || ""}</SBig>
                       <SLn>{printData.insuranceCompanyName || ""}</SLn>
                       <SLn>UHID : {printData.uhid || ""}</SLn>
                       <SLn>DOA  : {printData.admissionDateTime ? fmtDate(printData.admissionDateTime) : "-"}</SLn>
