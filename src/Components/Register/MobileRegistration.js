@@ -402,6 +402,16 @@ const SuccessText = styled.p`
   margin: 0;
 `;
 
+const cleanMobileNumber = (val) => {
+  if (!val) return "";
+  let s = String(val).trim();
+  if (s.startsWith("+91")) s = s.slice(3).trim();
+  if (s.startsWith("91") && s.replace(/\D/g, "").length > 10) {
+    s = s.slice(2).trim();
+  }
+  return s.replace(/\D/g, "").slice(0, 10);
+};
+
 const MobileRegistration = () => {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session_id');
@@ -701,12 +711,9 @@ const MobileRegistration = () => {
                   type="tel"
                   name="mobilePhone"
                   placeholder="10-digit Mobile Number"
-                  value={formData.mobilePhone ? formData.mobilePhone.replace(/^\+?91\s*/, "") : ""}
+                  value={cleanMobileNumber(formData.mobilePhone)}
                   onChange={(e) => {
-                    let val = e.target.value;
-                    if (val.startsWith("+91")) val = val.slice(3).trim();
-                    if (val.startsWith("91") && val.length > 10) val = val.slice(2).trim();
-                    val = val.replace(/\D/g, "").slice(0, 10);
+                    const val = cleanMobileNumber(e.target.value);
                     setFormData(prev => ({ ...prev, mobilePhone: val }));
                   }}
                   required
