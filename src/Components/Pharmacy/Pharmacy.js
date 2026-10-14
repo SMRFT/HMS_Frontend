@@ -3,7 +3,18 @@ import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
-import { FaTrashAlt, FaPills, FaSearch, FaPrint, FaSave, FaTimes } from "react-icons/fa";
+import {
+  FaTrashAlt,
+  FaPills,
+  FaSearch,
+  FaPrint,
+  FaSave,
+  FaTimes,
+  FaChevronLeft,
+  FaChevronRight,
+  FaAngleDoubleLeft,
+  FaAngleDoubleRight
+} from "react-icons/fa";
 import SummaryHead from "../Images/Header.png";
 import styled, { keyframes } from "styled-components";
 import {
@@ -85,6 +96,20 @@ const formatExpiryDate = (dateStr) => {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
   }
   return raw;
+};
+
+// Helper to calculate compact windowed pagination for modal
+const getModalPageNumbers = (current, total) => {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, "...", total];
+  }
+  if (current >= total - 3) {
+    return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
 };
 
 const Card = styled.div`
@@ -404,6 +429,51 @@ const ModalFooterBar = styled.div`
   justify-content: flex-end;
   gap: 10px;
   background: linear-gradient(135deg, #f0fdfa, #f8fafc);
+`;
+
+const ModalPaginationBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  min-width: ${({ $isNav }) => ($isNav ? "auto" : "34px")};
+  padding: ${({ $isNav }) => ($isNav ? "0 12px" : "0 6px")};
+  border-radius: 6px;
+  border: ${({ $active }) => ($active ? "none" : "1px solid #cbd5e1")};
+  background: ${({ $active, disabled }) =>
+    disabled
+      ? "#f8fafc"
+      : $active
+      ? "linear-gradient(135deg, #0f766e, #0d9488)"
+      : "#ffffff"};
+  color: ${({ $active, disabled }) =>
+    disabled
+      ? "#94a3b8"
+      : $active
+      ? "#ffffff"
+      : "#374151"};
+  font-weight: ${({ $active }) => ($active ? 700 : 600)};
+  font-size: 0.85rem;
+  cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};
+  box-shadow: ${({ $active }) =>
+    $active ? "0 2px 8px rgba(15, 118, 110, 0.25)" : "none"};
+  transition: all 0.15s ease;
+  user-select: none;
+
+  &:hover:not(:disabled) {
+    background: ${({ $active }) =>
+      $active
+        ? "linear-gradient(135deg, #0f766e, #0d9488)"
+        : "#f0fdfa"};
+    border-color: #0d9488;
+    color: ${({ $active }) => ($active ? "#ffffff" : "#0f766e")};
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
 `;
 
 const ConfirmModalOverlay = styled(ModalOverlay)``;
@@ -3609,48 +3679,74 @@ const loadedMedicines = rawMeds.map((item) => {
               </div>
               {/* ── Pagination ── */}
               {modalTotalPages > 1 ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <button
+                <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
+                  <ModalPaginationBtn
+                    $isNav
+                    onClick={() => setModalPage(1)}
+                    disabled={safeModalPage === 1}
+                    title="First Page"
+                  >
+                    <FaAngleDoubleLeft style={{ fontSize: "0.8rem" }} />
+                  </ModalPaginationBtn>
+
+                  <ModalPaginationBtn
+                    $isNav
                     onClick={() => setModalPage(p => Math.max(1, p - 1))}
                     disabled={safeModalPage === 1}
-                    style={{
-                      padding: "6px 14px", borderRadius: 6, border: "1px solid #cbd5e1",
-                      background: safeModalPage === 1 ? "#f1f5f9" : "#fff",
-                      color: safeModalPage === 1 ? "#94a3b8" : "#0f766e",
-                      fontWeight: 600, fontSize: "0.85rem",
-                      cursor: safeModalPage === 1 ? "not-allowed" : "pointer",
-                      transition: "all 0.15s"
-                    }}
-                  >Previous</button>
-                  {Array.from({ length: modalTotalPages }, (_, i) => i + 1).map(pg => (
-                    <button
-                      key={pg}
-                      onClick={() => setModalPage(pg)}
-                      style={{
-                        width: 34, height: 34, borderRadius: 6,
-                        border: pg === safeModalPage ? "none" : "1px solid #cbd5e1",
-                        background: pg === safeModalPage
-                          ? "linear-gradient(135deg, #0f766e, #0d9488)" : "#fff",
-                        color: pg === safeModalPage ? "#fff" : "#374151",
-                        fontWeight: pg === safeModalPage ? 700 : 500,
-                        fontSize: "0.88rem", cursor: "pointer",
-                        boxShadow: pg === safeModalPage ? "0 2px 8px rgba(15,118,110,0.25)" : "none",
-                        transition: "all 0.15s"
-                      }}
-                    >{pg}</button>
-                  ))}
-                  <button
+                    title="Previous Page"
+                  >
+                    <FaChevronLeft style={{ fontSize: "0.72rem" }} />
+                    <span>Previous</span>
+                  </ModalPaginationBtn>
+
+                  {getModalPageNumbers(safeModalPage, modalTotalPages).map((pg, idx) =>
+                    pg === "..." ? (
+                      <span
+                        key={`ellipsis-${idx}`}
+                        style={{
+                          width: 28,
+                          height: 34,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#94a3b8",
+                          fontWeight: 700,
+                          fontSize: "0.9rem",
+                          userSelect: "none"
+                        }}
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <ModalPaginationBtn
+                        key={pg}
+                        $active={pg === safeModalPage}
+                        onClick={() => setModalPage(pg)}
+                        title={`Page ${pg}`}
+                      >
+                        {pg}
+                      </ModalPaginationBtn>
+                    )
+                  )}
+
+                  <ModalPaginationBtn
+                    $isNav
                     onClick={() => setModalPage(p => Math.min(modalTotalPages, p + 1))}
                     disabled={safeModalPage === modalTotalPages}
-                    style={{
-                      padding: "6px 14px", borderRadius: 6, border: "1px solid #cbd5e1",
-                      background: safeModalPage === modalTotalPages ? "#f1f5f9" : "#fff",
-                      color: safeModalPage === modalTotalPages ? "#94a3b8" : "#0f766e",
-                      fontWeight: 600, fontSize: "0.85rem",
-                      cursor: safeModalPage === modalTotalPages ? "not-allowed" : "pointer",
-                      transition: "all 0.15s"
-                    }}
-                  >Next</button>
+                    title="Next Page"
+                  >
+                    <span>Next</span>
+                    <FaChevronRight style={{ fontSize: "0.72rem" }} />
+                  </ModalPaginationBtn>
+
+                  <ModalPaginationBtn
+                    $isNav
+                    onClick={() => setModalPage(modalTotalPages)}
+                    disabled={safeModalPage === modalTotalPages}
+                    title="Last Page"
+                  >
+                    <FaAngleDoubleRight style={{ fontSize: "0.8rem" }} />
+                  </ModalPaginationBtn>
                 </div>
               ) : <div />}
               {/* ── Action Buttons ── */}
