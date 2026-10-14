@@ -56,6 +56,36 @@ const Modal = ({ show, onClose, title, children, footer, maxWidth }) => {
 
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+const cleanMobileNumber = (val) => {
+  if (!val) return "";
+  let s = String(val).trim();
+  if (s.startsWith("+91")) s = s.slice(3).trim();
+  if (s.startsWith("91") && s.replace(/\D/g, "").length > 10) {
+    s = s.slice(2).trim();
+  }
+  return s.replace(/\D/g, "").slice(0, 10);
+};
+
+const formatDoctorDisplayName = (name) => {
+  if (!name) return "Doctor";
+  let clean = String(name).trim();
+  clean = clean.replace(/^(dr\b\.?|doctor\b\.?)\s*/gi, "").trim();
+  while (/^(dr\b\.?|doctor\b\.?)\s*/gi.test(clean)) {
+    clean = clean.replace(/^(dr\b\.?|doctor\b\.?)\s*/gi, "").trim();
+  }
+  return clean ? `Dr. ${clean}` : "Doctor";
+};
+
+const getDoctorRawName = (name) => {
+  if (!name) return "";
+  let clean = String(name).trim();
+  clean = clean.replace(/^(dr\b\.?|doctor\b\.?)\s*/gi, "").trim();
+  while (/^(dr\b\.?|doctor\b\.?)\s*/gi.test(clean)) {
+    clean = clean.replace(/^(dr\b\.?|doctor\b\.?)\s*/gi, "").trim();
+  }
+  return clean;
+};
+
 const PatientRegistrationForm = () => {
   const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -63,6 +93,7 @@ const PatientRegistrationForm = () => {
   const [modalFilterTerm, setModalFilterTerm] = useState("")
   const [modalSearchLoading, setModalSearchLoading] = useState(false)
   const [validationErrors, setValidationErrors] = useState({})
+  const [highlightedDoctorIndex, setHighlightedDoctorIndex] = useState(-1)
 
   // Clock state
   const [currentTime, setCurrentTime] = useState("");
@@ -94,6 +125,8 @@ const PatientRegistrationForm = () => {
     mobilePhone: "",
     homePhone: "",
     bloodGroup: "",
+    guardianType: "W/o",
+    guardianName: "",
     spouseName: "",
     occupation: "",
     annualIncome: "",
@@ -115,6 +148,7 @@ const PatientRegistrationForm = () => {
     pediatricianResponsible: "",
     emergencyContact: "",
     referredDoctorPhone: "",
+    sourceOfVisit: "",
     customerType: "New",
     insuranceProviderCode: "",
     visitType: "New",
@@ -368,10 +402,10 @@ const PatientRegistrationForm = () => {
             <div class="patient-name-row">
               ${visit.patientName} &nbsp;&nbsp;/ ${visit.age} ${visit.age <= 1 ? "YEAR" : "YEARS"}/${visit.gender}
             </div>
-            ${visit.spouseName ? '<div class="spouse-row">W/o ' + visit.spouseName + '</div>' : ''}
+            ${(visit.guardianName || visit.spouseName) ? `<div class="spouse-row">${visit.guardianType || 'W/o'} ${visit.guardianName || visit.spouseName}</div>` : ''}
             <div class="address-row">${visit.address || ''}</div>
             <div class="phone-row">Ph.+91${visit.mobile}</div>
-            <div class="doctor-row">DR ${visit.doctorName || visit.doctor}</div>
+            <div class="doctor-row">Dr. ${(visit.doctorName || visit.doctor || '').replace(/^(dr\b\.?|doctor\b\.?)\s*/gi, '')}</div>
           </div>
           <script>
             window.onload = function() {
@@ -544,26 +578,6 @@ const PatientRegistrationForm = () => {
       setPatient({ ...patient, age: value, dob: calculatedDOB })
     } else if (name === "zipcode") {
       setPatient(prev => ({ ...prev, zipcode: value }))
-      if (value.length === 6) {
-        fetch(`https://api.postalpincode.in/pincode/${value}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice?.length > 0) {
-              const poList = data[0].PostOffice;
-              const po = poList[0];
-              const areaNames = poList.map(p => p.Name).filter(Boolean);
-              setAreaOptions(areaNames);
-
-              setPatient(prev => ({
-                ...prev,
-                area: po.Name || prev.area,
-                city: po.District || po.Circle || prev.city,
-                state: po.State || prev.state
-              }));
-            }
-          })
-          .catch(err => console.error(err));
-      }
     } else if (type === "checkbox") {
       setPatient({ ...patient, [name]: checked })
     } else {
@@ -664,6 +678,8 @@ const PatientRegistrationForm = () => {
         permanentAddress: "permanent_address",
         homePhone: "home_phone",
         bloodGroup: "blood_group",
+        guardianType: "guardian_type",
+        guardianName: "guardian_name",
         spouseName: "spouse_name",
         mlcType: "mlc_type",
         mlcDoc: "mlc_doc",
@@ -676,6 +692,7 @@ const PatientRegistrationForm = () => {
         doctorId: "employeeId",
         emergencyContact: "emergency_contact",
         referredDoctorPhone: "referred_doctor_phone",
+        sourceOfVisit: "source_of_visit",
         customerType: "customer_type",
         insuranceProviderCode: "company_code",
         abhaNumber: "abha_number",
@@ -717,7 +734,9 @@ const PatientRegistrationForm = () => {
             patientName: `${patient.salutation} ${patient.firstName} ${patient.lastName}`.trim(),
             age: patient.age,
             gender: patient.gender,
-            spouseName: patient.spouseName,
+            guardianType: patient.guardianType || "W/o",
+            guardianName: patient.guardianName || patient.spouseName || "",
+            spouseName: patient.guardianName || patient.spouseName || "",
             address: patient.permanentAddress,
             mobile: patient.mobilePhone,
             doctorName: patient.doctorName,
@@ -750,6 +769,8 @@ const PatientRegistrationForm = () => {
           mobilePhone: "",
           homePhone: "",
           bloodGroup: "",
+          guardianType: "W/o",
+          guardianName: "",
           spouseName: "",
           referredBy: "",
           doctorName: "",
@@ -767,6 +788,9 @@ const PatientRegistrationForm = () => {
           weightUnit: "kg",
           mothersUhidNo: "",
           pediatricianResponsible: "",
+          emergencyContact: "",
+          referredDoctorPhone: "",
+          sourceOfVisit: "",
           customerType: "New",
           visitType: "New",
           department: "",
@@ -787,29 +811,26 @@ const PatientRegistrationForm = () => {
 
   const fetchPatients = async (queryOverride) => {
     const params = new URLSearchParams()
-    if (uhid && typeof uhid === "string") params.append("uhid", uhid.trim())
-    if (ipNumber && typeof ipNumber === "string") params.append("ip_number", ipNumber.trim())
-    if (mobile && typeof mobile === "string") params.append("mobile", mobile.trim())
+    if (uhid && typeof uhid === "string" && uhid.trim()) params.append("uhid", uhid.trim())
+    if (ipNumber && typeof ipNumber === "string" && ipNumber.trim()) params.append("ip_number", ipNumber.trim())
+    if (mobile && typeof mobile === "string" && mobile.trim()) params.append("mobile", mobile.trim())
 
     const customText = typeof queryOverride === "string" ? queryOverride.trim() : ""
-    const fallbackText = [uhid, ipNumber, mobile]
-      .filter(val => typeof val === "string" && val.trim())
-      .join(" ")
-      .trim()
-    const anyQuery = customText || fallbackText
+    if (customText) {
+      params.append("q", customText)
+    }
 
-    if (!anyQuery) {
+    if (!uhid?.trim() && !ipNumber?.trim() && !mobile?.trim() && !customText) {
       toast.info("Please enter UHID, IP Number, or Mobile (last 4 digits accepted) to search.")
       return
     }
-    params.append("q", anyQuery)
 
     setModalSearchLoading(true)
     const result = await apiRequest(`${Hmsbaseurl}create/?${params.toString()}`)
     setModalSearchLoading(false)
     if (result.success) {
       setPatients(result.data || [])
-      setModalFilterTerm(anyQuery)
+      setModalFilterTerm(customText || "")
       setShowSearchModal(true)
     } else {
       toast.error(result.error || "Search failed.")
@@ -845,11 +866,30 @@ const PatientRegistrationForm = () => {
   const filteredModalPatients = useMemo(() => {
     if (!modalFilterTerm || !modalFilterTerm.trim()) return patients
     const term = modalFilterTerm.trim().toLowerCase()
+    const isDigits = /^\d+$/.test(term)
+    const isShortDigits = isDigits && term.length >= 2 && term.length <= 5
+
     return patients.filter((p) => {
       const uhidVal = (p.uhid || "").toLowerCase()
       const ipVal = (p.ip_number || "").toLowerCase()
-      const mobVal = (p.mobilePhone || "").toLowerCase()
+      const mobVal = (p.mobilePhone || "").replace(/\D/g, "")
       const nameVal = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.toLowerCase()
+
+      // When searching 2-5 digits, prioritize suffix matching (last digits)!
+      if (isShortDigits) {
+        return (
+          mobVal.endsWith(term) ||
+          uhidVal.endsWith(term) ||
+          uhidVal.endsWith(`/${term}`) ||
+          ipVal.endsWith(term)
+        )
+      }
+
+      // 10 digits
+      if (isDigits && term.length >= 10) {
+        return mobVal.includes(term) || uhidVal.includes(term)
+      }
+
       return (
         uhidVal.includes(term) ||
         ipVal.includes(term) ||
@@ -876,16 +916,48 @@ const PatientRegistrationForm = () => {
 
     const mappedPatient = {
       ...selectedPatient,
+      salutation: selectedPatient.salutation || "",
+      firstName: selectedPatient.firstName || selectedPatient.first_name || "",
+      lastName: selectedPatient.lastName || selectedPatient.last_name || "",
+      dob: selectedPatient.dob || selectedPatient.date_of_birth || "",
+      age: selectedPatient.age || "",
+      gender: selectedPatient.gender || "",
+      permanentAddress: selectedPatient.permanentAddress || selectedPatient.permanent_address || "",
+      area: selectedPatient.area || "",
+      zipcode: selectedPatient.zipcode || "",
+      city: selectedPatient.city || "",
+      state: selectedPatient.state || "",
+      email: selectedPatient.email || "",
+      mobilePhone: cleanMobileNumber(selectedPatient.mobilePhone || selectedPatient.mobile_phone || ""),
+      homePhone: selectedPatient.homePhone || selectedPatient.home_phone || "",
+      bloodGroup: selectedPatient.bloodGroup || selectedPatient.blood_group || "",
+      guardianType: selectedPatient.guardian_type || selectedPatient.guardianType || "W/o",
+      guardianName: selectedPatient.guardian_name || selectedPatient.guardianName || selectedPatient.spouse_name || selectedPatient.spouseName || "",
+      spouseName: selectedPatient.guardian_name || selectedPatient.spouse_name || selectedPatient.spouseName || "",
+      occupation: selectedPatient.occupation || "",
+      annualIncome: selectedPatient.annualIncome || selectedPatient.annual_income || "",
+      referredBy: selectedPatient.referredBy || selectedPatient.referred_by || "",
+      referredDoctorPhone: selectedPatient.referredDoctorPhone || selectedPatient.referred_doctor_phone || "",
+      sourceOfVisit: selectedPatient.sourceOfVisit || selectedPatient.source_of_visit || "",
+      emergencyContact: selectedPatient.emergencyContact || selectedPatient.emergency_contact || "",
+      customerType: selectedPatient.customerType || selectedPatient.customer_type || "General",
+      insuranceProviderCode: selectedPatient.insuranceProviderCode || selectedPatient.company_code || "",
+      abhaNumber: selectedPatient.abhaNumber || selectedPatient.abha_number || "",
       weight: parsedWeight,
       weightUnit: parsedWeightUnit,
       name: fullName
     }
 
     setPatient(mappedPatient)
+    if (mappedPatient.emergencyContact) {
+      setValidationErrors(prev => ({ ...prev, emergencyContact: false }))
+    }
     if (selectedPatient.uhid) setUhid(selectedPatient.uhid)
     if (selectedPatient.ip_number) setIpNumber(selectedPatient.ip_number)
-    if (selectedPatient.mobilePhone) setMobile(selectedPatient.mobilePhone)
-    setRefDoctorSearchQuery(selectedPatient.referredBy || "")
+    if (selectedPatient.mobilePhone || selectedPatient.mobile_phone) {
+      setMobile(cleanMobileNumber(selectedPatient.mobilePhone || selectedPatient.mobile_phone))
+    }
+    setRefDoctorSearchQuery(selectedPatient.referredBy || selectedPatient.referred_by || "")
     setIsRefDoctorDropdownOpen(false)
     setModalFilterTerm("")
     setShowSearchModal(false)
@@ -898,13 +970,14 @@ const PatientRegistrationForm = () => {
       const doctorsData = result.data.map((doctor) => {
         let fullName = (doctor.employeeName || `${doctor.first_name || ""} ${doctor.middle_name || ""} ${doctor.last_name || ""}`).trim();
         if (!fullName) fullName = doctor.employeeId || "Doctor";
-        const displayName = fullName.startsWith("Dr.") || fullName.startsWith("DR.") ? fullName : `Dr. ${fullName}`;
+        const displayName = formatDoctorDisplayName(fullName);
+        const rawName = getDoctorRawName(fullName);
         const isScheduledToday = Boolean(doctor.day_schedule && doctor.day_schedule.includes(todayDay));
         return {
           id: doctor.employeeId,
           employeeId: doctor.employeeId,
           name: displayName,
-          rawName: fullName,
+          rawName: rawName,
           registrationFee: Number.parseFloat(doctor.registration_fee) || 0,
           consultingFee: Number.parseFloat(doctor.consulting_fee) || 0,
           specialty: doctor.specialty || doctor.department || "General",
@@ -996,11 +1069,83 @@ const PatientRegistrationForm = () => {
     setSearchDoctorTerm("");
   };
 
+  const filteredDoctors = useMemo(() => {
+    const rawQuery = (doctorSearchQuery !== undefined && doctorSearchQuery !== null ? doctorSearchQuery : "").trim();
+    if (!rawQuery || rawQuery.toLowerCase() === (patient.doctorName || "").trim().toLowerCase()) {
+      return doctors;
+    }
+    const q = rawQuery.toLowerCase();
+    const cleanQ = q.replace(/^(dr\b\.?|doctor\b\.?)\s*/i, "").trim();
+
+    const scored = [];
+    for (const doc of doctors) {
+      const docName = (doc.name || "").toLowerCase();
+      const rawName = (doc.rawName || "").toLowerCase();
+      const specialty = (doc.specialty || "").toLowerCase();
+      const dept = (doc.department || "").toLowerCase();
+
+      let score = -1;
+      if (cleanQ && rawName.startsWith(cleanQ)) {
+        score = 1;
+      } else if (docName.startsWith(q)) {
+        score = 2;
+      } else if (cleanQ && (rawName.includes(cleanQ) || docName.includes(cleanQ))) {
+        score = 3;
+      } else if (cleanQ && (specialty.startsWith(cleanQ) || dept.startsWith(cleanQ))) {
+        score = 4;
+      } else if (specialty.includes(q) || dept.includes(q)) {
+        score = 5;
+      }
+
+      if (score !== -1) {
+        scored.push({ doc, score });
+      }
+    }
+
+    scored.sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      if (a.doc.isScheduledToday && !b.doc.isScheduledToday) return -1;
+      if (!a.doc.isScheduledToday && b.doc.isScheduledToday) return 1;
+      return a.doc.name.localeCompare(b.doc.name);
+    });
+
+    return scored.map(s => s.doc);
+  }, [doctors, doctorSearchQuery, patient.doctorName]);
+
+  const handleDoctorKeyDown = (e) => {
+    if (!isDoctorDropdownOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setIsDoctorDropdownOpen(true);
+        setHighlightedDoctorIndex(0);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedDoctorIndex((prev) => (prev < filteredDoctors.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedDoctorIndex((prev) => (prev > 0 ? prev - 1 : filteredDoctors.length - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlightedDoctorIndex >= 0 && highlightedDoctorIndex < filteredDoctors.length) {
+        handleDoctorSelect(filteredDoctors[highlightedDoctorIndex]);
+      } else if (filteredDoctors.length > 0) {
+        handleDoctorSelect(filteredDoctors[0]);
+      }
+    } else if (e.key === "Escape") {
+      setIsDoctorDropdownOpen(false);
+    }
+  };
+
   const handleDoctorChange = (event) => {
     const doctorName = event.target.value
     setDoctorSearchQuery(doctorName)
     setPatient(prev => ({ ...prev, doctorName }))
     setIsDoctorDropdownOpen(true)
+    setHighlightedDoctorIndex(0)
     const selected = doctors.find((doctor) => doctor.name.toLowerCase() === doctorName.toLowerCase())
     if (selected) {
       handleDoctorSelect(selected)
@@ -1013,6 +1158,7 @@ const PatientRegistrationForm = () => {
     if (e) e.stopPropagation()
     resetFeeCalculator(true)
     setDoctorSearchQuery("")
+    setHighlightedDoctorIndex(-1)
     setIsDoctorDropdownOpen(true)
   }
 
@@ -1035,6 +1181,7 @@ const PatientRegistrationForm = () => {
       consultingFee: consFee,
       totalFees: total,
     }))
+    setHighlightedDoctorIndex(-1)
     setIsDoctorDropdownOpen(false)
   }
 
@@ -1158,6 +1305,8 @@ const PatientRegistrationForm = () => {
       mobilePhone: "",
       homePhone: "",
       bloodGroup: "",
+      guardianType: "W/o",
+      guardianName: "",
       spouseName: "",
       occupation: "",
       annualIncome: "",
@@ -1179,6 +1328,7 @@ const PatientRegistrationForm = () => {
       pediatricianResponsible: "",
       emergencyContact: "",
       referredDoctorPhone: "",
+      sourceOfVisit: "",
       customerType: "New",
       insuranceProviderCode: "",
       visitType: "New",
@@ -1335,7 +1485,6 @@ const PatientRegistrationForm = () => {
                   {customerTypes.length === 0 && (
                     <>
                       <option value="New">New</option>
-                      <option value="Revisit">Revisit</option>
                       <option value="Insurance">Insurance</option>
                     </>
                   )}
@@ -1476,15 +1625,37 @@ const PatientRegistrationForm = () => {
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="spouseName">Spouse name</FormLabel>
-                <FormInput
-                  type="text"
-                  id="spouseName"
-                  name="spouseName"
-                  value={patient.spouseName}
-                  onChange={handleChange}
-                  placeholder="Optional"
-                />
+                <FormLabel htmlFor="guardianName">Guardian</FormLabel>
+                <GuardianInputWrapper>
+                  <GuardianTypeSelect
+                    id="guardianType"
+                    name="guardianType"
+                    value={patient.guardianType || "W/o"}
+                    onChange={handleChange}
+                    title="Guardian Relation"
+                  >
+                    <option value="S/o">S/o</option>
+                    <option value="W/o">W/o</option>
+                    <option value="D/o">D/o</option>
+                    <option value="C/o">C/o</option>
+                    <option value="H/o">H/o</option>
+                  </GuardianTypeSelect>
+                  <GuardianNameInput
+                    type="text"
+                    id="guardianName"
+                    name="guardianName"
+                    value={patient.guardianName || patient.spouseName || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPatient(prev => ({
+                        ...prev,
+                        guardianName: val,
+                        spouseName: val
+                      }));
+                    }}
+                    placeholder="Guardian / Spouse name"
+                  />
+                </GuardianInputWrapper>
               </FormGroup>
 
               <FormGroup>
@@ -1598,7 +1769,7 @@ const PatientRegistrationForm = () => {
                   name="city"
                   value={patient.city}
                   onChange={handleChange}
-                  placeholder="Auto from pincode"
+                  placeholder="Enter city / district"
                 />
               </FormGroup>
 
@@ -1610,7 +1781,7 @@ const PatientRegistrationForm = () => {
                   name="state"
                   value={patient.state}
                   onChange={handleChange}
-                  placeholder="Auto from pincode"
+                  placeholder="Enter state"
                 />
               </FormGroup>
 
@@ -1634,12 +1805,9 @@ const PatientRegistrationForm = () => {
                     type="text"
                     id="mobilePhone"
                     name="mobilePhone"
-                    value={patient.mobilePhone ? patient.mobilePhone.replace(/^\+?91\s*/, "") : ""}
+                    value={cleanMobileNumber(patient.mobilePhone)}
                     onChange={(e) => {
-                      let val = e.target.value;
-                      if (val.startsWith("+91")) val = val.slice(3).trim();
-                      if (val.startsWith("91") && val.length > 10) val = val.slice(2).trim();
-                      val = val.replace(/\D/g, "").slice(0, 10);
+                      const val = cleanMobileNumber(e.target.value);
                       if (validationErrors.mobilePhone) {
                         setValidationErrors(prev => ({ ...prev, mobilePhone: false }));
                       }
@@ -1780,6 +1948,27 @@ const PatientRegistrationForm = () => {
                   placeholder="Optional"
                   maxLength={10}
                 />
+              </FormGroup>
+
+              <FormGroup>
+                <FormLabel htmlFor="sourceOfVisit">Source of visit / Referral</FormLabel>
+                <FormSelect
+                  id="sourceOfVisit"
+                  name="sourceOfVisit"
+                  value={patient.sourceOfVisit || ""}
+                  onChange={handleChange}
+                >
+                  <option value="">Select source of visit</option>
+                  <option value="Direct / Walk-in">Direct / Walk-in</option>
+                  <option value="Doctor Referral">Doctor Referral</option>
+                  <option value="Friend / Relative">Friend / Relative</option>
+                  <option value="Camp / Outreach">Camp / Outreach</option>
+                  <option value="Social Media / Website">Social Media / Website</option>
+                  <option value="Newspaper / Advertisement">Newspaper / Advertisement</option>
+                  <option value="Corporate / Insurance">Corporate / Insurance</option>
+                  <option value="Staff / Internal">Staff / Internal</option>
+                  <option value="Other">Other</option>
+                </FormSelect>
               </FormGroup>
 
               <FormGroup className="span-two">
@@ -1975,8 +2164,15 @@ const PatientRegistrationForm = () => {
                   placeholder="Search or select doctor"
                   value={patient.doctorName || ""}
                   onChange={handleDoctorChange}
-                  onFocus={() => setIsDoctorDropdownOpen(true)}
-                  onClick={() => setIsDoctorDropdownOpen(true)}
+                  onKeyDown={handleDoctorKeyDown}
+                  onFocus={(e) => {
+                    setIsDoctorDropdownOpen(true);
+                    e.target.select();
+                  }}
+                  onClick={(e) => {
+                    setIsDoctorDropdownOpen(true);
+                    e.target.select();
+                  }}
                   onBlur={() => setTimeout(() => setIsDoctorDropdownOpen(false), 250)}
                   style={{ paddingRight: patient.doctorName ? '28px' : '8px' }}
                   autoComplete="off"
@@ -1988,61 +2184,27 @@ const PatientRegistrationForm = () => {
                 )}
                 {isDoctorDropdownOpen && (
                   <DarkDropdownList>
-                    {doctors
-                      .filter(doc => {
-                        const rawQuery = (doctorSearchQuery !== undefined && doctorSearchQuery !== null ? doctorSearchQuery : "").trim();
-                        // If no search query typed, or query equals current selected doctor, show all doctors!
-                        if (!rawQuery || rawQuery.toLowerCase() === (patient.doctorName || "").trim().toLowerCase()) {
-                          return true;
-                        }
-                        const q = rawQuery.toLowerCase();
-                        const cleanQ = q.replace(/^dr\.?\s*/i, "");
-                        const docName = (doc.name || "").toLowerCase();
-                        const rawName = (doc.rawName || "").toLowerCase();
-                        const specialty = (doc.specialty || "").toLowerCase();
-                        const dept = (doc.department || "").toLowerCase();
-                        return (
-                          docName.includes(q) ||
-                          rawName.includes(q) ||
-                          (cleanQ && (docName.includes(cleanQ) || rawName.includes(cleanQ))) ||
-                          specialty.includes(q) ||
-                          dept.includes(q)
-                        );
-                      })
-                      .map((doctor, index) => (
-                        <DarkDropdownItem key={index} onMouseDown={() => handleDoctorSelect(doctor)}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: '600' }}>{doctor.name}</span>
-                            {doctor.isScheduledToday && (
-                              <span style={{ fontSize: '10px', color: '#34d399', background: 'rgba(52, 211, 153, 0.15)', padding: '1px 5px', borderRadius: '3px' }}>
-                                Today
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                            {[doctor.specialty || doctor.department, `Consulting: ₹${doctor.consultingFee || 0}`].filter(Boolean).join(" · ")}
-                          </div>
-                        </DarkDropdownItem>
-                      ))}
-                    {doctors.length > 0 && doctors.filter(doc => {
-                      const rawQuery = (doctorSearchQuery !== undefined && doctorSearchQuery !== null ? doctorSearchQuery : "").trim();
-                      if (!rawQuery || rawQuery.toLowerCase() === (patient.doctorName || "").trim().toLowerCase()) {
-                        return true;
-                      }
-                      const q = rawQuery.toLowerCase();
-                      const cleanQ = q.replace(/^dr\.?\s*/i, "");
-                      const docName = (doc.name || "").toLowerCase();
-                      const rawName = (doc.rawName || "").toLowerCase();
-                      const specialty = (doc.specialty || "").toLowerCase();
-                      const dept = (doc.department || "").toLowerCase();
-                      return (
-                        docName.includes(q) ||
-                        rawName.includes(q) ||
-                        (cleanQ && (docName.includes(cleanQ) || rawName.includes(cleanQ))) ||
-                        specialty.includes(q) ||
-                        dept.includes(q)
-                      );
-                    }).length === 0 && (
+                    {filteredDoctors.map((doctor, index) => (
+                      <DarkDropdownItem
+                        key={doctor.id || index}
+                        $isHighlighted={highlightedDoctorIndex === index}
+                        onMouseDown={() => handleDoctorSelect(doctor)}
+                        onMouseEnter={() => setHighlightedDoctorIndex(index)}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: '600' }}>{doctor.name}</span>
+                          {doctor.isScheduledToday && (
+                            <span style={{ fontSize: '10px', color: '#34d399', background: 'rgba(52, 211, 153, 0.15)', padding: '1px 5px', borderRadius: '3px' }}>
+                              Today
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+                          {[doctor.specialty || doctor.department, `Consulting: ₹${doctor.consultingFee || 0}`].filter(Boolean).join(" · ")}
+                        </div>
+                      </DarkDropdownItem>
+                    ))}
+                    {filteredDoctors.length === 0 && (
                       <DarkDropdownItem style={{ color: '#9ca3af', cursor: 'default' }}>No doctors found</DarkDropdownItem>
                     )}
                   </DarkDropdownList>
@@ -2212,7 +2374,14 @@ const PatientRegistrationForm = () => {
                   <TableCell>{p.ip_number || "-"}</TableCell>
                   <TableCell>{`${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim()}</TableCell>
                   <TableCell>{p.gender}</TableCell>
-                  <TableCell>{p.mobilePhone}</TableCell>
+                  <TableCell>
+                    <div>{p.mobilePhone || p.mobile_phone || "-"}</div>
+                    {(p.emergencyContact || p.emergency_contact) && (
+                      <div style={{ fontSize: '11px', color: '#b91c1c', fontWeight: '500' }}>
+                        Emg: {p.emergencyContact || p.emergency_contact}
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <HeaderBtn small onClick={() => handleSelectPatient(p)}>Select / Renew</HeaderBtn>
                   </TableCell>
@@ -2430,7 +2599,7 @@ const PatientRegistrationForm = () => {
             dob: abhaData.dob || abhaData.yearOfBirth ? `${abhaData.yearOfBirth}-01-01` : prev.dob,
             gender: abhaData.gender === 'M' ? 'Male' : abhaData.gender === 'F' ? 'Female' : prev.gender,
             permanentAddress: abhaData.address || prev.permanentAddress,
-            mobilePhone: abhaData.mobile || prev.mobilePhone,
+            mobilePhone: cleanMobileNumber(abhaData.mobile) || prev.mobilePhone,
             zipcode: abhaData.pinCode || abhaData.pincode || prev.zipcode,
             city: abhaData.districtName || prev.city,
             state: abhaData.stateName || prev.state,
@@ -3105,10 +3274,62 @@ const DarkDropdownItem = styled.li`
   color: #e5e7eb;
   cursor: pointer;
   border-bottom: 1px solid #24342d;
+  background: ${props => props.$isHighlighted ? '#24342d' : 'transparent'};
 
   &:hover {
     background: #24342d;
     color: #34d399;
+  }
+`
+
+const GuardianInputWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  background-color: white;
+  border-radius: 4px;
+  overflow: hidden;
+  height: 32px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+
+  &:focus-within {
+    border-color: #004d40;
+    box-shadow: 0 0 0 1px #004d40;
+  }
+`
+
+const GuardianTypeSelect = styled.select`
+  height: 100%;
+  padding: 0 6px;
+  border: none;
+  border-right: 1px solid #d1d5db;
+  background-color: #f8fafc;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:focus {
+    background-color: #f1f5f9;
+  }
+`
+
+const GuardianNameInput = styled.input`
+  height: 100%;
+  padding: 0 8px;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: #1f2937;
+  flex: 1;
+  width: 100%;
+  background: transparent;
+
+  &::placeholder {
+    color: #9ca3af;
   }
 `
 
