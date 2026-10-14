@@ -252,19 +252,19 @@ const StatusPill = styled.span`
     props.$status === "admitted"
       ? "#f0fdf4"
       : props.$status === "discharged"
-      ? "#fef2f2"
-      : "#f8fafc"};
+        ? "#fef2f2"
+        : "#f8fafc"};
   color: ${(props) =>
     props.$status === "admitted"
       ? "#15803d"
       : props.$status === "discharged"
-      ? "#dc2626"
-      : "#475569"};
+        ? "#dc2626"
+        : "#475569"};
   border: 1px solid
     ${(props) =>
-      props.$status === "admitted"
-        ? "#bbf7d0"
-        : props.$status === "discharged"
+    props.$status === "admitted"
+      ? "#bbf7d0"
+      : props.$status === "discharged"
         ? "#fecaca"
         : "#e2e8f0"};
 
@@ -274,9 +274,9 @@ const StatusPill = styled.span`
     height: 6px;
     border-radius: 50%;
     background: ${(props) =>
-      props.$status === "admitted"
-        ? "#16a34a"
-        : props.$status === "discharged"
+    props.$status === "admitted"
+      ? "#16a34a"
+      : props.$status === "discharged"
         ? "#dc2626"
         : "#94a3b8"};
   }
@@ -417,10 +417,10 @@ export default function PatientSearchModal({
           list = Array.isArray(rawData?.data)
             ? rawData.data
             : Array.isArray(rawData?.results)
-            ? rawData.results
-            : Array.isArray(rawData)
-            ? rawData
-            : [];
+              ? rawData.results
+              : Array.isArray(rawData)
+                ? rawData
+                : [];
         } else {
           const params = ["search=1"];
           if (qPrimary) params.push(`uhid=${encodeURIComponent(qPrimary)}`);
@@ -443,10 +443,10 @@ export default function PatientSearchModal({
           list = Array.isArray(rawData?.data)
             ? rawData.data
             : Array.isArray(rawData?.results)
-            ? rawData.results
-            : Array.isArray(rawData)
-            ? rawData
-            : [];
+              ? rawData.results
+              : Array.isArray(rawData)
+                ? rawData
+                : [];
         }
 
         if (qAdmitted) {
@@ -622,8 +622,8 @@ export default function PatientSearchModal({
                         roomLabel = activeRoom
                           ? `${activeRoom.roomNo} / Bed ${activeRoom.bedNo}`
                           : activeShift
-                          ? `${activeShift.newRoomNo} / Bed ${activeShift.newBedNo}`
-                          : p.room_no || "—";
+                            ? `${activeShift.newRoomNo} / Bed ${activeShift.newBedNo}`
+                            : p.room_no || "—";
                       }
 
                       return (

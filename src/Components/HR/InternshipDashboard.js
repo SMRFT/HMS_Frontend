@@ -599,6 +599,164 @@ const formatDateDMY = (dateStr) => {
   return dateStr;
 };
 
+// Sample 4 department rotation rows matching standard clinical internship certificates (Attachment 1)
+const SAMPLE_DEPT_ROTATION_ROWS = [
+  { s_no: 1, department: "PHLEBOTOMY", duration: "3 MONTHS", from_date: "9/10/2025", to_date: "9/1/2026" },
+  { s_no: 2, department: "BIOCHEMISTRY", duration: "3 MONTHS", from_date: "9/1/2026", to_date: "9/4/2026" },
+  { s_no: 3, department: "PATHOLOGY", duration: "3 MONTHS", from_date: "9/4/2026", to_date: "9/7/2026" },
+  { s_no: 4, department: "MICROBIOLOGY", duration: "3 MONTHS", from_date: "9/7/2026", to_date: "9/10/2026" },
+];
+
+const generateTableHtml = (rows, fontSize = "14px") => {
+  if (!rows || rows.length === 0) return "";
+  const rowsHtml = rows.map((r, idx) => `
+    <tr>
+      <td style="border: 1px dashed #94a3b8; padding: 2.5px 6px; text-align: center; font-size: ${fontSize}; font-family: 'Times New Roman', Times, serif; line-height: 1.25;">${r.s_no || (idx + 1)}</td>
+      <td style="border: 1px dashed #94a3b8; padding: 2.5px 8px; text-align: left; font-size: ${fontSize}; font-weight: 500; font-family: 'Times New Roman', Times, serif; text-transform: uppercase; line-height: 1.25;">${r.department || ""}</td>
+      <td style="border: 1px dashed #94a3b8; padding: 2.5px 6px; text-align: center; font-size: ${fontSize}; font-family: 'Times New Roman', Times, serif; text-transform: uppercase; line-height: 1.25;">${r.duration || ""}</td>
+      <td style="border: 1px dashed #94a3b8; padding: 2.5px 6px; text-align: center; font-size: ${fontSize}; font-family: 'Times New Roman', Times, serif; line-height: 1.25;">${r.from_date || ""}</td>
+      <td style="border: 1px dashed #94a3b8; padding: 2.5px 6px; text-align: center; font-size: ${fontSize}; font-family: 'Times New Roman', Times, serif; line-height: 1.25;">${r.to_date || ""}</td>
+    </tr>
+  `).join("");
+
+  return `<table class="cert-dept-table" style="width: 100% !important; border-collapse: collapse !important; margin: 4px 0 6px 0 !important; border: 1px dashed #94a3b8 !important; font-family: 'Times New Roman', Times, serif; text-indent: 0 !important; white-space: normal !important; box-sizing: border-box !important;">
+  <thead>
+    <tr style="background-color: #f8fafc;">
+      <th style="border: 1px dashed #94a3b8; padding: 3px 6px; text-align: center; font-weight: bold; font-size: ${fontSize}; font-family: 'Times New Roman', Times, serif; width: 10%; color: #0f172a; line-height: 1.25;">S.NO</th>
+      <th style="border: 1px dashed #94a3b8; padding: 3px 8px; text-align: left; font-weight: bold; font-size: ${fontSize}; font-family: 'Times New Roman', Times, serif; width: 38%; color: #0f172a; line-height: 1.25;">DEPARTMENTS</th>
+      <th style="border: 1px dashed #94a3b8; padding: 3px 6px; text-align: center; font-weight: bold; font-size: ${fontSize}; font-family: 'Times New Roman', Times, serif; width: 18%; color: #0f172a; line-height: 1.25;">DURATION</th>
+      <th style="border: 1px dashed #94a3b8; padding: 3px 6px; text-align: center; font-weight: bold; font-size: ${fontSize}; font-family: 'Times New Roman', Times, serif; width: 17%; color: #0f172a; line-height: 1.25;">FROM</th>
+      <th style="border: 1px dashed #94a3b8; padding: 3px 6px; text-align: center; font-weight: bold; font-size: ${fontSize}; font-family: 'Times New Roman', Times, serif; width: 17%; color: #0f172a; line-height: 1.25;">TO</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rowsHtml}
+  </tbody>
+</table>`;
+};
+
+const parseCertContent = (rawContent, intern = null) => {
+  if (!rawContent || typeof rawContent !== "string") {
+    return {
+      title: "INTERNSHIP CERTIFICATE",
+      hasTable: false,
+      rows: [],
+      cleanText: ""
+    };
+  }
+
+  // 1. Extract Title
+  let title = "INTERNSHIP CERTIFICATE";
+  const titleMatch = rawContent.match(/<!-- TITLE:\s*(.*?)\s*-->/);
+  if (titleMatch && titleMatch[1]) {
+    title = titleMatch[1].trim();
+  } else if (/TO\s+WHOMSOEVER\s+IT\s+MAY\s+CONCERN/i.test(rawContent)) {
+    title = "TO WHOMSOEVER IT MAY CONCERN";
+  }
+
+  // 2. Extract Table Rows
+  let hasTable = false;
+  let rows = [];
+
+  const jsonMatch = rawContent.match(/<!-- DEPT_TABLE_JSON:\s*([\s\S]*?)\s*-->/);
+  if (jsonMatch && jsonMatch[1]) {
+    try {
+      rows = JSON.parse(jsonMatch[1]);
+      hasTable = Array.isArray(rows) && rows.length > 0;
+    } catch (e) {
+      console.warn("Could not parse table JSON from template:", e);
+    }
+  }
+
+  if (!hasTable && rawContent.includes("<table")) {
+    hasTable = true;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rawContent, "text/html");
+      const trs = doc.querySelectorAll("tbody tr");
+      if (trs && trs.length > 0) {
+        rows = Array.from(trs).map((tr, idx) => {
+          const tds = tr.querySelectorAll("td");
+          return {
+            s_no: tds[0]?.textContent?.trim() || (idx + 1),
+            department: tds[1]?.textContent?.trim() || "",
+            duration: tds[2]?.textContent?.trim() || "",
+            from_date: tds[3]?.textContent?.trim() || "",
+            to_date: tds[4]?.textContent?.trim() || ""
+          };
+        });
+      }
+    } catch (e) {
+      console.warn("DOMParser table extraction fallback error:", e);
+    }
+  }
+
+  if (rawContent.includes("[Department Table]")) {
+    hasTable = true;
+    if (rows.length === 0) {
+      rows = intern ? [
+        {
+          s_no: 1,
+          department: (intern.department || "PHLEBOTOMY").toUpperCase(),
+          duration: intern.duration || "3 MONTHS",
+          from_date: formatDateDMY(intern.start_date) || "9/10/2025",
+          to_date: formatDateDMY(intern.end_date) || "9/1/2026"
+        }
+      ] : SAMPLE_DEPT_ROTATION_ROWS;
+    }
+  }
+
+  // 3. Clean Text for Textarea
+  let cleanText = rawContent
+    .replace(/<!-- TITLE:\s*.*?\s*-->\r?\n?/g, "")
+    .replace(/<!-- DEPT_TABLE_JSON:\s*[\s\S]*?\s*-->\r?\n?/g, "")
+    .replace(/<!-- DEPT_TABLE_START -->[\s\S]*?<!-- DEPT_TABLE_END -->/g, "[Department Table]")
+    .replace(/<table[\s\S]*?<\/table>/g, "[Department Table]");
+
+  if (hasTable && !cleanText.includes("[Department Table]")) {
+    cleanText = cleanText.trim() + "\n\n[Department Table]";
+  }
+
+  return {
+    title,
+    hasTable,
+    rows: rows && rows.length > 0 ? rows : (intern ? [
+      {
+        s_no: 1,
+        department: (intern.department || "PHLEBOTOMY").toUpperCase(),
+        duration: intern.duration || "3 MONTHS",
+        from_date: formatDateDMY(intern.start_date) || "9/10/2025",
+        to_date: formatDateDMY(intern.end_date) || "9/1/2026"
+      }
+    ] : SAMPLE_DEPT_ROTATION_ROWS),
+    cleanText: cleanText.trim()
+  };
+};
+
+const compileCertContent = (cleanText, hasTable, rows, title) => {
+  let text = (cleanText || "").trim();
+  let meta = "";
+  if (title && title.trim()) {
+    meta += `<!-- TITLE: ${title.trim()} -->\n`;
+  }
+
+  if (hasTable && rows && rows.length > 0) {
+    meta += `<!-- DEPT_TABLE_JSON: ${JSON.stringify(rows)} -->\n`;
+    const tableHtml = generateTableHtml(rows);
+    const tableBlock = `\n<!-- DEPT_TABLE_START -->\n${tableHtml}\n<!-- DEPT_TABLE_END -->\n`;
+
+    if (text.includes("[Department Table]")) {
+      text = text.replace(/\[Department Table\]/g, tableBlock);
+    } else {
+      text = text + "\n" + tableBlock;
+    }
+  } else {
+    text = text.replace(/\[Department Table\]/g, "");
+  }
+
+  return (meta + text).trim();
+};
+
 export default function InternshipDashboard() {
   const [interns, setInterns] = useState([]);
   const [search, setSearch] = useState("");
@@ -630,6 +788,10 @@ export default function InternshipDashboard() {
   // Certificate states
   const [certApproverId, setCertApproverId] = useState("");
   const [certDescription, setCertDescription] = useState("");
+  const [certTitle, setCertTitle] = useState("INTERNSHIP CERTIFICATE");
+  const [includeDeptTable, setIncludeDeptTable] = useState(false);
+  const [deptTableRows, setDeptTableRows] = useState([]);
+  const certTextareaRef = useRef(null);
   const [certWithLetterpad, setCertWithLetterpad] = useState(true);
   const [approvers, setApprovers] = useState([]);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -872,7 +1034,11 @@ export default function InternshipDashboard() {
     setCertWithLetterpad(true);
 
     if (intern.cert_description) {
-      setCertDescription(intern.cert_description);
+      const parsed = parseCertContent(intern.cert_description, intern);
+      setCertTitle(parsed.title);
+      setIncludeDeptTable(parsed.hasTable);
+      setDeptTableRows(parsed.rows);
+      setCertDescription(parsed.cleanText);
     } else {
       // Fetch default template
       try {
@@ -880,7 +1046,11 @@ export default function InternshipDashboard() {
         if (res.success && res.data) {
           const templates = Array.isArray(res.data) ? res.data : (res.data.data || []);
           if (templates.length > 0) {
-            setCertDescription(templates[0].description);
+            const parsed = parseCertContent(templates[0].description, intern);
+            setCertTitle(parsed.title);
+            setIncludeDeptTable(parsed.hasTable);
+            setDeptTableRows(parsed.rows);
+            setCertDescription(parsed.cleanText);
           }
         }
       } catch (e) {
@@ -902,6 +1072,126 @@ export default function InternshipDashboard() {
     } else {
       setApprovers([]);
     }
+  };
+
+  const handleToggleDeptTable = () => {
+    if (!includeDeptTable) {
+      setIncludeDeptTable(true);
+      if (!certDescription.includes("[Department Table]")) {
+        setCertDescription(prev => {
+          const trimmed = (prev || "").trim();
+          return trimmed ? `${trimmed}\n\n[Department Table]` : "[Department Table]";
+        });
+      }
+      if (deptTableRows.length === 0) {
+        setDeptTableRows(selectedIntern ? [
+          {
+            s_no: 1,
+            department: (selectedIntern.department || "PHLEBOTOMY").toUpperCase(),
+            duration: selectedIntern.duration || "3 MONTHS",
+            from_date: formatDateDMY(selectedIntern.start_date) || "9/10/2025",
+            to_date: formatDateDMY(selectedIntern.end_date) || "9/1/2026"
+          }
+        ] : SAMPLE_DEPT_ROTATION_ROWS);
+      }
+    } else {
+      setIncludeDeptTable(false);
+      setCertDescription(prev => prev.replace(/\[Department Table\]/g, "").trim());
+    }
+  };
+
+  const handleAddTableRow = () => {
+    setDeptTableRows(prev => [
+      ...prev,
+      {
+        s_no: prev.length + 1,
+        department: "",
+        duration: "",
+        from_date: "",
+        to_date: ""
+      }
+    ]);
+  };
+
+  const handleUpdateTableRow = (idx, field, val) => {
+    setDeptTableRows(prev => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], [field]: val };
+      return copy;
+    });
+  };
+
+  const handleDeleteTableRow = (idx) => {
+    setDeptTableRows(prev => {
+      const filtered = prev.filter((_, i) => i !== idx);
+      return filtered.map((r, i) => ({ ...r, s_no: i + 1 }));
+    });
+  };
+
+  const handleAutofillInternRow = () => {
+    if (!selectedIntern) return;
+    setDeptTableRows([
+      {
+        s_no: 1,
+        department: (selectedIntern.department || "").toUpperCase(),
+        duration: selectedIntern.duration || "",
+        from_date: formatDateDMY(selectedIntern.start_date) || "",
+        to_date: formatDateDMY(selectedIntern.end_date) || ""
+      }
+    ]);
+    if (!includeDeptTable) {
+      setIncludeDeptTable(true);
+      if (!certDescription.includes("[Department Table]")) {
+        setCertDescription(prev => (prev ? `${prev.trim()}\n\n[Department Table]` : "[Department Table]"));
+      }
+    }
+  };
+
+  const handleLoadSampleRotationRows = () => {
+    setDeptTableRows(SAMPLE_DEPT_ROTATION_ROWS);
+    if (!includeDeptTable) {
+      setIncludeDeptTable(true);
+      if (!certDescription.includes("[Department Table]")) {
+        setCertDescription(prev => (prev ? `${prev.trim()}\n\n[Department Table]` : "[Department Table]"));
+      }
+    }
+  };
+
+  const insertPlaceholderAtCursor = (tag) => {
+    const textarea = certTextareaRef.current;
+    if (tag === "[Department Table]") {
+      if (!includeDeptTable) {
+        setIncludeDeptTable(true);
+        if (deptTableRows.length === 0) {
+          setDeptTableRows(selectedIntern ? [
+            {
+              s_no: 1,
+              department: (selectedIntern.department || "PHLEBOTOMY").toUpperCase(),
+              duration: selectedIntern.duration || "3 MONTHS",
+              from_date: formatDateDMY(selectedIntern.start_date) || "9/10/2025",
+              to_date: formatDateDMY(selectedIntern.end_date) || "9/1/2026"
+            }
+          ] : SAMPLE_DEPT_ROTATION_ROWS);
+        }
+      }
+    }
+
+    if (!textarea) {
+      setCertDescription(prev => (prev ? `${prev} ${tag}` : tag));
+      return;
+    }
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    const val = textarea.value;
+    const newText = val.substring(0, start) + tag + val.substring(end);
+    setCertDescription(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = start + tag.length;
+      textarea.selectionEnd = start + tag.length;
+    }, 0);
   };
 
   const handleTextareaKeyDown = (e) => {
@@ -929,9 +1219,10 @@ export default function InternshipDashboard() {
     if (e) e.preventDefault();
     try {
       Swal.showLoading();
+      const compiled = compileCertContent(certDescription, includeDeptTable, deptTableRows, certTitle);
       const res = await apiRequest(`${HMSURL}hr/internships/approve/${selectedIntern.intern_id}/`, "POST", {
         cert_template_id: 1,
-        cert_description: certDescription,
+        cert_description: compiled,
         is_approve: false
       });
       Swal.close();
@@ -939,7 +1230,7 @@ export default function InternshipDashboard() {
         Swal.fire("Saved", "Certificate content saved successfully!", "success");
         const updated = {
           ...selectedIntern,
-          cert_description: certDescription
+          cert_description: compiled
         };
         setSelectedIntern(updated);
         setModalType("preview_certificate");
@@ -957,9 +1248,10 @@ export default function InternshipDashboard() {
   const handleApproveCertificateConfirm = async () => {
     try {
       Swal.showLoading();
+      const compiled = compileCertContent(certDescription, includeDeptTable, deptTableRows, certTitle);
       const res = await apiRequest(`${HMSURL}hr/internships/approve/${selectedIntern.intern_id}/`, "POST", {
         cert_template_id: 1,
-        cert_description: certDescription,
+        cert_description: compiled,
         is_approve: true
       });
       Swal.close();
@@ -1006,8 +1298,8 @@ export default function InternshipDashboard() {
     Swal.fire({
       title: 'Save Certificate Template',
       input: 'text',
-      inputLabel: 'Give this template a name (e.g. Standard, Nursing, etc.):',
-      inputValue: 'Certificate Template',
+      inputLabel: 'Give this template a name (e.g. Standard, Rotations with Table, etc.):',
+      inputValue: includeDeptTable ? 'Department Rotations Template' : 'Certificate Template',
       showCancelButton: true,
       inputValidator: (value) => {
         if (!value || !value.trim()) {
@@ -1019,9 +1311,10 @@ export default function InternshipDashboard() {
         const title = result.value.trim();
         try {
           Swal.showLoading();
+          const compiled = compileCertContent(certDescription, includeDeptTable, deptTableRows, certTitle);
           const res = await apiRequest(`${HMSURL}hr/internships/certificate-template/`, "POST", {
             title: title,
-            description: certDescription
+            description: compiled
           });
           Swal.close();
           if (res.success) {
@@ -1137,18 +1430,61 @@ export default function InternshipDashboard() {
     }
 
     // Process text replacements using stored cert_description
-    const descToUse = (intern.cert_description || "")
+    const parsed = parseCertContent(intern.cert_description || "", intern);
+    const titleToUse = parsed.title || "INTERNSHIP CERTIFICATE";
+    const hasTable = parsed.hasTable && parsed.rows && parsed.rows.length > 0;
+    const tableHtml = hasTable ? generateTableHtml(parsed.rows, "14px") : "";
+
+    const replacePlaceholders = (str) => {
+      if (!str) return "";
+      return str
+        .replace(/\[Student Name\]/gi, `<strong>${intern.student_name || ""}</strong>`)
+        .replace(/\[College\]/gi, `<strong>${intern.college || ""}</strong>`)
+        .replace(/\[Degree\]/gi, `<strong>${intern.degree || ""}</strong>`)
+        .replace(/\[Department\]/gi, intern.department ? `<strong>${intern.department}</strong>` : "")
+        .replace(/\[Duration\]/gi, `<strong>${intern.duration || ""}</strong>`)
+        .replace(/\[Start Date\]/gi, `<strong>${formatDateDMY(intern.start_date)}</strong>`)
+        .replace(/\[End Date\]/gi, `<strong>${formatDateDMY(intern.end_date)}</strong>`)
+        .replace(/\[(Intern ID|Reg No|Registration No|Roll No|Roll Number)\]/gi, `<strong>${intern.intern_id || ""}</strong>`)
+        .replace(/\[Performance\]/gi, `<strong>good</strong>`);
+    };
+
+    let contentHtml = "";
+    const cleanDesc = (parsed.cleanText || "")
       .replace(/(\r?\n){3,}/g, '\n\n')
       .replace(/[\r\n\s]+$/, '');
-    let formattedText = descToUse
-      .replace(/\[Student Name\]/g, `<strong>${intern.student_name}</strong>`)
-      .replace(/\[College\]/g, `<strong>${intern.college}</strong>`)
-      .replace(/\[Degree\]/g, `<strong>${intern.degree}</strong>`)
-      .replace(/\[Department\]/g, intern.department ? `<strong>${intern.department}</strong>` : "")
-      .replace(/\[Duration\]/g, `<strong>${intern.duration}</strong>`)
-      .replace(/\[Start Date\]/g, `<strong>${formatDateDMY(intern.start_date)}</strong>`)
-      .replace(/\[End Date\]/g, `<strong>${formatDateDMY(intern.end_date)}</strong>`)
-      .replace(/[\r\n\s]+$/, '');
+
+    if (hasTable && cleanDesc.includes("[Department Table]")) {
+      const parts = cleanDesc.split("[Department Table]");
+      const beforeText = replacePlaceholders(parts[0].trim());
+      const afterText = replacePlaceholders(parts[1]?.trim() || "");
+
+      contentHtml = `
+        <div style="font-size: 14px; text-align: justify; text-justify: inter-word; text-indent: 30px; line-height: 1.35; margin-bottom: 4px; white-space: pre-wrap; font-family: 'Times New Roman', Times, serif;">
+          ${beforeText}
+        </div>
+        <div style="text-indent: 0 !important; white-space: normal !important; margin: 4px 0 6px 0;">
+          ${tableHtml}
+        </div>
+        ${afterText ? `
+          <div style="font-size: 14px; text-align: justify; text-justify: inter-word; text-indent: 30px; line-height: 1.35; margin-top: 4px; margin-bottom: 6px; white-space: pre-wrap; font-family: 'Times New Roman', Times, serif;">
+            ${afterText}
+          </div>
+        ` : ""}
+      `;
+    } else {
+      const formatted = replacePlaceholders(cleanDesc);
+      contentHtml = `
+        <div style="font-size: 14px; text-align: justify; text-justify: inter-word; text-indent: 30px; line-height: 1.35; margin-bottom: ${hasTable ? '4px' : '14px'}; white-space: pre-wrap; font-family: 'Times New Roman', Times, serif;">
+          ${formatted}
+        </div>
+        ${hasTable ? `
+          <div style="text-indent: 0 !important; white-space: normal !important; margin: 4px 0 6px 0;">
+            ${tableHtml}
+          </div>
+        ` : ""}
+      `;
+    }
 
     const printDate = new Date(intern.approved_at || new Date()).toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -1157,6 +1493,7 @@ export default function InternshipDashboard() {
     });
 
     // Build HTML (shared by print window AND blob generation)
+    // Initial space above Date preserved: 140px spacer without letterpad, 30px margin with letterpad
     const headerHtml = withLetterpad
       ? `
         <div style="text-align: center; margin-bottom: 30px;">
@@ -1167,8 +1504,8 @@ export default function InternshipDashboard() {
 
     const footerHtml = withLetterpad
       ? `
-        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px;">
-          <div style="font-size: 11px; color: #475569; font-style: italic; text-align: left; margin-bottom: 6px; padding-left: 10px;">
+        <div style="position: absolute; bottom: 25px; left: 40px; right: 40px;">
+          <div style="font-size: 10px; color: #475569; font-style: italic; text-align: left; margin-bottom: 4px; padding-left: 10px;">
             * This is an electronically generated certificate.
           </div>
           <img src="${footerSrc}" alt="Footer" style="width: 100%; height: auto; display: block;" />
@@ -1177,39 +1514,37 @@ export default function InternshipDashboard() {
       : ``;
 
     const certBodyHtml = `
-  <div style="font-family: 'Times New Roman', Times, serif; line-height: 1.8; color: #0f172a; min-height: 270mm; box-sizing: border-box; position: relative; padding: 10mm;">
+      <div style="font-family: 'Times New Roman', Times, serif; color: #0f172a; min-height: 270mm; box-sizing: border-box; position: relative; padding: 10mm;">
         ${headerHtml}
-        <div style="padding: 0 40px 120px 40px;">
-          <div style="text-align: right; font-size: 14px; margin-bottom: 30px;">
+        <div style="padding: 0 40px 20px 40px;">
+          <div style="text-align: right; font-size: 14px; margin-bottom: 20px;">
             <strong>Date:</strong> ${printDate}
           </div>
           
-          <div style="text-align: center; margin-bottom: 50px;">
-            <h2 style="margin: 0; font-size: 24px; font-weight: bold; text-decoration: underline; letter-spacing: 1.5px; color: #1e3a8a; text-transform: uppercase;">
-              INTERNSHIP CERTIFICATE
+          <div style="text-align: center; margin-bottom: 10px;">
+            <h2 style="margin: 0; font-size: 20px; font-weight: bold; text-decoration: underline; letter-spacing: 1.2px; color: #1e3a8a; text-transform: uppercase;">
+              ${titleToUse}
             </h2>
           </div>
           
-          <div style="font-size: 16px; text-align: justify; text-justify: inter-word; margin-bottom: 0px; text-indent: 50px; white-space: pre-wrap;">
-            ${formattedText}
-          </div>
+          ${contentHtml}
           
-          <div style="display: flex; justify-content: flex-start; align-items: flex-end; gap: 20px; margin-top: -18px;">
-            <div style="text-align: left; min-width: 260px; font-family: 'Times New Roman', serif;">
+          <div style="display: flex; justify-content: flex-start; align-items: flex-end; gap: 20px; margin-top: 14px;">
+            <div style="text-align: left; min-width: 240px; font-family: 'Times New Roman', serif;">
               ${signatureBase64
-        ? `<img src="data:image/png;base64,${signatureBase64}" style="max-height: 120px; max-width: 260px; display: block; margin-bottom: 4px;" alt="Signature" />`
-        : `<div style="height: 60px;"></div>`
+        ? `<img src="data:image/png;base64,${signatureBase64}" style="max-height: 85px; max-width: 200px; display: block; margin-bottom: 2px;" alt="Signature" />`
+        : `<div style="height: 50px;"></div>`
       }
-              <div style="border-top: 1px solid #000; padding-top: 6px; font-weight: bold; font-size: 14px; text-transform: uppercase; white-space: nowrap;">
+              <div style="border-top: 1px solid #000; padding-top: 4px; font-weight: bold; font-size: 13px; text-transform: uppercase; white-space: nowrap;">
                 ${approverName}
               </div>
-              <div style="font-size: 12px; color: #475569; margin-top: 2px; white-space: nowrap;">
+              <div style="font-size: 11px; color: #475569; margin-top: 2px; white-space: nowrap;">
                 ${approverDesignation || "Authorized Signatory"}
               </div>
             </div>
             ${withLetterpad ? `
-              <div style="margin-bottom: 4px;">
-                <img src="${sealSrc}" alt="Seal" style="max-height: 110px; max-width: 120px; object-fit: contain; display: block;" />
+              <div style="margin-bottom: 2px;">
+                <img src="${sealSrc}" alt="Seal" style="max-height: 90px; max-width: 90px; object-fit: contain; display: block;" />
               </div>
             ` : ""}
           </div>
@@ -1218,7 +1553,7 @@ export default function InternshipDashboard() {
       </div>
     `;
 
-    // ── BLOB MODE: for Email / WhatsApp ──
+    // ── BLOB MODE: for Email / WhatsApp / Download ──
     if (returnBlob) {
       const container = document.createElement("div");
       container.style.cssText = "position:fixed;top:-99999px;left:-99999px;width:794px;min-height:1123px;background:white;z-index:-1;";
@@ -1252,6 +1587,9 @@ export default function InternshipDashboard() {
 
       if (renderedH <= PAGE_H_MM) {
         doc.addImage(imgData, "JPEG", 0, 0, PAGE_W_MM, renderedH);
+      } else if (renderedH <= PAGE_H_MM * 1.15) {
+        // Fit onto single page by scaling to prevent accidental spillover
+        doc.addImage(imgData, "JPEG", 0, 0, PAGE_W_MM, PAGE_H_MM);
       } else {
         let yOffset = 0;
         let pageIndex = 0;
@@ -1274,11 +1612,16 @@ export default function InternshipDashboard() {
 
     // ── PRINT WINDOW MODE ──
     const css = `
-      body { margin: 0; padding: 0; background: white; }
+      body { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.cert-dept-table { width: 100% !important; border-collapse: collapse !important; margin: 4px 0 6px 0 !important; border: 1px dashed #94a3b8 !important; text-indent: 0 !important; white-space: normal !important; box-sizing: border-box !important; }
+      table.cert-dept-table th, table.cert-dept-table td { border: 1px dashed #94a3b8 !important; padding: 2.5px 6px !important; text-indent: 0 !important; white-space: normal !important; font-size: 14px !important; line-height: 1.25 !important; font-family: 'Times New Roman', Times, serif !important; }
+      table.cert-dept-table th { font-weight: bold !important; text-align: center !important; background-color: #f8fafc !important; color: #0f172a !important; }
       @media print {
         .no-print { display: none !important; }
         body { margin: 0; }
         @page { size: portrait; margin: 0; }
+        table.cert-dept-table { width: 100% !important; border-collapse: collapse !important; border: 1px dashed #94a3b8 !important; margin: 4px 0 6px 0 !important; }
+        table.cert-dept-table th, table.cert-dept-table td { border: 1px dashed #94a3b8 !important; padding: 2.5px 6px !important; font-size: 14px !important; line-height: 1.25 !important; }
       }
     `;
 
@@ -1327,6 +1670,28 @@ export default function InternshipDashboard() {
       ${certBodyHtml}
     </body></html>`);
     pw.document.close();
+  };
+
+  const handleDownloadCertificatePdf = async (intern, withLetterpad = true) => {
+    try {
+      Swal.showLoading();
+      const res = await handleDirectPrintCertificate(intern, withLetterpad, true);
+      Swal.close();
+      if (res && res.blob) {
+        const url = URL.createObjectURL(res.blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${res.studentName || "Intern"}_Internship_Certificate.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      console.error("PDF download error:", e);
+      Swal.close();
+      Swal.fire("Error", "Could not generate PDF", "error");
+    }
   };
 
 
@@ -2164,6 +2529,24 @@ export default function InternshipDashboard() {
               >
                 📄 Print without Letterpad
               </FloatingMenuItem>
+              <FloatingMenuItem
+                onClick={() => {
+                  const item = filteredInterns.find(i => i.intern_id === openMenu.internId);
+                  setOpenMenu(null);
+                  if (item) handleDownloadCertificatePdf(item, true);
+                }}
+              >
+                📥 Download PDF (Letterpad)
+              </FloatingMenuItem>
+              <FloatingMenuItem
+                onClick={() => {
+                  const item = filteredInterns.find(i => i.intern_id === openMenu.internId);
+                  setOpenMenu(null);
+                  if (item) handleDownloadCertificatePdf(item, false);
+                }}
+              >
+                📄 Download PDF (No Letterpad)
+              </FloatingMenuItem>
             </>
           ) : (
             <>
@@ -2433,7 +2816,7 @@ export default function InternshipDashboard() {
       {/* 4. Certificate Make/Preview Modal */}
       {(modalType === "make_certificate" || modalType === "preview_certificate") && selectedIntern && (
         <ModalOverlay>
-          <ModalContent $wide style={{ maxWidth: "800px" }}>
+          <ModalContent $wide style={{ maxWidth: "1080px" }}>
             <ModalHeader>
               <h2 style={{ margin: 0, fontSize: "18px", color: colors.textMain }}>
                 {modalType === "make_certificate" ? "Make & Approve Internship Certificate" : "Preview Approved Certificate"}
@@ -2441,7 +2824,7 @@ export default function InternshipDashboard() {
               <CloseBtn onClick={() => setModalType(null)}>&times;</CloseBtn>
             </ModalHeader>
             <ModalForm onSubmit={modalType === "make_certificate" ? handleSaveCertificateOnly : (e) => { e.preventDefault(); }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: "24px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.2fr", gap: "24px" }}>
 
                 {/* Left Column: Form Settings */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
@@ -2467,23 +2850,92 @@ export default function InternshipDashboard() {
                     </FormGroup>
                   )}
 
+                  {/* Certificate Title / Heading */}
+                  <FormGroup>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                      <ModalLabel style={{ margin: 0 }}>Certificate Heading / Title:</ModalLabel>
+                      {modalType === "make_certificate" && (
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button
+                            type="button"
+                            onClick={() => setCertTitle("INTERNSHIP CERTIFICATE")}
+                            style={{
+                              fontSize: "10px",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              border: certTitle === "INTERNSHIP CERTIFICATE" ? "1px solid #3b82f6" : "1px solid #cbd5e1",
+                              background: certTitle === "INTERNSHIP CERTIFICATE" ? "#eff6ff" : "#fff",
+                              color: certTitle === "INTERNSHIP CERTIFICATE" ? "#1e40af" : "#64748b",
+                              cursor: "pointer",
+                              fontWeight: certTitle === "INTERNSHIP CERTIFICATE" ? "700" : "500"
+                            }}
+                          >
+                            INTERNSHIP CERTIFICATE
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCertTitle("TO WHOMSOEVER IT MAY CONCERN")}
+                            style={{
+                              fontSize: "10px",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              border: certTitle === "TO WHOMSOEVER IT MAY CONCERN" ? "1px solid #3b82f6" : "1px solid #cbd5e1",
+                              background: certTitle === "TO WHOMSOEVER IT MAY CONCERN" ? "#eff6ff" : "#fff",
+                              color: certTitle === "TO WHOMSOEVER IT MAY CONCERN" ? "#1e40af" : "#64748b",
+                              cursor: "pointer",
+                              fontWeight: certTitle === "TO WHOMSOEVER IT MAY CONCERN" ? "700" : "500"
+                            }}
+                          >
+                            TO WHOMSOEVER IT MAY CONCERN
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <ModalInput
+                      type="text"
+                      value={certTitle}
+                      onChange={(e) => setCertTitle(e.target.value)}
+                      placeholder="e.g. TO WHOMSOEVER IT MAY CONCERN or INTERNSHIP CERTIFICATE"
+                      disabled={modalType === "preview_certificate"}
+                      style={{ fontWeight: "700", color: "#1e3a8a", textTransform: "uppercase" }}
+                    />
+                  </FormGroup>
+
                   <FormGroup>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <ModalLabel>Certificate Description Template:</ModalLabel>
+                      <ModalLabel style={{ margin: 0 }}>Certificate Description Template:</ModalLabel>
                       {modalType === "make_certificate" && (
-                        <div style={{ display: "flex", gap: "10px" }}>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <button
+                            type="button"
+                            onClick={handleToggleDeptTable}
+                            style={{
+                              fontSize: "11px",
+                              color: includeDeptTable ? "#059669" : colors.primary,
+                              background: includeDeptTable ? "#ecfdf5" : "none",
+                              border: includeDeptTable ? "1px solid #a7f3d0" : "none",
+                              padding: includeDeptTable ? "2px 8px" : "0",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontWeight: "700"
+                            }}
+                          >
+                            {includeDeptTable ? "✓ Table Included" : "➕ Include Department Table"}
+                          </button>
+                          <span style={{ color: "#cbd5e1", fontSize: "11px" }}>|</span>
                           <button type="button" onClick={handleLoadDefaultTemplate} style={{ fontSize: "11px", color: colors.primary, background: "none", border: "none", cursor: "pointer", fontWeight: "600", padding: 0 }}>
-                            Load Default Template
+                            Load Template
                           </button>
                           <span style={{ color: "#cbd5e1", fontSize: "11px" }}>|</span>
                           <button type="button" onClick={handleSaveDefaultTemplate} style={{ fontSize: "11px", color: colors.primary, background: "none", border: "none", cursor: "pointer", fontWeight: "600", padding: 0 }}>
-                            Save as Default Template
+                            Save Template
                           </button>
                         </div>
                       )}
                     </div>
                     <ModalTextarea
-                      rows={8}
+                      ref={certTextareaRef}
+                      rows={6}
                       value={certDescription}
                       onChange={(e) => setCertDescription(e.target.value)}
                       onKeyDown={handleTextareaKeyDown}
@@ -2492,11 +2944,186 @@ export default function InternshipDashboard() {
                       disabled={modalType === "preview_certificate"}
                     />
                     {modalType === "make_certificate" && (
-                      <div style={{ fontSize: "10px", color: colors.textMuted, marginTop: "2px" }}>
-                        Use placeholders: <strong>[Student Name]</strong>, <strong>[College]</strong>, <strong>[Degree]</strong>, <strong>[Department]</strong>, <strong>[Duration]</strong>, <strong>[Start Date]</strong>, <strong>[End Date]</strong>.
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "4px", alignItems: "center" }}>
+                        <span style={{ fontSize: "11px", color: colors.textMuted, marginRight: "4px" }}>Insert Placeholders:</span>
+                        {[
+                          "[Student Name]", "[Degree]", "[College]", "[Department]", "[Duration]",
+                          "[Start Date]", "[End Date]", "[Reg No]", "[Performance]", "[Department Table]"
+                        ].map(tag => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => insertPlaceholderAtCursor(tag)}
+                            style={{
+                              background: tag === "[Department Table]" ? "#eff6ff" : "#f1f5f9",
+                              border: tag === "[Department Table]" ? "1px solid #93c5fd" : "1px solid #e2e8f0",
+                              color: tag === "[Department Table]" ? "#1d4ed8" : "#334155",
+                              fontSize: "10px",
+                              fontWeight: "600",
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              cursor: "pointer"
+                            }}
+                          >
+                            {tag}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </FormGroup>
+
+                  {/* Department Postings Table Editor */}
+                  {includeDeptTable && (
+                    <div style={{
+                      background: "#f8fafc",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      padding: "12px",
+                      marginTop: "2px"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <strong style={{ fontSize: "12px", color: "#1e293b" }}>Department Postings / Rotation Table</strong>
+                          <span style={{ fontSize: "10px", background: "#dbeafe", color: "#1e40af", padding: "1px 6px", borderRadius: "10px", fontWeight: "600" }}>
+                            {deptTableRows.length} Rows
+                          </span>
+                        </div>
+                        {modalType === "make_certificate" && (
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            <button
+                              type="button"
+                              onClick={handleAutofillInternRow}
+                              title="Autofill row with intern's department & dates"
+                              style={{ fontSize: "10px", background: "#fff", border: "1px solid #cbd5e1", padding: "2px 8px", borderRadius: "4px", cursor: "pointer", color: "#475569" }}
+                            >
+                              👤 Autofill Intern
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleLoadSampleRotationRows}
+                              title="Load sample lab rotation rows (Phlebotomy, Biochemistry, Pathology, Microbiology)"
+                              style={{ fontSize: "10px", background: "#fff", border: "1px solid #cbd5e1", padding: "2px 8px", borderRadius: "4px", cursor: "pointer", color: "#475569" }}
+                            >
+                              ⚡ Sample Rotations
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIncludeDeptTable(false);
+                                setCertDescription(prev => prev.replace(/\[Department Table\]/g, "").trim());
+                              }}
+                              style={{ fontSize: "10px", background: "#fee2e2", border: "1px solid #fecaca", padding: "2px 8px", borderRadius: "4px", cursor: "pointer", color: "#dc2626" }}
+                            >
+                              🗑 Remove Table
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Compact Table Editor */}
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+                          <thead>
+                            <tr style={{ background: "#e2e8f0", color: "#334155" }}>
+                              <th style={{ padding: "4px 6px", textAlign: "center", width: "32px", border: "1px solid #cbd5e1" }}>#</th>
+                              <th style={{ padding: "4px 8px", textAlign: "left", border: "1px solid #cbd5e1" }}>Department</th>
+                              <th style={{ padding: "4px 8px", textAlign: "left", width: "85px", border: "1px solid #cbd5e1" }}>Duration</th>
+                              <th style={{ padding: "4px 8px", textAlign: "left", width: "85px", border: "1px solid #cbd5e1" }}>From Date</th>
+                              <th style={{ padding: "4px 8px", textAlign: "left", width: "85px", border: "1px solid #cbd5e1" }}>To Date</th>
+                              {modalType === "make_certificate" && (
+                                <th style={{ padding: "4px 6px", textAlign: "center", width: "28px", border: "1px solid #cbd5e1" }}></th>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {deptTableRows.map((row, idx) => (
+                              <tr key={idx} style={{ background: "#fff" }}>
+                                <td style={{ padding: "3px 4px", textAlign: "center", border: "1px solid #e2e8f0", fontWeight: "600" }}>
+                                  {idx + 1}
+                                </td>
+                                <td style={{ padding: "3px 4px", border: "1px solid #e2e8f0" }}>
+                                  <input
+                                    type="text"
+                                    value={row.department}
+                                    onChange={(e) => handleUpdateTableRow(idx, "department", e.target.value)}
+                                    disabled={modalType === "preview_certificate"}
+                                    placeholder="e.g. PHLEBOTOMY"
+                                    style={{ width: "100%", padding: "3px 6px", border: "1px solid #cbd5e1", borderRadius: "3px", fontSize: "11px", textTransform: "uppercase" }}
+                                  />
+                                </td>
+                                <td style={{ padding: "3px 4px", border: "1px solid #e2e8f0" }}>
+                                  <input
+                                    type="text"
+                                    value={row.duration}
+                                    onChange={(e) => handleUpdateTableRow(idx, "duration", e.target.value)}
+                                    disabled={modalType === "preview_certificate"}
+                                    placeholder="e.g. 3 MONTHS"
+                                    style={{ width: "100%", padding: "3px 6px", border: "1px solid #cbd5e1", borderRadius: "3px", fontSize: "11px" }}
+                                  />
+                                </td>
+                                <td style={{ padding: "3px 4px", border: "1px solid #e2e8f0" }}>
+                                  <input
+                                    type="text"
+                                    value={row.from_date}
+                                    onChange={(e) => handleUpdateTableRow(idx, "from_date", e.target.value)}
+                                    disabled={modalType === "preview_certificate"}
+                                    placeholder="DD/MM/YYYY"
+                                    style={{ width: "100%", padding: "3px 6px", border: "1px solid #cbd5e1", borderRadius: "3px", fontSize: "11px" }}
+                                  />
+                                </td>
+                                <td style={{ padding: "3px 4px", border: "1px solid #e2e8f0" }}>
+                                  <input
+                                    type="text"
+                                    value={row.to_date}
+                                    onChange={(e) => handleUpdateTableRow(idx, "to_date", e.target.value)}
+                                    disabled={modalType === "preview_certificate"}
+                                    placeholder="DD/MM/YYYY"
+                                    style={{ width: "100%", padding: "3px 6px", border: "1px solid #cbd5e1", borderRadius: "3px", fontSize: "11px" }}
+                                  />
+                                </td>
+                                {modalType === "make_certificate" && (
+                                  <td style={{ padding: "3px 4px", textAlign: "center", border: "1px solid #e2e8f0" }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteTableRow(idx)}
+                                      style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "2px" }}
+                                      title="Delete row"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </td>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {modalType === "make_certificate" && (
+                        <div style={{ marginTop: "8px", display: "flex", justifyContent: "flex-end" }}>
+                          <button
+                            type="button"
+                            onClick={handleAddTableRow}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              background: "#fff",
+                              border: "1px dashed #3b82f6",
+                              color: "#2563eb",
+                              padding: "4px 10px",
+                              borderRadius: "4px",
+                              fontSize: "11px",
+                              fontWeight: "600",
+                              cursor: "pointer"
+                            }}
+                          >
+                            <Plus size={12} /> Add Department Row
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Right Column: Live Processed Preview */}
@@ -2512,39 +3139,85 @@ export default function InternshipDashboard() {
                     lineHeight: "1.6",
                     fontFamily: "Times New Roman, serif",
                     overflowY: "auto",
-                    maxHeight: "360px",
+                    maxHeight: "520px",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between"
                   }}>
                     <div>
-                      <div style={{ borderBottom: "1px solid #1e3a8a", paddingBottom: "6px", marginBottom: "14px", textAlign: "center", color: "#1e3a8a", fontWeight: "bold", fontSize: "14px" }}>
+                      <div style={{ borderBottom: "1px solid #1e3a8a", paddingBottom: "6px", marginBottom: "12px", textAlign: "center", color: "#1e3a8a", fontWeight: "bold", fontSize: "14px" }}>
                         SHANMUGA HOSPITAL
                       </div>
-                      <div style={{ textAlign: "right", fontSize: "11px", marginBottom: "14px" }}>
+                      <div style={{ textAlign: "right", fontSize: "11px", marginBottom: "8px" }}>
                         <strong>Date:</strong> {new Date(selectedIntern.approved_at || new Date()).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
                       </div>
-                      <div style={{ textAlign: "center", textDecoration: "underline", fontWeight: "bold", color: "#1e3a8a", marginBottom: "14px", fontSize: "13px" }}>
-                        INTERNSHIP CERTIFICATE
+                      <div style={{ textAlign: "center", textDecoration: "underline", fontWeight: "bold", color: "#1e3a8a", marginBottom: "8px", fontSize: "13px", textTransform: "uppercase" }}>
+                        {certTitle || "INTERNSHIP CERTIFICATE"}
                       </div>
-                      <div
-                        style={{ textAlign: "justify", textIndent: "30px", whiteSpace: "pre-wrap" }}
-                        dangerouslySetInnerHTML={{
-                          __html: (certDescription || "")
-                            .replace(/(\r?\n){3,}/g, '\n\n')
-                            .replace(/\[Student Name\]/g, `<strong>${selectedIntern.student_name}</strong>`)
-                            .replace(/\[College\]/g, `<strong>${selectedIntern.college}</strong>`)
-                            .replace(/\[Degree\]/g, `<strong>${selectedIntern.degree}</strong>`)
-                            .replace(/\[Department\]/g, selectedIntern.department ? `<strong>${selectedIntern.department}</strong>` : "")
-                            .replace(/\[Duration\]/g, `<strong>${selectedIntern.duration}</strong>`)
-                            .replace(/\[Start Date\]/g, `<strong>${formatDateDMY(selectedIntern.start_date)}</strong>`)
-                            .replace(/\[End Date\]/g, `<strong>${formatDateDMY(selectedIntern.end_date)}</strong>`)
-                            .replace(/[\r\n\s]+$/, '')
-                        }}
-                      />
+
+                      {/* Live Body Rendering with Table */}
+                      {(() => {
+                        const replacePreviewPlaceholders = (str) => {
+                          if (!str) return "";
+                          return str
+                            .replace(/\[Student Name\]/gi, `<strong>${selectedIntern.student_name || ""}</strong>`)
+                            .replace(/\[College\]/gi, `<strong>${selectedIntern.college || ""}</strong>`)
+                            .replace(/\[Degree\]/gi, `<strong>${selectedIntern.degree || ""}</strong>`)
+                            .replace(/\[Department\]/gi, selectedIntern.department ? `<strong>${selectedIntern.department}</strong>` : "")
+                            .replace(/\[Duration\]/gi, `<strong>${selectedIntern.duration || ""}</strong>`)
+                            .replace(/\[Start Date\]/gi, `<strong>${formatDateDMY(selectedIntern.start_date)}</strong>`)
+                            .replace(/\[End Date\]/gi, `<strong>${formatDateDMY(selectedIntern.end_date)}</strong>`)
+                            .replace(/\[(Intern ID|Reg No|Registration No|Roll No|Roll Number)\]/gi, `<strong>${selectedIntern.intern_id || ""}</strong>`)
+                            .replace(/\[Performance\]/gi, `<strong>good</strong>`);
+                        };
+
+                        const tableHtml = includeDeptTable ? generateTableHtml(deptTableRows, "12.5px") : "";
+                        const cleanDesc = certDescription || "";
+
+                        if (includeDeptTable && cleanDesc.includes("[Department Table]")) {
+                          const parts = cleanDesc.split("[Department Table]");
+                          const beforeText = replacePreviewPlaceholders(parts[0].trim());
+                          const afterText = replacePreviewPlaceholders(parts[1]?.trim() || "");
+
+                          return (
+                            <div>
+                              <div
+                                style={{ textAlign: "justify", textIndent: "20px", whiteSpace: "pre-wrap", marginBottom: "4px", fontSize: "12.5px", lineHeight: "1.35" }}
+                                dangerouslySetInnerHTML={{ __html: beforeText }}
+                              />
+                              <div
+                                style={{ textIndent: 0, whiteSpace: "normal", margin: "4px 0 6px 0" }}
+                                dangerouslySetInnerHTML={{ __html: tableHtml }}
+                              />
+                              {afterText && (
+                                <div
+                                  style={{ textAlign: "justify", textIndent: "20px", whiteSpace: "pre-wrap", marginTop: "4px", marginBottom: "4px", fontSize: "12.5px", lineHeight: "1.35" }}
+                                  dangerouslySetInnerHTML={{ __html: afterText }}
+                                />
+                              )}
+                            </div>
+                          );
+                        } else {
+                          const formatted = replacePreviewPlaceholders(cleanDesc);
+                          return (
+                            <div>
+                              <div
+                                style={{ textAlign: "justify", textIndent: "20px", whiteSpace: "pre-wrap", fontSize: "12.5px", lineHeight: "1.35", marginBottom: includeDeptTable ? "4px" : "10px" }}
+                                dangerouslySetInnerHTML={{ __html: formatted }}
+                              />
+                              {includeDeptTable && (
+                                <div
+                                  style={{ textIndent: 0, whiteSpace: "normal", margin: "4px 0 6px 0" }}
+                                  dangerouslySetInnerHTML={{ __html: tableHtml }}
+                                />
+                              )}
+                            </div>
+                          );
+                        }
+                      })()}
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "-18px" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "10px" }}>
                       {(() => {
                         const approverInfo = (Array.isArray(approvers) ? approvers : []).find(a => a.employeeId === selectedIntern.approved_by);
                         return (
@@ -2553,10 +3226,10 @@ export default function InternshipDashboard() {
                               <img
                                 src={`data:image/png;base64,${approverInfo.signatureBase64}`}
                                 alt="Signature"
-                                style={{ height: "85px", marginBottom: "4px", objectFit: "contain" }}
+                                style={{ height: "80px", marginBottom: "4px", objectFit: "contain" }}
                               />
                             ) : (
-                              <div style={{ height: "60px" }}></div>
+                              <div style={{ height: "50px" }}></div>
                             )}
                             <div style={{ borderTop: "1px solid #cbd5e1", width: "100%", paddingTop: "4px", fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap" }}>
                               {approverInfo?.employeeName || selectedIntern.approved_by || "Authorized Signatory"}
@@ -2602,9 +3275,25 @@ export default function InternshipDashboard() {
                         )}
                       </>
                     ) : (
-                      <ModalButton type="button" style={{ background: "#94a3b8", width: "auto", padding: "10px 24px" }} onClick={() => setModalType(null)}>
-                        Close
-                      </ModalButton>
+                      <>
+                        <ModalButton type="button" style={{ background: "#94a3b8", width: "auto", padding: "10px 24px" }} onClick={() => setModalType(null)}>
+                          Close
+                        </ModalButton>
+                        <ModalButton
+                          type="button"
+                          style={{ background: "#9333ea", width: "auto", padding: "10px 24px" }}
+                          onClick={() => handleDirectPrintCertificate(selectedIntern, true)}
+                        >
+                          🖨️ Print Certificate
+                        </ModalButton>
+                        <ModalButton
+                          type="button"
+                          style={{ background: "#059669", width: "auto", padding: "10px 24px" }}
+                          onClick={() => handleDownloadCertificatePdf(selectedIntern, true)}
+                        >
+                          📥 Download PDF
+                        </ModalButton>
+                      </>
                     )}
                   </>
                 )}
@@ -2629,90 +3318,122 @@ export default function InternshipDashboard() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px", marginBottom: "20px" }}>
-              {availableTemplates.map((tpl) => (
-                <div
-                  key={tpl.template_id}
-                  style={{
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "8px",
-                    padding: "16px",
-                    background: "#fff",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                    position: "relative"
-                  }}
-                  onClick={() => {
-                    setCertDescription(tpl.description);
-                    setShowTemplatePicker(false);
-                    Swal.fire("Loaded", `Loaded template: "${tpl.title}"`, "success");
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#3b82f6";
-                    e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(59, 130, 246, 0.1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "#e2e8f0";
-                    e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
-                  }}
-                >
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                      <h4 style={{ margin: 0, color: colors.textMain, fontWeight: "600", fontSize: "14px" }}>
-                        {tpl.title}
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteTemplate(tpl.template_id, e)}
-                        style={{
-                          background: "#fee2e2",
-                          border: "none",
-                          cursor: "pointer",
-                          color: colors.danger,
-                          padding: "2px",
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: "20px",
-                          height: "20px",
-                          transition: "background 0.2s"
-                        }}
-                        onMouseEnter={(e) => { e.stopPropagation(); e.currentTarget.style.background = "#fca5a5"; }}
-                        onMouseLeave={(e) => { e.stopPropagation(); e.currentTarget.style.background = "#fee2e2"; }}
-                        title="Delete Template"
-                      >
-                        <Trash2 size={12} />
-                      </button>
+              {availableTemplates.map((tpl) => {
+                const parsedCard = parseCertContent(tpl.description, null);
+                return (
+                  <div
+                    key={tpl.template_id}
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      background: "#fff",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                      position: "relative"
+                    }}
+                    onClick={() => {
+                      const parsed = parseCertContent(tpl.description, selectedIntern);
+                      setCertTitle(parsed.title || "INTERNSHIP CERTIFICATE");
+                      setIncludeDeptTable(parsed.hasTable);
+                      if (parsed.rows && parsed.rows.length > 0) {
+                        setDeptTableRows(parsed.rows);
+                      }
+                      setCertDescription(parsed.cleanText);
+                      setShowTemplatePicker(false);
+                      Swal.fire({
+                        icon: "success",
+                        title: "Template Loaded",
+                        text: `Loaded "${tpl.title}"${parsed.hasTable ? " with Department Postings Table" : ""}.`,
+                        timer: 1800,
+                        showConfirmButton: false,
+                      });
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "#3b82f6";
+                      e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(59, 130, 246, 0.1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "#e2e8f0";
+                      e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                        <div>
+                          <h4 style={{ margin: 0, color: colors.textMain, fontWeight: "600", fontSize: "14px" }}>
+                            {tpl.title}
+                          </h4>
+                          {parsedCard.hasTable && (
+                            <span style={{
+                              display: "inline-block",
+                              marginTop: "4px",
+                              fontSize: "11px",
+                              padding: "2px 6px",
+                              background: "#ecfdf5",
+                              color: "#059669",
+                              border: "1px solid #a7f3d0",
+                              borderRadius: "4px",
+                              fontWeight: 700
+                            }}>
+                              📊 Includes Department Table ({parsedCard.rows?.length || 4} rows)
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteTemplate(tpl.template_id, e)}
+                          style={{
+                            background: "#fee2e2",
+                            border: "none",
+                            cursor: "pointer",
+                            color: colors.danger,
+                            padding: "2px",
+                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "20px",
+                            height: "20px",
+                            transition: "background 0.2s"
+                          }}
+                          onMouseEnter={(e) => { e.stopPropagation(); e.currentTarget.style.background = "#fca5a5"; }}
+                          onMouseLeave={(e) => { e.stopPropagation(); e.currentTarget.style.background = "#fee2e2"; }}
+                          title="Delete Template"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                      <p style={{
+                        fontSize: "12px",
+                        color: colors.textMuted,
+                        lineHeight: "1.5",
+                        margin: 0,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 4,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis"
+                      }}>
+                        {parsedCard.cleanText}
+                      </p>
                     </div>
-                    <p style={{
-                      fontSize: "12px",
-                      color: colors.textMuted,
-                      lineHeight: "1.5",
-                      margin: 0,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 4,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis"
+                    <div style={{
+                      marginTop: "12px",
+                      fontSize: "11px",
+                      color: "#3b82f6",
+                      fontWeight: "600",
+                      textAlign: "right"
                     }}>
-                      {tpl.description}
-                    </p>
+                      Select Template &rarr;
+                    </div>
                   </div>
-                  <div style={{
-                    marginTop: "12px",
-                    fontSize: "11px",
-                    color: "#3b82f6",
-                    fontWeight: "600",
-                    textAlign: "right"
-                  }}>
-                    Select Template &rarr;
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {availableTemplates.length === 0 && (
                 <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "20px", color: colors.textMuted }}>
                   No templates available.
