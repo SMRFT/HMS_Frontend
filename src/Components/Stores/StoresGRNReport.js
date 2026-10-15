@@ -1408,10 +1408,6 @@ const StoresGRNReport = () => {
                                         <InputWrapper>
                                             <Label required>Amount to Pay (Max: ₹{pendingAmt.toFixed(2)})</Label>
                                             <Input
-                                                type="number"
-                                                step="0.01"
-                                                min="0.01"
-                                                max={pendingAmt}
                                                 value={paymentData.amount_paid}
                                                 onChange={e => {
                                                     const val = parseFloat(e.target.value);

@@ -636,7 +636,7 @@ export default function PurchaseOrderApproval() {
                       <Trow key={po.po_number || idx}>
                         <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                         <Td><Pill>{po.po_number}</Pill></Td>
-                        <Td style={{ fontWeight: 700 }}>{po.vendor_name || po.vendor_id || "—"}</Td>
+                        <Td style={{ fontWeight: 700, textTransform: "uppercase" }}>{String(po.vendor_name || po.vendor_id || "—").toUpperCase()}</Td>
 
                         {/* Item count */}
                         <Td>

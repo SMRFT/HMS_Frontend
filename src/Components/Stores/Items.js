@@ -489,7 +489,7 @@ const Items = () => {
                     </InputWrapper>
                     <InputWrapper>
                         <Label>Unit Price (₹)</Label>
-                        <Input name="unit_price" type="number" step="0.01" value={formData.unit_price ?? ''} onChange={handleInputChange} placeholder="0.00" />
+                        <Input name="unit_price" value={formData.unit_price ?? ''} onChange={handleInputChange} placeholder="0.00" />
                     </InputWrapper>
                     <InputWrapper style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '24px' }}>
                         <input
@@ -506,11 +506,11 @@ const Items = () => {
                     </InputWrapper>
                     <InputWrapper>
                         <Label>Total Quantity</Label>
-                        <Input name="total_quantity" type="number" value={formData.total_quantity || 0} onChange={handleInputChange} placeholder="Total Quantity" disabled />
+                        <Input name="total_quantity" value={formData.total_quantity || 0} onChange={handleInputChange} placeholder="Total Quantity" disabled />
                     </InputWrapper>
                     <InputWrapper>
                         <Label>Approved Quantity</Label>
-                        <Input name="approved_quantity" type="number" value={formData.approved_quantity || 0} onChange={handleInputChange} placeholder="Approved Quantity" disabled />
+                        <Input name="approved_quantity" value={formData.approved_quantity || 0} onChange={handleInputChange} placeholder="Approved Quantity" disabled />
                     </InputWrapper>
                 </>
             );

@@ -84,6 +84,14 @@ const UsageInput = styled.input`
     font-size:0.875rem;font-weight:600;text-align:center;outline:none;transition:all 0.2s;
     &:focus{border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,0.12);}
     &:disabled{background:#f8fafc;color:#94a3b8;cursor:not-allowed;}
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    &[type="number"] {
+        -moz-appearance: textfield;
+    }
 `;
 const RecordBtn = styled.button`
     padding:7px 14px;border:none;border-radius:8px;font-size:0.8rem;font-weight:700;
@@ -403,7 +411,7 @@ const LabDailyUsage = () => {
                                     </Td>
                                     <Td>
                                         <UsageInput
-                                            type="number" min="1" max={remaining} placeholder="Qty"
+                                            placeholder="Qty"
                                             value={inputVal} disabled={isFull}
                                             onChange={e => {
                                                 const val = e.target.value;

@@ -250,7 +250,13 @@ const MedicineSearchField = ({ value, onChange, fromOutlet, err, placeholder }) 
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET")
       const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : []
       const seen = new Set()
-      const unique = raw.filter(s => { if (seen.has(s.item_id)) return false; seen.add(s.item_id); return true })
+      const unique = raw
+        .filter(s => { if (seen.has(s.item_id)) return false; seen.add(s.item_id); return true })
+        .map(s => ({
+          ...s,
+          item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
+        }))
+        .sort((a, b) => String(a.item_name || a.medicine_name || "").localeCompare(String(b.item_name || b.medicine_name || ""), undefined, { sensitivity: "base" }))
       setResults(unique)
       setShowDrop(unique.length > 0)
     } catch {
@@ -263,11 +269,11 @@ const MedicineSearchField = ({ value, onChange, fromOutlet, err, placeholder }) 
     setSelectedItem(null)
     onChange({ name: val, item: null })
     clearTimeout(debounce.current)
-    debounce.current = setTimeout(() => doSearch(val), 280)
+    debounce.current = setTimeout(() => doSearch(val), 260)
   }
 
   const handleSelect = (stock) => {
-    const name = stock.item_name || stock.medicine_name || stock.name || ""
+    const name = String(stock.item_name || stock.medicine_name || stock.name || "").toUpperCase()
     setInputVal(name)
     setShowDrop(false)
     setResults([])
@@ -289,7 +295,7 @@ const MedicineSearchField = ({ value, onChange, fromOutlet, err, placeholder }) 
         <DropList>
           {results.map((s, i) => (
             <DropItem key={s.item_id || i} onMouseDown={() => handleSelect(s)}>
-              <DropName>{s.item_name || s.medicine_name || s.name}</DropName>
+              <DropName>{String(s.item_name || s.medicine_name || s.name || "").toUpperCase()}</DropName>
               <DropSub>{[s.item_code || s.code, s.strength, s.category].filter(Boolean).join(" · ")}</DropSub>
             </DropItem>
           ))}

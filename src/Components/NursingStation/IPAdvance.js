@@ -185,6 +185,14 @@ const inputBase = `
   outline: none;
   font-family: inherit;
   transition: border-color .14s, box-shadow .14s;
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 `;
 
 const Inp = styled.input`
@@ -345,6 +353,14 @@ const BigInp = styled.input`
   transition: border-color .14s, box-shadow .14s;
   &:focus { border-color: ${T.teal}; box-shadow: 0 0 0 3px ${T.tealLight}; }
   &::placeholder { color: #94a3b8; font-weight: 400; font-size: 0.78rem; }
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 `;
 
 const ActionBar = styled.div`
@@ -593,6 +609,14 @@ const RefundBigInp = styled.input`
   transition: border-color .14s, box-shadow .14s;
   &:focus { border-color: ${T.purple}; box-shadow: 0 0 0 3px #f3e8ff; }
   &::placeholder { color: #c4b5fd; font-weight: 400; font-size: 0.9rem; }
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 `;
 
 // ── Refund History Table ──────────────────────────────────────────────────────
@@ -1940,7 +1964,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                     </F>
                     <F span={2}>
                       <Lbl>Advance Amount (₹)</Lbl>
-                      <BigInp type="number" min="0" step="0.01"
+                      <BigInp
                         value={amount} placeholder="Enter total advance amount"
                         onChange={e => handleAmountChange(e.target.value)} />
                     </F>
@@ -1969,14 +1993,14 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                       <SplitGrid>
                         <F>
                           <Lbl>IP Advance (₹)</Lbl>
-                          <Inp type="number" min="0" step="0.01"
+                          <Inp
                             value={ipAdv} placeholder="0.00"
                             disabled={total <= 0}
                             onChange={e => handleIpAdvChange(e.target.value)} />
                         </F>
                         <F>
                           <Lbl>Billing Advance (₹)</Lbl>
-                          <Inp type="number" min="0" step="0.01"
+                          <Inp
                             value={billAdv} placeholder="0.00"
                             disabled={total <= 0}
                             onChange={e => setBillAdv(e.target.value)} />
@@ -2400,9 +2424,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                 <RefundInputWrap>
                   <Lbl style={{ fontSize: "0.72rem" }}>Refund Amount (₹) *</Lbl>
                   <RefundBigInp
-                    type="number"
-                    min="0.01"
-                    step="0.01"
                     value={refundAmount}
                     readOnly
                     onChange={e => handleRefundAmountChange(e.target.value)}

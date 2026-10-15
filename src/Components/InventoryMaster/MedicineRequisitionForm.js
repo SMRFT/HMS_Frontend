@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
+import { InvTopToolbar, InvPagination, getTodayDateString, SearchSelect } from "./InventoryUIHelper"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -72,13 +72,7 @@ const Inp    = styled.input`
   &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
   &:disabled{background:${C.faint};color:${C.muted};cursor:not-allowed;}
 `
-const Sel    = styled.select`
-  padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};
-  border-radius:7px;font-size:.875rem;color:${C.text};outline:none;width:100%;
-  box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s;
-  &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
-  &:disabled{background:${C.faint};color:${C.muted};cursor:not-allowed;}
-`
+const Sel    = SearchSelect;
 const Txta   = styled.textarea`
   padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};border-radius:7px;
   font-size:.875rem;color:${C.text};outline:none;width:100%;
@@ -666,8 +660,8 @@ export default function MedicineRequisition() {
                         <Trow key={r.mr_number || idx}>
                           <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                           <Td><Pill>{r.mr_number}</Pill></Td>
-                          <Td style={{ fontWeight: 700, maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.medicine_name}</Td>
-                          <Td style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: C.muted, fontSize: ".78rem" }}>{r.chemical_composition || "—"}</Td>
+                          <Td style={{ fontWeight: 700, maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textTransform: "uppercase" }}>{String(r.medicine_name || "").toUpperCase()}</Td>
+                          <Td style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: C.muted, fontSize: ".78rem", textTransform: "uppercase" }}>{String(r.chemical_composition || "—").toUpperCase()}</Td>
                           <Td style={{ whiteSpace: "nowrap" }}>{r.consultant_name || "—"}</Td>
                           <Td style={{ whiteSpace: "nowrap", fontSize: ".78rem" }}>{fmtDT(r.request_date)}</Td>
                           <Td><Badge $s={r.status}>{r.status}</Badge></Td>

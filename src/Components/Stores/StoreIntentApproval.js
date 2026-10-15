@@ -1652,10 +1652,7 @@ const StoresApprovalManager = () => {
                                                     <S.Td style={{ color: '#64748b' }}>{it.original_approved_qty}</S.Td>
                                                     <S.Td>
                                                         <S.Input
-                                                            type="number"
-                                                            min="0"
                                                             disabled={Number(it.original_approved_qty) >= Number(it.quantity)}
-                                                            max={Number(it.quantity) - Number(it.original_approved_qty)}
                                                             value={it.new_approval_qty}
                                                             onChange={(e) => {
                                                                 const val = Number(e.target.value);
@@ -1763,9 +1760,6 @@ const StoresApprovalManager = () => {
                                                         </S.Td>
                                                         <S.Td style={{ textAlign: 'center' }}>
                                                             <Input
-                                                                type="number"
-                                                                min="0"
-                                                                max={Number(it.return_quantity || it.quantity || 9999)}
                                                                 value={it.approved_return_qty}
                                                                 onChange={(e) => {
                                                                     const val = Math.max(0, Number(e.target.value));

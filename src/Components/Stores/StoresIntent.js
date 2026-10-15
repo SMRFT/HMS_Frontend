@@ -596,8 +596,6 @@ const StoresIntentManager = () => {
                                                     <td>{it.hsn}</td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         <S.Input 
-                                                            type="number" 
-                                                            min="1"
                                                             value={it.quantity} 
                                                             onChange={e => {
                                                                 const copy = [...intentForm.items];
@@ -743,9 +741,6 @@ const StoresIntentManager = () => {
                                                         <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#2563eb' }}>{it.max_returnable}</td>
                                                         <td style={{ textAlign: 'center' }}>
                                                             <S.Input 
-                                                                type="number"
-                                                                min="0"
-                                                                max={it.max_returnable}
                                                                 value={it.return_quantity}
                                                                 onChange={e => {
                                                                     const val = Math.min(Number(e.target.value), it.max_returnable);
@@ -1123,9 +1118,6 @@ const StoresIntentManager = () => {
                                                 <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#2563eb' }}>{it.max_returnable}</td>
                                                 <td style={{ textAlign: 'center' }}>
                                                     <S.Input 
-                                                        type="number"
-                                                        min="0"
-                                                        max={it.max_returnable}
                                                         value={it.return_quantity}
                                                         onChange={e => {
                                                             const val = Math.min(Number(e.target.value), it.max_returnable);

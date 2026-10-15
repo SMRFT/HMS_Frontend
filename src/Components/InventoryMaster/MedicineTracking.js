@@ -346,11 +346,16 @@ function MedicineTracking() {
       const r = await apiRequest(`${HmsBaseUrl}pharmacy_items/`, "GET");
       const payload = r?.data;
       const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
-      setMedicines(list);
+      const sorted = (Array.isArray(list) ? list : []).map(m => ({
+        ...m,
+        item_name: m.item_name ? String(m.item_name).toUpperCase() : m.item_name,
+        brand_name: m.brand_name ? String(m.brand_name).toUpperCase() : m.brand_name,
+      })).sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }));
+      setMedicines(sorted);
     } catch {
       setMedicines([]);
     }
-  }, []);
+  }, [HmsBaseUrl]);
 
   useEffect(() => {
     const selectedOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
@@ -475,8 +480,8 @@ function MedicineTracking() {
             />
             <datalist id="med-search-list">
               {medicines.slice(0, 300).map((m) => (
-                <option key={m.item_id} value={m.item_name}>
-                  {m.item_name} {m.brand_name ? `(${m.brand_name})` : ""}
+                <option key={m.item_id} value={String(m.item_name || "").toUpperCase()}>
+                  {String(m.item_name || "").toUpperCase()} {m.brand_name ? `(${String(m.brand_name).toUpperCase()})` : ""}
                 </option>
               ))}
             </datalist>

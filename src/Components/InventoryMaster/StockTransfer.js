@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper";
+import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
   PageWrapper,
@@ -128,17 +129,7 @@ const FilterLabel = styled.label`
   text-transform: uppercase;
   letter-spacing: 0.04em;
 `;
-const FilterSelect = styled.select`
-  padding: 8px 10px;
-  border: 1.5px solid #d1d5db;
-  border-radius: 7px;
-  font-size: 0.85rem;
-  color: #374151;
-  outline: none;
-  background: white;
-  transition: border-color 0.15s;
-  &:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
-`;
+const FilterSelect = SearchSelect;
 const FilterInput = styled.input`
   padding: 8px 10px;
   border: 1.5px solid #d1d5db;
@@ -302,17 +293,7 @@ const RemoveBtn = styled.button`
   transition: background 0.15s;
   &:hover { background: #fca5a5; }
 `;
-const BatchSelect = styled.select`
-  padding: 8px 10px;
-  border: 1.5px solid #d1d5db;
-  border-radius: 7px;
-  font-size: 0.85rem;
-  color: #374151;
-  width: 100%;
-  outline: none;
-  background: white;
-  &:focus { border-color: #0d9488; }
-`;
+const BatchSelect = SearchSelect;
 const ReadonlyInput = styled(Input)`
   background: #f3f4f6 !important;
   cursor: not-allowed;
@@ -1204,10 +1185,16 @@ const StockTransfer = () => {
       const payload = res?.data;
       const raw = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(res) ? res : []));
       const seen = new Set();
-      const unique = raw.filter((s) => {
-        if (seen.has(s.item_id)) return false;
-        seen.add(s.item_id); return true;
-      });
+      const unique = raw
+        .filter((s) => {
+          if (seen.has(s.item_id)) return false;
+          seen.add(s.item_id); return true;
+        })
+        .map((s) => ({
+          ...s,
+          item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
+        }))
+        .sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }));
       setMedicineResults(unique);
       setShowMedDropdown(unique.length > 0);
     } catch {
@@ -1553,7 +1540,7 @@ const StockTransfer = () => {
                         <SearchDropdown>
                           {medicineResults.map((med) => (
                             <DropdownItem key={med.item_id} onMouseDown={() => handleSelectMedicine(med)}>
-                              <strong>{med.item_name}</strong>
+                              <strong>{String(med.item_name || "").toUpperCase()}</strong>
                               {med.available_qty !== undefined && (
                                 <span style={{ color: "#6b7280", marginLeft: 8, fontSize: "0.78rem" }}>
                                   (Avail: {med.available_qty})
@@ -1620,9 +1607,6 @@ const StockTransfer = () => {
                   <InputWrapper>
                     <Label required>Transfer Qty</Label>
                     <Input
-                      type="number"
-                      min="1"
-                      max={selectedBatch?.available_qty || undefined}
                       value={transferQty}
                       onChange={(e) => setTransferQty(e.target.value)}
                       placeholder="0"
@@ -1665,7 +1649,7 @@ const StockTransfer = () => {
                       {addedItems.map((item, idx) => (
                         <tr key={idx}>
                           <ATd style={{ color: "#6b7280" }}>{idx + 1}</ATd>
-                          <ATd style={{ fontWeight: 600, color: "#111827" }}>{item.item_name}</ATd>
+                          <ATd style={{ fontWeight: 600, color: "#111827", textTransform: "uppercase" }}>{String(item.item_name || "").toUpperCase()}</ATd>
                           <ATd style={{ color: "#6b7280" }}>{item.hsn_code || "-"}</ATd>
                           <ATd>{item.outlet_stock}</ATd>
                           <ATd>

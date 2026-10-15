@@ -15,6 +15,7 @@ import {
 } from "../GlobalStyles";
 import apiRequest from "../../Auth/apiRequest";
 import PatientSearchModal from "../Common/PatientSearchModal";
+import OccupiedBedDetailModal from "./OccupiedBedDetailModal";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -545,7 +546,7 @@ const BedCountPill = styled.span`
 
 const BRow = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
   gap: 5px;
   padding: 6px 8px;
 `;
@@ -558,12 +559,13 @@ const BC = styled.button`
   justify-content: center;
   gap: 2px;
   padding: 4px 3px;
-  height: 48px;
+  min-height: 50px;
+  height: auto;
   border-radius: 5px;
   border: 1.5px solid ${p => p.cfg?.border || "#cbd5e1"};
   background: ${p => p.cfg?.light || "#f1f5f9"};
-  cursor: ${p => p.isAv ? "pointer" : "not-allowed"};
-  opacity: ${p => p.isAv ? 1 : 0.65};
+  cursor: ${p => (p.isAv || p.isOcc || p.hasPatient) ? "pointer" : "not-allowed"};
+  opacity: ${p => p.isAv ? 1 : (p.isOcc || p.hasPatient) ? 0.95 : 0.65};
   transition: all 0.12s ease;
   outline: none;
   user-select: none;
@@ -574,6 +576,14 @@ const BC = styled.button`
       transform: scale(1.05);
       border-color: ${p.cfg?.color || "#16a34a"};
       box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+    }
+  `}
+
+  ${p => (p.isOcc || p.hasPatient) && css`
+    &:hover {
+      transform: scale(1.04);
+      border-color: ${p.cfg?.color || "#dc2626"};
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.22);
     }
   `}
 `;
@@ -614,7 +624,7 @@ const buildAddress = ({ area, city, state, zipcode } = {}) =>
   [area, city, state, zipcode].filter(Boolean).join(", ");
 
 // ─── Bed Modal ────────────────────────────────────────────────────────────────
-const BedModal = ({ room, onClose, onSelect }) => {
+const BedModal = ({ room, onClose, onSelect, onViewOccupant }) => {
   if (!room) return null;
   return (
     <ModalOverlay onClick={onClose}>
@@ -627,12 +637,24 @@ const BedModal = ({ room, onClose, onSelect }) => {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: 12 }}>
             {(room.beds || []).map((bed, i) => {
               const avail = isBedSelectable(bed);
+              const pName = bed.patient?.patientname || bed.patient?.name || "";
+              const isOcc = (bed.status || "").toLowerCase() === "occupied" || Boolean(pName);
               return (
-                <BC key={i} bs={bed.status} disabled={!avail}
-                  style={{ minWidth: 72, height: 44, fontSize: ".82rem", flex: "1 1 72px" }}
-                  onClick={() => avail && onSelect(bed.bed_number, room)}>
+                <BC key={i} bs={bed.status} disabled={!avail && !isOcc}
+                  isAv={avail} isOcc={isOcc} hasPatient={Boolean(pName)}
+                  style={{ minWidth: 72, minHeight: 46, fontSize: ".82rem", flex: "1 1 72px" }}
+                  title={avail ? `✅ Bed ${bed.bed_number} — Available` : isOcc ? `🛏️ Bed ${bed.bed_number} — Occupied by ${pName || "Patient"} (Click to view)` : `Bed ${bed.bed_number} (${bed.status})`}
+                  onClick={() => {
+                    if (avail) {
+                      onSelect(bed.bed_number, room);
+                    } else if (isOcc && onViewOccupant) {
+                      onViewOccupant({ bed, room });
+                    }
+                  }}>
                   {bed.bed_number}<br />
-                  <span style={{ fontSize: ".6rem", opacity: .85 }}>{bed.status}</span>
+                  <span style={{ fontSize: ".6rem", opacity: .85 }}>
+                    {pName ? `👤 ${pName.split(" ")[0]}` : bed.status}
+                  </span>
                 </BC>
               );
             })}
@@ -650,7 +672,8 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
   const [loading,  setLoading]  = useState(false);
   const [showBed,  setShowBed]  = useState(false);
   const [selRoom,  setSelRoom]  = useState(null);
-  const [statusFilter, setStatusFilter] = useState("Available");
+  const [occupiedBedDetail, setOccupiedBedDetail] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [filter,   setFilter]   = useState({ room_number: "", block: "", category: "", nursing_station: "" });
 
   const fetchRooms = async (fo = {}) => {
@@ -897,7 +920,7 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
                 })}
               </div>
               <div style={{ fontSize: "0.68rem", color: T.gray500 }}>
-                Defaulting to <strong style={{ color: "#16a34a" }}>Available</strong> beds
+                {statusFilter === "ALL" ? "Showing All beds" : `Showing ${statusFilter} beds`}
               </div>
             </div>
 
@@ -948,17 +971,33 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
                                   ? { color: "#7c3aed", light: "#ede9fe", border: "#d8b4fe", label: "Reserved" }
                                   : { color: "#64748b", light: "#f1f5f9", border: "#cbd5e1", label: "Blocked" };
 
+                                const pName = bed.patient?.patientname || bed.patient?.name || "";
+                                const admDt = bed.patient?.admissionDateTime;
+                                const admDoc = bed.patient?.admittingDoctor;
+                                const uhid = bed.patient?.uhid;
+                                const ipNo = bed.ip_number || bed.patient?.ip_number;
+
+                                const bedTooltip = isAv
+                                  ? `✅ Bed ${bed.bed_number} — Available (Click to select)`
+                                  : isOcc || pName
+                                  ? `🛏️ Bed ${bed.bed_number} (${bs})\n👤 Occupied by: ${pName || "Admitted Patient"}\n🆔 UHID: ${uhid || "—"} | IP: ${ipNo || "—"}\n📅 Admitted: ${admDt ? admDt.replace("T", " ").slice(0, 16) : "—"}\n👨‍⚕️ Doctor: ${admDoc || "—"}\nℹ️ (Click to view full occupant details)`
+                                  : `Bed ${bed.bed_number} (${bs})`;
+
                                 return (
                                   <BC
                                     key={i}
                                     cfg={cfg}
                                     isAv={isAv}
-                                    disabled={!isAv}
-                                    title={isAv ? `✅ Bed ${bed.bed_number} — Click to select` : `Bed ${bed.bed_number} (${bs})`}
+                                    isOcc={isOcc}
+                                    hasPatient={Boolean(pName)}
+                                    disabled={!isAv && !isOcc && !pName}
+                                    title={bedTooltip}
                                     onClick={e => {
+                                      e.stopPropagation();
                                       if (isAv) {
-                                        e.stopPropagation();
                                         handleBedSelect(bed.bed_number, room);
+                                      } else if (isOcc || pName) {
+                                        setOccupiedBedDetail({ bed, room });
                                       }
                                     }}
                                   >
@@ -966,9 +1005,34 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
                                     <span style={{ fontSize: ".66rem", fontWeight: 800, color: cfg.color, lineHeight: 1 }}>
                                       B{bed.bed_number}
                                     </span>
-                                    <span style={{ fontSize: ".48rem", fontWeight: 700, color: cfg.color, textTransform: "uppercase" }}>
-                                      {cfg.label}
-                                    </span>
+                                    {(isOcc || pName) && pName ? (
+                                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", overflow: "hidden", marginTop: 1 }}>
+                                        <span
+                                          style={{
+                                            fontSize: ".48rem",
+                                            fontWeight: 700,
+                                            color: cfg.color,
+                                            maxWidth: "100%",
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                            lineHeight: 1.1,
+                                          }}
+                                          title={`Occupied by: ${pName}`}
+                                        >
+                                          👤 {pName.split(" ")[0]}
+                                        </span>
+                                        {admDt && (
+                                          <span style={{ fontSize: ".42rem", color: "#64748b", lineHeight: 1, marginTop: 1 }}>
+                                            {admDt.replace("T", " ").slice(5, 10)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: ".48rem", fontWeight: 700, color: cfg.color, textTransform: "uppercase" }}>
+                                        {cfg.label}
+                                      </span>
+                                    )}
                                   </BC>
                                 );
                               })}
@@ -984,7 +1048,21 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
           </RMB>
         </RMC>
       </ModalOverlay>
-      {showBed && selRoom && <BedModal room={selRoom} onClose={() => setShowBed(false)} onSelect={handleBedSelect} />}
+      {showBed && selRoom && (
+        <BedModal
+          room={selRoom}
+          onClose={() => setShowBed(false)}
+          onSelect={handleBedSelect}
+          onViewOccupant={setOccupiedBedDetail}
+        />
+      )}
+      {occupiedBedDetail && (
+        <OccupiedBedDetailModal
+          bed={occupiedBedDetail.bed}
+          room={occupiedBedDetail.room}
+          onClose={() => setOccupiedBedDetail(null)}
+        />
+      )}
     </>
   );
 };
@@ -1321,20 +1399,40 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
                   onKeyDown={e => {
                     if (e.key === "Enter") {
                       e.preventDefault();
+                      if (form.uhid.trim()) {
+                        loadAdmission({ uhid: form.uhid.trim() });
+                      } else {
+                        openUhidSearch();
+                      }
+                    }
+                  }}
+                  onSearch={() => {
+                    if (form.uhid.trim()) {
+                      loadAdmission({ uhid: form.uhid.trim() });
+                    } else {
                       openUhidSearch();
                     }
                   }}
-                  onSearch={openUhidSearch}
                   placeholder="Enter UHID" />
                 <Field label="IP Number" value={form.ipNumber}
                   onChange={e => setForm(p => ({ ...p, ipNumber: e.target.value }))}
                   onKeyDown={e => {
                     if (e.key === "Enter") {
                       e.preventDefault();
+                      if (form.ipNumber.trim()) {
+                        loadAdmission({ ip_number: form.ipNumber.trim() });
+                      } else {
+                        openIpSearch();
+                      }
+                    }
+                  }}
+                  onSearch={() => {
+                    if (form.ipNumber.trim()) {
+                      loadAdmission({ ip_number: form.ipNumber.trim() });
+                    } else {
                       openIpSearch();
                     }
                   }}
-                  onSearch={openIpSearch}
                   placeholder="Enter IP No" />
                 <Field label="IP Serial No" value={form.ipserial_number} readOnly />
                 <Field label="Patient Name" value={form.name} readOnly />

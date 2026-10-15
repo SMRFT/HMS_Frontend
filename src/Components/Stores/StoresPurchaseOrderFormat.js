@@ -1066,15 +1066,15 @@ const StoresPurchaseOrderFormat = () => {
                                             </div>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem', fontWeight: '600', color: colors.textMuted }}>Qty</label>
-                                                <Input type="number" min="1" value={itemQty} onChange={e => setItemQty(e.target.value)} style={{ width: '100%' }} />
+                                                <Input value={itemQty} onChange={e => setItemQty(e.target.value)} style={{ width: '100%' }} />
                                             </div>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem', fontWeight: '600', color: colors.textMuted }}>Unit Rate (₹)</label>
-                                                <Input type="number" step="0.01" value={itemRate} onChange={e => setItemRate(e.target.value)} style={{ width: '100%' }} />
+                                                <Input value={itemRate} onChange={e => setItemRate(e.target.value)} style={{ width: '100%' }} />
                                             </div>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem', fontWeight: '600', color: colors.textMuted }}>Disc %</label>
-                                                <Input type="number" min="0" max="100" value={itemDiscount} onChange={e => setItemDiscount(e.target.value)} style={{ width: '100%' }} />
+                                                <Input value={itemDiscount} onChange={e => setItemDiscount(e.target.value)} style={{ width: '100%' }} />
                                             </div>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem', fontWeight: '600', color: colors.textMuted }}>GST %</label>

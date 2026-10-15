@@ -1,5 +1,6 @@
 import React from "react";
 import styled, { keyframes, css } from "styled-components";
+import SearchSelect from "../Common/SearchSelect";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    UNIFIED INVENTORY DESIGN TOKENS (Hospital Teal & Slate Palette)
@@ -132,7 +133,7 @@ export const InvFieldLabel = styled.label`
   white-space: nowrap;
 `;
 
-export const InvSelect = styled.select`
+export const InvNativeSelect = styled.select`
   height: 35px;
   width: 100%;
   min-width: 0;
@@ -155,6 +156,9 @@ export const InvSelect = styled.select`
     box-shadow: 0 0 0 3px ${InvTheme.primaryBorder};
   }
 `;
+
+export const InvSelect = SearchSelect;
+export { SearchSelect, SearchSelect as InvSearchSelect };
 
 export const InvInput = styled.input`
   height: 35px;
@@ -180,6 +184,14 @@ export const InvInput = styled.input`
   &::placeholder {
     color: #94a3b8;
     font-size: 0.8rem;
+  }
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
   }
 `;
 
@@ -261,7 +273,7 @@ export const InvTopToolbar = ({
         {onPageSizeChange && (
           <InvFieldGroup>
             <InvFieldLabel>Show:</InvFieldLabel>
-            <InvSelect
+            <InvNativeSelect
               style={{ width: "auto", minWidth: 68 }}
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
@@ -269,7 +281,7 @@ export const InvTopToolbar = ({
               {pageSizeOptions.map((sz) => (
                 <option key={sz} value={sz}>{sz}</option>
               ))}
-            </InvSelect>
+            </InvNativeSelect>
           </InvFieldGroup>
         )}
 
