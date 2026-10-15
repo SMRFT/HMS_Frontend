@@ -632,7 +632,7 @@ export default function PurchaseRequisitionAdmin() {
                         <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                         <Td><Pill>{pr.pr_number}</Pill></Td>
                         <Td style={{ maxWidth: 200 }}>
-                          <div style={{ fontWeight: 600, fontSize: ".82rem" }}>{firstItem}</div>
+                          <div style={{ fontWeight: 600, fontSize: ".82rem", textTransform: "uppercase" }}>{String(firstItem).toUpperCase()}</div>
                           {more && <div style={{ color: C.muted, fontSize: ".72rem" }}>{more} more</div>}
                         </Td>
                         <Td><Badge $s={pr.status}>{pr.status}</Badge></Td>

@@ -409,6 +409,14 @@ const TInput = styled.input`
   background: ${p => p.$ro ? "#f8fafc" : "#fff"}; color: ${p => p.$ro ? T.textMuted : T.textMain};
   text-align: ${p => p.$align || "left"}; transition: border 0.12s;
   &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 `;
 const EmptyRow = styled.div`text-align: center; padding: 30px; color: ${T.textMuted}; font-size: 0.84rem;`;
 
@@ -504,6 +512,14 @@ const FinIn = styled.input`
   font-weight: ${p => p.$ro ? 600 : 400};
   transition: border 0.12s, box-shadow 0.12s;
   &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
   ${p => p.$net && `
     font-weight: 700;
     font-size: 0.92rem;
@@ -923,8 +939,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           </FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
-            type="number"
-            min={0}
             value={f.advance_amount}
             onChange={e => onChange("advance_amount", e.target.value)}
             placeholder="0.00"
@@ -936,8 +950,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           </FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
-            type="number"
-            min={0}
             value={f.sales_return}
             onChange={e => onChange("sales_return", e.target.value)}
             placeholder="0"
@@ -947,8 +959,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <FinLbl>Medicines</FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
-            type="number"
-            min={0}
             value={f.medicines}
             onChange={e => onChange("medicines", e.target.value)}
             placeholder="0.00"
@@ -963,8 +973,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <FinLbl>Taxable</FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
-            type="number"
-            min={0}
             value={f.taxable}
             onChange={e => onChange("taxable", e.target.value)}
             placeholder="0.00"
@@ -974,8 +982,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <FinLbl>Non Tax</FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
-            type="number"
-            min={0}
             value={f.non_tax !== "" ? f.non_tax : fmt(totals.totalAmount)}
             onChange={e => onChange("non_tax", e.target.value)}
             placeholder="0.00"
@@ -985,8 +991,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <FinLbl>GST</FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
-            type="number"
-            min={0}
             value={f.gst_amount}
             onChange={e => onChange("gst_amount", e.target.value)}
             placeholder="0.00"
@@ -996,8 +1000,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <FinLbl>Room Tax</FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
-            type="number"
-            min={0}
             value={f.room_tax}
             onChange={e => onChange("room_tax", e.target.value)}
             placeholder="0.00"
@@ -1012,9 +1014,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <FinLbl>Discount (%)</FinLbl>
           <div style={{ display: "flex", alignItems: "center", gap: 5, flex: 1, minWidth: 0 }}>
             <FinIn
-              type="number"
-              min={0}
-              max={100}
               value={f.discount_percent}
               onChange={e => {
                 const pctVal = e.target.value;
@@ -1036,8 +1035,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <FinLbl>Discount (₹)</FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
-            type="number"
-            min={0}
             value={f.discount_amount}
             onChange={e => {
               const amtVal = e.target.value;
@@ -1333,9 +1330,9 @@ const ItemsSection = ({
               billTypeName={billTypeName}
             />
           </ITD>
-          <ITD><TInput $align="right" type="number" min={1} value={newItem.quantity} onChange={e => onNIChange("quantity", Number(e.target.value) || 1)} disabled={disabled} /></ITD>
-          <ITD><TInput $align="right" type="number" min={0} value={newItem.rate} onChange={e => onNIChange("rate", e.target.value)} disabled={disabled} /></ITD>
-          <ITD><TInput $align="right" type="number" min={0} value={newItem.discount} onChange={e => onNIChange("discount", e.target.value)} disabled={disabled} /></ITD>
+          <ITD><TInput $align="right" value={newItem.quantity} onChange={e => onNIChange("quantity", e.target.value)} disabled={disabled} /></ITD>
+          <ITD><TInput $align="right" value={newItem.rate} onChange={e => onNIChange("rate", e.target.value)} disabled={disabled} /></ITD>
+          <ITD><TInput $align="right" value={newItem.discount} onChange={e => onNIChange("discount", e.target.value)} disabled={disabled} /></ITD>
           <ITD><TInput $align="right" $ro value={fmt(newItem.amount)} readOnly /></ITD>
           <ITD>
             <SearchSelect
@@ -1351,7 +1348,7 @@ const ItemsSection = ({
               style={{ minWidth: "130px" }}
             />
           </ITD>
-          <ITD><TInput $align="right" type="number" min={0} value={newItem.doctor_fee} onChange={e => onNIChange("doctor_fee", e.target.value)} disabled={disabled} /></ITD>
+          <ITD><TInput $align="right" value={newItem.doctor_fee} onChange={e => onNIChange("doctor_fee", e.target.value)} disabled={disabled} /></ITD>
           <ITD><TInput value={newItem.item_description} onChange={e => onNIChange("item_description", e.target.value)} disabled={disabled} placeholder="Notes…" /></ITD>
           <ITD $align="center"></ITD>
           <ITD $align="center">
@@ -1395,9 +1392,9 @@ const ItemsSection = ({
                 </div>
               )}
             </ITD>
-            <ITD><TInput $align="right" type="number" min={1} value={item.quantity} onChange={e => onEdit(item._key, "quantity", Number(e.target.value) || 1)} /></ITD>
-            <ITD><TInput $align="right" type="number" min={0} value={item.rate} onChange={e => onEdit(item._key, "rate", e.target.value)} /></ITD>
-            <ITD><TInput $align="right" type="number" min={0} value={item.discount} onChange={e => onEdit(item._key, "discount", e.target.value)} /></ITD>
+            <ITD><TInput $align="right" value={item.quantity} onChange={e => onEdit(item._key, "quantity", e.target.value)} /></ITD>
+            <ITD><TInput $align="right" value={item.rate} onChange={e => onEdit(item._key, "rate", e.target.value)} /></ITD>
+            <ITD><TInput $align="right" value={item.discount} onChange={e => onEdit(item._key, "discount", e.target.value)} /></ITD>
             <ITD $align="right" style={{ fontWeight: 700, fontSize: "0.82rem" }}>₹{fmt(item.amount)}</ITD>
             <ITD>
               <SearchSelect
@@ -1412,7 +1409,7 @@ const ItemsSection = ({
                 style={{ minWidth: "130px" }}
               />
             </ITD>
-            <ITD><TInput $align="right" type="number" min={0} value={item.doctor_fee || ""} onChange={e => onEdit(item._key, "doctor_fee", e.target.value)} /></ITD>
+            <ITD><TInput $align="right" value={item.doctor_fee || ""} onChange={e => onEdit(item._key, "doctor_fee", e.target.value)} /></ITD>
             <ITD>
               <TInput
                 value={item.item_description || item.invest_bill_no || ""}

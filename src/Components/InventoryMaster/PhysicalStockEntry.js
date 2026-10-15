@@ -118,6 +118,14 @@ const PhysicalInput = styled.input`
   background: ${({ edited }) => (edited ? "#f0fdfa" : "white")};
   border-color: ${({ edited }) => (edited ? "#0d9488" : "#d1d5db")};
   &:focus { border-color: #0d9488; box-shadow: 0 0 0 2px rgba(13,148,136,0.1); }
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 `;
 
 const ActionIcon = styled.button`
@@ -428,8 +436,8 @@ const PhysicalStockEntry = () => {
         {rows.length > 0 && (
           <div style={{ padding: "0 24px 24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <SectionTitle style={{ margin: 0 }}>
-                Batch List — {rows[0]?.item_name}
+              <SectionTitle style={{ margin: 0, textTransform: "uppercase" }}>
+                Batch List — {rows[0]?.item_name ? String(rows[0].item_name).toUpperCase() : ""}
                 <span style={{
                   background: "#e5e7eb", color: "#6b7280",
                   fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: 600, marginLeft: 8,
@@ -507,8 +515,6 @@ const PhysicalStockEntry = () => {
                         </Td>
                         <Td>
                           <PhysicalInput
-                            type="number"
-                            min="0"
                             value={row.physical_stock}
                             edited={row.physical_stock !== "" ? 1 : 0}
                             disabled={row.saved && editingIdx !== idx}

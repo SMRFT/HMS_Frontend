@@ -100,7 +100,12 @@ const ChemicalComposition = () => {
             (Array.isArray(payload) ? payload.length : list.length);
           const pages = payload?.total_pages ?? response?.total_pages ?? Math.max(1, Math.ceil(total / size));
 
-          setCompositions(list);
+          const sortedList = list.map((c) => ({
+            ...c,
+            composition_name: c.composition_name ? String(c.composition_name).toUpperCase() : c.composition_name,
+          })).sort((a, b) => String(a.composition_name || "").localeCompare(String(b.composition_name || ""), undefined, { sensitivity: "base" }));
+
+          setCompositions(sortedList);
           setTotalCount(total);
           setTotalPages(pages);
           setCurrentPage(payload?.current_page || p);
@@ -263,7 +268,9 @@ const ChemicalComposition = () => {
                     <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>
                       CMP-{comp.composition_id}
                     </InvTd>
-                    <InvTd style={{ fontWeight: 600 }}>{comp.composition_name}</InvTd>
+                    <InvTd style={{ fontWeight: 600, textTransform: "uppercase" }}>
+                      {String(comp.composition_name || "").toUpperCase()}
+                    </InvTd>
                     <InvTd style={{ textAlign: "center" }}>
                       <InvActionGroup>
                         <InvActionBtn variant="edit" onClick={() => handleEdit(comp)} title="Edit Composition">

@@ -100,7 +100,12 @@ const PharmacyCategory = () => {
             (Array.isArray(payload) ? payload.length : list.length);
           const pages = payload?.total_pages ?? response?.total_pages ?? Math.max(1, Math.ceil(total / size));
 
-          setCategories(list);
+          const sortedList = list.map((c) => ({
+            ...c,
+            category_name: c.category_name ? String(c.category_name).toUpperCase() : c.category_name,
+          })).sort((a, b) => String(a.category_name || "").localeCompare(String(b.category_name || ""), undefined, { sensitivity: "base" }));
+
+          setCategories(sortedList);
           setTotalCount(total);
           setTotalPages(pages);
           setCurrentPage(payload?.current_page || p);
@@ -260,7 +265,9 @@ const PharmacyCategory = () => {
                     <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>
                       CAT-{cat.category_id}
                     </InvTd>
-                    <InvTd style={{ fontWeight: 600 }}>{cat.category_name}</InvTd>
+                    <InvTd style={{ fontWeight: 600, textTransform: "uppercase" }}>
+                      {String(cat.category_name || "").toUpperCase()}
+                    </InvTd>
                     <InvTd style={{ textAlign: "center" }}>
                       <InvActionGroup>
                         <InvActionBtn variant="edit" onClick={() => handleEdit(cat)} title="Edit Category">

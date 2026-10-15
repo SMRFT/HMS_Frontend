@@ -160,6 +160,16 @@ export const Input = styled.input`
     min-width: 0;
     width: 100%;
   }
+
+  /* Hide number input stepper arrows */
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 `;
 
 export const Select = styled.select`

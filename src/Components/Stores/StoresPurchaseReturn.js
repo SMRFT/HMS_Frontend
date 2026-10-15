@@ -967,9 +967,6 @@ const StoresPurchaseReturn = () => {
                                                                 <Td style={{ textAlign: 'right' }}>₹{it.unit_price.toFixed(2)}</Td>
                                                                 <Td style={{ textAlign: 'right' }}>
                                                                     <Input 
-                                                                        type="number" 
-                                                                        min="0" 
-                                                                        max={it.original_qty}
                                                                         value={it.return_qty} 
                                                                         onChange={e => handleItemReturnQtyChange(idx, e.target.value)}
                                                                         style={{ width: '90px', textAlign: 'right', padding: '4px 8px' }}

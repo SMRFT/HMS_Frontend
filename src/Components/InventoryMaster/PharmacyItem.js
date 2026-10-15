@@ -239,7 +239,7 @@ const SearchableCompositionSelect = ({ compositions, value, onChange }) => {
                   setOpen(false);
                 }}
               >
-                {c.composition_name}
+                {String(c.composition_name || "").toUpperCase()}
               </ComboOption>
             ))
           )}
@@ -335,7 +335,16 @@ const PharmacyItem = () => {
             (Array.isArray(payload) ? payload.length : list.length);
           const pages = payload?.total_pages ?? res?.total_pages ?? Math.max(1, Math.ceil(total / size));
 
-          setItems(list);
+          const sortedItems = list.map((it) => ({
+            ...it,
+            item_name: it.item_name ? String(it.item_name).toUpperCase() : it.item_name,
+            item_last_name: it.item_last_name ? String(it.item_last_name).toUpperCase() : it.item_last_name,
+            brand_name: it.brand_name ? String(it.brand_name).toUpperCase() : it.brand_name,
+            category_name: it.category_name ? String(it.category_name).toUpperCase() : it.category_name,
+            chemical_composition_name: it.chemical_composition_name ? String(it.chemical_composition_name).toUpperCase() : it.chemical_composition_name,
+          })).sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }));
+
+          setItems(sortedItems);
           setTotalCount(total);
           setTotalPages(pages);
           setCurrentPage(payload?.current_page || p);
@@ -365,7 +374,11 @@ const PharmacyItem = () => {
         : Array.isArray(payload?.results)
         ? payload.results
         : [];
-      setCategories(list);
+      const sorted = list.map((c) => ({
+        ...c,
+        category_name: c.category_name ? String(c.category_name).toUpperCase() : c.category_name,
+      })).sort((a, b) => String(a.category_name || "").localeCompare(String(b.category_name || ""), undefined, { sensitivity: "base" }));
+      setCategories(sorted);
     } catch {
       console.error("Failed to load categories");
     }
@@ -382,7 +395,11 @@ const PharmacyItem = () => {
         : Array.isArray(payload?.results)
         ? payload.results
         : [];
-      setCompositions(list);
+      const sorted = list.map((c) => ({
+        ...c,
+        composition_name: c.composition_name ? String(c.composition_name).toUpperCase() : c.composition_name,
+      })).sort((a, b) => String(a.composition_name || "").localeCompare(String(b.composition_name || ""), undefined, { sensitivity: "base" }));
+      setCompositions(sorted);
     } catch {
       console.error("Failed to load compositions");
     }
@@ -630,7 +647,7 @@ const PharmacyItem = () => {
                     <option value="">-- Select Category --</option>
                     {categories.map((c) => (
                       <option key={c.category_id} value={c.category_id}>
-                        {c.category_name}
+                        {String(c.category_name || "").toUpperCase()}
                       </option>
                     ))}
                   </InvSelect>
@@ -669,7 +686,6 @@ const PharmacyItem = () => {
                 <InvFormField>
                   <InvFormLabel>Reorder Level (Min Qty)</InvFormLabel>
                   <InvInput
-                    type="number"
                     name="reorder_level"
                     value={form.reorder_level}
                     onChange={handleChange}
@@ -926,7 +942,7 @@ const PharmacyItem = () => {
                 <option value="">All Categories</option>
                 {categories.map((c) => (
                   <option key={c.category_id} value={c.category_id}>
-                    {c.category_name}
+                    {String(c.category_name || "").toUpperCase()}
                   </option>
                 ))}
               </InvSelect>
@@ -979,22 +995,22 @@ const PharmacyItem = () => {
                 items.map((item, idx) => (
                   <InvTr key={item.item_id || item._id || idx}>
                     <InvTd>{startIdx + idx}</InvTd>
-                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>
-                      {item.item_name}
+                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark, textTransform: "uppercase" }}>
+                      {String(item.item_name || "").toUpperCase()}
                       {item.item_last_name && (
                         <span style={{ color: InvTheme.textMuted, fontWeight: 400, marginLeft: 4 }}>
-                          ({item.item_last_name})
+                          ({String(item.item_last_name).toUpperCase()})
                         </span>
                       )}
                     </InvTd>
                     <InvTd>
-                      <InvBadge bg="#f1f5f9" color="#334155" border="#cbd5e1">
-                        {item.category_name || getCategoryName(item.category)}
+                      <InvBadge bg="#f1f5f9" color="#334155" border="#cbd5e1" style={{ textTransform: "uppercase" }}>
+                        {String(item.category_name || getCategoryName(item.category) || "").toUpperCase()}
                       </InvBadge>
                     </InvTd>
-                    <InvTd>{item.brand_name || "—"}</InvTd>
-                    <InvTd style={{ fontSize: "0.8rem", maxWidth: 240 }}>
-                      {item.chemical_composition_name || getCompositionName(item.chemical_composition)}
+                    <InvTd style={{ textTransform: "uppercase" }}>{String(item.brand_name || "—").toUpperCase()}</InvTd>
+                    <InvTd style={{ fontSize: "0.8rem", maxWidth: 240, textTransform: "uppercase" }}>
+                      {String(item.chemical_composition_name || getCompositionName(item.chemical_composition) || "").toUpperCase()}
                     </InvTd>
                     <InvTd style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{item.hsn || "—"}</InvTd>
                     <InvTd style={{ fontWeight: 700, color: InvTheme.accent }}>

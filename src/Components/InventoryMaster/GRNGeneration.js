@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react"
 import {
-  PageWrapper, Container, SectionTitle, Input, Select, Button,
+  PageWrapper, Container, SectionTitle, Input, Button,
   Table, Th, Td, Tr, Label, FormRow, TextArea, FormContent,
   ControlsContainer, SearchContainer, InputWrapper, ButtonContainer,
   TableWrapper, colors,
@@ -10,6 +10,9 @@ import { toast } from "react-toastify"
 import { Plus, Trash2, X, ShoppingCart, Lock, Camera, Upload, ScanLine, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
 import styled, { keyframes } from "styled-components"
 import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
+import SearchSelect from "../Common/SearchSelect"
+
+const Select = SearchSelect;
 
 /* ─── Styled Components ─────────────────────────────────────────────────── */
 const PageHeader = styled.div`
@@ -866,7 +869,11 @@ const GRNGeneration = () => {
       const r = await apiRequest(`${baseUrl}vendors/`,"GET");
       const payload = r?.data;
       const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
-      if(r.success) setVendors(list)
+      const sorted = (Array.isArray(list) ? list : []).map(v => ({
+        ...v,
+        name: v.name ? String(v.name).toUpperCase() : v.name
+      })).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
+      if(r?.success) setVendors(sorted)
     } catch {}
   },[])
   const fetchMedicines = useCallback(async () => {
@@ -874,7 +881,12 @@ const GRNGeneration = () => {
       const r = await apiRequest(`${baseUrl}pharmacy_items/`,"GET");
       const payload = r?.data;
       const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
-      if(r.success) setMedicines(list)
+      const sorted = (Array.isArray(list) ? list : []).map(m => ({
+        ...m,
+        item_name: m.item_name ? String(m.item_name).toUpperCase() : m.item_name,
+        item_last_name: m.item_last_name ? String(m.item_last_name).toUpperCase() : m.item_last_name
+      })).sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }));
+      if(r?.success) setMedicines(sorted)
     } catch {}
   },[])
   const fetchGRNList   = useCallback(async (p = listPage, size = listPageSize, q = search, from = fromDate, to = toDate) => {
@@ -1394,7 +1406,7 @@ const GRNGeneration = () => {
                       <Select name="vendor_id" value={grnData.vendor_id} onChange={handleVendorChange}
                         disabled={isVerified} style={{fontSize:"0.8rem"}}>
                         <option value="">-- Select Vendor --</option>
-                        {vendors.map(v=><option key={v.vendor_id} value={String(v.vendor_id)}>{v.name}</option>)}
+                        {vendors.map(v=><option key={v.vendor_id} value={String(v.vendor_id)}>{String(v.name || "").toUpperCase()}</option>)}
                       </Select>
                     </InputWrapper>
                   </GridRow>
@@ -1474,7 +1486,7 @@ const GRNGeneration = () => {
                                   <DropList>
                                     {filteredMeds.map(m=>(
                                       <DropItem key={m.item_id} onMouseDown={()=>selectMedicine(m)}>
-                                        {m.item_name} {m.item_last_name||""}
+                                        {String(m.item_name || "").toUpperCase()} {String(m.item_last_name || "").toUpperCase()}
                                         <span style={{fontSize:"0.7rem",color:colors.textMuted,marginLeft:5}}>HSN:{m.hsn||"—"}</span>
                                       </DropItem>
                                     ))}
@@ -1531,13 +1543,13 @@ const GRNGeneration = () => {
                           <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Packing</Lbl>
-                              <Input type="number" name="packing" value={curItem.packing}
-                                onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
+                              <Input name="packing" value={curItem.packing}
+                                onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>No. of Units</Lbl>
-                              <Input type="number" name="unit" value={curItem.unit}
-                                onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
+                              <Input name="unit" value={curItem.unit}
+                                onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Qty (auto)</Lbl>
@@ -1545,16 +1557,16 @@ const GRNGeneration = () => {
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Free</Lbl>
-                              <Input type="number" name="free" value={curItem.free}
-                                onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
+                              <Input name="free" value={curItem.free}
+                                onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
                             </InputWrapper>
                           </GridRow>
 
                           <GridRow cols="repeat(4,1fr)" style={{marginBottom:0}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Packing Price ₹</Lbl>
-                              <Input type="number" name="packing_price" value={curItem.packing_price}
-                                onChange={handleItemChange} placeholder="0.0000" min="0" style={{fontSize:"0.8rem"}} />
+                              <Input name="packing_price" value={curItem.packing_price}
+                                onChange={handleItemChange} placeholder="0.0000" style={{fontSize:"0.8rem"}} />
                               <LastHint>Last Purchase: {lastPurchasePrice}</LastHint>
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
@@ -1589,8 +1601,8 @@ const GRNGeneration = () => {
                             <GridRow cols="1fr 1fr" style={{marginBottom:4}}>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>Purchase Discount (%)</Lbl>
-                                <Input type="number" name="purchase_discount" value={curItem.purchase_discount}
-                                  onChange={handleItemChange} placeholder="0" min="0" max="100" style={{fontSize:"0.8rem"}} />
+                                <Input name="purchase_discount" value={curItem.purchase_discount}
+                                  onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>Discount Amt (auto)</Lbl>
@@ -1621,8 +1633,8 @@ const GRNGeneration = () => {
                           <PanelTitle>Tax Details</PanelTitle>
                           <InputWrapper style={{margin:0}}>
                             <Lbl>MRP ₹</Lbl>
-                            <Input type="number" name="mrp" value={curItem.mrp}
-                              onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
+                            <Input name="mrp" value={curItem.mrp}
+                              onChange={handleItemChange} placeholder="0.00" style={{fontSize:"0.8rem"}} />
                             <LastHint>Last MRP: {lastMRP}</LastHint>
                           </InputWrapper>
 
@@ -1659,8 +1671,8 @@ const GRNGeneration = () => {
                             <GridRow cols="1fr 1fr 1fr" style={{marginBottom:0}}>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>Selling Discount (%)</Lbl>
-                                <Input type="number" name="selling_discount" value={curItem.selling_discount}
-                                  onChange={handleItemChange} placeholder="0" min="0" max="100" style={{fontSize:"0.8rem"}} />
+                                <Input name="selling_discount" value={curItem.selling_discount}
+                                  onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>Price (auto)</Lbl>
@@ -1805,25 +1817,25 @@ const GRNGeneration = () => {
                                 </Td>
                                 <Td style={{fontSize:"0.75rem"}}>
                                   {isOcr && !isVerified ? (
-                                    <Input type="number" value={it.packing}
+                                    <Input value={it.packing}
                                       onChange={e => updateItem(it.id, "packing", e.target.value)}
-                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:55}} min="0"/>
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:55}} />
                                   ) : (it.packing||"—")}
                                 </Td>
                                 <Td style={{fontSize:"0.75rem"}}>
                                   {isOcr && !isVerified ? (
-                                    <Input type="number" value={it.unit}
+                                    <Input value={it.unit}
                                       onChange={e => updateItem(it.id, "unit", e.target.value)}
-                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:55}} min="0"/>
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:55}} />
                                   ) : (it.unit||"—")}
                                 </Td>
                                 <Td style={{fontSize:"0.75rem"}}>{it.quantity}</Td>
                                 <Td style={{fontSize:"0.75rem"}}>{it.free}</Td>
                                 <Td style={{fontSize:"0.75rem"}}>
                                   {isOcr && !isVerified ? (
-                                    <Input type="number" value={it.packing_price}
+                                    <Input value={it.packing_price}
                                       onChange={e => updateItem(it.id, "packing_price", e.target.value)}
-                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:75}} min="0"/>
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:75}} />
                                   ) : `₹${parseFloat(it.packing_price||0).toFixed(2)}`}
                                 </Td>
                                 <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.item_value||0).toFixed(2)}</Td>
@@ -1836,9 +1848,9 @@ const GRNGeneration = () => {
                                 </Td>
                                 <Td style={{fontSize:"0.75rem"}}>
                                   {isOcr && !isVerified ? (
-                                    <Input type="number" value={it.mrp}
+                                    <Input value={it.mrp}
                                       onChange={e => updateItem(it.id, "mrp", e.target.value)}
-                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:70}} min="0"/>
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:70}} />
                                   ) : `₹${parseFloat(it.mrp||0).toFixed(2)}`}
                                 </Td>
                                 <Td style={{fontSize:"0.75rem",color:"#15803d",fontWeight:600}}>
@@ -1880,7 +1892,7 @@ const GRNGeneration = () => {
                       <SumCard>
                         <SumLabel>Round Off</SumLabel>
                         <SumValue>₹ {grnData.round_amount}</SumValue>
-                        <Input type="number" name="round_amount" value={grnData.round_amount}
+                        <Input name="round_amount" value={grnData.round_amount}
                           onChange={handleGrnChange} style={{height:30,fontSize:"0.82rem",width:"100%"}} />
                       </SumCard>
                       <SumCard>

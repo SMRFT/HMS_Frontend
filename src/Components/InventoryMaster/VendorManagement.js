@@ -115,10 +115,10 @@ const VendorManagement = () => {
           const list = Array.isArray(payload)
             ? payload
             : Array.isArray(payload?.data)
-            ? payload.data
-            : Array.isArray(payload?.results)
-            ? payload.results
-            : [];
+              ? payload.data
+              : Array.isArray(payload?.results)
+                ? payload.results
+                : [];
           const total =
             payload?.total_records ??
             payload?.count ??
@@ -126,7 +126,12 @@ const VendorManagement = () => {
             (Array.isArray(payload) ? payload.length : list.length);
           const pages = payload?.total_pages ?? response?.total_pages ?? Math.max(1, Math.ceil(total / size));
 
-          setVendors(list);
+          const sortedList = list.map((v) => ({
+            ...v,
+            name: v.name ? String(v.name).toUpperCase() : v.name,
+          })).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
+
+          setVendors(sortedList);
           setTotalCount(total);
           setTotalPages(pages);
           setCurrentPage(payload?.current_page || page);
@@ -438,8 +443,8 @@ const VendorManagement = () => {
                       {loadingCities
                         ? "Loading cities..."
                         : !form.state
-                        ? "Select state first"
-                        : "-- Select City --"}
+                          ? "Select state first"
+                          : "-- Select City --"}
                     </option>
                     {cities.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -590,7 +595,9 @@ const VendorManagement = () => {
                 vendors.map((v, idx) => (
                   <InvTr key={v.vendor_id || v._id || idx}>
                     <InvTd>{startIdx + idx}</InvTd>
-                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>{v.name}</InvTd>
+                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark, textTransform: "uppercase" }}>
+                      {String(v.name || "").toUpperCase()}
+                    </InvTd>
                     <InvTd>
                       <InvBadge
                         bg={v.vendor_type === "SUPPLIER" ? "#dbeafe" : "#fef3c7"}

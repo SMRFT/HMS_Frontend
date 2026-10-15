@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
+import { InvTopToolbar, InvPagination, getTodayDateString, SearchSelect } from "./InventoryUIHelper"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -59,12 +59,7 @@ const Inp = styled.input`
   box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s,box-shadow .14s;
   &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
 `
-const Sel = styled.select`
-  padding:9px 12px;border:1.5px solid ${C.border};
-  border-radius:7px;font-size:.875rem;color:${C.text};outline:none;
-  box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s;
-  &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
-`
+const Sel = SearchSelect;
 
 /* ── Buttons ── */
 const Btn     = styled.button`
@@ -557,8 +552,8 @@ const MedicineRequisitionApproval = () => {
                       <Trow key={r.mr_number || idx}>
                         <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                         <Td><Pill>{r.mr_number}</Pill></Td>
-                        <Td style={{ fontWeight: 700, maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={r.medicine_name}>{r.medicine_name}</Td>
-                        <Td style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: C.muted, fontSize: ".78rem" }} title={r.chemical_composition}>{r.chemical_composition || "—"}</Td>
+                        <Td style={{ fontWeight: 700, maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textTransform: "uppercase" }} title={r.medicine_name}>{String(r.medicine_name || "").toUpperCase()}</Td>
+                        <Td style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: C.muted, fontSize: ".78rem", textTransform: "uppercase" }} title={r.chemical_composition}>{String(r.chemical_composition || "—").toUpperCase()}</Td>
                         <Td style={{ whiteSpace: "nowrap" }}>{r.consultant_name || "—"}</Td>
                         <Td style={{ whiteSpace: "nowrap", fontSize: ".78rem" }}>{fmtDT(r.request_date)}</Td>
                         <Td><Badge $s={r.status}>{r.status}</Badge></Td>

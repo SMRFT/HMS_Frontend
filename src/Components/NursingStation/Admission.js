@@ -8,6 +8,7 @@ import RoomShifting from "./RoomShifting";          // ← Room Shifting compone
 import IPAdvance from "./IPAdvance";                // ← IP Advance component
 import AdmissionGrid from "./AdmissionGrid";
 import PatientSearchModal from "../Common/PatientSearchModal";
+import OccupiedBedDetailModal from "./OccupiedBedDetailModal";
 import {
   PageWrapper, Container, ModalOverlay, ModalContainer,
   ModalHeader, ModalTitle, CloseButton, ModalBody,
@@ -374,7 +375,7 @@ const BedCountPill = styled.span`
   color: ${p => p.available > 0 ? "#15803d" : "#b91c1c"};
 `;
 
-const BRow = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:5px;padding:6px 8px;`;
+const BRow = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:5px;padding:6px 8px;`;
 const BC = styled.button`
   position: relative;
   display: flex;
@@ -383,12 +384,13 @@ const BC = styled.button`
   justify-content: center;
   gap: 2px;
   padding: 4px 3px;
-  height: 48px;
+  min-height: 50px;
+  height: auto;
   border-radius: 5px;
   border: 1.5px solid ${p => p.cfg?.border || "#cbd5e1"};
   background: ${p => p.cfg?.light || "#f1f5f9"};
-  cursor: ${p => p.isAv ? "pointer" : "not-allowed"};
-  opacity: ${p => p.isAv ? 1 : 0.65};
+  cursor: ${p => (p.isAv || p.isOcc || p.hasPatient) ? "pointer" : "not-allowed"};
+  opacity: ${p => p.isAv ? 1 : (p.isOcc || p.hasPatient) ? 0.95 : 0.65};
   transition: all 0.12s ease;
   outline: none;
   user-select: none;
@@ -399,6 +401,14 @@ const BC = styled.button`
       transform: scale(1.05);
       border-color: ${p.cfg?.color || "#16a34a"};
       box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+    }
+  `}
+
+  ${p => (p.isOcc || p.hasPatient) && css`
+    &:hover {
+      transform: scale(1.04);
+      border-color: ${p.cfg?.color || "#dc2626"};
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.22);
     }
   `}
 `;
@@ -634,6 +644,21 @@ const getActiveRoom = adm => {
   return { roomNo: adm.roomNo || adm.room_no || "-", bedNo: adm.bedNo || adm.bed_no || "-", source: "fallback", isActive: false };
 };
 
+const getAdmittedRoom = adm => {
+  if (!adm) return { roomNo: "-", bedNo: "-" };
+  const rooms = safeParseList(adm.room_details || adm.roomDetails);
+  if (rooms.length > 0 && (rooms[0]?.roomNo || rooms[0]?.room_no)) {
+    return {
+      roomNo: rooms[0].roomNo || rooms[0].room_no || "-",
+      bedNo: rooms[0].bedNo || rooms[0].bed_no || "-",
+    };
+  }
+  return {
+    roomNo: adm.roomNo || adm.room_no || "-",
+    bedNo: adm.bedNo || adm.bed_no || "-",
+  };
+};
+
 const getAdmStatus = adm => {
   if (adm.is_discharged) return "discharged";
   if (adm.is_cancelled) return "cancelled";
@@ -829,26 +854,61 @@ function ReasonModal({ mode = "cancel", onConfirm, onCancel }) {
 }
 
 function RoomTimeline({ roomDetails = [], shiftingDetails = [], isDischarged = false }) {
-  const roomEntries = roomDetails.map(r => ({
-    key: `rd-${r.room_entry_id ?? Math.random()}`, roomNo: r.roomNo || "—", bedNo: r.bedNo || "—",
-    isActive: !isDischarged && Boolean(r.is_roomActive), isCleaned: Boolean(r.is_roomCleaned),
-    start: r.startDateTime, end: r.endDateTime,
-    label: `Entry #${r.room_entry_id || "?"}`, isShift: false,
-  }));
+  const firstRoom = roomDetails[0];
+  const roomEntries = firstRoom ? [{
+    key: `rd-${firstRoom.room_entry_id ?? 0}`,
+    roomNo: firstRoom.roomNo || "—",
+    bedNo: firstRoom.bedNo || "—",
+    isActive: !isDischarged && shiftingDetails.length === 0 && Boolean(firstRoom.is_roomActive),
+    isCleaned: Boolean(firstRoom.is_roomCleaned),
+    start: firstRoom.startDateTime,
+    end: firstRoom.endDateTime || (shiftingDetails[0]?.startDateTime || shiftingDetails[0]?.shiftingDateTime) || null,
+    label: "Admitted Room",
+    isShift: false,
+  }] : [];
+
   const shiftEntries = shiftingDetails.map(s => ({
-    key: `sh-${s.shifting_id}`, roomNo: s.newRoomNo || "—", bedNo: s.newBedNo || "—",
-    isActive: !isDischarged && Boolean(s.is_roomActive), isCleaned: Boolean(s.is_roomCleaned),
-    start: s.startDateTime, end: s.endDateTime,
-    label: `Shifted from ${s.oldRoomNo || "?"}/${s.oldBedNo || "?"}`,
-    shiftId: s.shifting_id, isShift: true,
+    key: `sh-${s.shifting_id}`,
+    roomNo: s.newRoomNo || "—",
+    bedNo: s.newBedNo || "—",
+    isActive: !isDischarged && Boolean(s.is_roomActive),
+    isCleaned: Boolean(s.is_roomCleaned),
+    start: s.startDateTime || s.shiftingDateTime,
+    end: s.endDateTime,
+    label: s.oldRoomNo ? `Shifted from ${s.oldRoomNo}/${s.oldBedNo || "?"}` : "Shifted Room",
+    shiftId: s.shifting_id,
+    isShift: true,
   }));
+
+  // Extra entries from roomDetails beyond index 0 that are not duplicate of shiftings
+  roomDetails.slice(1).forEach((r, idx) => {
+    const isAlreadyShifted = shiftEntries.some(
+      s => String(s.roomNo).trim().toLowerCase() === String(r.roomNo || "").trim().toLowerCase() &&
+           String(s.bedNo).trim().toLowerCase() === String(r.bedNo || "").trim().toLowerCase()
+    );
+    if (!isAlreadyShifted) {
+      shiftEntries.push({
+        key: `rd-extra-${r.room_entry_id ?? idx}`,
+        roomNo: r.roomNo || "—",
+        bedNo: r.bedNo || "—",
+        isActive: !isDischarged && Boolean(r.is_roomActive),
+        isCleaned: Boolean(r.is_roomCleaned),
+        start: r.startDateTime,
+        end: r.endDateTime,
+        label: `Room Shifting (Entry #${r.room_entry_id || idx + 2})`,
+        shiftId: r.shifting_id || "",
+        isShift: true,
+      });
+    }
+  });
+
   const all = [...roomEntries, ...shiftEntries].sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
   if (!all.length) return null;
   return (
     <TimelineWrap>
       <TimelineTitle>🏨 Room Stay History
         <span style={{ fontWeight: 400, color: "#6b7280", textTransform: "none", fontSize: ".7rem" }}>
-          ({roomEntries.length} detail{roomEntries.length !== 1 ? "s" : ""} · {shiftEntries.length} shifting{shiftEntries.length !== 1 ? "s" : ""})
+          ({roomEntries.length} admitted · {shiftEntries.length} shifting{shiftEntries.length !== 1 ? "s" : ""})
         </span>
       </TimelineTitle>
       <TLList>
@@ -863,7 +923,7 @@ function RoomTimeline({ roomDetails = [], shiftingDetails = [], isDischarged = f
                   {r.isActive && <TLBadge active>🟢 Current</TLBadge>}
                   {!r.isActive && r.isCleaned && <TLBadge cleaned>✅ Cleaned</TLBadge>}
                   {!r.isActive && !r.isCleaned && <TLBadge>Past</TLBadge>}
-                  {r.isShift && <TLBadge shift>🔄 Shifted · {r.shiftId}</TLBadge>}
+                  {r.isShift && <TLBadge shift>🔄 Shifted{r.shiftId ? ` · ${r.shiftId}` : ""}</TLBadge>}
                   {dur && <TLDays>⏱ {dur.days}d {dur.hours}h</TLDays>}
                 </TLRoomNo>
                 <TLMeta>
@@ -883,26 +943,71 @@ function RoomTimeline({ roomDetails = [], shiftingDetails = [], isDischarged = f
 function RoomHistoryModal({ adm, onClose }) {
   const roomDetails = Array.isArray(adm.room_details) ? adm.room_details : [];
   const shiftDetails = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails : [];
-  const totalCount = roomDetails.length + shiftDetails.length;
   const isAdmDischarged = Boolean(adm.is_discharged);
   const isAdmCancelled = Boolean(adm.is_cancelled);
 
-  const roomEntries = roomDetails.map((r, idx) => ({
-    key: `rd-${r.room_entry_id ?? idx}`, roomNo: r.roomNo || "—", bedNo: r.bedNo || "—",
-    isActive: !isAdmDischarged && !isAdmCancelled && Boolean(r.is_roomActive),
-    isCleaned: Boolean(r.is_roomCleaned),
-    start: r.startDateTime, end: r.endDateTime,
-    label: `Admission room entry #${r.room_entry_id || idx + 1}`, isShift: false,
-  })).sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
+  // Admitted Room: ONLY display the initial admitted room
+  const firstRoom = roomDetails[0] || (adm.roomNo ? {
+    roomNo: adm.roomNo,
+    bedNo: adm.bedNo,
+    startDateTime: adm.admissionDateTime,
+    endDateTime: shiftDetails[0]?.startDateTime || shiftDetails[0]?.shiftingDateTime || (isAdmDischarged ? adm.dischargeDateTime : null),
+    is_roomActive: shiftDetails.length === 0 && !isAdmDischarged && !isAdmCancelled,
+    is_roomCleaned: false,
+  } : null);
 
+  const roomEntries = firstRoom ? [{
+    key: `rd-${firstRoom.room_entry_id ?? 0}`,
+    roomNo: firstRoom.roomNo || "—",
+    bedNo: firstRoom.bedNo || "—",
+    isActive: !isAdmDischarged && !isAdmCancelled && shiftDetails.length === 0 && Boolean(firstRoom.is_roomActive),
+    isCleaned: Boolean(firstRoom.is_roomCleaned),
+    start: firstRoom.startDateTime || adm.admissionDateTime,
+    end: firstRoom.endDateTime || shiftDetails[0]?.startDateTime || shiftDetails[0]?.shiftingDateTime || (isAdmDischarged ? adm.dischargeDateTime : null),
+    label: "Admitted Room",
+    isShift: false,
+  }] : [];
+
+  // Room Shiftings: all shiftings, plus any other non-duplicate entries from room_details
   const shiftEntries = shiftDetails.map((s, idx) => ({
-    key: `sh-${s.shifting_id ?? idx}`, roomNo: s.newRoomNo || "—", bedNo: s.newBedNo || "—",
+    key: `sh-${s.shifting_id ?? idx}`,
+    roomNo: s.newRoomNo || "—",
+    bedNo: s.newBedNo || "—",
+    oldRoomNo: s.oldRoomNo,
+    oldBedNo: s.oldBedNo,
     isActive: !isAdmDischarged && !isAdmCancelled && Boolean(s.is_roomActive),
     isCleaned: Boolean(s.is_roomCleaned),
-    start: s.startDateTime, end: s.endDateTime,
-    label: `Shifted from Room ${s.oldRoomNo || "?"}/${s.oldBedNo || "?"}`,
-    shiftId: s.shifting_id, isShift: true,
-  })).sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
+    start: s.startDateTime || s.shiftingDateTime,
+    end: s.endDateTime,
+    label: s.oldRoomNo ? `Shifted from Room ${s.oldRoomNo}/${s.oldBedNo || "?"}` : "Shifted Room",
+    shiftId: s.shifting_id,
+    isShift: true,
+  }));
+
+  // If roomDetails had extra entries (from past edits), include them in shiftEntries only if not already present
+  roomDetails.slice(1).forEach((r, idx) => {
+    const isAlreadyShifted = shiftEntries.some(
+      s => String(s.roomNo).trim().toLowerCase() === String(r.roomNo || "").trim().toLowerCase() &&
+           String(s.bedNo).trim().toLowerCase() === String(r.bedNo || "").trim().toLowerCase()
+    );
+    if (!isAlreadyShifted) {
+      shiftEntries.push({
+        key: `rd-extra-${r.room_entry_id ?? idx}`,
+        roomNo: r.roomNo || "—",
+        bedNo: r.bedNo || "—",
+        isActive: !isAdmDischarged && !isAdmCancelled && Boolean(r.is_roomActive),
+        isCleaned: Boolean(r.is_roomCleaned),
+        start: r.startDateTime,
+        end: r.endDateTime,
+        label: `Room Shifting (Entry #${r.room_entry_id || idx + 2})`,
+        shiftId: r.shifting_id || "",
+        isShift: true,
+      });
+    }
+  });
+
+  shiftEntries.sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
+  const totalCount = roomEntries.length + shiftEntries.length;
 
   const renderCard = (r, i) => {
     const dur = calcDuration(r.start, r.end);
@@ -914,7 +1019,17 @@ function RoomHistoryModal({ adm, onClose }) {
             <RHRoomSub>{r.label}{r.shiftId ? ` · ID: ${r.shiftId}` : ""}</RHRoomSub>
           </div>
           <RHStatusPill active={r.isActive} cleaned={r.isCleaned} shift={r.isShift && !r.isActive}>
-            {r.isActive ? "🟢 Currently Active" : r.isCleaned ? "✅ Cleaned" : r.isShift ? "🔄 Shifted" : isAdmDischarged ? "🚪 Discharged" : "⬜ Past"}
+            {r.isActive
+              ? "🟢 Currently Active"
+              : r.isCleaned
+              ? "✅ Cleaned"
+              : r.isShift
+              ? "🔄 Shifted"
+              : shiftEntries.length > 0
+              ? "🔄 Shifted out"
+              : isAdmDischarged
+              ? "🚪 Discharged"
+              : "⬜ Past"}
           </RHStatusPill>
         </RHCardHead>
         <RHGrid>
@@ -923,7 +1038,8 @@ function RoomHistoryModal({ adm, onClose }) {
         </RHGrid>
         <RHFooter active={r.isActive} shift={r.isShift && !r.isActive}>
           ⏱ Duration: {dur ? `${dur.days}d ${dur.hours}h` : "—"}
-          {r.isActive && " (ongoing)"}{!r.isActive && !r.end && (isAdmDischarged ? " · Discharged" : " · no checkout recorded")}
+          {r.isActive && " (ongoing)"}
+          {!r.isActive && !r.end && (isAdmDischarged ? " · Discharged" : " · no checkout recorded")}
         </RHFooter>
       </RHCard>
     );
@@ -943,7 +1059,7 @@ function RoomHistoryModal({ adm, onClose }) {
         </ModalHeader>
         <div style={{ display: "flex", gap: 8, padding: "6px 20px 10px", borderBottom: "1px solid #e5e7eb", flexWrap: "wrap" }}>
           <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", fontWeight: 600 }}>
-            📋 {roomEntries.length} room detail{roomEntries.length !== 1 ? "s" : ""}
+            📋 {roomEntries.length} admitted room
           </span>
           <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#f3e8ff", border: "1px solid #e9d5ff", color: "#7e22ce", fontWeight: 600 }}>
             🔄 {shiftEntries.length} shifting{shiftEntries.length !== 1 ? "s" : ""}
@@ -980,8 +1096,24 @@ function RoomHistoryModal({ adm, onClose }) {
         </div>
         <RHBody>
           {totalCount === 0 && <NR>No room history found.</NR>}
-          {roomEntries.length > 0 && <><RHSection>📋 Room Details<RHSectionCount>{roomEntries.length} entr{roomEntries.length !== 1 ? "ies" : "y"}</RHSectionCount></RHSection>{roomEntries.map((r, i) => renderCard(r, i))}</>}
-          {shiftEntries.length > 0 && <><RHSection shift>🔄 Room Shiftings<RHSectionCount>{shiftEntries.length} entr{shiftEntries.length !== 1 ? "ies" : "y"}</RHSectionCount></RHSection>{shiftEntries.map((r, i) => renderCard(r, i))}</>}
+          {roomEntries.length > 0 && (
+            <>
+              <RHSection>
+                📋 Room Details (Admitted Room)
+                <RHSectionCount>{roomEntries.length} entr{roomEntries.length !== 1 ? "ies" : "y"}</RHSectionCount>
+              </RHSection>
+              {roomEntries.map((r, i) => renderCard(r, i))}
+            </>
+          )}
+          {shiftEntries.length > 0 && (
+            <>
+              <RHSection shift>
+                🔄 Room Shiftings
+                <RHSectionCount>{shiftEntries.length} entr{shiftEntries.length !== 1 ? "ies" : "y"}</RHSectionCount>
+              </RHSection>
+              {shiftEntries.map((r, i) => renderCard(r, i))}
+            </>
+          )}
           <div style={{ height: 12 }} />
         </RHBody>
       </RHModal>
@@ -1656,6 +1788,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const [loadRooms, setLoadRooms] = useState(false);
   const [showBed, setShowBed] = useState(false);
   const [selRoom, setSelRoom] = useState(null);
+  const [occupiedBedDetail, setOccupiedBedDetail] = useState(null);
 
   const [printData, setPrintData] = useState(null);
   const [historyAdm, setHistoryAdm] = useState(null);
@@ -2776,8 +2909,10 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
   const openRoomModal = () => {
     setShowRoom(true);
-    setRoomModalStatus("Available");
-    fetchAllRooms();
+    setRoomModalStatus("ALL");
+    const freshFilter = { room_number: "", block: "", category: "", nursing_station: "" };
+    setRFilter(freshFilter);
+    fetchAllRooms(freshFilter);
   };
 
   const roomFilterOptions = useMemo(() => {
@@ -3584,8 +3719,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     <tr><Td colSpan={12} style={{ textAlign: "center", padding: 28, color: "#6b7280" }}>No admissions found</Td></tr>
                   ) : paginated.map((adm, idx) => {
                     const t = getAdmStatus(adm);
-                    const { roomNo, bedNo, source } = getActiveRoom(adm);
-                    const rdCount = Array.isArray(adm.room_details) ? adm.room_details.length : 0;
+                    const { roomNo, bedNo } = getAdmittedRoom(adm);
+                    const rdCount = (Array.isArray(adm.room_details) && adm.room_details.length > 0) ? 1 : (adm.roomNo ? 1 : 0);
                     const shCount = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails.length : 0;
                     const totalCount = rdCount + shCount;
 
@@ -3634,8 +3769,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                                   <span style={{ fontWeight: 700 }}>{bedNo}</span>
                                 </>
                               )}
-                              {source === "shifting" && <RoomSourceTag src="shifting" title="Room from shifting record">🔄</RoomSourceTag>}
-                              {source === "room_details" && <RoomSourceTag src="room_details" title="Room from admission details">📋</RoomSourceTag>}
                             </span>
                           ) : <span style={{ color: "#9ca3af", fontSize: ".72rem" }}>—</span>}
                         </Td>
@@ -3945,7 +4078,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                   })}
                 </div>
                 <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
-                  Defaulting to <strong style={{ color: "#16a34a" }}>Available</strong> beds
+                  {roomModalStatus === "ALL" ? "Showing All beds" : `Showing ${roomModalStatus} beds`}
                 </div>
               </div>
 
@@ -3996,17 +4129,33 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                                       ? { color: "#7c3aed", light: "#ede9fe", border: "#d8b4fe", label: "Reserved" }
                                       : { color: "#64748b", light: "#f1f5f9", border: "#cbd5e1", label: "Blocked" };
 
+                                    const pName = bed.patient?.patientname || bed.patient?.name || "";
+                                    const admDt = bed.patient?.admissionDateTime;
+                                    const admDoc = bed.patient?.admittingDoctor;
+                                    const uhid = bed.patient?.uhid;
+                                    const ipNo = bed.ip_number || bed.patient?.ip_number;
+
+                                    const bedTooltip = isAv
+                                      ? `✅ Bed ${bed.bed_number} — Available (Click to assign)`
+                                      : isOcc || pName
+                                      ? `🛏️ Bed ${bed.bed_number} (${bs})\n👤 Occupied by: ${pName || "Admitted Patient"}\n🆔 UHID: ${uhid || "—"} | IP: ${ipNo || "—"}\n📅 Admitted: ${admDt ? admDt.replace("T", " ").slice(0, 16) : "—"}\n👨‍⚕️ Doctor: ${admDoc || "—"}\nℹ️ (Click to view full occupant details)`
+                                      : `Bed ${bed.bed_number} (${bs})`;
+
                                     return (
                                       <BC
                                         key={i}
                                         cfg={cfg}
                                         isAv={isAv}
-                                        disabled={!isAv}
-                                        title={isAv ? `✅ Bed ${bed.bed_number} — Click to assign` : `Bed ${bed.bed_number} (${bs})`}
+                                        isOcc={isOcc}
+                                        hasPatient={Boolean(pName)}
+                                        disabled={!isAv && !isOcc && !pName}
+                                        title={bedTooltip}
                                         onClick={e => {
+                                          e.stopPropagation();
                                           if (isAv) {
-                                            e.stopPropagation();
                                             handleBedSelect(bed.bed_number, room);
+                                          } else if (isOcc || pName) {
+                                            setOccupiedBedDetail({ bed, room });
                                           }
                                         }}
                                       >
@@ -4014,9 +4163,34 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                                         <span style={{ fontSize: ".66rem", fontWeight: 800, color: cfg.color, lineHeight: 1 }}>
                                           B{bed.bed_number}
                                         </span>
-                                        <span style={{ fontSize: ".48rem", fontWeight: 700, color: cfg.color, textTransform: "uppercase" }}>
-                                          {cfg.label}
-                                        </span>
+                                        {(isOcc || pName) && pName ? (
+                                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", overflow: "hidden", marginTop: 1 }}>
+                                            <span
+                                              style={{
+                                                fontSize: ".48rem",
+                                                fontWeight: 700,
+                                                color: cfg.color,
+                                                maxWidth: "100%",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                                lineHeight: 1.1,
+                                              }}
+                                              title={`Occupied by: ${pName}`}
+                                            >
+                                              👤 {pName.split(" ")[0]}
+                                            </span>
+                                            {admDt && (
+                                              <span style={{ fontSize: ".42rem", color: "#64748b", lineHeight: 1, marginTop: 1 }}>
+                                                {admDt.replace("T", " ").slice(5, 10)}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span style={{ fontSize: ".48rem", fontWeight: 700, color: cfg.color, textTransform: "uppercase" }}>
+                                            {cfg.label}
+                                          </span>
+                                        )}
                                       </BC>
                                     );
                                   })}
@@ -4046,11 +4220,24 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: 12 }}>
                 {(selRoom.beds || []).map((bed, i) => {
                   const avail = bed.status === "Available";
+                  const pName = bed.patient?.patientname || bed.patient?.name || "";
+                  const isOcc = (bed.status || "").toLowerCase() === "occupied" || Boolean(pName);
                   return (
-                    <BC key={i} bs={bed.status} disabled={!avail}
-                      style={{ minWidth: 70, height: 42, fontSize: ".82rem", flex: "1 1 70px" }}
-                      onClick={() => avail && handleBedSelect(bed.bed_number, selRoom)}>
-                      {bed.bed_number}<br /><span style={{ fontSize: ".6rem", opacity: .85 }}>{bed.status}</span>
+                    <BC key={i} bs={bed.status} disabled={!avail && !isOcc}
+                      isAv={avail} isOcc={isOcc} hasPatient={Boolean(pName)}
+                      style={{ minWidth: 72, minHeight: 46, fontSize: ".82rem", flex: "1 1 72px" }}
+                      title={avail ? `✅ Bed ${bed.bed_number} — Available` : isOcc ? `🛏️ Bed ${bed.bed_number} — Occupied by ${pName || "Patient"} (Click to view)` : `Bed ${bed.bed_number} (${bed.status})`}
+                      onClick={() => {
+                        if (avail) {
+                          handleBedSelect(bed.bed_number, selRoom);
+                        } else if (isOcc) {
+                          setOccupiedBedDetail({ bed, room: selRoom });
+                        }
+                      }}>
+                      {bed.bed_number}<br />
+                      <span style={{ fontSize: ".6rem", opacity: .85 }}>
+                        {pName ? `👤 ${pName.split(" ")[0]}` : bed.status}
+                      </span>
                     </BC>
                   );
                 })}
@@ -4059,6 +4246,15 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
             </ModalBody>
           </ModalContainer>
         </ModalOverlay>
+      )}
+
+      {/* ══ OCCUPIED BED DETAIL MODAL (WHEN OCCUPIED BY WHOM) ══ */}
+      {occupiedBedDetail && (
+        <OccupiedBedDetailModal
+          bed={occupiedBedDetail.bed}
+          room={occupiedBedDetail.room}
+          onClose={() => setOccupiedBedDetail(null)}
+        />
       )}
 
       {/* ══ PRINT SLIP ══ */}

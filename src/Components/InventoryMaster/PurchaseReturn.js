@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper";
+import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
   PageWrapper,
@@ -127,17 +128,7 @@ const FilterLabel = styled.label`
   text-transform: uppercase;
   letter-spacing: 0.04em;
 `;
-const FilterSelect = styled.select`
-  padding: 8px 10px;
-  border: 1.5px solid #d1d5db;
-  border-radius: 7px;
-  font-size: 0.85rem;
-  color: #374151;
-  outline: none;
-  background: white;
-  transition: border-color 0.15s;
-  &:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
-`;
+const FilterSelect = SearchSelect;
 const FilterInput = styled.input`
   padding: 8px 10px;
   border: 1.5px solid #d1d5db;
@@ -339,17 +330,16 @@ const InlineInput = styled.input`
   outline: none;
   &:focus { border-color: #0d9488; }
   &.warn { border-color: #d97706; }
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 `;
-const InlineSelect = styled.select`
-  padding: 5px 7px;
-  border: 1.5px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  min-width: 120px;
-  outline: none;
-  background: white;
-  &:focus { border-color: #0d9488; }
-`;
+const InlineSelect = SearchSelect;
 const AddRowBtn = styled.button`
   background: #0d9488;
   color: white;
@@ -765,7 +755,12 @@ const PurchaseReturn = () => {
     try {
       const r = await apiRequest(`${HmsBaseUrl}vendors/`, "GET");
       const list = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : []);
-      setVendors(Array.isArray(list) ? list : []);
+      const sorted = (Array.isArray(list) ? list : []).map(v => ({
+        ...v,
+        name: v.name ? String(v.name).toUpperCase() : v.name,
+        vendor_name: v.vendor_name ? String(v.vendor_name).toUpperCase() : (v.name ? String(v.name).toUpperCase() : v.vendor_name)
+      })).sort((a, b) => String(a.vendor_name || a.name || "").localeCompare(String(b.vendor_name || b.name || ""), undefined, { sensitivity: "base" }));
+      setVendors(sorted);
     } catch { toast.error("Failed to fetch vendors"); }
   }, [HmsBaseUrl]);
 
@@ -991,7 +986,7 @@ const PurchaseReturn = () => {
                       onChange={(e) => { const code = e.target.value; if (!code) { setSelectedVendor(null); return; } const v = vendors.find((x) => String(x.vendor_code || x.code || x.vendor_id) === String(code)); setSelectedVendor(v || null); }}
                     >
                       <option value="">-- Select Vendor --</option>
-                      {vendors.map((v) => { const code = v.vendor_code || v.code || v.vendor_id || ""; const name = v.vendor_name || v.name || code; return <option key={code} value={code}>{name}</option>; })}
+                      {vendors.map((v) => { const code = v.vendor_code || v.code || v.vendor_id || ""; const name = v.vendor_name || v.name || code; return <option key={code} value={code}>{String(name).toUpperCase()}</option>; })}
                     </FilterSelect>
                   </div>
                   <div>
@@ -1056,7 +1051,7 @@ const PurchaseReturn = () => {
                                 <tr key={`${item.item_id}-${item.batch_number}-${idx}`}>
                                   <ATd style={{ color: "#6b7280" }}>{idx + 1}</ATd>
                                   <ATd style={{ fontWeight: 600, color: "#111827" }}>{item.grn_number}</ATd>
-                                  <ATd style={{ fontWeight: 600, color: "#111827", minWidth: 160 }}>{item.item_name}</ATd>
+                                  <ATd style={{ fontWeight: 600, color: "#111827", minWidth: 160, textTransform: "uppercase" }}>{String(item.item_name || "").toUpperCase()}</ATd>
                                   <ATd style={{ color: "#6b7280" }}>{item.hsn_code || "-"}</ATd>
                                   <ATd>
                                     <span style={{ background: "#f0fdfa", color: "#0f766e", padding: "2px 8px", borderRadius: 4, fontSize: "0.76rem", fontWeight: 600 }}>
@@ -1067,9 +1062,6 @@ const PurchaseReturn = () => {
                                   <ATd style={{ color: "#6b7280" }}>{fmtExpiry(item.expiry_date)}</ATd>
                                   <ATd>
                                     <InlineInput
-                                      type="number"
-                                      min="1"
-                                      max={item.available_qty}
                                       placeholder="0"
                                       value={item.return_qty}
                                       className={item.return_qty && Number(item.return_qty) > item.available_qty ? "warn" : ""}

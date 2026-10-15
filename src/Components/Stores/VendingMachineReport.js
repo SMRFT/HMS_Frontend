@@ -508,8 +508,6 @@ const VendingMachineReport = () => {
                                                     Selling Unit Price (₹) *
                                                 </label>
                                                 <Input
-                                                    type="number"
-                                                    step="0.01"
                                                     required
                                                     placeholder="20.00"
                                                     value={saleFormData.unit_price}
@@ -522,8 +520,6 @@ const VendingMachineReport = () => {
                                                     Sales Quantity Sold *
                                                 </label>
                                                 <Input
-                                                    type="number"
-                                                    min="1"
                                                     required
                                                     value={saleFormData.quantity_sold}
                                                     onChange={(e) => setSaleFormData({ ...saleFormData, quantity_sold: e.target.value })}

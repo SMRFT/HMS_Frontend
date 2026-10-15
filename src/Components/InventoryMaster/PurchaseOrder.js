@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString, InvSelect } from "./InventoryUIHelper"
+import { InvTopToolbar, InvPagination, getTodayDateString, InvSelect, SearchSelect } from "./InventoryUIHelper"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -50,9 +50,9 @@ const Tab    = styled.button`
 `
 
 /* ── Card ── */
-const Card     = styled.div`background:${C.surface};border:1px solid ${C.border};border-radius:10px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 6px rgba(0,0,0,.06);`
+const Card     = styled.div`background:${C.surface};border:1px solid ${C.border};border-radius:10px;margin-bottom:18px;box-shadow:0 1px 6px rgba(0,0,0,.06);`
 const AniCard  = styled(Card)`${css`animation:${fadeSlide} .22s ease;`}`
-const CardHead = styled.div`background:${C.faint};border-bottom:1px solid ${C.border};padding:12px 18px;font-size:.82rem;font-weight:800;color:${C.primary};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;`
+const CardHead = styled.div`background:${C.faint};border-bottom:1px solid ${C.border};border-radius:9px 9px 0 0;padding:12px 18px;font-size:.82rem;font-weight:800;color:${C.primary};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;`
 const CardBody = styled.div`padding:18px 20px;`
 
 /* ── Grid ── */
@@ -71,14 +71,16 @@ const Inp = styled.input`
   box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s,box-shadow .14s;
   &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
   &:disabled{background:${C.faint};color:${C.muted};cursor:not-allowed;}
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 `
-const Sel = styled.select`
-  padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};
-  border-radius:7px;font-size:.875rem;color:${C.text};outline:none;width:100%;
-  box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s;
-  &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
-  &:disabled{background:${C.faint};color:${C.muted};cursor:not-allowed;}
-`
+const Sel = SearchSelect;
 const Txta = styled.textarea`
   padding:9px 12px;border:1.5px solid ${C.border};border-radius:7px;
   font-size:.875rem;color:${C.text};outline:none;width:100%;
@@ -347,7 +349,11 @@ export default function PurchaseOrder() {
     try {
       const r    = await apiRequest(`${BASE}vendors/`, "GET")
       const list = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
-      setVendors(Array.isArray(list) ? list : [])
+      const sorted = (Array.isArray(list) ? list : []).map(v => ({
+        ...v,
+        name: v.name ? String(v.name).toUpperCase() : v.name
+      })).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }))
+      setVendors(sorted)
     } catch { toast.error("Failed to load vendors") }
   }, [])
 
@@ -586,7 +592,7 @@ export default function PurchaseOrder() {
                     <Sel $err={!!errs.vendorId} value={vendorId} onChange={e => setVendorId(e.target.value)}>
                       <option value="">— Select Vendor —</option>
                       {vendors.map(v => (
-                        <option key={v.vendor_id} value={String(v.vendor_id)}>{v.name}</option>
+                        <option key={v.vendor_id} value={String(v.vendor_id)}>{String(v.name || "").toUpperCase()}</option>
                       ))}
                     </Sel>
                     {errs.vendorId && <ErrMsg>{errs.vendorId}</ErrMsg>}
@@ -667,7 +673,6 @@ export default function PurchaseOrder() {
                           <LTd>
                             <Inp
                               $err={!!errs[`qty_${idx}`]}
-                              type="number" min="1"
                               value={line.quantity}
                               onChange={e => updateLine(line._id, "quantity", e.target.value)}
                               style={{ width: "100%" }}
@@ -786,7 +791,7 @@ export default function PurchaseOrder() {
                         <Trow key={po.po_number || idx}>
                           <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                           <Td><Pill>{po.po_number}</Pill></Td>
-                          <Td style={{ fontWeight: 700 }}>{po.vendor_name || po.vendor_id || "—"}</Td>
+                          <Td style={{ fontWeight: 700, textTransform: "uppercase" }}>{String(po.vendor_name || po.vendor_id || "—").toUpperCase()}</Td>
 
                           {/* Item count badge */}
                           <Td>
