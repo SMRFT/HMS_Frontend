@@ -15,13 +15,14 @@ const REDIRECT_URL = process.env.REACT_APP_LOGIN_REDIRECT_URL;
 // --- Function to set token for local development ---
 function setforlocaldev() {
   const dev_token = "";
-  console.log("🔧 Development token is empty - will redirect to login");
   if (dev_token && dev_token.trim() !== "") {
     const selectedBranch = "SHB001";
     localStorage.setItem("selected_branch", selectedBranch);
-    const selectedOutlet = "OLET003";
+    const selectedOutlet = "OLET002";
     localStorage.setItem("selected_outlet", selectedOutlet);
-
+    const selectedHospital = "SH001";
+    localStorage.setItem("selected_hospital", selectedHospital);
+    localStorage.setItem("hospital_code", selectedHospital);
   }
   return dev_token;
 }
@@ -137,6 +138,9 @@ function isPublicRoute() {
           localStorage.setItem("employeeId", employeeId);
           localStorage.setItem("name", name);
           localStorage.setItem("userEmail", userEmail);
+          const hospitalCode = userPayload.hospital_code || "SH001";
+          localStorage.setItem("hospital_code", hospitalCode);
+          localStorage.setItem("selected_hospital", hospitalCode);
           localStorage.setItem(
             "allowed-outlets",
             userPayload["allowed-outlets"],

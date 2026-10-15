@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import { FaPills, FaFileInvoiceDollar, FaListAlt, FaChartBar, FaUndo, FaPrescription } from "react-icons/fa";
 
@@ -15,7 +15,7 @@ const TABS = [
   { key: "pharmacy_bill",        label: "Pharmacy Bill",        Icon: FaPills            },
   { key: "view_estimate",        label: "View Estimate",        Icon: FaFileInvoiceDollar },
   { key: "view_bills",           label: "View Bills",           Icon: FaListAlt           },
-  { key: "medichart",            label: "Medichart",            Icon: FaChartBar          },
+  { key: "medichart",            label: "Medicine Chart",       Icon: FaChartBar          },
   { key: "ward_returns",         label: "Ward Returns",         Icon: FaUndo              },
   { key: "prescription_details", label: "Prescription Details", Icon: FaPrescription      },
 ];
@@ -25,6 +25,76 @@ const fadeSlide = keyframes`
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 `;
+
+const pulseRingOrange = keyframes`
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(230, 138, 0, 0.7);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 7px rgba(230, 138, 0, 0.25);
+  }
+  70% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 11px rgba(230, 138, 0, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(230, 138, 0, 0);
+  }
+`;
+
+const softGlowHalo = keyframes`
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.3);
+  }
+`;
+
+const BlinkBadgeWrapper = styled.div`
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 2px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.45) 0%, rgba(245, 158, 11, 0) 70%);
+    animation: ${softGlowHalo} 1.8s ease-in-out infinite;
+    pointer-events: none;
+  }
+`;
+
+const BlinkBadge = styled.span`
+  min-width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e68a00;
+  color: #1a1a1a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(230, 138, 0, 0.5);
+  animation: ${pulseRingOrange} 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  position: relative;
+  z-index: 2;
+  padding: 0 4px;
+  line-height: 1;
+`;
+
 
 // ─── Styled Components ────────────────────────────────────────────────────────
 const Wrapper = styled.div`
@@ -236,7 +306,10 @@ const OPPharmacyTabs = () => {
         return {
           ...item,
           item_id:             item.item_id,
-          item_name:           item.item_name       || item.medicine_name || "",
+          item_name:           (item.item_name && !String(item.item_name).startsWith("Item #") ? item.item_name : null) ||
+                               (item.medicine_name && !String(item.medicine_name).startsWith("Item #") ? item.medicine_name : null) ||
+                               (item.name && !String(item.name).startsWith("Item #") ? item.name : null) ||
+                               item.item_name || item.medicine_name || item.name || "",
           batch_number:        item.batch_number    || "",
           qty:                 item.qty             ?? item.quantity ?? 0,
           quantity:            item.qty             ?? item.quantity ?? 0,
@@ -265,6 +338,62 @@ const OPPharmacyTabs = () => {
   };
 
   const [visitedTabs, setVisitedTabs] = useState(new Set(["pharmacy_bill"]));
+  const [medichartCount, setMedichartCount] = useState(0);
+
+  const fetchMedichartCount = useCallback(async () => {
+    try {
+      let userPayload = {};
+      try {
+        userPayload = JSON.parse(localStorage.getItem("user_payload") || "{}");
+      } catch (e) {}
+
+      const activeHospital =
+        localStorage.getItem("selected_hospital") ||
+        localStorage.getItem("hospital_code") ||
+        userPayload.hospital_code ||
+        "SH001";
+
+      const activeBranch =
+        localStorage.getItem("selected_branch") ||
+        localStorage.getItem("branch_code") ||
+        (Array.isArray(userPayload["allowed-data"]) ? userPayload["allowed-data"][0] : "") ||
+        "SHB001";
+
+      const activeOutlet =
+        localStorage.getItem("selected_outlet") ||
+        localStorage.getItem("outlet_code") ||
+        "OLET002";
+
+      const res = await apiRequest(`${Hmsbaseurl}pharmacy_medicinechart/`, "POST", {
+        outlet_code: activeOutlet,
+        branch_code: activeBranch,
+        hospital_code: activeHospital,
+      });
+
+      if (res.success && res.data) {
+        const list = res.data.data || [];
+        setMedichartCount(list.length);
+      }
+    } catch {
+      // silent fallback
+    }
+  }, [Hmsbaseurl]);
+
+  useEffect(() => {
+    fetchMedichartCount();
+  }, [fetchMedichartCount]);
+
+  // Support Alt+M keyboard shortcut to switch to Medicine Chart tab
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.altKey && e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        handleTabClick("medichart");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleTabClick = (key) => {
     setActiveTab(key);
@@ -275,16 +404,25 @@ const OPPharmacyTabs = () => {
     <Wrapper>
       {/* ── Tab Bar ── */}
       <TabBar>
-        {TABS.map(({ key, label, Icon }) => (
-          <TabButton
-            key={key}
-            $active={activeTab === key}
-            onClick={() => handleTabClick(key)}
-          >
-            <Icon />
-            {label}
-          </TabButton>
-        ))}
+        {TABS.map(({ key, label, Icon }) => {
+          const isMedichart = key === "medichart";
+          return (
+            <TabButton
+              key={key}
+              $active={activeTab === key}
+              onClick={() => handleTabClick(key)}
+            >
+              {isMedichart && medichartCount > 0 ? (
+                <BlinkBadgeWrapper title={`${medichartCount} active ward prescriptions`}>
+                  <BlinkBadge>{medichartCount}</BlinkBadge>
+                </BlinkBadgeWrapper>
+              ) : (
+                <Icon />
+              )}
+              <span>{label}</span>
+            </TabButton>
+          );
+        })}
       </TabBar>
 
       {/* ── OP Pharmacy Bill tab ── */}
@@ -322,7 +460,10 @@ const OPPharmacyTabs = () => {
       {/* ── Medicine Chart tab ── */}
       {visitedTabs.has("medichart") && (
         <TabPanel $visible={activeTab === "medichart"}>
-          <MedicineChart onConvertToBill={handleConvertMedicineChart} />
+          <MedicineChart
+            onConvertToBill={handleConvertMedicineChart}
+            onCountChange={setMedichartCount}
+          />
         </TabPanel>
       )}
 

@@ -944,7 +944,7 @@ const extractReturnRows = (bill, employeeName) => {
         };
       }
       returnMap[key].items.push({
-        item_name:   item.item_name   || `Item #${item.item_id}`,
+        item_name:   item.item_name || item.name || item.medicine_name || `Item #${item.item_id}`,
         batch_number: item.batch_number || "",
         old_qty:     h.old_qty    ?? 0,
         return_qty:  h.return_qty ?? 0,

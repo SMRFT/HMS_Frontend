@@ -55,6 +55,74 @@ const pulseDot = keyframes`
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
 `;
 
+const pulseRingOrange = keyframes`
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(230, 138, 0, 0.7);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 8px rgba(230, 138, 0, 0.25);
+  }
+  70% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 12px rgba(230, 138, 0, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(230, 138, 0, 0);
+  }
+`;
+
+const softGlowHalo = keyframes`
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.3);
+  }
+`;
+
+const HeaderBlinkBadgeWrapper = styled.div`
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.45) 0%, rgba(245, 158, 11, 0) 70%);
+    animation: ${softGlowHalo} 1.8s ease-in-out infinite;
+    pointer-events: none;
+  }
+`;
+
+const HeaderBlinkBadge = styled.div`
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e68a00;
+  color: #1a1a1a;
+  font-size: 0.88rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(230, 138, 0, 0.5);
+  animation: ${pulseRingOrange} 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  position: relative;
+  z-index: 2;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1;
+`;
+
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const T = {
   primary:     "#0f766e",
@@ -517,6 +585,21 @@ const UHIDBadge = styled.span`
   padding: 3px 8px;
   border-radius: 6px;
   border: 1px solid #99f6e4;
+  display: inline-block;
+  white-space: nowrap;
+`;
+
+const IPNumberBadge = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #1e40af;
+  background: #dbeafe;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+  display: inline-block;
+  white-space: nowrap;
 `;
 
 const PatientInfoCell = styled.div`
@@ -1138,7 +1221,7 @@ const getUnitPrice = (item) => {
 };
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-const MedicineChart = ({ onConvertToBill }) => {
+const MedicineChart = ({ onConvertToBill, onCountChange }) => {
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
   const yesterdayStr = useMemo(() => {
     const d = new Date();
@@ -1155,9 +1238,9 @@ const MedicineChart = ({ onConvertToBill }) => {
   const [loading, setLoading]                 = useState(false);
   const [error, setError]                     = useState(null);
   const [expandedKey, setExpandedKey]         = useState(null);
-  // Default to today's date initially as requested
-  const [fromDate, setFromDate]               = useState(todayStr);
-  const [toDate, setToDate]                   = useState(todayStr);
+  // Default to all dates ("") so active ward prescriptions display immediately on load without needing to click View All Dates
+  const [fromDate, setFromDate]               = useState("");
+  const [toDate, setToDate]                   = useState("");
   const [searchQuery, setSearchQuery]         = useState("");
   const [activeFilter, setActiveFilter]       = useState("All"); // All, Pending, Processing, Insurance, General
   const [printPatient, setPrintPatient]       = useState(null);
@@ -1168,6 +1251,7 @@ const MedicineChart = ({ onConvertToBill }) => {
   const [substSelected, setSubstSelected]     = useState(null);
   const [substDropOpen, setSubstDropOpen]     = useState(false);
   const [medicines, setMedicines]             = useState([]);
+  const [substLoading, setSubstLoading]       = useState(false);
 
   const HmsBaseUrl = Hmsbaseurl;
 
@@ -1257,14 +1341,33 @@ const MedicineChart = ({ onConvertToBill }) => {
   };
 
   // ─── Fetch main chart data ────────────────────────────────────────────────
+  // ─── Fetch main chart data (instantly loaded from pre-enriched backend API) ─
   const fetchMedicineChart = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const activeOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
-      const activeBranch = localStorage.getItem("selected_branch") || localStorage.getItem("branch_code") || "";
-      const activeHospital = localStorage.getItem("selected_hospital") || localStorage.getItem("hospital_code") || "";
+      let userPayload = {};
+      try {
+        userPayload = JSON.parse(localStorage.getItem("user_payload") || "{}");
+      } catch (e) {}
+
+      const activeHospital =
+        localStorage.getItem("selected_hospital") ||
+        localStorage.getItem("hospital_code") ||
+        userPayload.hospital_code ||
+        "SH001";
+
+      const activeBranch =
+        localStorage.getItem("selected_branch") ||
+        localStorage.getItem("branch_code") ||
+        (Array.isArray(userPayload["allowed-data"]) ? userPayload["allowed-data"][0] : "") ||
+        "SHB001";
+
+      const activeOutlet =
+        localStorage.getItem("selected_outlet") ||
+        localStorage.getItem("outlet_code") ||
+        "OLET002";
 
       const response = await apiRequest(
         `${Hmsbaseurl}pharmacy_medicinechart/`,
@@ -1282,64 +1385,10 @@ const MedicineChart = ({ onConvertToBill }) => {
       }
 
       const rawList = response.data?.data || [];
-
-      const enriched = await Promise.all(
-        rawList.map(async (patient) => {
-          const uhid = patient.uhid;
-          if (!uhid) return patient;
-
-          const [pd, adm] = await Promise.all([
-            fetchPatientDetails(uhid),
-            fetchAdmissionDetails(uhid),
-          ]);
-
-          const pdName = (() => {
-            const f = (pd?.firstName || "").trim();
-            const l = (pd?.lastName || "").trim();
-            const n = (f && l && (f.toLowerCase() === l.toLowerCase() || f.toLowerCase().endsWith(l.toLowerCase()))) ? f : `${f} ${l}`.trim();
-            return `${pd?.salutation || ""} ${n}`.trim();
-          })();
-
-          const pdMerge = pd ? {
-            patient_details: {
-              patient_name: pdName,
-              address:      pd.permanent_address || pd.area || "",
-              mobile:       pd.mobilePhone || pd.mobile || "",
-            },
-            patient_name:  pdName,
-            address:       pd.permanent_address || "",
-            place:         pd.area              || "",
-            mobile:        pd.mobilePhone       || pd.mobile || "",
-            customer_type: pd.customer_type     || "",
-            age:           pd.dob ? calcAge(pd.dob) : pd.age ? String(pd.age) : "",
-            doctor_id: (() => {
-              if (!Array.isArray(pd.billing) || pd.billing.length === 0)
-                return patient.doctor_id || "";
-              const withDoc = pd.billing.filter(b => b.doctor_id);
-              if (!withDoc.length) return patient.doctor_id || "";
-              const sorted = [...withDoc].sort((a, b) => new Date(b.billed_date) - new Date(a.billed_date));
-              return sorted[0].doctor_id;
-            })(),
-          } : {};
-
-          const admMerge = adm ? {
-            admission_status:   adm.admitted ? "ADMITTED" : "NOT ADMITTED",
-            inpatient_number:   adm.ipNumber          || patient.inpatient_number || "",
-            admission_datetime: adm.admissionDateTime || "",
-            room_no:            adm.roomLabel         || patient.room_no || patient.ward_name || "",
-            ward_name:          adm.roomLabel         || patient.ward_name || patient.room_no || "",
-            customer_type:      adm.customer_type     || patient.customer_type || "General",
-            is_insurance:       adm.is_insurance      ?? patient.is_insurance ?? (String(patient.customer_type || '').toLowerCase() === 'insurance'),
-            insurance_company:  adm.insurance_company || patient.insurance_company || "",
-            advance_payments:   adm.advance_payments  || patient.advance_payments || [],
-            total_ip_advance:   adm.total_ip_advance  ?? patient.total_ip_advance ?? 0,
-          } : {};
-
-          return { ...patient, ...pdMerge, ...admMerge };
-        })
-      );
-
-      setMedicineData(enriched);
+      setMedicineData(rawList);
+      if (typeof onCountChange === "function") {
+        onCountChange(rawList.length);
+      }
     } catch (err) {
       console.error("Error fetching medicine chart:", err);
       setError("Failed to load data. Please try again.");
@@ -1350,40 +1399,40 @@ const MedicineChart = ({ onConvertToBill }) => {
 
   useEffect(() => { fetchMedicineChart(); }, []);
 
-  // ─── Fetch stocks for replacement ─────────────────────────────────────────
-  useEffect(() => {
-    if (!HmsBaseUrl) return;
-    const fetchMedicines = async () => {
-      try {
-        const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST");
-        const medicineArray = Array.isArray(response.data)
-          ? response.data
-          : Array.isArray(response.data?.data) ? response.data.data : [];
-        if (response.success) {
-          const formatted = medicineArray.map((item) => ({
-            name:            item.item_name || "",
-            item_id:         item.item_id,
-            batch_number:    item.batch_number  || "N/A",
-            expiry_date:     item.expiry_date   || "N/A",
-            mrp:             parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
-            price:           parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
-            available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
-            category:        item.category || "",
-          }));
-          const seen = new Set();
-          const unique = formatted.filter(m => {
-            if (seen.has(m.item_id)) return false;
-            seen.add(m.item_id);
-            return true;
-          });
-          setMedicines(unique);
-        }
-      } catch (err) {
-        console.error("Error fetching medicines for substitute:", err);
+  // ─── On-demand (lazy) fetch stocks for substitute modal only ──────────────
+  const fetchMedicines = useCallback(async () => {
+    if (!HmsBaseUrl || medicines.length > 0) return;
+    try {
+      setSubstLoading(true);
+      const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST");
+      const medicineArray = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.data) ? response.data.data : [];
+      if (response.success) {
+        const formatted = medicineArray.map((item) => ({
+          name:            item.item_name || "",
+          item_id:         item.item_id,
+          batch_number:    item.batch_number  || "N/A",
+          expiry_date:     item.expiry_date   || "N/A",
+          mrp:             parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
+          price:           parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
+          available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
+          category:        item.category || "",
+        }));
+        const seen = new Set();
+        const unique = formatted.filter(m => {
+          if (seen.has(m.item_id)) return false;
+          seen.add(m.item_id);
+          return true;
+        });
+        setMedicines(unique);
       }
-    };
-    fetchMedicines();
-  }, [HmsBaseUrl]);
+    } catch (err) {
+      console.error("Error fetching medicines for substitute:", err);
+    } finally {
+      setSubstLoading(false);
+    }
+  }, [HmsBaseUrl, medicines.length]);
 
   // ─── Filter based strictly on ward_request_date ───────────────────────────
   const dateFilteredData = useMemo(() => {
@@ -1502,8 +1551,15 @@ const MedicineChart = ({ onConvertToBill }) => {
     // Ensure selling price is provided in place of unit price & mrp for the billing screen
     const normalizedItems = items.map(it => {
       const up = getUnitPrice(it);
+      const resName =
+        (it.item_name && !String(it.item_name).startsWith("Item #") ? it.item_name : null) ||
+        (it.medicine_name && !String(it.medicine_name).startsWith("Item #") ? it.medicine_name : null) ||
+        (it.name && !String(it.name).startsWith("Item #") ? it.name : null) ||
+        it.item_name || it.medicine_name || it.name || "";
       return {
         ...it,
+        item_name: resName,
+        medicine_name: resName,
         price: up,
         mrp: up > 0 ? up : (Number(it.mrp) || 0),
         selling_price: up,
@@ -1526,6 +1582,9 @@ const MedicineChart = ({ onConvertToBill }) => {
     setSubstSearch("");
     setSubstSelected(null);
     setSubstDropOpen(false);
+    if (medicines.length === 0) {
+      fetchMedicines();
+    }
   };
 
   const handleSubstituteConfirm = async () => {
@@ -1599,10 +1658,19 @@ const MedicineChart = ({ onConvertToBill }) => {
               <Pill size={28} />
             </HeaderIconBox>
             <HeaderTitleGroup>
-              <HeaderTitle>
-                Medicine Chart
-                <HeaderBadge>Ward Prescriptions</HeaderBadge>
-              </HeaderTitle>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {medicineData.length > 0 && (
+                  <HeaderBlinkBadgeWrapper title={`${medicineData.length} active ward prescriptions`}>
+                    <HeaderBlinkBadge>{medicineData.length}</HeaderBlinkBadge>
+                  </HeaderBlinkBadgeWrapper>
+                )}
+                <div>
+                  <HeaderTitle>
+                    <span>Medicine Chart</span>
+                    <HeaderBadge>Ward Prescriptions</HeaderBadge>
+                  </HeaderTitle>
+                </div>
+              </div>
               <HeaderSubtitle>
                 Inpatient prescription tracking, insurance consumable separation &amp; dispensing workflow
               </HeaderSubtitle>
@@ -1963,9 +2031,13 @@ const MedicineChart = ({ onConvertToBill }) => {
 
                           {/* IP Number */}
                           <td>
-                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.78rem", fontWeight: 700, color: T.slateMid }}>
-                              {patient.inpatient_number || patient.ip_number || "—"}
-                            </span>
+                            {(patient.inpatient_number || patient.ip_number) ? (
+                              <IPNumberBadge>
+                                {patient.inpatient_number || patient.ip_number}
+                              </IPNumberBadge>
+                            ) : (
+                              <span style={{ color: T.slateLight }}>—</span>
+                            )}
                           </td>
 
                           {/* Mobile */}
@@ -2047,7 +2119,7 @@ const MedicineChart = ({ onConvertToBill }) => {
                                       <ContextIconBox><User size={16} /></ContextIconBox>
                                       <ContextText>
                                         <ContextKey>Patient UHID</ContextKey>
-                                        <ContextVal>{patient.uhid}</ContextVal>
+                                        <ContextVal>{patient.uhid ? <UHIDBadge>{patient.uhid}</UHIDBadge> : "—"}</ContextVal>
                                       </ContextText>
                                     </ContextItem>
 
@@ -2055,7 +2127,13 @@ const MedicineChart = ({ onConvertToBill }) => {
                                       <ContextIconBox><Building2 size={16} /></ContextIconBox>
                                       <ContextText>
                                         <ContextKey>IP Number</ContextKey>
-                                        <ContextVal>{patient.inpatient_number || "—"}</ContextVal>
+                                        <ContextVal>
+                                          {(patient.inpatient_number || patient.ip_number) ? (
+                                            <IPNumberBadge>{patient.inpatient_number || patient.ip_number}</IPNumberBadge>
+                                          ) : (
+                                            "—"
+                                          )}
+                                        </ContextVal>
                                       </ContextText>
                                     </ContextItem>
 
@@ -2330,6 +2408,11 @@ const MedicineChart = ({ onConvertToBill }) => {
 
               <label style={{ display: "block", fontSize: "0.74rem", fontWeight: 700, color: T.slateMid, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
                 Search Available Replacement
+                {substLoading && (
+                  <span style={{ marginLeft: 8, fontSize: "0.72rem", color: T.primary, textTransform: "none", fontWeight: 600 }}>
+                    (Loading stock inventory...)
+                  </span>
+                )}
               </label>
               <div style={{ position: "relative" }}>
                 <SearchInput

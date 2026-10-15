@@ -61,6 +61,21 @@ const BlinkDot = styled.span`
   animation: ${blinkDot} 1s ease-in-out infinite;
 `;
 
+const spinAnimation = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const Spinner = styled.div`
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 3px solid #cbd5e1;
+  border-top-color: #0f766e;
+  border-radius: 50%;
+  animation: ${spinAnimation} 0.8s linear infinite;
+`;
+
 // Helper to format patient full name without repeating identical first/last names
 const formatPatientName = (salutation, firstName, lastName) => {
   const s = (salutation || "").trim();
@@ -827,6 +842,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
  
 
   const [medicines, setMedicines] = useState([]);
+  const [stockLoading, setStockLoading] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [billTypes, setBillTypes] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -922,6 +938,39 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     cashier_id: localStorage.getItem("employeeId") || "",
   });
 
+
+  const resolveDoctorIdAndName = useCallback((docInput) => {
+    if (!docInput) return { doctor_id: "", doctor_name: "" };
+    const strVal = String(docInput).trim();
+    if (!strVal) return { doctor_id: "", doctor_name: "" };
+
+    // 1. Direct match on employeeId in doctor_names
+    const matchById = doctor_names.find(d => String(d.employeeId) === strVal);
+    if (matchById) {
+      return { doctor_id: String(matchById.employeeId), doctor_name: matchById.employeeName };
+    }
+
+    // 2. Numeric ID check
+    if (/^\d+$/.test(strVal)) {
+      const matchNum = doctor_names.find(d => Number(d.employeeId) === Number(strVal));
+      if (matchNum) {
+        return { doctor_id: String(matchNum.employeeId), doctor_name: matchNum.employeeName };
+      }
+      return { doctor_id: strVal, doctor_name: "" };
+    }
+
+    // 3. Match by doctor name
+    const rawClean = strVal.toLowerCase().replace(/^(dr\.?|doctor)\s*/i, "").trim();
+    const matchByName = doctor_names.find(d => {
+      const empClean = String(d.employeeName || "").toLowerCase().replace(/^(dr\.?|doctor)\s*/i, "").trim();
+      return empClean === rawClean || empClean.includes(rawClean) || rawClean.includes(empClean);
+    });
+    if (matchByName) {
+      return { doctor_id: String(matchByName.employeeId), doctor_name: matchByName.employeeName };
+    }
+
+    return { doctor_id: "", doctor_name: strVal };
+  }, [doctor_names]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -1107,12 +1156,15 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       resolvedDoctorId = p.doctor_id || p.doctorName || p.doctor_name || "";
     }
 
+    const { doctor_id: finalDocId, doctor_name: finalDocName } = resolveDoctorIdAndName(resolvedDoctorId);
+
     setFormData(prev => ({
       ...prev,
       uhid: p.uhid || "",
       name: fullName,
       inpatientNo: p.ip_number || "",
-      doctor_id: resolvedDoctorId,
+      doctor_id: finalDocId,
+      doctor_name: finalDocName,
       roomNo: p.room_no || "",
       dob: p.dob || "",
     }));
@@ -1237,12 +1289,16 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         : "";
     const roomNo = activeRoom?.roomNo || activeShift?.newRoomNo || adm.room_no || "";
 
+    const rawIPDoc = adm.admittingDoctor || adm.consultingDoctor || "";
+    const resolvedIPDoc = resolveDoctorIdAndName(rawIPDoc);
+
     setFormData(prev => ({
       ...prev,
       inpatientNo: adm.ipNumber || "",
       uhid:        adm.uhid     || prev.uhid,
       name:        fullName     || prev.name,
-      doctor_id:   adm.admittingDoctor || adm.consultingDoctor || prev.doctor_id,
+      doctor_id:   resolvedIPDoc.doctor_id || prev.doctor_id,
+      doctor_name: resolvedIPDoc.doctor_name || prev.doctor_name,
       roomNo,
     }));
 
@@ -1282,12 +1338,14 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       const ok = window.confirm("Replace current UHID with last billed UHID?");
       if (!ok) return;
     }
+    const resolvedLastDoc = resolveDoctorIdAndName(lastBilled?.doctor_id);
     setFormData(prev => ({
       ...prev,
       uhid: lastBilled.uhid,
       name: lastBilled.patient_name,
       inpatientNo: lastBilled.inpatient_number || "",
-      doctor_id: lastBilled.doctor_id || "",
+      doctor_id: resolvedLastDoc.doctor_id || lastBilled.doctor_id || "",
+      doctor_name: resolvedLastDoc.doctor_name || lastBilled.doctor_name || "",
       roomNo: lastBilled.room_no || "",
       billType: lastBilled.bill_type || "",
       billNo: lastBilled.bill_no || "",
@@ -1354,6 +1412,15 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     const docId = formData.doctor_id;
     if (!docId) return;
 
+    // If docId is accidentally a non-digit name string, resolve it to an ID immediately
+    if (isNaN(Number(docId)) && !/^\d+$/.test(docId)) {
+      const match = resolveDoctorIdAndName(docId);
+      if (match.doctor_id && match.doctor_id !== docId) {
+        setFormData((prev) => ({ ...prev, doctor_id: match.doctor_id, doctor_name: match.doctor_name }));
+        return;
+      }
+    }
+
     const existing = doctor_names.find((d) => String(d.employeeId) === String(docId));
     if (existing && existing.employeeName) {
       if (!formData.doctor_name || formData.doctor_name !== existing.employeeName) {
@@ -1362,20 +1429,21 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     } else {
       apiRequest(`${HmsBaseUrl}get_employee_name/?employee_id=${encodeURIComponent(docId)}`, "GET")
         .then((res) => {
-          if (res?.success && res.data?.name) {
-            const resolvedName = res.data.name;
+          const resolvedName = res?.name || res?.data?.name;
+          const resolvedId = res?.doctor_id || res?.employee_id || docId;
+          if (res?.success && resolvedName) {
             setdoctor_names((prev) => {
-              if (prev.some((d) => String(d.employeeId) === String(docId))) return prev;
-              return [...prev, { employeeId: String(docId), employeeName: resolvedName }];
+              if (prev.some((d) => String(d.employeeId) === String(resolvedId))) return prev;
+              return [...prev, { employeeId: String(resolvedId), employeeName: resolvedName }];
             });
-            setFormData((prev) => ({ ...prev, doctor_name: resolvedName }));
+            setFormData((prev) => ({ ...prev, doctor_id: String(resolvedId), doctor_name: resolvedName }));
           }
         })
         .catch((err) => {
           console.warn("Could not resolve employee name for doctor ID", docId, err);
         });
     }
-  }, [formData.doctor_id, doctor_names, HmsBaseUrl, formData.doctor_name]);
+  }, [formData.doctor_id, doctor_names, HmsBaseUrl, formData.doctor_name, resolveDoctorIdAndName]);
 
   const fetchMedicines = useCallback(async () => {
     if (!HmsBaseUrl) return [];
@@ -1441,8 +1509,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     }
   }, [HmsBaseUrl]);
 
-  // Requirement 1: Do NOT call get_pharmacy_stock initially on mount!
-  // API is now called on-demand when user searches medicine name.
+  // Pre-fetch stock on mount so medicine search is instant (0ms) when user types and enters
+  useEffect(() => {
+    fetchMedicines();
+  }, [fetchMedicines]);
 
 
   useEffect(() => {
@@ -1477,33 +1547,48 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   };
 
   const openMedicineModal = async (term) => {
-    const normalizedTerm = (term ?? "").trim().toLowerCase();
+    const rawTerm = term !== undefined ? term : searchTerm;
+    const normalizedTerm = (rawTerm ?? "").trim().toLowerCase();
 
-    // Requirement 1: Only call get_pharmacy_stock API when medicine is searched
-    let currentStock = medicines;
-    try {
-      const fetched = await fetchMedicines();
-      if (Array.isArray(fetched) && fetched.length > 0) {
-        currentStock = fetched;
-      }
-    } catch (err) {
-      console.error("Error fetching stock on search:", err);
-    }
-
-    const filtered = normalizedTerm
-      ? currentStock.filter((m) =>
-          (m.name || "").toLowerCase().includes(normalizedTerm) ||
-          (m.chemical_composition || "").toLowerCase().includes(normalizedTerm) ||
-          (m.composition_name || "").toLowerCase().includes(normalizedTerm)
-        )
-      : currentStock;
-
-    setFilteredModalMedicines(filtered);
+    // 1. Immediately open modal with search query (ZERO DELAY)
     setSelectedMedicines([]);
-    setModalSearch(term || "");
+    setModalSearch(rawTerm || "");
     setModalPage(1);
     setShowNilStock(false);
     setShowModal(true);
+
+    // 2. If medicines already cached/pre-fetched in memory, display filtered results immediately!
+    if (medicines && medicines.length > 0) {
+      const filtered = normalizedTerm
+        ? medicines.filter((m) =>
+            (m.name || "").toLowerCase().includes(normalizedTerm) ||
+            (m.chemical_composition || "").toLowerCase().includes(normalizedTerm) ||
+            (m.composition_name || "").toLowerCase().includes(normalizedTerm) ||
+            (m.batch_number || "").toLowerCase().includes(normalizedTerm)
+          )
+        : medicines;
+      setFilteredModalMedicines(filtered);
+    } else {
+      // 3. Otherwise fetch stock now and populate modal as soon as data arrives
+      setStockLoading(true);
+      try {
+        const fetched = await fetchMedicines();
+        const currentStock = Array.isArray(fetched) ? fetched : [];
+        const filtered = normalizedTerm
+          ? currentStock.filter((m) =>
+              (m.name || "").toLowerCase().includes(normalizedTerm) ||
+              (m.chemical_composition || "").toLowerCase().includes(normalizedTerm) ||
+              (m.composition_name || "").toLowerCase().includes(normalizedTerm) ||
+              (m.batch_number || "").toLowerCase().includes(normalizedTerm)
+            )
+          : currentStock;
+        setFilteredModalMedicines(filtered);
+      } catch (err) {
+        console.error("Error fetching stock on search:", err);
+      } finally {
+        setStockLoading(false);
+      }
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -1511,9 +1596,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     if (e.key === "Enter") {
       e.preventDefault();
-      const term = searchTerm;
-      setSearchTerm("");
-      openMedicineModal(term);
+      openMedicineModal(searchTerm);
     }
   };
 
@@ -1576,6 +1659,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       };
     });
     setAddedMedicines((prev) => [...prev, ...medicinesWithQuantity]);
+    setSearchTerm("");
     handleModalClose();
   }, [selectedMedicines, addedMedicines]);
 
@@ -1707,12 +1791,43 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     setQtyErrors({});
 
-    const invalidStock = addedMedicines.some(
-      (m) => m.available_stock !== 9999 && m.quantity > m.available_stock
-    );
+    const stockErrorMap = {};
+    const invalidStockItems = [];
+    addedMedicines.forEach((m, idx) => {
+      if (
+        m.available_stock !== 9999 &&
+        m.available_stock != null &&
+        Number(m.quantity) > Number(m.available_stock)
+      ) {
+        stockErrorMap[idx] = true;
+        invalidStockItems.push(m);
+      }
+    });
 
-    if (invalidStock) {
-      toast.error("Quantity exceeds available stock!", { autoClose: 2000 });
+    if (invalidStockItems.length > 0) {
+      setQtyErrors(stockErrorMap);
+      if (invalidStockItems.length === 1) {
+        const item = invalidStockItems[0];
+        const itemName = item.name || item.item_name || "Medicine";
+        const avail = item.available_stock != null ? item.available_stock : 0;
+        const req = item.quantity;
+        toast.error(
+          `Quantity exceeds available stock for "${itemName}"! (Available: ${avail}, Requested: ${req})`,
+          { autoClose: 3500 }
+        );
+      } else {
+        const itemDetails = invalidStockItems
+          .map(
+            (m) =>
+              `"${m.name || m.item_name}" (Available: ${
+                m.available_stock != null ? m.available_stock : 0
+              }, Requested: ${m.quantity})`
+          )
+          .join(", ");
+        toast.error(`Quantity exceeds available stock for: ${itemDetails}`, {
+          autoClose: 4000,
+        });
+      }
       return;
     }
 
@@ -2202,10 +2317,28 @@ const loadedMedicines = rawMeds.map((item) => {
   const stockMatch =
     medicines.find(
       (s) =>
-        String(s.item_id) === String(item.item_id) &&
+        (String(s.item_id) === String(item.item_id) ||
+         (s.stock_id != null && String(s.stock_id) === String(item.item_id)) ||
+         (s.id != null && String(s.id) === String(item.item_id))) &&
         String(s.batch_number) === String(item.batch_number)
     ) ||
-    medicines.find((s) => String(s.item_id) === String(item.item_id));
+    medicines.find(
+      (s) =>
+        String(s.item_id) === String(item.item_id) ||
+        (s.stock_id != null && String(s.stock_id) === String(item.item_id)) ||
+        (s.id != null && String(s.id) === String(item.item_id))
+    );
+
+  const resolvedItemName =
+    (item.item_name && !String(item.item_name).startsWith("Item #") ? item.item_name : null) ||
+    (item.medicine_name && !String(item.medicine_name).startsWith("Item #") ? item.medicine_name : null) ||
+    (item.name && !String(item.name).startsWith("Item #") ? item.name : null) ||
+    stockMatch?.name ||
+    stockMatch?.item_name ||
+    item.item_name ||
+    item.medicine_name ||
+    item.name ||
+    (item.item_id ? `Item #${item.item_id}` : "");
 
   // MRP: prefer item directly (API already enriched it), fallback to stock
   const mrp = parseFloat(item.mrp ?? stockMatch?.mrp ?? 0);
@@ -2221,7 +2354,7 @@ const loadedMedicines = rawMeds.map((item) => {
 
   return {
     item_id:         item.item_id,
-    name:            stockMatch?.name || item.item_name || `Item #${item.item_id}`,
+    name:            resolvedItemName,
     batch_number:    item.batch_number || stockMatch?.batch_number || "",
     quantity:        qty,
     price:           price,
@@ -2353,10 +2486,28 @@ const loadedMedicines = rawMeds.map((item) => {
       const stockMatch =
         medicines.find(
           (s) =>
-            String(s.item_id) === String(item.item_id) &&
+            (String(s.item_id) === String(item.item_id) ||
+             (s.stock_id != null && String(s.stock_id) === String(item.item_id)) ||
+             (s.id != null && String(s.id) === String(item.item_id))) &&
             String(s.batch_number) === String(item.batch_number)
         ) ||
-        medicines.find((s) => String(s.item_id) === String(item.item_id));
+        medicines.find(
+          (s) =>
+            String(s.item_id) === String(item.item_id) ||
+            (s.stock_id != null && String(s.stock_id) === String(item.item_id)) ||
+            (s.id != null && String(s.id) === String(item.item_id))
+        );
+
+      const resolvedItemName =
+        (item.item_name && !String(item.item_name).startsWith("Item #") ? item.item_name : null) ||
+        (item.medicine_name && !String(item.medicine_name).startsWith("Item #") ? item.medicine_name : null) ||
+        (item.name && !String(item.name).startsWith("Item #") ? item.name : null) ||
+        stockMatch?.name ||
+        stockMatch?.item_name ||
+        item.item_name ||
+        item.medicine_name ||
+        item.name ||
+        (item.item_id ? `Item #${item.item_id}` : "");
 
       // Resolve unit price / rate:
       // Prioritize item's explicit selling price/price/mrp sent from MedicineChart/Ward Request, then stockMatch
@@ -2403,7 +2554,7 @@ const loadedMedicines = rawMeds.map((item) => {
 
       return {
         item_id:             item.item_id,
-        name:                stockMatch?.name || item.item_name || `Item #${item.item_id}`,
+        name:                resolvedItemName,
         batch_number:        item.batch_number || stockMatch?.batch_number || "",
         quantity:            qty,
         price:               resolvedRate,
@@ -2416,7 +2567,7 @@ const loadedMedicines = rawMeds.map((item) => {
         sgst_rate:           sgstRate,
         sgst_amount:         sgstAmt,
         expiry_date:         stockMatch?.expiry_date  || item.expiry_date || "—",
-        available_stock:     item.available_stock     ?? stockMatch?.available_stock ?? 0,
+        available_stock:     item.available_stock != null ? Number(item.available_stock) : (stockMatch?.available_stock ?? 0),
         dosage:              item.dosage              || stockMatch?.dosage || "",
         noOfDays:            item.noOfDays            || "",
         total:               gross,
@@ -2563,13 +2714,29 @@ const loadedMedicines = rawMeds.map((item) => {
 
     const loadedMedicines = items.map((item) => {
       const stockMatch =
-        medicines.find((s) => String(s.item_id) === String(item.item_id)) ||
+        medicines.find(
+          (s) =>
+            String(s.item_id) === String(item.item_id) ||
+            (s.stock_id != null && String(s.stock_id) === String(item.item_id)) ||
+            (s.id != null && String(s.id) === String(item.item_id))
+        ) ||
         medicines.find(
           (s) =>
             item.item_name &&
             s.name &&
             s.name.trim().toLowerCase() === item.item_name.trim().toLowerCase()
         );
+
+      const resolvedItemName =
+        (item.item_name && !String(item.item_name).startsWith("Item #") ? item.item_name : null) ||
+        (item.medicine_name && !String(item.medicine_name).startsWith("Item #") ? item.medicine_name : null) ||
+        (item.name && !String(item.name).startsWith("Item #") ? item.name : null) ||
+        stockMatch?.name ||
+        stockMatch?.item_name ||
+        item.item_name ||
+        item.medicine_name ||
+        item.name ||
+        (item.item_id ? `Item #${item.item_id}` : "");
 
       // ── Price / MRP: item enriched by backend first, then stockMatch, then 0 ──
       const price = parseFloat(item.price || item.mrp || stockMatch?.price || stockMatch?.mrp || 0);
@@ -2584,7 +2751,7 @@ const loadedMedicines = rawMeds.map((item) => {
 
       return {
         item_id:         item.item_id || stockMatch?.item_id,
-        name:            stockMatch?.name || item.item_name || `Item #${item.item_id}`,
+        name:            resolvedItemName,
         batch_number:    item.batch_number || item.batch_no || stockMatch?.batch_number || "",
         quantity:        qty,
         price:           price,
@@ -2738,15 +2905,31 @@ const loadedMedicines = rawMeds.map((item) => {
 
       const stockMatch = medicines.find(
         (s) =>
-          String(s.item_id) === String(m.item_id) &&
+          (String(s.item_id) === String(m.item_id) ||
+           (s.stock_id != null && String(s.stock_id) === String(m.item_id)) ||
+           (s.id != null && String(s.id) === String(m.item_id))) &&
           String(s.batch_number) === String(m.batch_number)
       ) || medicines.find(
-        (s) => String(s.item_id) === String(m.item_id)
+        (s) =>
+          String(s.item_id) === String(m.item_id) ||
+          (s.stock_id != null && String(s.stock_id) === String(m.item_id)) ||
+          (s.id != null && String(s.id) === String(m.item_id))
       );
+
+      const resolvedItemName =
+        (m.item_name && !String(m.item_name).startsWith("Item #") ? m.item_name : null) ||
+        (m.medicine_name && !String(m.medicine_name).startsWith("Item #") ? m.medicine_name : null) ||
+        (m.name && !String(m.name).startsWith("Item #") ? m.name : null) ||
+        stockMatch?.name ||
+        stockMatch?.item_name ||
+        m.item_name ||
+        m.medicine_name ||
+        m.name ||
+        (m.item_id ? `Item #${m.item_id}` : "");
 
       return {
         item_id:         m.item_id,
-        name:            stockMatch?.name || m.item_name || m.name || `Item #${m.item_id}`,
+        name:            resolvedItemName,
         batch_number:    m.batch_number || "",
         quantity:        qty,
         price:           price,
@@ -2862,12 +3045,19 @@ const loadedMedicines = rawMeds.map((item) => {
 
   const netAmount = Math.max(0, totalAmount - overallDiscAmt);
 
-  const nilStockCount = filteredModalMedicines.filter(m => m.is_nil_stock).length;
+  const modalSourceList = filteredModalMedicines.length > 0 ? filteredModalMedicines : medicines;
+  const nilStockCount = modalSourceList.filter(m => m.is_nil_stock).length;
 
-  const visibleModalMedicines = filteredModalMedicines.filter((m) => {
+  const visibleModalMedicines = modalSourceList.filter((m) => {
     if (m.is_nil_stock && !showNilStock) return false;
     if (modalSearch.trim()) {
-      return (m.name || "").toLowerCase().startsWith(modalSearch.trim().toLowerCase());
+      const q = modalSearch.trim().toLowerCase();
+      return (
+        (m.name || "").toLowerCase().includes(q) ||
+        (m.chemical_composition || "").toLowerCase().includes(q) ||
+        (m.composition_name || "").toLowerCase().includes(q) ||
+        (m.batch_number || "").toLowerCase().includes(q)
+      );
     }
     return true;
   });
@@ -3205,9 +3395,7 @@ const loadedMedicines = rawMeds.map((item) => {
               disabled={!isMedicineSearchEnabled}
               onClick={() => {
                 if (!isMedicineSearchEnabled) return;
-                const term = searchTerm;
-                setSearchTerm("");
-                openMedicineModal(term);
+                openMedicineModal(searchTerm);
               }}
               title="Search medicines"
             >
@@ -3551,9 +3739,14 @@ const loadedMedicines = rawMeds.map((item) => {
                 )}
               </ModalResultCount>
 
-              {visibleModalMedicines.length === 0 ? (
+              {stockLoading ? (
+                <div style={{ textAlign: "center", padding: "48px 0", color: "#0f766e", fontWeight: 600 }}>
+                  <Spinner />
+                  <div style={{ marginTop: 12, fontSize: "0.95rem" }}>Loading medicines stock...</div>
+                </div>
+              ) : visibleModalMedicines.length === 0 ? (
                 <NoResults>
-                  {nilStockCount === filteredModalMedicines.length && !showNilStock
+                  {nilStockCount === modalSourceList.length && !showNilStock
                     ? 'All matching medicines have nil stock. Tick "List the Nil Stock" to view them.'
                     : "No medicines found matching your search."}
                 </NoResults>
