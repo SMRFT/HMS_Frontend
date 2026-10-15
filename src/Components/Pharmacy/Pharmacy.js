@@ -1548,7 +1548,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
   const openMedicineModal = async (term) => {
     const rawTerm = term !== undefined ? term : searchTerm;
-    const normalizedTerm = (rawTerm ?? "").trim().toLowerCase();
 
     // 1. Immediately open modal with search query (ZERO DELAY)
     setSelectedMedicines([]);
@@ -1556,39 +1555,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setModalPage(1);
     setShowNilStock(false);
     setShowModal(true);
+    setFilteredModalMedicines([]);
 
-    // 2. If medicines already cached/pre-fetched in memory, display filtered results immediately!
-    if (medicines && medicines.length > 0) {
-      const filtered = normalizedTerm
-        ? medicines.filter((m) =>
-            (m.name || "").toLowerCase().includes(normalizedTerm) ||
-            (m.chemical_composition || "").toLowerCase().includes(normalizedTerm) ||
-            (m.composition_name || "").toLowerCase().includes(normalizedTerm) ||
-            (m.batch_number || "").toLowerCase().includes(normalizedTerm)
-          )
-        : medicines;
-      setFilteredModalMedicines(filtered);
-    } else {
-      // 3. Otherwise fetch stock now and populate modal as soon as data arrives
-      setStockLoading(true);
-      try {
-        const fetched = await fetchMedicines();
-        const currentStock = Array.isArray(fetched) ? fetched : [];
-        const filtered = normalizedTerm
-          ? currentStock.filter((m) =>
-              (m.name || "").toLowerCase().includes(normalizedTerm) ||
-              (m.chemical_composition || "").toLowerCase().includes(normalizedTerm) ||
-              (m.composition_name || "").toLowerCase().includes(normalizedTerm) ||
-              (m.batch_number || "").toLowerCase().includes(normalizedTerm)
-            )
-          : currentStock;
-        setFilteredModalMedicines(filtered);
-      } catch (err) {
-        console.error("Error fetching stock on search:", err);
-      } finally {
-        setStockLoading(false);
-      }
-    }
+    // 2. Refresh stock in background so available stock is always fresh
+    fetchMedicines();
   };
 
   const handleKeyPress = (e) => {
@@ -1964,6 +1934,32 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             paymentMode,
           });
           setShowPrintModal(true);
+
+          // Deduct billed stock in memory immediately for 0ms instant UI update
+          const billedItems = [...addedMedicines];
+          setMedicines((prevMeds) => {
+            if (!Array.isArray(prevMeds) || prevMeds.length === 0) return prevMeds;
+            const deductionMap = {};
+            billedItems.forEach((it) => {
+              const key = `${it.item_id}_${it.batch_number}`;
+              deductionMap[key] = (deductionMap[key] || 0) + Number(it.quantity || it.qty || 0);
+            });
+            return prevMeds.map((med) => {
+              const key = `${med.item_id}_${med.batch_number}`;
+              if (deductionMap[key]) {
+                const newAvail = Math.max(0, (Number(med.available_stock) || 0) - deductionMap[key]);
+                return {
+                  ...med,
+                  available_stock: newAvail,
+                  is_nil_stock: newAvail <= 0,
+                };
+              }
+              return med;
+            });
+          });
+          setFilteredModalMedicines([]);
+          fetchMedicines();
+
           resetForm();
           setTodayBillDate();
         } else {
@@ -2111,6 +2107,31 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       }
 
       if (response.success) {
+        // Deduct billed stock in memory immediately for 0ms instant UI update
+        const billedItems = [...addedMedicines];
+        setMedicines((prevMeds) => {
+          if (!Array.isArray(prevMeds) || prevMeds.length === 0) return prevMeds;
+          const deductionMap = {};
+          billedItems.forEach((it) => {
+            const key = `${it.item_id}_${it.batch_number}`;
+            deductionMap[key] = (deductionMap[key] || 0) + Number(it.quantity || it.qty || 0);
+          });
+          return prevMeds.map((med) => {
+            const key = `${med.item_id}_${med.batch_number}`;
+            if (deductionMap[key]) {
+              const newAvail = Math.max(0, (Number(med.available_stock) || 0) - deductionMap[key]);
+              return {
+                ...med,
+                available_stock: newAvail,
+                is_nil_stock: newAvail <= 0,
+              };
+            }
+            return med;
+          });
+        });
+        setFilteredModalMedicines([]);
+        fetchMedicines();
+
         const backendMsg = response.data?.message || response.message;
         if (status === "Estimate") {
           toast.success(backendMsg || `Estimate saved! #${response.data?.estimate_no || ""}`, { autoClose: 2000 });
@@ -2235,6 +2256,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       uhid:        estimate.uhid              || "",
       inpatientNo: estimate.inpatient_number  || "",
       doctor_id:   estimate.doctor_id         || "",
+      doctor_name: estimate.doctor_name       || "",
       roomNo:      estimate.room_no           || "",
       billType:    estimate.bill_type         || "",
       billTypeName: resolvedEstimateBillTypeName,
@@ -2340,10 +2362,10 @@ const loadedMedicines = rawMeds.map((item) => {
     item.name ||
     (item.item_id ? `Item #${item.item_id}` : "");
 
-  // MRP: prefer item directly (API already enriched it), fallback to stock
-  const mrp = parseFloat(item.mrp ?? stockMatch?.mrp ?? 0);
-  // Price for total calculation: use mrp (ward requests use mrp as rate)
-  const price = parseFloat(stockMatch?.price || mrp);
+  // MRP: prefer item directly (API already enriched it), fallback to price or stock
+  const mrp = parseFloat(item.mrp ?? item.price ?? stockMatch?.mrp ?? stockMatch?.price ?? 0);
+  // Price for total calculation: use price or mrp
+  const price = parseFloat(item.price ?? stockMatch?.price ?? mrp);
   const qty   = Number(item.qty ?? item.quantity ?? 0);
 
   // Per-unit GST amounts from API; scale by qty for display
@@ -3045,7 +3067,7 @@ const loadedMedicines = rawMeds.map((item) => {
 
   const netAmount = Math.max(0, totalAmount - overallDiscAmt);
 
-  const modalSourceList = filteredModalMedicines.length > 0 ? filteredModalMedicines : medicines;
+  const modalSourceList = medicines;
   const nilStockCount = modalSourceList.filter(m => m.is_nil_stock).length;
 
   const visibleModalMedicines = modalSourceList.filter((m) => {
