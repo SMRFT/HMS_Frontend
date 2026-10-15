@@ -3,7 +3,7 @@ import styled, { keyframes } from 'styled-components';
 import { toast } from 'react-toastify';
 import { fetchUserPermissions, updateUserPermissions, fetchAllEmployees, fetchSidebarMapping } from './apiRequest';
 import { PAGE_PERMISSIONS } from './FrontendPageMapping';
-import { FiSave, FiSearch, FiCheck, FiShield, FiCopy, FiX, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
+import { FiSave, FiSearch, FiCheck, FiShield, FiCopy, FiX, FiCheckCircle, FiRefreshCw, FiArrowRight } from 'react-icons/fi';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
@@ -620,20 +620,28 @@ const ModalOverlay = styled.div`
 const ModalCard = styled.div`
   background: #ffffff;
   width: 100%;
-  max-width: 480px;
-  border-radius: 24px;
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
-  padding: 24px;
+  max-width: 980px;
+  max-height: 88vh;
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.35);
+  display: flex;
+  flex-direction: column;
   position: relative;
-  animation: ${fadeIn} 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  animation: ${fadeIn} 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (max-width: 860px) {
+    max-width: 96vw;
+    max-height: 94vh;
+  }
 `;
 
 const ModalCloseBtn = styled.button`
   position: absolute;
-  top: 20px;
+  top: 18px;
   right: 20px;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: #f1f5f9;
   border: none;
@@ -642,6 +650,14 @@ const ModalCloseBtn = styled.button`
   justify-content: center;
   color: #64748b;
   cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+
+  &:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    transform: scale(1.05);
+  }
 `;
 
 // MAIN COMPONENT
@@ -666,6 +682,8 @@ const UserPermissionManager = () => {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copySourceEmpId, setCopySourceEmpId] = useState(null);
   const [copyTargetEmpIds, setCopyTargetEmpIds] = useState([]);
+  const [copySourceSearch, setCopySourceSearch] = useState('');
+  const [copyTargetSearch, setCopyTargetSearch] = useState('');
 
   useEffect(() => {
     const init = async () => {
@@ -725,6 +743,29 @@ const UserPermissionManager = () => {
       return matchesSearch && matchesDept;
     });
   }, [employees, searchTerm, selectedDept]);
+
+  const filteredCopySourceEmployees = useMemo(() => {
+    if (!copySourceSearch.trim()) return employees;
+    const q = copySourceSearch.trim().toLowerCase();
+    return (employees || []).filter(emp =>
+      (emp.employeeName || '').toLowerCase().includes(q) ||
+      (emp.employeeId || '').toLowerCase().includes(q) ||
+      (emp.department || '').toLowerCase().includes(q) ||
+      (emp.designation || '').toLowerCase().includes(q)
+    );
+  }, [employees, copySourceSearch]);
+
+  const filteredCopyTargetEmployees = useMemo(() => {
+    const list = (employees || []).filter(e => e.employeeId !== copySourceEmpId);
+    if (!copyTargetSearch.trim()) return list;
+    const q = copyTargetSearch.trim().toLowerCase();
+    return list.filter(emp =>
+      (emp.employeeName || '').toLowerCase().includes(q) ||
+      (emp.employeeId || '').toLowerCase().includes(q) ||
+      (emp.department || '').toLowerCase().includes(q) ||
+      (emp.designation || '').toLowerCase().includes(q)
+    );
+  }, [employees, copySourceEmpId, copyTargetSearch]);
 
   const selectedEmployeeObj = useMemo(() => {
     return (employees || []).find(e => e?.employeeId === selectedEmpId) || null;
@@ -1099,7 +1140,12 @@ const UserPermissionManager = () => {
           <button className="btn-discard" onClick={() => window.location.reload()}>
             Discard
           </button>
-          <button className="btn-copy" onClick={() => { setCopySourceEmpId(selectedEmpId); setShowCopyModal(true); }}>
+          <button className="btn-copy" onClick={() => {
+            setCopySourceEmpId(selectedEmpId);
+            setCopySourceSearch('');
+            setCopyTargetSearch('');
+            setShowCopyModal(true);
+          }}>
             <FiCopy /> Copy permissions
           </button>
           <button className="btn-save" onClick={handleSave} disabled={isSaving}>
@@ -1293,103 +1339,547 @@ const UserPermissionManager = () => {
         </RightPanel>
       </MainLayout>
 
-      {/* Copy Permissions Modal (Screenshot 2) */}
+      {/* Copy Permissions Modal - Redesigned & Spacious */}
       {showCopyModal && (
         <ModalOverlay onClick={() => setShowCopyModal(false)}>
           <ModalCard onClick={e => e.stopPropagation()}>
-            <ModalCloseBtn onClick={() => setShowCopyModal(false)}>
+            <ModalCloseBtn onClick={() => setShowCopyModal(false)} title="Close modal">
               <FiX size={16} />
             </ModalCloseBtn>
 
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 4px 0', color: '#0f172a' }}>Copy permissions</h3>
-            <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 16px 0' }}>Take one employee's access and apply it to others</p>
+            {/* Modal Header */}
+            <div style={{ padding: '22px 28px 16px 28px', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: '#ccfbf1',
+                  color: '#0d9488',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <FiCopy size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0', color: '#0f172a', letterSpacing: '-0.01em' }}>
+                    Copy User Permissions
+                  </h3>
+                  <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '3px 0 0 0' }}>
+                    Replicate all module access and page permissions from one team member to others in bulk.
+                  </p>
+                </div>
+              </div>
+            </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.5px', marginBottom: '8px' }}>COPY FROM</div>
-              <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {employees.map(emp => {
-                  const isSrc = copySourceEmpId === emp.employeeId;
-                  return (
-                    <div
-                      key={emp.employeeId}
-                      onClick={() => setCopySourceEmpId(emp.employeeId)}
+            {/* Modal Body - 2 Columns */}
+            <div style={{
+              padding: '20px 28px',
+              overflowY: 'auto',
+              flex: 1,
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr) 36px minmax(0, 1fr)',
+              gap: '16px',
+              alignItems: 'stretch',
+              background: '#ffffff'
+            }}>
+              {/* LEFT COLUMN: SOURCE EMPLOYEE */}
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                minWidth: 0
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '6px',
+                      background: '#0d9488',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 800
+                    }}>1</div>
+                    <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#334155', letterSpacing: '0.5px' }}>
+                      COPY FROM (SOURCE)
+                    </span>
+                  </div>
+                  {copySourceEmpId ? (
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      color: '#0d9488',
+                      background: '#ccfbf1',
+                      padding: '3px 10px',
+                      borderRadius: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <FiCheck size={12} strokeWidth={3} /> Selected
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.72rem', color: '#e11d48', fontWeight: 600 }}>
+                      Select a source
+                    </span>
+                  )}
+                </div>
+
+                {/* Search Bar */}
+                <div style={{ position: 'relative', marginBottom: '8px' }}>
+                  <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={15} />
+                  <input
+                    type="text"
+                    placeholder="Search source by name, ID or department..."
+                    value={copySourceSearch}
+                    onChange={(e) => setCopySourceSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 32px 9px 36px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      background: '#ffffff',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                  />
+                  {copySourceSearch && (
+                    <button
+                      onClick={() => setCopySourceSearch('')}
                       style={{
-                        padding: '10px 14px',
-                        borderRadius: '12px',
-                        border: isSrc ? '2px solid #0d9488' : '1px solid #e2e8f0',
-                        background: '#ffffff',
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94a3b8',
                         cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
+                        padding: 0
                       }}
+                      title="Clear search"
                     >
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>{emp.employeeName}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{[emp.department, emp.designation].filter(Boolean).join(' · ')}</div>
+                      <FiX size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '8px', paddingLeft: '4px' }}>
+                  Showing {filteredCopySourceEmployees.length} of {employees.length} employees
+                </div>
+
+                {/* List Container */}
+                <div style={{
+                  flex: 1,
+                  maxHeight: '340px',
+                  minHeight: '260px',
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  paddingRight: '4px'
+                }}>
+                  {filteredCopySourceEmployees.map(emp => {
+                    const isSrc = copySourceEmpId === emp.employeeId;
+                    const pageCount = getEmpPageCount(emp);
+                    const initial = (emp.employeeName || "E").charAt(0).toUpperCase();
+
+                    return (
+                      <div
+                        key={emp.employeeId}
+                        onClick={() => setCopySourceEmpId(emp.employeeId)}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '12px',
+                          border: isSrc ? '2px solid #0d9488' : '1px solid #e2e8f0',
+                          background: isSrc ? '#f0fdfa' : '#ffffff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSrc ? '0 4px 12px rgba(13, 148, 136, 0.1)' : '0 1px 2px rgba(0,0,0,0.02)'
+                        }}
+                      >
+                        <div style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '10px',
+                          background: isSrc ? '#0d9488' : '#e2e8f0',
+                          color: isSrc ? '#ffffff' : '#475569',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          fontSize: '0.82rem',
+                          flexShrink: 0
+                        }}>
+                          {initial}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontWeight: 700,
+                            fontSize: '0.88rem',
+                            color: isSrc ? '#0f766e' : '#0f172a',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {emp.employeeName}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 600, color: '#475569' }}>#{emp.employeeId}</span>
+                            {emp.department && <span>· {emp.department}</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
+                          <div style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            border: isSrc ? 'none' : '2px solid #cbd5e1',
+                            background: isSrc ? '#0d9488' : 'transparent',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff'
+                          }}>
+                            {isSrc && <FiCheck size={12} strokeWidth={3} />}
+                          </div>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 600, color: isSrc ? '#0d9488' : '#94a3b8' }}>
+                            {pageCount} perms
+                          </span>
+                        </div>
                       </div>
-                      {isSrc && <FiCheckCircle color="#0d9488" size={18} />}
+                    );
+                  })}
+                  {filteredCopySourceEmployees.length === 0 && (
+                    <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.84rem' }}>
+                      No employees match "{copySourceSearch}"
                     </div>
-                  );
-                })}
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.5px' }}>COPY TO</span>
-                <span
-                  style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0d9488', cursor: 'pointer' }}
-                  onClick={() => setCopyTargetEmpIds(employees.filter(e => e.employeeId !== copySourceEmpId).map(e => e.employeeId))}
-                >
-                  Select all
-                </span>
+              {/* CENTER DIVIDER / DIRECTION ARROW */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  width: '1px',
+                  background: '#e2e8f0'
+                }} />
+                <div style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  background: '#ffffff',
+                  border: '2px solid #0d9488',
+                  color: '#0d9488',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 2,
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.06)'
+                }}>
+                  <FiArrowRight size={16} />
+                </div>
               </div>
-              <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {employees.filter(e => e.employeeId !== copySourceEmpId).map(emp => {
-                  const isTarget = copyTargetEmpIds.includes(emp.employeeId);
-                  return (
-                    <div
-                      key={emp.employeeId}
-                      onClick={() => {
-                        setCopyTargetEmpIds(prev =>
-                          prev.includes(emp.employeeId)
-                            ? prev.filter(id => id !== emp.employeeId)
-                            : [...prev, emp.employeeId]
-                        );
-                      }}
+
+              {/* RIGHT COLUMN: TARGET EMPLOYEES */}
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                minWidth: 0
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '6px',
+                      background: '#0d9488',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 800
+                    }}>2</div>
+                    <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#334155', letterSpacing: '0.5px' }}>
+                      COPY TO (TARGETS: {copyTargetEmpIds.length})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: '#0d9488',
+                      cursor: 'pointer',
+                      padding: '2px 6px',
+                      borderRadius: '6px'
+                    }}
+                    onClick={() => {
+                      const ids = filteredCopyTargetEmployees.map(e => e.employeeId);
+                      const allSelected = ids.length > 0 && ids.every(id => copyTargetEmpIds.includes(id));
+                      if (allSelected) {
+                        setCopyTargetEmpIds(prev => prev.filter(id => !ids.includes(id)));
+                      } else {
+                        setCopyTargetEmpIds(prev => Array.from(new Set([...prev, ...ids])));
+                      }
+                    }}
+                  >
+                    {filteredCopyTargetEmployees.length > 0 && filteredCopyTargetEmployees.every(e => copyTargetEmpIds.includes(e.employeeId))
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                </div>
+
+                {/* Search Bar */}
+                <div style={{ position: 'relative', marginBottom: '8px' }}>
+                  <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={15} />
+                  <input
+                    type="text"
+                    placeholder="Search targets to receive permissions..."
+                    value={copyTargetSearch}
+                    onChange={(e) => setCopyTargetSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 32px 9px 36px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      background: '#ffffff',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                  />
+                  {copyTargetSearch && (
+                    <button
+                      onClick={() => setCopyTargetSearch('')}
                       style={{
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        border: isTarget ? '1px solid #0d9488' : '1px solid #e2e8f0',
-                        background: isTarget ? '#f0fdf4' : '#ffffff',
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94a3b8',
                         cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
+                        padding: 0
                       }}
+                      title="Clear search"
                     >
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>{emp.employeeName}</span>
-                      <input type="checkbox" checked={isTarget} readOnly style={{ accentColor: '#0d9488' }} />
+                      <FiX size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '8px', paddingLeft: '4px' }}>
+                  {copyTargetEmpIds.length} of {employees.length - (copySourceEmpId ? 1 : 0)} selected
+                </div>
+
+                {/* List Container */}
+                <div style={{
+                  flex: 1,
+                  maxHeight: '340px',
+                  minHeight: '260px',
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  paddingRight: '4px'
+                }}>
+                  {filteredCopyTargetEmployees.map(emp => {
+                    const isTarget = copyTargetEmpIds.includes(emp.employeeId);
+                    const pageCount = getEmpPageCount(emp);
+                    const initial = (emp.employeeName || "E").charAt(0).toUpperCase();
+
+                    return (
+                      <div
+                        key={emp.employeeId}
+                        onClick={() => {
+                          setCopyTargetEmpIds(prev =>
+                            prev.includes(emp.employeeId)
+                              ? prev.filter(id => id !== emp.employeeId)
+                              : [...prev, emp.employeeId]
+                          );
+                        }}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '12px',
+                          border: isTarget ? '2px solid #0d9488' : '1px solid #e2e8f0',
+                          background: isTarget ? '#f0fdfa' : '#ffffff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isTarget ? '0 4px 12px rgba(13, 148, 136, 0.1)' : '0 1px 2px rgba(0,0,0,0.02)'
+                        }}
+                      >
+                        <div style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '10px',
+                          background: isTarget ? '#0d9488' : '#e2e8f0',
+                          color: isTarget ? '#ffffff' : '#475569',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          fontSize: '0.82rem',
+                          flexShrink: 0
+                        }}>
+                          {initial}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontWeight: 700,
+                            fontSize: '0.88rem',
+                            color: isTarget ? '#0f766e' : '#0f172a',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {emp.employeeName}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 600, color: '#475569' }}>#{emp.employeeId}</span>
+                            {emp.department && <span>· {emp.department}</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={isTarget}
+                            onChange={() => {}}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              accentColor: '#0d9488',
+                              cursor: 'pointer'
+                            }}
+                          />
+                          <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#94a3b8' }}>
+                            {pageCount} perms
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredCopyTargetEmployees.length === 0 && (
+                    <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.84rem' }}>
+                      No target employees match "{copyTargetSearch}"
                     </div>
-                  );
-                })}
+                  )}
+                </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowCopyModal(false)}
-                style={{ padding: '8px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#ffffff', fontWeight: 700, color: '#475569', cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleApplyCopyPermissions}
-                style={{ padding: '8px 24px', borderRadius: '10px', border: 'none', background: '#0d9488', fontWeight: 700, color: '#ffffff', cursor: 'pointer' }}
-              >
-                Apply
-              </button>
+            {/* Modal Footer */}
+            <div style={{
+              padding: '16px 28px',
+              borderTop: '1px solid #f1f5f9',
+              background: '#f8fafc',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: copySourceEmpId && copyTargetEmpIds.length > 0 ? '#ccfbf1' : '#f1f5f9',
+                  color: copySourceEmpId && copyTargetEmpIds.length > 0 ? '#0d9488' : '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <FiCopy size={16} />
+                </div>
+                <div style={{ fontSize: '0.83rem', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {copySourceEmpId ? (
+                    <span>
+                      Copying from <strong style={{ color: '#0f172a' }}>{employees.find(e => e.employeeId === copySourceEmpId)?.employeeName || copySourceEmpId}</strong> to <strong style={{ color: '#0d9488' }}>{copyTargetEmpIds.length} employee{copyTargetEmpIds.length === 1 ? '' : 's'}</strong>
+                    </span>
+                  ) : (
+                    <span style={{ color: '#e11d48', fontWeight: 600 }}>Please choose a source employee on the left</span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCopyModal(false)}
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    color: '#475569',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyCopyPermissions}
+                  disabled={!copySourceEmpId || copyTargetEmpIds.length === 0}
+                  style={{
+                    padding: '9px 24px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: (!copySourceEmpId || copyTargetEmpIds.length === 0) ? '#94a3b8' : '#0d9488',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    color: '#ffffff',
+                    cursor: (!copySourceEmpId || copyTargetEmpIds.length === 0) ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: (!copySourceEmpId || copyTargetEmpIds.length === 0) ? 'none' : '0 4px 12px rgba(13, 148, 136, 0.25)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <FiCheck size={16} />
+                  Apply Permissions ({copyTargetEmpIds.length})
+                </button>
+              </div>
             </div>
           </ModalCard>
         </ModalOverlay>

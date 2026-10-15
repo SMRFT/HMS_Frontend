@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled, { createGlobalStyle, keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import HospitalHeader from "../Images/Header.png";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -498,6 +499,10 @@ const PageBtn = styled.button`
   min-width: 30px;
   height: 30px;
   padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   border-radius: 5px;
   border: 1px solid ${({ active }) => (active ? "#2b6cb0" : "#e2e8f0")};
   background: ${({ active }) => (active ? "#2b6cb0" : "#fff")};
@@ -939,7 +944,7 @@ const extractReturnRows = (bill, employeeName) => {
         };
       }
       returnMap[key].items.push({
-        item_name:   item.item_name   || `Item #${item.item_id}`,
+        item_name:   item.item_name || item.name || item.medicine_name || `Item #${item.item_id}`,
         batch_number: item.batch_number || "",
         old_qty:     h.old_qty    ?? 0,
         return_qty:  h.return_qty ?? 0,
@@ -1519,7 +1524,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                     {filtered.length < allBills.length && ` (filtered from ${allBills.length} total)`}
                   </PaginationInfo>
                   <PaginationBtns>
-                    <PageBtn onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</PageBtn>
+                    <PageBtn onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                      <FaChevronLeft style={{ fontSize: 10 }} /> Previous
+                    </PageBtn>
                     {getPageNums(currentPage, totalPages).map((p, i) =>
                       p === "..." ? (
                         <PageBtn key={`e${i}`} disabled>…</PageBtn>
@@ -1527,7 +1534,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                         <PageBtn key={p} active={p === currentPage} onClick={() => setCurrentPage(p)}>{p}</PageBtn>
                       )
                     )}
-                    <PageBtn onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</PageBtn>
+                    <PageBtn onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                      Next <FaChevronRight style={{ fontSize: 10 }} />
+                    </PageBtn>
                   </PaginationBtns>
                 </PaginationBar>
               )}

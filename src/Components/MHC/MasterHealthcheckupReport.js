@@ -392,7 +392,8 @@ export default function MasterHealthcheckupReport() {
       (r.patient_name || "").toLowerCase().includes(q) ||
       (r.op_number    || "").toLowerCase().includes(q) ||
       (r.package      || "").toLowerCase().includes(q) ||
-      (r.contact_number || "").includes(q)
+      (r.contact_number || "").includes(q) ||
+      (r.registration_date || "").toLowerCase().includes(q)
     );
   });
 
@@ -402,7 +403,12 @@ export default function MasterHealthcheckupReport() {
   const docFees     = filtered.reduce((s, r) => s + (parseFloat(r.doctor_fee) || 0), 0);
 
   const formatDate = (d) => {
-    if (!d) return "—";
+    if (!d || d === "—") return "—";
+    if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) {
+      const [y, m, day] = d.trim().split("-");
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return `${day}-${months[parseInt(m, 10) - 1]}-${y}`;
+    }
     try { return new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }); }
     catch { return d; }
   };
@@ -416,7 +422,8 @@ export default function MasterHealthcheckupReport() {
 
     const headers = [
       "#",
-      "Date",
+      "Reg Date",
+      "Created Date",
       "Patient Name",
       "Age",
       "Gender",
@@ -436,6 +443,7 @@ export default function MasterHealthcheckupReport() {
 
     const dataRows = filtered.map((r, i) => [
       i + 1,
+      formatDate(r.registration_date || r.created_date),
       formatDate(r.created_date),
       r.patient_name || "—",
       r.age ?? "—",
@@ -493,6 +501,7 @@ export default function MasterHealthcheckupReport() {
 
     ws["!cols"] = [
       { wch: 6 },
+      { wch: 14 },
       { wch: 14 },
       { wch: 22 },
       { wch: 8 },
@@ -558,7 +567,7 @@ export default function MasterHealthcheckupReport() {
     const tableHeaders = [
       [
         "#",
-        "Date",
+        "Reg Date",
         "Patient Name",
         "Age",
         "Gender",
@@ -579,7 +588,7 @@ export default function MasterHealthcheckupReport() {
 
     const tableData = filtered.map((r, i) => [
       i + 1,
-      formatDate(r.created_date),
+      formatDate(r.registration_date || r.created_date),
       r.patient_name || "—",
       r.age ?? "—",
       r.gender || "—",
@@ -692,7 +701,7 @@ export default function MasterHealthcheckupReport() {
           <HeaderIcon>📋</HeaderIcon>
           <div>
             <HeaderTitle>MHC Report</HeaderTitle>
-            <HeaderSub>Master Health Checkup — date-wise patient report</HeaderSub>
+            <HeaderSub>Master Health Checkup — registration date-wise patient report</HeaderSub>
           </div>
         </HeaderLeft>
         <HeaderRight>
@@ -710,22 +719,24 @@ export default function MasterHealthcheckupReport() {
       <FilterCard>
         <FilterRow>
           <FieldGroup>
-            <Label>From Date</Label>
+            <Label>From Date (Reg Date)</Label>
             <DateInput
               id="mhc-report-from"
               type="date"
               value={fromDate}
               onChange={e => { setFromDate(e.target.value); setQuickActive(""); }}
+              onKeyDown={e => { if (e.key === "Enter") handleSearch(); }}
             />
           </FieldGroup>
 
           <FieldGroup>
-            <Label>To Date</Label>
+            <Label>To Date (Reg Date)</Label>
             <DateInput
               id="mhc-report-to"
               type="date"
               value={toDate}
               onChange={e => { setToDate(e.target.value); setQuickActive(""); }}
+              onKeyDown={e => { if (e.key === "Enter") handleSearch(); }}
             />
           </FieldGroup>
 
@@ -814,8 +825,8 @@ export default function MasterHealthcheckupReport() {
                 <thead>
                   <tr>
                     <Th>#</Th>
-                    <Th>Date</Th>
                     <Th>Reg Date</Th>
+                    <Th>Created Date</Th>
                     <Th>Patient Name</Th>
                     <Th>Age</Th>
                     <Th>Gender</Th>
@@ -837,8 +848,12 @@ export default function MasterHealthcheckupReport() {
                   {filtered.map((r, i) => (
                     <Tr key={r.id || i}>
                       <Td style={{ color: "#94a3b8", fontWeight: 600 }}>{i + 1}</Td>
-                      <Td>{formatDate(r.created_date)}</Td>
-                      <Td>{r.registration_date || "—"}</Td>
+                      <Td style={{ fontWeight: 700, color: "#0f766e" }}>
+                        {formatDate(r.registration_date || r.created_date)}
+                      </Td>
+                      <Td style={{ color: "#64748b", fontSize: "0.8rem" }}>
+                        {formatDate(r.created_date)}
+                      </Td>
                       <Td style={{ fontWeight: 700, color: "#1e293b" }}>{r.patient_name || "—"}</Td>
                       <Td>{r.age ?? "—"}</Td>
                       <Td>
