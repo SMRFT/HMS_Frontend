@@ -4,6 +4,7 @@ import ShiftDetails from "./ShiftDetails";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { CreditCard } from "lucide-react";
+import { toast } from "react-toastify";
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -786,11 +787,40 @@ export default function CentralCashCounter() {
   const [allowedBillTypes, setAllowedBillTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [cashCounterId, setCashCounterId] = useState("");
-  const [toast, setToast] = useState({ visible: false, type: "", message: "" });
+  const [toastState, setToastState] = useState({ visible: false, type: "", message: "" });
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [modalError, setModalError] = useState("");
+
+  const extractErrorMessage = (err) => {
+    if (!err) return "Payment failed. Please try again.";
+    if (typeof err === "string") return err;
+    if (typeof err === "object") {
+      if (err.message && typeof err.message === "string") return err.message;
+      if (err.error && typeof err.error === "string") return err.error;
+      const errors = [];
+      for (const key of Object.keys(err)) {
+        const val = err[key];
+        if (Array.isArray(val)) {
+          errors.push(`${key}: ${val.join(", ")}`);
+        } else if (typeof val === "string") {
+          errors.push(`${key}: ${val}`);
+        }
+      }
+      if (errors.length > 0) return errors.join(" | ");
+      return JSON.stringify(err);
+    }
+    return String(err);
+  };
 
   const showToast = (type, message) => {
-    setToast({ visible: true, type, message });
-    setTimeout(() => setToast({ visible: false, type: "", message: "" }), 4000);
+    const text = type === "error" ? extractErrorMessage(message) : (typeof message === "string" ? message : JSON.stringify(message));
+    if (type === "success") {
+      toast.success(text);
+    } else {
+      toast.error(text);
+    }
+    setToastState({ visible: true, type, message: text });
+    setTimeout(() => setToastState({ visible: false, type: "", message: "" }), 4000);
   };
 
   const [filteredBills, setFilteredBills] = useState([]);
@@ -1127,7 +1157,7 @@ export default function CentralCashCounter() {
     refreshActiveShift();
     const interval = setInterval(() => {
       refreshActiveShift();
-    }, 5000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [refreshActiveShift]);
 
@@ -1249,6 +1279,8 @@ export default function CentralCashCounter() {
     setSelectedMethods({ cash: true, card: false, cheque: false });
     setPayments({ cash: totalAmt > 0 ? String(totalAmt) : "", cheque: "", chequeNo: "", card: "", cardNo: "" });
     setRemarks(""); // ✅ reset remarks on open
+    setModalError("");
+    setIsSavingPayment(false);
     setShowPaymentModal(true);
   };
 
@@ -1523,6 +1555,8 @@ export default function CentralCashCounter() {
       return;
     }
 
+    setModalError("");
+
     const activeMethods = [];
     if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
       activeMethods.push({ method: "cash", Paid_amount: parseFloat(payments.cash) });
@@ -1535,17 +1569,23 @@ export default function CentralCashCounter() {
     }
 
     if (activeMethods.length === 0) {
-      showToast("error", "Please enter at least one payment amount.");
+      const msg = "Please enter at least one payment amount.";
+      setModalError(msg);
+      showToast("error", msg);
       return;
     }
 
     // Validate ref numbers based on selected methods
     if (selectedMethods.card && parseFloat(payments.card) > 0 && !payments.cardNo.trim()) {
-      showToast("error", "Please enter the Card / Transaction Reference No to proceed.");
+      const msg = "Please enter the Card / Transaction Reference No to proceed.";
+      setModalError(msg);
+      showToast("error", msg);
       return;
     }
     if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
-      showToast("error", "Please enter the Cheque Number to proceed.");
+      const msg = "Please enter the Cheque Number to proceed.";
+      setModalError(msg);
+      showToast("error", msg);
       return;
     }
 
@@ -1559,51 +1599,76 @@ export default function CentralCashCounter() {
     const pendingAmount = Math.max(netAmount - paidAmount, 0);
 
     if (activeMenuItem === "IP Advance") {
-      const payload = {
-        ipNumber: selectedBill.ipNumber,
-        advance_id: selectedBill.advance_id || null,    // ✅ specific advance being paid
-        bill_type: selectedBill.bill_type_id ?? null,  // ✅ raw integer bill_type for CashCounterCollection
-        payment_details,
-        shiftno: activeShift?.shiftno || "",
-        counter_id: cashCounterId,
-      };
-      const res = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "POST", payload);
-      const ipRes = res?.data || res;
-      if (ipRes?.status === "success") {
-        setShowPaymentModal(false);
-        fetchIpAdvancePendingBills();
-        showToast("success", "Payment collected successfully!");
-      } else {
-        showToast("error", ipRes?.message || ipRes?.error || "Payment failed. Please try again.");
+      setIsSavingPayment(true);
+      try {
+        const payload = {
+          ipNumber: selectedBill.ipNumber,
+          advance_id: selectedBill.advance_id || null,    // ✅ specific advance being paid
+          bill_type: selectedBill.bill_type_id ?? null,  // ✅ raw integer bill_type for CashCounterCollection
+          payment_details,
+          shiftno: activeShift?.shiftno || "",
+          counter_id: cashCounterId,
+        };
+        const res = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "POST", payload);
+        const ipRes = res?.data || res;
+        if (ipRes?.status === "success" || ipRes?.success) {
+          setShowPaymentModal(false);
+          fetchIpAdvancePendingBills();
+          refreshActiveShift();
+          showToast("success", "Payment collected successfully!");
+        } else {
+          const errMsg = extractErrorMessage(ipRes?.message || ipRes?.error || "Payment failed. Please try again.");
+          setModalError(errMsg);
+          showToast("error", errMsg);
+        }
+      } catch (err) {
+        console.error("IP Advance submitPayment error:", err);
+        const errMsg = "Payment failed. Please check your connection.";
+        setModalError(errMsg);
+        showToast("error", errMsg);
+      } finally {
+        setIsSavingPayment(false);
       }
       return;
     }
 
     // ✅ UPDATED: OPPharmacy payment — now includes remarks if filled
     if (selectedBill.source === "OPPharmacy") {
-      const payload = {
-        Bill_id: selectedBill.Bill_id,
-        uhid: selectedBill.uhid,
-        payment_details,
-        shiftno: activeShift?.shiftno || "",
-        counter_id: cashCounterId,
-        // ✅ remarks: only sent if user typed something
-        ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
-      };
+      setIsSavingPayment(true);
       try {
+        const payload = {
+          Bill_id: selectedBill.Bill_id,
+          uhid: selectedBill.uhid,
+          payment_details,
+          shiftno: activeShift?.shiftno || "",
+          counter_id: cashCounterId,
+          "auth-hospital-code": localStorage.getItem("hospital_code") || localStorage.getItem("hospitalId") || "SH001",
+          "auth-branch-code": localStorage.getItem("selected_branch") || localStorage.getItem("branch_code") || "SHB001",
+          "auth-outlet-code": localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "OLET001",
+          "auth-user-id": localStorage.getItem("user_id") || localStorage.getItem("userId") || "",
+          // ✅ remarks: only sent if user typed something
+          ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
+        };
         const res = await apiRequest(`${HmsBaseUrl}collect_oppharmacy_payment/`, "POST", payload);
         const result = res?.data || res;
-        if (result?.success) {
+        if (result?.success || result?.status === "success") {
           setShowPaymentModal(false);
           fetchOpPharmacyPendingBills();
           fetchPendingBills();
+          refreshActiveShift();
           showToast("success", "Pharmacy payment collected successfully!");
         } else {
-          showToast("error", result?.error || "Payment failed. Please try again.");
+          const errMsg = extractErrorMessage(result?.error || result?.message || "Payment failed. Please try again.");
+          setModalError(errMsg);
+          showToast("error", errMsg);
         }
       } catch (err) {
         console.error("OPPharmacy submitPayment error:", err);
-        showToast("error", "Payment failed. Please check your connection.");
+        const errMsg = "Payment failed. Please check your connection.";
+        setModalError(errMsg);
+        showToast("error", errMsg);
+      } finally {
+        setIsSavingPayment(false);
       }
       return;
     }
@@ -1629,24 +1694,34 @@ export default function CentralCashCounter() {
       ...(pendingAmount > 0 ? { pendingAmount } : {}),
     };
 
+    setIsSavingPayment(true);
     try {
       const res = await apiRequest(`${HmsBaseUrl}update_mainblock_pendingbills/`, "POST", payload);
       const billRes = res?.data || res;
       if (billRes?.success || billRes?.status === "success") {
         setShowPaymentModal(false);
         fetchPendingBills();
+        refreshActiveShift();
         showToast("success", "Payment collected successfully!");
       } else {
-        showToast("error", billRes?.message || billRes?.error || "Payment failed. Please try again.");
+        const errMsg = extractErrorMessage(billRes?.message || billRes?.error || "Payment failed. Please try again.");
+        setModalError(errMsg);
+        showToast("error", errMsg);
       }
     } catch (err) {
       console.error("submitPayment error:", err);
-      showToast("error", "Payment failed. Please check your connection.");
+      const errMsg = "Payment failed. Please check your connection.";
+      setModalError(errMsg);
+      showToast("error", errMsg);
+    } finally {
+      setIsSavingPayment(false);
     }
   };
 
   // ── Submit payment for Return Bills ──────────────────────────────────────────
   const submitReturnPayment = async () => {
+    setModalError("");
+
     const activeMethods = [];
     if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
       activeMethods.push({ method: "Cash", Paid_amount: parseFloat(payments.cash) });
@@ -1659,17 +1734,23 @@ export default function CentralCashCounter() {
     }
 
     if (activeMethods.length === 0) {
-      showToast("error", "Please enter at least one payment amount.");
+      const msg = "Please enter at least one payment amount.";
+      setModalError(msg);
+      showToast("error", msg);
       return;
     }
 
     // Validate ref numbers based on selected methods
     if (selectedMethods.card && parseFloat(payments.card) > 0 && !payments.cardNo.trim()) {
-      showToast("error", "Please enter the Card / Transaction Reference No to proceed.");
+      const msg = "Please enter the Card / Transaction Reference No to proceed.";
+      setModalError(msg);
+      showToast("error", msg);
       return;
     }
     if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
-      showToast("error", "Please enter the Cheque Number to proceed.");
+      const msg = "Please enter the Cheque Number to proceed.";
+      setModalError(msg);
+      showToast("error", msg);
       return;
     }
 
@@ -1694,19 +1775,27 @@ export default function CentralCashCounter() {
       ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
     };
 
+    setIsSavingPayment(true);
     try {
       const res = await apiRequest(`${HmsBaseUrl}collectpayment_return_bills/`, "POST", payload);
       const result = res?.data || res;
-      if (result?.status === "success") {
+      if (result?.status === "success" || result?.success) {
         setShowPaymentModal(false);
         fetchReturnBills();
+        refreshActiveShift();
         showToast("success", "Return bill payment processed successfully!");
       } else {
-        showToast("error", result?.message || result?.error || "Payment failed. Please try again.");
+        const errMsg = extractErrorMessage(result?.message || result?.error || "Payment failed. Please try again.");
+        setModalError(errMsg);
+        showToast("error", errMsg);
       }
     } catch (err) {
       console.error("submitReturnPayment error:", err);
-      showToast("error", "Payment failed. Please check your connection.");
+      const errMsg = "Payment failed. Please check your connection.";
+      setModalError(errMsg);
+      showToast("error", errMsg);
+    } finally {
+      setIsSavingPayment(false);
     }
   };
 
@@ -3075,14 +3164,37 @@ export default function CentralCashCounter() {
                   />
                 </PaymentSection>
               )}
+
+              {/* In-Modal Error Message */}
+              {modalError && (
+                <div style={{
+                  background: "#fef2f2",
+                  color: "#991b1b",
+                  border: "1.5px solid #fecaca",
+                  borderRadius: "8px",
+                  padding: "10px 14px",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  marginTop: "14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px"
+                }}>
+                  <span style={{ fontSize: "16px" }}>⚠️</span>
+                  <span style={{ flex: 1, wordBreak: "break-word" }}>{modalError}</span>
+                </div>
+              )}
             </ModalBody>
 
             <ModalFooterBar>
-              <CancelButton onClick={() => setShowPaymentModal(false)}>Cancel</CancelButton>
-              <SaveButton disabled={paidAmount === 0} onClick={submitPayment}>
-                {selectedBill?.source === "ReturnBill"
-                  ? (balance > 0 ? `Process Refund (₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Pending)` : "Process Refund")
-                  : (balance > 0 ? `Save (₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Pending)` : "Save Payment")
+              <CancelButton disabled={isSavingPayment} onClick={() => { setShowPaymentModal(false); setModalError(""); }}>Cancel</CancelButton>
+              <SaveButton disabled={paidAmount === 0 || isSavingPayment} onClick={submitPayment}>
+                {isSavingPayment
+                  ? "Saving Payment..."
+                  : (selectedBill?.source === "ReturnBill"
+                      ? (balance > 0 ? `Process Refund (₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Pending)` : "Process Refund")
+                      : (balance > 0 ? `Save (₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Pending)` : "Save Payment")
+                    )
                 }
               </SaveButton>
             </ModalFooterBar>
@@ -3196,11 +3308,11 @@ export default function CentralCashCounter() {
         );
       })()}
 
-      {toast.visible && (
+      {toastState.visible && (
         <ToastWrapper>
-          <ToastBox type={toast.type}>
-            <ToastIcon>{toast.type === "success" ? "✅" : "❌"}</ToastIcon>
-            <ToastText>{toast.message}</ToastText>
+          <ToastBox type={toastState.type}>
+            <ToastIcon>{toastState.type === "success" ? "✅" : "❌"}</ToastIcon>
+            <ToastText>{toastState.message}</ToastText>
           </ToastBox>
         </ToastWrapper>
       )}

@@ -904,10 +904,10 @@ const SalesReturn = () => {
       if (data?.status === "success" && Array.isArray(data.data)) {
         setUhidBills(data.data);
         if (data.data.length === 0) {
-          showToast("No paid bills found within the last 30 days for this UHID.", "warning");
+          showToast("No bills found within the last 30 days for this UHID / IP number.", "warning");
         }
       } else {
-        showToast(data?.message || "No bills found for this UHID.", "warning");
+        showToast(data?.message || "No bills found for this UHID / IP number.", "warning");
         setUhidBills([]);
       }
     } catch (err) {

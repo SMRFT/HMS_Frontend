@@ -443,7 +443,11 @@ const OPPharmacyTabs = () => {
       {/* ── View Estimate tab ── */}
       {visitedTabs.has("view_estimate") && (
         <TabPanel $visible={activeTab === "view_estimate"}>
-          <ViewEstimate onConvertEstimate={handleConvertEstimate} refreshTrigger={estimateRefreshKey} />
+          <ViewEstimate
+            onConvertEstimate={handleConvertEstimate}
+            refreshTrigger={estimateRefreshKey}
+            activeTab={activeTab}
+          />
         </TabPanel>
       )}
 
