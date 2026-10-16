@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Search, Mic, RotateCcw } from "lucide-react";
+import { Search, Mic, RotateCcw, CreditCard, Clock, User, Hash, Layers } from "lucide-react";
 import ShiftDetails from "./ShiftDetails";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
-import { CreditCard } from "lucide-react";
 import { toast } from "react-toastify";
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -27,47 +26,156 @@ const TopSection = styled.div`
   border-radius: 16px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
-  padding: 22px 26px;
-  margin-bottom: 24px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
   transition: box-shadow 0.2s ease;
 `;
 
 const TopGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: 1.15fr 1fr 1.15fr;
+  gap: 16px;
   align-items: stretch;
 
-  @media (max-width: 900px) {
+  @media (max-width: 1024px) {
     grid-template-columns: 1fr;
   }
 `;
 
-const InfoColumn = styled.div`
+const ShiftCard = styled.div`
   background: #f8fafc;
-  border: 1px solid #edf2f7;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 16px 18px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
 `;
 
-const InfoRow = styled.div`
+const ShiftCardHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 24px;
-  border-bottom: 1px dashed #e2e8f0;
   padding-bottom: 6px;
-
-  &:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
-  }
+  border-bottom: 1px solid #edf2f7;
 `;
 
+const ShiftRefBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #0f172a;
+  color: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+`;
+
+const ShiftDataRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+`;
+
+const ShiftDataLabel = styled.span`
+  color: #64748b;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const ShiftDataValue = styled.span`
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 12.5px;
+`;
+
+const BalancesCard = styled.div`
+  background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 100%);
+  border: 1px solid #ccfbf1;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+`;
+
+const BalancesHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed #99f6e4;
+`;
+
+const BalancesGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+`;
+
+const BalanceTile = styled.div`
+  background: #ffffff;
+  border: 1px solid ${(props) => (props.$highlight ? "#99f6e4" : "#e2e8f0")};
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+`;
+
+const BalanceTileLabel = styled.span`
+  font-size: 10px;
+  font-weight: 700;
+  color: ${(props) => (props.$highlight ? "#0f766e" : "#64748b")};
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+`;
+
+const BalanceTileAmount = styled.span`
+  font-size: 16.5px;
+  font-weight: 800;
+  color: ${(props) => (props.$highlight ? "#0f766e" : "#0f172a")};
+  letter-spacing: -0.01em;
+`;
+
+const StatusChip = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: ${(props) => (props.$active ? "#d1fae5" : "#f1f5f9")};
+  color: ${(props) => (props.$active ? "#065f46" : "#64748b")};
+  border: 1px solid ${(props) => (props.$active ? "#a7f3d0" : "#e2e8f0")};
+`;
+
+const CounterCard = styled.div`
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+`;
+
+// Legacy Label / Amount for backward compatibility if referenced elsewhere
 const Label = styled.span`
   font-weight: 600;
   color: #64748b;
@@ -1110,8 +1218,51 @@ export default function CentralCashCounter() {
     URL.revokeObjectURL(url);
   };
 
+  const formatShiftDateTime = (raw) => {
+    if (!raw) return "—";
+    let s = String(raw).trim().replace(" ", "T");
+    if (s && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
+      s += "Z";
+    }
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const formatSessionDate = (raw) => {
+    if (!raw) return new Date().toLocaleDateString("en-IN");
+    const datePart = String(raw).split(" ")[0].split("T")[0];
+    const parts = datePart.split("-");
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return datePart;
+  };
+
   const handleShiftChange = async (shiftData) => {
-    if (shiftData) setActiveShift(shiftData);
+    if (!shiftData) {
+      setActiveShift(null);
+      await refreshActiveShift();
+      return;
+    }
+    const clean = shiftData?.data?.shiftno ? shiftData.data : (shiftData?.shiftno ? shiftData : null);
+    if (clean && clean.shiftno) {
+      setActiveShift(clean);
+      if (clean.CashCounter) {
+        setCashCounterId(clean.CashCounter);
+      }
+    } else if (shiftData?.is_active === false) {
+      setActiveShift(null);
+    }
     await refreshActiveShift();
   };
 
@@ -1132,21 +1283,16 @@ export default function CentralCashCounter() {
         "POST",
         { CashCounter: cashCounterId || outletCode }
       );
-      if (res?.success && res?.data) {
+      if (res?.success && res?.data?.success && res?.data?.data) {
         if (res.data.cashcounter?.counter_id) {
           setCashCounterId(res.data.cashcounter.counter_id);
         }
-        setActiveShift(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(res.data.data)) {
-            return res.data.data;
-          }
-          return prev;
-        });
-      } else if (res && !res.success) {
-        if (res.data?.cashcounter?.counter_id) {
+        setActiveShift(res.data.data);
+      } else if (res?.data?.success === false || (res && !res.success)) {
+        if (res?.data?.cashcounter?.counter_id) {
           setCashCounterId(res.data.cashcounter.counter_id);
         }
-        setActiveShift(prev => (prev ? null : prev));
+        setActiveShift(null);
       }
     } catch (err) {
       console.error("Failed to refresh active shift:", err);
@@ -1944,161 +2090,124 @@ export default function CentralCashCounter() {
       <MainContent>
         <TopSection>
           <TopGrid>
-            <InfoColumn>
-              <InfoRow>
-                <Label>Shift Reference</Label>
-                <Value style={{ fontWeight: 700, color: "#0f172a" }}>{activeShift?.shiftno || "—"}</Value>
-              </InfoRow>
-              <InfoRow>
-                <Label>Starting Time</Label>
-                <Value
-                  style={
-                    shiftBelongsHere
-                      ? { color: "#0d9488", fontWeight: 700 }
-                      : { fontWeight: 600 }
-                  }
-                >
-                  {activeShift?.StartingTime
-                    ? new Date(
-                        String(activeShift.StartingTime).replace(" ", "T"),
-                      ).toLocaleString("en-IN", {
-                        timeZone: "Asia/Kolkata",
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                        hour12: true,
-                      })
-                    : "—"}
-                </Value>
-              </InfoRow>
-              <InfoRow>
-                <Label>Closing Time</Label>
-                <Value
-                  style={
-                    !shiftBelongsHere && activeShift?.closingTime
-                      ? { color: "#dc2626", fontWeight: 700 }
-                      : { fontWeight: 600 }
-                  }
-                >
+            {/* ── CARD 1: Shift Reference & Timings ── */}
+            <ShiftCard>
+              <ShiftCardHeader>
+                <ShiftDataLabel><Hash size={13} color="#64748b" /> Shift Ref</ShiftDataLabel>
+                <ShiftRefBadge>{activeShift?.shiftno || "—"}</ShiftRefBadge>
+              </ShiftCardHeader>
+
+              <ShiftDataRow>
+                <ShiftDataLabel><Clock size={12} color="#64748b" /> Start Time</ShiftDataLabel>
+                <ShiftDataValue style={shiftBelongsHere ? { color: "#0d9488", fontWeight: 700 } : {}}>
+                  {formatShiftDateTime(activeShift?.StartingTime)}
+                </ShiftDataValue>
+              </ShiftDataRow>
+
+              <ShiftDataRow>
+                <ShiftDataLabel><Clock size={12} color="#64748b" /> Close Time</ShiftDataLabel>
+                <ShiftDataValue style={!shiftBelongsHere && activeShift?.closingTime ? { color: "#dc2626", fontWeight: 700 } : {}}>
                   {activeShift?.closingTime
-                    ? new Date(
-                        String(activeShift.closingTime).replace(" ", "T"),
-                      ).toLocaleString("en-IN", {
-                        timeZone: "Asia/Kolkata",
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                        hour12: true,
-                      })
+                    ? formatShiftDateTime(activeShift.closingTime)
                     : shiftBelongsHere
                       ? "Running…"
                       : "—"}
-                </Value>
-              </InfoRow>
-              <InfoRow>
-                <Label>Cashier ID</Label>
-                <Value style={{ fontWeight: 600 }}>{activeShift?.CashierID || "—"}</Value>
-              </InfoRow>
-            </InfoColumn>
+                </ShiftDataValue>
+              </ShiftDataRow>
 
-            <InfoColumn style={{ background: "linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%)", border: "1px solid #ccfbf1" }}>
-              <InfoRow style={{ borderBottom: "1px dashed #99f6e4" }}>
-                <Label style={{ color: "#0f766e" }}>Opening Balance</Label>
-                <Amount style={{ color: "#0f766e" }}>
-                  {activeShift
-                    ? "₹ " +
-                      parseFloat(
-                        activeShift.OpeningBalance || 0,
-                      ).toLocaleString("en-IN", { minimumFractionDigits: 2 })
-                    : "₹ 0.00"}
-                </Amount>
-              </InfoRow>
-              <InfoRow style={{ borderBottom: "1px dashed #99f6e4" }}>
-                <Label style={{ color: "#0f766e" }}>Closing Balance</Label>
-                <Amount style={{ color: "#0f766e" }}>
-                  {activeShift?.ClosingBalance
-                    ? "₹ " +
-                      parseFloat(activeShift.ClosingBalance).toLocaleString(
-                        "en-IN",
-                        { minimumFractionDigits: 2 },
-                      )
-                    : "₹ 0.00"}
-                </Amount>
-              </InfoRow>
-              <InfoRow>
-                <Label>Shift Status</Label>
-                <Value>
-                  <span
-                    style={{
-                      padding: "3px 10px",
-                      borderRadius: "9999px",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      textTransform: "capitalize",
-                      background: activeShift?.ShiftStatus === "active" ? "#d1fae5" : "#f1f5f9",
-                      color: activeShift?.ShiftStatus === "active" ? "#065f46" : "#64748b",
-                      border: `1px solid ${activeShift?.ShiftStatus === "active" ? "#a7f3d0" : "#e2e8f0"}`,
-                      display: "inline-block"
-                    }}
-                  >
-                    {activeShift?.ShiftStatus || "Inactive"}
-                  </span>
-                </Value>
-              </InfoRow>
-            </InfoColumn>
+              <ShiftDataRow>
+                <ShiftDataLabel><User size={12} color="#64748b" /> Cashier ID</ShiftDataLabel>
+                <ShiftDataValue style={{ fontFamily: "monospace", fontWeight: 700, color: "#0f172a" }}>
+                  {activeShift?.CashierID || "—"}
+                </ShiftDataValue>
+              </ShiftDataRow>
+            </ShiftCard>
 
-            <InfoColumn>
-              <InfoRow>
-                <Label>Cash Counter</Label>
-                <Value>{activeShift?.CashCounter || "—"}</Value>
-              </InfoRow>
-              <InfoRow>
-                <Label>Branch Code</Label>
-                <Value>{activeShift?.branch_code || "—"}</Value>
-              </InfoRow>
-              <InfoRow>
-                <Label>Session Date</Label>
-                <Value>
-                  {activeShift?.date || new Date().toLocaleDateString("en-IN")}
-                </Value>
-              </InfoRow>
+            {/* ── CARD 2: Financial Balances & Shift Status ── */}
+            <BalancesCard>
+              <BalancesHeader>
+                <ShiftDataLabel style={{ color: "#0f766e" }}>Cash Overview</ShiftDataLabel>
+                <StatusChip $active={activeShift?.ShiftStatus === "active"}>
+                  <span style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: activeShift?.ShiftStatus === "active" ? "#10b981" : "#94a3b8",
+                    display: "inline-block"
+                  }} />
+                  {activeShift?.ShiftStatus ? (activeShift.ShiftStatus.charAt(0).toUpperCase() + activeShift.ShiftStatus.slice(1)) : "Inactive"}
+                </StatusChip>
+              </BalancesHeader>
 
-              {shiftBelongsHere && (
-                <ShiftRunningBanner>
-                  <span className="dot" />
-                  Shift Running — Cashier&nbsp;
-                  <strong>{activeShift.CashierID}</strong>
-                </ShiftRunningBanner>
-              )}
+              <BalancesGrid>
+                <BalanceTile>
+                  <BalanceTileLabel>Opening Balance</BalanceTileLabel>
+                  <BalanceTileAmount>
+                    ₹ {parseFloat(activeShift?.OpeningBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </BalanceTileAmount>
+                </BalanceTile>
 
-              {!shiftBelongsHere && (
-                <div style={{ marginTop: "10px", display: "flex", justifyContent: "flex-end" }}>
-                  <Button onClick={handleShiftDetailsClick}>
-                    ▶ Start Counter
-                  </Button>
-                </div>
-              )}
+                <BalanceTile $highlight style={{ background: "#f0fdf4" }}>
+                  <BalanceTileLabel $highlight>Closing Balance</BalanceTileLabel>
+                  <BalanceTileAmount $highlight>
+                    ₹ {parseFloat(activeShift?.ClosingBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </BalanceTileAmount>
+                </BalanceTile>
+              </BalancesGrid>
+            </BalancesCard>
 
-              {shiftBelongsHere && (
-                <div style={{ marginTop: "10px", display: "flex", justifyContent: "flex-end" }}>
-                  <Button
-                    style={{
-                      background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                      boxShadow: "0 2px 8px rgba(220, 38, 38, 0.25)"
-                    }}
-                    onClick={handleShiftDetailsClick}
-                  >
-                    ⏹ Stop Counter
-                  </Button>
-                </div>
-              )}
-            </InfoColumn>
+            {/* ── CARD 3: Counter Session & Actions ── */}
+            <CounterCard>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <ShiftDataRow>
+                  <ShiftDataLabel><Layers size={12} color="#64748b" /> Cash Counter</ShiftDataLabel>
+                  <ShiftDataValue style={{ fontWeight: 700, color: "#0f172a" }}>
+                    {activeShift?.CashCounter || "—"}
+                  </ShiftDataValue>
+                </ShiftDataRow>
+
+                <ShiftDataRow>
+                  <ShiftDataLabel>Branch Code</ShiftDataLabel>
+                  <ShiftDataValue>{activeShift?.branch_code || "—"}</ShiftDataValue>
+                </ShiftDataRow>
+
+                <ShiftDataRow>
+                  <ShiftDataLabel>Session Date</ShiftDataLabel>
+                  <ShiftDataValue>{formatSessionDate(activeShift?.date)}</ShiftDataValue>
+                </ShiftDataRow>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 4 }}>
+                {shiftBelongsHere ? (
+                  <>
+                    <ShiftRunningBanner style={{ margin: 0, padding: "6px 10px", fontSize: "12px", flex: 1 }}>
+                      <span className="dot" />
+                      Running: <strong>{activeShift.CashierID}</strong>
+                    </ShiftRunningBanner>
+                    <Button
+                      style={{
+                        background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                        boxShadow: "0 2px 8px rgba(220, 38, 38, 0.25)",
+                        padding: "7px 14px",
+                        fontSize: "12.5px"
+                      }}
+                      onClick={handleShiftDetailsClick}
+                    >
+                      ⏹ Stop Counter
+                    </Button>
+                  </>
+                ) : (
+                  <div style={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
+                    <Button
+                      style={{ padding: "7px 16px", fontSize: "13px" }}
+                      onClick={handleShiftDetailsClick}
+                    >
+                      ▶ Start Counter
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CounterCard>
           </TopGrid>
         </TopSection>
 
@@ -2886,7 +2995,10 @@ export default function CentralCashCounter() {
 
       <ShiftDetails
         isOpen={showShiftDetails}
-        onClose={() => setShowShiftDetails(false)}
+        onClose={() => {
+          setShowShiftDetails(false);
+          refreshActiveShift();
+        }}
         outletCode={
           localStorage.getItem("selected_outlet") ||
           localStorage.getItem("outlet_code") ||
