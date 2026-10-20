@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import styled from "styled-components";
 import {
   FaHeartbeat,
-  FaUserInjured,
   FaPhoneAlt,
   FaMapMarkerAlt,
   FaUserCheck,
@@ -15,9 +14,11 @@ import {
   FaFileMedical,
   FaCheckCircle,
   FaClipboardList,
-  FaFileExport,
   FaIdCard,
   FaUserGraduate,
+  FaUniversity,
+  FaGraduationCap,
+  FaUserPlus,
 } from "react-icons/fa";
 import { MdOutlineMedicalServices, MdClose } from "react-icons/md";
 import { toast, ToastContainer } from "react-toastify";
@@ -475,6 +476,83 @@ const SecondaryBtn = styled.button`
 `;
 
 // ── Table & Report Styles ──────────────────────────────────────────
+const TabHeaderBanner = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 26px;
+  background: linear-gradient(135deg, #ffffff 0%, #fff1f2 100%);
+  border-bottom: 1px solid ${theme.border};
+  flex-wrap: wrap;
+  gap: 16px;
+
+  .banner-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    .icon-badge {
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, ${theme.primary} 0%, #be123c 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 14px rgba(225, 29, 72, 0.25);
+      flex-shrink: 0;
+    }
+
+    .banner-text {
+      h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: ${theme.darkSlate};
+        letter-spacing: -0.2px;
+      }
+      p {
+        margin: 4px 0 0;
+        font-size: 0.86rem;
+        color: ${theme.textSecondary};
+      }
+    }
+  }
+
+  .banner-stats {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+`;
+
+const StatPill = styled.div`
+  background: #ffffff;
+  border: 1px solid ${theme.border};
+  padding: 7px 16px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+
+  .pill-lbl {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: ${theme.textSecondary};
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .pill-val {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: ${theme.darkSlate};
+  }
+`;
+
 const TableContainer = styled.div`
   background: #ffffff;
   border-radius: 16px;
@@ -674,15 +752,18 @@ const ModalContent = styled.div`
 const ReceiptPaper = styled.div`
   background: #ffffff;
   color: #000000;
-  padding: 24px 30px;
+  padding: 16px 20px;
   max-width: 520px;
-  margin: 16px auto 0;
+  margin: 12px auto 0;
   border: 1px solid #d1d5db;
   font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 
   @media print {
-    margin: 0 auto !important;
+    margin: 0 !important;
+    padding: 8px 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
     border: 1.5px solid #000000 !important;
     box-shadow: none !important;
     page-break-inside: avoid !important;
@@ -690,10 +771,10 @@ const ReceiptPaper = styled.div`
 
   .receipt-header {
     text-align: center;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 
     h2 {
-      font-size: 1.12rem;
+      font-size: 1.05rem;
       font-weight: 800;
       letter-spacing: 0.5px;
       margin: 0;
@@ -701,15 +782,15 @@ const ReceiptPaper = styled.div`
       text-transform: uppercase;
     }
     .sub-addr {
-      font-size: 0.8rem;
-      margin-top: 3px;
-      color: #222;
-      font-weight: 500;
-    }
-    .cin-text {
       font-size: 0.78rem;
       margin-top: 2px;
-      font-weight: 600;
+      color: #222;
+      font-weight: 400;
+    }
+    .cin-text {
+      font-size: 0.75rem;
+      margin-top: 1px;
+      font-weight: 400;
       color: #333;
     }
   }
@@ -717,12 +798,12 @@ const ReceiptPaper = styled.div`
   .bill-title-bar {
     border-top: 1.5px solid #000000;
     border-bottom: 1.5px solid #000000;
-    padding: 5px 0;
+    padding: 4px 0;
     text-align: center;
-    margin: 10px 0 14px;
+    margin: 8px 0 10px;
 
     h3 {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 800;
       margin: 0;
       color: #000;
@@ -732,22 +813,23 @@ const ReceiptPaper = styled.div`
 
   .meta-table {
     width: 100%;
-    margin-bottom: 14px;
-    font-size: 0.88rem;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
     border-collapse: collapse;
 
     td {
-      padding: 3px 0;
+      padding: 2.5px 0;
       vertical-align: top;
+      font-weight: 400;
     }
     .meta-lbl {
       width: 35%;
-      font-weight: 700;
+      font-weight: 400;
       color: #000;
     }
     .meta-val {
       width: 65%;
-      font-weight: 600;
+      font-weight: 400;
       color: #000;
       text-align: right;
     }
@@ -756,8 +838,8 @@ const ReceiptPaper = styled.div`
   .items-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 8px;
-    font-size: 0.88rem;
+    margin-top: 6px;
+    font-size: 0.85rem;
 
     thead tr {
       border-top: 1.5px solid #000000;
@@ -765,7 +847,7 @@ const ReceiptPaper = styled.div`
     }
 
     th {
-      padding: 6px 2px;
+      padding: 5px 2px;
       font-weight: 800;
       color: #000;
       text-align: left;
@@ -776,45 +858,50 @@ const ReceiptPaper = styled.div`
     }
 
     td {
-      padding: 7px 2px;
+      padding: 5px 2px;
       color: #000;
-      font-weight: 500;
+      font-weight: 400;
     }
   }
 
   .totals-bar {
     border-bottom: 1.5px solid #000000;
-    padding: 6px 0;
+    padding: 5px 0;
     margin-top: 2px;
 
     .total-row {
       display: flex;
       justify-content: flex-end;
-      gap: 36px;
+      gap: 32px;
       padding: 2px 0;
-      font-size: 0.9rem;
-      font-weight: 700;
+      font-size: 0.88rem;
+      font-weight: 400;
 
       &.net {
         font-weight: 800;
+
+        .lbl, .amt {
+          font-weight: 800;
+        }
       }
 
       .lbl {
         min-width: 90px;
         text-align: right;
+        font-weight: 400;
       }
       .amt {
         min-width: 80px;
         text-align: right;
-        font-weight: 800;
+        font-weight: 400;
       }
     }
   }
 
   .signature-area {
-    margin-top: 40px;
-    font-size: 0.88rem;
-    font-weight: 700;
+    margin-top: 20px;
+    font-size: 0.85rem;
+    font-weight: 400;
     color: #000;
   }
 `;
@@ -822,10 +909,14 @@ const ReceiptPaper = styled.div`
 const PrintStyleWrapper = styled.div`
   @media print {
     @page {
-      size: A4 portrait;
-      margin: 15mm 20mm;
+      size: auto;
+      margin: 0;
     }
-    body {
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      height: auto !important;
       background: #ffffff !important;
       color: #000000 !important;
     }
@@ -837,14 +928,14 @@ const PrintStyleWrapper = styled.div`
       visibility: visible !important;
     }
     #printable-receipt {
-      position: absolute !important;
-      left: 50% !important;
+      position: relative !important;
+      left: 0 !important;
       top: 0 !important;
-      transform: translateX(-50%) !important;
+      transform: none !important;
       width: 100% !important;
-      max-width: 560px !important;
-      margin: 0 auto !important;
-      padding: 24px 28px !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 8px 12px !important;
       border: 1.5px solid #000000 !important;
       box-shadow: none !important;
       background: #ffffff !important;
@@ -1237,6 +1328,20 @@ export default function BreastCancerScreening({ isPublic = false }) {
     );
   }, [studentRecords, studentSearchTerm]);
 
+  // Student Surveyor Summary Stats
+  const studentStats = useMemo(() => {
+    const instituteSet = new Set();
+    studentRecords.forEach((r) => {
+      if (r.institute_name && r.institute_name.trim()) {
+        instituteSet.add(r.institute_name.trim().toLowerCase());
+      }
+    });
+    return {
+      total: studentRecords.length,
+      institutes: instituteSet.size,
+    };
+  }, [studentRecords]);
+
   // View Slip Modal Trigger
   const handleOpenSlip = (rec) => {
     setSelectedRecord(rec);
@@ -1266,6 +1371,14 @@ export default function BreastCancerScreening({ isPublic = false }) {
     iframe.style.border = "none";
     document.body.appendChild(iframe);
 
+    // Auto printer fit: dynamically fits any printer width & length with ZERO wasted space
+    const pageCss = `
+      @page { size: auto; margin: 0; }
+      html, body { margin: 0; padding: 0; width: 100%; height: auto; }
+      body { padding: 2mm 3mm; }
+      .slip-card { width: 100%; max-width: 100%; margin: 0; border: 1.5px solid #000000; padding: 8px 12px; }
+    `;
+
     const doc = iframe.contentWindow.document;
     doc.open();
     doc.write(`
@@ -1274,10 +1387,7 @@ export default function BreastCancerScreening({ isPublic = false }) {
         <head>
           <title>Mammogram Test Bill - ${selectedRecord?.bill_number || "Slip"}</title>
           <style>
-            @page {
-              size: A4 portrait;
-              margin: 15mm 20mm;
-            }
+            ${pageCss}
             * {
               box-sizing: border-box;
               margin: 0;
@@ -1287,24 +1397,21 @@ export default function BreastCancerScreening({ isPublic = false }) {
               font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
               color: #000000;
               background: #ffffff;
-              font-size: 13px;
-              line-height: 1.4;
+              font-size: 12px;
+              line-height: 1.35;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
             .slip-card {
-              max-width: 560px;
-              margin: 0 auto;
-              border: 1.5px solid #000000;
-              padding: 24px 28px;
               background: #ffffff;
+              page-break-inside: avoid;
             }
             .receipt-header {
               text-align: center;
-              margin-bottom: 8px;
+              margin-bottom: 5px;
             }
             .receipt-header h2 {
-              font-size: 16px;
+              font-size: 14.5px;
               font-weight: 800;
               letter-spacing: 0.5px;
               margin: 0;
@@ -1312,26 +1419,26 @@ export default function BreastCancerScreening({ isPublic = false }) {
               text-transform: uppercase;
             }
             .receipt-header .sub-addr {
-              font-size: 11.5px;
-              margin-top: 3px;
-              color: #222222;
-              font-weight: 500;
-            }
-            .receipt-header .cin-text {
               font-size: 11px;
               margin-top: 2px;
-              font-weight: 600;
+              color: #222222;
+              font-weight: 400;
+            }
+            .receipt-header .cin-text {
+              font-size: 10.5px;
+              margin-top: 1px;
+              font-weight: 400;
               color: #333333;
             }
             .bill-title-bar {
               border-top: 1.5px solid #000000;
               border-bottom: 1.5px solid #000000;
-              padding: 5px 0;
+              padding: 3px 0;
               text-align: center;
-              margin: 10px 0 14px;
+              margin: 5px 0 7px;
             }
             .bill-title-bar h3 {
-              font-size: 13.5px;
+              font-size: 12.5px;
               font-weight: 800;
               margin: 0;
               color: #000000;
@@ -1339,37 +1446,38 @@ export default function BreastCancerScreening({ isPublic = false }) {
             }
             .meta-table {
               width: 100%;
-              margin-bottom: 14px;
-              font-size: 12.5px;
+              margin-bottom: 6px;
+              font-size: 11.5px;
               border-collapse: collapse;
             }
             .meta-table td {
-              padding: 3px 0;
+              padding: 1.5px 0;
               vertical-align: top;
+              font-weight: 400;
             }
             .meta-table .meta-lbl {
               width: 35%;
-              font-weight: 700;
+              font-weight: 400;
               color: #000000;
             }
             .meta-table .meta-val {
               width: 65%;
-              font-weight: 600;
+              font-weight: 400;
               color: #000000;
               text-align: right;
             }
             .items-table {
               width: 100%;
               border-collapse: collapse;
-              margin-top: 8px;
-              font-size: 12.5px;
+              margin-top: 4px;
+              font-size: 11.5px;
             }
             .items-table thead tr {
               border-top: 1.5px solid #000000;
               border-bottom: 1.5px solid #000000;
             }
             .items-table th {
-              padding: 6px 4px;
+              padding: 4px 2px;
               font-weight: 800;
               color: #000000;
               text-align: left;
@@ -1378,39 +1486,46 @@ export default function BreastCancerScreening({ isPublic = false }) {
               border-bottom: 1.5px solid #000000;
             }
             .items-table td {
-              padding: 7px 4px;
+              padding: 4px 2px;
               color: #000000;
-              font-weight: 500;
+              font-weight: 400;
             }
             .totals-bar {
               border-bottom: 1.5px solid #000000;
-              padding: 6px 0;
+              padding: 3px 0;
               margin-top: 2px;
             }
             .totals-bar .total-row {
               display: flex;
               justify-content: flex-end;
-              gap: 36px;
-              padding: 2px 0;
-              font-size: 12.5px;
-              font-weight: 700;
+              gap: 28px;
+              padding: 1.5px 0;
+              font-size: 11.5px;
+              font-weight: 400;
             }
             .totals-bar .total-row.net {
               font-weight: 800;
             }
             .totals-bar .total-row .lbl {
-              min-width: 90px;
-              text-align: right;
-            }
-            .totals-bar .total-row .amt {
               min-width: 80px;
               text-align: right;
+              font-weight: 400;
+            }
+            .totals-bar .total-row.net .lbl {
+              font-weight: 800;
+            }
+            .totals-bar .total-row .amt {
+              min-width: 70px;
+              text-align: right;
+              font-weight: 400;
+            }
+            .totals-bar .total-row.net .amt {
               font-weight: 800;
             }
             .signature-area {
-              margin-top: 40px;
-              font-size: 12.5px;
-              font-weight: 700;
+              margin-top: 20px;
+              font-size: 11.5px;
+              font-weight: 400;
               color: #000000;
             }
           </style>
@@ -1918,101 +2033,211 @@ export default function BreastCancerScreening({ isPublic = false }) {
       {/* ── TAB 3: REGISTERED STUDENT SURVEYORS (STORED SEPARATELY) ── */}
       {hasAccessToken && activeTab === "registered_students" && (
         <TableContainer>
-          <div className="table-header">
-            <div className="table-title">
-              <h2>Registered Student Surveyors</h2>
-              <p>List of all student surveyors registered for screening program (stored separately)</p>
+          {/* Enhanced Premium Header Banner */}
+          <TabHeaderBanner>
+            <div className="banner-left">
+              <div className="icon-badge">
+                <FaUserGraduate />
+              </div>
+              <div className="banner-text">
+                <h2>Registered Student Surveyors</h2>
+                <p>Directory of student surveyors registered for the breast cancer screening programme</p>
+              </div>
             </div>
 
-            <div className="table-actions">
-              <div className="search-box">
-                <FaSearch />
-                <input
-                  type="text"
-                  placeholder="Search by Institute, Course, Surveyor, Subject ID..."
-                  value={studentSearchTerm}
-                  onChange={(e) => setStudentSearchTerm(e.target.value)}
-                />
-              </div>
+            <div className="banner-stats">
+              <StatPill>
+                <span className="pill-lbl">Surveyors</span>
+                <span className="pill-val">{studentStats.total}</span>
+              </StatPill>
+              <StatPill>
+                <span className="pill-lbl">Institutes</span>
+                <span className="pill-val">{studentStats.institutes}</span>
+              </StatPill>
+            </div>
+          </TabHeaderBanner>
 
+          {/* Styled Filter Toolbar */}
+          <FilterToolbar>
+            <div className="search-box">
+              <FaSearch />
+              <input
+                type="text"
+                placeholder="Search by Surveyor Name, Institute, Course, Subject ID..."
+                value={studentSearchTerm}
+                onChange={(e) => setStudentSearchTerm(e.target.value)}
+              />
+              {studentSearchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setStudentSearchTerm("")}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "#94a3b8",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    padding: 0,
+                  }}
+                  title="Clear search"
+                >
+                  <MdClose />
+                </button>
+              )}
+            </div>
+
+            <div className="filters">
               <SecondaryBtn onClick={fetchStudentRecords} disabled={studentLoading}>
                 <FaSyncAlt className={studentLoading ? "fa-spin" : ""} /> Refresh
               </SecondaryBtn>
+
+              <PrimaryBtn onClick={() => setActiveTab("student")}>
+                <FaUserPlus /> Register New Surveyor
+              </PrimaryBtn>
             </div>
-          </div>
+          </FilterToolbar>
 
           {filteredStudentRecords.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 16px", color: theme.textSecondary }}>
-              <FaClipboardList style={{ fontSize: "42px", color: "#cbd5e1", marginBottom: "12px" }} />
-              <h3 style={{ margin: "0 0 6px 0", color: theme.textPrimary }}>No Student Surveyors Found</h3>
-              <p style={{ margin: "0 0 16px 0", fontSize: "0.9rem" }}>
+            <div style={{ textAlign: "center", padding: "56px 20px", color: theme.textSecondary }}>
+              <div
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  borderRadius: "50%",
+                  background: "#f1f5f9",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 16px",
+                  fontSize: "26px",
+                  color: "#94a3b8",
+                }}
+              >
+                <FaUserGraduate />
+              </div>
+              <h3 style={{ margin: "0 0 6px 0", color: theme.textPrimary, fontWeight: 800 }}>
+                {studentSearchTerm ? "No Matching Surveyors Found" : "No Student Surveyors Registered Yet"}
+              </h3>
+              <p style={{ margin: "0 0 20px 0", fontSize: "0.9rem", maxWidth: "420px", marginLeft: "auto", marginRight: "auto" }}>
                 {studentSearchTerm
-                  ? "No student surveyors matching your search criteria."
-                  : "No student surveyors registered yet. Click below to register a student surveyor."}
+                  ? "Try searching with a different institute name, surveyor name, or subject ID."
+                  : "Start registering student surveyors using the registration tab to assign screening duties."}
               </p>
               <PrimaryBtn style={{ margin: "0 auto" }} onClick={() => setActiveTab("student")}>
-                <FaUserGraduate /> Go to Student Registration
+                <FaUserPlus /> Register First Surveyor
               </PrimaryBtn>
             </div>
           ) : (
-            <StyledTable>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Institute Name</th>
-                  <th>Course Name & Year</th>
-                  <th>Surveyor Name</th>
-                  <th>Subject ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudentRecords.map((s) => (
-                  <tr key={s.id || s._id || `${s.subject_id}-${s.surveyor_name}`}>
-                    <td>
-                      <strong>{s.date || "—"}</strong>
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: 700, color: theme.darkSlate }}>
-                        {s.institute_name || "—"}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          background: "#f1f5f9",
-                          padding: "4px 8px",
-                          borderRadius: "6px",
-                          fontSize: "0.85rem",
-                          fontWeight: 600,
-                          color: "#334155",
-                        }}
-                      >
-                        {s.course_name_year || "—"}
-                      </span>
-                    </td>
-                    <td>
-                      <strong style={{ color: theme.primary }}>{s.surveyor_name || "—"}</strong>
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          fontWeight: 800,
-                          color: "#0f172a",
-                          background: "#fff1f2",
-                          padding: "4px 10px",
-                          borderRadius: "6px",
-                          fontFamily: "monospace",
-                          fontSize: "0.85rem",
-                          border: `1px solid ${theme.primaryBorder}`,
-                        }}
-                      >
-                        {s.subject_id || "—"}
-                      </span>
-                    </td>
+            <div style={{ overflowX: "auto" }}>
+              <StyledTable>
+                <thead>
+                  <tr>
+                    <th style={{ width: "6%", textAlign: "center" }}>#</th>
+                    <th style={{ width: "12%" }}>Date</th>
+                    <th style={{ width: "24%" }}>Surveyor Name</th>
+                    <th style={{ width: "16%" }}>Subject ID</th>
+                    <th style={{ width: "22%" }}>Institute Name</th>
+                    <th style={{ width: "20%" }}>Course Name & Year</th>
                   </tr>
-                ))}
-              </tbody>
-            </StyledTable>
+                </thead>
+                <tbody>
+                  {filteredStudentRecords.map((s, idx) => (
+                    <tr key={s.id || s._id || `${s.subject_id}-${s.surveyor_name}-${idx}`}>
+                      <td style={{ textAlign: "center", color: theme.textSecondary, fontWeight: 700 }}>
+                        {idx + 1}
+                      </td>
+                      <td>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600, color: "#334155" }}>
+                          <FaCalendarAlt style={{ color: "#94a3b8", fontSize: "0.8rem" }} />
+                          {s.date || "—"}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div
+                            style={{
+                              width: "36px",
+                              height: "36px",
+                              borderRadius: "10px",
+                              background: "linear-gradient(135deg, #e11d48 0%, #fb7185 100%)",
+                              color: "#ffffff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontWeight: 800,
+                              fontSize: "0.85rem",
+                              boxShadow: "0 2px 6px rgba(225, 29, 72, 0.2)",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {(s.surveyor_name || "S").charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 800, color: theme.darkSlate, fontSize: "0.92rem" }}>
+                              {s.surveyor_name || "—"}
+                            </div>
+                            <div style={{ fontSize: "0.74rem", color: theme.textSecondary, fontWeight: 500 }}>
+                              Student Surveyor
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            color: "#9f1239",
+                            background: "#fff1f2",
+                            padding: "5px 12px",
+                            borderRadius: "8px",
+                            fontFamily: "monospace",
+                            fontSize: "0.86rem",
+                            border: `1.5px solid ${theme.primaryBorder}`,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
+                          <FaIdCard style={{ color: theme.primary, fontSize: "0.85rem" }} />
+                          {s.subject_id || "—"}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <FaUniversity style={{ color: "#64748b", fontSize: "0.9rem", flexShrink: 0 }} />
+                          <span style={{ fontWeight: 700, color: theme.darkSlate, fontSize: "0.9rem" }}>
+                            {s.institute_name || "—"}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            background: "#f0fdf4",
+                            border: "1px solid #bbf7d0",
+                            color: "#166534",
+                            padding: "5px 10px",
+                            borderRadius: "8px",
+                            fontSize: "0.82rem",
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
+                          <FaGraduationCap style={{ color: "#15803d", fontSize: "0.9rem" }} />
+                          {s.course_name_year || "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </StyledTable>
+            </div>
           )}
         </TableContainer>
       )}
@@ -2146,12 +2371,19 @@ export default function BreastCancerScreening({ isPublic = false }) {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
+                flexWrap: "wrap",
+                gap: "10px",
                 marginBottom: "12px",
               }}
             >
-              <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: theme.darkSlate }}>
-                Mammogram Test Bill Preview
-              </h2>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: theme.darkSlate }}>
+                  Mammogram Test Bill Preview
+                </h2>
+                <div style={{ fontSize: "0.8rem", color: theme.textSecondary, marginTop: "4px" }}>
+                  Auto Printer Fit (Dynamic width & length)
+                </div>
+              </div>
               <PrimaryBtn style={{ padding: "8px 18px", fontSize: "0.85rem" }} onClick={handlePrint}>
                 <FaPrint /> Print Slip
               </PrimaryBtn>
@@ -2213,7 +2445,7 @@ export default function BreastCancerScreening({ isPublic = false }) {
                   <tbody>
                     <tr>
                       <td>1</td>
-                      <td style={{ fontWeight: 700 }}>Mammogram Test</td>
+                      <td>Mammogram Test</td>
                       <td style={{ textAlign: "right" }}>1</td>
                       <td style={{ textAlign: "right" }}>0.00</td>
                       <td style={{ textAlign: "right" }}>0.00</td>
@@ -2230,10 +2462,6 @@ export default function BreastCancerScreening({ isPublic = false }) {
                     <span className="lbl">Net Amount:</span>
                     <span className="amt">₹0.00</span>
                   </div>
-                </div>
-
-                <div className="signature-area">
-                  Signature: __________________________
                 </div>
               </ReceiptPaper>
             </PrintStyleWrapper>
