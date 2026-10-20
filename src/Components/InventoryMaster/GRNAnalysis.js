@@ -8,6 +8,7 @@ import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import { Eye, CheckCircle, X, Printer } from "lucide-react"
 import styled from "styled-components"
+import dayjs from "dayjs"
 import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
 
 /* ─── Styled Components ─────────────────────────────────────────────────── */
@@ -174,112 +175,166 @@ function numberToWords(num) {
 /* ══════════════════════════════════════════════════════════════════════════
    GRN DOCUMENT COMPONENT
    ══════════════════════════════════════════════════════════════════════════ */
-const GRNDocument = ({ grn, vendorInfo, items }) => {
+const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
   const v = vendorInfo || {}
   const addr = [v.address_line1, v.address_line2, v.city, v.state].filter(Boolean).join(", ")
 
-  /* totals */
-  const totalTaxable = items.reduce((s, i) => s + parseFloat(i.item_value || 0), 0)
-  const totalCgst = items.reduce((s, i) => s + parseFloat(i.cgst_amt || 0), 0)
-  const totalSgst = items.reduce((s, i) => s + parseFloat(i.sgst_amt || 0), 0)
-  const totalDisc = items.reduce((s, i) => s + parseFloat(i.purchase_discount_amt || 0), 0)
-  const igst = parseFloat(grn.igst || 0)
-  const totalGst = totalCgst + totalSgst + igst
-  const netAmt = parseFloat(grn.net_invoice_amount || 0)
-  const roundOff = parseFloat(grn.round_amount || 0)
+  /* Normalized items calculation */
+  const normalizedItems = (items || []).map((it, i) => {
+    const qty = parseFloat(it.quantity || it.qty || 0);
+    const pack = it.packing || it.pack || 1;
+    const free = parseFloat(it.free || it.free_qty || 0);
+    const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
+    const pCost = parseFloat(it.unitCost || it.purchase_cost_display || (qty ? (parseFloat(it.purchaseCost || it.purchase_cost || 0) / qty) : 0) || pRate);
+    const mrp = parseFloat(it.mrp || 0);
+    const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
+    const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / (pack || 1))) - disc);
+    const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
+    const cgstAmt = parseFloat(it.cgst_amt || it.cgstAmt || (taxable * cgstRate / 100) || 0);
+    const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
+    const sgstAmt = parseFloat(it.sgst_amt || it.sgstAmt || (taxable * sgstRate / 100) || 0);
+    const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
+    const igstAmt = parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
+    const totalAmt = parseFloat(it.purchase_cost || it.purchaseCost || it.total_amount || (taxable + cgstAmt + sgstAmt + igstAmt));
 
-  /* shared cell style */
+    let expDisplay = it.expiry || it.expDate || "—";
+    if (expDisplay && expDisplay !== "—") {
+      const d = dayjs(expDisplay);
+      if (d.isValid()) expDisplay = d.format("YYYY/MM");
+    }
+
+    return {
+      sl: i + 1,
+      product: it.name || it.itemName || it.item_name || "Item",
+      hsn: it.hsn || it.hsn_code || "—",
+      batch: it.batch || it.batch_no || "—",
+      expiry: expDisplay,
+      pack,
+      qty,
+      free,
+      pRate,
+      pCost,
+      mrp,
+      disc,
+      taxable,
+      cgstRate,
+      cgstAmt,
+      sgstRate,
+      sgstAmt,
+      igstRate,
+      igstAmt,
+      totalAmt
+    };
+  });
+
+  /* Totals */
+  const totalTaxable = normalizedItems.reduce((s, i) => s + i.taxable, 0);
+  const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0) || parseFloat(grn.cgst || 0);
+  const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0) || parseFloat(grn.sgst || 0);
+  const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0) || parseFloat(grn.igst || 0);
+  const totalDisc = normalizedItems.reduce((s, i) => s + i.disc, 0) || parseFloat(grn.total_discount || 0);
+  const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0) || parseFloat(grn.total_amount || 0);
+  const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
+  const roundOff = parseFloat(grn.round_amount || 0);
+  const totalGst = totalCgst + totalSgst + totalIgst;
+  const netAmt = parseFloat(grn.net_invoice_amount || grn.net_amount || (totalItemAmounts + taxOnFree + roundOff));
+
+  /* Shared cell styles */
   const th = (extra = {}) => ({
-    background: "#dbeafe",          // light blue instead of grey
-    color: "#0c4a6e",               // dark blue text
-    border: "1px solid #7dd3fc",    // blue border
-    padding: "2px 3px",
+    background: "#dbeafe",
+    color: "#0c4a6e",
+    border: "1px solid #7dd3fc",
+    padding: "3px 4px",
     fontSize: 7.5,
     fontWeight: 700,
     whiteSpace: "nowrap",
     textAlign: "center",
     verticalAlign: "middle",
     ...extra,
-  })
-  const td = (extra = {}) => ({ border: "1px solid #ddd", padding: "2px 3px", fontSize: 8, whiteSpace: "nowrap", verticalAlign: "middle", ...extra })
-  const tdr = (extra = {}) => td({ textAlign: "right", ...extra })
-  const tdc = (extra = {}) => td({ textAlign: "center", ...extra })
+  });
+  const td = (extra = {}) => ({ border: "1px solid #cbd5e1", padding: "3px 4px", fontSize: 8, whiteSpace: "nowrap", verticalAlign: "middle", ...extra });
+  const tdr = (extra = {}) => td({ textAlign: "right", ...extra });
+  const tdc = (extra = {}) => td({ textAlign: "center", ...extra });
 
   return (
-    <div id="grn-print-area" style={{ fontFamily: "Arial, sans-serif", fontSize: 9, color: "#000", border: "1px solid #999" }}>
-
-      <div
-        style={{
-          textAlign: "center",
-          fontSize: 11,
-          fontWeight: 700,
-          borderBottom: "1px solid #c0dbff",
-          padding: "4px 6px",
-          textTransform: "uppercase",
-          letterSpacing: 0.3,
-          background: "#dbeafe",      // light blue background
-          color: "#0c4a6e",           // dark blue text for contrast
-        }}
-      >
-        GOODS RECEIPT NOTE - MEDICINE PURCHASE
+    <div id="grn-print-area" style={{ fontFamily: "Arial, sans-serif", fontSize: 9, color: "#000", border: "1.5px solid #0c4a6e", background: "#ffffff" }}>
+      {/* ── Hospital Header ── */}
+      <div style={{ textAlign: "center", padding: "10px 12px 6px", borderBottom: "1.5px solid #0c4a6e", background: "#ffffff" }}>
+        <div style={{ fontSize: 16, fontWeight: 900, color: "#0c4a6e", letterSpacing: "0.5px" }}>SHANMUGA HOSPITAL LIMITED</div>
+        <div style={{ fontSize: 9.5, color: "#334155", marginTop: 2 }}>51/24.Saradha College Road, Salem - 636007,,</div>
+        <div style={{ fontSize: 9.5, color: "#334155" }}>Phone : 04272706666,info@smrft.org</div>
+        <div style={{ fontSize: 9.5, fontWeight: 700, color: "#334155", marginTop: 2 }}>GST Number : {grn.hospital_gst || ""}</div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: "uppercase",
+            letterSpacing: "0.4px",
+            marginTop: 6,
+            color: "#0c4a6e",
+          }}
+        >
+          GOODS RECEIPT NOTE - {grn.purchase_category ? grn.purchase_category.toUpperCase() : "OPENING STOCK (DRUG)"}
+        </div>
       </div>
 
-      {/* ── 3-column info strip ── */}
-      <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #c0dbff" }}>
+      {/* ── 3-column Metadata Strip ── */}
+      <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #7dd3fc" }}>
         <tbody>
           <tr>
-            {/* Left */}
-            <td style={{ verticalAlign: "top", padding: "4px 7px", fontSize: 8.5, borderRight: "1px solid #c0dbff", width: "33%" }}>
+            {/* Left Column */}
+            <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: 8.5, borderRight: "1px solid #7dd3fc", width: "33%" }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                 {[
-                  ["Invoice No", grn.invoice_no],
+                  ["Invoice No", grn.invoice_no || grn.invoice_number],
                   ["Invoice Date", fmtDate(grn.invoice_date)],
-                  ["Purchase No", grn.draft_number],
+                  ["Purchase No", grn.grn_number || grn.draft_number],
                   ["Purchase Date", fmtDate(grn.date)],
                 ].map(([k, val]) => (
                   <tr key={k}>
-                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 82 }}>{k}</td>
+                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 86 }}>{k}</td>
                     <td style={{ fontSize: 8.5, verticalAlign: "top" }}>: {val || "—"}</td>
                   </tr>
                 ))}
               </tbody></table>
             </td>
 
-            {/* Centre */}
-            <td style={{ verticalAlign: "top", padding: "4px 7px", fontSize: 8.5, borderRight: "1px solid #c0dbff", width: "34%" }}>
+            {/* Centre Column */}
+            <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: 8.5, borderRight: "1px solid #7dd3fc", width: "34%" }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                 <tr>
-                  <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 82 }}>Supplier Name</td>
-                  <td style={{ fontSize: 8.5, fontWeight: 700, verticalAlign: "top" }}>: {v.name || "—"}</td>
+                  <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 86 }}>Supplier Name</td>
+                  <td style={{ fontSize: 8.5, fontWeight: 700, verticalAlign: "top" }}>: {v.name || grn.vendor_name || "OPENING STOCK"}</td>
                 </tr>
-                <tr>
-                  <td style={{ fontWeight: 700, fontSize: 8.5, verticalAlign: "top" }}></td>
-                  <td style={{ fontSize: 8.5, verticalAlign: "top" }}>{addr}</td>
-                </tr>
+                {addr && (
+                  <tr>
+                    <td style={{ fontWeight: 700, fontSize: 8.5, verticalAlign: "top" }}></td>
+                    <td style={{ fontSize: 8.5, verticalAlign: "top" }}>{addr}</td>
+                  </tr>
+                )}
                 {[
-                  ["State", v.state],
-                  ["Phone", v.phone],
-                  ["GST Number", v.gstin || "******"],
+                  ["State", v.state || grn.vendor_state],
+                  ["Phone", v.phone || grn.vendor_phone],
+                  ["GST Number", v.gstin || grn.vendor_gstin || "******"],
                 ].map(([k, val]) => (
                   <tr key={k}>
-                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 82 }}>{k}</td>
+                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 86 }}>{k}</td>
                     <td style={{ fontSize: 8.5, verticalAlign: "top" }}>: {val || "—"}</td>
                   </tr>
                 ))}
               </tbody></table>
             </td>
 
-            {/* Right */}
-            <td style={{ verticalAlign: "top", padding: "4px 7px", fontSize: 8.5, borderRight: "1px solid #c0dbff", width: "33%" }}>
+            {/* Right Column */}
+            <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: 8.5, width: "33%" }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                 {[
                   ["Order Number", grn.order_number || ""],
-                  ["Payment Mode", grn.payment_mode],
-                  ["Approved Date", fmtDate(grn.date)],
-                  ...(grn.grn_number ? [["GRN No", grn.grn_number]] : []),
+                  ["Payment Mode", grn.payment_mode || "CHEQUE"],
+                  ["Approved Date", grn.is_approved ? fmtDate(grn.approved_date || grn.date) : (grn.approved_date ? fmtDate(grn.approved_date) : "—")],
                 ].map(([k, val]) => (
                   <tr key={k}>
-                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 82 }}>{k}</td>
+                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 86 }}>{k}</td>
                     <td style={{ fontSize: 8.5, verticalAlign: "top" }}>: {val || "—"}</td>
                   </tr>
                 ))}
@@ -289,16 +344,15 @@ const GRNDocument = ({ grn, vendorInfo, items }) => {
         </tbody>
       </table>
 
-      {/* ── Items + right totals ── */}
-      <div style={{ display: "flex", borderBottom: "1px solid #c0dbff" }}>
-
-        {/* Items table */}
+      {/* ── Items Table + Right Summary ── */}
+      <div style={{ display: "flex", borderBottom: "1px solid #7dd3fc" }}>
+        {/* 17-column Items table */}
         <div style={{ flex: 1, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 8 }}>
             <thead>
               <tr>
                 <th rowSpan={2} style={th({ width: 22 })}>Sl.</th>
-                <th rowSpan={2} style={th({ minWidth: 90, textAlign: "left" })}>Product</th>
+                <th rowSpan={2} style={th({ minWidth: 95, textAlign: "left" })}>Product</th>
                 <th rowSpan={2} style={th()}>HSN</th>
                 <th rowSpan={2} style={th()}>Batch</th>
                 <th rowSpan={2} style={th()}>Expiry</th>
@@ -309,40 +363,45 @@ const GRNDocument = ({ grn, vendorInfo, items }) => {
                 <th rowSpan={2} style={th()}>P.cost</th>
                 <th rowSpan={2} style={th()}>MRP</th>
                 <th rowSpan={2} style={th()}>Discount</th>
-                <th rowSpan={2} style={th()}>Taxable<br />Amount</th>
+                <th rowSpan={2} style={th()}>Taxable Amount</th>
                 <th colSpan={2} style={th()}>CGST</th>
                 <th colSpan={2} style={th()}>SGST</th>
-                <th rowSpan={2} style={th()}>Total<br />Amount</th>
+                <th colSpan={2} style={th()}>IGST</th>
+                <th rowSpan={2} style={th()}>Total Amount</th>
               </tr>
               <tr>
+                <th style={th()}>Rate</th><th style={th()}>Amt</th>
                 <th style={th()}>Rate</th><th style={th()}>Amt</th>
                 <th style={th()}>Rate</th><th style={th()}>Amt</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((it, i) => (
-                <tr key={i}>
-                  <td style={tdc()}>{i + 1}</td>
-                  <td style={td({ fontWeight: 600, maxWidth: 120, whiteSpace: "normal", textAlign: "left" })}>{it.name}</td>
-                  <td style={tdc()}>{it.hsn || "—"}</td>
-                  <td style={tdc()}>{it.batch || "—"}</td>
-                  <td style={tdc()}>{it.expiry || "—"}</td>
-                  <td style={tdc()}>{it.packing || "—"}</td>
-                  <td style={tdc()}>{it.quantity}</td>
-                  <td style={tdc()}>{it.free || 0}</td>
-                  <td style={tdr()}>{fmt2(it.packing_price)}</td>
-                  <td style={tdr()}>{fmt2(it.purchase_cost_display || it.purchase_cost)}</td>
+              {normalizedItems.map((it) => (
+                <tr key={it.sl}>
+                  <td style={tdc()}>{it.sl}</td>
+                  <td style={td({ fontWeight: 600, maxWidth: 120, whiteSpace: "normal", textAlign: "left" })}>{it.product}</td>
+                  <td style={tdc()}>{it.hsn}</td>
+                  <td style={tdc()}>{it.batch}</td>
+                  <td style={tdc()}>{it.expiry}</td>
+                  <td style={tdc()}>{it.pack}</td>
+                  <td style={tdc()}>{it.qty}</td>
+                  <td style={tdc()}>{it.free}</td>
+                  <td style={tdr()}>{fmt2(it.pRate)}</td>
+                  <td style={tdr()}>{fmt2(it.pCost)}</td>
                   <td style={tdr()}>{fmt2(it.mrp)}</td>
-                  <td style={tdr()}>{fmt2(it.purchase_discount_amt)}</td>
-                  <td style={tdr()}>{fmt2(it.item_value)}</td>
-                  <td style={tdc()}>{it.cgst_percent}%</td>
-                  <td style={tdr()}>{fmt2(it.cgst_amt)}</td>
-                  <td style={tdc()}>{it.sgst_percent}%</td>
-                  <td style={tdr()}>{fmt2(it.sgst_amt)}</td>
-                  <td style={tdr({ fontWeight: 700 })}>{fmt2(it.purchase_cost)}</td>
+                  <td style={tdr()}>{fmt2(it.disc)}</td>
+                  <td style={tdr()}>{fmt2(it.taxable)}</td>
+                  <td style={tdc()}>{it.cgstRate ? `${it.cgstRate}%` : "—"}</td>
+                  <td style={tdr()}>{fmt2(it.cgstAmt)}</td>
+                  <td style={tdc()}>{it.sgstRate ? `${it.sgstRate}%` : "—"}</td>
+                  <td style={tdr()}>{fmt2(it.sgstAmt)}</td>
+                  <td style={tdc()}>{it.igstRate ? `${it.igstRate}%` : "—"}</td>
+                  <td style={tdr()}>{fmt2(it.igstAmt)}</td>
+                  <td style={tdr({ fontWeight: 700 })}>{fmt2(it.totalAmt)}</td>
                 </tr>
               ))}
 
+              {/* Totals Row */}
               <tr style={{ background: "#dbeafe" }}>
                 <td
                   colSpan={12}
@@ -355,69 +414,33 @@ const GRNDocument = ({ grn, vendorInfo, items }) => {
                 >
                   Total
                 </td>
-
-                <td
-                  style={tdr({
-                    fontWeight: 700,
-                    color: "#0c4a6e",
-                    background: "#dbeafe",
-                  })}
-                >
-                  {fmt2(totalTaxable)}
-                </td>
-
+                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalTaxable)}</td>
                 <td style={td({ background: "#dbeafe" })} />
-
-                <td
-                  style={tdr({
-                    fontWeight: 700,
-                    color: "#0c4a6e",
-                    background: "#dbeafe",
-                  })}
-                >
-                  {fmt2(totalCgst)}
-                </td>
-
+                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalCgst)}</td>
                 <td style={td({ background: "#dbeafe" })} />
-
-                <td
-                  style={tdr({
-                    fontWeight: 700,
-                    color: "#0c4a6e",
-                    background: "#dbeafe",
-                  })}
-                >
-                  {fmt2(totalSgst)}
-                </td>
-
-                <td
-                  style={tdr({
-                    fontWeight: 700,
-                    color: "#0c4a6e",
-                    background: "#dbeafe",
-                  })}
-                >
-                  {fmt2(netAmt)}
-                </td>
+                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalSgst)}</td>
+                <td style={td({ background: "#dbeafe" })} />
+                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalIgst)}</td>
+                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalItemAmounts)}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* Right totals panel */}
-        <table style={{ borderLeft: "1px solid #c0dbff", borderCollapse: "collapse", fontSize: 8.5, minWidth: 130, alignSelf: "stretch" }}>
+        <table style={{ borderLeft: "1px solid #7dd3fc", borderCollapse: "collapse", fontSize: 8.5, minWidth: 140, alignSelf: "stretch" }}>
           <tbody>
             {[
               ["Total", fmt2(totalTaxable), false],
               ["Discount", fmt2(totalDisc), false],
-              ["Tax On Free", "0.00", false],
+              ["Tax On Free", fmt2(taxOnFree), false],
               ["Round off.", fmt2(roundOff), false],
               ["Total GST", fmt2(totalGst), true],
               ["Net Amount", fmt2(netAmt), true, "#e8f5e9", "#0f766e"],
             ].map(([lbl, val, bold, bg, col]) => (
               <tr key={lbl} style={{ background: bg || "transparent" }}>
-                <td style={{ padding: "2px 6px", borderBottom: "1px solid #eee", fontWeight: bold ? 800 : 600, color: col || "#333", whiteSpace: "nowrap" }}>{lbl}</td>
-                <td style={{ padding: "2px 6px", borderBottom: "1px solid #eee", textAlign: "right", fontWeight: bold ? 800 : 700, color: col || "#000", whiteSpace: "nowrap" }}>{val}</td>
+                <td style={{ padding: "3px 6px", borderBottom: "1px solid #e2e8f0", fontWeight: bold ? 800 : 600, color: col || "#334155", whiteSpace: "nowrap" }}>{lbl}</td>
+                <td style={{ padding: "3px 6px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: bold ? 800 : 700, color: col || "#0f172a", whiteSpace: "nowrap" }}>{val}</td>
               </tr>
             ))}
           </tbody>
@@ -425,37 +448,36 @@ const GRNDocument = ({ grn, vendorInfo, items }) => {
       </div>
 
       {/* ── Bottom strip: GST | Amount in Words | Net Amount ── */}
-      <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #999" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #0c4a6e" }}>
         <tbody>
           <tr>
-            <td style={{ padding: "3px 6px", fontSize: 8, borderRight: "1px solid #c0dbff", whiteSpace: "nowrap", width: "45%" }}>
+            <td style={{ padding: "4px 8px", fontSize: 8, borderRight: "1px solid #7dd3fc", whiteSpace: "nowrap", width: "42%" }}>
               <strong>GST Amount</strong>&nbsp;&nbsp;
               CGST Amount : {fmt2(totalCgst)}&nbsp;&nbsp;
               SGST Amount : {fmt2(totalSgst)}&nbsp;&nbsp;
-              IGST Amount : {fmt2(igst)}
+              IGST Amount : {fmt2(totalIgst)}
             </td>
-            <td style={{ padding: "3px 6px", fontSize: 8, borderRight: "1px solid #c0dbff" }}>
+            <td style={{ padding: "4px 8px", fontSize: 8, borderRight: "1px solid #7dd3fc" }}>
               <strong>Amount In Words</strong>&nbsp;&nbsp;
               Rupee(s) {numberToWords(netAmt)}
             </td>
-            <td style={{ padding: "3px 8px", fontSize: 8, textAlign: "right", whiteSpace: "nowrap", minWidth: 100 }}>
+            <td style={{ padding: "4px 10px", fontSize: 8.5, textAlign: "right", whiteSpace: "nowrap", minWidth: 110 }}>
               <strong>Net Amount</strong>&nbsp;
-              <span style={{ fontWeight: 800, color: "#0f766e" }}>{fmt2(netAmt)}</span>
+              <span style={{ fontWeight: 800, fontSize: "0.85rem", color: "#0f766e" }}>{fmt2(netAmt)}</span>
             </td>
           </tr>
         </tbody>
       </table>
 
       {/* ── Signature strip ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 10px", fontSize: 8 }}>
-        <span>Entered By : {grn.entered_by || "USER"}</span>
-        <span>Checked By : —</span>
-        <span>Verified By : —</span>
+      <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 12px", fontSize: 8.5, background: "#f8fafc" }}>
+        <span><strong>Entered By :</strong> {grn.entered_by || "DEEPIK"}</span>
+        <span><strong>Checked By :</strong> —</span>
+        <span><strong>Verified By :</strong> {grn.verified_by || (grn.is_approved ? "APPROVED" : "—")}</span>
       </div>
-
     </div>
-  )
-}
+  );
+};
 
 /* ─── Main Component ────────────────────────────────────────────────────── */
 const GRNAnalysis = () => {
