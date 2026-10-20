@@ -90,6 +90,8 @@ const PUBLIC_ROUTES = [
   "/outpatientqrscan",
   "/QRScan",
   "/qrscan",
+  "/BreastCancerScreening",
+  "/breastcancerscreening",
 ];
 
 function isPublicRoute() {
