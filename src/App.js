@@ -526,7 +526,9 @@ function App() {
     "/OutPatientQRScan",
     "/outpatientqrscan",
     "/QRScan",
-    "/qrscan"
+    "/qrscan",
+    "/BreastCancerScreening",
+    "/breastcancerscreening"
   ];
 
   const normalizedPath = location.pathname.toLowerCase().replace(/\/$/, "");
@@ -536,9 +538,14 @@ function App() {
     return normalizedPath === r || normalizedPath.endsWith(r);
   });
 
+  const isBreastCancerScreening =
+    normalizedPath === "/breastcancerscreening" ||
+    normalizedPath.endsWith("/breastcancerscreening");
+
   const isNoSidebarRoute =
     location.pathname === "/" ||
-    isPublicPage;
+    (!role && isPublicPage) ||
+    (isPublicPage && !isBreastCancerScreening);
 
   if (isLoading)
     return (
@@ -654,6 +661,22 @@ function App() {
               <Route
                 path="/outpatientqrscan"
                 element={<OutPatientQRScan />}
+              />
+              <Route
+                path="/QRScan"
+                element={<InpatientQRScan />}
+              />
+              <Route
+                path="/qrscan"
+                element={<InpatientQRScan />}
+              />
+              <Route
+                path="/BreastCancerScreening"
+                element={<BreastCancerScreening />}
+              />
+              <Route
+                path="/breastcancerscreening"
+                element={<BreastCancerScreening />}
               />
             </Routes>
 
@@ -1945,6 +1968,7 @@ function App() {
 
               {/* TANUH Breast Cancer Screening */}
               <Route path="/BreastCancerScreening" element={<BreastCancerScreening />} />
+              <Route path="/breastcancerscreening" element={<BreastCancerScreening />} />
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />

@@ -17,8 +17,11 @@ import {
   FaClipboardList,
   FaFileExport,
   FaIdCard,
+  FaUserGraduate,
 } from "react-icons/fa";
 import { MdOutlineMedicalServices, MdClose } from "react-icons/md";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/";
@@ -363,11 +366,11 @@ const RiskCard = styled.div`
   border: 2px solid ${(props) => (props.$selected ? (props.$isHigh ? theme.highRisk : theme.lowRisk) : theme.border)};
   background: ${(props) => (props.$selected ? (props.$isHigh ? theme.highRiskBg : theme.lowRiskBg) : "#ffffff")};
   border-radius: 14px;
-  padding: 18px 20px;
+  padding: 14px 20px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
   box-shadow: ${(props) =>
     props.$selected
@@ -389,7 +392,6 @@ const RiskCard = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: 2px;
     flex-shrink: 0;
 
     &::after {
@@ -411,13 +413,6 @@ const RiskCard = styled.div`
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-
-    p {
-      margin: 4px 0 0;
-      font-size: 0.82rem;
-      color: ${theme.textSecondary};
-      line-height: 1.4;
     }
   }
 `;
@@ -618,6 +613,14 @@ const ModalOverlay = styled.div`
   justify-content: center;
   z-index: 1000;
   padding: 16px;
+
+  @media print {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    display: block !important;
+  }
 `;
 
 const ModalContent = styled.div`
@@ -630,6 +633,17 @@ const ModalContent = styled.div`
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   padding: 30px;
   position: relative;
+
+  @media print {
+    position: static !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
 
   .close-btn {
     position: absolute;
@@ -650,6 +664,10 @@ const ModalContent = styled.div`
       background: #e2e8f0;
       color: ${theme.textPrimary};
     }
+
+    @media print {
+      display: none !important;
+    }
   }
 `;
 
@@ -662,6 +680,13 @@ const ReceiptPaper = styled.div`
   border: 1px solid #d1d5db;
   font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+
+  @media print {
+    margin: 0 auto !important;
+    border: 1.5px solid #000000 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+  }
 
   .receipt-header {
     text-align: center;
@@ -796,23 +821,34 @@ const ReceiptPaper = styled.div`
 
 const PrintStyleWrapper = styled.div`
   @media print {
+    @page {
+      size: A4 portrait;
+      margin: 15mm 20mm;
+    }
+    body {
+      background: #ffffff !important;
+      color: #000000 !important;
+    }
     body * {
-      visibility: hidden;
+      visibility: hidden !important;
     }
     #printable-receipt,
     #printable-receipt * {
-      visibility: visible;
+      visibility: visible !important;
     }
     #printable-receipt {
-      position: absolute;
-      left: 0;
-      top: 0;
+      position: absolute !important;
+      left: 50% !important;
+      top: 0 !important;
+      transform: translateX(-50%) !important;
       width: 100% !important;
-      max-width: 100% !important;
-      margin: 0 !important;
-      padding: 10px 20px !important;
-      border: none !important;
+      max-width: 560px !important;
+      margin: 0 auto !important;
+      padding: 24px 28px !important;
+      border: 1.5px solid #000000 !important;
       box-shadow: none !important;
+      background: #ffffff !important;
+      page-break-inside: avoid !important;
     }
     .no-print {
       display: none !important;
@@ -821,8 +857,8 @@ const PrintStyleWrapper = styled.div`
 `;
 
 // ── Main Component ──────────────────────────────────────────────────
-export default function BreastCancerScreening() {
-  const [activeTab, setActiveTab] = useState("form"); // "form" or "records"
+export default function BreastCancerScreening({ isPublic = false }) {
+  const [activeTab, setActiveTab] = useState("form"); // "form", "student", or "records"
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -830,6 +866,26 @@ export default function BreastCancerScreening() {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showSlipModal, setShowSlipModal] = useState(false);
   const [nextBillNo, setNextBillNo] = useState("");
+
+  // When access_token is present (admin/staff), show View Slip action. When no access_token (student/public), do not display View Slip.
+  const hasAccessToken = Boolean(
+    localStorage.getItem("access_token") &&
+    localStorage.getItem("access_token").trim() !== ""
+  );
+  const showActions = hasAccessToken;
+
+  // ── Tab 2: Student Registration Surveyor State ───────────────────────
+  const initialStudentForm = {
+    institute_name: "",
+    course_name_year: "",
+    surveyor_name: "",
+    subject_id: "",
+  };
+  const [studentForm, setStudentForm] = useState(initialStudentForm);
+  const [studentErrors, setStudentErrors] = useState({});
+  const [studentRecords, setStudentRecords] = useState([]);
+  const [studentSearchTerm, setStudentSearchTerm] = useState("");
+  const [studentLoading, setStudentLoading] = useState(false);
 
   // Form State
   const initialForm = {
@@ -850,6 +906,42 @@ export default function BreastCancerScreening() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
 
+  // Helper to extract success/error message solely from backend response
+  const getBackendErrorMessage = (res, err) => {
+    // If axios network or promise error
+    if (err) {
+      if (err.response?.data?.message) return err.response.data.message;
+      if (err.response?.data?.error) return err.response.data.error;
+      if (err.response?.data?.detail) return err.response.data.detail;
+      if (err.response?.data?.errors) {
+        const errors = err.response.data.errors;
+        if (typeof errors === "object") {
+          return Object.entries(errors)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+            .join("; ");
+        }
+        return String(errors);
+      }
+      return err.message || null;
+    }
+
+    // From apiRequest response object
+    if (res?.data?.message) return res.data.message;
+    if (res?.data?.error) return res.data.error;
+    if (res?.data?.detail) return res.data.detail;
+    if (res?.error) return res.error;
+    if (res?.data?.errors) {
+      const errors = res.data.errors;
+      if (typeof errors === "object") {
+        return Object.entries(errors)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+          .join("; ");
+      }
+      return String(errors);
+    }
+    return null;
+  };
+
   // Fetch Screening Records
   const fetchRecords = async () => {
     try {
@@ -860,10 +952,20 @@ export default function BreastCancerScreening() {
         setRecords(res.data);
       } else {
         setRecords([]);
+        if (!res.success) {
+          const errorMsg = getBackendErrorMessage(res);
+          if (errorMsg) {
+            toast.error(errorMsg);
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to fetch screening records:", err);
       setRecords([]);
+      const errorMsg = getBackendErrorMessage(null, err);
+      if (errorMsg) {
+        toast.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -876,16 +978,68 @@ export default function BreastCancerScreening() {
       const res = await apiRequest(url, "GET");
       if (res.success && res.data && res.data.next_bill_number) {
         setNextBillNo(res.data.next_bill_number);
+      } else if (!res.success) {
+        const errorMsg = getBackendErrorMessage(res);
+        if (errorMsg) {
+          toast.error(errorMsg);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch next bill no:", err);
+      const errorMsg = getBackendErrorMessage(null, err);
+      if (errorMsg) {
+        toast.error(errorMsg);
+      }
+    }
+  };
+
+  // Fetch Registered Student Surveyors (Stored Separately, accessible via PUBLIC_ROUTES)
+  const fetchStudentRecords = async () => {
+    try {
+      setStudentLoading(true);
+      const url = `${HmsBaseUrl}tanuh_student_surveyor_registration/`;
+      let res = await apiRequest(url, "GET");
+      if (res && res.success && Array.isArray(res.data)) {
+        setStudentRecords(res.data);
+      } else {
+        // Direct fetch fallback for public routes without token
+        try {
+          const raw = await fetch(url);
+          if (raw.ok) {
+            const data = await raw.json();
+            if (Array.isArray(data)) {
+              setStudentRecords(data);
+              return;
+            }
+          }
+        } catch (_) {}
+        setStudentRecords([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch student surveyor records:", err);
+      try {
+        const raw = await fetch(`${HmsBaseUrl}tanuh_student_surveyor_registration/`);
+        if (raw.ok) {
+          const data = await raw.json();
+          if (Array.isArray(data)) {
+            setStudentRecords(data);
+            return;
+          }
+        }
+      } catch (_) {}
+      setStudentRecords([]);
+    } finally {
+      setStudentLoading(false);
     }
   };
 
   useEffect(() => {
     fetchRecords();
     fetchNextBillNo();
-  }, []);
+    if (hasAccessToken) {
+      fetchStudentRecords();
+    }
+  }, [hasAccessToken]);
 
   // Handle Input Changes
   const handleChange = (e) => {
@@ -893,6 +1047,91 @@ export default function BreastCancerScreening() {
     setForm((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: null }));
+    }
+  };
+
+  // Student Surveyor Form Handlers
+  const handleStudentChange = (e) => {
+    const { name, value } = e.target;
+    setStudentForm((prev) => ({ ...prev, [name]: value }));
+    if (studentErrors[name]) {
+      setStudentErrors((prev) => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const validateStudentForm = () => {
+    const errs = {};
+    if (!studentForm.institute_name || !studentForm.institute_name.trim()) {
+      errs.institute_name = "Institute Name is required";
+    }
+    if (!studentForm.course_name_year || !studentForm.course_name_year.trim()) {
+      errs.course_name_year = "Course Name & Year is required";
+    }
+    if (!studentForm.surveyor_name || !studentForm.surveyor_name.trim()) {
+      errs.surveyor_name = "Surveyor Name is required";
+    }
+    if (!studentForm.subject_id || !studentForm.subject_id.trim()) {
+      errs.subject_id = "Subject ID is required";
+    }
+    setStudentErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleStudentSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateStudentForm()) {
+      toast.error("Please fill all required student surveyor fields");
+      return;
+    }
+
+    try {
+      setStudentLoading(true);
+      const url = `${HmsBaseUrl}tanuh_student_surveyor_registration/`;
+      let res = await apiRequest(url, "POST", studentForm);
+      let success = res?.success;
+      let msg = res?.data?.message || res?.message;
+
+      if (!success) {
+        // Direct fetch fallback for public routes without token
+        try {
+          const raw = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(studentForm),
+          });
+          if (raw.ok) {
+            const data = await raw.json();
+            success = true;
+            msg = data.message || "Student Surveyor registered successfully";
+          }
+        } catch (_) {}
+      }
+
+      if (success) {
+        const successMsg = msg || "Student Surveyor registered successfully";
+        toast.success(successMsg);
+        // Pre-fill surveyor name & subject ID in screening form if empty
+        setForm((prev) => ({
+          ...prev,
+          surveyor_name: prev.surveyor_name || studentForm.surveyor_name,
+          subject_id: prev.subject_id || studentForm.subject_id,
+        }));
+        setStudentForm(initialStudentForm);
+        if (hasAccessToken) {
+          fetchStudentRecords();
+          // Switch to the Registered Student Surveyors tab for authenticated users
+          setActiveTab("registered_students");
+        }
+      } else {
+        const errorMsg = getBackendErrorMessage(res);
+        if (errorMsg) toast.error(errorMsg);
+      }
+    } catch (err) {
+      console.error("Student surveyor registration error:", err);
+      const errorMsg = getBackendErrorMessage(null, err);
+      if (errorMsg) toast.error(errorMsg);
+    } finally {
+      setStudentLoading(false);
     }
   };
 
@@ -929,17 +1168,28 @@ export default function BreastCancerScreening() {
       const res = await apiRequest(url, "POST", payload);
 
       if (res.success) {
-        alert("Screening record submitted successfully!");
+        // Success message obtained from backend response
+        const successMsg = res.data?.message || res.message;
+        if (successMsg) {
+          toast.success(successMsg);
+        }
         setForm(initialForm);
         fetchRecords();
         fetchNextBillNo();
         setActiveTab("records");
       } else {
-        alert(res.error || "Failed to save record. Please verify fields.");
+        // Error message obtained from backend response
+        const errorMsg = getBackendErrorMessage(res);
+        if (errorMsg) {
+          toast.error(errorMsg);
+        }
       }
     } catch (err) {
       console.error("Submit failed:", err);
-      alert("Network or server error while submitting.");
+      const errorMsg = getBackendErrorMessage(null, err);
+      if (errorMsg) {
+        toast.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -974,6 +1224,19 @@ export default function BreastCancerScreening() {
     });
   }, [records, searchTerm, riskFilter]);
 
+  // Filtered Student Surveyor Records
+  const filteredStudentRecords = useMemo(() => {
+    if (!studentSearchTerm.trim()) return studentRecords;
+    const term = studentSearchTerm.toLowerCase();
+    return studentRecords.filter(
+      (r) =>
+        (r.institute_name || "").toLowerCase().includes(term) ||
+        (r.course_name_year || "").toLowerCase().includes(term) ||
+        (r.surveyor_name || "").toLowerCase().includes(term) ||
+        (r.subject_id || "").toLowerCase().includes(term)
+    );
+  }, [studentRecords, studentSearchTerm]);
+
   // View Slip Modal Trigger
   const handleOpenSlip = (rec) => {
     setSelectedRecord(rec);
@@ -981,11 +1244,211 @@ export default function BreastCancerScreening() {
   };
 
   const handlePrint = () => {
-    window.print();
+    const printArea = document.getElementById("printable-receipt");
+    if (!printArea) {
+      window.print();
+      return;
+    }
+
+    // Clean up any existing print iframe
+    const oldIframe = document.getElementById("tanuh-slip-print-frame");
+    if (oldIframe) {
+      oldIframe.remove();
+    }
+
+    const iframe = document.createElement("iframe");
+    iframe.id = "tanuh-slip-print-frame";
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Mammogram Test Bill - ${selectedRecord?.bill_number || "Slip"}</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 15mm 20mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            body {
+              font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+              color: #000000;
+              background: #ffffff;
+              font-size: 13px;
+              line-height: 1.4;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .slip-card {
+              max-width: 560px;
+              margin: 0 auto;
+              border: 1.5px solid #000000;
+              padding: 24px 28px;
+              background: #ffffff;
+            }
+            .receipt-header {
+              text-align: center;
+              margin-bottom: 8px;
+            }
+            .receipt-header h2 {
+              font-size: 16px;
+              font-weight: 800;
+              letter-spacing: 0.5px;
+              margin: 0;
+              color: #000000;
+              text-transform: uppercase;
+            }
+            .receipt-header .sub-addr {
+              font-size: 11.5px;
+              margin-top: 3px;
+              color: #222222;
+              font-weight: 500;
+            }
+            .receipt-header .cin-text {
+              font-size: 11px;
+              margin-top: 2px;
+              font-weight: 600;
+              color: #333333;
+            }
+            .bill-title-bar {
+              border-top: 1.5px solid #000000;
+              border-bottom: 1.5px solid #000000;
+              padding: 5px 0;
+              text-align: center;
+              margin: 10px 0 14px;
+            }
+            .bill-title-bar h3 {
+              font-size: 13.5px;
+              font-weight: 800;
+              margin: 0;
+              color: #000000;
+              letter-spacing: 0.2px;
+            }
+            .meta-table {
+              width: 100%;
+              margin-bottom: 14px;
+              font-size: 12.5px;
+              border-collapse: collapse;
+            }
+            .meta-table td {
+              padding: 3px 0;
+              vertical-align: top;
+            }
+            .meta-table .meta-lbl {
+              width: 35%;
+              font-weight: 700;
+              color: #000000;
+            }
+            .meta-table .meta-val {
+              width: 65%;
+              font-weight: 600;
+              color: #000000;
+              text-align: right;
+            }
+            .items-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 8px;
+              font-size: 12.5px;
+            }
+            .items-table thead tr {
+              border-top: 1.5px solid #000000;
+              border-bottom: 1.5px solid #000000;
+            }
+            .items-table th {
+              padding: 6px 4px;
+              font-weight: 800;
+              color: #000000;
+              text-align: left;
+            }
+            .items-table tbody tr {
+              border-bottom: 1.5px solid #000000;
+            }
+            .items-table td {
+              padding: 7px 4px;
+              color: #000000;
+              font-weight: 500;
+            }
+            .totals-bar {
+              border-bottom: 1.5px solid #000000;
+              padding: 6px 0;
+              margin-top: 2px;
+            }
+            .totals-bar .total-row {
+              display: flex;
+              justify-content: flex-end;
+              gap: 36px;
+              padding: 2px 0;
+              font-size: 12.5px;
+              font-weight: 700;
+            }
+            .totals-bar .total-row.net {
+              font-weight: 800;
+            }
+            .totals-bar .total-row .lbl {
+              min-width: 90px;
+              text-align: right;
+            }
+            .totals-bar .total-row .amt {
+              min-width: 80px;
+              text-align: right;
+              font-weight: 800;
+            }
+            .signature-area {
+              margin-top: 40px;
+              font-size: 12.5px;
+              font-weight: 700;
+              color: #000000;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="slip-card">
+            ${printArea.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (err) {
+        console.error("Iframe print error:", err);
+        window.print();
+      }
+    }, 250);
   };
 
   return (
     <PageContainer>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
       {/* ── Top Header Banner ─────────────────────────────────── */}
       <HeaderBanner>
         <div className="title-content">
@@ -1059,8 +1522,16 @@ export default function BreastCancerScreening() {
         <TabButton $active={activeTab === "form"} onClick={() => setActiveTab("form")}>
           <FaFileMedical /> New Screening Form
         </TabButton>
+        <TabButton $active={activeTab === "student"} onClick={() => setActiveTab("student")}>
+          <FaUserGraduate /> Student Registration Surveyor
+        </TabButton>
+        {hasAccessToken && (
+          <TabButton $active={activeTab === "registered_students"} onClick={() => setActiveTab("registered_students")}>
+            <FaClipboardList /> Registered Student Surveyors ({studentRecords.length})
+          </TabButton>
+        )}
         <TabButton $active={activeTab === "records"} onClick={() => setActiveTab("records")}>
-          <FaClipboardList /> Screening Records & Reports ({records.length})
+          <FaHeartbeat /> Screening Records & Reports ({records.length})
         </TabButton>
       </TabNavigation>
 
@@ -1191,7 +1662,7 @@ export default function BreastCancerScreening() {
 
               <FormGroup>
                 <label>
-                  Hospital Bill / Receipt No
+                  Bill  No
                   <span
                     style={{
                       marginLeft: "8px",
@@ -1203,7 +1674,7 @@ export default function BreastCancerScreening() {
                       fontWeight: 700,
                     }}
                   >
-                    Auto-Generated
+
                   </span>
                 </label>
                 <input
@@ -1294,10 +1765,6 @@ export default function BreastCancerScreening() {
                     <h4>
                       <FaExclamationTriangle /> High Risk
                     </h4>
-                    <p>
-                      Palpable lump, localized pain, nipple inversion, skin thickening, or prominent family history.
-                      Immediate hospital referral advised.
-                    </p>
                   </div>
                 </RiskCard>
 
@@ -1311,10 +1778,6 @@ export default function BreastCancerScreening() {
                     <h4>
                       <FaShieldAlt /> Low risk
                     </h4>
-                    <p>
-                      No palpable lesions, normal breast tissue texture, asymptomatic. Advise routine annual screening
-                      and self-examination.
-                    </p>
                   </div>
                 </RiskCard>
               </RiskSelectorContainer>
@@ -1343,7 +1806,218 @@ export default function BreastCancerScreening() {
         </form>
       )}
 
-      {/* ── TAB 2: SCREENING RECORDS & REPORTS ────────────────── */}
+      {/* ── TAB 2: STUDENT REGISTRATION SURVEYOR ──────────────── */}
+      {activeTab === "student" && (
+        <>
+          <form onSubmit={handleStudentSubmit}>
+            <FormCard>
+              <div className="section-header">
+                <div className="section-icon">
+                  <FaUserGraduate />
+                </div>
+                <h2>Student Registration Surveyor</h2>
+                <span>* Indicates required question</span>
+              </div>
+
+              <FormRow>
+                <FormGroup $error={!!studentErrors.institute_name}>
+                  <label>
+                    Institute Name <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="institute_name"
+                    value={studentForm.institute_name}
+                    onChange={handleStudentChange}
+                    placeholder="e.g. Shanmuga College of Nursing / Medical College"
+                  />
+                  {studentErrors.institute_name && (
+                    <span className="error-text">{studentErrors.institute_name}</span>
+                  )}
+                </FormGroup>
+
+                <FormGroup $error={!!studentErrors.course_name_year}>
+                  <label>
+                    Course Name and Year <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="course_name_year"
+                    value={studentForm.course_name_year}
+                    onChange={handleStudentChange}
+                    placeholder="e.g. B.Sc Nursing - 3rd Year / MBBS Final Year"
+                  />
+                  {studentErrors.course_name_year && (
+                    <span className="error-text">{studentErrors.course_name_year}</span>
+                  )}
+                </FormGroup>
+              </FormRow>
+
+              <FormRow>
+                <FormGroup $error={!!studentErrors.surveyor_name}>
+                  <label>
+                    Surveyor Name <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="surveyor_name"
+                    value={studentForm.surveyor_name}
+                    onChange={handleStudentChange}
+                    placeholder="e.g. Student / Surveyor Full Name"
+                  />
+                  {studentErrors.surveyor_name && (
+                    <span className="error-text">{studentErrors.surveyor_name}</span>
+                  )}
+                </FormGroup>
+
+                <FormGroup $error={!!studentErrors.subject_id}>
+                  <label>
+                    Subject ID <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="subject_id"
+                    value={studentForm.subject_id}
+                    onChange={handleStudentChange}
+                    placeholder="e.g. TBCS0101"
+                  />
+                  {studentErrors.subject_id && (
+                    <span className="error-text">{studentErrors.subject_id}</span>
+                  )}
+                </FormGroup>
+              </FormRow>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  justifyContent: "flex-end",
+                  marginTop: "24px",
+                  paddingTop: "16px",
+                  borderTop: `1px solid ${theme.border}`,
+                }}
+              >
+                <SecondaryBtn
+                  type="button"
+                  onClick={() => {
+                    setStudentForm(initialStudentForm);
+                    setStudentErrors({});
+                  }}
+                >
+                  <FaSyncAlt /> Clear Form
+                </SecondaryBtn>
+                <PrimaryBtn type="submit" disabled={studentLoading}>
+                  <FaUserCheck /> {studentLoading ? "Registering..." : "Register Student Surveyor"}
+                </PrimaryBtn>
+              </div>
+            </FormCard>
+          </form>
+        </>
+      )}
+
+      {/* ── TAB 3: REGISTERED STUDENT SURVEYORS (STORED SEPARATELY) ── */}
+      {hasAccessToken && activeTab === "registered_students" && (
+        <TableContainer>
+          <div className="table-header">
+            <div className="table-title">
+              <h2>Registered Student Surveyors</h2>
+              <p>List of all student surveyors registered for screening program (stored separately)</p>
+            </div>
+
+            <div className="table-actions">
+              <div className="search-box">
+                <FaSearch />
+                <input
+                  type="text"
+                  placeholder="Search by Institute, Course, Surveyor, Subject ID..."
+                  value={studentSearchTerm}
+                  onChange={(e) => setStudentSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <SecondaryBtn onClick={fetchStudentRecords} disabled={studentLoading}>
+                <FaSyncAlt className={studentLoading ? "fa-spin" : ""} /> Refresh
+              </SecondaryBtn>
+            </div>
+          </div>
+
+          {filteredStudentRecords.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "48px 16px", color: theme.textSecondary }}>
+              <FaClipboardList style={{ fontSize: "42px", color: "#cbd5e1", marginBottom: "12px" }} />
+              <h3 style={{ margin: "0 0 6px 0", color: theme.textPrimary }}>No Student Surveyors Found</h3>
+              <p style={{ margin: "0 0 16px 0", fontSize: "0.9rem" }}>
+                {studentSearchTerm
+                  ? "No student surveyors matching your search criteria."
+                  : "No student surveyors registered yet. Click below to register a student surveyor."}
+              </p>
+              <PrimaryBtn style={{ margin: "0 auto" }} onClick={() => setActiveTab("student")}>
+                <FaUserGraduate /> Go to Student Registration
+              </PrimaryBtn>
+            </div>
+          ) : (
+            <StyledTable>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Institute Name</th>
+                  <th>Course Name & Year</th>
+                  <th>Surveyor Name</th>
+                  <th>Subject ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudentRecords.map((s) => (
+                  <tr key={s.id || s._id || `${s.subject_id}-${s.surveyor_name}`}>
+                    <td>
+                      <strong>{s.date || "—"}</strong>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 700, color: theme.darkSlate }}>
+                        {s.institute_name || "—"}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          background: "#f1f5f9",
+                          padding: "4px 8px",
+                          borderRadius: "6px",
+                          fontSize: "0.85rem",
+                          fontWeight: 600,
+                          color: "#334155",
+                        }}
+                      >
+                        {s.course_name_year || "—"}
+                      </span>
+                    </td>
+                    <td>
+                      <strong style={{ color: theme.primary }}>{s.surveyor_name || "—"}</strong>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          fontWeight: 800,
+                          color: "#0f172a",
+                          background: "#fff1f2",
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          fontFamily: "monospace",
+                          fontSize: "0.85rem",
+                          border: `1px solid ${theme.primaryBorder}`,
+                        }}
+                      >
+                        {s.subject_id || "—"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </StyledTable>
+          )}
+        </TableContainer>
+      )}
+
+      {/* ── TAB 4: SCREENING RECORDS & REPORTS ────────────────── */}
       {activeTab === "records" && (
         <TableContainer>
           <FilterToolbar>
@@ -1392,7 +2066,7 @@ export default function BreastCancerScreening() {
                   <th>Address</th>
                   <th>Surveyor</th>
                   <th>Risk Level</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
+                  {showActions && <th style={{ textAlign: "right" }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1443,11 +2117,13 @@ export default function BreastCancerScreening() {
                         {r.risk_level || "Not Assessed"}
                       </Badge>
                     </td>
-                    <td style={{ textAlign: "right" }}>
-                      <SecondaryBtn style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => handleOpenSlip(r)}>
-                        <FaPrint /> View Slip
-                      </SecondaryBtn>
-                    </td>
+                    {showActions && (
+                      <td style={{ textAlign: "right" }}>
+                        <SecondaryBtn style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => handleOpenSlip(r)}>
+                          <FaPrint /> View Slip
+                        </SecondaryBtn>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
