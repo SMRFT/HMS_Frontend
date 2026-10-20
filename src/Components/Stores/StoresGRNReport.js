@@ -281,6 +281,312 @@ const GRNActionPopover = ({
     return createPortal(popover, document.body);
 };
 
+const numberToWords = (num) => {
+    const a = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+        "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+    const n = Math.round(parseFloat(num) || 0);
+    if (n === 0) return "Zero Only /-";
+    const inW = (x) => {
+        if (x < 20) return a[x];
+        if (x < 100) return b[Math.floor(x / 10)] + (x % 10 ? " " + a[x % 10] : "");
+        return a[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " + inW(x % 100) : "");
+    };
+    let r = "";
+    if (n >= 10000000) r += inW(Math.floor(n / 10000000)) + " Crore ";
+    if (n >= 100000) r += inW(Math.floor((n % 10000000) / 100000)) + " Lakh ";
+    if (n >= 1000) r += inW(Math.floor((n % 100000) / 1000)) + " Thousand ";
+    if (n >= 100) r += inW(Math.floor((n % 1000) / 100)) + " Hundred ";
+    r += inW(n % 100);
+    return r.trim() + " Only /-";
+};
+
+const StoresGRNDocument = ({ grn, vendorName, items = [] }) => {
+    const fmt2 = (n) => (parseFloat(n) || 0).toFixed(2);
+    const fmtDate = (d) => d ? dayjs(d).format('DD/MM/YYYY') : '—';
+
+    let itemsArray = items;
+    if (typeof itemsArray === 'string') {
+        try { itemsArray = JSON.parse(itemsArray); } catch (e) { itemsArray = []; }
+    }
+    if (!Array.isArray(itemsArray)) itemsArray = [];
+
+    const normalizedItems = itemsArray.map((it, i) => {
+        const qty = parseFloat(it.quantity || it.qty || 0);
+        const pack = it.packing || it.pack || 1;
+        const free = parseFloat(it.free || it.free_qty || 0);
+        const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
+        const pCost = parseFloat(it.unitCost || it.purchase_cost_display || (qty ? (parseFloat(it.purchaseCost || it.purchase_cost || 0) / qty) : 0) || pRate);
+        const mrp = parseFloat(it.mrp || 0);
+        const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
+        const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / (pack || 1))) - disc);
+        const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
+        const cgstAmt = parseFloat(it.cgst_amt || it.cgstAmt || (taxable * cgstRate / 100) || 0);
+        const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
+        const sgstAmt = parseFloat(it.sgst_amt || it.sgstAmt || (taxable * sgstRate / 100) || 0);
+        const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
+        const igstAmt = parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
+        const totalAmt = parseFloat(it.purchase_cost || it.purchaseCost || it.total_amount || (taxable + cgstAmt + sgstAmt + igstAmt));
+
+        let expDisplay = it.expiry || it.expDate || "—";
+        if (expDisplay && expDisplay !== "—") {
+            const d = dayjs(expDisplay);
+            if (d.isValid()) expDisplay = d.format("YYYY/MM");
+        }
+
+        return {
+            sl: i + 1,
+            product: it.name || it.itemName || it.item_name || "Item",
+            hsn: it.hsn || it.hsn_code || "—",
+            batch: it.batch || it.batch_no || "—",
+            expiry: expDisplay,
+            pack,
+            qty,
+            free,
+            pRate,
+            pCost,
+            mrp,
+            disc,
+            taxable,
+            cgstRate,
+            cgstAmt,
+            sgstRate,
+            sgstAmt,
+            igstRate,
+            igstAmt,
+            totalAmt
+        };
+    });
+
+    const totalTaxable = normalizedItems.reduce((s, i) => s + i.taxable, 0);
+    const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0) || parseFloat(grn.cgst || 0);
+    const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0) || parseFloat(grn.sgst || 0);
+    const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0) || parseFloat(grn.igst || 0);
+    const totalDisc = normalizedItems.reduce((s, i) => s + i.disc, 0) || parseFloat(grn.total_discount || 0);
+    const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0) || parseFloat(grn.total_amount || 0);
+    const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
+    const roundOff = parseFloat(grn.round_amount || 0);
+    const totalGst = totalCgst + totalSgst + totalIgst;
+    const netAmt = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || (totalItemAmounts + taxOnFree + roundOff));
+
+    const th = (extra = {}) => ({
+        background: "#dbeafe",
+        color: "#0c4a6e",
+        border: "1px solid #7dd3fc",
+        padding: "3px 4px",
+        fontSize: "7.5px",
+        fontWeight: 700,
+        whiteSpace: "nowrap",
+        textAlign: "center",
+        verticalAlign: "middle",
+        ...extra
+    });
+    const td = (extra = {}) => ({ border: "1px solid #cbd5e1", padding: "3px 4px", fontSize: "8px", whiteSpace: "nowrap", verticalAlign: "middle", ...extra });
+    const tdr = (extra = {}) => td({ textAlign: "right", ...extra });
+    const tdc = (extra = {}) => td({ textAlign: "center", ...extra });
+
+    return (
+        <div id="stores-grn-print-slip" style={{ fontFamily: "Arial, sans-serif", fontSize: "9px", color: "#000", border: "1.5px solid #0c4a6e", background: "#ffffff" }}>
+            {/* Header */}
+            <div style={{ textAlign: "center", padding: "10px 12px 6px", borderBottom: "1.5px solid #0c4a6e", background: "#ffffff" }}>
+                <div style={{ fontSize: "16px", fontWeight: 900, color: "#0c4a6e", letterSpacing: "0.5px" }}>SHANMUGA HOSPITAL LIMITED</div>
+                <div style={{ fontSize: "9.5px", color: "#334155", marginTop: "2px" }}>51/24.Saradha College Road, Salem - 636007,,</div>
+                <div style={{ fontSize: "9.5px", color: "#334155" }}>Phone : 04272706666,info@smrft.org</div>
+                <div style={{ fontSize: "9.5px", fontWeight: 700, color: "#334155", marginTop: "2px" }}>GST Number : {grn.hospital_gst || ""}</div>
+                <div
+                    style={{
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.4px",
+                        marginTop: "6px",
+                        color: "#0c4a6e"
+                    }}
+                >
+                    GOODS RECEIPT NOTE - {grn.purchase_category ? grn.purchase_category.toUpperCase() : "OPENING STOCK (DRUG)"}
+                </div>
+            </div>
+
+            {/* Metadata Strip */}
+            <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #7dd3fc" }}>
+                <tbody>
+                    <tr>
+                        <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: "8.5px", borderRight: "1px solid #7dd3fc", width: "33%" }}>
+                            <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
+                                {[
+                                    ["Invoice No", grn.invoice_no || grn.invoice_number],
+                                    ["Invoice Date", fmtDate(grn.invoice_date)],
+                                    ["Purchase No", grn.grn_number || grn.draft_number],
+                                    ["Purchase Date", fmtDate(grn.date)],
+                                ].map(([k, val]) => (
+                                    <tr key={k}>
+                                        <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: "8.5px", verticalAlign: "top", minWidth: 86 }}>{k}</td>
+                                        <td style={{ fontSize: "8.5px", verticalAlign: "top" }}>: {val || "—"}</td>
+                                    </tr>
+                                ))}
+                            </tbody></table>
+                        </td>
+
+                        <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: "8.5px", borderRight: "1px solid #7dd3fc", width: "34%" }}>
+                            <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
+                                <tr>
+                                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: "8.5px", verticalAlign: "top", minWidth: 86 }}>Supplier Name</td>
+                                    <td style={{ fontSize: "8.5px", fontWeight: 700, verticalAlign: "top" }}>: {vendorName || grn.vendor_name || "OPENING STOCK"}</td>
+                                </tr>
+                                {[
+                                    ["State", grn.vendor_state || ""],
+                                    ["Phone", grn.vendor_phone || ""],
+                                    ["GST Number", grn.vendor_gstin || grn.gstin || "******"],
+                                ].map(([k, val]) => (
+                                    <tr key={k}>
+                                        <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: "8.5px", verticalAlign: "top", minWidth: 86 }}>{k}</td>
+                                        <td style={{ fontSize: "8.5px", verticalAlign: "top" }}>: {val || "—"}</td>
+                                    </tr>
+                                ))}
+                            </tbody></table>
+                        </td>
+
+                        <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: "8.5px", width: "33%" }}>
+                            <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
+                                {[
+                                    ["Order Number", grn.order_number || ""],
+                                    ["Payment Mode", grn.payment_mode || "CHEQUE"],
+                                    ["Approved Date", grn.is_approved ? fmtDate(grn.approved_date || grn.date) : (grn.approved_date ? fmtDate(grn.approved_date) : "—")],
+                                ].map(([k, val]) => (
+                                    <tr key={k}>
+                                        <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: "8.5px", verticalAlign: "top", minWidth: 86 }}>{k}</td>
+                                        <td style={{ fontSize: "8.5px", verticalAlign: "top" }}>: {val || "—"}</td>
+                                    </tr>
+                                ))}
+                            </tbody></table>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            {/* Items Table + Right Summary */}
+            <div style={{ display: "flex", borderBottom: "1px solid #7dd3fc" }}>
+                <div style={{ flex: 1, overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8px" }}>
+                        <thead>
+                            <tr>
+                                <th rowSpan={2} style={th({ width: 22 })}>Sl.</th>
+                                <th rowSpan={2} style={th({ minWidth: 95, textAlign: "left" })}>Product</th>
+                                <th rowSpan={2} style={th()}>HSN</th>
+                                <th rowSpan={2} style={th()}>Batch</th>
+                                <th rowSpan={2} style={th()}>Expiry</th>
+                                <th rowSpan={2} style={th()}>Pack</th>
+                                <th rowSpan={2} style={th()}>QTY</th>
+                                <th rowSpan={2} style={th()}>Free</th>
+                                <th rowSpan={2} style={th()}>P Rate</th>
+                                <th rowSpan={2} style={th()}>P.cost</th>
+                                <th rowSpan={2} style={th()}>MRP</th>
+                                <th rowSpan={2} style={th()}>Discount</th>
+                                <th rowSpan={2} style={th()}>Taxable Amount</th>
+                                <th colSpan={2} style={th()}>CGST</th>
+                                <th colSpan={2} style={th()}>SGST</th>
+                                <th colSpan={2} style={th()}>IGST</th>
+                                <th rowSpan={2} style={th()}>Total Amount</th>
+                            </tr>
+                            <tr>
+                                <th style={th()}>Rate</th><th style={th()}>Amt</th>
+                                <th style={th()}>Rate</th><th style={th()}>Amt</th>
+                                <th style={th()}>Rate</th><th style={th()}>Amt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {normalizedItems.map((it) => (
+                                <tr key={it.sl}>
+                                    <td style={tdc()}>{it.sl}</td>
+                                    <td style={td({ fontWeight: 600, maxWidth: 120, whiteSpace: "normal", textAlign: "left" })}>{it.product}</td>
+                                    <td style={tdc()}>{it.hsn}</td>
+                                    <td style={tdc()}>{it.batch}</td>
+                                    <td style={tdc()}>{it.expiry}</td>
+                                    <td style={tdc()}>{it.pack}</td>
+                                    <td style={tdc()}>{it.qty}</td>
+                                    <td style={tdc()}>{it.free}</td>
+                                    <td style={tdr()}>{fmt2(it.pRate)}</td>
+                                    <td style={tdr()}>{fmt2(it.pCost)}</td>
+                                    <td style={tdr()}>{fmt2(it.mrp)}</td>
+                                    <td style={tdr()}>{fmt2(it.disc)}</td>
+                                    <td style={tdr()}>{fmt2(it.taxable)}</td>
+                                    <td style={tdc()}>{it.cgstRate ? `${it.cgstRate}%` : "—"}</td>
+                                    <td style={tdr()}>{fmt2(it.cgstAmt)}</td>
+                                    <td style={tdc()}>{it.sgstRate ? `${it.sgstRate}%` : "—"}</td>
+                                    <td style={tdr()}>{fmt2(it.sgstAmt)}</td>
+                                    <td style={tdc()}>{it.igstRate ? `${it.igstRate}%` : "—"}</td>
+                                    <td style={tdr()}>{fmt2(it.igstAmt)}</td>
+                                    <td style={tdr({ fontWeight: 700 })}>{fmt2(it.totalAmt)}</td>
+                                </tr>
+                            ))}
+
+                            <tr style={{ background: "#dbeafe" }}>
+                                <td colSpan={12} style={td({ textAlign: "right", fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>Total</td>
+                                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalTaxable)}</td>
+                                <td style={td({ background: "#dbeafe" })} />
+                                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalCgst)}</td>
+                                <td style={td({ background: "#dbeafe" })} />
+                                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalSgst)}</td>
+                                <td style={td({ background: "#dbeafe" })} />
+                                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalIgst)}</td>
+                                <td style={tdr({ fontWeight: 700, color: "#0c4a6e", background: "#dbeafe" })}>{fmt2(totalItemAmounts)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Right totals panel */}
+                <table style={{ borderLeft: "1px solid #7dd3fc", borderCollapse: "collapse", fontSize: "8.5px", minWidth: 140, alignSelf: "stretch" }}>
+                    <tbody>
+                        {[
+                            ["Total", fmt2(totalTaxable), false],
+                            ["Discount", fmt2(totalDisc), false],
+                            ["Tax On Free", fmt2(taxOnFree), false],
+                            ["Round off.", fmt2(roundOff), false],
+                            ["Total GST", fmt2(totalGst), true],
+                            ["Net Amount", fmt2(netAmt), true, "#e8f5e9", "#0f766e"],
+                        ].map(([lbl, val, bold, bg, col]) => (
+                            <tr key={lbl} style={{ background: bg || "transparent" }}>
+                                <td style={{ padding: "3px 6px", borderBottom: "1px solid #e2e8f0", fontWeight: bold ? 800 : 600, color: col || "#334155", whiteSpace: "nowrap" }}>{lbl}</td>
+                                <td style={{ padding: "3px 6px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: bold ? 800 : 700, color: col || "#0f172a", whiteSpace: "nowrap" }}>{val}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Bottom strip */}
+            <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #0c4a6e" }}>
+                <tbody>
+                    <tr>
+                        <td style={{ padding: "4px 8px", fontSize: "8px", borderRight: "1px solid #7dd3fc", whiteSpace: "nowrap", width: "42%" }}>
+                            <strong>GST Amount</strong>&nbsp;&nbsp;
+                            CGST Amount : {fmt2(totalCgst)}&nbsp;&nbsp;
+                            SGST Amount : {fmt2(totalSgst)}&nbsp;&nbsp;
+                            IGST Amount : {fmt2(totalIgst)}
+                        </td>
+                        <td style={{ padding: "4px 8px", fontSize: "8px", borderRight: "1px solid #7dd3fc" }}>
+                            <strong>Amount In Words</strong>&nbsp;&nbsp;
+                            Rupee(s) {numberToWords(netAmt)}
+                        </td>
+                        <td style={{ padding: "4px 10px", fontSize: "8.5px", textAlign: "right", whiteSpace: "nowrap", minWidth: 110 }}>
+                            <strong>Net Amount</strong>&nbsp;
+                            <span style={{ fontWeight: 800, fontSize: "0.85rem", color: "#0f766e" }}>{fmt2(netAmt)}</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            {/* Signature strip */}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 12px", fontSize: "8.5px", background: "#f8fafc" }}>
+                <span><strong>Entered By :</strong> {grn.entered_by || "DEEPIK"}</span>
+                <span><strong>Checked By :</strong> —</span>
+                <span><strong>Verified By :</strong> {grn.verified_by || (grn.is_approved ? "APPROVED" : "—")}</span>
+            </div>
+        </div>
+    );
+};
+
 const StoresGRNReport = () => {
     const navigate = useNavigate();
     const [grns, setGrns] = useState([]);
@@ -520,38 +826,12 @@ const StoresGRNReport = () => {
         printWindow.print();
     };
 
-    const numberToWords = (num) => {
-        const single = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
-        const double = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-        const formatTenth = (n) => {
-            if (n < 10) return single[n];
-            if (n >= 10 && n < 20) return double[n - 10];
-            return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + single[n % 10] : '');
-        };
-        const formatHundred = (n) => {
-            if (n > 99) return single[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' and ' + formatTenth(n % 100) : '');
-            return formatTenth(n % 100);
-        };
-        if (num === 0) return 'Zero';
-        let words = '';
-        if (num >= 10000000) { words += formatHundred(Math.floor(num / 10000000)) + ' Crore '; num %= 10000000; }
-        if (num >= 100000) { words += formatHundred(Math.floor(num / 100000)) + ' Lakh '; num %= 100000; }
-        if (num >= 1000) { words += formatHundred(Math.floor(num / 1000)) + ' Thousand '; num %= 1000; }
-        if (num > 0) words += formatHundred(num);
-        return words.trim() + ' Only';
-    };
-
     const handlePrintRow = (grn) => {
-        const { totalPaid, netAmt, pending, latest } = getPaymentInfo(grn);
-        
         let itemsArray = grn.items;
         if (typeof itemsArray === 'string') {
             try {
-                // Try standard JSON parse
                 itemsArray = JSON.parse(itemsArray);
             } catch (e) {
-                // Fallback for Python-style OrderedDict string representations if they leak from backend
                 try {
                     const cleaned = itemsArray.replace(/OrderedDict\(/g, '').replace(/\)/g, '');
                     itemsArray = JSON.parse(cleaned);
@@ -562,260 +842,248 @@ const StoresGRNReport = () => {
         }
         if (!Array.isArray(itemsArray)) itemsArray = [];
 
+        const fmt2 = (n) => (parseFloat(n) || 0).toFixed(2);
+        const fmtDate = (d) => d ? dayjs(d).format('DD/MM/YYYY') : '—';
+
+        const normalizedItems = itemsArray.map((it, i) => {
+            const qty = parseFloat(it.quantity || it.qty || 0);
+            const pack = it.packing || it.pack || 1;
+            const free = parseFloat(it.free || it.free_qty || 0);
+            const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
+            const pCost = parseFloat(it.unitCost || it.purchase_cost_display || (qty ? (parseFloat(it.purchaseCost || it.purchase_cost || 0) / qty) : 0) || pRate);
+            const mrp = parseFloat(it.mrp || 0);
+            const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
+            const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / (pack || 1))) - disc);
+            const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
+            const cgstAmt = parseFloat(it.cgst_amt || it.cgstAmt || (taxable * cgstRate / 100) || 0);
+            const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
+            const sgstAmt = parseFloat(it.sgst_amt || it.sgstAmt || (taxable * sgstRate / 100) || 0);
+            const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
+            const igstAmt = parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
+            const totalAmt = parseFloat(it.purchase_cost || it.purchaseCost || it.total_amount || (taxable + cgstAmt + sgstAmt + igstAmt));
+
+            let expDisplay = it.expiry || it.expDate || "—";
+            if (expDisplay && expDisplay !== "—") {
+                const d = dayjs(expDisplay);
+                if (d.isValid()) expDisplay = d.format("YYYY/MM");
+            }
+
+            return {
+                sl: i + 1,
+                product: it.name || it.itemName || it.item_name || "Item",
+                hsn: it.hsn || it.hsn_code || "—",
+                batch: it.batch || it.batch_no || "—",
+                expiry: expDisplay,
+                pack,
+                qty,
+                free,
+                pRate,
+                pCost,
+                mrp,
+                disc,
+                taxable,
+                cgstRate,
+                cgstAmt,
+                sgstRate,
+                sgstAmt,
+                igstRate,
+                igstAmt,
+                totalAmt
+            };
+        });
+
+        const totalTaxable = normalizedItems.reduce((s, i) => s + i.taxable, 0);
+        const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0) || parseFloat(grn.cgst || 0);
+        const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0) || parseFloat(grn.sgst || 0);
+        const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0) || parseFloat(grn.igst || 0);
+        const totalDisc = normalizedItems.reduce((s, i) => s + i.disc, 0) || parseFloat(grn.total_discount || 0);
+        const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0) || parseFloat(grn.total_amount || 0);
+        const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
+        const roundOff = parseFloat(grn.round_amount || 0);
+        const totalGst = totalCgst + totalSgst + totalIgst;
+        const netAmt = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || (totalItemAmounts + taxOnFree + roundOff));
+        const vendorName = getVendorName(grn.vendor_id);
+
         const printContent = `
+            <!DOCTYPE html>
             <html>
                 <head>
-                    <title>GRN Details - ${grn.grn_number}</title>
+                    <title>GRN - ${grn.grn_number}</title>
                     <style>
-                        @page { size: A4; margin: 10mm; }
-                        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; color: #1e293b; font-size: 11px; }
-                        .report-container { width: 100%; max-width: 800px; margin: 0 auto; }
-                        
-                        /* Header Styles */
-                        .hospital-header { text-align: center; margin-bottom: 5px; }
-                        .hospital-name { color: #1e3a8a; font-size: 20px; font-weight: 800; margin: 0; text-transform: uppercase; }
-                        .hospital-info { font-size: 11px; color: #4b5563; margin: 2px 0; }
-                        
-                        .report-title-box { 
-                            border: 2px solid #38bdf8; 
-                            background-color: #f0f9ff; 
-                            text-align: center; 
-                            padding: 8px; 
-                            margin: 15px 0;
-                            color: #1e3a8a;
-                            font-weight: 800;
-                            font-size: 14px;
-                            letter-spacing: 1px;
-                        }
-
-                        /* Green Grid Sections */
-                        .info-grid { 
-                            display: grid; 
-                            grid-template-columns: 1fr 1fr 1fr; 
-                            border: 1.5px solid #38bdf8; 
-                            margin-bottom: 20px;
-                        }
-                        .info-col { border-right: 1.5px solid #38bdf8; }
-                        .info-col:last-child { border-right: none; }
-                        .col-header { 
-                            background-color: #f0f9ff; 
-                            color: #1e3a8a; 
-                            text-align: center; 
-                            padding: 6px; 
-                            font-weight: 700; 
-                            border-bottom: 1.5px solid #38bdf8;
-                            font-size: 12px;
-                        }
-                        .col-content { padding: 8px 12px; min-height: 80px; }
-                        .info-row { display: flex; margin-bottom: 5px; line-height: 1.4; }
-                        .info-label { font-weight: 600; width: 110px; color: #374151; }
-                        .info-value { flex: 1; color: #111827; }
-
-                        /* Table Styles */
-                        .items-table { width: 100%; border-collapse: collapse; border: 1.5px solid #38bdf8; margin-bottom: 20px; }
-                        .items-table th { 
-                            background-color: #f0f9ff; 
-                            color: #1e3a8a; 
-                            border: 1px solid #38bdf8; 
-                            padding: 8px 4px; 
-                            font-weight: 800; 
-                            text-align: center;
-                            font-size: 10px;
-                            text-transform: uppercase;
-                        }
-                        .items-table td { border: 1px solid #38bdf8; padding: 6px 4px; font-size: 10.5px; vertical-align: middle; }
-                        .text-center { text-align: center; }
+                        * { box-sizing: border-box; }
+                        @page { size: A4 landscape; margin: 8mm; }
+                        body { font-family: Arial, sans-serif; font-size: 8.5px; color: #000; margin: 0; padding: 6px; }
+                        table { border-collapse: collapse; }
+                        th { background: #dbeafe; color: #0c4a6e; border: 1px solid #7dd3fc; padding: 3px 4px; font-size: 7.5px; font-weight: 700; white-space: nowrap; text-align: center; }
+                        td { border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 8px; white-space: nowrap; vertical-align: middle; }
                         .text-right { text-align: right; }
-                        .item-name { font-weight: 700; color: #1e3a8a; }
-
-                        /* Footer Layout */
-                        .summary-container { display: flex; gap: 15px; margin-bottom: 15px; }
-                        .gst-box { flex: 1.5; border: 1.5px solid #38bdf8; background-color: #f0f9ff; padding: 12px; }
-                        .totals-box { flex: 1; border: 1.5px solid #38bdf8; }
-                        
-                        .gst-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 700; color: #1e3a8a; font-size: 12px; }
-                        
-                        .totals-row { display: flex; border-bottom: 1.5px solid #38bdf8; }
-                        .totals-row:last-child { border-bottom: none; }
-                        .totals-label { flex: 1; padding: 6px 10px; font-weight: 700; border-right: 1.5px solid #38bdf8; }
-                        .totals-value { width: 100px; padding: 6px 10px; text-align: right; font-weight: 800; }
-                        .net-amount { background-color: #f0f9ff; color: #1e3a8a; font-size: 13px; }
-
-                        .words-box { border: 1.5px solid #38bdf8; background-color: #f0f9ff; padding: 8px 12px; margin-bottom: 60px; }
-                        .words-label { color: #1e3a8a; font-weight: 700; margin-bottom: 4px; border-bottom: 1px solid #38bdf8; display: inline-block; padding-bottom: 2px; font-size: 12px; }
-                        .words-value { font-weight: 800; font-size: 11px; }
-
-                        .signature-section { display: flex; justify-content: space-between; padding: 0 20px; margin-top: 50px; }
-                        .sig-box { text-align: center; width: 180px; }
-                        .sig-line { border-top: 1px solid #94a3b8; margin-bottom: 6px; }
-                        .sig-text { font-weight: 600; font-size: 11px; color: #475569; }
-
+                        .text-center { text-align: center; }
+                        .text-left { text-align: left; }
+                        .total-cell { background: #dbeafe; color: #0c4a6e; font-weight: 700; text-align: right; }
                         @media print {
-                            .no-print { display: none; }
+                            @page { margin: 6mm; }
                             body { padding: 0; }
                         }
                     </style>
                 </head>
                 <body>
-                    <div class="report-container">
-                        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-bottom: 5px;">
-                            <span>${new Date().toLocaleDateString('en-IN')}, ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
-                            <span>GRN Details - ${grn.grn_number}</span>
-                        </div>
-
-                        <div class="hospital-header">
-                            <h1 class="hospital-name">SHANMUGA HOSPITAL LIMITED</h1>
-                            <div class="hospital-info">51/24.Saradha College Road, Salem - 636007,,</div>
-                            <div class="hospital-info">Phone : 04272706666, info@smrft.org</div>
-                            <div class="hospital-info">GST Number : </div>
-                        </div>
-
-                        <div class="report-title-box">
-                            GOODS RECEIPT NOTE - ${grn.grn_number}
-                        </div>
-
-                        <div class="info-grid">
-                            <div class="info-col">
-                                <div class="col-header">Basic Information</div>
-                                <div class="col-content">
-                                    <div class="info-row"><span class="info-label">Purchase Category :</span><span class="info-value">${grn.purchase_category || '-'}</span></div>
-                                    <div class="info-row"><span class="info-label">Vendor :</span><span class="info-value">${getVendorName(grn.vendor_id)}</span></div>
-                                    <div class="info-row"><span class="info-label">Date :</span><span class="info-value">${grn.date ? new Date(grn.date).toLocaleDateString('en-IN') : '-'}</span></div>
-                                    <div class="info-row"><span class="info-label">Contact Person :</span><span class="info-value">${grn.contact_person || 'N/A'}</span></div>
-                                </div>
-                            </div>
-                            <div class="info-col">
-                                <div class="col-header">Invoice Information</div>
-                                <div class="col-content">
-                                    <div class="info-row"><span class="info-label">Invoice No :</span><span class="info-value">${grn.invoice_no || '-'}</span></div>
-                                    <div class="info-row"><span class="info-label">Invoice Date :</span><span class="info-value">${grn.invoice_date ? new Date(grn.invoice_date).toLocaleDateString('en-IN') : '-'}</span></div>
-                                    <div class="info-row"><span class="info-label">Payment Method :</span><span class="info-value">${grn.payment_mode || 'N/A'}</span></div>
-                                    <div class="info-row"><span class="info-label">Payment Status :</span><span class="info-value">${latest.status || 'Not Paid'}</span></div>
-                                </div>
-                            </div>
-                            <div class="info-col">
-                                <div class="col-header">Order Details</div>
-                                <div class="col-content">
-                                    <div class="info-row"><span class="info-label">GRN Number :</span><span class="info-value">${grn.grn_number}</span></div>
-                                    <div class="info-row"><span class="info-label">Phone :</span><span class="info-value">0427 2334807</span></div>
-                                    <div class="info-row"><span class="info-label">Total Amount :</span><span class="info-value">₹${netAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                    <div class="info-row"><span class="info-label">Approved Date :</span><span class="info-value">${grn.is_approved ? new Date(grn.date).toLocaleDateString('en-IN') : '-'}</span></div>
-                                </div>
+                    <div style="font-family: Arial, sans-serif; font-size: 9px; color: #000; border: 1.5px solid #0c4a6e; background: #ffffff;">
+                        <div style="text-align: center; padding: 8px 12px 6px; border-bottom: 1.5px solid #0c4a6e;">
+                            <div style="font-size: 15px; font-weight: 900; color: #0c4a6e; letter-spacing: 0.5px;">SHANMUGA HOSPITAL LIMITED</div>
+                            <div style="font-size: 9px; color: #334155; margin-top: 2px;">51/24.Saradha College Road, Salem - 636007,,</div>
+                            <div style="font-size: 9px; color: #334155;">Phone : 04272706666, info@smrft.org</div>
+                            <div style="font-size: 9px; font-weight: 700; color: #334155; margin-top: 2px;">GST Number : ${grn.hospital_gst || ''}</div>
+                            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 5px; color: #0c4a6e;">
+                                GOODS RECEIPT NOTE - ${grn.purchase_category ? grn.purchase_category.toUpperCase() : 'OPENING STOCK (DRUG)'}
                             </div>
                         </div>
 
-                        <table class="items-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 30px;">Sl.</th>
-                                    <th>Product</th>
-                                    <th style="width: 50px;">HSN</th>
-                                    <th style="width: 70px;">Batch</th>
-                                    <th style="width: 40px;">Pack</th>
-                                    <th style="width: 50px;">QTY</th>
-                                    <th style="width: 60px;">P Rate</th>
-                                    <th style="width: 60px;">P.cost</th>
-                                    <th style="width: 60px;">MRP</th>
-                                    <th style="width: 60px;">Discount</th>
-                                    <th style="width: 70px;">Taxable Amount</th>
-                                    <th style="width: 70px;">Total Amount</th>
-                                </tr>
-                            </thead>
+                        <table style="width: 100%; border-collapse: collapse; border-bottom: 1px solid #7dd3fc;">
                             <tbody>
-                                ${itemsArray.map((item, idx) => {
-                                    const qty = parseFloat(item.quantity || 0);
-                                    const rate = parseFloat(item.unitPrice || item.purchaseRate || 0);
-                                    const taxableAmt = parseFloat(item.taxableAmt || (rate * qty) - (item.discountedAmt || 0));
-                                    const totalAmt = parseFloat(item.purchaseCost || item.itemValue || 0);
-                                    return `
-                                        <tr>
-                                            <td class="text-center">${idx + 1}.</td>
-                                            <td class="item-name">${item.name || item.itemName}</td>
-                                            <td class="text-center">${item.hsn || '-'}</td>
-                                            <td class="text-center">${item.batch || '-'}</td>
-                                            <td class="text-center">${item.packing || '1'}</td>
-                                            <td class="text-center">${item.quantity}</td>
-                                            <td class="text-right">₹${rate.toFixed(2)}</td>
-                                            <td class="text-right">₹${(rate * qty).toFixed(2)}</td>
-                                            <td class="text-right">₹${(parseFloat(item.mrp) || 0).toFixed(2)}</td>
-                                            <td class="text-right">₹${(parseFloat(item.discountedAmt) || 0).toFixed(2)}</td>
-                                            <td class="text-right">₹${taxableAmt.toFixed(2)}</td>
-                                            <td class="text-right">₹${totalAmt.toFixed(2)}</td>
-                                        </tr>
-                                    `;
-                                }).join('')}
                                 <tr>
-                                    <td colspan="10" class="text-right" style="font-weight: 800; background-color: #f8fafc; padding: 8px;">Total</td>
-                                    <td colspan="2" class="text-right" style="font-weight: 800; background-color: #f8fafc; padding: 8px;">₹${netAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 8.5px; border-right: 1px solid #7dd3fc; width: 33%;">
+                                        <table style="border-collapse: collapse; width: 100%;">
+                                            <tr><td style="border:none;font-weight:700;width:90px;">Invoice No</td><td style="border:none;">: ${grn.invoice_no || grn.invoice_number || '—'}</td></tr>
+                                            <tr><td style="border:none;font-weight:700;">Invoice Date</td><td style="border:none;">: ${fmtDate(grn.invoice_date)}</td></tr>
+                                            <tr><td style="border:none;font-weight:700;">Purchase No</td><td style="border:none;">: ${grn.grn_number || '—'}</td></tr>
+                                            <tr><td style="border:none;font-weight:700;">Purchase Date</td><td style="border:none;">: ${fmtDate(grn.date)}</td></tr>
+                                        </table>
+                                    </td>
+                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 8.5px; border-right: 1px solid #7dd3fc; width: 34%;">
+                                        <table style="border-collapse: collapse; width: 100%;">
+                                            <tr><td style="border:none;font-weight:700;width:95px;">Supplier Name</td><td style="border:none;font-weight:700;">: ${vendorName || grn.vendor_name || 'OPENING STOCK'}</td></tr>
+                                            <tr><td style="border:none;font-weight:700;">State</td><td style="border:none;">: ${grn.vendor_state || '—'}</td></tr>
+                                            <tr><td style="border:none;font-weight:700;">Phone</td><td style="border:none;">: ${grn.vendor_phone || '—'}</td></tr>
+                                            <tr><td style="border:none;font-weight:700;">GST Number</td><td style="border:none;">: ${grn.vendor_gstin || grn.gstin || '******'}</td></tr>
+                                        </table>
+                                    </td>
+                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 8.5px; width: 33%;">
+                                        <table style="border-collapse: collapse; width: 100%;">
+                                            <tr><td style="border:none;font-weight:700;width:95px;">Order Number</td><td style="border:none;">: ${grn.order_number || grn.po_number || '—'}</td></tr>
+                                            <tr><td style="border:none;font-weight:700;">Payment Mode</td><td style="border:none;">: ${grn.payment_mode || 'CHEQUE'}</td></tr>
+                                            <tr><td style="border:none;font-weight:700;">Approved Date</td><td style="border:none;">: ${grn.is_approved ? fmtDate(grn.approved_date || grn.date) : '—'}</td></tr>
+                                        </table>
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
 
-                        <div class="summary-container">
-                            <div class="gst-box">
-                                <div class="gst-row"><span>CGST Amount</span><span>: ₹${(parseFloat(grn.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                <div class="gst-row"><span>SGST Amount</span><span>: ₹${(parseFloat(grn.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                <div class="gst-row"><span>IGST Amount</span><span>: ₹${(parseFloat(grn.igst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                        <div style="display: flex; border-bottom: 1px solid #0c4a6e;">
+                            <div style="flex: 1; overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr>
+                                            <th rowspan="2" style="width: 22px;">Sl.</th>
+                                            <th rowspan="2" style="min-width: 95px; text-align: left;">Product</th>
+                                            <th rowspan="2">HSN</th>
+                                            <th rowspan="2">Batch</th>
+                                            <th rowspan="2">Expiry</th>
+                                            <th rowspan="2">Pack</th>
+                                            <th rowspan="2">QTY</th>
+                                            <th rowspan="2">Free</th>
+                                            <th rowspan="2">P Rate</th>
+                                            <th rowspan="2">P.cost</th>
+                                            <th rowspan="2">MRP</th>
+                                            <th rowspan="2">Discount</th>
+                                            <th rowspan="2">Taxable Amount</th>
+                                            <th colspan="2">CGST</th>
+                                            <th colspan="2">SGST</th>
+                                            <th colspan="2">IGST</th>
+                                            <th rowspan="2">Total Amount</th>
+                                        </tr>
+                                        <tr>
+                                            <th>Rate</th><th>Amt</th>
+                                            <th>Rate</th><th>Amt</th>
+                                            <th>Rate</th><th>Amt</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${normalizedItems.map((it) => `
+                                            <tr>
+                                                <td class="text-center">${it.sl}</td>
+                                                <td class="text-left" style="font-weight: 600; max-width: 120px; white-space: normal;">${it.product}</td>
+                                                <td class="text-center">${it.hsn}</td>
+                                                <td class="text-center">${it.batch}</td>
+                                                <td class="text-center">${it.expiry}</td>
+                                                <td class="text-center">${it.pack}</td>
+                                                <td class="text-center">${it.qty}</td>
+                                                <td class="text-center">${it.free}</td>
+                                                <td class="text-right">${fmt2(it.pRate)}</td>
+                                                <td class="text-right">${fmt2(it.pCost)}</td>
+                                                <td class="text-right">${fmt2(it.mrp)}</td>
+                                                <td class="text-right">${fmt2(it.disc)}</td>
+                                                <td class="text-right">${fmt2(it.taxable)}</td>
+                                                <td class="text-center">${it.cgstRate ? it.cgstRate + '%' : '—'}</td>
+                                                <td class="text-right">${fmt2(it.cgstAmt)}</td>
+                                                <td class="text-center">${it.sgstRate ? it.sgstRate + '%' : '—'}</td>
+                                                <td class="text-right">${fmt2(it.sgstAmt)}</td>
+                                                <td class="text-center">${it.igstRate ? it.igstRate + '%' : '—'}</td>
+                                                <td class="text-right">${fmt2(it.igstAmt)}</td>
+                                                <td class="text-right" style="font-weight: 700;">${fmt2(it.totalAmt)}</td>
+                                            </tr>
+                                        `).join('')}
+                                        <tr style="background: #dbeafe;">
+                                            <td colspan="12" class="total-cell" style="text-align: right;">Total</td>
+                                            <td class="total-cell">${fmt2(totalTaxable)}</td>
+                                            <td style="background: #dbeafe; border: 1px solid #cbd5e1;"></td>
+                                            <td class="total-cell">${fmt2(totalCgst)}</td>
+                                            <td style="background: #dbeafe; border: 1px solid #cbd5e1;"></td>
+                                            <td class="total-cell">${fmt2(totalSgst)}</td>
+                                            <td style="background: #dbeafe; border: 1px solid #cbd5e1;"></td>
+                                            <td class="total-cell">${fmt2(totalIgst)}</td>
+                                            <td class="total-cell">${fmt2(totalItemAmounts)}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
-                            <div class="totals-box">
-                                <div class="totals-row">
-                                    <div class="totals-label">Total</div>
-                                    <div class="totals-value">₹${(parseFloat(grn.total_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                                </div>
-                                <div class="totals-row">
-                                    <div class="totals-label">Discount</div>
-                                    <div class="totals-value">₹${(parseFloat(grn.total_discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                                </div>
-                                <div class="totals-row">
-                                    <div class="totals-label">Tax On Free</div>
-                                    <div class="totals-value">₹${(parseFloat(grn.tax_on_free_items) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                                </div>
-                                <div class="totals-row">
-                                    <div class="totals-label">Round off</div>
-                                    <div class="totals-value">₹${(parseFloat(grn.round_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                                </div>
-                                <div class="totals-row">
-                                    <div class="totals-label">Total GST</div>
-                                    <div class="totals-value">₹${(parseFloat(grn.cgst || 0) + parseFloat(grn.sgst || 0) + parseFloat(grn.igst || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                                </div>
-                                <div class="totals-row net-amount">
-                                    <div class="totals-label">Net Amount</div>
-                                    <div class="totals-value">₹${netAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                                </div>
-                            </div>
+
+                            <table style="border-left: 1px solid #7dd3fc; border-collapse: collapse; font-size: 8.5px; min-width: 140px; align-self: stretch;">
+                                <tbody>
+                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Total</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">${fmt2(totalTaxable)}</td></tr>
+                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Discount</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">${fmt2(totalDisc)}</td></tr>
+                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Tax On Free</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">${fmt2(taxOnFree)}</td></tr>
+                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Round off.</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">${fmt2(roundOff)}</td></tr>
+                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 800;">Total GST</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 800;">${fmt2(totalGst)}</td></tr>
+                                    <tr style="background: #e8f5e9;"><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 800; color: #0f766e;">Net Amount</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 800; color: #0f766e;">${fmt2(netAmt)}</td></tr>
+                                </tbody>
+                            </table>
                         </div>
 
-                        <div class="words-box">
-                            <div class="words-label">Amount In Words</div>
-                            <div class="words-value">Rupees ${numberToWords(Math.round(netAmt))}</div>
-                        </div>
+                        <table style="width: 100%; border-collapse: collapse; border-bottom: 1px solid #0c4a6e;">
+                            <tbody>
+                                <tr>
+                                    <td style="padding: 4px 8px; font-size: 8px; border-right: 1px solid #7dd3fc; white-space: nowrap; width: 42%;">
+                                        <strong>GST Amount</strong>&nbsp;&nbsp;
+                                        CGST Amount : ${fmt2(totalCgst)}&nbsp;&nbsp;
+                                        SGST Amount : ${fmt2(totalSgst)}&nbsp;&nbsp;
+                                        IGST Amount : ${fmt2(totalIgst)}
+                                    </td>
+                                    <td style="padding: 4px 8px; font-size: 8px; border-right: 1px solid #7dd3fc;">
+                                        <strong>Amount In Words</strong>&nbsp;&nbsp;
+                                        Rupee(s) ${numberToWords(netAmt)}
+                                    </td>
+                                    <td style="padding: 4px 10px; font-size: 8.5px; text-align: right; white-space: nowrap; min-width: 110px;">
+                                        <strong>Net Amount</strong>&nbsp;
+                                        <span style="font-weight: 800; font-size: 11px; color: #0f766e;">${fmt2(netAmt)}</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
 
-                        <div class="signature-section">
-                            <div class="sig-box">
-                                <div class="sig-line"></div>
-                                <div class="sig-text">Prepared By</div>
-                            </div>
-                            <div class="sig-box">
-                                <div class="sig-line"></div>
-                                <div class="sig-text">Verified By</div>
-                            </div>
-                            <div class="sig-box">
-                                <div class="sig-line"></div>
-                                <div class="sig-text">Authorized Signatory</div>
-                            </div>
-                        </div>
-
-                        <div style="text-align: center; margin-top: 30px; font-size: 10px; color: #94a3b8;">
-                            This is a computer-generated document.| ${new Date().toLocaleString('en-IN')}
+                        <div style="display: flex; justify-content: space-between; padding: 5px 12px; font-size: 8.5px; background: #f8fafc;">
+                            <span><strong>Entered By :</strong> ${grn.entered_by || 'DEEPIK'}</span>
+                            <span><strong>Checked By :</strong> —</span>
+                            <span><strong>Verified By :</strong> ${grn.verified_by || (grn.is_approved ? 'APPROVED' : '—')}</span>
                         </div>
                     </div>
                 </body>
             </html>
         `;
-        const printWindow = window.open('', '_blank');
+
+        const printWindow = window.open('', '_blank', 'width=1150,height=750');
         printWindow.document.write(printContent);
         printWindow.document.close();
-        printWindow.print();
+        setTimeout(() => printWindow.print(), 400);
     };
 
     const openPaymentModal = (grn) => {
@@ -1462,356 +1730,89 @@ const StoresGRNReport = () => {
             })()}
 
             {/* Approval Modal */}
-            {showApproveModal && selectedGrnForApproval && (() => {
-                let itemsArray = selectedGrnForApproval.items;
-                if (typeof itemsArray === 'string') {
-                    try { itemsArray = JSON.parse(itemsArray); } catch(e) { itemsArray = []; }
-                }
-                if (!Array.isArray(itemsArray)) itemsArray = [];
-
-                const netAmt = parseFloat(selectedGrnForApproval.net_invoice_amount?.$numberDecimal || selectedGrnForApproval.net_invoice_amount || 0);
-                
-                return (
-                    <ModalOverlay onClick={e => e.target === e.currentTarget && setShowApproveModal(false)}>
-                        <ModalContainer style={{ maxWidth: '1000px', width: '95%' }}>
-                            <ModalHeader style={{ background: colors.primary }}>
-                                <ModalTitle style={{ color: 'white' }}>📋 Verify & Approve GRN: {selectedGrnForApproval.grn_number}</ModalTitle>
-                                <CloseButton style={{ color: 'white' }} onClick={() => setShowApproveModal(false)}>✕</CloseButton>
-                            </ModalHeader>
-                            <ModalBody style={{ padding: '20px' }}>
-                                {/* Items Table */}
-                                <div style={{ border: `1.5px solid ${colors.primary}40`, borderRadius: '8px', overflow: 'hidden', marginBottom: '20px' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                                        <thead>
-                                            <tr style={{ background: '#f0fdfa', borderBottom: `2px solid ${colors.primary}40` }}>
-                                                <th style={{ padding: '10px 5px', textAlign: 'center', borderRight: `1px solid ${colors.primary}20` }}>SL.</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'left', borderRight: `1px solid ${colors.primary}20` }}>PRODUCT</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'center', borderRight: `1px solid ${colors.primary}20` }}>HSN</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'center', borderRight: `1px solid ${colors.primary}20` }}>BATCH</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'center', borderRight: `1px solid ${colors.primary}20` }}>PACK</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'center', borderRight: `1px solid ${colors.primary}20` }}>QTY</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'right', borderRight: `1px solid ${colors.primary}20` }}>P RATE</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'right', borderRight: `1px solid ${colors.primary}20` }}>P.COST</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'right', borderRight: `1px solid ${colors.primary}20` }}>MRP</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'right', borderRight: `1px solid ${colors.primary}20` }}>DISCOUNT</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'right', borderRight: `1px solid ${colors.primary}20` }}>TAXABLE</th>
-                                                <th style={{ padding: '10px 5px', textAlign: 'right' }}>TOTAL</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {itemsArray.map((item, idx) => {
-                                                const qty = parseFloat(item.quantity || 0);
-                                                const rate = parseFloat(item.unitPrice || item.purchaseRate || 0);
-                                                const taxableAmt = parseFloat(item.taxableAmt || (rate * qty) - (item.discountedAmt || 0));
-                                                const totalAmt = parseFloat(item.purchaseCost || item.itemValue || 0);
-                                                return (
-                                                    <tr key={idx} style={{ borderBottom: `1px solid ${colors.primary}10`, background: idx % 2 === 0 ? 'white' : '#f8fafc' }}>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'center', borderRight: `1px solid ${colors.primary}10` }}>{idx + 1}.</td>
-                                                        <td style={{ padding: '8px 5px', fontWeight: '600', color: colors.primary, borderRight: `1px solid ${colors.primary}10` }}>{item.name || item.itemName}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'center', borderRight: `1px solid ${colors.primary}10` }}>{item.hsn || '-'}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'center', borderRight: `1px solid ${colors.primary}10` }}>{item.batch || '-'}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'center', borderRight: `1px solid ${colors.primary}10` }}>{item.packing || '1'}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'center', fontWeight: '700', borderRight: `1px solid ${colors.primary}10` }}>{item.quantity}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'right', borderRight: `1px solid ${colors.primary}10` }}>₹{rate.toFixed(2)}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'right', borderRight: `1px solid ${colors.primary}10` }}>₹{(rate * qty).toFixed(2)}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'right', borderRight: `1px solid ${colors.primary}10` }}>₹{(parseFloat(item.mrp) || 0).toFixed(2)}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'right', color: colors.danger, borderRight: `1px solid ${colors.primary}10` }}>₹{(parseFloat(item.discountedAmt) || 0).toFixed(2)}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'right', borderRight: `1px solid ${colors.primary}10` }}>₹{taxableAmt.toFixed(2)}</td>
-                                                        <td style={{ padding: '8px 5px', textAlign: 'right', fontWeight: '700' }}>₹{totalAmt.toFixed(2)}</td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr style={{ background: '#f0fdfa', fontWeight: '800' }}>
-                                                <td colSpan="11" style={{ padding: '10px 15px', textAlign: 'right', borderRight: `1px solid ${colors.primary}20` }}>Total</td>
-                                                <td style={{ padding: '10px 10px', textAlign: 'right' }}>₹{netAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-                                    {/* Left: GST Summary */}
-                                    <div style={{ flex: '1.2', background: '#f0f9ff', padding: '15px', borderRadius: '8px', border: `1.5px solid ${colors.primary}20` }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1rem', color: colors.primary }}>
-                                                <span>CGST Amount</span>
-                                                <span>: ₹{(parseFloat(selectedGrnForApproval.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1rem', color: colors.primary }}>
-                                                <span>SGST Amount</span>
-                                                <span>: ₹{(parseFloat(selectedGrnForApproval.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1rem', color: colors.primary }}>
-                                                <span>IGST Amount</span>
-                                                <span>: ₹{(parseFloat(selectedGrnForApproval.igst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Right: Net Summary */}
-                                    <div style={{ flex: '1', border: `1.5px solid ${colors.primary}20`, borderRadius: '8px', overflow: 'hidden' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <SummaryRow label="Total" value={parseFloat(selectedGrnForApproval.total_amount) || 0} />
-                                            <SummaryRow label="Discount" value={parseFloat(selectedGrnForApproval.total_discount) || 0} color={colors.danger} />
-                                            <SummaryRow label="Tax On Free" value={parseFloat(selectedGrnForApproval.tax_on_free_items) || 0} />
-                                            <SummaryRow label="Round off" value={parseFloat(selectedGrnForApproval.round_amount) || 0} />
-                                            <SummaryRow 
-                                                label="Total GST" 
-                                                value={parseFloat(selectedGrnForApproval.cgst || 0) + parseFloat(selectedGrnForApproval.sgst || 0) + parseFloat(selectedGrnForApproval.igst || 0)} 
-                                            />
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 15px', background: '#f0fdfa', fontWeight: '800', fontSize: '1.2rem', color: colors.primary }}>
-                                                <span>Net Amount</span>
-                                                <span>₹{netAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '25px', borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
-                                    <Button secondary onClick={() => setShowApproveModal(false)} style={{ padding: '10px 25px' }}>Cancel</Button>
-                                    <Button 
-                                        onClick={confirmFinalApproval} 
-                                        disabled={submitting}
-                                        style={{ background: '#16a34a', color: 'white', padding: '10px 35px', fontSize: '1rem' }}
-                                    >
-                                        {submitting ? 'Approving...' : '🚀 Confirm & Approve'}
-                                    </Button>
-                                </div>
-                            </ModalBody>
-                        </ModalContainer>
-                    </ModalOverlay>
-                );
-            })()}
+            {showApproveModal && selectedGrnForApproval && (
+                <ModalOverlay onClick={e => e.target === e.currentTarget && setShowApproveModal(false)}>
+                    <ModalContainer style={{ maxWidth: '1200px', width: '96%', maxHeight: '92vh', overflowY: 'auto' }}>
+                        <ModalHeader style={{ background: '#0e7490', color: 'white', padding: '12px 18px' }}>
+                            <ModalTitle style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>📋 Verify & Approve GRN:</span>
+                                <span style={{ fontWeight: 800 }}>{selectedGrnForApproval.grn_number}</span>
+                            </ModalTitle>
+                            <CloseButton style={{ color: 'white' }} onClick={() => setShowApproveModal(false)}>✕</CloseButton>
+                        </ModalHeader>
+                        <ModalBody style={{ padding: '16px' }}>
+                            <StoresGRNDocument 
+                                grn={selectedGrnForApproval}
+                                vendorName={getVendorName(selectedGrnForApproval.vendor_id)}
+                                items={selectedGrnForApproval.items}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px' }}>
+                                <Button secondary onClick={() => setShowApproveModal(false)} style={{ padding: '10px 25px' }}>
+                                    Cancel
+                                </Button>
+                                <Button 
+                                    onClick={confirmFinalApproval} 
+                                    disabled={submitting}
+                                    style={{ background: '#16a34a', color: 'white', padding: '10px 35px', fontSize: '1rem', fontWeight: 'bold' }}
+                                >
+                                    {submitting ? 'Approving...' : '🚀 Confirm & Approve'}
+                                </Button>
+                            </div>
+                        </ModalBody>
+                    </ModalContainer>
+                </ModalOverlay>
+            )}
 
             {/* View GRN Modal */}
-            {showViewModal && selectedGrnForView && (() => {
-                let itemsList = [];
-                if (Array.isArray(selectedGrnForView.items)) {
-                    itemsList = selectedGrnForView.items;
-                } else if (typeof selectedGrnForView.items === 'string') {
-                    try { itemsList = JSON.parse(selectedGrnForView.items); } catch(e) { itemsList = []; }
-                }
-
-                const { totalPaid, netAmt, pending, latest } = getPaymentInfo(selectedGrnForView);
-                const totalQty = itemsList.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0), 0);
-
-                return (
-                    <ModalOverlay onClick={e => e.target === e.currentTarget && setShowViewModal(false)}>
-                        <ModalContainer style={{ maxWidth: '1000px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
-                            <ModalHeader style={{ borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                                    <ModalTitle style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Eye size={20} color={colors.primary} />
-                                        <span>GRN Details:</span>
-                                        <span style={{ color: colors.primary, fontWeight: '800' }}>{selectedGrnForView.grn_number}</span>
-                                    </ModalTitle>
-                                    <span style={{ 
-                                        background: selectedGrnForView.is_approved ? '#ecfdf5' : '#fffbeb', 
-                                        color: selectedGrnForView.is_approved ? '#059669' : '#d97706', 
-                                        border: `1px solid ${selectedGrnForView.is_approved ? '#a7f3d0' : '#fde68a'}`, 
-                                        padding: '3px 10px', 
-                                        borderRadius: '6px', 
-                                        fontWeight: '700', 
-                                        fontSize: '0.75rem' 
-                                    }}>
-                                        {selectedGrnForView.is_approved ? 'VERIFIED' : 'PENDING APPROVAL'}
-                                    </span>
-                                </div>
-                                <CloseButton onClick={() => setShowViewModal(false)}>✕</CloseButton>
-                            </ModalHeader>
-
-                            <ModalBody style={{ padding: '20px' }}>
-                                {/* Header Info Banner */}
-                                <div style={{
-                                    background: '#f8fafc',
-                                    border: `1px solid ${colors.border}`,
-                                    borderRadius: '12px',
-                                    padding: '16px 20px',
-                                    marginBottom: '20px',
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                                    gap: '14px'
+            {showViewModal && selectedGrnForView && (
+                <ModalOverlay onClick={e => e.target === e.currentTarget && setShowViewModal(false)}>
+                    <ModalContainer style={{ maxWidth: '1200px', width: '96%', maxHeight: '92vh', overflowY: 'auto' }}>
+                        <ModalHeader style={{ borderBottom: `1px solid ${colors.border}`, padding: '12px 18px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                <ModalTitle style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Eye size={20} color={colors.primary} />
+                                    <span>GRN Analysis & Details:</span>
+                                    <span style={{ color: colors.primary, fontWeight: '800' }}>{selectedGrnForView.grn_number}</span>
+                                </ModalTitle>
+                                <span style={{ 
+                                    background: selectedGrnForView.is_approved ? '#ecfdf5' : '#fffbeb', 
+                                    color: selectedGrnForView.is_approved ? '#059669' : '#d97706', 
+                                    border: `1px solid ${selectedGrnForView.is_approved ? '#a7f3d0' : '#fde68a'}`, 
+                                    padding: '3px 10px', 
+                                    borderRadius: '6px', 
+                                    fontWeight: '700', 
+                                    fontSize: '0.75rem' 
                                 }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Vendor</div>
-                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.textMain, marginTop: '2px' }}>
-                                            {getVendorName(selectedGrnForView.vendor_id)}
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {selectedGrnForView.vendor_id || '-'}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>GRN Date</div>
-                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.textMain, marginTop: '2px' }}>
-                                            {selectedGrnForView.date ? dayjs(selectedGrnForView.date).format('DD MMM, YYYY') : '-'}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Invoice No & Date</div>
-                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.textMain, marginTop: '2px' }}>
-                                            {selectedGrnForView.invoice_no || selectedGrnForView.invoice_number || '-'}
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>
-                                            {selectedGrnForView.invoice_date ? dayjs(selectedGrnForView.invoice_date).format('DD/MM/YYYY') : '-'}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Purchase Category</div>
-                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.primary, marginTop: '2px' }}>
-                                            {selectedGrnForView.purchase_category || '-'}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Payment Mode</div>
-                                        <div style={{ fontSize: '0.92rem', fontWeight: '700', color: colors.textMain, marginTop: '2px' }}>
-                                            {selectedGrnForView.payment_mode || (latest && latest.payment_method) || 'CHEQUE'}
-                                        </div>
-                                    </div>
-                                </div>
+                                    {selectedGrnForView.is_approved ? 'APPROVED' : 'PENDING APPROVAL'}
+                                </span>
+                            </div>
+                            <CloseButton onClick={() => setShowViewModal(false)}>✕</CloseButton>
+                        </ModalHeader>
 
-                                {/* Financial Summary Cards */}
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                                    gap: '12px',
-                                    marginBottom: '20px'
-                                }}>
-                                    <div style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '14px', borderRadius: '10px' }}>
-                                        <div style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: '700', textTransform: 'uppercase' }}>Net Amount</div>
-                                        <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#0f766e', marginTop: '4px' }}>₹{netAmt.toFixed(2)}</div>
-                                    </div>
-                                    <div style={{ background: '#f0fdf4', border: '1px solid #dcfce7', padding: '14px', borderRadius: '10px' }}>
-                                        <div style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase' }}>Total Paid</div>
-                                        <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>₹{totalPaid.toFixed(2)}</div>
-                                    </div>
-                                    <div style={{ background: '#fff5f5', border: '1px solid #fee2e2', padding: '14px', borderRadius: '10px' }}>
-                                        <div style={{ fontSize: '0.72rem', color: '#991b1b', fontWeight: '700', textTransform: 'uppercase' }}>Outstanding</div>
-                                        <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>₹{pending.toFixed(2)}</div>
-                                    </div>
-                                    <div style={{ background: '#f8fafc', border: `1px solid ${colors.border}`, padding: '14px', borderRadius: '10px' }}>
-                                        <div style={{ fontSize: '0.72rem', color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Total Items / Qty</div>
-                                        <div style={{ fontSize: '1.3rem', fontWeight: '800', color: colors.textMain, marginTop: '4px' }}>
-                                            {itemsList.length} <span style={{ fontSize: '0.85rem', fontWeight: '600', color: colors.textMuted }}>({totalQty} units)</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Items Table */}
-                                <div style={{ marginBottom: '20px' }}>
-                                    <div style={{ fontSize: '0.85rem', fontWeight: '700', color: colors.textMain, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                        📦 Items Received ({itemsList.length})
-                                    </div>
-                                    <div style={{ overflowX: 'auto', border: `1px solid ${colors.border}`, borderRadius: '10px' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                                            <thead>
-                                                <tr style={{ background: '#e6f4f1', color: '#1e293b' }}>
-                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>#</th>
-                                                    <th style={{ padding: '10px 10px', textAlign: 'left', borderBottom: `1px solid ${colors.border}` }}>Item Name</th>
-                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>HSN</th>
-                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Batch</th>
-                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Expiry</th>
-                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Packing</th>
-                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Qty</th>
-                                                    <th style={{ padding: '10px 8px', textAlign: 'center', borderBottom: `1px solid ${colors.border}` }}>Free</th>
-                                                    <th style={{ padding: '10px 10px', textAlign: 'right', borderBottom: `1px solid ${colors.border}` }}>Rate</th>
-                                                    <th style={{ padding: '10px 10px', textAlign: 'right', borderBottom: `1px solid ${colors.border}` }}>MRP</th>
-                                                    <th style={{ padding: '10px 10px', textAlign: 'right', borderBottom: `1px solid ${colors.border}` }}>Tax %</th>
-                                                    <th style={{ padding: '10px 10px', textAlign: 'right', borderBottom: `1px solid ${colors.border}` }}>Amount</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {itemsList.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan="12" style={{ textAlign: 'center', padding: '30px', color: colors.textMuted }}>No items data available</td>
-                                                    </tr>
-                                                ) : itemsList.map((item, idx) => {
-                                                    const qty = parseFloat(item.quantity) || 0;
-                                                    const rate = parseFloat(item.itemValue || item.rate || item.purchase_rate || 0);
-                                                    const totalAmt = parseFloat(item.total_amount || item.amount || (qty * rate));
-                                                    return (
-                                                        <tr key={idx} style={{ borderBottom: `1px solid #f1f5f9`, background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: colors.textMuted }}>{idx + 1}</td>
-                                                            <td style={{ padding: '10px 10px', fontWeight: '600', color: colors.primary }}>
-                                                                {item.name || item.itemName || item.item_name || '-'}
-                                                            </td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: colors.textMuted }}>{item.hsn || '-'}</td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '600' }}>{item.batch || item.batch_no || '-'}</td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: colors.textMuted }}>{item.expiry || item.expDate || '-'}</td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center' }}>{item.packing || '1'}</td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '700', color: colors.textMain }}>{qty}</td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: colors.textMuted }}>{item.free || 0}</td>
-                                                            <td style={{ padding: '10px 10px', textAlign: 'right' }}>₹{rate.toFixed(2)}</td>
-                                                            <td style={{ padding: '10px 10px', textAlign: 'right' }}>₹{(parseFloat(item.mrp) || 0).toFixed(2)}</td>
-                                                            <td style={{ padding: '10px 10px', textAlign: 'right', color: colors.textMuted }}>{item.tax_percentage || (item.cgst ? `${(parseFloat(item.cgst||0) + parseFloat(item.sgst||0) + parseFloat(item.igst||0))}%` : '-')}</td>
-                                                            <td style={{ padding: '10px 10px', textAlign: 'right', fontWeight: '700', color: '#0f766e' }}>₹{totalAmt.toFixed(2)}</td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
-                                {/* Tax and Additional Info Details */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-                                    <div style={{ background: '#f8fafc', border: `1px solid ${colors.border}`, borderRadius: '10px', padding: '14px' }}>
-                                        <div style={{ fontSize: '0.78rem', fontWeight: '700', color: colors.textMuted, marginBottom: '10px', textTransform: 'uppercase' }}>Tax Breakdown</div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
-                                            <span style={{ color: colors.textMuted }}>CGST</span>
-                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.cgst) || 0).toFixed(2)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
-                                            <span style={{ color: colors.textMuted }}>SGST</span>
-                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.sgst) || 0).toFixed(2)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
-                                            <span style={{ color: colors.textMuted }}>IGST</span>
-                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.igst) || 0).toFixed(2)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: `1px dashed ${colors.border}`, fontSize: '0.85rem', fontWeight: '700' }}>
-                                            <span>Total Tax</span>
-                                            <span style={{ color: colors.primary }}>₹{((parseFloat(selectedGrnForView.cgst) || 0) + (parseFloat(selectedGrnForView.sgst) || 0) + (parseFloat(selectedGrnForView.igst) || 0)).toFixed(2)}</span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ background: '#f8fafc', border: `1px solid ${colors.border}`, borderRadius: '10px', padding: '14px' }}>
-                                        <div style={{ fontSize: '0.78rem', fontWeight: '700', color: colors.textMuted, marginBottom: '10px', textTransform: 'uppercase' }}>Additional Adjustments</div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
-                                            <span style={{ color: colors.textMuted }}>Total Discount</span>
-                                            <span style={{ color: colors.danger, fontWeight: '600' }}>-₹{(parseFloat(selectedGrnForView.total_discount) || 0).toFixed(2)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
-                                            <span style={{ color: colors.textMuted }}>Transport / Courier</span>
-                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.courier_transport_charge) || 0).toFixed(2)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
-                                            <span style={{ color: colors.textMuted }}>Round Off</span>
-                                            <span style={{ fontWeight: '600' }}>₹{(parseFloat(selectedGrnForView.round_amount) || 0).toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Modal Footer Actions */}
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px' }}>
-                                    <Button secondary onClick={() => setShowViewModal(false)} style={{ padding: '8px 22px' }}>
-                                        Close
-                                    </Button>
-                                    <Button 
-                                        onClick={() => {
-                                            handlePrintRow(selectedGrnForView);
-                                        }}
-                                        style={{ padding: '8px 22px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                    >
-                                        <Printer size={16} />
-                                        <span>Print Voucher</span>
-                                    </Button>
-                                </div>
-                            </ModalBody>
-                        </ModalContainer>
-                    </ModalOverlay>
-                );
-            })()}
+                        <ModalBody style={{ padding: '16px' }}>
+                            <StoresGRNDocument 
+                                grn={selectedGrnForView}
+                                vendorName={getVendorName(selectedGrnForView.vendor_id)}
+                                items={selectedGrnForView.items}
+                            />
+                            
+                            {/* Modal Footer Actions */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px', marginTop: '16px' }}>
+                                <Button secondary onClick={() => setShowViewModal(false)} style={{ padding: '8px 22px' }}>
+                                    Close
+                                </Button>
+                                <Button 
+                                    onClick={() => handlePrintRow(selectedGrnForView)}
+                                    style={{ padding: '8px 22px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    <Printer size={16} />
+                                    <span>Print Voucher</span>
+                                </Button>
+                            </div>
+                        </ModalBody>
+                    </ModalContainer>
+                </ModalOverlay>
+            )}
         </PageWrapper>
     );
 };

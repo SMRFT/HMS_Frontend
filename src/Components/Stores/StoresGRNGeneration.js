@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import Select from 'react-select';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { DatePicker, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
@@ -157,6 +157,440 @@ const ModalContainerAnimated = styled(ModalContainer)`
     animation: ${fadeIn} 0.3s ease-out;
 `;
 
+const CurrencyInputWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: ${props => props.$readOnly ? '#f8fafc' : 'white'};
+    overflow: hidden;
+    height: 30px;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+    &:focus-within {
+        border-color: #0d9488;
+        box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+    }
+`;
+
+const CurrencySymbol = styled.span`
+    background: #e2e8f0;
+    color: #475569;
+    padding: 0 7px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-right: 1px solid #cbd5e1;
+    user-select: none;
+`;
+
+const SuffixSymbol = styled.span`
+    background: #e2e8f0;
+    color: #475569;
+    padding: 0 7px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-left: 1px solid #cbd5e1;
+    user-select: none;
+`;
+
+const CurrencyField = styled.input`
+    border: none;
+    outline: none;
+    padding: 3px 8px;
+    width: 100%;
+    font-size: 0.8rem;
+    color: #0f172a;
+    font-weight: 600;
+    background: transparent;
+    &[readonly] {
+        color: #475569;
+        cursor: default;
+    }
+`;
+
+const MoneyInput = ({ value, onChange, name, readOnly, placeholder = "0.00", style, suffix }) => (
+    <CurrencyInputWrapper $readOnly={readOnly} style={style}>
+        <CurrencySymbol>₹</CurrencySymbol>
+        <CurrencyField
+            type="number"
+            step="any"
+            name={name}
+            value={value !== undefined && value !== null ? value : ''}
+            onChange={onChange}
+            readOnly={readOnly}
+            placeholder={placeholder}
+        />
+        {suffix && <SuffixSymbol>{suffix}</SuffixSymbol>}
+    </CurrencyInputWrapper>
+);
+
+const CompactInput = styled(Input)`
+    height: 30px !important;
+    padding: 3px 8px !important;
+    font-size: 0.8rem !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    background: ${props => props.readOnly ? '#f8fafc' : 'white'} !important;
+    box-sizing: border-box;
+`;
+
+const CompactLabel = styled.label`
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 3px;
+    display: block;
+`;
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const ExpiryDatePicker = ({ value, onChange, placeholder = "May 2027" }) => {
+    const containerRef = React.useRef(null);
+    const inputRef = React.useRef(null);
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [inputText, setInputText] = React.useState('');
+    const [pickerYear, setPickerYear] = React.useState(() => dayjs().year());
+    const [error, setError] = React.useState(null);
+
+    // Sync from incoming value
+    React.useEffect(() => {
+        if (value) {
+            const d = dayjs(value);
+            if (d.isValid()) {
+                setInputText(d.format('MMM YYYY'));
+                setPickerYear(d.year());
+                setError(null);
+                return;
+            }
+        }
+        if (!value) {
+            setInputText('');
+            setError(null);
+        }
+    }, [value]);
+
+    const parseExpiryText = React.useCallback((input) => {
+        if (!input || !input.trim()) return null;
+        const s = input.trim();
+        // Format: "May 2026", "may 2026", "May2026"
+        const m1 = s.match(/^([a-zA-Z]{3,9})\s*(\d{2,4})$/);
+        if (m1) {
+            const monthStr = m1[1].slice(0, 3).toLowerCase();
+            const monthIdx = MONTH_NAMES.findIndex(m => m.toLowerCase() === monthStr);
+            let year = parseInt(m1[2], 10);
+            if (year < 100) year += 2000;
+            if (monthIdx !== -1 && year >= 2020 && year <= 2099) {
+                const monthNum = String(monthIdx + 1).padStart(2, '0');
+                const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+                return {
+                    formatted: `${MONTH_NAMES[monthIdx]} ${year}`,
+                    expiry: `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`,
+                    expMonth: monthNum,
+                    expYear: String(year),
+                    monthIdx,
+                    year
+                };
+            }
+        }
+        // Format: "5 2026", "05/2026", "5/26", "5-2026"
+        const m2 = s.match(/^(\d{1,2})[\s/-]?(\d{2,4})$/);
+        if (m2) {
+            const month = parseInt(m2[1], 10);
+            let year = parseInt(m2[2], 10);
+            if (year < 100) year += 2000;
+            if (month >= 1 && month <= 12 && year >= 2020 && year <= 2099) {
+                const monthIdx = month - 1;
+                const monthNum = String(month).padStart(2, '0');
+                const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+                return {
+                    formatted: `${MONTH_NAMES[monthIdx]} ${year}`,
+                    expiry: `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`,
+                    expMonth: monthNum,
+                    expYear: String(year),
+                    monthIdx,
+                    year
+                };
+            }
+        }
+        return null;
+    }, []);
+
+    const handleValidate = React.useCallback((text) => {
+        if (!text || !text.trim()) {
+            setError(null);
+            onChange(null);
+            return;
+        }
+        const parsed = parseExpiryText(text);
+        if (parsed) {
+            setInputText(parsed.formatted);
+            setPickerYear(parsed.year);
+            setError(null);
+            onChange(parsed);
+        } else {
+            setError('Format: May 2026 (Month 1-12, Year 2020-2099)');
+        }
+    }, [onChange, parseExpiryText]);
+
+    // Close on click outside & validate
+    React.useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setIsOpen(false);
+                handleValidate(inputText);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [inputText, handleValidate]);
+
+    const handleInputChange = (e) => {
+        let val = e.target.value;
+        
+        // Month typing intelligence:
+        // When typing single or double digits for month, auto-convert to Month name + space
+        if (val === '5') {
+            val = 'May ';
+        } else if (val === '2') {
+            val = 'Feb ';
+        } else if (val === '3') {
+            val = 'Mar ';
+        } else if (val === '4') {
+            val = 'Apr ';
+        } else if (val === '6') {
+            val = 'Jun ';
+        } else if (val === '7') {
+            val = 'Jul ';
+        } else if (val === '8') {
+            val = 'Aug ';
+        } else if (val === '9') {
+            val = 'Sep ';
+        } else if (val === '01') {
+            val = 'Jan ';
+        } else if (val === '02') {
+            val = 'Feb ';
+        } else if (val === '03') {
+            val = 'Mar ';
+        } else if (val === '04') {
+            val = 'Apr ';
+        } else if (val === '05') {
+            val = 'May ';
+        } else if (val === '06') {
+            val = 'Jun ';
+        } else if (val === '07') {
+            val = 'Jul ';
+        } else if (val === '08') {
+            val = 'Aug ';
+        } else if (val === '09') {
+            val = 'Sep ';
+        } else if (val === '10') {
+            val = 'Oct ';
+        } else if (val === '11') {
+            val = 'Nov ';
+        } else if (val === '12') {
+            val = 'Dec ';
+        }
+
+        setInputText(val);
+
+        // Check if full valid format is reached while typing (e.g. "May 2026")
+        const parsed = parseExpiryText(val);
+        if (parsed) {
+            setError(null);
+            setPickerYear(parsed.year);
+            onChange(parsed);
+        }
+    };
+
+    const handleSelectMonth = (monthIdx) => {
+        const year = pickerYear || dayjs().year();
+        const monthNum = String(monthIdx + 1).padStart(2, '0');
+        const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+        const formatted = `${MONTH_NAMES[monthIdx]} ${year}`;
+        setInputText(formatted);
+        setError(null);
+        onChange({
+            formatted,
+            expiry: `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`,
+            expMonth: monthNum,
+            expYear: String(year),
+            monthIdx,
+            year
+        });
+        setIsOpen(false);
+    };
+
+    // Current parsed state for active button highlight in popup
+    const currentParsed = parseExpiryText(inputText);
+    const selectedMonthIdx = currentParsed ? currentParsed.monthIdx : null;
+    const selectedYear = currentParsed ? currentParsed.year : null;
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputText}
+                    onChange={handleInputChange}
+                    onFocus={() => setIsOpen(true)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            handleValidate(inputText);
+                            setIsOpen(false);
+                        }
+                    }}
+                    placeholder={placeholder}
+                    style={{
+                        width: '100%',
+                        height: '30px',
+                        padding: '0 45px 0 8px',
+                        fontSize: '0.8rem',
+                        borderRadius: '4px',
+                        border: error ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
+                        outline: 'none',
+                        background: '#ffffff',
+                        color: '#1e293b',
+                        boxSizing: 'border-box'
+                    }}
+                />
+                <div style={{ position: 'absolute', right: '6px', display: 'flex', alignItems: 'center' }}>
+                    <span
+                        onClick={() => setIsOpen(!isOpen)}
+                        style={{ cursor: 'pointer', fontSize: '0.85rem', color: '#64748b' }}
+                        title="Open Month Picker"
+                    >
+                        📅
+                    </span>
+                </div>
+            </div>
+
+            {error && (
+                <div style={{ color: '#ef4444', fontSize: '0.68rem', marginTop: '2px', lineHeight: '1.1' }}>
+                    {error}
+                </div>
+            )}
+
+            {/* Month/Year Picker Dropdown matching attached UI */}
+            {isOpen && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        zIndex: 10005,
+                        marginTop: '4px',
+                        background: '#ffffff',
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
+                        width: '280px',
+                        overflow: 'hidden',
+                        border: '1px solid #e2e8f0'
+                    }}
+                >
+                    {/* Header: << Year >> */}
+                    <div
+                        style={{
+                            background: '#1e3a8a',
+                            padding: '10px 14px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            color: 'white'
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setPickerYear(y => y - 1)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#93c5fd',
+                                fontSize: '1.1rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                padding: '2px 8px',
+                                borderRadius: '4px'
+                            }}
+                            title="Previous Year"
+                        >
+                            &laquo;
+                        </button>
+                        <span style={{ fontSize: '1rem', fontWeight: '700', color: '#ffffff', letterSpacing: '0.05em' }}>
+                            {pickerYear}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setPickerYear(y => y + 1)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#93c5fd',
+                                fontSize: '1.1rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                padding: '2px 8px',
+                                borderRadius: '4px'
+                            }}
+                            title="Next Year"
+                        >
+                            &raquo;
+                        </button>
+                    </div>
+
+                    {/* Month Grid */}
+                    <div style={{ padding: '14px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                        {MONTH_NAMES.map((mName, idx) => {
+                            const isSelected = selectedMonthIdx === idx && selectedYear === pickerYear;
+                            return (
+                                <button
+                                    key={mName}
+                                    type="button"
+                                    onClick={() => handleSelectMonth(idx)}
+                                    style={{
+                                        padding: '8px 0',
+                                        textAlign: 'center',
+                                        fontSize: '0.85rem',
+                                        fontWeight: isSelected ? '700' : '500',
+                                        color: isSelected ? '#ffffff' : '#1e293b',
+                                        background: isSelected ? '#1e3a8a' : 'transparent',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease'
+                                    }}
+                                    onMouseEnter={e => {
+                                        if (!isSelected) e.currentTarget.style.background = '#f1f5f9';
+                                    }}
+                                    onMouseLeave={e => {
+                                        if (!isSelected) e.currentTarget.style.background = 'transparent';
+                                    }}
+                                >
+                                    {mName}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const taxOptions = [
+    { value: 0, label: 'EXEMPT (0%)' },
+    { value: 5, label: 'RATE OF 5%' },
+    { value: 12, label: 'RATE OF 12%' },
+    { value: 18, label: 'RATE OF 18%' },
+    { value: 28, label: 'RATE OF 28%' }
+];
+
 const ItemTableWrapper = styled.div`
     overflow-x: auto;
     background: white;
@@ -182,6 +616,9 @@ const ItemTableWrapper = styled.div`
 const CalendarGlobalStyles = createGlobalStyle`
     .ant-picker-dropdown {
         z-index: 10000 !important;
+    }
+    .ant-picker-clear {
+        display: none !important;
     }
     .ant-picker-header {
         display: flex !important;
@@ -268,26 +705,7 @@ const StoresGRNGeneration = () => {
         { value: 'Credit', label: 'Credit' }
     ];
 
-    const months = [
-        { value: '01', label: 'Jan (01)' },
-        { value: '02', label: 'Feb (02)' },
-        { value: '03', label: 'Mar (03)' },
-        { value: '04', label: 'Apr (04)' },
-        { value: '05', label: 'May (05)' },
-        { value: '06', label: 'Jun (06)' },
-        { value: '07', label: 'Jul (07)' },
-        { value: '08', label: 'Aug (08)' },
-        { value: '09', label: 'Sep (09)' },
-        { value: '10', label: 'Oct (10)' },
-        { value: '11', label: 'Nov (11)' },
-        { value: '12', label: 'Dec (12)' }
-    ];
 
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 20 }, (_, i) => ({
-        value: (currentYear + i).toString(),
-        label: (currentYear + i).toString()
-    }));
 
     const [grnItems, setGrnItems] = useState([]);
     const [showAddItemModal, setShowAddItemModal] = useState(false);
@@ -318,9 +736,30 @@ const StoresGRNGeneration = () => {
         quantity: 1,
         free: 0,
         itemValue: 0,
-        tax: 0,
+        packingPrice: 0,
+        unitPrice: 0,
+        tax: 5,
+        purchaseTaxInclusive: true,
         purchaseDiscountPercent: 0,
-        mrp: 0
+        purchaseDiscountAmt: 0,
+        deductDiscountForTax: false,
+        purchaseCost: 0,
+        mrp: 0,
+        maxPackingMrp: 0,
+        sellingTax: 5,
+        sellingTaxInclusive: true,
+        sellingDiscountPercent: 0,
+        price: 0,
+        ipPrice: 0,
+        calcTaxOnFree: false,
+        isReplacement: false,
+        totalStock: 0,
+        deptStock: 0,
+        lastPurchaseFree: 0,
+        lastPurchasePrice: 0,
+        lastPurchaseCost: 0,
+        lastMrp: 0,
+        lastSellingPrice: 0
     });
 
     useEffect(() => {
@@ -453,48 +892,131 @@ const StoresGRNGeneration = () => {
     };
 
     const handleCurrentItemChange = (e) => {
-        let { name, value } = e.target;
+        let { name, value, type, checked } = e.target;
+        const val = type === 'checkbox' ? checked : value;
 
-        const newCurrentItem = { ...currentItem, [name]: value };
+        const newCurrentItem = { ...currentItem, [name]: val };
         if (name === 'packing' || name === 'no_of_unit') {
-            const p = parseFloat(newCurrentItem.packing) || 0;
-            const n = parseFloat(newCurrentItem.no_of_unit) || 0;
+            const p = parseFloat(name === 'packing' ? val : newCurrentItem.packing) || 0;
+            const n = parseFloat(name === 'no_of_unit' ? val : newCurrentItem.no_of_unit) || 0;
             newCurrentItem.quantity = p * n;
         }
+
+        if (name === 'mrp' || name === 'packing') {
+            const m = parseFloat(name === 'mrp' ? val : newCurrentItem.mrp) || 0;
+            const p = parseFloat(name === 'packing' ? val : newCurrentItem.packing) || 1;
+            newCurrentItem.maxPackingMrp = m * p;
+        }
+
+        if (name === 'itemValue' || name === 'purchaseDiscountPercent') {
+            const iv = parseFloat(name === 'itemValue' ? val : newCurrentItem.itemValue) || 0;
+            const pd = parseFloat(name === 'purchaseDiscountPercent' ? val : newCurrentItem.purchaseDiscountPercent) || 0;
+            newCurrentItem.purchaseDiscountAmt = Number((iv * (pd / 100)).toFixed(2));
+        } else if (name === 'purchaseDiscountAmt') {
+            const iv = parseFloat(newCurrentItem.itemValue) || 0;
+            const pda = parseFloat(val) || 0;
+            newCurrentItem.purchaseDiscountPercent = iv > 0 ? Number(((pda / iv) * 100).toFixed(2)) : 0;
+        }
+
+        if (name === 'sellingDiscountPercent' || name === 'mrp') {
+            const m = parseFloat(name === 'mrp' ? val : newCurrentItem.mrp) || 0;
+            const sd = parseFloat(name === 'sellingDiscountPercent' ? val : newCurrentItem.sellingDiscountPercent) || 0;
+            const sp = m > 0 ? Number((m * (1 - sd / 100)).toFixed(2)) : 0;
+            newCurrentItem.price = sp;
+            newCurrentItem.ipPrice = sp;
+        }
+
         setCurrentItem(newCurrentItem);
     };
 
     const handleItemSelect = (option) => {
         if (option) {
             const selectedItem = items.find(i => i.item_id === option.value);
-            setCurrentItem({
-                ...currentItem,
-                item_id: selectedItem.item_id,
-                name: selectedItem.itemName,
-                hsn: selectedItem.hsn || ''
-            });
+            if (selectedItem) {
+                const stock = selectedItem.total_quantity || 0;
+                const deptStock = selectedItem.approved_quantity || 0;
+                const hsn = selectedItem.hsn || '';
+                const itemMrp = parseFloat(selectedItem.mrp) || 0;
+                const itemRate = parseFloat(selectedItem.rate || selectedItem.unit_price) || 0;
+                const taxBracket = selectedItem.tax !== undefined ? parseFloat(selectedItem.tax) : 5;
+
+                setCurrentItem(prev => ({
+                    ...prev,
+                    item_id: selectedItem.item_id,
+                    name: selectedItem.itemName,
+                    hsn: hsn,
+                    totalStock: stock,
+                    deptStock: deptStock,
+                    mrp: itemMrp,
+                    maxPackingMrp: itemMrp * (parseFloat(prev.packing) || 1),
+                    itemValue: itemRate,
+                    unitPrice: (parseFloat(prev.quantity) || 1) > 0 ? itemRate / (parseFloat(prev.quantity) || 1) : itemRate,
+                    tax: taxBracket,
+                    sellingTax: taxBracket,
+                    lastMrp: itemMrp,
+                    lastPurchasePrice: itemRate,
+                    lastPurchaseCost: itemRate,
+                    lastSellingPrice: itemMrp
+                }));
+            }
         } else {
-            setCurrentItem({ ...currentItem, item_id: '', name: '', hsn: '' });
+            setCurrentItem(prev => ({
+                ...prev,
+                item_id: '',
+                name: '',
+                hsn: '',
+                totalStock: 0,
+                deptStock: 0
+            }));
         }
     };
 
-    const currQty = parseFloat(currentItem.quantity) || 1;
-    const currItemValue = parseFloat(currentItem.itemValue) || 0;
     const currPacking = parseFloat(currentItem.packing) || 1;
+    const currNoOfUnit = parseFloat(currentItem.no_of_unit) || 1;
+    const currQty = parseFloat(currentItem.quantity) || (currPacking * currNoOfUnit) || 1;
+    const currItemValue = parseFloat(currentItem.itemValue) || 0;
     const currTaxPercent = parseFloat(currentItem.tax) || 0;
     const currDiscountPercent = parseFloat(currentItem.purchaseDiscountPercent) || 0;
+    const currDiscountAmt = parseFloat(currentItem.purchaseDiscountAmt) || (currItemValue * (currDiscountPercent / 100));
 
     const currUnitPrice = currQty ? currItemValue / currQty : 0;
+    const currPackingPrice = currNoOfUnit > 0 ? currItemValue / currNoOfUnit : (currUnitPrice * currPacking);
 
-    const currDiscountedAmt = currItemValue * (currDiscountPercent / 100);
-    const netValueBeforeTax = currItemValue - currDiscountedAmt;
-    const currTotalTax = netValueBeforeTax * (currTaxPercent / 100);
+    const baseAfterDiscount = currentItem.deductDiscountForTax ? Math.max(0, currItemValue - currDiscountAmt) : currItemValue;
+    let currTotalTax = 0;
+    if (currentItem.purchaseTaxInclusive) {
+        currTotalTax = currTaxPercent > 0 ? (baseAfterDiscount - (baseAfterDiscount / (1 + currTaxPercent / 100))) : 0;
+    } else {
+        currTotalTax = baseAfterDiscount * (currTaxPercent / 100);
+    }
 
     const currCgstAmt = currTotalTax / 2;
     const currSgstAmt = currTotalTax / 2;
 
-    const currPurchaseCost = netValueBeforeTax + currTotalTax;
+    const currPurchaseCost = currentItem.purchaseTaxInclusive
+        ? Math.max(0, baseAfterDiscount)
+        : (baseAfterDiscount + currTotalTax);
     const currUnitCost = currQty ? currPurchaseCost / currQty : 0;
+
+    const currMrp = parseFloat(currentItem.mrp) || 0;
+    const currMaxPackingMrp = parseFloat(currentItem.maxPackingMrp) || (currMrp * currPacking);
+    const currSellingTax = parseFloat(currentItem.sellingTax) || 0;
+    const currSellingCgst = (currMrp * (currSellingTax / 100)) / 2;
+    const currSellingSgst = (currMrp * (currSellingTax / 100)) / 2;
+
+    const currSellingDisc = parseFloat(currentItem.sellingDiscountPercent) || 0;
+    const defaultSellingPrice = currMrp > 0 ? (currMrp * (1 - currSellingDisc / 100)) : 0;
+    const currSellingPrice = parseFloat(currentItem.price) || defaultSellingPrice;
+    const currIpPrice = parseFloat(currentItem.ipPrice) || currSellingPrice;
+
+    const currFreeQty = parseFloat(currentItem.free) || 0;
+    const freeBase = currFreeQty * currUnitPrice;
+    let currFreeTax = 0;
+    if (currentItem.calcTaxOnFree && currTaxPercent > 0) {
+        currFreeTax = freeBase * (currTaxPercent / 100);
+    }
+    const currFreeCgst = currFreeTax / 2;
+    const currFreeSgst = currFreeTax / 2;
 
     const addItemToGrn = () => {
         if (!currentItem.item_id || !currQty || !currItemValue) {
@@ -502,8 +1024,8 @@ const StoresGRNGeneration = () => {
             return;
         }
 
-        let formattedExpiry = "";
-        if (currentItem.expMonth && currentItem.expYear) {
+        let formattedExpiry = currentItem.expiry || "";
+        if (!formattedExpiry && currentItem.expMonth && currentItem.expYear) {
             const year = parseInt(currentItem.expYear);
             const month = parseInt(currentItem.expMonth);
             const lastDay = new Date(year, month, 0).getDate();
@@ -513,17 +1035,28 @@ const StoresGRNGeneration = () => {
         const newItem = {
             ...currentItem,
             id: Date.now(),
-            expiry: formattedExpiry || currentItem.expiry,
+            quantity: currQty,
+            expiry: formattedExpiry,
             unitPrice: Number(currUnitPrice.toFixed(2)),
+            unitCost: Number(currUnitCost.toFixed(2)),
+            packingPrice: Number(currPackingPrice.toFixed(2)),
             cgstPercent: currTaxPercent / 2,
             sgstPercent: currTaxPercent / 2,
             cgstAmt: Number(currCgstAmt.toFixed(2)),
             sgstAmt: Number(currSgstAmt.toFixed(2)),
-            discountedAmt: Number(currDiscountedAmt.toFixed(2)),
+            discountedAmt: Number(currDiscountAmt.toFixed(2)),
             itemValue: Number(currItemValue.toFixed(2)),
             purchaseCost: Number(currPurchaseCost.toFixed(2)),
             baseAmount: Number(currItemValue.toFixed(2)),
-            purchaseDiscountPercent: currDiscountPercent
+            purchaseDiscountPercent: currDiscountPercent,
+            mrp: Number(currMrp.toFixed(2)),
+            maxPackingMrp: Number(currMaxPackingMrp.toFixed(2)),
+            price: Number(currSellingPrice.toFixed(2)),
+            ipPrice: Number(currIpPrice.toFixed(2)),
+            sellingTax: currSellingTax,
+            isReplacement: currentItem.isReplacement || false,
+            calculateTaxOnFree: currentItem.calcTaxOnFree || false,
+            freeTaxAmt: Number(currFreeTax.toFixed(2))
         };
 
         setGrnItems([...grnItems, newItem]);
@@ -531,8 +1064,19 @@ const StoresGRNGeneration = () => {
             item_id: '', name: '', hsn: '', batch: '',
             expMonth: '', expYear: '', expiry: '',
             packing: 1, no_of_unit: 1, quantity: 1, free: 0,
-            itemValue: 0, tax: 0, purchaseDiscountPercent: 0, mrp: 0
+            itemValue: 0, packingPrice: 0, unitPrice: 0,
+            tax: 5, purchaseTaxInclusive: true,
+            purchaseDiscountPercent: 0, purchaseDiscountAmt: 0,
+            deductDiscountForTax: false, purchaseCost: 0,
+            mrp: 0, maxPackingMrp: 0,
+            sellingTax: 5, sellingTaxInclusive: true,
+            sellingDiscountPercent: 0, price: 0, ipPrice: 0,
+            calcTaxOnFree: false, isReplacement: false,
+            totalStock: 0, deptStock: 0,
+            lastPurchaseFree: 0, lastPurchasePrice: 0, lastPurchaseCost: 0,
+            lastMrp: 0, lastSellingPrice: 0
         });
+        setShowAddItemModal(false);
     };
 
     const removeItem = (id) => {
@@ -805,7 +1349,7 @@ const StoresGRNGeneration = () => {
                                                     styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                 />
                                             </div>
-                                            <div style={{ position: 'relative' }}>
+                                            <div>
                                                 <Label required>GRN Date</Label>
                                                 <DatePicker
                                                     value={formData.date ? dayjs(formData.date) : null}
@@ -816,18 +1360,12 @@ const StoresGRNGeneration = () => {
                                                     disabled={isVerified}
                                                     style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
                                                 />
-                                                {formData.date && !isVerified && (
-                                                    <span
-                                                        onClick={() => handleInputChange({ target: { name: 'date', value: '' } })}
-                                                        style={{ cursor: 'pointer', position: 'absolute', right: '8px', top: '28px', background: '#1e3a8a', color: 'white', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}
-                                                    >✕</span>
-                                                )}
                                             </div>
 
                                             <div><Label>Vendor ID</Label><Input value={formData.vendor_id} readOnly style={{ backgroundColor: '#f8fafc', fontWeight: '600' }} /></div>
                                         </div>
                                     </FormGrid>
-                                </FormCard>
+                                 </FormCard>
 
                                 <FormCard>
                                     <SectionTitleCard $color="#6366f1">
@@ -835,7 +1373,7 @@ const StoresGRNGeneration = () => {
                                     </SectionTitleCard>
                                     <FormGrid $minWidth="160px">
                                         <div><Label required>Invoice No</Label><Input placeholder="EX: INV-1001" name="invoice_no" value={formData.invoice_no} onChange={handleInputChange} disabled={isVerified} /></div>
-                                        <div style={{ position: 'relative' }}>
+                                        <div>
                                             <Label required>Invoice Date</Label>
                                             <DatePicker
                                                 value={formData.invoice_date ? dayjs(formData.invoice_date) : null}
@@ -846,12 +1384,6 @@ const StoresGRNGeneration = () => {
                                                 disabled={isVerified}
                                                 style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
                                             />
-                                            {formData.invoice_date && !isVerified && (
-                                                <span
-                                                    onClick={() => handleInputChange({ target: { name: 'invoice_date', value: '' } })}
-                                                    style={{ cursor: 'pointer', position: 'absolute', right: '8px', top: '28px', background: '#1e3a8a', color: 'white', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}
-                                                >✕</span>
-                                            )}
                                         </div>
 
                                         <div><Label>Credit (Days)</Label><Input name="credit_period" value={formData.credit_period} onChange={handleInputChange} disabled={isVerified} /></div>
@@ -1113,118 +1645,521 @@ const StoresGRNGeneration = () => {
                 {/* 7. Enhanced Add Item Modal */}
                 {showAddItemModal && (
                     <ModalOverlay onClick={e => e.target === e.currentTarget && setShowAddItemModal(false)}>
-                        <ModalContainerAnimated style={{ maxWidth: '850px', borderRadius: '16px' }}>
-                            <ModalHeader style={{ background: colors.primary, color: 'white', padding: '20px 25px' }}>
-                                <ModalTitle style={{ color: 'white' }}>Catalog Item Entry</ModalTitle>
-                                <CloseButton style={{ color: 'white' }} onClick={() => setShowAddItemModal(false)}>✕</CloseButton>
+                        <ModalContainerAnimated style={{ maxWidth: '1150px', width: '95vw', borderRadius: '12px', overflow: 'hidden' }}>
+                            <ModalHeader style={{ background: '#1b7a70', color: 'white', padding: '14px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <ModalTitle style={{ color: 'white', fontSize: '1.15rem', fontWeight: '700', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Catalog Item Entry
+                                </ModalTitle>
+                                <CloseButton style={{ color: 'white', fontSize: '1.2rem' }} onClick={() => setShowAddItemModal(false)}>✕</CloseButton>
                             </ModalHeader>
-                            <ModalBody style={{ padding: '25px' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)', gap: '20px', marginBottom: '25px' }}>
-                                    <div style={{ gridColumn: 'span 3' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                            <Label required style={{ margin: 0 }}>Search Catalog Item</Label>
-                                            <span
-                                                onClick={() => setShowAddItemMasterModal(true)}
+                            <ModalBody style={{ padding: '20px 24px', background: '#ffffff', maxHeight: '85vh', overflowY: 'auto' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', gap: '22px' }}>
+                                    {/* ── LEFT COLUMN ── */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {/* 1. Item Name (without Purchase Order field) */}
+                                        <div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                <CompactLabel required style={{ margin: 0 }}>Item Name</CompactLabel>
+                                                <span
+                                                    onClick={() => setShowAddItemMasterModal(true)}
+                                                    style={{
+                                                        color: '#0d9488',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: '700',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '4px',
+                                                        background: '#f0fdfa',
+                                                        border: '1px solid #99f6e4'
+                                                    }}
+                                                >
+                                                    ➕ Add New Item
+                                                </span>
+                                            </div>
+                                            <Select
+                                                options={items.map(i => ({ value: i.item_id, label: i.itemName }))}
+                                                value={currentItem.item_id ? { value: currentItem.item_id, label: currentItem.name } : null}
+                                                onChange={handleItemSelect}
+                                                placeholder="Type item name to search..."
+                                                menuPortalTarget={document.body}
+                                                styles={{
+                                                    menuPortal: base => ({ ...base, zIndex: 10002 }),
+                                                    control: base => ({
+                                                        ...base,
+                                                        minHeight: '32px',
+                                                        height: '32px',
+                                                        fontSize: '0.82rem',
+                                                        borderRadius: '4px',
+                                                        borderColor: '#cbd5e1'
+                                                    }),
+                                                    valueContainer: base => ({ ...base, padding: '0 8px' }),
+                                                    indicatorsContainer: base => ({ ...base, height: '32px' })
+                                                }}
+                                            />
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
+                                                <span style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700' }}>Total Stock : {currentItem.totalStock || 0}</span>
+                                                <span style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700' }}>Dept Stock : {currentItem.deptStock || 0}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* 2. HSN Code, Batch, Expiry */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '10px' }}>
+                                            <div>
+                                                <CompactLabel>HSN Code</CompactLabel>
+                                                <div style={{ position: 'relative' }}>
+                                                    <CompactInput
+                                                        name="hsn"
+                                                        value={currentItem.hsn}
+                                                        onChange={handleCurrentItemChange}
+                                                        placeholder="HSN Code"
+                                                    />
+                                                    <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.8rem', pointerEvents: 'none' }}>🔍</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <CompactLabel>Batch</CompactLabel>
+                                                <CompactInput
+                                                    placeholder="EX: BT-001"
+                                                    name="batch"
+                                                    value={currentItem.batch}
+                                                    onChange={handleCurrentItemChange}
+                                                />
+                                            </div>
+                                            <div>
+                                                <CompactLabel>Expiry</CompactLabel>
+                                                <ExpiryDatePicker
+                                                    value={currentItem.expiry}
+                                                    onChange={(parsed) => {
+                                                        if (parsed) {
+                                                            setCurrentItem(prev => ({
+                                                                ...prev,
+                                                                expiry: parsed.expiry,
+                                                                expMonth: parsed.expMonth,
+                                                                expYear: parsed.expYear
+                                                            }));
+                                                        } else {
+                                                            setCurrentItem(prev => ({
+                                                                ...prev,
+                                                                expiry: '',
+                                                                expMonth: '',
+                                                                expYear: ''
+                                                            }));
+                                                        }
+                                                    }}
+                                                    placeholder="May 2027"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* 3. Packing, No.of Unit, Quantity, Free */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px' }}>
+                                            <div>
+                                                <CompactLabel>Packing</CompactLabel>
+                                                <CompactInput
+                                                    type="number"
+                                                    name="packing"
+                                                    value={currentItem.packing}
+                                                    onChange={handleCurrentItemChange}
+                                                />
+                                            </div>
+                                            <div>
+                                                <CompactLabel>No.of Unit</CompactLabel>
+                                                <CompactInput
+                                                    type="number"
+                                                    name="no_of_unit"
+                                                    value={currentItem.no_of_unit}
+                                                    onChange={handleCurrentItemChange}
+                                                />
+                                            </div>
+                                            <div>
+                                                <CompactLabel>Quantity</CompactLabel>
+                                                <CompactInput
+                                                    type="number"
+                                                    name="quantity"
+                                                    value={currentItem.quantity}
+                                                    onChange={handleCurrentItemChange}
+                                                    style={{ fontWeight: '700' }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <CompactLabel>Free</CompactLabel>
+                                                <CompactInput
+                                                    type="number"
+                                                    name="free"
+                                                    value={currentItem.free}
+                                                    onChange={handleCurrentItemChange}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* 4. Item Value, Packing Price, Unit Price */}
+                                        <div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                                                <div>
+                                                    <CompactLabel required>Item Value</CompactLabel>
+                                                    <MoneyInput
+                                                        name="itemValue"
+                                                        value={currentItem.itemValue}
+                                                        onChange={handleCurrentItemChange}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel>Packing Price</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currPackingPrice.toFixed(2))}
+                                                        readOnly
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel>Unit Price</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currUnitPrice.toFixed(2))}
+                                                        readOnly
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
+                                                <span style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700' }}>Last Purchase Free : {currentItem.lastPurchaseFree || 0}</span>
+                                                <span style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700' }}>Last Purchase Price : ₹{Number(currentItem.lastPurchasePrice || 0).toFixed(2)}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* 5. Purchase Tax Card */}
+                                        <div style={{ background: '#e8edf3', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px 12px', marginTop: '4px' }}>
+                                            <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>Purchase Tax</div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '10px' }}>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>Tax</CompactLabel>
+                                                    <Select
+                                                        options={taxOptions}
+                                                        value={taxOptions.find(t => t.value === currentItem.tax) || taxOptions[1]}
+                                                        onChange={(opt) => handleCurrentItemChange({ target: { name: 'tax', value: opt ? opt.value : 0 } })}
+                                                        menuPortalTarget={document.body}
+                                                        styles={{
+                                                            menuPortal: base => ({ ...base, zIndex: 10002 }),
+                                                            control: base => ({
+                                                                ...base,
+                                                                minHeight: '30px',
+                                                                height: '30px',
+                                                                fontSize: '0.78rem',
+                                                                borderRadius: '4px',
+                                                                borderColor: '#cbd5e1'
+                                                            }),
+                                                            valueContainer: base => ({ ...base, padding: '0 6px' }),
+                                                            indicatorsContainer: base => ({ ...base, height: '30px' })
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>CGST</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currCgstAmt.toFixed(2))}
+                                                        readOnly
+                                                        suffix="%"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>SGST</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currSgstAmt.toFixed(2))}
+                                                        readOnly
+                                                        suffix="%"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '10px', marginTop: '8px', alignItems: 'center' }}>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>IGST</CompactLabel>
+                                                    <MoneyInput
+                                                        value="0.00"
+                                                        readOnly
+                                                    />
+                                                </div>
+                                                <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', paddingTop: '16px' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#1e293b', cursor: 'pointer' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            name="purchaseTaxInclusive"
+                                                            checked={currentItem.purchaseTaxInclusive}
+                                                            onChange={handleCurrentItemChange}
+                                                        />
+                                                        Tax Inclusive
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* 6. Purchase Discount (%) and Purchase Cost */}
+                                        <div style={{ marginTop: '4px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '14px', alignItems: 'flex-start' }}>
+                                                <div>
+                                                    <CompactLabel>Purchase Discount (%)</CompactLabel>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                                        <CompactInput
+                                                            type="number"
+                                                            name="purchaseDiscountPercent"
+                                                            value={currentItem.purchaseDiscountPercent}
+                                                            onChange={handleCurrentItemChange}
+                                                            placeholder="0"
+                                                        />
+                                                        <MoneyInput
+                                                            name="purchaseDiscountAmt"
+                                                            value={Number(currDiscountAmt.toFixed(2))}
+                                                            onChange={handleCurrentItemChange}
+                                                        />
+                                                    </div>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#1e293b', cursor: 'pointer', marginTop: '6px' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            name="deductDiscountForTax"
+                                                            checked={currentItem.deductDiscountForTax}
+                                                            onChange={handleCurrentItemChange}
+                                                        />
+                                                        Deduct discount for tax calc
+                                                    </label>
+                                                </div>
+                                                <div>
+                                                    <CompactLabel>Purchase Cost</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currPurchaseCost.toFixed(2))}
+                                                        readOnly
+                                                        style={{ fontWeight: '700' }}
+                                                    />
+                                                    <div style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700', marginTop: '3px', textAlign: 'right' }}>
+                                                        Last Purchase Cost : ₹{Number(currentItem.lastPurchaseCost || 0).toFixed(2)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* ── RIGHT COLUMN ── */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {/* 1. Max Retail Price & Max Packing MRP */}
+                                        <div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                <div>
+                                                    <CompactLabel>Max Retail Price</CompactLabel>
+                                                    <MoneyInput
+                                                        name="mrp"
+                                                        value={currentItem.mrp}
+                                                        onChange={handleCurrentItemChange}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel>Max Packing MRP</CompactLabel>
+                                                    <MoneyInput
+                                                        name="maxPackingMrp"
+                                                        value={Number(currMaxPackingMrp.toFixed(2))}
+                                                        onChange={handleCurrentItemChange}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700', marginTop: '3px' }}>
+                                                Last MRP : ₹{Number(currentItem.lastMrp || 0).toFixed(2)}
+                                            </div>
+                                        </div>
+
+                                        {/* 2. Selling Tax Card */}
+                                        <div style={{ background: '#e8edf3', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px 12px', marginTop: '4px' }}>
+                                            <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>Selling Tax</div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '10px' }}>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>Tax</CompactLabel>
+                                                    <Select
+                                                        options={taxOptions}
+                                                        value={taxOptions.find(t => t.value === currentItem.sellingTax) || taxOptions[1]}
+                                                        onChange={(opt) => handleCurrentItemChange({ target: { name: 'sellingTax', value: opt ? opt.value : 0 } })}
+                                                        menuPortalTarget={document.body}
+                                                        styles={{
+                                                            menuPortal: base => ({ ...base, zIndex: 10002 }),
+                                                            control: base => ({
+                                                                ...base,
+                                                                minHeight: '30px',
+                                                                height: '30px',
+                                                                fontSize: '0.78rem',
+                                                                borderRadius: '4px',
+                                                                borderColor: '#cbd5e1'
+                                                            }),
+                                                            valueContainer: base => ({ ...base, padding: '0 6px' }),
+                                                            indicatorsContainer: base => ({ ...base, height: '30px' })
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>CGST</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currSellingCgst.toFixed(2))}
+                                                        readOnly
+                                                        suffix="%"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>SGST</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currSellingSgst.toFixed(2))}
+                                                        readOnly
+                                                        suffix="%"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ marginTop: '8px' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#1e293b', cursor: 'pointer' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        name="sellingTaxInclusive"
+                                                        checked={currentItem.sellingTaxInclusive}
+                                                        onChange={handleCurrentItemChange}
+                                                    />
+                                                    Tax Inclusive
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {/* 3. Selling Discount (%), Price, IP Price */}
+                                        <div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                                                <div>
+                                                    <CompactLabel>Selling Discount (%)</CompactLabel>
+                                                    <CompactInput
+                                                        type="number"
+                                                        name="sellingDiscountPercent"
+                                                        value={currentItem.sellingDiscountPercent}
+                                                        onChange={handleCurrentItemChange}
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel>Price</CompactLabel>
+                                                    <MoneyInput
+                                                        name="price"
+                                                        value={Number(currSellingPrice.toFixed(2))}
+                                                        onChange={handleCurrentItemChange}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel>IP Price</CompactLabel>
+                                                    <MoneyInput
+                                                        name="ipPrice"
+                                                        value={Number(currIpPrice.toFixed(2))}
+                                                        onChange={handleCurrentItemChange}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700', marginTop: '3px' }}>
+                                                Last Selling Price : ₹{Number(currentItem.lastSellingPrice || 0).toFixed(2)}
+                                            </div>
+                                        </div>
+
+                                        {/* 4. Tax on Free Card */}
+                                        <div style={{ background: '#e8edf3', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px 12px', marginTop: '4px' }}>
+                                            <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>Tax on Free</div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#1e293b', cursor: 'pointer', marginBottom: '8px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    name="calcTaxOnFree"
+                                                    checked={currentItem.calcTaxOnFree}
+                                                    onChange={handleCurrentItemChange}
+                                                />
+                                                Calculate Tax On Free
+                                            </label>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>Total Tax</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currFreeTax.toFixed(2))}
+                                                        readOnly
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>CGST</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currFreeCgst.toFixed(2))}
+                                                        readOnly
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>SGST</CompactLabel>
+                                                    <MoneyInput
+                                                        value={Number(currFreeSgst.toFixed(2))}
+                                                        readOnly
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>IGST</CompactLabel>
+                                                    <MoneyInput
+                                                        value="0.00"
+                                                        readOnly
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* 5. Replacement Checkbox */}
+                                        <div style={{ marginTop: '4px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#1e293b', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    name="isReplacement"
+                                                    checked={currentItem.isReplacement}
+                                                    onChange={handleCurrentItemChange}
+                                                />
+                                                Replacement
+                                            </label>
+                                        </div>
+
+                                        {/* 6. Action Buttons */}
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={addItemToGrn}
                                                 style={{
-                                                    color: colors.primary,
+                                                    background: '#0d9488',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    padding: '7px 20px',
+                                                    fontWeight: '600',
                                                     fontSize: '0.85rem',
-                                                    fontWeight: '700',
                                                     cursor: 'pointer',
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '4px',
-                                                    padding: '4px 8px',
-                                                    borderRadius: '6px',
-                                                    background: '#f0fdfa',
-                                                    border: `1px solid ${colors.primary}40`
+                                                    gap: '6px',
+                                                    boxShadow: '0 2px 4px rgba(13, 148, 136, 0.2)'
                                                 }}
                                             >
-                                                ➕ Add New Item
-                                            </span>
+                                                💾 Save
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAddItemModal(false)}
+                                                style={{
+                                                    background: '#334155',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    padding: '7px 20px',
+                                                    fontWeight: '600',
+                                                    fontSize: '0.85rem',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px'
+                                                }}
+                                            >
+                                                ✕ Close
+                                            </button>
                                         </div>
-                                        <Select
-                                            options={items.map(i => ({ value: i.item_id, label: i.itemName }))}
-                                            value={currentItem.item_id ? { value: currentItem.item_id, label: currentItem.name } : null}
-                                            onChange={handleItemSelect}
-                                            placeholder="Type item name to search..."
-                                            menuPortalTarget={document.body}
-                                            styles={{
-                                                menuPortal: base => ({ ...base, zIndex: 9999 }),
-                                                control: (base) => ({
-                                                    ...base,
-                                                    padding: '5px',
-                                                    borderRadius: '10px',
-                                                    border: `1px solid ${colors.border}`
-                                                })
-                                            }}
-                                        />
-                                    </div>
-                                    <div><Label>HSN Code</Label><Input value={currentItem.hsn} readOnly style={{ background: '#f8fafc' }} /></div>
-                                    <div><Label>Batch Number</Label><Input placeholder="EX: BT-001" name="batch" value={currentItem.batch} onChange={handleCurrentItemChange} /></div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
-                                        <div>
-                                            <Label>Expiry Month</Label>
-                                            <Select
-                                                options={months}
-                                                value={months.find(m => m.value === currentItem.expMonth)}
-                                                onChange={(opt) => handleCurrentItemChange({ target: { name: 'expMonth', value: opt ? opt.value : '' } })}
-                                                placeholder="MM"
-                                                menuPortalTarget={document.body}
-                                                styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label>Expiry Year</Label>
-                                            <Select
-                                                options={years}
-                                                value={years.find(y => y.value === currentItem.expYear)}
-                                                onChange={(opt) => handleCurrentItemChange({ target: { name: 'expYear', value: opt ? opt.value : '' } })}
-                                                placeholder="YYYY"
-                                                menuPortalTarget={document.body}
-                                                styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '25px', padding: '20px', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7' }}>
-                                    <div><Label>Packing (Units)</Label><Input name="packing" value={currentItem.packing} onChange={handleCurrentItemChange} /></div>
-                                    <div><Label>No. of Units</Label><Input name="no_of_unit" value={currentItem.no_of_unit} onChange={handleCurrentItemChange} /></div>
-                                    <div><Label>Total Qty</Label><Input value={currentItem.quantity} readOnly style={{ fontWeight: '700', color: colors.primaryDark, background: 'rgba(255,255,255,0.7)' }} /></div>
-                                    <div><Label>Free Units</Label><Input name="free" value={currentItem.free} onChange={handleCurrentItemChange} /></div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '10px', padding: '20px', background: '#fefce8', borderRadius: '12px', border: '1px solid #fef08a' }}>
-                                    <div><Label required>Base Value (Net)</Label><Input placeholder="0.00" name="itemValue" value={currentItem.itemValue} onChange={handleCurrentItemChange} style={{ fontWeight: '700' }} /></div>
-                                    <div><Label>MRP (Per Unit)</Label><Input placeholder="0.00" name="mrp" value={currentItem.mrp} onChange={handleCurrentItemChange} /></div>
-                                    <div>
-                                        <Label>GST Bracket</Label>
-                                        <Select
-                                            options={[{ value: 0, label: '0% (Exempt)' }, { value: 5, label: '5%' }, { value: 12, label: '12%' }, { value: 18, label: '18%' }, { value: 28, label: '28%' }]}
-                                            value={{ value: currentItem.tax, label: `${currentItem.tax}%` }}
-                                            onChange={(o) => handleCurrentItemChange({ target: { name: 'tax', value: o.value } })}
-                                            menuPlacement="top"
-                                            menuPortalTarget={document.body}
-                                            styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                                        />
-                                    </div>
-                                    <div><Label>Discount %</Label><Input placeholder="0%" name="purchaseDiscountPercent" value={currentItem.purchaseDiscountPercent} onChange={handleCurrentItemChange} /></div>
-                                </div>
-
-                                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', background: '#f8fafc', borderRadius: '10px' }}>
-                                    <div style={{ display: 'flex', gap: '20px' }}>
-                                        <div>
-                                            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>Unit Buying Cost</div>
-                                            <div style={{ fontSize: '1.1rem', fontWeight: '700' }}>₹{currUnitCost.toFixed(2)}</div>
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>Total Buying Cost</div>
-                                            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: colors.primary }}>₹{currPurchaseCost.toFixed(2)}</div>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        <Button secondary onClick={() => setShowAddItemModal(false)} style={{ padding: '10px 25px' }}>Discard</Button>
-                                        <Button onClick={() => { addItemToGrn(); setShowAddItemModal(false); }} style={{ padding: '10px 30px', fontWeight: '700', boxShadow: `0 4px 6px rgba(13, 148, 136, 0.2)` }}>Add to Grn</Button>
                                     </div>
                                 </div>
                             </ModalBody>
