@@ -3,6 +3,8 @@ import apiRequest from "../../Auth/apiRequest";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import styled from "styled-components";
+import { FaSearch, FaSyncAlt } from "react-icons/fa";
+
 import {
   PageWrapper,
   colors,
@@ -114,7 +116,6 @@ const StyledToastContainer = styled(ToastContainer)`
   }
 `;
 
-import { FaSearch, FaSyncAlt } from "react-icons/fa";
 
 const SearchInputWrapper = styled.div`
   display: flex;
