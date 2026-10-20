@@ -230,6 +230,7 @@ import InpatientQRScan from "./Components/QRScan/InpatientQRScan";
 import OutPatientQRScan from "./Components/QRScan/OutPatientQRScan";
 import Registration360 from "./Components/Shanmuga360/360Registration";
 import Reports360 from "./Components/Shanmuga360/Reports";
+import BreastCancerScreening from "./Components/TANUH/BreastCancerScreening";
 
 
 
@@ -1941,6 +1942,9 @@ function App() {
               <Route path="/reports" element={<Reports360 />} />
               <Route path="/Shanmuga360/Reports" element={<Reports360 />} />
               <Route path="/shanmuga360/reports" element={<Reports360 />} />
+
+              {/* TANUH Breast Cancer Screening */}
+              <Route path="/BreastCancerScreening" element={<BreastCancerScreening />} />
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />

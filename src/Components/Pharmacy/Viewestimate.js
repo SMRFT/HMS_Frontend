@@ -206,6 +206,27 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
     }
   };
 
+  const formatDateTime = (rawDate) => {
+    if (!rawDate) return "—";
+    let s = String(rawDate).trim();
+    // MongoDB stores naive UTC datetimes. If missing timezone offset or 'Z',
+    // append 'Z' so JavaScript interprets it as UTC instead of local system time.
+    if (s && s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
+      s += "Z";
+    }
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
+  };
+
   // Filter by search query (Estimate No, Patient Name, UHID, Doctor)
   const filteredEstimates = estimates.filter((e) => {
     if (!searchTerm.trim()) return true;
@@ -272,17 +293,7 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
                 </thead>
                 <tbody>
                   {filteredEstimates.map((estimate, index) => {
-                    const rawDate = estimate.bill_date || estimate.created_date;
-                    const dateFormatted = rawDate
-                      ? new Date(rawDate).toLocaleString("en-IN", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })
-                      : "—";
+                    const dateFormatted = formatDateTime(estimate.bill_date || estimate.created_date);
 
                     return (
                       <Tr key={estimate.Bill_id || index}>

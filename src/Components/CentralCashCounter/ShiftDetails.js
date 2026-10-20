@@ -107,13 +107,23 @@ const getCurrentTime = () => {
 const parseBackendDate = (val) => {
   if (!val) return null;
   if (val instanceof Date) return val;
-  return new Date(String(val).replace(" ", "T"));
+  let s = String(val).trim().replace(" ", "T");
+  if (s && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
+    s += "Z";
+  }
+  return new Date(s);
 };
 
 const toHHMMSS = (val) => {
   const d = parseBackendDate(val);
   if (!d || isNaN(d.getTime())) return "--:--:--";
-  return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+  return d.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Kolkata",
+  });
 };
 
 const formatDateTime = (val) => {
@@ -312,14 +322,27 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       const res = await apiRequest(`${HmsBaseUrl}cash_counter_shiftdetails/`, "POST", payload);
       console.log("🚀 [ShiftDetails] Start:", res);
 
-      if (res?.success && res?.data?.success) {
-        // Paint from POST response first (instant feedback)
-        applyShiftData(res.data.data);
-        addAlert("success", `Shift started — ${res.data.data.shiftno}`);
+      const shiftObj = res?.data?.data || (res?.data?.shiftno ? res.data : null);
 
-        // ✅ Immediate GET to refresh all fields from DB
-        const fresh = await fetchActiveShift(cashCounterId || resolvedOutlet);
-        if (onShiftChange) onShiftChange(fresh || res.data);
+      if (res?.success && (res?.data?.success || shiftObj)) {
+        if (shiftObj) applyShiftData(shiftObj);
+        addAlert("success", `Shift started — ${shiftObj?.shiftno || ""}`);
+
+        // ✅ Immediately notify parent with the clean active shift object so UI updates instantly
+        if (onShiftChange && shiftObj) {
+          onShiftChange(shiftObj);
+        }
+
+        // Also fetch fresh active shift to ensure all totals & cashcounter mapping are in sync
+        const fresh = await fetchActiveShift(shiftObj?.CashCounter || cashCounterId || resolvedOutlet);
+        if (fresh && onShiftChange) {
+          onShiftChange(fresh);
+        }
+
+        // Close modal after brief success feedback so the user sees the active counter on the main screen immediately
+        setTimeout(() => {
+          if (onClose) onClose();
+        }, 600);
 
       } else {
         addAlert("error", res?.data?.message || res?.message || "Failed to start shift.");
@@ -364,15 +387,23 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       const res = await apiRequest(`${HmsBaseUrl}cash_counter_shiftdetails/`, "PATCH", payload);
       console.log("🛑 [ShiftDetails] Stop:", res);
 
-      if (res?.success && res?.data?.success) {
-        // Paint from PATCH response first (instant feedback)
-        applyShiftData(res.data);
-        addAlert("success", res.message || "Shift closed successfully.");
+      const closedData = res?.data?.data || (res?.data?.shiftno ? res.data : null);
 
-        // ✅ Immediate GET — closed shift won't return from get_active_shift,
-        // so fall back to PATCH data for parent notification
+      if (res?.success && (res?.data?.success || closedData)) {
+        if (closedData) applyShiftData(closedData);
+        addAlert("success", res.message || res?.data?.message || "Shift closed successfully.");
+
+        // Immediately notify parent that shift is closed
+        if (onShiftChange) {
+          onShiftChange(closedData ? { ...closedData, is_active: false, ShiftStatus: "inactive" } : null);
+        }
+
         const fresh = await fetchActiveShift(cashCounterId || resolvedOutlet);
-        if (onShiftChange) onShiftChange(fresh || res.data);
+        if (onShiftChange) onShiftChange(fresh || null);
+
+        setTimeout(() => {
+          if (onClose) onClose();
+        }, 600);
 
       } else {
         addAlert("error", res?.data?.message || res?.message || "Failed to close shift.");
