@@ -95,6 +95,21 @@ const FormGrid = styled.div`
     padding: 20px;
 `;
 
+const PurchaseInfoGrid = styled.div`
+    display: grid;
+    grid-template-columns: minmax(130px, 1fr) minmax(280px, 2.6fr) minmax(130px, 1fr) minmax(65px, 0.55fr);
+    gap: 12px;
+    padding: 20px;
+    align-items: flex-start;
+
+    @media (max-width: 1100px) {
+        grid-template-columns: 1fr 2fr;
+    }
+    @media (max-width: 600px) {
+        grid-template-columns: 1fr;
+    }
+`;
+
 const SummaryGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -710,6 +725,8 @@ const StoresGRNGeneration = () => {
     const [grnItems, setGrnItems] = useState([]);
     const [showAddItemModal, setShowAddItemModal] = useState(false);
     const [showAddItemMasterModal, setShowAddItemMasterModal] = useState(false);
+    const [showVendorListModal, setShowVendorListModal] = useState(false);
+    const [vendorSearchQuery, setVendorSearchQuery] = useState('');
 
     const [newItemMasterData, setNewItemMasterData] = useState({
         itemName: '',
@@ -870,26 +887,41 @@ const StoresGRNGeneration = () => {
         setFormData({ ...formData, [name]: value });
     };
 
-    const handleVendorChange = (option) => {
-        if (option) {
-            const vendor = vendors.find(v => v.vendor_id === option.value);
-            setFormData({
-                ...formData,
-                vendor_id: vendor.vendor_id,
-                supplier_address: vendor.addressLine1 || vendor.address_line_1 || '',
-                contact_person: vendor.contactPerson || vendor.contact_person || '',
-                phone: vendor.phone || ''
-            });
-        } else {
-            setFormData({
-                ...formData,
-                vendor_id: '',
-                supplier_address: '',
-                contact_person: '',
-                phone: ''
-            });
-        }
+    const handleClearVendor = (e) => {
+        if (e) e.stopPropagation();
+        setFormData(prev => ({
+            ...prev,
+            vendor_id: '',
+            supplier_address: '',
+            contact_person: '',
+            phone: ''
+        }));
     };
+
+    const handleSelectVendorFromModal = (vendor) => {
+        if (!vendor) return;
+        setFormData(prev => ({
+            ...prev,
+            vendor_id: vendor.vendor_id,
+            supplier_address: vendor.addressLine1 || vendor.address_line_1 || vendor.address || '',
+            contact_person: vendor.contactPerson || vendor.contact_person || '',
+            phone: vendor.phone || ''
+        }));
+        setShowVendorListModal(false);
+        setVendorSearchQuery('');
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && showVendorListModal) {
+                setShowVendorListModal(false);
+            }
+        };
+        if (showVendorListModal) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showVendorListModal]);
 
     const handleCurrentItemChange = (e) => {
         let { name, value, type, checked } = e.target;
@@ -1327,8 +1359,7 @@ const StoresGRNGeneration = () => {
                                     <SectionTitleCard>
                                         <h3>Purchase Information</h3>
                                     </SectionTitleCard>
-                                    <FormGrid>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                                    <PurchaseInfoGrid>
                                             <div>
                                                 <Label required>Category</Label>
                                                 <Select
@@ -1341,13 +1372,81 @@ const StoresGRNGeneration = () => {
                                             </div>
                                             <div>
                                                 <Label required>Vendor</Label>
-                                                <Select
-                                                    options={vendors.map(v => ({ value: v.vendor_id, label: v.name }))}
-                                                    value={vendors.find(v => v.vendor_id === formData.vendor_id) ? { value: formData.vendor_id, label: vendors.find(v => v.vendor_id === formData.vendor_id).name } : null}
-                                                    onChange={handleVendorChange}
-                                                    menuPortalTarget={document.body}
-                                                    styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                                                />
+                                                <div
+                                                    onClick={() => {
+                                                        if (!isVerified) {
+                                                            setVendorSearchQuery('');
+                                                            setShowVendorListModal(true);
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '34px',
+                                                        padding: '0 10px',
+                                                        borderRadius: '6px',
+                                                        border: `1px solid ${formData.vendor_id ? '#0d9488' : colors.border}`,
+                                                        backgroundColor: isVerified ? '#f1f5f9' : (formData.vendor_id ? '#f0fdfa' : '#ffffff'),
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        cursor: isVerified ? 'not-allowed' : 'pointer',
+                                                        transition: 'all 0.15s ease',
+                                                        boxShadow: formData.vendor_id ? '0 0 0 1px rgba(13,148,136,0.1)' : 'none',
+                                                        overflow: 'hidden',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                    title={(() => {
+                                                        if (isVerified) return 'Vendor locked';
+                                                        const found = vendors.find(v => v.vendor_id === formData.vendor_id);
+                                                        return found ? `${found.name || found.vendor_name} (Click to change vendor)` : 'Click to select vendor from modal';
+                                                    })()}
+                                                >
+                                                    <div style={{
+                                                        flex: 1,
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                        fontSize: '0.85rem',
+                                                        color: formData.vendor_id ? '#0f172a' : '#94a3b8',
+                                                        fontWeight: formData.vendor_id ? '600' : 'normal',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}>
+                                                        <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>🏢</span>
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {(() => {
+                                                                if (!formData.vendor_id) return 'Click to select vendor...';
+                                                                const found = vendors.find(v => v.vendor_id === formData.vendor_id);
+                                                                return found ? (found.name || found.vendor_name) : formData.vendor_id;
+                                                            })()}
+                                                        </span>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px', flexShrink: 0 }}>
+                                                        {formData.vendor_id && !isVerified && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleClearVendor}
+                                                                title="Clear selected vendor"
+                                                                style={{
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    color: '#94a3b8',
+                                                                    cursor: 'pointer',
+                                                                    padding: '2px 5px',
+                                                                    fontSize: '12px',
+                                                                    lineHeight: 1,
+                                                                    borderRadius: '4px'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                                                                onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div>
                                                 <Label required>GRN Date</Label>
@@ -1362,9 +1461,8 @@ const StoresGRNGeneration = () => {
                                                 />
                                             </div>
 
-                                            <div><Label>Vendor ID</Label><Input value={formData.vendor_id} readOnly style={{ backgroundColor: '#f8fafc', fontWeight: '600' }} /></div>
-                                        </div>
-                                    </FormGrid>
+                                            <div><Label>Vendor ID</Label><Input value={formData.vendor_id} readOnly style={{ backgroundColor: '#f8fafc', fontWeight: '600', textAlign: 'center' }} /></div>
+                                    </PurchaseInfoGrid>
                                  </FormCard>
 
                                 <FormCard>
@@ -1402,8 +1500,25 @@ const StoresGRNGeneration = () => {
                             </div>
 
                             <FormCard style={{ height: 'fit-content' }}>
-                                <SectionTitleCard $color="#b45309">
+                                <SectionTitleCard $color="#b45309" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <h3>Supplier Snapshot</h3>
+                                    {!isVerified && (
+                                        <span
+                                            onClick={() => { setVendorSearchQuery(''); setShowVendorListModal(true); }}
+                                            style={{
+                                                color: '#b45309',
+                                                fontSize: '0.72rem',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '3px'
+                                            }}
+                                            title="Open Vendor Directory Modal"
+                                        >
+                                            📋 Browse List
+                                        </span>
+                                    )}
                                 </SectionTitleCard>
                                 <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                     <div><Label>Vendor ID</Label><Input value={formData.vendor_id} readOnly style={{ backgroundColor: '#f8fafc', fontWeight: '600' }} /></div>
@@ -1641,6 +1756,220 @@ const StoresGRNGeneration = () => {
                         </FormCard>
                     </form>
                 </Container>
+
+                {/* Vendor List Modal */}
+                {showVendorListModal && (() => {
+                    const q = (vendorSearchQuery || '').toLowerCase().trim();
+                    const filteredVendors = vendors.filter(v => {
+                        if (!q) return true;
+                        const name = (v.name || v.vendor_name || '').toLowerCase();
+                        const code = (v.vendor_id || '').toLowerCase();
+                        const contact = (v.contactPerson || v.contact_person || '').toLowerCase();
+                        const phone = (v.phone || '').toLowerCase();
+                        const gstin = (v.gstin || '').toLowerCase();
+                        const city = (v.city || '').toLowerCase();
+                        return name.includes(q) || code.includes(q) || contact.includes(q) || phone.includes(q) || gstin.includes(q) || city.includes(q);
+                    });
+
+                    return (
+                        <ModalOverlay onClick={e => e.target === e.currentTarget && setShowVendorListModal(false)} style={{ zIndex: 10000 }}>
+                            <ModalContainerAnimated style={{ maxWidth: '980px', width: '95vw', maxHeight: '90vh', borderRadius: '14px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                                <ModalHeader style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)', color: 'white', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <ModalTitle style={{ color: 'white', fontSize: '1.2rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            🏢 Vendor Directory
+                                            <span style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.25)', padding: '2px 10px', borderRadius: '12px', fontWeight: '600' }}>
+                                                {vendors.length} Total
+                                            </span>
+                                        </ModalTitle>
+                                        <div style={{ fontSize: '0.78rem', color: '#ccfbf1', marginTop: '3px' }}>
+                                            Search and select a vendor for this Goods Receipt Note
+                                        </div>
+                                    </div>
+                                    <CloseButton style={{ color: 'white', fontSize: '1.3rem' }} onClick={() => setShowVendorListModal(false)}>✕</CloseButton>
+                                </ModalHeader>
+
+                                <ModalBody style={{ padding: '20px 24px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, overflow: 'hidden' }}>
+                                    {/* Search Bar */}
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                        <div style={{ position: 'relative', flex: 1 }}>
+                                            <input
+                                                type="text"
+                                                autoFocus
+                                                value={vendorSearchQuery}
+                                                onChange={(e) => setVendorSearchQuery(e.target.value)}
+                                                placeholder="Search by Vendor Name, Code / ID, Contact Person, Phone, GSTIN, City..."
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px 38px 10px 14px',
+                                                    borderRadius: '8px',
+                                                    border: '1.5px solid #cbd5e1',
+                                                    fontSize: '0.9rem',
+                                                    outline: 'none',
+                                                    background: '#ffffff',
+                                                    color: '#0f172a',
+                                                    boxSizing: 'border-box'
+                                                }}
+                                            />
+                                            {vendorSearchQuery && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setVendorSearchQuery('')}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: '10px',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        background: '#94a3b8',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '50%',
+                                                        width: '18px',
+                                                        height: '18px',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '11px'
+                                                    }}
+                                                >✕</button>
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                                            Showing <strong>{filteredVendors.length}</strong> of {vendors.length}
+                                        </div>
+                                    </div>
+
+                                    {/* Vendor Table */}
+                                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#ffffff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                            <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+                                                <tr style={{ background: '#f0fdfa', borderBottom: '2px solid #0d9488' }}>
+                                                    <th style={{ padding: '10px 8px', textAlign: 'center', width: '35px', color: '#0f766e', fontWeight: '700' }}>#</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', width: '110px', color: '#0f766e', fontWeight: '700' }}>Code / ID</th>
+                                                    <th style={{ padding: '10px 14px', textAlign: 'left', color: '#0f766e', fontWeight: '700' }}>Vendor Name</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', color: '#0f766e', fontWeight: '700' }}>Contact Person</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', color: '#0f766e', fontWeight: '700' }}>Phone</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', color: '#0f766e', fontWeight: '700' }}>GSTIN</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', color: '#0f766e', fontWeight: '700' }}>City / State</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'center', width: '110px', color: '#0f766e', fontWeight: '700' }}>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredVendors.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="8" style={{ textAlign: 'center', padding: '50px 20px', color: '#64748b' }}>
+                                                            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔍</div>
+                                                            <div style={{ fontWeight: '700', fontSize: '1rem', color: '#334155' }}>No vendors found</div>
+                                                            <div style={{ fontSize: '0.82rem', marginTop: '4px' }}>
+                                                                {vendorSearchQuery ? `No vendor matches "${vendorSearchQuery}"` : 'No vendors registered in the system.'}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    filteredVendors.map((v, idx) => {
+                                                        const isSelected = v.vendor_id === formData.vendor_id;
+                                                        const location = [v.city, v.state].filter(Boolean).join(', ') || '—';
+                                                        return (
+                                                            <tr
+                                                                key={v.vendor_id || idx}
+                                                                onClick={() => handleSelectVendorFromModal(v)}
+                                                                style={{
+                                                                    borderBottom: '1px solid #f1f5f9',
+                                                                    background: isSelected ? '#f0fdfa' : idx % 2 === 0 ? '#ffffff' : '#f8fafc',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background 0.15s'
+                                                                }}
+                                                                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f1f5f9'; }}
+                                                                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#f8fafc'; }}
+                                                            >
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>{idx + 1}</td>
+                                                                <td style={{ padding: '10px 12px', fontWeight: '700', color: '#0d9488', fontFamily: 'monospace' }}>
+                                                                    {v.vendor_id || '—'}
+                                                                </td>
+                                                                <td style={{ padding: '10px 14px' }}>
+                                                                    <div style={{ fontWeight: '700', color: '#0f172a' }}>{v.name || v.vendor_name || '—'}</div>
+                                                                    {v.addressLine1 && (
+                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                            {v.addressLine1}
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px', color: '#334155' }}>
+                                                                    {v.contactPerson || v.contact_person || '—'}
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px', color: '#334155', fontWeight: '500' }}>
+                                                                    {v.phone || '—'}
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px', color: '#475569', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                                                                    {v.gstin || '—'}
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                                                                    {location}
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                                                    {isSelected ? (
+                                                                        <span style={{
+                                                                            background: '#0d9488',
+                                                                            color: 'white',
+                                                                            padding: '4px 10px',
+                                                                            borderRadius: '6px',
+                                                                            fontSize: '0.75rem',
+                                                                            fontWeight: '700',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '3px'
+                                                                        }}>
+                                                                            ✓ Selected
+                                                                        </span>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => { e.stopPropagation(); handleSelectVendorFromModal(v); }}
+                                                                            style={{
+                                                                                background: '#ffffff',
+                                                                                color: '#0d9488',
+                                                                                border: '1.5px solid #0d9488',
+                                                                                padding: '4px 12px',
+                                                                                borderRadius: '6px',
+                                                                                fontSize: '0.78rem',
+                                                                                fontWeight: '700',
+                                                                                cursor: 'pointer',
+                                                                                transition: 'all 0.15s'
+                                                                            }}
+                                                                            onMouseEnter={e => { e.currentTarget.style.background = '#0d9488'; e.currentTarget.style.color = '#ffffff'; }}
+                                                                            onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.color = '#0d9488'; }}
+                                                                        >
+                                                                            Select
+                                                                        </button>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Footer Actions */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                            {formData.vendor_id ? (
+                                                <span>Current Selection: <strong style={{ color: '#0d9488' }}>{vendors.find(v => v.vendor_id === formData.vendor_id)?.name || formData.vendor_id}</strong> ({formData.vendor_id})</span>
+                                            ) : (
+                                                <span>No vendor selected yet</span>
+                                            )}
+                                        </div>
+                                        <Button secondary onClick={() => setShowVendorListModal(false)} style={{ padding: '8px 24px' }}>
+                                            Close
+                                        </Button>
+                                    </div>
+                                </ModalBody>
+                            </ModalContainerAnimated>
+                        </ModalOverlay>
+                    );
+                })()}
 
                 {/* 7. Enhanced Add Item Modal */}
                 {showAddItemModal && (
