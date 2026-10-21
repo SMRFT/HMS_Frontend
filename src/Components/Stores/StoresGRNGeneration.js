@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import Select from 'react-select';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -722,25 +722,7 @@ const StoresGRNGeneration = () => {
 
 
 
-    const [grnItems, setGrnItems] = useState([]);
-    const [showAddItemModal, setShowAddItemModal] = useState(false);
-    const [showAddItemMasterModal, setShowAddItemMasterModal] = useState(false);
-    const [showVendorListModal, setShowVendorListModal] = useState(false);
-    const [vendorSearchQuery, setVendorSearchQuery] = useState('');
-
-    const [newItemMasterData, setNewItemMasterData] = useState({
-        itemName: '',
-        department: '',
-        category: '',
-        group: '',
-        group_type: '',
-        hsn: '',
-        stockReorderLevel: '',
-        total_quantity: 0,
-        approved_quantity: 0
-    });
-
-    const [currentItem, setCurrentItem] = useState({
+    const initialCurrentItemState = {
         item_id: '',
         name: '',
         hsn: '',
@@ -777,7 +759,32 @@ const StoresGRNGeneration = () => {
         lastPurchaseCost: 0,
         lastMrp: 0,
         lastSellingPrice: 0
+    };
+
+    const [grnItems, setGrnItems] = useState([]);
+    const [editingItemId, setEditingItemId] = useState(null);
+    const [showAddItemModal, setShowAddItemModal] = useState(false);
+    const [showAddItemMasterModal, setShowAddItemMasterModal] = useState(false);
+    const [showVendorListModal, setShowVendorListModal] = useState(false);
+    const [vendorSearchQuery, setVendorSearchQuery] = useState('');
+    const [hsnSearchActive, setHsnSearchActive] = useState(false);
+    const [hsnSuggestions, setHsnSuggestions] = useState([]);
+    const [isHsnSearching, setIsHsnSearching] = useState(false);
+    const hsnDropdownRef = useRef(null);
+
+    const [newItemMasterData, setNewItemMasterData] = useState({
+        itemName: '',
+        department: '',
+        category: '',
+        group: '',
+        group_type: '',
+        hsn: '',
+        stockReorderLevel: '',
+        total_quantity: 0,
+        approved_quantity: 0
     });
+
+    const [currentItem, setCurrentItem] = useState(initialCurrentItemState);
 
     useEffect(() => {
         fetchMasters();
@@ -830,15 +837,48 @@ const StoresGRNGeneration = () => {
                 } else if (!normId) {
                     normId = Date.now() + index;
                 }
+                const masterItem = items.find(it => it.item_id === item.item_id);
                 return {
                     ...item,
-                    id: normId
+                    id: normId,
+                    hsn: item.hsn || item.hsn_code || masterItem?.hsn || ''
                 };
             });
 
             setGrnItems(normalizedItems);
         }
     }, [editGrn]);
+
+    // Ensure GRN items get HSN if items master finishes loading afterwards
+    useEffect(() => {
+        if (items.length > 0 && grnItems.length > 0) {
+            let hasChanges = false;
+            const updated = grnItems.map(item => {
+                if (!item.hsn) {
+                    const matched = items.find(i => i.item_id === item.item_id);
+                    if (matched && matched.hsn) {
+                        hasChanges = true;
+                        return { ...item, hsn: matched.hsn };
+                    }
+                }
+                return item;
+            });
+            if (hasChanges) {
+                setGrnItems(updated);
+            }
+        }
+    }, [items]);
+
+    // Close HSN suggestion dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (hsnDropdownRef.current && !hsnDropdownRef.current.contains(e.target)) {
+                setHsnSearchActive(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         if (editGrn && vendors.length > 0 && editGrn.vendor_id) {
@@ -961,13 +1001,33 @@ const StoresGRNGeneration = () => {
         setCurrentItem(newCurrentItem);
     };
 
-    const handleItemSelect = (option) => {
+    const handleItemSelect = async (option) => {
         if (option) {
-            const selectedItem = items.find(i => i.item_id === option.value);
+            let selectedItem = items.find(i => i.item_id === option.value);
+            if (!selectedItem && option.value) {
+                try {
+                    const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/${option.value}/`);
+                    if (res?.success && res.data) {
+                        selectedItem = res.data;
+                    }
+                } catch (e) {
+                    console.error("Error fetching item detail:", e);
+                }
+            }
+
             if (selectedItem) {
+                let hsn = selectedItem.hsn || selectedItem.hsn_code || '';
+                if (!hsn && selectedItem.item_id) {
+                    try {
+                        const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/${selectedItem.item_id}/`);
+                        if (res?.success && res.data?.hsn) {
+                            hsn = res.data.hsn;
+                        }
+                    } catch (e) {}
+                }
+
                 const stock = selectedItem.total_quantity || 0;
                 const deptStock = selectedItem.approved_quantity || 0;
-                const hsn = selectedItem.hsn || '';
                 const itemMrp = parseFloat(selectedItem.mrp) || 0;
                 const itemRate = parseFloat(selectedItem.rate || selectedItem.unit_price) || 0;
                 const taxBracket = selectedItem.tax !== undefined ? parseFloat(selectedItem.tax) : 5;
@@ -1001,6 +1061,131 @@ const StoresGRNGeneration = () => {
                 deptStock: 0
             }));
         }
+        setHsnSearchActive(false);
+    };
+
+    const handleHsnInputChange = (e) => {
+        const val = e.target.value;
+        setCurrentItem(prev => ({ ...prev, hsn: val }));
+
+        if (val.trim().length >= 1) {
+            const query = val.trim().toLowerCase();
+            const matched = items.filter(i => (i.hsn || '').toLowerCase().includes(query));
+            setHsnSuggestions(matched.slice(0, 8));
+            setHsnSearchActive(matched.length > 0);
+        } else {
+            setHsnSuggestions([]);
+            setHsnSearchActive(false);
+        }
+    };
+
+    const handleHsnSearchClick = async () => {
+        const query = (currentItem.hsn || '').trim();
+        if (!query) {
+            const withHsn = items.filter(i => i.hsn);
+            setHsnSuggestions(withHsn.slice(0, 10));
+            setHsnSearchActive(withHsn.length > 0);
+            return;
+        }
+
+        setIsHsnSearching(true);
+        let matched = items.filter(i => (i.hsn || '').toLowerCase().includes(query.toLowerCase()));
+
+        if (matched.length === 0) {
+            try {
+                const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/?search=${encodeURIComponent(query)}`);
+                if (res?.success && Array.isArray(res.data)) {
+                    matched = res.data.filter(i => (i.hsn || '').toLowerCase().includes(query.toLowerCase()));
+                    if (matched.length > 0) {
+                        setItems(prev => {
+                            const newOnes = matched.filter(m => !prev.some(p => p.item_id === m.item_id));
+                            return [...newOnes, ...prev];
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error searching items by HSN:", err);
+            }
+        }
+        setIsHsnSearching(false);
+
+        if (matched.length === 1) {
+            handleItemSelect({ value: matched[0].item_id, label: matched[0].itemName });
+            setHsnSearchActive(false);
+        } else if (matched.length > 1) {
+            setHsnSuggestions(matched.slice(0, 10));
+            setHsnSearchActive(true);
+        } else {
+            setHsnSuggestions([]);
+            setHsnSearchActive(false);
+            alert(`No items found with HSN Code: "${query}"`);
+        }
+    };
+
+    const handleSelectHsnSuggestion = (matchedItem) => {
+        handleItemSelect({ value: matchedItem.item_id, label: matchedItem.itemName });
+        setHsnSearchActive(false);
+    };
+
+    const handleEditItem = (item) => {
+        setEditingItemId(item.id);
+
+        let expMonth = item.expMonth || '';
+        let expYear = item.expYear || '';
+        if (item.expiry && (!expMonth || !expYear)) {
+            const parts = item.expiry.split('-');
+            if (parts.length >= 2) {
+                expYear = parts[0];
+                expMonth = parts[1];
+            }
+        }
+
+        const masterItem = items.find(i => i.item_id === item.item_id);
+
+        setCurrentItem({
+            ...initialCurrentItemState,
+            ...item,
+            item_id: item.item_id || masterItem?.item_id || '',
+            name: item.name || item.itemName || masterItem?.itemName || '',
+            hsn: item.hsn || masterItem?.hsn || '',
+            batch: item.batch || '',
+            expMonth,
+            expYear,
+            expiry: item.expiry || '',
+            packing: item.packing !== undefined ? item.packing : 1,
+            no_of_unit: item.no_of_unit !== undefined ? item.no_of_unit : 1,
+            quantity: item.quantity !== undefined ? item.quantity : 1,
+            free: item.free !== undefined ? item.free : 0,
+            itemValue: item.itemValue !== undefined ? item.itemValue : (item.baseAmount || 0),
+            packingPrice: item.packingPrice || 0,
+            unitPrice: item.unitPrice || 0,
+            tax: item.tax !== undefined ? item.tax : ((item.cgstPercent || 0) * 2),
+            purchaseTaxInclusive: item.purchaseTaxInclusive !== undefined ? item.purchaseTaxInclusive : true,
+            purchaseDiscountPercent: item.purchaseDiscountPercent || 0,
+            purchaseDiscountAmt: item.purchaseDiscountAmt || item.discountedAmt || 0,
+            deductDiscountForTax: item.deductDiscountForTax || false,
+            purchaseCost: item.purchaseCost || 0,
+            mrp: item.mrp || 0,
+            maxPackingMrp: item.maxPackingMrp || 0,
+            sellingTax: item.sellingTax !== undefined ? item.sellingTax : 5,
+            sellingTaxInclusive: item.sellingTaxInclusive !== undefined ? item.sellingTaxInclusive : true,
+            sellingDiscountPercent: item.sellingDiscountPercent || 0,
+            price: item.price || 0,
+            ipPrice: item.ipPrice || 0,
+            calcTaxOnFree: item.calcTaxOnFree || item.calculateTaxOnFree || false,
+            isReplacement: item.isReplacement || false,
+            totalStock: masterItem?.total_quantity ?? item.totalStock ?? 0,
+            deptStock: masterItem?.approved_quantity ?? item.deptStock ?? 0
+        });
+
+        setShowAddItemModal(true);
+    };
+
+    const handleCloseItemModal = () => {
+        setShowAddItemModal(false);
+        setEditingItemId(null);
+        setHsnSearchActive(false);
+        setCurrentItem(initialCurrentItemState);
     };
 
     const currPacking = parseFloat(currentItem.packing) || 1;
@@ -1066,7 +1251,7 @@ const StoresGRNGeneration = () => {
 
         const newItem = {
             ...currentItem,
-            id: Date.now(),
+            id: editingItemId ? editingItemId : Date.now(),
             quantity: currQty,
             expiry: formattedExpiry,
             unitPrice: Number(currUnitPrice.toFixed(2)),
@@ -1091,28 +1276,21 @@ const StoresGRNGeneration = () => {
             freeTaxAmt: Number(currFreeTax.toFixed(2))
         };
 
-        setGrnItems([...grnItems, newItem]);
-        setCurrentItem({
-            item_id: '', name: '', hsn: '', batch: '',
-            expMonth: '', expYear: '', expiry: '',
-            packing: 1, no_of_unit: 1, quantity: 1, free: 0,
-            itemValue: 0, packingPrice: 0, unitPrice: 0,
-            tax: 5, purchaseTaxInclusive: true,
-            purchaseDiscountPercent: 0, purchaseDiscountAmt: 0,
-            deductDiscountForTax: false, purchaseCost: 0,
-            mrp: 0, maxPackingMrp: 0,
-            sellingTax: 5, sellingTaxInclusive: true,
-            sellingDiscountPercent: 0, price: 0, ipPrice: 0,
-            calcTaxOnFree: false, isReplacement: false,
-            totalStock: 0, deptStock: 0,
-            lastPurchaseFree: 0, lastPurchasePrice: 0, lastPurchaseCost: 0,
-            lastMrp: 0, lastSellingPrice: 0
-        });
+        if (editingItemId) {
+            setGrnItems(grnItems.map(item => item.id === editingItemId ? newItem : item));
+            setEditingItemId(null);
+        } else {
+            setGrnItems([...grnItems, newItem]);
+        }
+        setCurrentItem(initialCurrentItemState);
         setShowAddItemModal(false);
     };
 
     const removeItem = (id) => {
         setGrnItems(grnItems.filter(item => item.id !== id));
+        if (editingItemId === id) {
+            handleCloseItemModal();
+        }
     };
 
     const totals = React.useMemo(() => {
@@ -1506,6 +1684,12 @@ const StoresGRNGeneration = () => {
                                         <span
                                             onClick={() => { setVendorSearchQuery(''); setShowVendorListModal(true); }}
                                             style={{
+
+
+
+
+
+                                                
                                                 color: '#b45309',
                                                 fontSize: '0.72rem',
                                                 fontWeight: '700',
@@ -1533,7 +1717,16 @@ const StoresGRNGeneration = () => {
                         <FormCard style={{ marginTop: '5px' }}>
                             <SectionTitleCard $bg="linear-gradient(to right, #f0fdfa, white)">
                                 <h3>Items Collection ({grnItems.length})</h3>
-                                <Button type="button" onClick={() => setShowAddItemModal(true)} disabled={isVerified} style={{ padding: '6px 16px', boxShadow: '0 4px 6px rgba(13, 148, 136, 0.2)', opacity: isVerified ? 0.6 : 1, cursor: isVerified ? 'not-allowed' : 'pointer' }}>
+                                <Button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditingItemId(null);
+                                        setCurrentItem(initialCurrentItemState);
+                                        setShowAddItemModal(true);
+                                    }}
+                                    disabled={isVerified}
+                                    style={{ padding: '6px 16px', boxShadow: '0 4px 6px rgba(13, 148, 136, 0.2)', opacity: isVerified ? 0.6 : 1, cursor: isVerified ? 'not-allowed' : 'pointer' }}
+                                >
                                     + Add Stock Item
                                 </Button>
                             </SectionTitleCard>
@@ -1542,7 +1735,7 @@ const StoresGRNGeneration = () => {
                                 <Table>
                                     <thead>
                                         <Tr style={{ background: `linear-gradient(90deg, ${colors.primaryDark} 0%, ${colors.primary} 100%)` }}>
-                                            {['Sl.No', 'Description', 'Batch', 'Packing', 'Qty', 'Free', 'Expiry', 'MRP', 'S.Rate', 'CGST%', 'CGST₹', 'SGST%', 'SGST₹', 'Total Value', 'Del'].map(h => (
+                                            {['Sl.No', 'Description', 'HSN', 'Batch', 'Packing', 'Qty', 'Free', 'Expiry', 'MRP', 'S.Rate', 'CGST%', 'CGST₹', 'SGST%', 'SGST₹', 'Total Value', 'Action'].map(h => (
                                                 <Th key={h} style={{
                                                     color: 'white',
                                                     background: 'transparent',
@@ -1550,7 +1743,8 @@ const StoresGRNGeneration = () => {
                                                     padding: '12px 10px',
                                                     fontWeight: '700',
                                                     fontSize: '0.75rem',
-                                                    textTransform: 'uppercase'
+                                                    textTransform: 'uppercase',
+                                                    textAlign: ['Sl.No', 'HSN', 'Action'].includes(h) ? 'center' : ['MRP', 'S.Rate', 'CGST₹', 'SGST₹', 'Total Value'].includes(h) ? 'right' : 'left'
                                                 }}>{h}</Th>
                                             ))}
                                         </Tr>
@@ -1559,7 +1753,8 @@ const StoresGRNGeneration = () => {
                                         {grnItems.map((item, index) => (
                                             <Tr key={item.id} style={{ background: index % 2 === 0 ? 'white' : '#f9fafb' }}>
                                                 <Td style={{ textAlign: 'center', width: '50px' }}>{index + 1}</Td>
-                                                <Td style={{ fontWeight: '600', color: colors.primaryDark }}>{item.name}</Td>
+                                                <Td style={{ fontWeight: '600', color: colors.primaryDark }}>{item.name || item.itemName}</Td>
+                                                <Td style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: '0.8rem', color: '#475569' }}>{item.hsn || '-'}</Td>
                                                 <Td>{item.batch || '-'}</Td>
                                                 <Td>{item.packing}</Td>
                                                 <Td style={{ textAlign: 'center', fontWeight: '500' }}>{item.quantity}</Td>
@@ -1572,23 +1767,63 @@ const StoresGRNGeneration = () => {
                                                 <Td style={{ textAlign: 'center' }}>{item.sgstPercent}%</Td>
                                                 <Td style={{ textAlign: 'right' }}>₹{parseFloat(item.sgstAmt || 0).toFixed(2)}</Td>
                                                 <Td style={{ textAlign: 'right', fontWeight: '700', color: colors.primary }}>₹{parseFloat(item.itemValue || 0).toFixed(2)}</Td>
-                                                <Td style={{ textAlign: 'center', width: '40px' }}>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => !isVerified && removeItem(item.id)}
-                                                        disabled={isVerified}
-                                                        style={{ color: colors.danger, background: 'none', border: 'none', cursor: isVerified ? 'not-allowed' : 'pointer', transition: 'transform 0.2s', opacity: isVerified ? 0.3 : 1 }}
-                                                        onMouseOver={e => !isVerified && (e.currentTarget.style.transform = 'scale(1.2)')}
-                                                        onMouseOut={e => !isVerified && (e.currentTarget.style.transform = 'scale(1)')}
-                                                    >
-                                                        <span style={{ fontSize: '1.2rem' }}>✕</span>
-                                                    </button>
+                                                <Td style={{ textAlign: 'center', width: '75px', whiteSpace: 'nowrap' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => !isVerified && handleEditItem(item)}
+                                                            disabled={isVerified}
+                                                            title="Edit Item"
+                                                            style={{
+                                                                color: '#0d9488',
+                                                                background: '#f0fdfa',
+                                                                border: '1px solid #99f6e4',
+                                                                borderRadius: '4px',
+                                                                padding: '3px 7px',
+                                                                cursor: isVerified ? 'not-allowed' : 'pointer',
+                                                                transition: 'all 0.2s',
+                                                                opacity: isVerified ? 0.3 : 1,
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '0.85rem'
+                                                            }}
+                                                            onMouseOver={e => !isVerified && (e.currentTarget.style.background = '#ccfbf1')}
+                                                            onMouseOut={e => !isVerified && (e.currentTarget.style.background = '#f0fdfa')}
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => !isVerified && removeItem(item.id)}
+                                                            disabled={isVerified}
+                                                            title="Delete Item"
+                                                            style={{
+                                                                color: '#ef4444',
+                                                                background: '#fef2f2',
+                                                                border: '1px solid #fecaca',
+                                                                borderRadius: '4px',
+                                                                padding: '3px 7px',
+                                                                cursor: isVerified ? 'not-allowed' : 'pointer',
+                                                                transition: 'all 0.2s',
+                                                                opacity: isVerified ? 0.3 : 1,
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '0.85rem'
+                                                            }}
+                                                            onMouseOver={e => !isVerified && (e.currentTarget.style.background = '#fee2e2')}
+                                                            onMouseOut={e => !isVerified && (e.currentTarget.style.background = '#fef2f2')}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
                                                 </Td>
                                             </Tr>
                                         ))}
                                         {grnItems.length === 0 && (
                                             <Tr>
-                                                <Td colSpan={15} style={{ textAlign: 'center', padding: '60px 0', color: colors.textMuted }}>
+                                                <Td colSpan={16} style={{ textAlign: 'center', padding: '60px 0', color: colors.textMuted }}>
                                                     <div style={{ opacity: 0.5, marginBottom: '10px' }}>
                                                         <span style={{ fontSize: '3rem' }}>📦</span>
                                                     </div>
@@ -1973,13 +2208,13 @@ const StoresGRNGeneration = () => {
 
                 {/* 7. Enhanced Add Item Modal */}
                 {showAddItemModal && (
-                    <ModalOverlay onClick={e => e.target === e.currentTarget && setShowAddItemModal(false)}>
+                    <ModalOverlay onClick={e => e.target === e.currentTarget && handleCloseItemModal()}>
                         <ModalContainerAnimated style={{ maxWidth: '1150px', width: '95vw', borderRadius: '12px', overflow: 'hidden' }}>
                             <ModalHeader style={{ background: '#1b7a70', color: 'white', padding: '14px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <ModalTitle style={{ color: 'white', fontSize: '1.15rem', fontWeight: '700', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    Catalog Item Entry
+                                    {editingItemId ? '✏️ Edit Catalog Item' : 'Catalog Item Entry'}
                                 </ModalTitle>
-                                <CloseButton style={{ color: 'white', fontSize: '1.2rem' }} onClick={() => setShowAddItemModal(false)}>✕</CloseButton>
+                                <CloseButton style={{ color: 'white', fontSize: '1.2rem' }} onClick={handleCloseItemModal}>✕</CloseButton>
                             </ModalHeader>
                             <ModalBody style={{ padding: '20px 24px', background: '#ffffff', maxHeight: '85vh', overflowY: 'auto' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', gap: '22px' }}>
@@ -2009,10 +2244,48 @@ const StoresGRNGeneration = () => {
                                                 </span>
                                             </div>
                                             <Select
-                                                options={items.map(i => ({ value: i.item_id, label: i.itemName }))}
-                                                value={currentItem.item_id ? { value: currentItem.item_id, label: currentItem.name } : null}
+                                                options={items.map(i => ({
+                                                    value: i.item_id,
+                                                    label: i.itemName,
+                                                    hsn: i.hsn || '',
+                                                    stock: i.total_quantity || 0,
+                                                    deptStock: i.approved_quantity || 0
+                                                }))}
+                                                value={currentItem.item_id ? {
+                                                    value: currentItem.item_id,
+                                                    label: currentItem.name,
+                                                    hsn: currentItem.hsn
+                                                } : null}
                                                 onChange={handleItemSelect}
-                                                placeholder="Type item name to search..."
+                                                placeholder="Type item name or HSN code to search..."
+                                                filterOption={(candidate, input) => {
+                                                    if (!input) return true;
+                                                    const q = input.toLowerCase().trim();
+                                                    const name = (candidate.data.label || '').toLowerCase();
+                                                    const hsn = (candidate.data.hsn || '').toLowerCase();
+                                                    const id = (candidate.data.value || '').toLowerCase();
+                                                    return name.includes(q) || hsn.includes(q) || id.includes(q);
+                                                }}
+                                                formatOptionLabel={(option) => (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                                        <span style={{ fontWeight: 500, color: '#1e293b' }}>{option.label}</span>
+                                                        {option.hsn && (
+                                                            <span style={{
+                                                                fontSize: '0.72rem',
+                                                                background: '#f0fdfa',
+                                                                color: '#0d9488',
+                                                                border: '1px solid #99f6e4',
+                                                                padding: '1px 6px',
+                                                                borderRadius: '4px',
+                                                                fontWeight: 700,
+                                                                letterSpacing: '0.02em',
+                                                                marginLeft: '8px'
+                                                            }}>
+                                                                HSN: {option.hsn}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                                 menuPortalTarget={document.body}
                                                 styles={{
                                                     menuPortal: base => ({ ...base, zIndex: 10002 }),
@@ -2036,17 +2309,136 @@ const StoresGRNGeneration = () => {
 
                                         {/* 2. HSN Code, Batch, Expiry */}
                                         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '10px' }}>
-                                            <div>
-                                                <CompactLabel>HSN Code</CompactLabel>
+                                            <div style={{ position: 'relative' }} ref={hsnDropdownRef}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <CompactLabel>HSN Code</CompactLabel>
+                                                    {isHsnSearching && (
+                                                        <span style={{ fontSize: '0.68rem', color: '#0d9488', fontWeight: 600 }}>Searching...</span>
+                                                    )}
+                                                </div>
                                                 <div style={{ position: 'relative' }}>
                                                     <CompactInput
                                                         name="hsn"
                                                         value={currentItem.hsn}
-                                                        onChange={handleCurrentItemChange}
+                                                        onChange={handleHsnInputChange}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                handleHsnSearchClick();
+                                                            } else if (e.key === 'Escape') {
+                                                                setHsnSearchActive(false);
+                                                            }
+                                                        }}
+                                                        onFocus={() => {
+                                                            if ((currentItem.hsn || '').trim().length >= 1 && hsnSuggestions.length > 0) {
+                                                                setHsnSearchActive(true);
+                                                            }
+                                                        }}
                                                         placeholder="HSN Code"
                                                     />
-                                                    <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.8rem', pointerEvents: 'none' }}>🔍</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleHsnSearchClick}
+                                                        title="Search items by HSN"
+                                                        style={{
+                                                            position: 'absolute',
+                                                            right: '4px',
+                                                            top: '50%',
+                                                            transform: 'translateY(-50%)',
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            padding: '2px 5px',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.85rem',
+                                                            color: '#0d9488',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center'
+                                                        }}
+                                                        onMouseOver={e => (e.currentTarget.style.background = '#f0fdfa')}
+                                                        onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                    >
+                                                        🔍
+                                                    </button>
                                                 </div>
+
+                                                {/* Floating HSN Search Results Dropdown */}
+                                                {hsnSearchActive && hsnSuggestions.length > 0 && (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '100%',
+                                                        left: 0,
+                                                        right: 0,
+                                                        marginTop: '4px',
+                                                        background: '#ffffff',
+                                                        border: '1px solid #cbd5e1',
+                                                        borderRadius: '6px',
+                                                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                                        zIndex: 10005,
+                                                        maxHeight: '220px',
+                                                        overflowY: 'auto'
+                                                    }}>
+                                                        <div style={{
+                                                            padding: '6px 10px',
+                                                            background: '#f8fafc',
+                                                            borderBottom: '1px solid #e2e8f0',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: 700,
+                                                            color: '#64748b',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center'
+                                                        }}>
+                                                            <span>Matching Items ({hsnSuggestions.length})</span>
+                                                            <span
+                                                                onClick={() => setHsnSearchActive(false)}
+                                                                style={{ cursor: 'pointer', color: '#94a3b8' }}
+                                                                title="Close"
+                                                            >
+                                                                ✕
+                                                            </span>
+                                                        </div>
+                                                        {hsnSuggestions.map((sItem) => (
+                                                            <div
+                                                                key={sItem.item_id}
+                                                                onClick={() => handleSelectHsnSuggestion(sItem)}
+                                                                style={{
+                                                                    padding: '8px 10px',
+                                                                    borderBottom: '1px solid #f1f5f9',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background-color 0.15s',
+                                                                    display: 'flex',
+                                                                    flexDirection: 'column',
+                                                                    gap: '2px'
+                                                                }}
+                                                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f0fdfa')}
+                                                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                                            >
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a' }}>
+                                                                        {sItem.itemName}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        fontSize: '0.7rem',
+                                                                        background: '#e0f2fe',
+                                                                        color: '#0369a1',
+                                                                        padding: '1px 6px',
+                                                                        borderRadius: '4px',
+                                                                        fontWeight: 700
+                                                                    }}>
+                                                                        HSN: {sItem.hsn || '-'}
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: '12px', fontSize: '0.7rem', color: '#64748b' }}>
+                                                                    <span>Total Stock: <b style={{ color: '#2563eb' }}>{sItem.total_quantity || 0}</b></span>
+                                                                    <span>Dept Stock: <b style={{ color: '#2563eb' }}>{sItem.approved_quantity || 0}</b></span>
+                                                                    {sItem.mrp ? <span>MRP: ₹{parseFloat(sItem.mrp).toFixed(2)}</span> : null}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div>
                                                 <CompactLabel>Batch</CompactLabel>
@@ -2467,11 +2859,11 @@ const StoresGRNGeneration = () => {
                                                     boxShadow: '0 2px 4px rgba(13, 148, 136, 0.2)'
                                                 }}
                                             >
-                                                💾 Save
+                                                {editingItemId ? '💾 Update Item' : '💾 Save'}
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => setShowAddItemModal(false)}
+                                                onClick={handleCloseItemModal}
                                                 style={{
                                                     background: '#334155',
                                                     color: 'white',
