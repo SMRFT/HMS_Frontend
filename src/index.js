@@ -18,7 +18,7 @@ function setforlocaldev() {
   if (dev_token && dev_token.trim() !== "") {
     const selectedBranch = "SHB001";
     localStorage.setItem("selected_branch", selectedBranch);
-    const selectedOutlet = "OLET001";
+    const selectedOutlet = "OLET002";
     localStorage.setItem("selected_outlet", selectedOutlet);
     const selectedHospital = "SH001";
     localStorage.setItem("selected_hospital", selectedHospital);
@@ -91,7 +91,6 @@ const PUBLIC_ROUTES = [
   "/QRScan",
   "/qrscan",
   "/BreastCancerScreening",
-  "/breastcancerscreening",
 ];
 
 function isPublicRoute() {
