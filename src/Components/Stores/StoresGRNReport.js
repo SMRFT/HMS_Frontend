@@ -579,7 +579,7 @@ const StoresGRNDocument = ({ grn, vendorName, items = [] }) => {
 
             {/* Signature strip */}
             <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 12px", fontSize: "8.5px", background: "#f8fafc" }}>
-                <span><strong>Entered By :</strong> {grn.entered_by || "DEEPIK"}</span>
+                <span><strong>Entered By :</strong> {grn.entered_by || grn.created_by_name || grn.created_by || "—"}</span>
                 <span><strong>Checked By :</strong> —</span>
                 <span><strong>Verified By :</strong> {grn.verified_by || (grn.is_approved ? "APPROVED" : "—")}</span>
             </div>
@@ -752,13 +752,15 @@ const StoresGRNReport = () => {
             return {
                 "GRN Number": grn.grn_number,
                 "Date": grn.date ? new Date(grn.date).toLocaleDateString('en-IN') : '-',
+                "Vendor": getVendorName(grn.vendor_id),
                 "Category": grn.purchase_category,
                 "Invoice No": grn.invoice_no,
                 "Net Amount": netAmt.toFixed(2),
                 "Total Paid": totalPaid.toFixed(2),
                 "Pending Amount": pending.toFixed(2),
                 "Status": latest.status,
-                "Approved": grn.is_approved ? "Yes" : "No"
+                "Approved": grn.is_approved ? "Yes" : "No",
+                "Entered By": grn.entered_by || grn.created_by_name || grn.created_by || '-'
             };
         });
 
@@ -788,6 +790,7 @@ const StoresGRNReport = () => {
                             <tr>
                                 <th>GRN No</th>
                                 <th>Date</th>
+                                <th>Vendor</th>
                                 <th>Category</th>
                                 <th>Invoice No</th>
                                 <th>Net Amt</th>
@@ -795,6 +798,7 @@ const StoresGRNReport = () => {
                                 <th>Pending</th>
                                 <th>Status</th>
                                 <th>Approved</th>
+                                <th>Entered By</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -804,6 +808,7 @@ const StoresGRNReport = () => {
                                     <tr>
                                         <td>${grn.grn_number}</td>
                                         <td>${grn.date ? new Date(grn.date).toLocaleDateString('en-IN') : '-'}</td>
+                                        <td>${getVendorName(grn.vendor_id)}</td>
                                         <td>${grn.purchase_category}</td>
                                         <td>${grn.invoice_no}</td>
                                         <td>₹${netAmt.toFixed(2)}</td>
@@ -811,6 +816,7 @@ const StoresGRNReport = () => {
                                         <td>₹${pending.toFixed(2)}</td>
                                         <td>${latest.status}</td>
                                         <td>${grn.is_approved ? "Yes" : "No"}</td>
+                                        <td>${grn.entered_by || grn.created_by_name || grn.created_by || '-'}</td>
                                     </tr>
                                 `;
                             }).join('')}
@@ -1071,7 +1077,7 @@ const StoresGRNReport = () => {
                         </table>
 
                         <div style="display: flex; justify-content: space-between; padding: 5px 12px; font-size: 8.5px; background: #f8fafc;">
-                            <span><strong>Entered By :</strong> ${grn.entered_by || 'DEEPIK'}</span>
+                            <span><strong>Entered By :</strong> ${grn.entered_by || grn.created_by_name || grn.created_by || '—'}</span>
                             <span><strong>Checked By :</strong> —</span>
                             <span><strong>Verified By :</strong> ${grn.verified_by || (grn.is_approved ? 'APPROVED' : '—')}</span>
                         </div>
@@ -1228,8 +1234,9 @@ const StoresGRNReport = () => {
         const grnNo = (grn.grn_number || '').toLowerCase();
         const invNo = (grn.invoice_no || '').toLowerCase();
         const cat = (grn.purchase_category || '').toLowerCase();
+        const enteredBy = (grn.entered_by || grn.created_by_name || grn.created_by || '').toLowerCase();
         const q = searchTerm.toLowerCase().trim();
-        const matchesSearch = !q || vName.includes(q) || grnNo.includes(q) || invNo.includes(q) || cat.includes(q);
+        const matchesSearch = !q || vName.includes(q) || grnNo.includes(q) || invNo.includes(q) || cat.includes(q) || enteredBy.includes(q);
 
         if (!matchesSearch) return false;
         if (filterStatus === 'ALL') return true;
@@ -1456,17 +1463,18 @@ const StoresGRNReport = () => {
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>PAYMENT</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>NET AMOUNT</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>STATUS</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>ENTERED BY</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px', textAlign: 'center' }}>ACTIONS</Th>
                                     </Tr>
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <Tr><Td colSpan="11" style={{ textAlign: 'center', padding: '100px' }}>
+                                        <Tr><Td colSpan="12" style={{ textAlign: 'center', padding: '100px' }}>
                                             <div style={{ fontSize: '2.5rem', animation: 'spin 2s linear infinite', display: 'inline-block' }}>⏳</div>
                                             <div style={{ color: colors.textMuted, marginTop: '20px', fontWeight: '700', fontSize: '1.1rem' }}>Updating Records...</div>
                                         </Td></Tr>
                                     ) : filteredGrns.length === 0 ? (
-                                        <Tr><Td colSpan="11" style={{ textAlign: 'center', padding: '120px' }}>
+                                        <Tr><Td colSpan="12" style={{ textAlign: 'center', padding: '120px' }}>
                                             <div style={{ fontSize: '5rem', opacity: 0.3, marginBottom: '20px' }}>📦</div>
                                             <div style={{ color: colors.textMuted, fontSize: '1.4rem', fontWeight: '800' }}>No GRNs found</div>
                                             <div style={{ color: colors.textMuted, marginTop: '8px', fontSize: '0.9rem' }}>Try adjusting your search or date filters</div>
@@ -1529,6 +1537,9 @@ const StoresGRNReport = () => {
                                                     }}>
                                                         {grn.is_approved ? 'Verified' : 'Pending'}
                                                     </span>
+                                                </Td>
+                                                <Td style={{ color: '#1e293b', fontSize: '0.82rem', padding: '12px 10px', whiteSpace: 'nowrap' }}>
+                                                    <span style={{ fontWeight: '600' }}>{grn.entered_by || grn.created_by_name || grn.created_by || '—'}</span>
                                                 </Td>
                                                 <Td style={{ textAlign: 'center', padding: '12px 10px' }}>
                                                     <div className="grn-action-popover-wrap" style={{ position: 'relative', display: 'inline-block' }}>
