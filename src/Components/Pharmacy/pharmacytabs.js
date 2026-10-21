@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
-import { FaPills, FaFileInvoiceDollar, FaListAlt, FaChartBar, FaUndo, FaPrescription } from "react-icons/fa";
+import { FaPills, FaFileInvoiceDollar, FaListAlt, FaChartBar, FaUndo, FaPrescription, FaChartLine } from "react-icons/fa";
 
 import PharmacyViewBills from "../Pharmacy/PharmacyViewBills";
 import OPPharmacy from "../Pharmacy/Pharmacy";
@@ -9,6 +9,7 @@ import MedicineChart from "./Medicinechart";
 import apiRequest from "../../Auth/apiRequest";
 import WardReturnApprovals from "./WardReturnApprovals";
 import PrescriptionDetails from "./PrescriptionDetails";
+import PharmacyBillAnalysis from "./PharmacyBillAnalysis";
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 const TABS = [
@@ -18,6 +19,7 @@ const TABS = [
   { key: "medichart",            label: "Medicine Chart",       Icon: FaChartBar          },
   { key: "ward_returns",         label: "Ward Returns",         Icon: FaUndo              },
   { key: "prescription_details", label: "Prescription Details", Icon: FaPrescription      },
+  { key: "bill_analysis",        label: "Bill Analysis",        Icon: FaChartLine         },
 ];
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -482,6 +484,13 @@ const OPPharmacyTabs = () => {
       {visitedTabs.has("prescription_details") && (
         <TabPanel $visible={activeTab === "prescription_details"}>
           <PrescriptionDetails onConvertToBill={handleConvertPrescription} />
+        </TabPanel>
+      )}
+
+      {/* ── Bill Analysis tab ── */}
+      {visitedTabs.has("bill_analysis") && (
+        <TabPanel $visible={activeTab === "bill_analysis"}>
+          <PharmacyBillAnalysis />
         </TabPanel>
       )}
     </Wrapper>

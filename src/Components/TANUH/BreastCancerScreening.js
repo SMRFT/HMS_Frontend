@@ -1216,12 +1216,13 @@ export default function BreastCancerScreening({ isPublic = false }) {
   const [showSlipModal, setShowSlipModal] = useState(false);
   const [nextBillNo, setNextBillNo] = useState("");
 
-  // When access_token is present (admin/staff), show View Slip action. When no access_token (student/public), do not display View Slip.
+  // When accessed through PUBLIC_ROUTES (isPublic is true) or without access_token, do NOT display Registered Student Surveyors tab or View Slip action.
   const hasAccessToken = Boolean(
     localStorage.getItem("access_token") &&
     localStorage.getItem("access_token").trim() !== ""
   );
-  const showActions = hasAccessToken;
+  const showRegisteredStudentsTab = !isPublic && hasAccessToken;
+  const showActions = !isPublic && hasAccessToken;
 
   // ── Tab 2: Student Registration Surveyor State ───────────────────────
   const initialStudentForm = {
@@ -1409,10 +1410,10 @@ export default function BreastCancerScreening({ isPublic = false }) {
   useEffect(() => {
     fetchRecords();
     fetchNextBillNo();
-    if (hasAccessToken) {
+    if (showRegisteredStudentsTab) {
       fetchStudentRecords();
     }
-  }, [hasAccessToken]);
+  }, [showRegisteredStudentsTab]);
 
   // Handle Input Changes
   const handleChange = (e) => {
@@ -1486,7 +1487,7 @@ export default function BreastCancerScreening({ isPublic = false }) {
         // Clear student surveyor form fields once stored
         setStudentForm(initialStudentForm);
         setStudentErrors({});
-        if (hasAccessToken) {
+        if (showRegisteredStudentsTab) {
           fetchStudentRecords();
         }
       } else {
@@ -1947,7 +1948,7 @@ export default function BreastCancerScreening({ isPublic = false }) {
         <TabButton $active={activeTab === "student"} onClick={() => setActiveTab("student")}>
           <FaUserGraduate /> Student Registration Surveyor
         </TabButton>
-        {hasAccessToken && (
+        {showRegisteredStudentsTab && (
           <TabButton $active={activeTab === "registered_students"} onClick={() => setActiveTab("registered_students")}>
             <FaClipboardList /> Registered Student Surveyors ({studentRecords.length})
           </TabButton>
@@ -2338,7 +2339,7 @@ export default function BreastCancerScreening({ isPublic = false }) {
       )}
 
       {/* ── TAB 3: REGISTERED STUDENT SURVEYORS (STORED SEPARATELY) ── */}
-      {hasAccessToken && activeTab === "registered_students" && (
+      {showRegisteredStudentsTab && activeTab === "registered_students" && (
         <TableContainer>
           {/* Enhanced Premium Header Banner */}
           <TabHeaderBanner>

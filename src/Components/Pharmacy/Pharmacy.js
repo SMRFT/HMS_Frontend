@@ -1815,6 +1815,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
   const executeSave = async (intentStatus, paymentMode) => {
     setSaving(true);
+    const isCredit = String(paymentMode || "").toLowerCase() === "credit";
+    const resolvedPaymentMode = intentStatus === "Estimate" ? null : (isCredit ? "Credit" : "Cash");
 
     try {
       // ── Ward Request → Convert to Bill ────────────────────────────────────
@@ -1897,6 +1899,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                        ? overallDiscountType : null,
           overall_discount_value:    parseFloat(overallDiscountValue || 0),
           overall_discount_amount:   parseFloat(overallDiscAmtFinal.toFixed(2)),
+          payment_mode:              resolvedPaymentMode,
+          paymentMode:               resolvedPaymentMode,
         });
 
         console.log("finalize_bill RESPONSE:", finalizeRes);
@@ -1931,7 +1935,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             overallDiscountType,
             overallDiscountValue,
             netAmount:            updatedNetAmount,
-            paymentMode,
+            paymentMode:          resolvedPaymentMode,
           });
           setShowPrintModal(true);
 
@@ -2026,12 +2030,13 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         if (loadedEstimateNo) {
           billing_mode = "ESTIMATE";
         } else {
-          billing_mode = "DIRECT";
+          billing_mode = isCredit ? "IP CREDIT" : "DIRECT";
         }
       }
 
       const paymentFields = {
-        payment_mode: paymentMode === "cash" ? "Cash" : paymentMode === "credit" ? "Credit" : null
+        payment_mode: resolvedPaymentMode,
+        paymentMode: resolvedPaymentMode,
       };
 
       // ✅ Calculate age from dob (stored in formData when patient was selected)
@@ -2164,7 +2169,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             overallDiscountType,
             overallDiscountValue,
             netAmount,
-            paymentMode,
+            paymentMode: resolvedPaymentMode,
           });
           setShowPrintModal(true);
           resetForm();

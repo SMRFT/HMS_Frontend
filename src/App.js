@@ -149,6 +149,7 @@ import SurgerySchedule from "./Components/OT/SurgerySchedule";
 import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
 import OTImplantRequest from "./Components/OT/OTImplantRequest";
 import PharmacyTabs from "./Components/Pharmacy/pharmacytabs";
+import PharmacyBillAnalysis from "./Components/Pharmacy/PharmacyBillAnalysis";
 
 // import CustomerType from "./Components/BillingMaster/CustomerType";
 import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
@@ -436,6 +437,8 @@ function App() {
       "/Pharmacystock": "Pharmacy Stock",
       "/PharmacyExpiryReport": "Pharmacy Expiry Report",
       "/PharmacyStockDashboard": "Pharmacy Stock Dashboard",
+      "/PharmacyBillAnalysis": "Pharmacy Bill Analysis",
+      "/pharmacybillanalysis": "Pharmacy Bill Analysis",
       "/SalesReturnReport": "Sales Return Report",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
@@ -527,8 +530,7 @@ function App() {
     "/outpatientqrscan",
     "/QRScan",
     "/qrscan",
-    "/BreastCancerScreening",
-    "/breastcancerscreening"
+    "/BreastCancerScreening"
   ];
 
   const normalizedPath = location.pathname.toLowerCase().replace(/\/$/, "");
@@ -538,9 +540,19 @@ function App() {
     return normalizedPath === r || normalizedPath.endsWith(r);
   });
 
+  const hasToken = Boolean(
+    localStorage.getItem("access_token") &&
+    localStorage.getItem("access_token").trim() !== ""
+  );
+
+  const isBreastCancerScreening =
+    normalizedPath === "/breastcancerscreening" ||
+    normalizedPath.endsWith("/breastcancerscreening");
+
   const isNoSidebarRoute =
     location.pathname === "/" ||
-    isPublicPage;
+    (!hasToken && isPublicPage) ||
+    (isPublicPage && !isBreastCancerScreening);
 
   if (isLoading)
     return (
@@ -667,11 +679,7 @@ function App() {
               />
               <Route
                 path="/BreastCancerScreening"
-                element={<BreastCancerScreening />}
-              />
-              <Route
-                path="/breastcancerscreening"
-                element={<BreastCancerScreening />}
+                element={<BreastCancerScreening isPublic={true} />}
               />
             </Routes>
 
@@ -1742,6 +1750,8 @@ function App() {
                 )}
 
               <Route path="/PharmacyTabs" element={<PharmacyTabs />} />
+              <Route path="/PharmacyBillAnalysis" element={<PharmacyBillAnalysis />} />
+              <Route path="/pharmacybillanalysis" element={<PharmacyBillAnalysis />} />
               {hasPagePermission(
                 "/Internship",
                 allowedActions,
@@ -1962,8 +1972,7 @@ function App() {
               <Route path="/shanmuga360/reports" element={<Reports360 />} />
 
               {/* TANUH Breast Cancer Screening */}
-              <Route path="/BreastCancerScreening" element={<BreastCancerScreening />} />
-              <Route path="/breastcancerscreening" element={<BreastCancerScreening />} />
+              <Route path="/BreastCancerScreening" element={<BreastCancerScreening isPublic={false} />} />
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
