@@ -538,14 +538,9 @@ function App() {
     return normalizedPath === r || normalizedPath.endsWith(r);
   });
 
-  const isBreastCancerScreening =
-    normalizedPath === "/breastcancerscreening" ||
-    normalizedPath.endsWith("/breastcancerscreening");
-
   const isNoSidebarRoute =
     location.pathname === "/" ||
-    (!role && isPublicPage) ||
-    (isPublicPage && !isBreastCancerScreening);
+    isPublicPage;
 
   if (isLoading)
     return (
