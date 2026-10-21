@@ -471,7 +471,7 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
 
       {/* ── Signature strip ── */}
       <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 12px", fontSize: 8.5, background: "#f8fafc" }}>
-        <span><strong>Entered By :</strong> {grn.entered_by || "DEEPIK"}</span>
+        <span><strong>Entered By :</strong> {grn.entered_by || grn.created_by_name || grn.created_by || "—"}</span>
         <span><strong>Checked By :</strong> —</span>
         <span><strong>Verified By :</strong> {grn.verified_by || (grn.is_approved ? "APPROVED" : "—")}</span>
       </div>
