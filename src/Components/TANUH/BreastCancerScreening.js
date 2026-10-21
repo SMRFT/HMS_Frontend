@@ -136,6 +136,34 @@ const HeaderBanner = styled.div`
     letter-spacing: 0.5px;
     text-transform: uppercase;
   }
+
+  @media (max-width: 768px) {
+    padding: 16px 18px;
+    gap: 14px;
+    border-radius: 14px;
+
+    .title-content {
+      gap: 12px;
+
+      .ribbon-badge {
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+        border-radius: 12px;
+      }
+
+      h1 {
+        font-size: 1.25rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+
+      p {
+        font-size: 0.8rem;
+      }
+    }
+  }
 `;
 
 const TabNavigation = styled.div`
@@ -282,6 +310,12 @@ const FormCard = styled.div`
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04);
   margin-bottom: 24px;
 
+  @media (max-width: 768px) {
+    padding: 18px 16px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+  }
+
   .section-header {
     display: flex;
     align-items: center;
@@ -403,6 +437,11 @@ const FormRow = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 18px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 `;
 
 const RiskSelectorContainer = styled.div`
@@ -479,6 +518,17 @@ const SubmitBar = styled.div`
   margin-top: 10px;
   padding-top: 18px;
   border-top: 1px solid ${theme.border};
+
+  @media (max-width: 600px) {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 10px;
+
+    button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 `;
 
 const PrimaryBtn = styled.button`
@@ -1246,25 +1296,36 @@ export default function BreastCancerScreening({ isPublic = false }) {
     try {
       setLoading(true);
       const url = `${HmsBaseUrl}tanuh_breast_cancer_screening/`;
-      const res = await apiRequest(url, "GET");
-      if (res.success && Array.isArray(res.data)) {
+      let res = await apiRequest(url, "GET");
+      if (res && res.success && Array.isArray(res.data)) {
         setRecords(res.data);
       } else {
-        setRecords([]);
-        if (!res.success) {
-          const errorMsg = getBackendErrorMessage(res);
-          if (errorMsg) {
-            toast.error(errorMsg);
+        // Fallback for public routes without token
+        try {
+          const raw = await fetch(url);
+          if (raw.ok) {
+            const data = await raw.json();
+            if (Array.isArray(data)) {
+              setRecords(data);
+              return;
+            }
           }
-        }
+        } catch (_) {}
+        setRecords([]);
       }
     } catch (err) {
       console.error("Failed to fetch screening records:", err);
+      try {
+        const raw = await fetch(`${HmsBaseUrl}tanuh_breast_cancer_screening/`);
+        if (raw.ok) {
+          const data = await raw.json();
+          if (Array.isArray(data)) {
+            setRecords(data);
+            return;
+          }
+        }
+      } catch (_) {}
       setRecords([]);
-      const errorMsg = getBackendErrorMessage(null, err);
-      if (errorMsg) {
-        toast.error(errorMsg);
-      }
     } finally {
       setLoading(false);
     }
@@ -1274,21 +1335,34 @@ export default function BreastCancerScreening({ isPublic = false }) {
   const fetchNextBillNo = async () => {
     try {
       const url = `${HmsBaseUrl}tanuh_breast_cancer_screening/?action=next_bill_no`;
-      const res = await apiRequest(url, "GET");
-      if (res.success && res.data && res.data.next_bill_number) {
+      let res = await apiRequest(url, "GET");
+      if (res && res.success && res.data && res.data.next_bill_number) {
         setNextBillNo(res.data.next_bill_number);
-      } else if (!res.success) {
-        const errorMsg = getBackendErrorMessage(res);
-        if (errorMsg) {
-          toast.error(errorMsg);
-        }
+      } else {
+        // Fallback for public routes without token
+        try {
+          const raw = await fetch(url);
+          if (raw.ok) {
+            const data = await raw.json();
+            if (data?.next_bill_number) {
+              setNextBillNo(data.next_bill_number);
+              return;
+            }
+          }
+        } catch (_) {}
       }
     } catch (err) {
       console.error("Failed to fetch next bill no:", err);
-      const errorMsg = getBackendErrorMessage(null, err);
-      if (errorMsg) {
-        toast.error(errorMsg);
-      }
+      try {
+        const raw = await fetch(`${HmsBaseUrl}tanuh_breast_cancer_screening/?action=next_bill_no`);
+        if (raw.ok) {
+          const data = await raw.json();
+          if (data?.next_bill_number) {
+            setNextBillNo(data.next_bill_number);
+            return;
+          }
+        }
+      } catch (_) {}
     }
   };
 
@@ -1458,11 +1532,29 @@ export default function BreastCancerScreening({ isPublic = false }) {
       if (!payload.bill_number) {
         delete payload.bill_number;
       }
-      const res = await apiRequest(url, "POST", payload);
+      let res = await apiRequest(url, "POST", payload);
+      let success = res?.success;
+      let msg = res?.data?.message || res?.message;
 
-      if (res.success) {
+      if (!success) {
+        // Direct fetch fallback for public routes without token
+        try {
+          const raw = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (raw.ok) {
+            const data = await raw.json();
+            success = true;
+            msg = data.message || "Screening record saved successfully";
+          }
+        } catch (_) {}
+      }
+
+      if (success) {
         // Success confirmation message
-        const successMsg = res.data?.message || res.message || "Details saved successfully.";
+        const successMsg = msg || "Details saved successfully.";
         toast.success(successMsg);
         // Clear form fields once data is stored
         setForm(initialForm);
