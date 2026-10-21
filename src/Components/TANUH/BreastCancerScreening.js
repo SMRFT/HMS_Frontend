@@ -144,6 +144,18 @@ const TabNavigation = styled.div`
   margin-bottom: 24px;
   border-bottom: 2px solid ${theme.border};
   padding-bottom: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    gap: 8px;
+    margin-bottom: 18px;
+    padding-bottom: 8px;
+  }
 `;
 
 const TabButton = styled.button`
@@ -160,6 +172,15 @@ const TabButton = styled.button`
   background: ${(props) => (props.$active ? theme.primary : "transparent")};
   color: ${(props) => (props.$active ? "#ffffff" : theme.textSecondary)};
   box-shadow: ${(props) => (props.$active ? "0 4px 14px rgba(225, 29, 72, 0.3)" : "none")};
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    padding: 8px 14px;
+    font-size: 0.84rem;
+    gap: 6px;
+    border-radius: 10px;
+  }
 
   &:hover {
     background: ${(props) => (props.$active ? theme.primaryHover : theme.primaryLight)};
@@ -172,6 +193,17 @@ const MetricGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
 `;
 
 const MetricCard = styled.div`
@@ -184,6 +216,12 @@ const MetricCard = styled.div`
   align-items: center;
   gap: 16px;
   transition: transform 0.2s, box-shadow 0.2s;
+
+  @media (max-width: 768px) {
+    padding: 14px 16px;
+    gap: 12px;
+    border-radius: 12px;
+  }
 
   &:hover {
     transform: translateY(-2px);
@@ -201,6 +239,13 @@ const MetricCard = styled.div`
     justify-content: center;
     font-size: 22px;
     flex-shrink: 0;
+
+    @media (max-width: 768px) {
+      width: 40px;
+      height: 40px;
+      font-size: 18px;
+      border-radius: 10px;
+    }
   }
 
   .metric-info {
@@ -209,6 +254,10 @@ const MetricCard = styled.div`
       font-weight: 800;
       margin: 0;
       color: ${theme.textPrimary};
+
+      @media (max-width: 768px) {
+        font-size: 1.25rem;
+      }
     }
     p {
       font-size: 0.8rem;
@@ -217,6 +266,10 @@ const MetricCard = styled.div`
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.4px;
+
+      @media (max-width: 768px) {
+        font-size: 0.72rem;
+      }
     }
   }
 `;
@@ -571,10 +624,22 @@ const FilterToolbar = styled.div`
   flex-wrap: wrap;
   gap: 14px;
 
+  @media (max-width: 1080px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
   .search-box {
     position: relative;
-    flex: 1;
-    min-width: 240px;
+    flex: 1 1 240px;
+    min-width: 220px;
+
+    @media (max-width: 1080px) {
+      width: 100%;
+      flex: 1 1 100%;
+    }
 
     input {
       width: 100%;
@@ -600,20 +665,139 @@ const FilterToolbar = styled.div`
     }
   }
 
+  .date-filter-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    @media (max-width: 768px) {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .date-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1.5px solid ${theme.border};
+    transition: all 0.2s;
+
+    &:focus-within {
+      border-color: ${theme.primary};
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
+    }
+
+    .date-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: ${theme.textSecondary};
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+
+      svg {
+        color: ${theme.primary};
+        font-size: 0.82rem;
+      }
+    }
+
+    input[type="date"] {
+      border: none;
+      background: transparent;
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: ${theme.darkSlate};
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      width: 130px;
+
+      @media (max-width: 768px) {
+        width: 100%;
+      }
+    }
+  }
+
+  .quick-date-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    @media (max-width: 768px) {
+      grid-column: span 2;
+    }
+
+    @media (max-width: 480px) {
+      grid-column: span 1;
+    }
+  }
+
+  .quick-date-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid ${theme.border};
+    background: #ffffff;
+    color: ${theme.textSecondary};
+    transition: all 0.18s;
+
+    &:hover {
+      background: ${theme.primaryLight};
+      color: ${theme.primary};
+      border-color: ${theme.primaryBorder};
+    }
+
+    &.active {
+      background: ${theme.primary};
+      color: #ffffff;
+      border-color: ${theme.primary};
+      box-shadow: 0 2px 6px rgba(225, 29, 72, 0.25);
+    }
+  }
+
   .filters {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
 
-    select,
-    input {
+    @media (max-width: 768px) {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    select {
       padding: 8px 12px;
       border-radius: 10px;
       border: 1.5px solid ${theme.border};
       font-size: 0.86rem;
       color: ${theme.textPrimary};
       outline: none;
+      background: #ffffff;
+      cursor: pointer;
+
+      @media (max-width: 480px) {
+        width: 100%;
+      }
     }
   }
 `;
@@ -623,17 +807,19 @@ const StyledTable = styled.table`
   border-collapse: collapse;
   text-align: left;
   font-size: 0.88rem;
+  min-width: 880px;
 
   thead {
     background: ${theme.bgLight};
     th {
-      padding: 12px 16px;
+      padding: 12px 14px;
       font-weight: 700;
       color: ${theme.textSecondary};
       border-bottom: 1px solid ${theme.border};
       text-transform: uppercase;
       font-size: 0.74rem;
       letter-spacing: 0.5px;
+      white-space: nowrap;
     }
   }
 
@@ -648,9 +834,20 @@ const StyledTable = styled.table`
     }
 
     td {
-      padding: 14px 16px;
+      padding: 12px 14px;
       color: ${theme.textPrimary};
       vertical-align: middle;
+    }
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.82rem;
+    thead th {
+      padding: 10px 10px;
+      font-size: 0.7rem;
+    }
+    tbody td {
+      padding: 10px 10px;
     }
   }
 `;
@@ -947,6 +1144,15 @@ const PrintStyleWrapper = styled.div`
   }
 `;
 
+// Helper for local date string in YYYY-MM-DD format
+const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 // ── Main Component ──────────────────────────────────────────────────
 export default function BreastCancerScreening({ isPublic = false }) {
   const [activeTab, setActiveTab] = useState("form"); // "form", "student", or "records"
@@ -954,6 +1160,8 @@ export default function BreastCancerScreening({ isPublic = false }) {
   const [records, setRecords] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [riskFilter, setRiskFilter] = useState("all");
+  const [fromDate, setFromDate] = useState(() => getTodayDateString());
+  const [toDate, setToDate] = useState(() => getTodayDateString());
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showSlipModal, setShowSlipModal] = useState(false);
   const [nextBillNo, setNextBillNo] = useState("");
@@ -1199,19 +1407,13 @@ export default function BreastCancerScreening({ isPublic = false }) {
       }
 
       if (success) {
-        const successMsg = msg || "Student Surveyor registered successfully";
+        const successMsg = msg || "Details saved successfully.";
         toast.success(successMsg);
-        // Pre-fill surveyor name & subject ID in screening form if empty
-        setForm((prev) => ({
-          ...prev,
-          surveyor_name: prev.surveyor_name || studentForm.surveyor_name,
-          subject_id: prev.subject_id || studentForm.subject_id,
-        }));
+        // Clear student surveyor form fields once stored
         setStudentForm(initialStudentForm);
+        setStudentErrors({});
         if (hasAccessToken) {
           fetchStudentRecords();
-          // Switch to the Registered Student Surveyors tab for authenticated users
-          setActiveTab("registered_students");
         }
       } else {
         const errorMsg = getBackendErrorMessage(res);
@@ -1259,15 +1461,15 @@ export default function BreastCancerScreening({ isPublic = false }) {
       const res = await apiRequest(url, "POST", payload);
 
       if (res.success) {
-        // Success message obtained from backend response
-        const successMsg = res.data?.message || res.message;
-        if (successMsg) {
-          toast.success(successMsg);
-        }
+        // Success confirmation message
+        const successMsg = res.data?.message || res.message || "Details saved successfully.";
+        toast.success(successMsg);
+        // Clear form fields once data is stored
         setForm(initialForm);
+        setErrors({});
         fetchRecords();
         fetchNextBillNo();
-        setActiveTab("records");
+        // Remain on current page; no automatic redirection to reports
       } else {
         // Error message obtained from backend response
         const errorMsg = getBackendErrorMessage(res);
@@ -1299,12 +1501,25 @@ export default function BreastCancerScreening({ isPublic = false }) {
   // Filtered Records List
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
+      // Date filtering
+      const recDate = (r.date || "").slice(0, 10);
+      if (fromDate && recDate && recDate < fromDate) {
+        return false;
+      }
+      if (toDate && recDate && recDate > toDate) {
+        return false;
+      }
+      if ((fromDate || toDate) && !recDate) {
+        return false;
+      }
+
       const matchSearch =
         (r.subject_id || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (r.subject_phone_number || "").includes(searchTerm) ||
         (r.surveyor_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (r.patientname || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (r.subject_address || "").toLowerCase().includes(searchTerm.toLowerCase());
+        (r.subject_address || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.bill_number || "").toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchRisk =
         riskFilter === "all" ||
@@ -1313,7 +1528,7 @@ export default function BreastCancerScreening({ isPublic = false }) {
 
       return matchSearch && matchRisk;
     });
-  }, [records, searchTerm, riskFilter]);
+  }, [records, searchTerm, riskFilter, fromDate, toDate]);
 
   // Filtered Student Surveyor Records
   const filteredStudentRecords = useMemo(() => {
@@ -2250,10 +2465,85 @@ export default function BreastCancerScreening({ isPublic = false }) {
               <FaSearch />
               <input
                 type="text"
-                placeholder="Search by Subject ID, Phone, Surveyor, or Address..."
+                placeholder="Search by Subject ID, Phone, Surveyor, Bill No, or Address..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "#94a3b8",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    padding: 0,
+                  }}
+                  title="Clear search"
+                >
+                  <MdClose />
+                </button>
+              )}
+            </div>
+
+            <div className="date-filter-container">
+              <div className="date-input-group">
+                <span className="date-label">
+                  <FaCalendarAlt /> From:
+                </span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  title="Filter records from date"
+                />
+              </div>
+
+              <div className="date-input-group">
+                <span className="date-label">
+                  <FaCalendarAlt /> To:
+                </span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  title="Filter records to date"
+                />
+              </div>
+
+              <div className="quick-date-buttons">
+                <button
+                  type="button"
+                  className={`quick-date-btn ${
+                    fromDate === getTodayDateString() && toDate === getTodayDateString() ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    const today = getTodayDateString();
+                    setFromDate(today);
+                    setToDate(today);
+                  }}
+                  title="Show only records screened today"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  className={`quick-date-btn ${!fromDate && !toDate ? "active" : ""}`}
+                  onClick={() => {
+                    setFromDate("");
+                    setToDate("");
+                  }}
+                  title="Clear date filter to view all historical records"
+                >
+                  All Dates
+                </button>
+              </div>
             </div>
 
             <div className="filters">
@@ -2263,11 +2553,40 @@ export default function BreastCancerScreening({ isPublic = false }) {
                 <option value="Low risk">Low Risk Only</option>
               </select>
 
-              <SecondaryBtn onClick={fetchRecords}>
-                <FaSyncAlt /> Refresh
+              <SecondaryBtn onClick={fetchRecords} disabled={loading}>
+                <FaSyncAlt className={loading ? "fa-spin" : ""} /> Refresh
               </SecondaryBtn>
             </div>
           </FilterToolbar>
+
+          {/* Filter Status Summary Bar */}
+          <div
+            style={{
+              padding: "10px 20px",
+              background: "#f8fafc",
+              borderBottom: `1px solid ${theme.border}`,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "8px",
+              fontSize: "0.82rem",
+              color: theme.textSecondary,
+            }}
+          >
+            <span>
+              Showing <strong>{filteredRecords.length}</strong> of <strong>{records.length}</strong> screening records
+            </span>
+            {(fromDate || toDate) && (
+              <span style={{ color: theme.primary, fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>
+                <FaCalendarAlt style={{ fontSize: "0.8rem" }} />
+                <span>
+                  Date Filter: <strong>{fromDate || "Beginning"}</strong> to <strong>{toDate || "Latest"}</strong>
+                  {fromDate === getTodayDateString() && toDate === getTodayDateString() && " (Today)"}
+                </span>
+              </span>
+            )}
+          </div>
 
           {loading ? (
             <div style={{ padding: "40px", textAlign: "center", color: theme.textSecondary }}>
@@ -2277,82 +2596,99 @@ export default function BreastCancerScreening({ isPublic = false }) {
             <div style={{ padding: "60px 20px", textAlign: "center", color: theme.textSecondary }}>
               <MdOutlineMedicalServices style={{ fontSize: "48px", color: "#cbd5e1", marginBottom: "12px" }} />
               <h3 style={{ margin: "0 0 6px", color: theme.textPrimary }}>No Screening Records Found</h3>
-              <p style={{ margin: 0 }}>Start by filling out a new screening assessment form above.</p>
+              <p style={{ margin: "0 0 16px" }}>
+                {fromDate || toDate
+                  ? `No screening records match the date range (${fromDate || "Any"} to ${toDate || "Any"}).`
+                  : "Start by filling out a new screening assessment form above."}
+              </p>
+              {(fromDate || toDate) && (
+                <SecondaryBtn
+                  onClick={() => {
+                    setFromDate("");
+                    setToDate("");
+                  }}
+                  style={{ margin: "0 auto" }}
+                >
+                  <FaCalendarAlt /> View All Dates
+                </SecondaryBtn>
+              )}
             </div>
           ) : (
-            <StyledTable>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Bill / Receipt No</th>
-                  <th>Subject ID</th>
-                  <th>Subject Details</th>
-                  <th>Contact</th>
-                  <th>Address</th>
-                  <th>Surveyor</th>
-                  <th>Risk Level</th>
-                  {showActions && <th style={{ textAlign: "right" }}>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRecords.map((r) => (
-                  <tr key={r.id || r._id || r.bill_number || r.subject_id}>
-                    <td>
-                      <strong>{r.date || "—"}</strong>
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          fontWeight: 800,
-                          color: "#0f172a",
-                          background: "#f1f5f9",
-                          padding: "4px 8px",
-                          borderRadius: "6px",
-                          fontFamily: "monospace",
-                          fontSize: "0.85rem",
-                          border: "1px solid #e2e8f0",
-                        }}
-                      >
-                        {r.bill_number || "—"}
-                      </span>
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: 700, color: theme.primary }}>{r.subject_id}</span>
-                    </td>
-                    <td>
-                      <strong>{r.patientname || "—"}</strong>
-                      {r.age && <span style={{ color: theme.textSecondary }}> ({r.age} yrs)</span>}
-                      {r.uhid && (
-                        <div style={{ fontSize: "0.72rem", color: theme.textSecondary }}>UHID: {r.uhid}</div>
-                      )}
-                    </td>
-                    <td>
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <FaPhoneAlt style={{ fontSize: "11px", color: theme.textSecondary }} />
-                        {r.subject_phone_number}
-                      </span>
-                    </td>
-                    <td style={{ maxWidth: "200px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {r.subject_address}
-                    </td>
-                    <td>{r.surveyor_name}</td>
-                    <td>
-                      <Badge $type={r.risk_level}>
-                        {r.risk_level === "High Risk" ? <FaExclamationTriangle /> : <FaShieldAlt />}
-                        {r.risk_level || "Not Assessed"}
-                      </Badge>
-                    </td>
-                    {showActions && (
-                      <td style={{ textAlign: "right" }}>
-                        <SecondaryBtn style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => handleOpenSlip(r)}>
-                          <FaPrint /> View Slip
-                        </SecondaryBtn>
-                      </td>
-                    )}
+            <div style={{ overflowX: "auto", width: "100%", WebkitOverflowScrolling: "touch" }}>
+              <StyledTable>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Bill / Receipt No</th>
+                    <th>Subject ID</th>
+                    <th>Subject Details</th>
+                    <th>Contact</th>
+                    <th>Address</th>
+                    <th>Surveyor</th>
+                    <th>Risk Level</th>
+                    {showActions && <th style={{ textAlign: "right" }}>Actions</th>}
                   </tr>
-                ))}
-              </tbody>
-            </StyledTable>
+                </thead>
+                <tbody>
+                  {filteredRecords.map((r) => (
+                    <tr key={r.id || r._id || r.bill_number || r.subject_id}>
+                      <td>
+                        <strong>{r.date || "—"}</strong>
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            color: "#0f172a",
+                            background: "#f1f5f9",
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            fontFamily: "monospace",
+                            fontSize: "0.85rem",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          {r.bill_number || "—"}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 700, color: theme.primary }}>{r.subject_id}</span>
+                      </td>
+                      <td>
+                        <strong>{r.patientname || "—"}</strong>
+                        {r.age && <span style={{ color: theme.textSecondary }}> ({r.age} yrs)</span>}
+                        {r.uhid && (
+                          <div style={{ fontSize: "0.72rem", color: theme.textSecondary }}>UHID: {r.uhid}</div>
+                        )}
+                      </td>
+                      <td>
+                        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <FaPhoneAlt style={{ fontSize: "11px", color: theme.textSecondary }} />
+                          {r.subject_phone_number}
+                        </span>
+                      </td>
+                      <td style={{ maxWidth: "200px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {r.subject_address}
+                      </td>
+                      <td>{r.surveyor_name}</td>
+                      <td>
+                        <Badge $type={r.risk_level}>
+                          {r.risk_level === "High Risk" ? <FaExclamationTriangle /> : <FaShieldAlt />}
+                          {r.risk_level || "Not Assessed"}
+                        </Badge>
+                      </td>
+                      {showActions && (
+                        <td style={{ textAlign: "right" }}>
+                          <SecondaryBtn style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => handleOpenSlip(r)}>
+                            <FaPrint /> View Slip
+                          </SecondaryBtn>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </StyledTable>
+            </div>
           )}
         </TableContainer>
       )}
