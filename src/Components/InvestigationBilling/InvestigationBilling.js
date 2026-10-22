@@ -691,7 +691,10 @@ const InvestigationBilling = () => {
       bill_type: billType,
       billTypeNo: billTypeNo,
       ...(billTypeNo !== "PACK" ? { package_id: "" } : {}),
-      ...(clearProducts && { item: JSON.stringify([]) }),
+      ...(clearProducts && {
+        item: JSON.stringify([]),
+        ...(billTypeNo === "PACK" ? { total: 0 } : {}),
+      }),
       ...(!allowDiscount && {
         discountPercent: "",
         discount: "",
@@ -728,7 +731,13 @@ const InvestigationBilling = () => {
     );
     if (!selectedPackage) {
       setSelectedPackageNo("");
-      setFormData((prev) => ({ ...prev, package_id: "" }));
+      setProductList([]);
+      setFormData((prev) => ({
+        ...prev,
+        package_id: "",
+        total: 0,
+        item: JSON.stringify([]),
+      }));
       return;
     }
     const pkgId = selectedPackage.packageNo ?? selectedPackage.package_id ?? "";
@@ -741,22 +750,26 @@ const InvestigationBilling = () => {
     if (result.success) {
       const packageItems = (result.data.items || []).map((item) => ({
         ...item,
+        price: item.price || 0,
+        quantity: item.quantity || 1,
         ...(pkgId ? { package_id: pkgId } : {}),
       }));
       const packageTotalPrice = result.data.totalPrice || "0.00";
       if (packageItems.length > 0) {
-        const updatedList = [...productList, ...packageItems];
-        setProductList(updatedList);
+        setProductList(packageItems);
         setFormData((prev) => ({
           ...prev,
           package_id: pkgId,
-          item: JSON.stringify(updatedList),
+          item: JSON.stringify(packageItems),
           total: parseFloat(packageTotalPrice),
         }));
       } else {
+        setProductList([]);
         setFormData((prev) => ({
           ...prev,
           package_id: pkgId,
+          item: JSON.stringify([]),
+          total: parseFloat(packageTotalPrice),
         }));
       }
     }
@@ -1050,12 +1063,13 @@ const InvestigationBilling = () => {
   // ── Automatic calculations ──────────────────────────────────────────────────
 
   useEffect(() => {
+    if (selectedBillTypeNo === "PACK" || formData.package_id) return;
     const totalPrice = productList.reduce(
       (acc, item) => acc + Number(item.price) * Number(item.quantity),
       0,
     );
     setFormData((prev) => ({ ...prev, total: totalPrice }));
-  }, [productList]);
+  }, [productList, selectedBillTypeNo, formData.package_id]);
 
   useEffect(() => {
     const discountAmount = (formData.total * formData.discountPercent) / 100;
@@ -1474,7 +1488,7 @@ const InvestigationBilling = () => {
                     <tr>
                       <Th>Product</Th>
                       <Th>Quantity</Th>
-                      <Th>Price</Th>
+                      {selectedBillTypeNo !== "PACK" && <Th>Price</Th>}
                       <Th>Action</Th>
                     </tr>
                   </thead>
@@ -1483,9 +1497,11 @@ const InvestigationBilling = () => {
                       <Tr key={index}>
                         <Td>{product.itemName}</Td>
                         <Td>{product.quantity}</Td>
-                        <Td>
-                          ₹ {(product.price * product.quantity).toFixed(2)}
-                        </Td>
+                        {selectedBillTypeNo !== "PACK" && (
+                          <Td>
+                            ₹ {(product.price * product.quantity).toFixed(2)}
+                          </Td>
+                        )}
                         <Td>
                           <DelBtn
                             type="button"

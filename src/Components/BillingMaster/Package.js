@@ -391,7 +391,7 @@ const css = {
   },
   viewItemRow: {
     display: "grid",
-    gridTemplateColumns: "2fr 1fr 50px 1fr",
+    gridTemplateColumns: "2fr 60px 1fr",
     gap: "8px 12px",
     padding: "8px 0",
     borderBottom: `1px solid ${tokens.border}`,
@@ -474,7 +474,7 @@ const EMPTY_FORM = {
   items: [
     {
       itemName: "",
-      price: "",
+      price: "0",
       quantity: 1,
       billTypeNo: "",
       test_id: "",
@@ -508,17 +508,6 @@ const Package = () => {
   );
   const canEdit = allowedActions.includes("HMS-P-IPKGE-RW");
   const canDelete = allowedActions.includes("HMS-P-IPKGD-RW");
-
-  // Auto-calculate totalPrice
-  useEffect(() => {
-    const total = formData.items.reduce(
-      (sum, item) =>
-        sum +
-        (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0),
-      0,
-    );
-    setFormData((prev) => ({ ...prev, totalPrice: total.toFixed(2) }));
-  }, [formData.items]);
 
   // Fetch packages
   const fetchPackages = async (params = {}) => {
@@ -692,7 +681,7 @@ const Package = () => {
 
     const newRow = {
       itemName: item.itemName,
-      price,
+      price: "0",
       quantity: 1,
       billTypeNo: selectedBT?.billTypeNo || "",
       test_id,
@@ -703,8 +692,7 @@ const Package = () => {
       const existingItems = prev.items;
       const isOnlyBlank =
         existingItems.length === 1 &&
-        !existingItems[0].itemName.trim() &&
-        !existingItems[0].price;
+        !existingItems[0].itemName.trim();
       return {
         ...prev,
         items: isOnlyBlank ? [newRow] : [...existingItems, newRow],
@@ -816,7 +804,7 @@ const Package = () => {
     setFormData({
       ...EMPTY_FORM,
       items: [
-        { itemName: "", price: "", quantity: 1, billTypeNo: "", test_id: "" },
+        { itemName: "", price: "0", quantity: 1, billTypeNo: "", test_id: "", item_id: null },
       ],
     });
     setIsEditMode(false);
@@ -837,6 +825,14 @@ const Package = () => {
   const handleSubmit = async () => {
     if (!formData.packageName.trim()) {
       alert("Package name is required.");
+      return;
+    }
+    if (
+      formData.totalPrice === "" ||
+      isNaN(parseFloat(formData.totalPrice)) ||
+      parseFloat(formData.totalPrice) < 0
+    ) {
+      alert("Total Price is required.");
       return;
     }
     const filledItems = formData.items.filter((i) => i.itemName.trim());
@@ -866,7 +862,7 @@ const Package = () => {
         Array.isArray(pkg.items) && pkg.items.length
           ? pkg.items.map((i) => ({
               itemName: i.itemName || "", // ← resolved name from GET response
-              price: i.price || "",
+              price: i.price || "0",
               quantity: i.quantity || 1,
               billTypeNo: i.billTypeNo || "",
               test_id: i.test_id ?? "", // undefined → "" (won't be sent as null)
@@ -875,7 +871,7 @@ const Package = () => {
           : [
               {
                 itemName: "",
-                price: "",
+                price: "0",
                 quantity: 1,
                 billTypeNo: "",
                 test_id: "",
@@ -897,6 +893,14 @@ const Package = () => {
   const handleUpdate = async () => {
     if (!formData.packageName.trim()) {
       alert("Package name is required.");
+      return;
+    }
+    if (
+      formData.totalPrice === "" ||
+      isNaN(parseFloat(formData.totalPrice)) ||
+      parseFloat(formData.totalPrice) < 0
+    ) {
+      alert("Total Price is required.");
       return;
     }
     const filledItems = formData.items.filter((i) => i.itemName.trim());
@@ -945,14 +949,13 @@ const Package = () => {
               .map(
                 (it) => `<tr>
                 <td>${it.itemName || ""}</td>
-                <td style="text-align:right">₹${parseFloat(it.price || 0).toLocaleString("en-IN")}</td>
                 <td style="text-align:center">${it.quantity ?? 1}</td>
                 <td>${it.billTypeNo || "—"}</td>
                 <td>${it.test_id || "—"}</td>
               </tr>`,
               )
               .join("")
-          : `<tr><td colspan="5" style="text-align:center;color:#64748B;">No items added.</td></tr>`;
+          : `<tr><td colspan="4" style="text-align:center;color:#64748B;">No items added.</td></tr>`;
 
         return `
         <div class="block">
@@ -976,7 +979,6 @@ const Package = () => {
             <thead>
               <tr>
                 <th>Item Name</th>
-                <th style="text-align:right">Price (₹)</th>
                 <th style="text-align:center;width:50px">Qty</th>
                 <th>Bill Type No</th>
                 <th>Test ID</th>
@@ -1040,7 +1042,6 @@ const Package = () => {
       "Total Price",
       "Status",
       "Item Name",
-      "Item Price",
       "Qty",
       "Bill Type No",
       "Test ID",
@@ -1060,14 +1061,13 @@ const Package = () => {
 
       const items = Array.isArray(pkg.items) ? pkg.items : [];
       if (items.length === 0) {
-        lines.push([...baseCols, "", "", "", "", ""].map(escapeCell).join(","));
+        lines.push([...baseCols, "", "", "", ""].map(escapeCell).join(","));
       } else {
         items.forEach((it) => {
           lines.push(
             [
               ...baseCols,
               it.itemName,
-              parseFloat(it.price || 0).toFixed(2),
               it.quantity ?? 1,
               it.billTypeNo || "",
               it.test_id || "",
@@ -1337,6 +1337,18 @@ const Package = () => {
                       value={formData.packageName}
                       onChange={handleChange}
                       placeholder="e.g. Comprehensive Health Checkup"
+                    />
+                  </Field>
+
+                  <Field label="Total Price (₹) *">
+                    <Inp
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      name="totalPrice"
+                      value={formData.totalPrice}
+                      onChange={handleChange}
+                      placeholder="0.00"
                     />
                   </Field>
 
@@ -1672,7 +1684,6 @@ const Package = () => {
                       {[
                         "#",
                         "Item Name *",
-                        "Price (₹) *",
                         "Qty",
                         "Bill Type No",
                         "Test ID",
@@ -1709,18 +1720,6 @@ const Package = () => {
                               handleItemChange(idx, "itemName", e.target.value)
                             }
                             placeholder="Item name"
-                          />
-                        </td>
-                        <td style={{ ...css.itemsTd, width: 110 }}>
-                          <ItemInp
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.price}
-                            onChange={(e) =>
-                              handleItemChange(idx, "price", e.target.value)
-                            }
-                            placeholder="0.00"
                           />
                         </td>
                         <td style={{ ...css.itemsTd, width: 70 }}>
@@ -1787,16 +1786,19 @@ const Package = () => {
                 >
                   + Add Item Manually
                 </button> */}
-                <div style={css.totalRow}>
+                <div style={{ ...css.totalRow, alignItems: "center" }}>
                   <span style={{ color: tokens.muted, fontWeight: 500 }}>
                     Total Price:
                   </span>
-                  <span>
+                  <span style={{ color: tokens.navy, fontWeight: 700 }}>
                     ₹{" "}
-                    {parseFloat(formData.totalPrice || 0).toLocaleString(
-                      "en-IN",
-                      { minimumFractionDigits: 2 },
-                    )}
+                    {formData.totalPrice !== "" &&
+                    !isNaN(parseFloat(formData.totalPrice))
+                      ? parseFloat(formData.totalPrice).toLocaleString(
+                          "en-IN",
+                          { minimumFractionDigits: 2 },
+                        )
+                      : "0.00"}
                   </span>
                 </div>
               </div>
@@ -1878,14 +1880,14 @@ const Package = () => {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "2fr 1fr 50px 1fr",
+                    gridTemplateColumns: "2fr 60px 1fr",
                     gap: "4px 12px",
                     padding: "6px 4px",
                     borderBottom: `2px solid ${tokens.border}`,
                     marginBottom: 4,
                   }}
                 >
-                  {["Item Name", "Price", "Qty", "Bill Type"].map((h) => (
+                  {["Item Name", "Qty", "Bill Type"].map((h) => (
                     <span key={h} style={css.label}>
                       {h}
                     </span>
@@ -1896,10 +1898,7 @@ const Package = () => {
                     <span style={{ fontWeight: 600, color: tokens.text }}>
                       {item.itemName}
                     </span>
-                    <span style={css.pricePill}>
-                      ₹ {parseFloat(item.price || 0).toLocaleString("en-IN")}
-                    </span>
-                    <span style={{ color: tokens.muted }}>
+                    <span style={{ color: tokens.muted, textAlign: "center" }}>
                       ×{item.quantity}
                     </span>
                     <span style={{ color: tokens.textSm }}>
@@ -1909,7 +1908,7 @@ const Package = () => {
                 ))}
                 <div style={css.totalRow}>
                   <span style={{ color: tokens.muted, fontWeight: 500 }}>
-                    Total:
+                    Total Price:
                   </span>
                   <span>
                     ₹{" "}
