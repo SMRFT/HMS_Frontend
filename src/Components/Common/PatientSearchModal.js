@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled from "styled-components";
 import { Search, X, Check } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
@@ -220,65 +220,22 @@ const Td = styled.td`
   white-space: nowrap;
 `;
 
-const SelectButton = styled.button`
-  background: #f8fafc;
-  color: #0f766e;
-  border: 1.5px solid #0f766e;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 0.78rem;
-  font-weight: 700;
+const ActionCircleButton = styled.button`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #0f766e;
+  border: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  color: #ffffff;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: transform 0.15s, background 0.15s;
 
   &:hover {
-    background: #0f766e;
-    color: #ffffff;
-  }
-`;
-
-const StatusPill = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.76rem;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: ${(props) =>
-    props.$status === "admitted"
-      ? "#f0fdf4"
-      : props.$status === "discharged"
-        ? "#fef2f2"
-        : "#f8fafc"};
-  color: ${(props) =>
-    props.$status === "admitted"
-      ? "#15803d"
-      : props.$status === "discharged"
-        ? "#dc2626"
-        : "#475569"};
-  border: 1px solid
-    ${(props) =>
-    props.$status === "admitted"
-      ? "#bbf7d0"
-      : props.$status === "discharged"
-        ? "#fecaca"
-        : "#e2e8f0"};
-
-  &::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: ${(props) =>
-    props.$status === "admitted"
-      ? "#16a34a"
-      : props.$status === "discharged"
-        ? "#dc2626"
-        : "#94a3b8"};
+    background: #115e59;
+    transform: scale(1.08);
   }
 `;
 
@@ -379,10 +336,11 @@ export default function PatientSearchModal({
   const [results, setResults] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+  const searchReqIdRef = useRef(0);
 
   const formatName = (salutation, first, last) => {
-    const parts = [salutation, first, last].filter(Boolean);
-    return parts.join(" ").trim() || "—";
+    const parts = [first, last].filter(Boolean);
+    return parts.join(" ").trim() || salutation || "—";
   };
 
   const executeSearch = useCallback(
@@ -391,6 +349,13 @@ export default function PatientSearchModal({
       const qName = (overrideName !== undefined ? overrideName : namePhoneInput).trim();
       const qAdmitted = overrideAdmitted !== undefined ? overrideAdmitted : isAdmittedFilter;
 
+      if (!qPrimary && !qName) {
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+
+      const reqId = ++searchReqIdRef.current;
       setLoading(true);
       try {
         let list = [];
@@ -403,16 +368,12 @@ export default function PatientSearchModal({
             params.push(`mobile=${encodeURIComponent(qName)}`);
           }
 
-          if (params.length === 1 && !qPrimary && !qName) {
-            setResults([]);
-            setLoading(false);
-            return;
-          }
-
           const res = await apiRequest(
             `${HMSURL}ip-patient/search/?${params.join("&")}`,
             "GET"
           );
+          if (reqId !== searchReqIdRef.current) return;
+
           const rawData = res.data || res;
           list = Array.isArray(rawData?.data)
             ? rawData.data
@@ -430,14 +391,9 @@ export default function PatientSearchModal({
           }
           if (qAdmitted) params.push("admitted=true");
 
-          if (params.length === 1 && !qPrimary && !qName) {
-            setResults([]);
-            setLoading(false);
-            return;
-          }
-
           const url = `${HMSURL}op-patient/search/?${params.join("&")}`;
           const res = await apiRequest(url, "GET");
+          if (reqId !== searchReqIdRef.current) return;
 
           const rawData = res.data || res;
           list = Array.isArray(rawData?.data)
@@ -460,14 +416,34 @@ export default function PatientSearchModal({
         setResults(list);
         setCurrentPage(1);
       } catch (err) {
-        console.error("Search error:", err);
-        setResults([]);
+        if (reqId === searchReqIdRef.current) {
+          console.error("Search error:", err);
+          setResults([]);
+        }
       } finally {
-        setLoading(false);
+        if (reqId === searchReqIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [HMSURL, isIpMode, primaryInput, namePhoneInput, isAdmittedFilter]
   );
+
+  // Debounced auto-search while typing
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      const qP = primaryInput.trim();
+      const qN = namePhoneInput.trim();
+      if (qP || qN) {
+        executeSearch(qP, qN, isAdmittedFilter);
+      } else {
+        setResults([]);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [primaryInput, namePhoneInput, isAdmittedFilter, isOpen]); // eslint-disable-line
 
   useEffect(() => {
     if (isOpen) {
@@ -544,7 +520,7 @@ export default function PatientSearchModal({
 
             <CheckboxWrapper>
               <FilterLabel style={{ cursor: "pointer" }} htmlFor="admitted-filter-chk">
-                Admitted Only
+                Admitted
               </FilterLabel>
               <CheckboxInput
                 id="admitted-filter-chk"
@@ -578,13 +554,12 @@ export default function PatientSearchModal({
                 <Table>
                   <thead>
                     <tr>
-                      <Th style={{ width: 85, textAlign: "center" }}>Action</Th>
+                      <Th style={{ width: 70, textAlign: "center" }}>Action</Th>
                       {isIpMode && <Th>IP Number</Th>}
                       <Th>UHID No</Th>
                       <Th>Patient</Th>
                       <Th>Mobile</Th>
                       {isIpMode && <Th>Room / Bed</Th>}
-                      <Th style={{ textAlign: "center" }}>Status</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -597,18 +572,6 @@ export default function PatientSearchModal({
                         p.lastName || p.last_name
                       );
                       const mobile = p.mobilePhone || p.mobile || p.phone || p.mobileNumber || "—";
-
-                      // Resolve Status: 'admitted', 'discharged', or 'op'
-                      let statusType = "op";
-                      let statusLabel = "Outpatient";
-
-                      if (p.admitted === true || (p.is_admitted && !p.is_discharged)) {
-                        statusType = "admitted";
-                        statusLabel = "Admitted";
-                      } else if (p.is_discharged === true || p.discharged === true) {
-                        statusType = "discharged";
-                        statusLabel = "Discharged";
-                      }
 
                       // Room calculation if IP mode
                       let roomLabel = "—";
@@ -628,10 +591,17 @@ export default function PatientSearchModal({
 
                       return (
                         <Tr key={p.id || p.uhid || idx} onClick={() => handleRowClick(p)}>
-                          <Td style={{ textAlign: "center" }}>
-                            <SelectButton className="select-btn" type="button">
-                              <Check size={13} strokeWidth={3} /> Select
-                            </SelectButton>
+                          <Td style={{ textAlign: "center", width: 70 }}>
+                            <ActionCircleButton
+                              type="button"
+                              title="Select"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRowClick(p);
+                              }}
+                            >
+                              <Check size={16} strokeWidth={2.8} />
+                            </ActionCircleButton>
                           </Td>
                           {isIpMode && (
                             <Td style={{ fontWeight: 700, color: "#0f766e", fontFamily: "monospace" }}>
@@ -642,9 +612,6 @@ export default function PatientSearchModal({
                           <Td style={{ fontWeight: 500 }}>{fullName}</Td>
                           <Td>{mobile}</Td>
                           {isIpMode && <Td style={{ fontSize: "0.83rem" }}>{roomLabel}</Td>}
-                          <Td style={{ textAlign: "center" }}>
-                            <StatusPill $status={statusType}>{statusLabel}</StatusPill>
-                          </Td>
                         </Tr>
                       );
                     })}
@@ -689,16 +656,8 @@ export default function PatientSearchModal({
               {/* Legend */}
               <LegendRow>
                 <LegendItem>
-                  <LegendDot $color="#16a34a" />
+                  <LegendDot $color="#0f766e" />
                   <span>Admitted</span>
-                </LegendItem>
-                <LegendItem>
-                  <LegendDot $color="#dc2626" />
-                  <span>Discharged</span>
-                </LegendItem>
-                <LegendItem>
-                  <LegendDot $color="#94a3b8" />
-                  <span>Outpatient</span>
                 </LegendItem>
               </LegendRow>
             </>
