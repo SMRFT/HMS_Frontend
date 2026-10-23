@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -864,6 +864,101 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [modalPage, setModalPage] = useState(1);
   const MODAL_PAGE_SIZE = 9;
 
+  // Active highlighted row index in Medicine Selection Window
+  const [highlightedModalIndex, setHighlightedModalIndex] = useState(0);
+
+  // Refs for Step sequence navigation:
+  // Step 2: Medicine Search Box -> Step 3: Medicine Selection Window -> Step 4: Quantity Selection Area
+  const medicineSearchInputRef = useRef(null);
+  const modalSearchInputRef = useRef(null);
+  const modalRowRefs = useRef([]);
+  const qtyInputRefs = useRef({});
+  const pendingFocusIndexRef = useRef(null);
+  const modalOpenedAtRef = useRef(0);
+  // Automatically focus the Medicine Search Box
+  const focusMedicineSearch = useCallback(() => {
+    setTimeout(() => {
+      if (medicineSearchInputRef.current) {
+        medicineSearchInputRef.current.focus();
+        medicineSearchInputRef.current.select();
+      }
+    }, 180);
+  }, []);
+
+
+
+  // Modal medicine data calculations (memoized so handlers can access safely)
+  const modalSourceList = medicines;
+  const nilStockCount = useMemo(() => {
+    return (modalSourceList || []).filter((m) => m.is_nil_stock).length;
+  }, [modalSourceList]);
+
+  const visibleModalMedicines = useMemo(() => {
+    const list = modalSourceList || [];
+    const stockFiltered = list.filter((m) => !m.is_nil_stock || showNilStock);
+
+    const q = modalSearch.trim().toLowerCase();
+    if (!q) {
+      return stockFiltered;
+    }
+
+    // Helper to clean common medicine dose-form prefixes (e.g., "TAB DOLO" -> "DOLO")
+    const cleanFormPrefix = (str) =>
+      str.replace(/^(tab\.|tab|inj\.|inj|syp\.|syp|cap\.|cap|drop\.|drops|oint\.|cream|susp\.|susp|gel)\s+/i, "");
+
+    // 1. First, filter items whose medicine name starts with q (or clean name / any word in name starts with q)
+    const startsWithMatches = stockFiltered.filter((m) => {
+      const rawName = (m.name || "").trim().toLowerCase();
+      if (!rawName) return false;
+      if (rawName.startsWith(q)) return true;
+
+      const cleaned = cleanFormPrefix(rawName);
+      if (cleaned.startsWith(q)) return true;
+
+      // Also match if any individual word in the medicine name starts with q (e.g. "DOLO 650" or "TAB DOLO")
+      const words = rawName.split(/[\s\-_/]+/);
+      return words.some((w) => w.startsWith(q));
+    });
+
+    // If items starting with q are present, return them with direct name matches first
+    if (startsWithMatches.length > 0) {
+      return startsWithMatches.sort((a, b) => {
+        const nameA = (a.name || "").trim().toLowerCase();
+        const nameB = (b.name || "").trim().toLowerCase();
+
+        const aStartsDirect = nameA.startsWith(q);
+        const bStartsDirect = nameB.startsWith(q);
+        if (aStartsDirect && !bStartsDirect) return -1;
+        if (!aStartsDirect && bStartsDirect) return 1;
+
+        const cleanAStarts = cleanFormPrefix(nameA).startsWith(q);
+        const cleanBStarts = cleanFormPrefix(nameB).startsWith(q);
+        if (cleanAStarts && !cleanBStarts) return -1;
+        if (!cleanAStarts && cleanBStarts) return 1;
+
+        return nameA.localeCompare(nameB);
+      });
+    }
+
+    // Fallback: If no medicine names start with q, check if composition or batch starts with q
+    const fallbackMatches = stockFiltered.filter((m) => {
+      const comp = (m.chemical_composition || m.composition_name || "").trim().toLowerCase();
+      const batch = (m.batch_number || "").trim().toLowerCase();
+      return comp.startsWith(q) || comp.split(/[\s\-_/]+/).some((w) => w.startsWith(q)) || batch.startsWith(q);
+    });
+
+    return fallbackMatches.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }, [modalSourceList, showNilStock, modalSearch]);
+
+  const modalTotalPages = Math.max(1, Math.ceil(visibleModalMedicines.length / MODAL_PAGE_SIZE));
+  const safeModalPage = Math.min(modalPage, modalTotalPages);
+  const displayedModalMedicines = useMemo(() => {
+    return visibleModalMedicines.slice(
+      (safeModalPage - 1) * MODAL_PAGE_SIZE,
+      safeModalPage * MODAL_PAGE_SIZE
+    );
+  }, [visibleModalMedicines, safeModalPage, MODAL_PAGE_SIZE]);
+
   // billingType is set internally based on which button is clicked:
   // "Estimate" when Save Estimate is clicked, "Direct" when Save Bill is clicked
   const [billingType, setBillingType] = useState("Direct");
@@ -938,6 +1033,18 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     cashier_id: localStorage.getItem("employeeId") || "",
   });
 
+  // Auto-focus Medicine Search Box whenever patient details are autofilled/ready
+  const prevAutofillKeyRef = useRef("");
+  useEffect(() => {
+    const key = `${formData.uhid || ""}_${formData.inpatientNo || ""}_${formData.name || ""}_${formData.doctor_id || ""}`;
+    if (key && key !== prevAutofillKeyRef.current) {
+      prevAutofillKeyRef.current = key;
+      if (formData.doctor_id && (formData.uhid || formData.name || formData.inpatientNo)) {
+        focusMedicineSearch();
+      }
+    }
+  }, [formData.uhid, formData.inpatientNo, formData.name, formData.doctor_id, focusMedicineSearch]);
+
 
   const resolveDoctorIdAndName = useCallback((docInput) => {
     if (!docInput) return { doctor_id: "", doctor_name: "" };
@@ -978,6 +1085,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       const match = doctor_names.find((d) => String(d.employeeId) === String(value));
       const docName = match ? match.employeeName : "";
       setFormData((prev) => ({ ...prev, doctor_id: value, doctor_name: docName }));
+      if (value) {
+        focusMedicineSearch();
+      }
       return;
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -1191,6 +1301,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     fetchAdmissionStatus(p.uhid);
 
     setShowUHIDModal(false);
+    focusMedicineSearch();
   };
 
   const openUHIDModal = () => {
@@ -1319,6 +1430,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     }
     if (adm.uhid) fetchAdmissionStatus(adm.uhid);
     setShowIPModal(false);
+    focusMedicineSearch();
   };
 
   const openIPModal = () => {
@@ -1352,6 +1464,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       billTypeName: lastBilled.bill_name || ""
     }));
     setAddedMedicines([]);
+    focusMedicineSearch();
   };
 
   useEffect(() => {
@@ -1549,6 +1662,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const openMedicineModal = async (term) => {
     const rawTerm = term !== undefined ? term : searchTerm;
 
+    modalOpenedAtRef.current = Date.now();
+
     // 1. Immediately open modal with search query (ZERO DELAY)
     setSelectedMedicines([]);
     setModalSearch(rawTerm || "");
@@ -1556,16 +1671,23 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setShowNilStock(false);
     setShowModal(true);
     setFilteredModalMedicines([]);
+    setHighlightedModalIndex(0);
 
     // 2. Refresh stock in background so available stock is always fresh
     fetchMedicines();
   };
 
   const handleKeyPress = (e) => {
-    if (!isMedicineSearchEnabled) return;
-
     if (e.key === "Enter") {
       e.preventDefault();
+      e.stopPropagation();
+      if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) {
+        e.nativeEvent.stopImmediatePropagation();
+      }
+      if (!isMedicineSearchEnabled) {
+        toast.warning("Please select a Doctor first before searching medicines.", { autoClose: 2000 });
+        return;
+      }
       openMedicineModal(searchTerm);
     }
   };
@@ -1583,6 +1705,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setModalSearch("");
     setShowNilStock(false);
     setModalPage(1);
+    setTimeout(() => {
+      medicineSearchInputRef.current?.focus();
+    }, 50);
   };
 
   const handleMedicineSelect = (medicine) => {
@@ -1602,10 +1727,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     }
   };
 
-  const handleAddSelected = useCallback(() => {
-    const medicinesToAdd = selectedMedicines.filter(
+  // Helper to add a list of medicines to the bill and trigger cursor focus on Quantity field
+  const addMedicinesToBill = useCallback((meds) => {
+    if (!meds || meds.length === 0) return;
+
+    const medicinesToAdd = meds.filter(
       (medicine) => !addedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(medicine))
     );
+
+    if (medicinesToAdd.length === 0) {
+      toast.warning("Selected medicine(s) are already added to the bill!", { autoClose: 2000 });
+      return;
+    }
+
     const medicinesWithQuantity = medicinesToAdd.map((medicine) => {
       const rate = parseFloat(medicine.mrp || medicine.price || medicine.Selling_Price || medicine.selling_price || 0);
       const qty = 1;
@@ -1628,26 +1762,149 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         total: gross,
       };
     });
+
+    const targetFocusIndex = addedMedicines.length;
+    pendingFocusIndexRef.current = targetFocusIndex;
+
     setAddedMedicines((prev) => [...prev, ...medicinesWithQuantity]);
     setSearchTerm("");
-    handleModalClose();
-  }, [selectedMedicines, addedMedicines]);
+    setShowModal(false);
+    setSelectedMedicines([]);
+    setModalSearch("");
+  }, [addedMedicines]);
 
-  // Requirement 2: when medicine is selected from modal, pressing Enter loads the medicine
+  // Select single medicine and advance to quantity
+  const handleSelectMedicineAndClose = useCallback((medicine) => {
+    if (!medicine) return;
+    if (medicine.is_nil_stock) {
+      toast.warning(`"${medicine.name}" has NIL stock and cannot be billed!`, { autoClose: 2000 });
+      return;
+    }
+    const key = getMedicineKey(medicine);
+    const alreadyInBill = addedMedicines.some((m) => getMedicineKey(m) === key);
+    if (alreadyInBill) {
+      toast.warning(`"${medicine.name}" is already added to the bill!`, { autoClose: 2000 });
+      return;
+    }
+    addMedicinesToBill([medicine]);
+  }, [addedMedicines, addMedicinesToBill]);
+
+  // Add selected medicines (or currently highlighted medicine if none checked)
+  const handleAddSelected = useCallback(() => {
+    if (selectedMedicines.length > 0) {
+      addMedicinesToBill(selectedMedicines);
+    } else if (displayedModalMedicines.length > 0) {
+      const targetMed = displayedModalMedicines[highlightedModalIndex] || displayedModalMedicines[0];
+      handleSelectMedicineAndClose(targetMed);
+    }
+  }, [selectedMedicines, displayedModalMedicines, highlightedModalIndex, addMedicinesToBill, handleSelectMedicineAndClose]);
+
+  // Keep highlighted index within bounds when filter or page changes
+  useEffect(() => {
+    if (displayedModalMedicines.length > 0) {
+      const firstAvailable = displayedModalMedicines.findIndex((m) => !m.is_nil_stock);
+      setHighlightedModalIndex(firstAvailable >= 0 ? firstAvailable : 0);
+    } else {
+      setHighlightedModalIndex(0);
+    }
+  }, [modalSearch, modalPage, showNilStock, displayedModalMedicines.length]);
+
+  // Step 3: Automatically move cursor/focus to medicine selection list when modal opens
+  useEffect(() => {
+    if (showModal) {
+      const timer = setTimeout(() => {
+        const targetIdx = Math.min(displayedModalMedicines.length - 1, Math.max(0, highlightedModalIndex));
+        const row = modalRowRefs.current[targetIdx];
+        if (row) {
+          row.focus();
+        } else if (modalSearchInputRef.current) {
+          modalSearchInputRef.current.focus();
+        }
+      }, 70);
+      return () => clearTimeout(timer);
+    }
+  }, [showModal, displayedModalMedicines.length]);
+
+  // Keyboard navigation inside Medicine Selection Window
   useEffect(() => {
     if (!showModal) return;
+
+    let isMounted = true;
+
     const handleModalKeyDown = (e) => {
-      if (e.key === "Enter") {
-        if (selectedMedicines.length > 0) {
+      if (!isMounted) return;
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleModalCloseAndClear();
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
+        if (displayedModalMedicines.length > 0) {
           e.preventDefault();
-          e.stopPropagation();
-          handleAddSelected();
+          setHighlightedModalIndex((prev) => {
+            const nextIdx = Math.min(displayedModalMedicines.length - 1, prev + 1);
+            modalRowRefs.current[nextIdx]?.focus();
+            modalRowRefs.current[nextIdx]?.scrollIntoView({ block: "nearest" });
+            return nextIdx;
+          });
         }
+      } else if (e.key === "ArrowUp") {
+        if (displayedModalMedicines.length > 0) {
+          e.preventDefault();
+          setHighlightedModalIndex((prev) => {
+            if (prev <= 0) {
+              modalSearchInputRef.current?.focus();
+              return 0;
+            }
+            const prevIdx = prev - 1;
+            modalRowRefs.current[prevIdx]?.focus();
+            modalRowRefs.current[prevIdx]?.scrollIntoView({ block: "nearest" });
+            return prevIdx;
+          });
+        }
+      } else if (e.key === "Enter") {
+        // Prevent the Enter key that opened the modal from immediately selecting and closing
+        if (Date.now() - modalOpenedAtRef.current < 250) {
+          e.preventDefault();
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        handleAddSelected();
       }
     };
-    window.addEventListener("keydown", handleModalKeyDown);
-    return () => window.removeEventListener("keydown", handleModalKeyDown);
-  }, [showModal, selectedMedicines, handleAddSelected]);
+
+    // Delay attaching to window so the Enter keypress that opened the modal does not immediately select
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        window.addEventListener("keydown", handleModalKeyDown);
+      }
+    }, 100);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+      window.removeEventListener("keydown", handleModalKeyDown);
+    };
+  }, [showModal, displayedModalMedicines, highlightedModalIndex, handleAddSelected]);
+
+  // Step 4: Automatically move cursor to quantity field after medicine is selected
+  useEffect(() => {
+    if (pendingFocusIndexRef.current !== null) {
+      const idx = pendingFocusIndexRef.current;
+      pendingFocusIndexRef.current = null;
+      const timer = setTimeout(() => {
+        const inputEl = qtyInputRefs.current[idx];
+        if (inputEl) {
+          inputEl.focus();
+          inputEl.select();
+        }
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [addedMedicines]);
 
  const handleQuantityChange = (index, value) => {
   const updatedMedicines = [...addedMedicines];
@@ -3072,29 +3329,7 @@ const loadedMedicines = rawMeds.map((item) => {
 
   const netAmount = Math.max(0, totalAmount - overallDiscAmt);
 
-  const modalSourceList = medicines;
-  const nilStockCount = modalSourceList.filter(m => m.is_nil_stock).length;
 
-  const visibleModalMedicines = modalSourceList.filter((m) => {
-    if (m.is_nil_stock && !showNilStock) return false;
-    if (modalSearch.trim()) {
-      const q = modalSearch.trim().toLowerCase();
-      return (
-        (m.name || "").toLowerCase().includes(q) ||
-        (m.chemical_composition || "").toLowerCase().includes(q) ||
-        (m.composition_name || "").toLowerCase().includes(q) ||
-        (m.batch_number || "").toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
-
-  const modalTotalPages = Math.max(1, Math.ceil(visibleModalMedicines.length / MODAL_PAGE_SIZE));
-  const safeModalPage = Math.min(modalPage, modalTotalPages);
-  const displayedModalMedicines = visibleModalMedicines.slice(
-    (safeModalPage - 1) * MODAL_PAGE_SIZE,
-    safeModalPage * MODAL_PAGE_SIZE
-  );
 
   return (
     <PageWrapper>
@@ -3266,6 +3501,12 @@ const loadedMedicines = rawMeds.map((item) => {
                 placeholder="Patient name"
                 value={formData.name}
                 onChange={handleChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    focusMedicineSearch();
+                  }
+                }}
               />
             </InputWrapper>
 
@@ -3312,6 +3553,12 @@ const loadedMedicines = rawMeds.map((item) => {
                 name="doctor_id"
                 value={formData.doctor_id}
                 onChange={handleChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    focusMedicineSearch();
+                  }
+                }}
                 required
               >
                 <option value="">Select Doctor</option>
@@ -3389,15 +3636,16 @@ const loadedMedicines = rawMeds.map((item) => {
         <MedicineSearchWrapper>
           <SearchHint>
             <FaSearch style={{ marginRight: 5 }} />
-            Type medicine name, then click <strong>Search</strong> or press <strong>Enter</strong> to open results
+            Type medicine name (e.g. <strong>do</strong>, <strong>dol</strong>), then press <strong>Enter</strong> to open selection modal
             {!isMedicineSearchEnabled && <span style={{ color: "#ef4444" }}> — Select Doctor first</span>}
           </SearchHint>
           <SearchInputRow>
             <SearchInputStyled
+              ref={medicineSearchInputRef}
               type="text"
               placeholder={
                 isMedicineSearchEnabled
-                  ? "Type medicine name and press Enter or click Search"
+                  ? "Type medicine name (e.g. do, dol) and press Enter..."
                   : "Select Doctor first"
               }
               value={searchTerm}
@@ -3494,6 +3742,7 @@ const loadedMedicines = rawMeds.map((item) => {
                       <Td>{medicine.batch_number}</Td>
                       <Td>
                         <QtyInput
+                          ref={(el) => (qtyInputRefs.current[index] = el)}
                           type="number"
                           min="0"
                           value={medicine.quantity || ""}
@@ -3533,6 +3782,18 @@ const loadedMedicines = rawMeds.map((item) => {
                               )
                             );
                             if (newQty > 0) setQtyErrors(prev => { const n = { ...prev }; delete n[index]; return n; });
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (index < addedMedicines.length - 1 && qtyInputRefs.current[index + 1]) {
+                                qtyInputRefs.current[index + 1].focus();
+                                qtyInputRefs.current[index + 1].select();
+                              } else if (medicineSearchInputRef.current) {
+                                medicineSearchInputRef.current.focus();
+                                medicineSearchInputRef.current.select();
+                              }
+                            }
                           }}
                         />
                       </Td>
@@ -3712,18 +3973,25 @@ const loadedMedicines = rawMeds.map((item) => {
               <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
                 <SearchRow style={{ flex: 1, margin: 0 }}>
                   <SearchInput
-                    placeholder="Filter results..."
+                    ref={modalSearchInputRef}
+                    placeholder="Filter results... (Press Enter to select, ↓ to browse list)"
                     value={modalSearch}
                     onChange={e => { setModalSearch(e.target.value); setModalPage(1); }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        if (selectedMedicines.length > 0) {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        const targetIdx = Math.min(displayedModalMedicines.length - 1, Math.max(0, highlightedModalIndex));
+                        modalRowRefs.current[targetIdx]?.focus();
+                        modalRowRefs.current[targetIdx]?.scrollIntoView({ block: "nearest" });
+                      } else if (e.key === "Enter") {
+                        if (Date.now() - modalOpenedAtRef.current < 250) {
                           e.preventDefault();
-                          handleAddSelected();
+                          return;
                         }
+                        e.preventDefault();
+                        handleAddSelected();
                       }
                     }}
-                    autoFocus
                     style={{ width: "100%" }}
                   />
                 </SearchRow>
@@ -3798,6 +4066,9 @@ const loadedMedicines = rawMeds.map((item) => {
                       {displayedModalMedicines.map((medicine, index) => {
                         const isNilStock = medicine.is_nil_stock;
                         const isLowStock = !isNilStock && medicine.is_low_stock;
+                        const isHighlighted = index === highlightedModalIndex;
+                        const isSelected = selectedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(medicine));
+
                         // Determine item name text color from risk flags (priority: high_risk > look_alike > sound_alike)
                         const nameColor = isNilStock
                           ? "#b91c1c"
@@ -3813,16 +4084,32 @@ const loadedMedicines = rawMeds.map((item) => {
                         return (
                           <Tr
                             key={getMedicineKey(medicine) || index}
+                            ref={(el) => (modalRowRefs.current[index] = el)}
+                            tabIndex={0}
                             style={{
                               cursor: isNilStock ? "not-allowed" : "pointer",
                               opacity: isNilStock ? 0.55 : 1,
+                              backgroundColor: isHighlighted ? "#ecfdf5" : isSelected ? "#f0fdfa" : undefined,
+                              borderLeft: isHighlighted ? "4px solid #0f766e" : "4px solid transparent",
+                              outline: "none",
+                              boxShadow: isHighlighted ? "inset 0 0 0 1px #0f766e, 0 1px 3px rgba(15,118,110,0.15)" : undefined,
+                              transition: "background-color 0.1s ease, border-left 0.1s ease",
                             }}
-                            onClick={() => { if (!isNilStock) handleMedicineSelect(medicine); }}
+                            onClick={() => {
+                              setHighlightedModalIndex(index);
+                              if (!isNilStock) handleMedicineSelect(medicine);
+                            }}
+                            onDoubleClick={() => {
+                              if (!isNilStock) {
+                                handleSelectMedicineAndClose(medicine);
+                              }
+                            }}
+                            onMouseEnter={() => setHighlightedModalIndex(index)}
                           >
                             <Td style={{ textAlign: "center", verticalAlign: "middle" }} onClick={e => e.stopPropagation()}>
                               <ModalCheckbox
                                 type="checkbox"
-                                checked={selectedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(medicine))}
+                                checked={isSelected}
                                 onChange={() => { if (!isNilStock) handleMedicineSelect(medicine); }}
                                 disabled={isNilStock}
                                 title={isNilStock ? "Out of stock — cannot select" : ""}
@@ -3833,6 +4120,20 @@ const loadedMedicines = rawMeds.map((item) => {
                               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                 <span style={{ color: nameColor, fontWeight: nameColor ? 700 : 500 }}>{medicine.name}</span>
                                 {medicine.dosage && <span style={{ fontSize: "0.75rem", color: "#64748b" }}>({medicine.dosage})</span>}
+                                {isHighlighted && !isNilStock && (
+                                  <span style={{
+                                    fontSize: "0.68rem",
+                                    background: "#0f766e",
+                                    color: "#fff",
+                                    borderRadius: 4,
+                                    padding: "1px 6px",
+                                    fontWeight: 700,
+                                    letterSpacing: "0.02em",
+                                    marginLeft: 6
+                                  }}>
+                                    ↵ Enter to select
+                                  </span>
+                                )}
                                 {!isNilStock && isLowStock && (
                                   <>
                                     <BlinkDot />
