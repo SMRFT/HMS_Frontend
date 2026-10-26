@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled from "styled-components";
 import { Search, X, Check } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
+import HighRiskBadge from "./HighRiskBadge";
 
 // ─── Modal Overlay & Container ───────────────────────────────────────────────
 
@@ -609,7 +610,14 @@ export default function PatientSearchModal({
                             </Td>
                           )}
                           <Td style={{ fontWeight: 600, fontFamily: "monospace" }}>{uhidNo}</Td>
-                          <Td style={{ fontWeight: 500 }}>{fullName}</Td>
+                          <Td style={{ fontWeight: 500 }}>
+                            {fullName}
+                            {p.is_high_risk && (
+                              <span style={{ marginLeft: 6 }}>
+                                <HighRiskBadge reason={p.high_risk_reason} />
+                              </span>
+                            )}
+                          </Td>
                           <Td>{mobile}</Td>
                           {isIpMode && <Td style={{ fontSize: "0.83rem" }}>{roomLabel}</Td>}
                         </Tr>

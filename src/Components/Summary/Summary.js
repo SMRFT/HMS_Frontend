@@ -16,10 +16,19 @@ import {
   Stethoscope,
   X,
   Pill,
+  Bold,
+  Mic,
+  MicOff,
+  Sparkles,
+  RotateCcw,
+  Globe,
+  Volume2,
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 import ICD11SearchComponent from "./ICD11SearchComponent";
 import { PageWrapper, colors } from "../GlobalStyles";
+import HighRiskBadge from "../Common/HighRiskBadge";
+import PatientSearchModal from "../Common/PatientSearchModal";
 
 /* ─── Design tokens ─────────────────────────────────────────────────────── */
 const T = {
@@ -281,6 +290,157 @@ const S = {
     lineHeight: 1.65,
     transition: "all .15s",
   },
+  notesToolbar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "6px 10px",
+    background: "#f8fafc",
+    border: `1px solid ${T.border}`,
+    borderRadius: 8,
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  boldBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 12px",
+    fontSize: 12.5,
+    fontWeight: 700,
+    color: "#0f172a",
+    background: "#ffffff",
+    border: `1.5px solid #94a3b8`,
+    borderRadius: 6,
+    cursor: "pointer",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+    transition: "all .15s",
+  },
+  micBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 12px",
+    fontSize: 12.5,
+    fontWeight: 700,
+    color: "#0f766e",
+    background: "#f0fdf4",
+    border: "1.5px solid #86efac",
+    borderRadius: 6,
+    cursor: "pointer",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+    transition: "all .15s",
+  },
+  micBtnActive: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 12px",
+    fontSize: 12.5,
+    fontWeight: 700,
+    color: "#b91c1c",
+    background: "#fef2f2",
+    border: "1.5px solid #f87171",
+    borderRadius: 6,
+    cursor: "pointer",
+    boxShadow: "0 0 0 3px rgba(239,68,68,0.25)",
+    transition: "all .15s",
+  },
+  aiBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 12px",
+    fontSize: 12.5,
+    fontWeight: 700,
+    color: "#4338ca",
+    background: "#eef2ff",
+    border: "1.5px solid #a5b4fc",
+    borderRadius: 6,
+    cursor: "pointer",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+    transition: "all .15s",
+  },
+  undoBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "5px 10px",
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#64748b",
+    background: "#ffffff",
+    border: "1px solid #cbd5e1",
+    borderRadius: 6,
+    cursor: "pointer",
+    transition: "all .15s",
+  },
+  listeningBanner: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "7px 12px",
+    background: "#fef2f2",
+    border: "1px solid #fca5a5",
+    borderRadius: 6,
+    fontSize: 12,
+    color: "#991b1b",
+    fontWeight: 600,
+  },
+  pulsingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    backgroundColor: "#ef4444",
+    display: "inline-block",
+    boxShadow: "0 0 0 2px rgba(239,68,68,0.4)",
+  },
+  toolbarHint: {
+    fontSize: 11.5,
+    color: T.muted,
+  },
+  tabGroup: {
+    display: "flex",
+    alignItems: "center",
+    background: "#e2e8f0",
+    padding: 2,
+    borderRadius: 7,
+    gap: 2,
+  },
+  tabBtn: {
+    padding: "4px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+    color: T.muted,
+    background: "transparent",
+    border: "none",
+    borderRadius: 5,
+    cursor: "pointer",
+    transition: "all .15s",
+  },
+  tabBtnActive: {
+    padding: "4px 12px",
+    fontSize: 12,
+    fontWeight: 700,
+    color: T.teal,
+    background: "#ffffff",
+    border: `1px solid ${T.border}`,
+    borderRadius: 5,
+    cursor: "pointer",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+  },
+  previewBox: {
+    minHeight: 520,
+    padding: 16,
+    fontSize: 13.5,
+    color: T.text,
+    background: "#ffffff",
+    border: `1px solid ${T.border}`,
+    borderRadius: 8,
+    lineHeight: 1.65,
+    overflowY: "auto",
+    whiteSpace: "pre-wrap",
+  },
 
   /* Action row */
   actionRow: { display: "flex", gap: 10, flexWrap: "wrap" },
@@ -536,6 +696,41 @@ const normalizeFieldsData = (fd) => {
   return [];
 };
 
+/* ─── Render Formatted/Bold Text Helper ──────────────────────────────────── */
+const renderFormattedText = (text) => {
+  if (text == null || text === "" || !String(text).trim()) return "\u00A0";
+  const regex = /(\*\*[\s\S]+?\*\*|<b>[\s\S]*?<\/b>|<strong>[\s\S]*?<\/strong>)/gi;
+  const parts = String(text).split(regex);
+
+  return parts.map((part, index) => {
+    if (!part) return null;
+    if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
+      return (
+        <strong key={index} style={{ fontWeight: 700 }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    const bMatch = part.match(/^<b>([\s\S]*?)<\/b>$/i);
+    if (bMatch) {
+      return (
+        <strong key={index} style={{ fontWeight: 700 }}>
+          {bMatch[1]}
+        </strong>
+      );
+    }
+    const strongMatch = part.match(/^<strong>([\s\S]*?)<\/strong>$/i);
+    if (strongMatch) {
+      return (
+        <strong key={index} style={{ fontWeight: 700 }}>
+          {strongMatch[1]}
+        </strong>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+};
+
 /* ─── Component ──────────────────────────────────────────────────────────── */
 const Summary = () => {
   const currentDate = new Date().toLocaleDateString("en-GB");
@@ -579,35 +774,15 @@ const Summary = () => {
   const canDelete = allowedActions.includes("HMS-P-SUMD-RW");
   const canApprove = allowedActions.includes("HMS-P-SUMA-RW");
 
-  const noteFields = [
-    "ONCOLOGY NOTES",
-    "SPECIAL NEEDS AFTER DISCHARGE",
-    "VACCINATION HISTORY",
-    "DISCHARGE TYPE",
-    "ADMISSION DIAGNOSIS",
-    "DISCHARGE DIAGNOSIS",
-    "CONSULTANT",
-    "BRIEF HISTORY",
-    "SIGNIFICANT PAST MEDICAL AND SURGICAL HISTORY",
-    "GENERAL EXAMINATION",
-    "VITALS",
-    "COURSE IN THE HOSPITAL",
-    "INVESTIGATIONS",
-    "SURGERIES / PROCEDURES PERFORMED",
-    "SPECIFIC MEDICATION GIVEN DURING HOSPITAL STAY",
-    "ADVICE ON DIET",
-    "ADVICE ON LIFE STYLE",
-    "ADVICE ON IMMUNIZATION",
-    "CONDITION ON DISCHARGE",
-    "ADVICE ON DISCHARGE",
-    "DOA AND DOD",
-  ];
+  const [noteFields, setNoteFields] = useState([]);
 
   const emptyForm = {
     date: "",
     ipNo: "",
     uhid: "",
     patient: "",
+    is_high_risk: false,
+    high_risk_reason: "",
     doa: "",
     doaTime: "",
     dod: "",
@@ -649,7 +824,46 @@ const Summary = () => {
   };
 
   const [formData, setFormData] = useState(emptyForm);
+  const [notesTab, setNotesTab] = useState("edit");
   const notesRef = useRef(null);
+  const [isListening, setIsListening] = useState(false);
+  const isListeningRef = useRef(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [previousNotes, setPreviousNotes] = useState(null);
+  const [speechLang, setSpeechLang] = useState("en-IN");
+  const [micBoost, setMicBoost] = useState(true);
+  const gainNodeRef = useRef(null);
+  const [speechStatus, setSpeechStatus] = useState("Listening… Speak into your microphone");
+  const [audioLevel, setAudioLevel] = useState(0);
+
+  const toggleMicBoost = () => {
+    setMicBoost((prev) => {
+      const next = !prev;
+      if (gainNodeRef.current) {
+        gainNodeRef.current.gain.value = next ? 3.0 : 1.0;
+      }
+      return next;
+    });
+  };
+
+  // AI Summarize Review & Edit Modal state
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiModalOriginalText, setAiModalOriginalText] = useState("");
+  const [aiModalSummarizedText, setAiModalSummarizedText] = useState("");
+  const [aiModalRawSummary, setAiModalRawSummary] = useState("");
+  const [aiModalField, setAiModalField] = useState("");
+  const [aiModalTab, setAiModalTab] = useState("edit");
+  const recognitionRef = useRef(null);
+  const speechBaseTextRef = useRef("");
+  const audioContextRef = useRef(null);
+  const audioStreamRef = useRef(null);
+  const audioAnimRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      stopAllSpeech();
+    };
+  }, []);
 
   const fetchDoctors = async () => {
     const r = await apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET");
@@ -666,10 +880,29 @@ const Summary = () => {
     if (r.success) setHeadingOptions(r.data);
   };
 
+  const fetchClinicalNotesTitles = async () => {
+    try {
+      const r = await apiRequest(`${HMSURL}summary-clinical-notes/`, "GET");
+      if (r.success && Array.isArray(r.data) && r.data.length > 0) {
+        const sorted = [...r.data].sort((a, b) => {
+          const numA = Number(a.title_no) || 0;
+          const numB = Number(b.title_no) || 0;
+          return numA - numB;
+        });
+        setNoteFields(
+          sorted.map((item) => item.title_name).filter(Boolean)
+        );
+      }
+    } catch (err) {
+      console.error("Failed to fetch clinical notes titles:", err);
+    }
+  };
+
   useEffect(() => {
     fetchDoctors();
     fetchSummaryTypes();
     fetchSummaryHeadings();
+    fetchClinicalNotesTitles();
   }, [HMSURL]);
 
   const handleSummaryTypeSelect = (e) => {
@@ -937,6 +1170,22 @@ const Summary = () => {
     });
   }, []);
 
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+
+  const openIpSearchModal = () => {
+    setPatientSearchQuery(formData.ipNo || "");
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelect = (item) => {
+    const selectedIp = item.ipNumber || item.ip_number || "";
+    if (selectedIp) {
+      setFormData((prev) => ({ ...prev, ipNo: selectedIp }));
+      fetchIpPatient(selectedIp);
+    }
+  };
+
   const fetchIpPatient = async (overrideIp) => {
     const ip = typeof overrideIp === "string" ? overrideIp : formData.ipNo;
     if (!ip?.trim()) {
@@ -965,6 +1214,8 @@ const Summary = () => {
         doaTime: d.admissionTime || "",
         doctor: d.admittingDoctor || "",
         address: fullAddress,
+        is_high_risk: Boolean(d.is_high_risk),
+        high_risk_reason: d.high_risk_reason || "",
       }));
     } else {
       Swal.fire("Error", "Patient not found for the entered IP Number", "error");
@@ -1155,7 +1406,498 @@ const Summary = () => {
     }));
   };
 
+  const handleToggleBold = () => {
+    if (notesTab !== "edit") {
+      setNotesTab("edit");
+    }
+    const textarea = notesRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = formData.notes || "";
+    const selected = text.substring(start, end);
+
+    // 1. If selection itself is wrapped in **...**
+    if (
+      selected.startsWith("**") &&
+      selected.endsWith("**") &&
+      selected.length >= 4
+    ) {
+      const unwrapped = selected.slice(2, -2);
+      const newText = text.substring(0, start) + unwrapped + text.substring(end);
+      setFormData((prev) => ({
+        ...prev,
+        notes: newText,
+        fieldsData: setFieldValue(prev.fieldsData, prev.currentField, newText),
+      }));
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start, start + unwrapped.length);
+      }, 0);
+      return;
+    }
+
+    // 2. If outer characters are **
+    const before = text.substring(Math.max(0, start - 2), start);
+    const after = text.substring(end, Math.min(text.length, end + 2));
+    if (before === "**" && after === "**") {
+      const newText =
+        text.substring(0, start - 2) + selected + text.substring(end + 2);
+      setFormData((prev) => ({
+        ...prev,
+        notes: newText,
+        fieldsData: setFieldValue(prev.fieldsData, prev.currentField, newText),
+      }));
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start - 2, end - 2);
+      }, 0);
+      return;
+    }
+
+    // 3. Wrap selection in **
+    if (selected.length > 0) {
+      const wrapped = `**${selected}**`;
+      const newText = text.substring(0, start) + wrapped + text.substring(end);
+      setFormData((prev) => ({
+        ...prev,
+        notes: newText,
+        fieldsData: setFieldValue(prev.fieldsData, prev.currentField, newText),
+      }));
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + 2, end + 2);
+      }, 0);
+    } else {
+      // 4. No selection: insert **bold text** with 'bold text' selected
+      const placeholder = "bold text";
+      const insertion = `**${placeholder}**`;
+      const newText = text.substring(0, start) + insertion + text.substring(end);
+      setFormData((prev) => ({
+        ...prev,
+        notes: newText,
+        fieldsData: setFieldValue(prev.fieldsData, prev.currentField, newText),
+      }));
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + 2, start + 2 + placeholder.length);
+      }, 0);
+    }
+  };
+
+  const handleNotesKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      e.preventDefault();
+      handleToggleBold();
+    }
+  };
+
+
+  /* ─── Voice-to-Text Microphone Dictation ─── */
+  const stopAllSpeech = () => {
+    isListeningRef.current = false;
+    setIsListening(false);
+    setAudioLevel(0);
+    setSpeechStatus("Stopped");
+
+    if (audioAnimRef.current) {
+      cancelAnimationFrame(audioAnimRef.current);
+      audioAnimRef.current = null;
+    }
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((t) => t.stop());
+      audioStreamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+      } catch { }
+      audioContextRef.current = null;
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.stop();
+      } catch { }
+      recognitionRef.current = null;
+    }
+  };
+
+  const startAudioMeter = (stream, boost = true) => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      audioContextRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+
+      // Web Audio Gain Node for low-voice sensitivity boost
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = boost ? 3.0 : 1.0;
+      gainNodeRef.current = gainNode;
+
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.2;
+
+      source.connect(gainNode);
+      gainNode.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const updateMeter = () => {
+        if (!isListeningRef.current) return;
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / bufferLength;
+        const normalized = Math.min(100, Math.round((avg / 128) * 100));
+        setAudioLevel(normalized);
+        audioAnimRef.current = requestAnimationFrame(updateMeter);
+      };
+      updateMeter();
+    } catch (e) {
+      console.warn("Could not start audio meter:", e);
+    }
+  };
+
+  const initRecognition = (lang) => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = lang;
+
+    recognition.onstart = () => {
+      setSpeechStatus("Microphone ready. Dictate your notes now…");
+    };
+
+    recognition.onaudiostart = () => {
+      setSpeechStatus("Microphone active. Waiting for voice…");
+    };
+
+    recognition.onsoundstart = () => {
+      setSpeechStatus("Sound detected…");
+    };
+
+    recognition.onspeechstart = () => {
+      setSpeechStatus("Speech detected! Transcribing…");
+    };
+
+    recognition.onspeechend = () => {
+      setSpeechStatus("Processing speech…");
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let i = 0; i < event.results.length; i++) {
+        const item = event.results[i];
+        if (item.isFinal) {
+          finalTranscript += item[0].transcript + " ";
+        } else {
+          interimTranscript += item[0].transcript;
+        }
+      }
+
+      let combined = (finalTranscript + interimTranscript);
+      combined = combined
+        .replace(/\b(full stop|period)\b/gi, ".")
+        .replace(/\b(comma)\b/gi, ",")
+        .replace(/\b(colon)\b/gi, ":")
+        .replace(/\b(semicolon)\b/gi, ";")
+        .replace(/\b(next line|new line)\b/gi, "\n")
+        .replace(/\b(hyphen|dash)\b/gi, "-");
+
+      const base = speechBaseTextRef.current;
+      const separator =
+        base && !base.endsWith("\n") && !base.endsWith(" ") ? " " : "";
+      const fullText = base ? base + separator + combined : combined;
+
+      setFormData((prev) => ({
+        ...prev,
+        notes: fullText,
+        fieldsData: setFieldValue(prev.fieldsData, prev.currentField, fullText),
+      }));
+
+      setSpeechStatus(
+        interimTranscript
+          ? `Transcribing: "${interimTranscript.slice(-30)}"`
+          : "Listening… Speak clearly"
+      );
+
+      if (notesRef.current) {
+        notesRef.current.scrollTop = notesRef.current.scrollHeight;
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.warn("Speech recognition error:", event.error);
+      if (event.error === "no-speech") {
+        setSpeechStatus("No voice heard. Keep speaking into the microphone…");
+        return;
+      }
+      if (event.error === "network") {
+        setSpeechStatus("Network error: Chrome cannot contact Google Speech Services. Please check internet connection.");
+        Swal.fire({
+          icon: "error",
+          title: "Speech Recognition Network Error",
+          text: "Chrome speech recognition requires an active internet connection to contact Google Speech Services. Please check your network connection.",
+        });
+        stopAllSpeech();
+        return;
+      }
+      if (event.error === "not-allowed") {
+        Swal.fire({
+          icon: "error",
+          title: "Microphone Access Denied",
+          text: "Please click the microphone icon in your browser address bar and allow microphone permissions.",
+        });
+        stopAllSpeech();
+        return;
+      }
+      if (event.error === "audio-capture") {
+        Swal.fire({
+          icon: "error",
+          title: "Audio Capture Error",
+          text: "Could not capture audio from your microphone. Please check your Windows default microphone settings.",
+        });
+        stopAllSpeech();
+        return;
+      }
+    };
+
+    recognition.onend = () => {
+      if (isListeningRef.current) {
+        try {
+          recognition.start();
+        } catch { }
+      } else {
+        stopAllSpeech();
+      }
+    };
+
+    return recognition;
+  };
+
+  const toggleSpeechRecognition = async () => {
+    if (!selectedField) {
+      Swal.fire({
+        icon: "info",
+        title: "Select Field First",
+        text: "Please select a clinical field from the sidebar before dictating notes.",
+      });
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      Swal.fire({
+        icon: "warning",
+        title: "Speech Recognition Unavailable",
+        text: "Your browser does not support Web Speech Recognition. Please use Google Chrome or Microsoft Edge to dictate clinical notes.",
+      });
+      return;
+    }
+
+    if (isListening) {
+      stopAllSpeech();
+      return;
+    }
+
+    try {
+      let stream = null;
+      const audioConstraints = {
+        audio: {
+          autoGainControl: true,       // Boost soft/low-volume voices via hardware/OS AGC
+          noiseSuppression: false,     // Disable aggressive noise gating that cuts off whispers/soft speech
+          echoCancellation: true,
+          channelCount: 1,
+        },
+      };
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
+        audioStreamRef.current = stream;
+      } catch (constraintErr) {
+        console.warn("Audio constraints not supported, fallback to basic audio: true", constraintErr);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioStreamRef.current = stream;
+        } catch (permErr) {
+          console.error("Microphone permission error:", permErr);
+          Swal.fire({
+            icon: "error",
+            title: "Microphone Blocked",
+            text: "Microphone access was denied or not found. Please click the lock/settings icon in the browser URL bar to allow microphone access.",
+          });
+          return;
+        }
+      }
+
+      isListeningRef.current = true;
+      setIsListening(true);
+      speechBaseTextRef.current = formData.notes || "";
+      setSpeechStatus("Initializing microphone…");
+
+      if (stream) {
+        startAudioMeter(stream, micBoost);
+      }
+
+      const recognition = initRecognition(speechLang);
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
+      stopAllSpeech();
+      Swal.fire({
+        icon: "error",
+        title: "Microphone Error",
+        text: "Could not activate microphone: " + (err.message || err),
+      });
+    }
+  };
+
+  const handleLanguageChange = (newLang) => {
+    setSpeechLang(newLang);
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      } catch { }
+      const rec = initRecognition(newLang);
+      recognitionRef.current = rec;
+      rec.start();
+    }
+  };
+
+  /* ─── AI Summarize / Refine Notes ─── */
+  const handleAiSummarize = async () => {
+    if (!formData.notes || !formData.notes.trim()) {
+      Swal.fire({
+        icon: "info",
+        title: "No Notes to Summarize",
+        text: "Please enter or dictate some clinical notes first.",
+      });
+      return;
+    }
+
+    if (isListening) {
+      stopAllSpeech();
+    }
+
+    setIsSummarizing(true);
+    const activeField = selectedField || formData.currentField || "CLINICAL NOTES";
+
+    try {
+      const response = await apiRequest(`${HMSURL}ai-summarize-notes/`, "POST", {
+        text: formData.notes,
+        field: activeField,
+        patient_name: formData.patient || "",
+        ip_no: formData.ipNo || "",
+      });
+
+      const summarized = response?.data?.summarized || response?.summarized;
+      if (response && response.success && summarized) {
+        // Open review modal with original and AI-improvised text (do NOT overwrite actual sentence yet)
+        setAiModalOriginalText(formData.notes);
+        setAiModalSummarizedText(summarized);
+        setAiModalRawSummary(summarized);
+        setAiModalField(activeField);
+        setAiModalTab("edit");
+        setShowAiModal(true);
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "AI Improvisation Failed",
+          text: response?.error || response?.data?.error || "The AI model could not improvise the notes. Please try again.",
+        });
+      }
+    } catch (err) {
+      console.error("Backend AI summarize failed:", err);
+      Swal.fire({
+        icon: "error",
+        title: "AI Service Error",
+        text: (err && err.message) || "Unable to reach the AI service. Please ensure the backend server and Gemini API key are active.",
+      });
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  /* ─── Proceed button inside AI Modal: applies summary to actual notes ─── */
+  const handleProceedAiSummary = () => {
+    if (!aiModalSummarizedText || !aiModalSummarizedText.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Empty Notes",
+        text: "The summarized text is empty. Please enter or keep some text before proceeding.",
+      });
+      return;
+    }
+
+    // Save previous notes so user can revert via Undo button if needed
+    setPreviousNotes(formData.notes);
+
+    // Apply the edited AI summary to the actual clinical notes and fieldsData
+    setFormData((prev) => ({
+      ...prev,
+      notes: aiModalSummarizedText,
+      fieldsData: setFieldValue(
+        prev.fieldsData,
+        prev.currentField,
+        aiModalSummarizedText
+      ),
+    }));
+
+    setShowAiModal(false);
+
+    Swal.fire({
+      icon: "success",
+      title: "Notes Updated",
+      text: "Clinical notes have been updated with the AI summary.",
+      timer: 1600,
+      showConfirmButton: false,
+    });
+  };
+
+  const handleUndoAi = () => {
+    if (previousNotes == null) return;
+    const restored = previousNotes;
+    setPreviousNotes(null);
+    setFormData((prev) => ({
+      ...prev,
+      notes: restored,
+      fieldsData: setFieldValue(prev.fieldsData, prev.currentField, restored),
+    }));
+    Swal.fire({
+      icon: "info",
+      title: "Reverted",
+      text: "Restored previous notes text.",
+      timer: 1400,
+      showConfirmButton: false,
+    });
+  };
+
   const handleButtonClick = (fieldName) => {
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch { }
+      setIsListening(false);
+    }
+    setPreviousNotes(null);
     setSelectedField(fieldName);
     setFormData((prev) => {
       const fd = setFieldValue(prev.fieldsData, prev.currentField, prev.notes);
@@ -1532,11 +2274,22 @@ const Summary = () => {
                   name="ipNo"
                   value={formData.ipNo}
                   onChange={handleChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      openIpSearchModal();
+                    }
+                  }}
                   readOnly={isEditMode}
                   placeholder="IP No"
                 />
                 {!isEditMode && (
-                  <button style={S.searchMicroBtn} onClick={fetchIpPatient}>
+                  <button
+                    type="button"
+                    style={S.searchMicroBtn}
+                    onClick={openIpSearchModal}
+                    title="Search IP Number"
+                  >
                     <Search size={12} /> Search
                   </button>
                 )}
@@ -1549,7 +2302,16 @@ const Summary = () => {
                   placeholder="UHID"
                 />
               </Fld>
-              <Fld label="Patient Name">
+              <Fld
+                label={
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span>Patient Name</span>
+                    {formData.is_high_risk && (
+                      <HighRiskBadge reason={formData.high_risk_reason} size="sm" />
+                    )}
+                  </span>
+                }
+              >
                 <CInp
                   name="patient"
                   value={formData.patient}
@@ -1815,22 +2577,299 @@ const Summary = () => {
               )}
             </div>
 
-            <textarea
-              ref={notesRef}
-              style={S.textarea}
-              name="notes"
-              placeholder="Type clinical notes here…"
-              value={formData.notes}
-              onChange={handleChange}
-              onFocus={(e) => {
-                e.target.style.borderColor = T.teal;
-                e.target.style.boxShadow = `0 0 0 3px ${T.teal}18`;
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = T.border;
-                e.target.style.boxShadow = "none";
-              }}
-            />
+            {/* Formatting Toolbar */}
+            <div style={S.notesToolbar}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  style={S.boldBtn}
+                  onClick={handleToggleBold}
+                  title="Make selected text bold (Ctrl+B)"
+                >
+                  <Bold size={14} strokeWidth={3} />
+                  <span>Bold</span>
+                </button>
+
+                {/* Voice Dictation Language Dropdown */}
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: "#ffffff",
+                    border: `1.5px solid #cbd5e1`,
+                    borderRadius: 6,
+                    padding: "3px 8px",
+                  }}
+                  title="Select voice recognition dictation language"
+                >
+                  <Globe size={13} style={{ color: "#0d9488" }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Lang:</span>
+                  <select
+                    value={speechLang}
+                    onChange={(e) => handleLanguageChange(e.target.value)}
+                    style={{
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#1e293b",
+                      cursor: "pointer",
+                      paddingRight: 4,
+                    }}
+                  >
+                    <option value="en-IN">English (India / Medical)</option>
+                    <option value="ta-IN">Tamil (தமிழ்)</option>
+                    <option value="hi-IN">Hindi (हिन्दी)</option>
+                  </select>
+                </div>
+
+                {/* Low-Voice Sensitivity Boost Toggle on Toolbar */}
+                <button
+                  type="button"
+                  onClick={toggleMicBoost}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: micBoost ? "#f0fdf4" : "#ffffff",
+                    border: `1.5px solid ${micBoost ? "#16a34a" : "#cbd5e1"}`,
+                    color: micBoost ? "#15803d" : "#64748b",
+                    borderRadius: 6,
+                    padding: "3px 9px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: micBoost ? "0 0 6px rgba(22, 163, 74, 0.2)" : "none",
+                    transition: "all 0.15s",
+                  }}
+                  title="Toggle Microphone Sensitivity Boost: Amplifies low, soft, or whispered voices"
+                >
+                  <Volume2 size={13} color={micBoost ? "#16a34a" : "#64748b"} />
+                  <span>{micBoost ? "Boost: ON (3×)" : "Boost: OFF"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  style={isListening ? S.micBtnActive : S.micBtn}
+                  onClick={toggleSpeechRecognition}
+                  title={
+                    isListening
+                      ? "Click to stop microphone voice recording"
+                      : "Click to speak & dictate clinical notes via microphone"
+                  }
+                >
+                  {isListening ? (
+                    <>
+                      <span style={S.pulsingDot} />
+                      <MicOff size={14} />
+                      <span>Stop Voice</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic size={14} />
+                      <span>Voice Dictation</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  style={S.aiBtn}
+                  onClick={handleAiSummarize}
+                  disabled={isSummarizing || !formData.notes || !formData.notes.trim()}
+                  title="AI-format and summarize notes into proper clinical structure"
+                >
+                  <Sparkles size={14} />
+                  <span>{isSummarizing ? "Summarizing…" : "AI Summarize"}</span>
+                </button>
+
+                {previousNotes != null && (
+                  <button
+                    type="button"
+                    style={S.undoBtn}
+                    onClick={handleUndoAi}
+                    title="Undo AI changes and revert to previous notes"
+                  >
+                    <RotateCcw size={13} />
+                    <span>Undo</span>
+                  </button>
+                )}
+              </div>
+
+              <div style={S.tabGroup}>
+                <button
+                  type="button"
+                  style={notesTab === "edit" ? S.tabBtnActive : S.tabBtn}
+                  onClick={() => setNotesTab("edit")}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  style={notesTab === "preview" ? S.tabBtnActive : S.tabBtn}
+                  onClick={() => setNotesTab("preview")}
+                >
+                  Preview
+                </button>
+              </div>
+            </div>
+
+            {/* Live listening banner */}
+            {isListening && (
+              <div style={S.listeningBanner}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={S.pulsingDot} />
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{speechStatus}</span>
+                  </div>
+
+                  {/* Live Mic Volume Level Indicator */}
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "rgba(0, 0, 0, 0.25)",
+                      padding: "3px 8px",
+                      borderRadius: 12,
+                    }}
+                    title="Live audio input volume detected from your microphone"
+                  >
+                    <span style={{ fontSize: 11, color: "#fef08a", fontWeight: 600 }}>🎙️ Mic Input:</span>
+                    <div
+                      style={{
+                        width: 50,
+                        height: 7,
+                        background: "rgba(255, 255, 255, 0.25)",
+                        borderRadius: 4,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.max(4, Math.min(100, audioLevel))}%`,
+                          height: "100%",
+                          background: audioLevel > 5 ? "#22c55e" : "#ef4444",
+                          transition: "width 0.1s ease-out",
+                        }}
+                      />
+                    </div>
+                    <span style={{ fontSize: 10, opacity: 0.85 }}>{audioLevel}%</span>
+                  </div>
+
+                  {/* Low Voice Sensitivity Boost Toggle Button in Banner */}
+                  <button
+                    type="button"
+                    onClick={toggleMicBoost}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      border: "none",
+                      background: micBoost ? "#15803d" : "rgba(0, 0, 0, 0.3)",
+                      color: "white",
+                      padding: "2px 8px",
+                      borderRadius: 10,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: micBoost ? "0 0 6px rgba(34, 197, 94, 0.6)" : "none",
+                      transition: "all 0.15s",
+                    }}
+                    title="Click to toggle Low-Voice Sensitivity Boost (3x amplification for quiet speaking)"
+                  >
+                    <Volume2 size={11} />
+                    <span>{micBoost ? "⚡ Low Voice Boost: ON" : "Boost: OFF"}</span>
+                  </button>
+
+                  {/* Language Selector */}
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 11, opacity: 0.9 }}>Lang:</span>
+                    {[
+                      { code: "en-IN", label: "English (India / Medical)" },
+                      { code: "ta-IN", label: "Tamil (தமிழ்)" },
+                      { code: "hi-IN", label: "Hindi (हिन्दी)" },
+                    ].map((l) => (
+                      <button
+                        key={l.code}
+                        type="button"
+                        onClick={() => handleLanguageChange(l.code)}
+                        style={{
+                          border: "none",
+                          background: speechLang === l.code ? "white" : "rgba(255, 255, 255, 0.2)",
+                          color: speechLang === l.code ? "#b91c1c" : "white",
+                          padding: "2px 7px",
+                          borderRadius: 4,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={toggleSpeechRecognition}
+                  style={{
+                    border: "none",
+                    background: "#991b1b",
+                    color: "white",
+                    padding: "4px 12px",
+                    borderRadius: 5,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    marginLeft: 10,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Stop
+                </button>
+              </div>
+            )}
+
+            {notesTab === "edit" ? (
+              <textarea
+                ref={notesRef}
+                style={S.textarea}
+                name="notes"
+                placeholder="Type clinical notes here… (Select text and click Bold or press Ctrl+B)"
+                value={formData.notes}
+                onChange={handleChange}
+                onKeyDown={handleNotesKeyDown}
+                onFocus={(e) => {
+                  e.target.style.borderColor = T.teal;
+                  e.target.style.boxShadow = `0 0 0 3px ${T.teal}18`;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = T.border;
+                  e.target.style.boxShadow = "none";
+                }}
+              />
+            ) : (
+              <div style={S.previewBox}>
+                {formData.notes && formData.notes.trim() ? (
+                  formData.notes.split("\n").map((line, idx) => (
+                    <div
+                      key={idx}
+                      style={{ minHeight: "1.4em", marginBottom: 2 }}
+                    >
+                      {renderFormattedText(line)}
+                    </div>
+                  ))
+                ) : (
+                  <span style={{ color: T.muted, fontStyle: "italic" }}>
+                    No notes entered yet. Switch to Edit tab to type notes.
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Quick-add */}
             <div style={S.actionRow}>
@@ -2376,7 +3415,12 @@ const Summary = () => {
                     >
                       <td style={S.td}>{fmtDate(s.date)}</td>
                       <td style={{ ...S.td, fontWeight: 600, color: T.teal }}>
-                        {s.patient}
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span>{s.patient}</span>
+                          {s.is_high_risk && (
+                            <HighRiskBadge reason={s.high_risk_reason} size="sm" />
+                          )}
+                        </div>
                       </td>
                       <td style={S.td}>
                         <span style={S.badge(s.approve)}>
@@ -2535,8 +3579,8 @@ const Summary = () => {
                       {savingSummaryType
                         ? "Saving..."
                         : editingSummaryType
-                        ? "Update"
-                        : "Add Type"}
+                          ? "Update"
+                          : "Add Type"}
                     </button>
                   </div>
                 </form>
@@ -2579,8 +3623,8 @@ const Summary = () => {
                                   background: isCurrentEdit
                                     ? `${T.teal}15`
                                     : i % 2 === 0
-                                    ? T.white
-                                    : T.bg,
+                                      ? T.white
+                                      : T.bg,
                                 }}
                               >
                                 <td style={{ ...S.td, fontSize: 12, fontWeight: 600, color: T.muted }}>
@@ -2730,8 +3774,8 @@ const Summary = () => {
                       {savingHeading
                         ? "Saving..."
                         : editingHeading
-                        ? "Update"
-                        : "Add Heading"}
+                          ? "Update"
+                          : "Add Heading"}
                     </button>
                   </div>
                 </form>
@@ -2774,8 +3818,8 @@ const Summary = () => {
                                   background: isCurrentEdit
                                     ? `${T.teal}15`
                                     : i % 2 === 0
-                                    ? T.white
-                                    : T.bg,
+                                      ? T.white
+                                      : T.bg,
                                 }}
                               >
                                 <td style={{ ...S.td, fontSize: 12, fontWeight: 600, color: T.muted }}>
@@ -2838,6 +3882,370 @@ const Summary = () => {
                 >
                   Close
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Patient Search Modal ── */}
+        <PatientSearchModal
+          isOpen={showPatientModal}
+          onClose={() => setShowPatientModal(false)}
+          onSelect={handlePatientSelect}
+          initialQuery={patientSearchQuery}
+          mode="ip"
+        />
+
+        {/* ── AI Summarize Review & Edit Modal ── */}
+        {showAiModal && (
+          <div
+            style={S.overlay}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowAiModal(false);
+              }
+            }}
+          >
+            <div
+              style={{
+                ...S.modalBox,
+                width: "min(960px, 95vw)",
+                maxHeight: "92vh",
+              }}
+            >
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <Sparkles size={17} color="#fde047" /> AI Clinical Notes Summary & Review
+                  {aiModalField && (
+                    <span
+                      style={{
+                        background: "rgba(255,255,255,0.18)",
+                        padding: "2px 10px",
+                        borderRadius: 12,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        marginLeft: 8,
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      {aiModalField}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  style={S.modalClose}
+                  onClick={() => setShowAiModal(false)}
+                  title="Close without changes (Keeps actual sentence)"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div style={{ ...S.modalBody, padding: "16px 20px" }}>
+                {/* Notice banner */}
+                <div
+                  style={{
+                    background: "#f0fdf4",
+                    border: "1px solid #bbf7d0",
+                    borderRadius: 8,
+                    padding: "10px 14px",
+                    marginBottom: 16,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: 12.5,
+                    color: "#166534",
+                  }}
+                >
+                  <Sparkles size={16} color="#15803d" style={{ flexShrink: 0 }} />
+                  <div>
+                    Review and edit the AI summarized text on the right. Your actual clinical notes will <strong>only</strong> change after you click the <strong>Proceed</strong> button.
+                  </div>
+                </div>
+
+                {/* 2-Column Comparison Layout */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
+                    gap: 16,
+                  }}
+                >
+                  {/* Left Column: Actual / Original sentence */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      background: "#f8fafc",
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 10,
+                      padding: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 10,
+                        paddingBottom: 8,
+                        borderBottom: `1px solid ${T.border}`,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: T.slate,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <FileText size={15} color={T.muted} /> Actual / Original Sentence
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: 10,
+                          background: "#e2e8f0",
+                          color: "#475569",
+                        }}
+                      >
+                        Read-Only
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        flex: 1,
+                        minHeight: 300,
+                        maxHeight: 380,
+                        overflowY: "auto",
+                        fontSize: 13,
+                        lineHeight: 1.65,
+                        color: T.text,
+                        whiteSpace: "pre-wrap",
+                        background: T.white,
+                        border: `1px solid ${T.border}`,
+                        borderRadius: 8,
+                        padding: 12,
+                      }}
+                    >
+                      {aiModalOriginalText || (
+                        <span style={{ color: T.muted, fontStyle: "italic" }}>
+                          No original text recorded.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Column: AI Summarized text (Editable) */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      background: "#f0fdfa",
+                      border: `1px solid #99f6e4`,
+                      borderRadius: 10,
+                      padding: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 10,
+                        paddingBottom: 8,
+                        borderBottom: `1px solid #ccfbf1`,
+                        flexWrap: "wrap",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: T.tealDk,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <Sparkles size={15} color={T.teal} /> AI Summarized Text
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "2px 8px",
+                            borderRadius: 10,
+                            background: "#ccfbf1",
+                            color: T.tealDk,
+                          }}
+                        >
+                          Editable
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {aiModalSummarizedText !== aiModalRawSummary && (
+                          <button
+                            type="button"
+                            onClick={() => setAiModalSummarizedText(aiModalRawSummary)}
+                            style={{
+                              border: `1px solid ${T.border}`,
+                              background: "white",
+                              borderRadius: 5,
+                              padding: "3px 8px",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: T.muted,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              cursor: "pointer",
+                            }}
+                            title="Reset back to unmodified AI output"
+                          >
+                            <RotateCcw size={11} /> Reset
+                          </button>
+                        )}
+
+                        <div style={S.tabGroup}>
+                          <button
+                            type="button"
+                            style={aiModalTab === "edit" ? S.tabBtnActive : S.tabBtn}
+                            onClick={() => setAiModalTab("edit")}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            style={aiModalTab === "preview" ? S.tabBtnActive : S.tabBtn}
+                            onClick={() => setAiModalTab("preview")}
+                          >
+                            Preview
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {aiModalTab === "edit" ? (
+                      <textarea
+                        style={{
+                          flex: 1,
+                          minHeight: 300,
+                          maxHeight: 380,
+                          resize: "none",
+                          fontSize: 13,
+                          lineHeight: 1.65,
+                          fontFamily: "inherit",
+                          color: T.text,
+                          background: T.white,
+                          border: `1.5px solid ${T.teal}`,
+                          borderRadius: 8,
+                          padding: 12,
+                          outline: "none",
+                          boxShadow: `0 0 0 3px ${T.teal}14`,
+                        }}
+                        value={aiModalSummarizedText}
+                        onChange={(e) => setAiModalSummarizedText(e.target.value)}
+                        placeholder="Edit AI summarized text before proceeding..."
+                        autoFocus
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          flex: 1,
+                          minHeight: 300,
+                          maxHeight: 380,
+                          overflowY: "auto",
+                          fontSize: 13,
+                          lineHeight: 1.65,
+                          color: T.text,
+                          background: T.white,
+                          border: `1px solid ${T.border}`,
+                          borderRadius: 8,
+                          padding: 12,
+                        }}
+                      >
+                        {aiModalSummarizedText && aiModalSummarizedText.trim() ? (
+                          aiModalSummarizedText.split("\n").map((line, idx) => (
+                            <div key={idx} style={{ minHeight: "1.4em", marginBottom: 3 }}>
+                              {renderFormattedText(line)}
+                            </div>
+                          ))
+                        ) : (
+                          <span style={{ color: T.muted, fontStyle: "italic" }}>
+                            No text to preview.
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div
+                style={{
+                  ...S.modalFoot,
+                  justifyContent: "space-between",
+                  background: "#f8fafc",
+                }}
+              >
+                <div style={{ fontSize: 12, color: T.muted, display: "flex", alignItems: "center", gap: 5 }}>
+                  <RotateCcw size={13} color={T.muted} />
+                  <span>Click Cancel to discard. Your actual note will remain unchanged.</span>
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAiModal(false)}
+                    style={{
+                      padding: "8px 18px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 8,
+                      background: "white",
+                      color: T.textSm,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleProceedAiSummary}
+                    style={{
+                      padding: "8px 22px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      border: "none",
+                      borderRadius: 8,
+                      background: `linear-gradient(135deg, ${T.teal}, ${T.tealDk})`,
+                      color: "white",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 7,
+                      boxShadow: "0 4px 12px rgba(13, 148, 136, 0.25)",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <CheckCircle size={15} />
+                    Proceed
+                  </button>
+                </div>
               </div>
             </div>
           </div>

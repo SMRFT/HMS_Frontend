@@ -14,6 +14,7 @@ import {
   ButtonContainer,
   colors,
 } from "../GlobalStyles";
+import HighRiskBadge from "../Common/HighRiskBadge";
 
 // ─── Animations ───────────────────────────────────────────────────────────────
 
@@ -1326,6 +1327,8 @@ const RDReportForm = () => {
   const [itemId, setItemId] = useState("");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
+  const [isHighRisk, setIsHighRisk] = useState(false);
+  const [highRiskReason, setHighRiskReason] = useState("");
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // ── Format state ──────────────────────────────────────────────────────────
@@ -1371,6 +1374,8 @@ const RDReportForm = () => {
       age: stateAge,
       gender: stateGender,
       investBillDate: stateInvestBillDate,
+      is_high_risk: stateIsHighRisk,
+      high_risk_reason: stateHighRiskReason,
     } = location.state;
 
     const fullName =
@@ -1388,6 +1393,8 @@ const RDReportForm = () => {
     setGender(stateGender || "");
     setItemName(stateItemName || "");
     setItemId(stateItemId || "");
+    setIsHighRisk(Boolean(stateIsHighRisk));
+    setHighRiskReason(stateHighRiskReason || "");
     setDataLoaded(true);
   }, [location.state, navigate]);
 
@@ -1584,18 +1591,23 @@ const RDReportForm = () => {
           {/* Patient info */}
           <InfoSection>
             <InfoTitle>Patient Information</InfoTitle>
-            <InfoText>
-              Filling report for{" "}
-              <strong>{patientName || "Walk-in Patient"}</strong>
+            <InfoText style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              <span>
+                Filling report for{" "}
+                <strong>{patientName || "Walk-in Patient"}</strong>
+              </span>
+              {isHighRisk && (
+                <HighRiskBadge reason={highRiskReason} size="sm" />
+              )}
               {uhid && uhid !== "na" && (
-                <>
+                <span>
                   {" "}
                   — UHID:{" "}
                   <strong>
                     {uhid}
                     {subUhid && subUhid !== "na" ? `/${subUhid}` : ""}
                   </strong>
-                </>
+                </span>
               )}
               {ipNumber && (
                 <>
