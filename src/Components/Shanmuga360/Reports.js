@@ -138,6 +138,8 @@ export default function Reports360() {
       const order = (item.order_id || "").toLowerCase();
       const staff = (item.staff_name || "").toLowerCase();
       const transport = (item.transportation_mode || "").toLowerCase();
+      const payMode = (item.payment_mode || "").toLowerCase();
+      const bookingType = (item.is_app_booking || item.app_booking === "App" ? "app" : "manual");
 
       const doctors = toArray(item.doctor_name).map((d) => (typeof d === "object" && d ? d.doctor_name || d.name || "" : String(d || ""))).join(" ").toLowerCase();
       const medicines = toArray(item.medicine_name).map((m) => (typeof m === "object" && m ? m.medicine_name || m.title || "" : String(m || ""))).join(" ").toLowerCase();
@@ -152,6 +154,8 @@ export default function Reports360() {
         order.includes(q) ||
         staff.includes(q) ||
         transport.includes(q) ||
+        payMode.includes(q) ||
+        bookingType.includes(q) ||
         doctors.includes(q) ||
         medicines.includes(q) ||
         tests.includes(q) ||
@@ -167,6 +171,8 @@ export default function Reports360() {
     let nurseFees = 0;
     let medCharges = 0;
     let hospAmt = 0;
+    let deliveryFees = 0;
+    let appCount = 0;
 
     filteredReports.forEach((r) => {
       totalAmt += parseFloat(r.total_amount) || 0;
@@ -174,6 +180,11 @@ export default function Reports360() {
       nurseFees += parseFloat(r.staff_nurse_fees) || 0;
       medCharges += parseFloat(r.medicine_charge) || 0;
       hospAmt += parseFloat(r.hospital_amount) || 0;
+      const l = parseFloat(r.lab_delivery_fee) || 0;
+      const m = parseFloat(r.medicine_delivery_fee) || 0;
+      const d = parseFloat(r.delivery_fee) || (l + m);
+      deliveryFees += d;
+      if (r.is_app_booking || r.app_booking === "App") appCount++;
     });
 
     return {
@@ -183,6 +194,8 @@ export default function Reports360() {
       nurseFees,
       medCharges,
       hospAmt,
+      deliveryFees,
+      appCount,
     };
   }, [filteredReports]);
 
@@ -197,6 +210,8 @@ export default function Reports360() {
     const headers = [
       "S.No",
       "Date",
+      "Booking Source",
+      "Payment Mode",
       "Bill Number",
       "Lab Test Bill Number",
       "Medicine Bill Number",
@@ -210,6 +225,9 @@ export default function Reports360() {
       "Transportation Mode",
       "Sample Collector",
       "Home Care Type",
+      "Lab Delivery Fee",
+      "Medicine Delivery Fee",
+      "Total Delivery Fee",
       "Cash Collected Amount",
       "Total Amount",
       "Doctor Fees",
@@ -225,6 +243,8 @@ export default function Reports360() {
     const rows = filteredReports.map((r, i) => [
       i + 1,
       r.date ? String(r.date).slice(0, 10) : "",
+      r.is_app_booking || r.app_booking === "App" ? "App" : "Manual",
+      r.payment_mode || "",
       r.bill_number || "",
       r.lab_test_bill_number || r.labtestbillnumber || "",
       r.medicine_bill_number || "",
@@ -238,6 +258,9 @@ export default function Reports360() {
       r.transportation_mode || "",
       r.sample_collector || "",
       r.home_care_type || "",
+      r.lab_delivery_fee != null && r.lab_delivery_fee !== "" ? Number(r.lab_delivery_fee) : 0,
+      r.medicine_delivery_fee != null && r.medicine_delivery_fee !== "" ? Number(r.medicine_delivery_fee) : 0,
+      r.delivery_fee != null && r.delivery_fee !== "" ? Number(r.delivery_fee) : (Number(r.lab_delivery_fee) || 0) + (Number(r.medicine_delivery_fee) || 0),
       r.cash_collected_amount != null ? Number(r.cash_collected_amount) : "",
       r.total_amount != null ? Number(r.total_amount) : "",
       r.doctor_fees != null ? Number(r.doctor_fees) : "",
@@ -418,6 +441,20 @@ export default function Reports360() {
           bg="#ccfbf1"
         />
         <StatCard
+          icon="📱"
+          title="App Bookings"
+          value={stats.appCount}
+          color="#0284c7"
+          bg="#e0f2fe"
+        />
+        <StatCard
+          icon="🚚"
+          title="Delivery Fees"
+          value={formatCurrency(stats.deliveryFees)}
+          color="#0891b2"
+          bg="#cffafe"
+        />
+        <StatCard
           icon="💰"
           title="Total Billed"
           value={formatCurrency(stats.totalAmt)}
@@ -477,6 +514,7 @@ export default function Reports360() {
               <tr style={styles.thRow}>
                 <th style={styles.th}>#</th>
                 <th style={styles.th}>Date</th>
+                <th style={styles.th}>Source</th>
                 <th style={styles.th}>Bill Number</th>
                 <th style={styles.th}>Patient Details</th>
                 <th style={styles.th}>Doctor(s)</th>
@@ -485,18 +523,20 @@ export default function Reports360() {
                 <th style={styles.th}>Medicines</th>
                 <th style={styles.th}>Tests</th>
                 <th style={styles.th}>Mode</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Total (₹)</th>
+                <th style={styles.th}>Payment Mode</th>
+                <th style={{ ...styles.th, textAlign: "right" }}>Delivery Fee</th>
                 <th style={{ ...styles.th, textAlign: "right" }}>Dr Fees</th>
                 <th style={{ ...styles.th, textAlign: "right" }}>Nurse Fees</th>
                 <th style={{ ...styles.th, textAlign: "right" }}>Med Charge</th>
                 <th style={{ ...styles.th, textAlign: "right" }}>Hospital</th>
+                <th style={{ ...styles.th, textAlign: "right" }}>Total (₹)</th>
                 <th style={{ ...styles.th, textAlign: "center" }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {loading && reports.length === 0 ? (
                 <tr>
-                  <td colSpan={16} style={styles.stateCell}>
+                  <td colSpan={19} style={styles.stateCell}>
                     <div style={styles.loadingState}>
                       <div style={styles.largeSpinner} />
                       <p style={{ marginTop: 12, color: "#64748b" }}>Loading registration data...</p>
@@ -505,7 +545,7 @@ export default function Reports360() {
                 </tr>
               ) : filteredReports.length === 0 ? (
                 <tr>
-                  <td colSpan={16} style={styles.stateCell}>
+                  <td colSpan={19} style={styles.stateCell}>
                     <div style={styles.emptyState}>
                       <div style={{ fontSize: 44, marginBottom: 8 }}>📑</div>
                       <h4 style={{ margin: "0 0 6px", color: "#334155" }}>No Registrations Found</h4>
@@ -538,6 +578,13 @@ export default function Reports360() {
                       <td style={styles.tdSno}>{idx + 1}</td>
                       <td style={styles.tdDate}>
                         {row.date ? String(row.date).slice(0, 10) : "-"}
+                      </td>
+                      <td style={styles.tdSource}>
+                        {(row.is_app_booking || row.app_booking === "App") ? (
+                          <span style={styles.appBadge} title="Booked via App">📱 App</span>
+                        ) : (
+                          <span style={styles.manualBadge} title="Manual Booking">✍️ Manual</span>
+                        )}
                       </td>
                       <td style={styles.tdBill}>
                         {row.bill_number ? (
@@ -665,14 +712,32 @@ export default function Reports360() {
                           <span style={styles.mutedText}>—</span>
                         )}
                       </td>
-                      <td style={{ ...styles.tdNum, fontWeight: 700, color: "#0f766e" }}>
-                        {formatCurrency(row.total_amount)}
+                      <td style={styles.tdPayMode}>
+                        {row.payment_mode ? (
+                          <span style={row.payment_mode.toLowerCase().includes("qr") ? styles.qrBadge : styles.cashBadge}>
+                            {row.payment_mode.toLowerCase().includes("qr") ? "📲 QR Code" : "💵 Cash"}
+                          </span>
+                        ) : (
+                          <span style={styles.mutedText}>—</span>
+                        )}
+                      </td>
+                      <td style={{ ...styles.tdNum, color: Number(row.delivery_fee) > 0 ? "#0d9488" : "#94a3b8", fontWeight: Number(row.delivery_fee) > 0 ? 600 : 400 }}>
+                        <div>{formatCurrency(row.delivery_fee)}</div>
+                        {(Number(row.lab_delivery_fee) > 0 || Number(row.medicine_delivery_fee) > 0) && (
+                          <div style={{ fontSize: 10, color: "#64748b", fontWeight: 400, whiteSpace: "nowrap" }}>
+                            {Number(row.lab_delivery_fee) > 0 && `🧪 Lab: ₹${Number(row.lab_delivery_fee).toFixed(0)} `}
+                            {Number(row.medicine_delivery_fee) > 0 && `💊 Med: ₹${Number(row.medicine_delivery_fee).toFixed(0)}`}
+                          </div>
+                        )}
                       </td>
                       <td style={styles.tdNum}>{formatCurrency(row.doctor_fees)}</td>
                       <td style={styles.tdNum}>{formatCurrency(row.staff_nurse_fees)}</td>
                       <td style={styles.tdNum}>{formatCurrency(row.medicine_charge)}</td>
                       <td style={{ ...styles.tdNum, fontWeight: 600, color: "#0369a1" }}>
                         {formatCurrency(row.hospital_amount)}
+                      </td>
+                      <td style={{ ...styles.tdNum, fontWeight: 700, color: "#0f766e" }}>
+                        {formatCurrency(row.total_amount)}
                       </td>
                       <td style={{ ...styles.td, textAlign: "center" }}>
                         <button
@@ -742,6 +807,16 @@ export default function Reports360() {
                     <ModalField label="Sample Collector" value={selectedRecord.sample_collector} />
                   )}
                   <ModalField label="Staff Name" value={selectedRecord.staff_name} />
+                  <ModalField
+                    label="Booking Source"
+                    value={selectedRecord.is_app_booking || selectedRecord.app_booking === "App" ? "📱 Booked via App" : "✍️ Manual Booking"}
+                  />
+                  {selectedRecord.payment_mode && (
+                    <ModalField
+                      label="Payment Mode"
+                      value={selectedRecord.payment_mode.toLowerCase().includes("qr") ? "📲 QR Code" : "💵 Cash"}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -869,6 +944,30 @@ export default function Reports360() {
                     <div style={styles.finLabel}>Hospital Amount</div>
                     <div style={styles.finVal}>{formatCurrency(selectedRecord.hospital_amount)}</div>
                   </div>
+                  {Number(selectedRecord.lab_delivery_fee) > 0 && (
+                    <div style={styles.finBox}>
+                      <div style={styles.finLabel}>Lab Delivery Fee</div>
+                      <div style={{ ...styles.finVal, color: "#0891b2" }}>
+                        {formatCurrency(selectedRecord.lab_delivery_fee)}
+                      </div>
+                    </div>
+                  )}
+                  {Number(selectedRecord.medicine_delivery_fee) > 0 && (
+                    <div style={styles.finBox}>
+                      <div style={styles.finLabel}>Med Delivery Fee</div>
+                      <div style={{ ...styles.finVal, color: "#0891b2" }}>
+                        {formatCurrency(selectedRecord.medicine_delivery_fee)}
+                      </div>
+                    </div>
+                  )}
+                  {selectedRecord.delivery_fee != null && Number(selectedRecord.delivery_fee) > 0 && (
+                    <div style={styles.finBox}>
+                      <div style={styles.finLabel}>Total Delivery Fee</div>
+                      <div style={{ ...styles.finVal, color: "#0d9488", fontWeight: 700 }}>
+                        {formatCurrency(selectedRecord.delivery_fee)}
+                      </div>
+                    </div>
+                  )}
                   <div style={{ ...styles.finBox, background: "#ecfdf5", borderColor: "#a7f3d0" }}>
                     <div style={{ ...styles.finLabel, color: "#065f46", fontWeight: 700 }}>
                       Total Billing Amount
@@ -1369,6 +1468,58 @@ const styles = {
   tdMode: {
     padding: "10px 14px",
     whiteSpace: "nowrap",
+  },
+  tdSource: {
+    padding: "10px 14px",
+    whiteSpace: "nowrap",
+  },
+  tdPayMode: {
+    padding: "10px 14px",
+    whiteSpace: "nowrap",
+  },
+  appBadge: {
+    background: "#f0fdfa",
+    color: "#0f766e",
+    fontSize: 11,
+    fontWeight: 700,
+    padding: "3px 8px",
+    borderRadius: 6,
+    border: "1px solid #99f6e4",
+    whiteSpace: "nowrap",
+    display: "inline-block",
+  },
+  manualBadge: {
+    background: "#f8fafc",
+    color: "#475569",
+    fontSize: 11,
+    fontWeight: 600,
+    padding: "3px 8px",
+    borderRadius: 6,
+    border: "1px solid #e2e8f0",
+    whiteSpace: "nowrap",
+    display: "inline-block",
+  },
+  qrBadge: {
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    fontSize: 11,
+    fontWeight: 700,
+    padding: "3px 8px",
+    borderRadius: 6,
+    border: "1px solid #bfdbfe",
+    whiteSpace: "nowrap",
+    display: "inline-block",
+  },
+  cashBadge: {
+    background: "#f0fdf4",
+    color: "#15803d",
+    fontSize: 11,
+    fontWeight: 700,
+    padding: "3px 8px",
+    borderRadius: 6,
+    border: "1px solid #bbf7d0",
+    whiteSpace: "nowrap",
+    display: "inline-block",
   },
   modeBadge: {
     background: "#f1f5f9",

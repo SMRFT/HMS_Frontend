@@ -30,6 +30,12 @@ const initialForm = {
   sample_collector: "",
   reference_id: "",
   order_id: "",
+  delivery_fee: "",
+  lab_delivery_fee: "",
+  medicine_delivery_fee: "",
+  is_app_booking: false,
+  app_booking: "Manual",
+  payment_mode: "",
 };
 
 const HOME_CARE_TYPES = [
@@ -202,10 +208,19 @@ export default function Registration360() {
     }
     setLoading(true);
     try {
+      const lFee = isLabTest && form.lab_delivery_fee !== "" && !isNaN(Number(form.lab_delivery_fee)) ? Number(form.lab_delivery_fee) : 0;
+      const mFee = isMedicineDelivery && form.medicine_delivery_fee !== "" && !isNaN(Number(form.medicine_delivery_fee)) ? Number(form.medicine_delivery_fee) : 0;
+      const totalDelFee = lFee + mFee;
+
       const payload = {
         ...form,
-        lab_test_bill_number: form.lab_test_bill_number || form.labtestbillnumber || "",
-        labtestbillnumber: form.labtestbillnumber || form.lab_test_bill_number || "",
+        lab_test_bill_number: form.lab_test_bill_number || "",
+        lab_delivery_fee: lFee,
+        medicine_delivery_fee: mFee,
+        delivery_fee: totalDelFee,
+        is_app_booking: Boolean(form.is_app_booking),
+        app_booking: form.is_app_booking ? "App" : "Manual",
+        payment_mode: form.payment_mode || "",
         test_name: selectedTests.map((t) => ({
           test_name: typeof t === "string" ? t : (t.test_name || ""),
           amount: typeof t === "string" ? 0 : (t.amount !== "" && !isNaN(Number(t.amount)) ? Number(t.amount) : 0),
@@ -256,29 +271,34 @@ export default function Registration360() {
   useEffect(() => {
     const tTotal = selectedTests.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const mTotal = selectedMedicines.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+    const lFee = isLabTest ? (Number(form.lab_delivery_fee) || 0) : 0;
+    const mFee = isMedicineDelivery ? (Number(form.medicine_delivery_fee) || 0) : 0;
+    const totDelFee = lFee + mFee;
 
     if (isHomeCare) {
-      if (isMedicineDelivery) {
+      if (isMedicineDelivery || isLabTest) {
         const medCharge = mTotal > 0 ? mTotal.toFixed(2) : form.medicine_charge;
         const remAmt = Number(form.doctor_staff_fees_remaining) || 0;
-        const newHAmt = remAmt + (Number(medCharge) || 0);
+        const newHAmt = remAmt + (Number(medCharge) || 0) + totDelFee;
         setForm((prev) => {
           if (prev.medicine_charge === medCharge && Number(prev.hospital_amount) === newHAmt) {
             return prev;
           }
           return {
             ...prev,
-            medicine_charge: medCharge,
+            delivery_fee: totDelFee > 0 ? totDelFee.toFixed(2) : "",
+            medicine_charge: isMedicineDelivery ? medCharge : prev.medicine_charge,
             hospital_amount: newHAmt > 0 ? newHAmt.toFixed(2) : prev.hospital_amount,
           };
         });
       }
     } else {
       const hAmt = Number(form.hospital_amount) || 0;
-      const grand = (isLabTest ? tTotal : 0) + (isMedicineDelivery ? mTotal : 0) + hAmt;
+      const grand = (isLabTest ? tTotal : 0) + (isMedicineDelivery ? mTotal : 0) + hAmt + totDelFee;
 
       setForm((prev) => ({
         ...prev,
+        delivery_fee: totDelFee > 0 ? totDelFee.toFixed(2) : "",
         medicine_charge: isMedicineDelivery && mTotal > 0 ? mTotal.toFixed(2) : (isMedicineDelivery ? prev.medicine_charge : ""),
         total_amount: grand > 0 ? grand.toFixed(2) : "",
       }));
@@ -292,6 +312,8 @@ export default function Registration360() {
     form.medicine_charge,
     form.home_care_type,
     form.hospital_amount,
+    form.lab_delivery_fee,
+    form.medicine_delivery_fee,
     isLabTest,
     isMedicineDelivery,
     isHomeCare,
@@ -451,7 +473,7 @@ export default function Registration360() {
             transportation_mode: "",
             sample_collector: updated.some((s) => s.toLowerCase() === "medicine delivery") ? f.sample_collector : "",
             lab_test_bill_number: "",
-            labtestbillnumber: "",
+            lab_delivery_fee: "",
           }));
         } else if (itemLower === "medicine delivery") {
           setSelectedMedicines([]);
@@ -460,6 +482,7 @@ export default function Registration360() {
             medicine_name: [],
             medicine_charge: "",
             medicine_bill_number: "",
+            medicine_delivery_fee: "",
             sample_collector: updated.some((s) => s.toLowerCase() === "lab test") ? f.sample_collector : "",
           }));
         } else if (itemLower === "home care") {
@@ -473,6 +496,9 @@ export default function Registration360() {
             staff_nurse_fees: "",
             doctor_staff_fees_remaining: "",
           }));
+        }
+        if (!updated.some((s) => ["lab test", "medicine delivery"].includes(s.toLowerCase()))) {
+          setForm((f) => ({ ...f, delivery_fee: "", lab_delivery_fee: "", medicine_delivery_fee: "" }));
         }
       } else {
         if (itemLower === "home care") {
@@ -530,8 +556,77 @@ export default function Registration360() {
 
       <form onSubmit={handleSubmit} style={styles.formCard}>
 
-        {/* Section: Patient Info */}
-        <SectionTitle icon="🧑‍⚕️" title="Patient Information" />
+        {/* Section: Patient Info with App Booking Toggle */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+          <SectionTitle icon="🧑‍⚕️" title="Patient Information" />
+
+          {/* App Booking Toggle */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setForm((prev) => ({
+              ...prev,
+              is_app_booking: !prev.is_app_booking,
+              app_booking: !prev.is_app_booking ? "App" : "Manual",
+            }))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setForm((prev) => ({
+                  ...prev,
+                  is_app_booking: !prev.is_app_booking,
+                  app_booking: !prev.is_app_booking ? "App" : "Manual",
+                }));
+              }
+            }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "6px 14px 6px 10px",
+              borderRadius: 24,
+              border: form.is_app_booking ? "1.5px solid #0d9488" : "1.5px solid #cbd5e1",
+              background: form.is_app_booking ? "#f0fdfa" : "#f8fafc",
+              cursor: "pointer",
+              transition: "all 0.25s ease",
+              userSelect: "none",
+              boxShadow: form.is_app_booking ? "0 2px 8px rgba(13,148,136,0.15)" : "none",
+            }}
+            title="Toggle between App and Manual patient booking"
+          >
+            <div style={{
+              width: 38,
+              height: 20,
+              borderRadius: 10,
+              background: form.is_app_booking ? "#0d9488" : "#cbd5e1",
+              position: "relative",
+              transition: "background 0.25s ease",
+            }}>
+              <div style={{
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                background: "#ffffff",
+                position: "absolute",
+                top: 3,
+                left: form.is_app_booking ? 21 : 3,
+                transition: "left 0.25s ease",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+              }} />
+            </div>
+            <span style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: form.is_app_booking ? "#0f766e" : "#475569",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}>
+              {form.is_app_booking ? "📱 App Booking" : "✍️ Manual Booking"}
+            </span>
+          </div>
+        </div>
+
         <div style={styles.grid3}>
           <Field label="Date" name="date" type="date" value={form.date} onChange={handleChange} error={errors.date} />
           <Field label="Patient Name *" name="patient_name" value={form.patient_name} onChange={handleChange} placeholder="Full patient name" error={errors.patient_name} />
@@ -541,90 +636,132 @@ export default function Registration360() {
         {/* Section: Consultation */}
         <SectionTitle icon="🏥" title="Consultation & Service Details" />
         <div style={{ marginBottom: 16 }}>
-          {/* Service List — multi-select dropdown */}
-          <div style={{ ...styles.fieldWrap, position: "relative", maxWidth: 360 }} ref={serviceDropdownRef}>
-            <label style={styles.label}>
-              Service List
-              {selectedServices.length > 0 && (
-                <span style={styles.medBadge}>{selectedServices.length} selected</span>
-              )}
-            </label>
+          <div style={(isLabTest && isMedicineDelivery) ? styles.grid3 : ((isLabTest || isMedicineDelivery) ? styles.grid2 : { maxWidth: 360 })}>
+            {/* Service List — multi-select dropdown */}
+            <div style={{ ...styles.fieldWrap, position: "relative" }} ref={serviceDropdownRef}>
+              <label style={styles.label}>
+                Service List
+                {selectedServices.length > 0 && (
+                  <span style={styles.medBadge}>{selectedServices.length} selected</span>
+                )}
+              </label>
 
-            {/* Selected chips */}
-            {selectedServices.length > 0 && (
-              <div style={styles.chipWrap}>
-                {selectedServices.map((s) => (
-                  <span key={s} style={styles.chip}>
-                    {s}
+              {/* Selected chips */}
+              {selectedServices.length > 0 && (
+                <div style={styles.chipWrap}>
+                  {selectedServices.map((s) => (
+                    <span key={s} style={styles.chip}>
+                      {s}
+                      <button
+                        type="button"
+                        style={styles.chipRemove}
+                        onMouseDown={(e) => { e.preventDefault(); removeService(s); }}
+                        onClick={() => removeService(s)}
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <input
+                type="text"
+                placeholder={showServiceDropdown ? "Search service..." : "Click to select services"}
+                value={serviceSearch}
+                onChange={(e) => {
+                  setServiceSearch(e.target.value);
+                  setShowServiceDropdown(true);
+                }}
+                onFocus={() => setShowServiceDropdown(true)}
+                style={styles.input}
+                autoComplete="off"
+              />
+              {showServiceDropdown && (
+                <div style={styles.medicineDropdown} onMouseDown={(e) => e.stopPropagation()}>
+                  <div style={{ maxHeight: 170, overflowY: "auto" }}>
+                    {SERVICE_LIST
+                      .filter((s) => s.toLowerCase().includes(serviceSearch.toLowerCase()))
+                      .map((s) => {
+                        const isSelected = selectedServices.includes(s);
+                        return (
+                          <div
+                            key={s}
+                            style={{
+                              ...styles.medicineOption,
+                              background: isSelected ? "#ccfbf1" : "#fff",
+                              fontWeight: isSelected ? 600 : 400,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) e.currentTarget.style.background = "#f0fdf9";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = isSelected ? "#ccfbf1" : "#fff";
+                            }}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              toggleService(s);
+                            }}
+                          >
+                            <span style={styles.checkIcon}>
+                              {isSelected ? "✓" : ""}
+                            </span>
+                            {s}
+                          </div>
+                        );
+                      })}
+                    {SERVICE_LIST.filter((s) => s.toLowerCase().includes(serviceSearch.toLowerCase())).length === 0 && (
+                      <div style={{ ...styles.medicineOption, color: "#9ca3af", cursor: "default" }}>No services found</div>
+                    )}
+                  </div>
+                  <div style={styles.doneWrap}>
                     <button
                       type="button"
-                      style={styles.chipRemove}
-                      onMouseDown={(e) => { e.preventDefault(); removeService(s); }}
-                      onClick={() => removeService(s)}
-                    >×</button>
-                  </span>
-                ))}
+                      style={styles.doneBtn}
+                      onClick={() => setShowServiceDropdown(false)}
+                    >
+                      ✓ Done ({selectedServices.length} selected)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Separate Lab Delivery Fee — appears when Lab Test is selected */}
+            {isLabTest && (
+              <div style={styles.fieldWrap}>
+                <label style={styles.label}>
+                  🧪 Lab Delivery Fee (₹)
+                </label>
+                <input
+                  type="number"
+                  name="lab_delivery_fee"
+                  value={form.lab_delivery_fee}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  style={styles.input}
+                  autoComplete="off"
+                />
               </div>
             )}
 
-            <input
-              type="text"
-              placeholder={showServiceDropdown ? "Search service..." : "Click to select services"}
-              value={serviceSearch}
-              onChange={(e) => {
-                setServiceSearch(e.target.value);
-                setShowServiceDropdown(true);
-              }}
-              onFocus={() => setShowServiceDropdown(true)}
-              style={styles.input}
-              autoComplete="off"
-            />
-            {showServiceDropdown && (
-              <div style={styles.medicineDropdown} onMouseDown={(e) => e.stopPropagation()}>
-                <div style={{ maxHeight: 170, overflowY: "auto" }}>
-                  {SERVICE_LIST
-                    .filter((s) => s.toLowerCase().includes(serviceSearch.toLowerCase()))
-                    .map((s) => {
-                      const isSelected = selectedServices.includes(s);
-                      return (
-                        <div
-                          key={s}
-                          style={{
-                            ...styles.medicineOption,
-                            background: isSelected ? "#ccfbf1" : "#fff",
-                            fontWeight: isSelected ? 600 : 400,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isSelected) e.currentTarget.style.background = "#f0fdf9";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = isSelected ? "#ccfbf1" : "#fff";
-                          }}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            toggleService(s);
-                          }}
-                        >
-                          <span style={styles.checkIcon}>
-                            {isSelected ? "✓" : ""}
-                          </span>
-                          {s}
-                        </div>
-                      );
-                    })}
-                  {SERVICE_LIST.filter((s) => s.toLowerCase().includes(serviceSearch.toLowerCase())).length === 0 && (
-                    <div style={{ ...styles.medicineOption, color: "#9ca3af", cursor: "default" }}>No services found</div>
-                  )}
-                </div>
-                <div style={styles.doneWrap}>
-                  <button
-                    type="button"
-                    style={styles.doneBtn}
-                    onClick={() => setShowServiceDropdown(false)}
-                  >
-                    ✓ Done ({selectedServices.length} selected)
-                  </button>
-                </div>
+            {/* Separate Medicine Delivery Fee — appears when Medicine Delivery is selected */}
+            {isMedicineDelivery && (
+              <div style={styles.fieldWrap}>
+                <label style={styles.label}>
+                  💊 Medicine Delivery Fee (₹)
+                </label>
+                <input
+                  type="number"
+                  name="medicine_delivery_fee"
+                  value={form.medicine_delivery_fee}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  style={styles.input}
+                  autoComplete="off"
+                />
               </div>
             )}
           </div>
@@ -823,16 +960,9 @@ export default function Registration360() {
               {/* Lab Test Bill Number */}
               <Field
                 label="Lab Test Bill Number"
-                name="labtestbillnumber"
-                value={form.labtestbillnumber || form.lab_test_bill_number || ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setForm((prev) => ({
-                    ...prev,
-                    labtestbillnumber: val,
-                    lab_test_bill_number: val,
-                  }));
-                }}
+                name="lab_test_bill_number"
+                value={form.lab_test_bill_number || ""}
+                onChange={handleChange}
                 placeholder="e.g. LAB-BILL-001"
               />
             </div>
@@ -1275,6 +1405,30 @@ export default function Registration360() {
                 min="0"
                 readOnly
               />
+              {isLabTest && (
+                <Field
+                  label="Lab Delivery Fee (₹)"
+                  name="lab_delivery_fee"
+                  type="number"
+                  value={form.lab_delivery_fee}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
+              )}
+              {isMedicineDelivery && (
+                <Field
+                  label="Med Delivery Fee (₹)"
+                  name="medicine_delivery_fee"
+                  type="number"
+                  value={form.medicine_delivery_fee}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
+              )}
               <Field
                 label="Cash Collected Amount (₹)"
                 name="cash_collected_amount"
@@ -1310,6 +1464,30 @@ export default function Registration360() {
                 step="0.01"
                 min="0"
               />
+              {isLabTest && (
+                <Field
+                  label="Lab Delivery Fee (₹)"
+                  name="lab_delivery_fee"
+                  type="number"
+                  value={form.lab_delivery_fee}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
+              )}
+              {isMedicineDelivery && (
+                <Field
+                  label="Med Delivery Fee (₹)"
+                  name="medicine_delivery_fee"
+                  type="number"
+                  value={form.medicine_delivery_fee}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
+              )}
               <Field
                 label="Total Amount (₹)"
                 name="total_amount"
@@ -1338,6 +1516,19 @@ export default function Registration360() {
         {/* Section: Payment Details */}
         <SectionTitle icon="💳" title="Payment Details" />
         <div style={styles.grid3}>
+          <div style={styles.fieldWrap}>
+            <label style={styles.label}>Payment Mode</label>
+            <select
+              name="payment_mode"
+              value={form.payment_mode}
+              onChange={handleChange}
+              style={styles.input}
+            >
+              <option value="">-- Select Payment Mode --</option>
+              <option value="QRCode">1. QRCode</option>
+              <option value="Cash">2. Cash</option>
+            </select>
+          </div>
           <Field label="Reference ID" name="reference_id" value={form.reference_id} onChange={handleChange} placeholder="Reference ID" />
           <Field label="Order ID" name="order_id" value={form.order_id} onChange={handleChange} placeholder="Order ID" />
         </div>
