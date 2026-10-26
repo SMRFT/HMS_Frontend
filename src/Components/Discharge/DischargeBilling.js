@@ -631,7 +631,7 @@ const calcTotals = (items, f) => {
 
   // Total Charges = (Total Items + Medicines + GST + Room Tax + Taxable) - Total Disc
   const totalCharges = totalAmount + medicines + gstAmount + roomTax + taxable - totalDisc;
-  
+
   // Net Amount = totalCharges - advanceAmount - salesReturn
   // (If advance > totalCharges, netAmount will be negative -> Net Amount(Refund))
   const netAmount = totalCharges - advanceAmount - salesReturn;
@@ -1084,7 +1084,7 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <Rupee>₹</Rupee>
           <FinIn $ro value={fmt(totals.totalCharges)} readOnly />
         </FinRow>
-        
+
         <NetBadgeBox $refund={isRefund}>
           <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px", color: isRefund ? T.danger : T.primary }}>
             {isRefund ? "⚠️ Patient Refund Amount" : "💵 Final Net Payable"}

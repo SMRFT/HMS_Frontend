@@ -25,6 +25,7 @@ import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import styled from "styled-components";
 import PatientSearchModal from "../Common/PatientSearchModal";
+import HighRiskBadge from "../Common/HighRiskBadge";
 import {
   colors,
   Container,
@@ -546,6 +547,8 @@ const emptyForm = {
   uhid_no: "",
   ip_number: "",
   patient_name: "",
+  is_high_risk: false,
+  high_risk_reason: "",
   address: "",
   age: "",
   age_type: "",
@@ -1403,6 +1406,8 @@ const SurgerySchedule = () => {
       company_name: p.company_name || p.insuranceCompanyName || "",
       company_code: p.company_code || "",
       address: addressLine || prev.address || "",
+      is_high_risk: Boolean(p.is_high_risk),
+      high_risk_reason: p.high_risk_reason || "",
       ...extra,
     }));
   };
@@ -1469,6 +1474,8 @@ const SurgerySchedule = () => {
       company_name: p.company_name || p.insuranceCompanyName || "",
       company_code: p.company_code || "",
       address: addressLine || prev.address || "",
+      is_high_risk: Boolean(p.is_high_risk),
+      high_risk_reason: p.high_risk_reason || "",
     }));
   };
 
@@ -1528,6 +1535,8 @@ const SurgerySchedule = () => {
       uhid_no: item.uhid_no || "",
       ip_number: item.ip_number || "",
       patient_name: item.patient_name || "",
+      is_high_risk: Boolean(item.is_high_risk),
+      high_risk_reason: item.high_risk_reason || "",
       address: item.address || "",
       age: "",
       age_type: "",
@@ -2258,7 +2267,12 @@ const SurgerySchedule = () => {
 
               {/* Patient Name */}
               <FormGroup span={3}>
-                <Label>Patient Name</Label>
+                <Label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
+                  <span>Patient Name</span>
+                  {formData.is_high_risk && (
+                    <HighRiskBadge reason={formData.high_risk_reason} size="sm" />
+                  )}
+                </Label>
                 <ReadonlyInput value={formData.patient_name} readOnly />
               </FormGroup>
 
@@ -2877,7 +2891,14 @@ const SurgerySchedule = () => {
                           )}
                         </div>
                       </Td>
-                      <Td>{s.patient_name || "—"}</Td>
+                      <Td>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span>{s.patient_name || "—"}</span>
+                          {s.is_high_risk && (
+                            <HighRiskBadge reason={s.high_risk_reason} size="sm" />
+                          )}
+                        </div>
+                      </Td>
                       <Td>{s.ip_number}</Td>
                       <Td style={{ minWidth: 160 }}>
                         {/* 1. Scheduled Date & Time */}

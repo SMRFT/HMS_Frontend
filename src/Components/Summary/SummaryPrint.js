@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import SummaryHead from "../Images/SummaryHead.png";
+import Shanmuga360QR from "../Images/Shanmuga360QR.png";
 import apiRequest from "../../Auth/apiRequest";
 
 /* ─────────────────────────────────────────────────────────────
@@ -73,6 +74,22 @@ const GLOBAL_CSS = `
   .sp-icd { font-size: 12px; padding: 4px 10px; background: #f4f6fb; border-bottom: 1px solid #c8d0de; display: flex; gap: 5px; color: #111; align-items: baseline; }
   .sp-icd-label { font-weight: 700; color: #444; text-transform: uppercase; }
 
+  .sp-page-no-bar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    height: 22px;
+    line-height: 22px;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    background: #f8fafc;
+    border-bottom: 1px solid #c8d0de;
+    letter-spacing: 0.3px;
+    box-sizing: border-box;
+  }
+
   .sp-body { padding: 7px 10px 16px; font-size: 12px; color: #111; line-height: 1.5; }
   .sp-section { margin-bottom: 5px; }
   .sp-section-title {
@@ -81,6 +98,7 @@ const GLOBAL_CSS = `
     margin: 7px 0 3px; background: #f4f6fb; text-decoration: underline;
   }
   .sp-section-content { font-size: 12px; line-height: 1.55; padding-left: 10px; white-space: pre-wrap; color: #222; text-align: justify; }
+  .sp-section-content strong, .sp-section-content b { font-weight: 700; color: #000; }
 
   .sp-lab-title {
     text-align: center; font-size: 15px; font-weight: 700; color: #1a3a6e;
@@ -183,16 +201,90 @@ const GLOBAL_CSS = `
     align-items: center;
     gap: 4px;
   }
-  .sp-hs-app {
-    margin-top: 6px;
-    padding-top: 5px;
-    border-top: 1px dashed #cbd5e1;
-    font-size: 10.5px;
-    font-weight: 600;
-    color: #1e3a8a;
+  .sp-hs-app-bar {
+    border-top: 1px solid #93c5fd;
+    background: #f0f7ff;
+    padding: 8px 14px;
     display: flex;
     align-items: center;
-    gap: 5px;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .sp-hs-app-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+  .sp-hs-qr-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .sp-hs-qr {
+    width: 62px;
+    height: 62px;
+    object-fit: contain;
+    background: #ffffff;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    padding: 2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .sp-hs-qr-sub {
+    font-size: 8px;
+    font-weight: 700;
+    color: #1e3a8a;
+    letter-spacing: .4px;
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+  .sp-hs-app-text-block {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .sp-hs-app-en {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #1a3a6e;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: .2px;
+  }
+  .sp-hs-app-ta {
+    font-size: 10px;
+    font-weight: 600;
+    color: #334155;
+    margin-left: 22px;
+  }
+  .sp-hs-scan-badge {
+    background: #ffffff;
+    border: 1.5px dashed #2563a8;
+    border-radius: 6px;
+    padding: 5px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(37,99,168,0.06);
+  }
+  .sp-hs-scan-badge-title {
+    font-size: 9.5px;
+    font-weight: 800;
+    color: #1a3a6e;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+  }
+  .sp-hs-scan-badge-sub {
+    font-size: 9px;
+    font-weight: 600;
+    color: #0f766e;
+    margin-top: 1px;
   }
 
   .sp-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f0f4fb; color: #1a3a6e; gap: 14px; font-family: 'Source Sans 3', Arial, sans-serif; }
@@ -324,6 +416,41 @@ const getFieldValue = (fieldsDataArr, key, summaryData = null) => {
   return val;
 };
 
+/* ─── Render Formatted/Bold Text Helper ──────────────────────────────────── */
+const renderFormattedText = (text) => {
+  if (text == null || text === "" || !String(text).trim()) return "\u00A0";
+  const regex = /(\*\*[\s\S]+?\*\*|<b>[\s\S]*?<\/b>|<strong>[\s\S]*?<\/strong>)/gi;
+  const parts = String(text).split(regex);
+
+  return parts.map((part, index) => {
+    if (!part) return null;
+    if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
+      return (
+        <strong key={index} style={{ fontWeight: 700 }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    const bMatch = part.match(/^<b>([\s\S]*?)<\/b>$/i);
+    if (bMatch) {
+      return (
+        <strong key={index} style={{ fontWeight: 700 }}>
+          {bMatch[1]}
+        </strong>
+      );
+    }
+    const strongMatch = part.match(/^<strong>([\s\S]*?)<\/strong>$/i);
+    if (strongMatch) {
+      return (
+        <strong key={index} style={{ fontWeight: 700 }}>
+          {strongMatch[1]}
+        </strong>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+};
+
 /* ═══════════════════════════════════════════════════════════ */
 const SummaryPrint = () => {
   const { ipNo, ip_no } = useParams();
@@ -333,7 +460,59 @@ const SummaryPrint = () => {
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showSendDropdown, setShowSendDropdown] = useState(false);
+  const [clinicalNotesOrder, setClinicalNotesOrder] = useState([]);
+  const [previewTotalPages, setPreviewTotalPages] = useState(1);
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  useEffect(() => {
+    if (!summaryData) return;
+    const calculatePages = () => {
+      if (!bodyRef.current) return;
+      const bodyRect = bodyRef.current.getBoundingClientRect();
+      const allBlocks = Array.from(
+        bodyRef.current.querySelectorAll("[data-block-top]")
+      );
+      let contentH = 0;
+      for (const el of [...allBlocks, ...Array.from(bodyRef.current.children)]) {
+        const r = el.getBoundingClientRect();
+        if (r.height > 0) {
+          const bot = r.bottom - bodyRect.top;
+          if (bot > contentH) contentH = bot;
+        }
+      }
+      const actualH = contentH > 0 ? contentH : bodyRef.current.scrollHeight;
+      const p1Avail = 740;
+      const contAvail = 940;
+      if (actualH <= p1Avail) {
+        setPreviewTotalPages(1);
+      } else {
+        const remaining = actualH - p1Avail;
+        setPreviewTotalPages(1 + Math.max(1, Math.ceil((remaining - 10) / contAvail)));
+      }
+    };
+
+    calculatePages();
+    const timer = setTimeout(calculatePages, 400);
+    return () => clearTimeout(timer);
+  }, [summaryData, clinicalNotesOrder]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await apiRequest(`${HMSURL}summary-clinical-notes/`, "GET");
+        if (r.success && Array.isArray(r.data) && r.data.length > 0) {
+          const sorted = [...r.data].sort(
+            (a, b) => (Number(a.title_no) || 0) - (Number(b.title_no) || 0)
+          );
+          setClinicalNotesOrder(
+            sorted.map((item) => item.title_name).filter(Boolean)
+          );
+        }
+      } catch (err) {
+        console.error("Failed to fetch clinical notes order:", err);
+      }
+    })();
+  }, [HMSURL]);
 
   useEffect(() => {
     const id = "summary-print-css";
@@ -528,6 +707,20 @@ const SummaryPrint = () => {
           };
         });
 
+      // Determine the true bottom coordinate of actual visual content inside bodyRef.current
+      const allBlocks = Array.from(
+        bodyRef.current.querySelectorAll("[data-block-top]"),
+      );
+      let contentBottom = 0;
+      for (const el of [...allBlocks, ...Array.from(bodyRef.current.children)]) {
+        const r = el.getBoundingClientRect();
+        if (r.height > 0) {
+          const bot = Math.round((r.bottom - bodyRect.top) * SCALE);
+          if (bot > contentBottom) contentBottom = bot;
+        }
+      }
+      if (contentBottom <= 0) contentBottom = bodyCanvas.height;
+
       const SNAP_TOL = 2;
 
       /*
@@ -586,27 +779,18 @@ const SummaryPrint = () => {
       const bodySliceH_p1 = A4H - mg * 2 - bd * 2 - hdr1H - ftrH;
       const bodySliceH_cont = A4H - mg * 2 - bd * 2 - hdrCH - ftrH;
 
-      const doc = new jsPDF({
-        unit: "mm",
-        format: "a4",
-        orientation: "portrait",
-      });
+      /* ── Pre-calculate pagination slices ── */
+      const slices = [];
       let yOffset = 0;
-      let pageIdx = 0;
+      let pIdx = 0;
+      while (yOffset < contentBottom - 5) {
+        // Stop if remaining height is only trailing whitespace padding (<= 20px)
+        if (bodyCanvas.height - yOffset <= 20) break;
 
-      while (yOffset < bodyCanvas.height) {
-        const isFirst = pageIdx === 0;
-        const hdrCanvas = isFirst ? hdr1Canvas : hdrCCanvas;
+        const isFirst = pIdx === 0;
         const hdrH = isFirst ? hdr1H : hdrCH;
         const sliceMax = isFirst ? bodySliceH_p1 : bodySliceH_cont;
 
-        /*
-         * ✅ FIX: Added SNAP_TOL to the theadBot comparison.
-         *
-         * After snapping yOffset to theadBot, floating-point rounding can
-         * leave yOffset 1-2px shy of theadBot, causing the overlay to miss.
-         * The tolerance closes that gap so the thead always fires correctly.
-         */
         const activeTheads = theadInfos.filter(
           (t) => t.theadBot <= yOffset + SNAP_TOL && yOffset < t.tableBottom,
         );
@@ -615,11 +799,41 @@ const SummaryPrint = () => {
         const availH = sliceMax - overlayTotalH;
 
         const rawEnd = yOffset + availH;
-        const sliceEnd =
-          rawEnd >= bodyCanvas.height ? bodyCanvas.height : snapCut(rawEnd, yOffset);
+        let sliceEnd;
 
-        const sliceH = Math.max(sliceEnd - yOffset, 1);
-        if (sliceH <= 0) break;
+        // If the slice reaches or nearly reaches all visual content,
+        // absorb all remaining padding so it finishes cleanly without spilling over
+        if (rawEnd >= contentBottom - 20) {
+          sliceEnd = bodyCanvas.height;
+        } else {
+          sliceEnd = snapCut(rawEnd, yOffset);
+        }
+
+        const sliceH = Math.max(sliceEnd - yOffset, 0);
+        // If remaining slice height is insignificant (empty margin/padding), do not create a page
+        if (sliceH <= 15) break;
+
+        slices.push({ yOffset, sliceH, activeTheads, isFirst, hdrH });
+        yOffset += sliceH;
+        pIdx++;
+
+        if (pIdx > 50) break; // safety cap
+      }
+
+      const totalPages = Math.max(1, slices.length);
+      setPreviewTotalPages(totalPages);
+
+      const doc = new jsPDF({
+        unit: "mm",
+        format: "a4",
+        orientation: "portrait",
+      });
+
+      const barH = 22 * SCALE;
+
+      for (let pageIdx = 0; pageIdx < slices.length; pageIdx++) {
+        const { yOffset: sliceY, sliceH, activeTheads, isFirst, hdrH } = slices[pageIdx];
+        const hdrCanvas = isFirst ? hdr1Canvas : hdrCCanvas;
 
         /* ── Build output A4 canvas ── */
         const out = document.createElement("canvas");
@@ -652,6 +866,28 @@ const SummaryPrint = () => {
           hdrH,
         );
 
+        // Repaint dynamic Page No bar at bottom of header (under patient info)
+        const barY = mg + bd + hdrH - barH;
+        ctx.fillStyle = "#f8fafc";
+        ctx.fillRect(mg + bd, barY, innerW, barH);
+
+        ctx.strokeStyle = isFirst ? "#c8d0de" : "#aab4c6";
+        ctx.lineWidth = 1 * SCALE;
+        ctx.beginPath();
+        ctx.moveTo(mg + bd, barY + barH);
+        ctx.lineTo(mg + bd + innerW, barY + barH);
+        ctx.stroke();
+
+        ctx.font = `bold ${11 * SCALE}px 'Source Sans 3', Arial, sans-serif`;
+        ctx.fillStyle = "#475569";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText(
+          `Page ${pageIdx + 1} of ${totalPages}`,
+          mg + bd + innerW - 10 * SCALE,
+          barY + barH / 2,
+        );
+
         let drawY = mg + bd + hdrH;
 
         // Draw thead overlays at top of body zone
@@ -674,7 +910,7 @@ const SummaryPrint = () => {
         ctx.drawImage(
           bodyCanvas,
           0,
-          yOffset,
+          sliceY,
           bodyCanvas.width,
           sliceH,
           mg + bd,
@@ -706,9 +942,6 @@ const SummaryPrint = () => {
           PAGE_W_MM,
           PAGE_H_MM,
         );
-
-        yOffset += sliceH;
-        pageIdx++;
       }
 
       const pdfBlob = doc.output("blob");
@@ -811,7 +1044,7 @@ const SummaryPrint = () => {
         "message",
         `Dear ${summaryData.patient || "Recipient"},\n\nPlease find attached the discharge summary for ${summaryData.patient || "the patient"}.\n\nThank you.`
       );
-      
+
       // Parse comma-separated emails and append each
       const emails = cleanEmail.split(",").map(e => e.trim()).filter(Boolean);
       emails.forEach(emailAddr => {
@@ -1275,30 +1508,11 @@ const SummaryPrint = () => {
       );
     };
 
-    const SECTION_ORDER = [
-      "DOA AND DOD",
-      "DISCHARGE TYPE",
-      "DISCHARGE DIAGNOSIS",
-      "CONSULTANT",
-      "BRIEF HISTORY",
-      "SIGNIFICANT PAST MEDICAL AND SURGICAL HISTORY",
-      "GENERAL EXAMINATION",
-      "VITALS",
-      "COURSE IN THE HOSPITAL",
-      "ONCOLOGY NOTES",
-      "SPECIAL NEEDS AFTER DISCHARGE",
-      "VACCINATION HISTORY",
-      "SURGERIES / PROCEDURES PERFORMED",
-      "SPECIFIC MEDICATION GIVEN DURING HOSPITAL STAY",
-      "SURGICAL NOTES",
-      "INVESTIGATIONS",
-      "ADVICE ON DIET", // ← was missing
-      "ADVICE ON LIFE STYLE", // ← was missing
-      "ADVICE ON IMMUNIZATION",
-      "CONDITION ON DISCHARGE",
-      "ADMISSION DIAGNOSIS",
-      "ADVICE ON DISCHARGE",
-    ];
+    const extraKeys = (fieldsData || [])
+      .map((f) => f.key)
+      .filter((k) => k && !clinicalNotesOrder.includes(k));
+
+    const SECTION_ORDER = [...clinicalNotesOrder, ...extraKeys];
 
     const contRows = [
       ["Name", safeStr(summaryData.patient)],
@@ -1532,6 +1746,10 @@ const SummaryPrint = () => {
                 </div>
               )}
 
+              <div className="sp-page-no-bar">
+                <span>Page 1 of {previewTotalPages}</span>
+              </div>
+
               <div className="sp-body" ref={bodyRef}>
                 {SECTION_ORDER.map((key) => {
                   const content = getFieldValue(fieldsData, key, summaryData);
@@ -1548,7 +1766,9 @@ const SummaryPrint = () => {
                           {String(content)
                             .split("\n")
                             .map((line, idx) => (
-                              <div key={idx}>{line}</div>
+                              <div key={idx} style={{ minHeight: "1.4em" }}>
+                                {renderFormattedText(line)}
+                              </div>
                             ))}
                         </div>
                       )}
@@ -1594,9 +1814,6 @@ const SummaryPrint = () => {
                           <span>📞</span> அழைக்கவும்: 89258 11781
                         </div>
                       </div>
-                      <div className="sp-hs-app">
-                        <span>📲</span> எங்கள் சேவைகளை எளிதாகப் பெற Shanmuga360 App-ஐ பதிவிறக்கம் செய்யுங்கள்
-                      </div>
                     </div>
 
                     {/* English Section */}
@@ -1620,9 +1837,32 @@ const SummaryPrint = () => {
                           <span>📞</span> Call: 89258 11781
                         </div>
                       </div>
-                      <div className="sp-hs-app">
-                        <span>📲</span> Easy Access to Our Services Download the Shanmuga360 App
+                    </div>
+                  </div>
+
+                  {/* Shanmuga360 App Download Bar with QR Code */}
+                  <div className="sp-hs-app-bar">
+                    <div className="sp-hs-app-left">
+                      <div className="sp-hs-qr-box">
+                        <img
+                          src={Shanmuga360QR}
+                          alt="Shanmuga360 App QR"
+                          className="sp-hs-qr"
+                        />
+                        <span className="sp-hs-qr-sub">Scan QR</span>
                       </div>
+                      <div className="sp-hs-app-text-block">
+                        <div className="sp-hs-app-en">
+                          <span>📲</span> Easy Access to Our Services Download the Shanmuga360 App
+                        </div>
+                        <div className="sp-hs-app-ta">
+                          எங்கள் சேவைகளை எளிதாகப் பெற Shanmuga360 App-ஐ பதிவிறக்கம் செய்யுங்கள்
+                        </div>
+                      </div>
+                    </div>
+                    <div className="sp-hs-scan-badge">
+                      <div className="sp-hs-scan-badge-title">SCAN TO DOWNLOAD</div>
+                      <div className="sp-hs-scan-badge-sub">Shanmuga360 App</div>
                     </div>
                   </div>
                 </div>
@@ -1763,6 +2003,26 @@ const SummaryPrint = () => {
               </span>
             </div>
           )}
+          <div
+            id="sp-cap-p1-page"
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              height: 22,
+              lineHeight: "22px",
+              padding: "0 10px",
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#475569",
+              background: "#f8fafc",
+              borderBottom: "1px solid #c8d0de",
+              letterSpacing: "0.3px",
+              boxSizing: "border-box",
+            }}
+          >
+            <span>Page 1 of {previewTotalPages}</span>
+          </div>
         </div>
 
         {/* Continuation header */}
@@ -1800,6 +2060,27 @@ const SummaryPrint = () => {
               <span style={{ color: "#111", fontSize: 12 }}>{val}</span>
             </div>
           ))}
+          <div
+            id="sp-cap-hdrc-page"
+            style={{
+              gridColumn: "1 / -1",
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              height: 22,
+              lineHeight: "22px",
+              padding: "0 10px",
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#475569",
+              background: "#f8fafc",
+              borderTop: "1px solid #e2e8f2",
+              letterSpacing: "0.3px",
+              boxSizing: "border-box",
+            }}
+          >
+            <span>Page 2 of {previewTotalPages}</span>
+          </div>
         </div>
 
         {/* Footer */}

@@ -16,6 +16,7 @@ import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
 import headerImage from "../Images/SummaryHead.png";
 import FooterImage from "../Images/Footer.png";
+import HighRiskBadge from "../Common/HighRiskBadge";
 import {
   PageWrapper,
   Container,
@@ -3025,7 +3026,12 @@ const Modal = ({ row, onClose }) => {
             </InfoChip>
             <InfoChip>
               <InfoChipLabel>Patient</InfoChipLabel>
-              <InfoChipValue>{row.patientName}</InfoChipValue>
+              <InfoChipValue style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span>{row.patientName}</span>
+                {row.is_high_risk && (
+                  <HighRiskBadge reason={row.high_risk_reason} size="sm" />
+                )}
+              </InfoChipValue>
             </InfoChip>
             <InfoChip>
               <InfoChipLabel>UHID</InfoChipLabel>
@@ -3182,7 +3188,12 @@ const EditModal = ({ row, onClose, onSave }) => {
             </InfoChip>
             <InfoChip>
               <InfoChipLabel>Patient</InfoChipLabel>
-              <InfoChipValue>{row.patientName}</InfoChipValue>
+              <InfoChipValue style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span>{row.patientName}</span>
+                {row.is_high_risk && (
+                  <HighRiskBadge reason={row.high_risk_reason} size="sm" />
+                )}
+              </InfoChipValue>
             </InfoChip>
             <InfoChip>
               <InfoChipLabel>UHID</InfoChipLabel>
@@ -3380,7 +3391,12 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
         <ModalBody style={{ padding: 0 }}>
           <SlotInfoRow>
             <SlotInfoLabel>Patient</SlotInfoLabel>
-            <SlotInfoValue>{row.patientName}</SlotInfoValue>
+            <SlotInfoValue style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span>{row.patientName}</span>
+              {row.is_high_risk && (
+                <HighRiskBadge reason={row.high_risk_reason} size="sm" />
+              )}
+            </SlotInfoValue>
           </SlotInfoRow>
           <SlotInfoRow>
             <SlotInfoLabel>Bill No</SlotInfoLabel>
@@ -3564,7 +3580,12 @@ const DicomModal = ({ row, viewerUrl, onClose }) => {
             <span>OHIF DICOM Medical Viewer</span>
           </DicomModalTitle>
           <DicomPatientInfo>
-            <span>👤 <strong style={{ color: "#f8fafc" }}>{row?.patientName || "Unknown"}</strong></span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              👤 <strong style={{ color: "#f8fafc" }}>{row?.patientName || "Unknown"}</strong>
+              {row?.is_high_risk && (
+                <HighRiskBadge reason={row?.high_risk_reason} size="sm" />
+              )}
+            </span>
             <DicomInfoBadge>UHID: {row?.uhid || "—"}</DicomInfoBadge>
             <DicomInfoBadge>Bill: {row?.investBillNo || "—"}</DicomInfoBadge>
             {row?.itemName && <DicomInfoBadge>{row.itemName}</DicomInfoBadge>}
@@ -3724,6 +3745,9 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         age_type: row.age_type,
         gender: row.gender,
         address: row.address || "",
+        is_high_risk: Boolean(row.is_high_risk),
+        high_risk_reason: row.high_risk_reason || "",
+        high_risk_date: row.high_risk_date || null,
         patientType:
           row.ipNumber &&
             String(row.ipNumber).trim() !== "" &&
@@ -3977,6 +4001,8 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         gender: row.gender,
         investBillDate: row.investBillDate,
         referredBy: row.referredBy || "",
+        is_high_risk: row.is_high_risk,
+        high_risk_reason: row.high_risk_reason,
       },
     });
   };
@@ -4868,7 +4894,14 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                         </IpOpBadge>
                       </StickyTd>
                       <StickyTd stickyLeft={360} style={{ width: "105px", minWidth: "105px" }}>{row.ipNumber || "—"}</StickyTd>
-                      <StickyTd stickyLeft={465} stickyShadow isPatientName style={{ width: "160px", minWidth: "160px", fontWeight: 600, backgroundColor: row.hasReport ? "#f1f8f4" : "#ffffff" }}>{row.patientName}</StickyTd>
+                      <StickyTd stickyLeft={465} stickyShadow isPatientName style={{ width: "160px", minWidth: "160px", fontWeight: 600, backgroundColor: row.hasReport ? "#f1f8f4" : "#ffffff" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
+                          <span>{row.patientName}</span>
+                          {row.is_high_risk && (
+                            <HighRiskBadge reason={row.high_risk_reason} size="sm" />
+                          )}
+                        </div>
+                      </StickyTd>
                       <Td>
                         {row.age} {row.age_type}
                       </Td>
