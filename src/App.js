@@ -207,6 +207,7 @@ import Medicinechart from "./Components/Pharmacy/Medicinechart";
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
 import SalesReturnReport from "./Components/Reports/SalesReturnReport";
+import IPPatientAnalysis from "./Components/INPatientcare/IPPatientAnalysis";
 
 import Complaints from "./Components/ComplaintsTickets/complaints";
 import ComplaintsAdmin from "./Components/ComplaintsTickets/complaintsadmin";
@@ -1877,6 +1878,12 @@ function App() {
                     element={<PreDayRoomOccupancyReport />}
                   />
                 )}
+
+              {/* Dedicated IP Patient Analysis */}
+              <Route path="/IPPatientAnalysis" element={<IPPatientAnalysis />} />
+              <Route path="/ippatientanalysis" element={<IPPatientAnalysis />} />
+              <Route path="/InpatientAnalysis" element={<IPPatientAnalysis />} />
+              <Route path="/inpatientanalysis" element={<IPPatientAnalysis />} />
               {hasPagePermission(
                 "/SalesReturnReport",
                 allowedActions,
