@@ -877,13 +877,27 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const modalOpenedAtRef = useRef(0);
   // Automatically focus the Medicine Search Box
   const focusMedicineSearch = useCallback(() => {
-    setTimeout(() => {
+    const doFocus = () => {
       if (medicineSearchInputRef.current) {
         medicineSearchInputRef.current.focus();
-        medicineSearchInputRef.current.select();
+        if (typeof medicineSearchInputRef.current.select === "function") {
+          medicineSearchInputRef.current.select();
+        }
       }
-    }, 180);
+    };
+    doFocus();
+    const t1 = setTimeout(doFocus, 30);
+    const t2 = setTimeout(doFocus, 100);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, []);
+
+  // Initial cursor focus in Medicine Search Box on mount
+  useEffect(() => {
+    focusMedicineSearch();
+  }, [focusMedicineSearch]);
 
 
 
@@ -1492,6 +1506,13 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
   const isMedicineSearchEnabled = Boolean(formData.doctor_id);
 
+  // Focus Medicine Search Box whenever doctor is selected or search becomes enabled
+  useEffect(() => {
+    if (isMedicineSearchEnabled) {
+      focusMedicineSearch();
+    }
+  }, [isMedicineSearchEnabled, focusMedicineSearch]);
+
   // Helper to format doctor name for display and print
   const formatDoctorDisplay = useCallback((docId, rawDocName) => {
     let name = (rawDocName || formData.doctor_name || "").trim();
@@ -1696,6 +1717,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setShowModal(false);
     setSelectedMedicines([]);
     setModalSearch("");
+    focusMedicineSearch();
   };
 
   const handleModalCloseAndClear = () => {
@@ -1982,6 +2004,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setEditReason("");
     setIsWardRequest(false);
     setQtyErrors({});
+    focusMedicineSearch();
   };
 
   // Load estimate passed in from ViewEstimate tab
@@ -2168,6 +2191,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           toast.success(backendMsg || `Bill finalized successfully! #${savedBillNo}`, {
             autoClose: 2000,
           });
+          try {
+            localStorage.setItem("hms_last_billing_update", Date.now().toString());
+            if (typeof BroadcastChannel !== "undefined") {
+              new BroadcastChannel("hms_billing_channel").postMessage({ type: "BILL_SAVED", billNo: savedBillNo });
+            }
+          } catch (e) {}
 
           const rawDocName = finalizeRes.data?.doctor_name || finalizeRes.doctor_name || formData.doctor_name;
           const doctorName = formatDoctorDisplay(formData.doctor_id, rawDocName);
@@ -2403,6 +2432,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         } else {
           toast.success(backendMsg || `Bill saved successfully! #${response.data?.bill_no || ""}`, { autoClose: 2000 });
           const savedBillNo = response.data?.bill_no || response.bill_no || "";
+          try {
+            localStorage.setItem("hms_last_billing_update", Date.now().toString());
+            if (typeof BroadcastChannel !== "undefined") {
+              new BroadcastChannel("hms_billing_channel").postMessage({ type: "BILL_SAVED", billNo: savedBillNo });
+            }
+          } catch (e) {}
           const rawDocName = response.data?.doctor_name || response.doctor_name || formData.doctor_name;
           const doctorName = formatDoctorDisplay(formData.doctor_id, rawDocName);
           const rawEmpName = response.data?.created_by_name || response.data?.employee_name || response.created_by_name || response.employee_name;
@@ -3646,17 +3681,16 @@ const loadedMedicines = rawMeds.map((item) => {
               placeholder={
                 isMedicineSearchEnabled
                   ? "Type medicine name (e.g. do, dol) and press Enter..."
-                  : "Select Doctor first"
+                  : "Type medicine name (or select Doctor first)..."
               }
               value={searchTerm}
               onChange={handleMedicineInput}
               onKeyDown={handleKeyPress}
-              disabled={!isMedicineSearchEnabled}
             />
-            {searchTerm && isMedicineSearchEnabled && (
+            {searchTerm && (
               <button
                 type="button"
-                onClick={() => { setSearchTerm(""); setShowModal(false); setFilteredModalMedicines([]); }}
+                onClick={() => { setSearchTerm(""); setShowModal(false); setFilteredModalMedicines([]); focusMedicineSearch(); }}
                 style={{
                   background: "none", border: "1px solid #cbd5e1", borderLeft: "none", borderRight: "none",
                   color: "#94a3b8", cursor: "pointer", padding: "0 10px", fontSize: "1rem",
@@ -3667,9 +3701,11 @@ const loadedMedicines = rawMeds.map((item) => {
             )}
             <SearchIconBtn
               type="button"
-              disabled={!isMedicineSearchEnabled}
               onClick={() => {
-                if (!isMedicineSearchEnabled) return;
+                if (!isMedicineSearchEnabled) {
+                  toast.warning("Please select a Doctor first before searching medicines.", { autoClose: 2000 });
+                  return;
+                }
                 openMedicineModal(searchTerm);
               }}
               title="Search medicines"
@@ -3784,15 +3820,9 @@ const loadedMedicines = rawMeds.map((item) => {
                             if (newQty > 0) setQtyErrors(prev => { const n = { ...prev }; delete n[index]; return n; });
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") {
+                            if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
                               e.preventDefault();
-                              if (index < addedMedicines.length - 1 && qtyInputRefs.current[index + 1]) {
-                                qtyInputRefs.current[index + 1].focus();
-                                qtyInputRefs.current[index + 1].select();
-                              } else if (medicineSearchInputRef.current) {
-                                medicineSearchInputRef.current.focus();
-                                medicineSearchInputRef.current.select();
-                              }
+                              focusMedicineSearch();
                             }
                           }}
                         />
@@ -3827,6 +3857,12 @@ const loadedMedicines = rawMeds.map((item) => {
                                 i === index ? { ...m, discount_type: "percent", discount_value: dVal, total: newTotal } : m
                               )
                             );
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+                              e.preventDefault();
+                              focusMedicineSearch();
+                            }
                           }}
                         />
                       </Td>
@@ -4629,13 +4665,13 @@ const loadedMedicines = rawMeds.map((item) => {
 
       {/* ── Print Modal ── */}
       {showPrintModal && printBillData && (
-        <ModalOverlay onClick={() => setShowPrintModal(false)}>
+        <ModalOverlay onClick={() => { setShowPrintModal(false); focusMedicineSearch(); }}>
           <ModalContainer style={{ maxWidth: 820 }} onClick={e => e.stopPropagation()}>
             <ModalHeader style={{ background: "linear-gradient(135deg, #0f766e, #0d9488)" }}>
               <ModalTitle style={{ color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
                 <FaPrint /> Bill Saved — Ready to Print
               </ModalTitle>
-              <CloseButton onClick={() => setShowPrintModal(false)} style={{ color: "#fff" }}>×</CloseButton>
+              <CloseButton onClick={() => { setShowPrintModal(false); focusMedicineSearch(); }} style={{ color: "#fff" }}>×</CloseButton>
             </ModalHeader>
             <ModalBody style={{ padding: "0" }}>
               {/* Bill Preview */}
@@ -4800,7 +4836,7 @@ const loadedMedicines = rawMeds.map((item) => {
             </ModalBody>
             {/* Modal Footer Actions */}
             <ModalFooterBar style={{ justifyContent: "flex-end", gap: 10 }}>
-              <Button secondary onClick={() => setShowPrintModal(false)}>
+              <Button secondary onClick={() => { setShowPrintModal(false); focusMedicineSearch(); }}>
                 <FaTimes /> Close
               </Button>
               <Button
