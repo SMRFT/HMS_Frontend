@@ -205,46 +205,6 @@ const SearchActionBtn = styled.button`
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
-const PatientSectionSplit = styled.div`
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 16px;
-  align-items: stretch;
-  width: 100%;
-  box-sizing: border-box;
-  @media (max-width: 1060px) {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-`;
-
-const StayParamsCard = styled.div`
-  background: #ffffff;
-  border: 1px solid ${T.border};
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-  min-width: 0;
-  box-sizing: border-box;
-`;
-
-const StayParamsTitle = styled.div`
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: ${T.textMid};
-  padding-bottom: 6px;
-  border-bottom: 1px solid ${T.border};
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
-
 const PatientProfileCard = styled.div`
   background: linear-gradient(135deg, #f8fafc 0%, #f0fdfa 100%);
   border: 1px solid #ccfbf1;
@@ -433,8 +393,8 @@ const SugEmpty = styled.div`padding: 10px; text-align: center; font-size: 0.78re
 
 // ─── Bill type bar ────────────────────────────────────────────────────────────
 const BillTypeBar = styled.div`
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 8px 16px; background: #f0fdf4; border-bottom: 1px solid #bbf7d0;
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  padding: 10px 16px; background: #f0fdf4; border-bottom: 1px solid #bbf7d0;
 `;
 
 // ─── Financials ───────────────────────────────────────────────────────────────
@@ -578,7 +538,8 @@ const EMPTY_FORM = {
   bill_upto: new Date().toISOString().split("T")[0],
 };
 const EMPTY_ITEM = {
-  itemName: "", code: "", nabh_code: "", quantity: 1, rate: "", discount: 0, amount: 0,
+  itemName: "", code: "", nabh_code: "", nabh_rate: null, non_nabh_rate: null,
+  rate_category: "NABH", quantity: 1, rate: "", discount: 0, amount: 0,
   doctor: "", doctor_fee: "", item_description: "", package_name: ""
 };
 
@@ -631,7 +592,7 @@ const calcTotals = (items, f) => {
 
   // Total Charges = (Total Items + Medicines + GST + Room Tax + Taxable) - Total Disc
   const totalCharges = totalAmount + medicines + gstAmount + roomTax + taxable - totalDisc;
-  
+
   // Net Amount = totalCharges - advanceAmount - salesReturn
   // (If advance > totalCharges, netAmount will be negative -> Net Amount(Refund))
   const netAmount = totalCharges - advanceAmount - salesReturn;
@@ -643,7 +604,13 @@ const buildPayload = (items, f, totals, status, patient, editReason = "") => ({
   status,
   uhid: patient?.uhid || null,
   ip_number: patient?.ip_number || null,
-  items: items.map(({ _key, _fromInvest, ...r }) => r),
+  items: items.map(({ _key, _fromInvest, _baseRate, _appliedWard, _rateCategory, ...r }) => ({
+    ...r,
+    nabh_code: r.nabh_code || "",
+    nabh_rate: r.nabh_rate != null ? r.nabh_rate : null,
+    non_nabh_rate: r.non_nabh_rate != null ? r.non_nabh_rate : null,
+    rate_category: r.rate_category || _rateCategory || "NABH",
+  })),
   total_amount: totals.totalAmount,
   advance_amount: parseFloat(f.advance_amount) || 0,
   sales_return: parseFloat(f.sales_return) || 0,
@@ -667,6 +634,10 @@ const recalcItem = (item, field, value) => {
   const qty = parseFloat(field === "quantity" ? value : u.quantity) || 0;
   const rate = parseFloat(field === "rate" ? value : u.rate) || 0;
   const disc = parseFloat(field === "discount" ? value : u.discount) || 0;
+  if (field === "rate") {
+    u._baseRate = rate;
+    u._appliedWard = "CUSTOM";
+  }
   if (["quantity", "rate", "discount"].includes(field)) u.amount = Math.max(0, qty * rate - disc);
   return u;
 };
@@ -746,7 +717,7 @@ const normaliseItems = (list) =>
 // ItemSearchInput
 // ═════════════════════════════════════════════════════════════════════════════
 
-const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], itemsLoading = false, billTypeName = "" }) => {
+const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], itemsLoading = false, billTypeName = "", rateCategory = "NABH" }) => {
   const [showSug, setShowSug] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 280 });
   const inputRef = useRef(null);
@@ -825,7 +796,7 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
             position: "fixed",
             top: dropPos.top,
             left: dropPos.left,
-            width: Math.max(dropPos.width, 420),
+            width: Math.max(dropPos.width, 440),
             background: "#fff",
             border: `1px solid ${T.border}`,
             borderRadius: "6px",
@@ -842,7 +813,7 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
               borderRadius: "6px 6px 0 0",
               display: "flex", alignItems: "center", justifyContent: "space-between",
             }}>
-              <span>📋 {billTypeName || "Items"}</span>
+              <span>📋 {billTypeName || "Items"} · Active Rate: {rateCategory === "NON_NABH" ? "🔹 Non-NABH" : "⭐ NABH"}</span>
               <span style={{ opacity: 0.85 }}>{value.trim() ? `${filtered.length} / ${allItems.length} matches` : `${allItems.length} items total`}</span>
             </div>
           )}
@@ -865,7 +836,20 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
               )}
               {filtered.map((s, i) => {
                 const sName = s.itemName || s.name || "";
-                const sRate = s.price != null && s.price !== "" ? s.price : (s.nabh_rate || s.rate || 0);
+                const hasNabh = s.nabh_rate != null && !isNaN(Number(s.nabh_rate)) && Number(s.nabh_rate) > 0;
+                const hasNonNabh = s.non_nabh_rate != null && !isNaN(Number(s.non_nabh_rate)) && Number(s.non_nabh_rate) > 0;
+
+                let sRate = s.price;
+                if (rateCategory === "NON_NABH" && hasNonNabh) {
+                  sRate = s.non_nabh_rate;
+                } else if (hasNabh) {
+                  sRate = s.nabh_rate;
+                } else if (s.price != null && s.price !== "") {
+                  sRate = s.price;
+                } else {
+                  sRate = s.rate || 0;
+                }
+
                 return (
                   <SuggestionItem
                     key={`${sName}-${s.nabh_code || ""}-${i}`}
@@ -882,6 +866,26 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
                             borderRadius: "4px", fontFamily: "monospace"
                           }}>
                             NABH: {s.nabh_code}
+                          </span>
+                        )}
+                        {hasNabh && (
+                          <span style={{
+                            fontSize: "0.64rem", fontWeight: rateCategory === "NABH" ? 800 : 500, padding: "1px 6px",
+                            background: rateCategory === "NABH" ? "#ccfbf1" : "#f0fdfa",
+                            color: "#0f766e", border: `1px solid ${rateCategory === "NABH" ? "#0f766e" : "#99f6e4"}`,
+                            borderRadius: "4px"
+                          }}>
+                            ⭐ NABH: ₹{parseFloat(s.nabh_rate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                        {hasNonNabh && (
+                          <span style={{
+                            fontSize: "0.64rem", fontWeight: rateCategory === "NON_NABH" ? 800 : 500, padding: "1px 6px",
+                            background: rateCategory === "NON_NABH" ? "#dbeafe" : "#eff6ff",
+                            color: "#1d4ed8", border: `1px solid ${rateCategory === "NON_NABH" ? "#2563eb" : "#bfdbfe"}`,
+                            borderRadius: "4px"
+                          }}>
+                            🔹 Non-NABH: ₹{parseFloat(s.non_nabh_rate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         )}
                         {s.category && (
@@ -1084,7 +1088,7 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <Rupee>₹</Rupee>
           <FinIn $ro value={fmt(totals.totalCharges)} readOnly />
         </FinRow>
-        
+
         <NetBadgeBox $refund={isRefund}>
           <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px", color: isRefund ? T.danger : T.primary }}>
             {isRefund ? "⚠️ Patient Refund Amount" : "💵 Final Net Payable"}
@@ -1298,139 +1302,329 @@ const SearchSelect = ({
 const ItemsSection = ({
   items, newItem, onNIChange, onItemSelect, onAdd, onClear, onEdit, onRemove, disabled,
   doctors, billTypeNo, billTypeName, allItems, itemsLoading,
+  selectedKeys = [], onToggleSelect, onToggleSelectAll, onApplyWard,
+  patientWard = "SEMI-PRIVATE WARD",
+  rateCategory = "NABH", onApplyRateCategory,
 }) => (
-  <TScrollWrap>
-    <ITable>
-      <ITHead>
-        <tr>
-          <ITH style={{ width: "40px" }} $align="center">#</ITH>
-          <ITH style={{ width: "240px" }}>Item Name</ITH>
-          <ITH style={{ width: "70px" }} $align="right">Qty</ITH>
-          <ITH style={{ width: "95px" }} $align="right">Rate</ITH>
-          <ITH style={{ width: "80px" }} $align="right">Disc</ITH>
-          <ITH style={{ width: "105px" }} $align="right">Amount</ITH>
-          <ITH style={{ width: "150px" }}>Doctor</ITH>
-          <ITH style={{ width: "85px" }} $align="right">Dr.Fee</ITH>
-          <ITH style={{ width: "140px" }}>Description</ITH>
-          <ITH style={{ width: "100px" }} $align="center">Source</ITH>
-          <ITH style={{ width: "60px" }} $align="center">Action</ITH>
-        </tr>
-      </ITHead>
-      <tbody>
-        <AddRow>
-          <ITD $align="center" style={{ color: T.amber, fontWeight: 700, fontSize: "0.85rem" }}>+</ITD>
-          <ITD>
-            <ItemSearchInput
-              value={newItem.itemName}
-              onChange={v => onNIChange("itemName", v)}
-              onSelect={onItemSelect}
-              disabled={disabled}
-              allItems={allItems}
-              itemsLoading={itemsLoading}
-              billTypeName={billTypeName}
-            />
-          </ITD>
-          <ITD><TInput $align="right" value={newItem.quantity} onChange={e => onNIChange("quantity", e.target.value)} disabled={disabled} /></ITD>
-          <ITD><TInput $align="right" value={newItem.rate} onChange={e => onNIChange("rate", e.target.value)} disabled={disabled} /></ITD>
-          <ITD><TInput $align="right" value={newItem.discount} onChange={e => onNIChange("discount", e.target.value)} disabled={disabled} /></ITD>
-          <ITD><TInput $align="right" $ro value={fmt(newItem.amount)} readOnly /></ITD>
-          <ITD>
-            <SearchSelect
-              options={doctors.map(d => {
-                const name = d.employeeName || d.doctor_name || d.name || (typeof d === "string" ? d : "");
-                return { value: name, label: name };
-              })}
-              value={newItem.doctor}
-              onChange={e => onNIChange("doctor", e.target.value)}
-              placeholder="— Doctor —"
-              disabled={disabled}
-              height="32px"
-              style={{ minWidth: "130px" }}
-            />
-          </ITD>
-          <ITD><TInput $align="right" value={newItem.doctor_fee} onChange={e => onNIChange("doctor_fee", e.target.value)} disabled={disabled} /></ITD>
-          <ITD><TInput value={newItem.item_description} onChange={e => onNIChange("item_description", e.target.value)} disabled={disabled} placeholder="Notes…" /></ITD>
-          <ITD $align="center"></ITD>
-          <ITD $align="center">
-            <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-              <button onClick={onAdd} disabled={disabled}
-                style={{ width: 28, height: 28, borderRadius: 6, background: disabled ? "#94a3b8" : T.primary, border: "none", color: "#fff", fontWeight: 700, fontSize: "1rem", cursor: disabled ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
-              <button onClick={onClear}
-                style={{ width: 28, height: 28, borderRadius: 6, background: "#f1f5f9", border: `1px solid ${T.border}`, cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>↺</button>
-            </div>
-          </ITD>
-        </AddRow>
+  <div>
+    {/* ── Selection, Rate Category & Ward Concept Bar ── */}
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "8px 14px", background: "#f8fafc", borderBottom: `1px solid ${T.border}`,
+      flexWrap: "wrap", gap: 10
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.78rem", fontWeight: 700, color: T.textMain, cursor: disabled || items.length === 0 ? "default" : "pointer", userSelect: "none" }}>
+          <input
+            type="checkbox"
+            checked={items.length > 0 && selectedKeys.length === items.length}
+            onChange={onToggleSelectAll}
+            disabled={disabled || items.length === 0}
+            style={{ cursor: disabled || items.length === 0 ? "default" : "pointer", width: 16, height: 16, accentColor: T.primary }}
+          />
+          <span>Select All ({items.length})</span>
+        </label>
+        {selectedKeys.length > 0 && (
+          <span style={{ fontSize: "0.74rem", background: T.primaryLt, color: T.primary, padding: "2px 10px", borderRadius: 12, fontWeight: 700 }}>
+            {selectedKeys.length} of {items.length} selected
+          </span>
+        )}
+      </div>
 
-        {items.length === 0 ? (
-          <tr><td colSpan={11}><EmptyRow>{disabled ? "Search a patient to load items." : "No items yet — add above."}</EmptyRow></td></tr>
-        ) : items.map((item, idx) => (
-          <ITR key={item._key}>
-            <ITD $align="center" style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.76rem" }}>{idx + 1}</ITD>
-            <ITD style={{ fontWeight: 600 }}>
-              <TInput
-                value={item.itemName}
-                onChange={e => onEdit(item._key, "itemName", e.target.value)}
-                style={{ fontWeight: 600 }}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        {/* Insurance Rate Selection Checkboxes: NABH Rate vs Non-NABH Rate */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.74rem", fontWeight: 700, color: T.textMid }}>
+            🛡️ Insurance Rate:
+          </span>
+          <label
+            title="Apply NABH Rate to items"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "4px 10px", fontSize: "0.74rem", fontWeight: 700, borderRadius: 6,
+              border: `1px solid ${rateCategory === "NABH" ? "#0f766e" : "#ccfbf1"}`,
+              background: rateCategory === "NABH" ? "#ccfbf1" : "#f0fdfa",
+              color: "#0f766e",
+              cursor: disabled ? "not-allowed" : "pointer",
+              userSelect: "none", transition: "all 0.15s ease",
+              boxShadow: rateCategory === "NABH" ? "0 1px 3px rgba(15, 118, 110, 0.2)" : "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={rateCategory === "NABH"}
+              onChange={() => onApplyRateCategory && onApplyRateCategory("NABH")}
+              disabled={disabled}
+              style={{ cursor: disabled ? "default" : "pointer", accentColor: "#0f766e", width: 15, height: 15 }}
+            />
+            <span>⭐ NABH Rate</span>
+          </label>
+          <label
+            title="Apply Non-NABH Rate to items"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "4px 10px", fontSize: "0.74rem", fontWeight: 700, borderRadius: 6,
+              border: `1px solid ${rateCategory === "NON_NABH" ? "#2563eb" : "#dbeafe"}`,
+              background: rateCategory === "NON_NABH" ? "#dbeafe" : "#eff6ff",
+              color: "#1d4ed8",
+              cursor: disabled ? "not-allowed" : "pointer",
+              userSelect: "none", transition: "all 0.15s ease",
+              boxShadow: rateCategory === "NON_NABH" ? "0 1px 3px rgba(37, 99, 235, 0.2)" : "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={rateCategory === "NON_NABH"}
+              onChange={() => onApplyRateCategory && onApplyRateCategory("NON_NABH")}
+              disabled={disabled}
+              style={{ cursor: disabled ? "default" : "pointer", accentColor: "#2563eb", width: 15, height: 15 }}
+            />
+            <span>🔹 Non-NABH Rate</span>
+          </label>
+        </div>
+
+        {/* Ward Concept Multiplier Checkboxes */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.74rem", fontWeight: 700, color: T.textMid }}>
+            🛏️ Ward Concept ({selectedKeys.length > 0 ? `${selectedKeys.length} Selected` : "All"}):
+          </span>
+          <label
+            title="Apply +5% Private Ward markup to selected items"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "4px 10px", fontSize: "0.74rem", fontWeight: 700, borderRadius: 6,
+              border: `1px solid ${patientWard === "PRIVATE WARD" ? "#16a34a" : "#bbf7d0"}`,
+              background: patientWard === "PRIVATE WARD" ? "#dcfce7" : "#f0fdf4",
+              color: "#15803d",
+              cursor: disabled || items.length === 0 ? "not-allowed" : "pointer",
+              userSelect: "none", transition: "all 0.15s ease",
+              boxShadow: patientWard === "PRIVATE WARD" ? "0 1px 3px rgba(22, 163, 74, 0.2)" : "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={patientWard === "PRIVATE WARD"}
+              onChange={() => onApplyWard(patientWard === "PRIVATE WARD" ? "SEMI-PRIVATE WARD" : "PRIVATE WARD")}
+              disabled={disabled || items.length === 0}
+              style={{ cursor: disabled || items.length === 0 ? "default" : "pointer", accentColor: "#16a34a", width: 15, height: 15 }}
+            />
+            <span>⬆️ +5% Private</span>
+          </label>
+          <label
+            title="Apply -5% General Ward discount to selected items"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "4px 10px", fontSize: "0.74rem", fontWeight: 700, borderRadius: 6,
+              border: `1px solid ${patientWard === "GENERAL WARD" ? "#d97706" : "#fde68a"}`,
+              background: patientWard === "GENERAL WARD" ? "#fef3c7" : "#fffbeb",
+              color: "#b45309",
+              cursor: disabled || items.length === 0 ? "not-allowed" : "pointer",
+              userSelect: "none", transition: "all 0.15s ease",
+              boxShadow: patientWard === "GENERAL WARD" ? "0 1px 3px rgba(217, 119, 6, 0.2)" : "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={patientWard === "GENERAL WARD"}
+              onChange={() => onApplyWard(patientWard === "GENERAL WARD" ? "SEMI-PRIVATE WARD" : "GENERAL WARD")}
+              disabled={disabled || items.length === 0}
+              style={{ cursor: disabled || items.length === 0 ? "default" : "pointer", accentColor: "#d97706", width: 15, height: 15 }}
+            />
+            <span>⬇️ -5% General</span>
+          </label>
+          <label
+            title="Reset selected items to Normal Rate (0%)"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "4px 10px", fontSize: "0.74rem", fontWeight: 600, borderRadius: 6,
+              border: `1px solid ${patientWard === "SEMI-PRIVATE WARD" ? T.primary : T.border}`,
+              background: patientWard === "SEMI-PRIVATE WARD" ? "#f0fdfa" : "#fff",
+              color: patientWard === "SEMI-PRIVATE WARD" ? T.primary : T.textMid,
+              cursor: disabled || items.length === 0 ? "not-allowed" : "pointer",
+              userSelect: "none", transition: "all 0.15s ease",
+              boxShadow: patientWard === "SEMI-PRIVATE WARD" ? "0 1px 3px rgba(15, 118, 110, 0.15)" : "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={patientWard === "SEMI-PRIVATE WARD"}
+              onChange={() => onApplyWard("SEMI-PRIVATE WARD")}
+              disabled={disabled || items.length === 0}
+              style={{ cursor: disabled || items.length === 0 ? "default" : "pointer", accentColor: T.primary, width: 15, height: 15 }}
+            />
+            <span>⚖️ Normal (0%)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <TScrollWrap>
+      <ITable>
+        <ITHead>
+          <tr>
+            <ITH style={{ width: "36px" }} $align="center"></ITH>
+            <ITH style={{ width: "36px" }} $align="center">#</ITH>
+            <ITH style={{ width: "230px" }}>Item Name</ITH>
+            <ITH style={{ width: "65px" }} $align="right">Qty</ITH>
+            <ITH style={{ width: "90px" }} $align="right">Rate</ITH>
+            <ITH style={{ width: "75px" }} $align="right">Disc</ITH>
+            <ITH style={{ width: "100px" }} $align="right">Amount</ITH>
+            <ITH style={{ width: "140px" }}>Doctor</ITH>
+            <ITH style={{ width: "80px" }} $align="right">Dr.Fee</ITH>
+            <ITH style={{ width: "130px" }}>Description</ITH>
+            <ITH style={{ width: "95px" }} $align="center">Source</ITH>
+            <ITH style={{ width: "55px" }} $align="center">Action</ITH>
+          </tr>
+        </ITHead>
+        <tbody>
+          <AddRow>
+            <ITD $align="center"></ITD>
+            <ITD $align="center" style={{ color: T.amber, fontWeight: 700, fontSize: "0.85rem" }}>+</ITD>
+            <ITD>
+              <ItemSearchInput
+                value={newItem.itemName}
+                onChange={v => onNIChange("itemName", v)}
+                onSelect={onItemSelect}
+                disabled={disabled}
+                allItems={allItems}
+                itemsLoading={itemsLoading}
+                billTypeName={billTypeName}
+                rateCategory={rateCategory}
               />
-              {(item.package_name || item.nabh_code || item.code) && (
-                <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center", flexWrap: "wrap" }}>
-                  {item.code && (
-                    <span style={{ fontSize: "0.64rem", color: "#1e40af", fontWeight: 700, background: "#eff6ff", padding: "1px 5px", borderRadius: 3, border: "1px solid #bfdbfe", fontFamily: "monospace" }}>
-                      CODE: {item.code}
-                    </span>
-                  )}
-                  {item.nabh_code && (
-                    <span style={{ fontSize: "0.64rem", color: "#065f46", fontWeight: 700, background: "#ecfdf5", padding: "1px 5px", borderRadius: 3, border: "1px solid #a7f3d0", fontFamily: "monospace" }}>
-                      NABH: {item.nabh_code}
-                    </span>
-                  )}
-                  {item.package_name && (
-                    <span style={{ fontSize: "0.65rem", color: T.primary, fontWeight: 700, background: "#f0fdfa", padding: "1px 5px", borderRadius: 3, border: "1px solid #99f6e4" }}>
-                      {item.package_name}
-                    </span>
-                  )}
-                </div>
-              )}
             </ITD>
-            <ITD><TInput $align="right" value={item.quantity} onChange={e => onEdit(item._key, "quantity", e.target.value)} /></ITD>
-            <ITD><TInput $align="right" value={item.rate} onChange={e => onEdit(item._key, "rate", e.target.value)} /></ITD>
-            <ITD><TInput $align="right" value={item.discount} onChange={e => onEdit(item._key, "discount", e.target.value)} /></ITD>
-            <ITD $align="right" style={{ fontWeight: 700, fontSize: "0.82rem" }}>₹{fmt(item.amount)}</ITD>
+            <ITD><TInput $align="right" value={newItem.quantity} onChange={e => onNIChange("quantity", e.target.value)} disabled={disabled} /></ITD>
+            <ITD><TInput $align="right" value={newItem.rate} onChange={e => onNIChange("rate", e.target.value)} disabled={disabled} /></ITD>
+            <ITD><TInput $align="right" value={newItem.discount} onChange={e => onNIChange("discount", e.target.value)} disabled={disabled} /></ITD>
+            <ITD><TInput $align="right" $ro value={fmt(newItem.amount)} readOnly /></ITD>
             <ITD>
               <SearchSelect
                 options={doctors.map(d => {
                   const name = d.employeeName || d.doctor_name || d.name || (typeof d === "string" ? d : "");
                   return { value: name, label: name };
                 })}
-                value={item.doctor || ""}
-                onChange={e => onEdit(item._key, "doctor", e.target.value)}
+                value={newItem.doctor}
+                onChange={e => onNIChange("doctor", e.target.value)}
                 placeholder="— Doctor —"
+                disabled={disabled}
                 height="32px"
                 style={{ minWidth: "130px" }}
               />
             </ITD>
-            <ITD><TInput $align="right" value={item.doctor_fee || ""} onChange={e => onEdit(item._key, "doctor_fee", e.target.value)} /></ITD>
-            <ITD>
-              <TInput
-                value={item.item_description || item.invest_bill_no || ""}
-                onChange={e => onEdit(item._key, "item_description", e.target.value)}
-                placeholder="Description…"
-              />
-            </ITD>
+            <ITD><TInput $align="right" value={newItem.doctor_fee} onChange={e => onNIChange("doctor_fee", e.target.value)} disabled={disabled} /></ITD>
+            <ITD><TInput value={newItem.item_description} onChange={e => onNIChange("item_description", e.target.value)} disabled={disabled} placeholder="Notes…" /></ITD>
+            <ITD $align="center"></ITD>
             <ITD $align="center">
-              {item._fromInvest
-                ? <Badge $v="pending">{item.payment_status || "Pending"}</Badge>
-                : <Badge $v="manual">Manual</Badge>}
+              <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                <button onClick={onAdd} disabled={disabled}
+                  style={{ width: 28, height: 28, borderRadius: 6, background: disabled ? "#94a3b8" : T.primary, border: "none", color: "#fff", fontWeight: 700, fontSize: "1rem", cursor: disabled ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                <button onClick={onClear}
+                  style={{ width: 28, height: 28, borderRadius: 6, background: "#f1f5f9", border: `1px solid ${T.border}`, cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>↺</button>
+              </div>
             </ITD>
-            <ITD $align="center">
-              <button onClick={() => onRemove(item._key)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: T.danger, fontSize: "0.95rem", padding: "4px", borderRadius: 4 }}>🗑</button>
-            </ITD>
-          </ITR>
-        ))}
-      </tbody>
-    </ITable>
-  </TScrollWrap>
+          </AddRow>
+
+          {items.length === 0 ? (
+            <tr><td colSpan={12}><EmptyRow>{disabled ? "Search a patient to load items." : "No items yet — add above."}</EmptyRow></td></tr>
+          ) : items.map((item, idx) => {
+            const isSelected = selectedKeys.includes(item._key);
+            return (
+              <ITR key={item._key} style={{ background: isSelected ? "#f0fdfa" : "inherit" }}>
+                <ITD $align="center">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelect(item._key)}
+                    style={{ cursor: "pointer", accentColor: T.primary, width: 15, height: 15 }}
+                  />
+                </ITD>
+                <ITD $align="center" style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.76rem" }}>{idx + 1}</ITD>
+                <ITD style={{ fontWeight: 600 }}>
+                  <TInput
+                    value={item.itemName}
+                    onChange={e => onEdit(item._key, "itemName", e.target.value)}
+                    style={{ fontWeight: 600 }}
+                  />
+                  {(item.package_name || item.nabh_code || item.code || item._appliedWard || item._rateCategory || item.rate_category) && (
+                    <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center", flexWrap: "wrap" }}>
+                      {item.nabh_code && (
+                        <span style={{ fontSize: "0.64rem", color: "#065f46", fontWeight: 700, background: "#ecfdf5", padding: "1px 6px", borderRadius: 3, border: "1px solid #a7f3d0", fontFamily: "monospace" }}>
+                          NABH: {item.nabh_code}
+                        </span>
+                      )}
+                      {(item._rateCategory === "NON_NABH" || item.rate_category === "NON_NABH") && (
+                        <span style={{ fontSize: "0.64rem", color: "#1d4ed8", fontWeight: 700, background: "#eff6ff", padding: "1px 5px", borderRadius: 3, border: "1px solid #bfdbfe" }}>
+                          🔹 Non-NABH Rate
+                        </span>
+                      )}
+                      {(item._rateCategory === "NABH" || item.rate_category === "NABH" || (!item._rateCategory && (item.nabh_rate != null || item.nabh_code))) && (
+                        <span style={{ fontSize: "0.64rem", color: "#0f766e", fontWeight: 700, background: "#f0fdfa", padding: "1px 5px", borderRadius: 3, border: "1px solid #99f6e4" }}>
+                          ⭐ NABH Rate
+                        </span>
+                      )}
+                      {item._appliedWard === "PRIVATE WARD" && (
+                        <span style={{ fontSize: "0.64rem", color: "#15803d", fontWeight: 700, background: "#dcfce7", padding: "1px 5px", borderRadius: 3, border: "1px solid #86efac" }}>
+                          +5% Ward
+                        </span>
+                      )}
+                      {item._appliedWard === "GENERAL WARD" && (
+                        <span style={{ fontSize: "0.64rem", color: "#b45309", fontWeight: 700, background: "#fef3c7", padding: "1px 5px", borderRadius: 3, border: "1px solid #fde68a" }}>
+                          -5% Ward
+                        </span>
+                      )}
+                      {item.code && (
+                        <span style={{ fontSize: "0.64rem", color: "#1e40af", fontWeight: 700, background: "#eff6ff", padding: "1px 5px", borderRadius: 3, border: "1px solid #bfdbfe", fontFamily: "monospace" }}>
+                          CODE: {item.code}
+                        </span>
+                      )}
+                      {item.package_name && (
+                        <span style={{ fontSize: "0.65rem", color: T.primary, fontWeight: 700, background: "#f0fdfa", padding: "1px 5px", borderRadius: 3, border: "1px solid #99f6e4" }}>
+                          {item.package_name}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </ITD>
+                <ITD><TInput $align="right" value={item.quantity} onChange={e => onEdit(item._key, "quantity", e.target.value)} /></ITD>
+                <ITD><TInput $align="right" value={item.rate} onChange={e => onEdit(item._key, "rate", e.target.value)} /></ITD>
+                <ITD><TInput $align="right" value={item.discount} onChange={e => onEdit(item._key, "discount", e.target.value)} /></ITD>
+                <ITD $align="right" style={{ fontWeight: 700, fontSize: "0.82rem" }}>₹{fmt(item.amount)}</ITD>
+                <ITD>
+                  <SearchSelect
+                    options={doctors.map(d => {
+                      const name = d.employeeName || d.doctor_name || d.name || (typeof d === "string" ? d : "");
+                      return { value: name, label: name };
+                    })}
+                    value={item.doctor || ""}
+                    onChange={e => onEdit(item._key, "doctor", e.target.value)}
+                    placeholder="— Doctor —"
+                    height="32px"
+                    style={{ minWidth: "130px" }}
+                  />
+                </ITD>
+                <ITD><TInput $align="right" value={item.doctor_fee || ""} onChange={e => onEdit(item._key, "doctor_fee", e.target.value)} /></ITD>
+                <ITD>
+                  <TInput
+                    value={item.item_description || item.invest_bill_no || ""}
+                    onChange={e => onEdit(item._key, "item_description", e.target.value)}
+                    placeholder="Description…"
+                  />
+                </ITD>
+                <ITD $align="center">
+                  {item._fromInvest
+                    ? <Badge $v="pending">{item.payment_status || "Pending"}</Badge>
+                    : <Badge $v="manual">Manual</Badge>}
+                </ITD>
+                <ITD $align="center">
+                  <button onClick={() => onRemove(item._key)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: T.danger, fontSize: "0.95rem", padding: "4px", borderRadius: 4 }}>🗑</button>
+                </ITD>
+              </ITR>
+            );
+          })}
+        </tbody>
+      </ITable>
+    </TScrollWrap>
+  </div>
 );
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1464,6 +1658,7 @@ const DischargeBilling = () => {
   const [selectedInsuranceScheme, setSelectedInsuranceScheme] = useState("");
 
   const [patientWard, setPatientWard] = useState("SEMI-PRIVATE WARD");
+  const [rateCategory, setRateCategory] = useState("NABH"); // "NABH" | "NON_NABH"
   const [uhid, setUhid] = useState("");
   const [ipNumber, setIpNumber] = useState("");
   const [searching, setSearching] = useState(false);
@@ -1500,10 +1695,19 @@ const DischargeBilling = () => {
   };
   const [patient, setPatient] = useState(null);
   const [items, setItems] = useState([]);
+  const [selectedKeys, setSelectedKeys] = useState([]);
   const [newItem, setNewItem] = useState(EMPTY_ITEM);
   const [form, setFormRaw] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [editingEst, setEditingEst] = useState(null);
+
+  const handleToggleSelect = useCallback((key) => {
+    setSelectedKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    setSelectedKeys(prev => prev.length === items.length ? [] : items.map(i => i._key));
+  }, [items]);
   const [editReasonModal, setEditReasonModal] = useState(null);
   const [editReasonText, setEditReasonText] = useState("");
 
@@ -1607,7 +1811,9 @@ const DischargeBilling = () => {
           if (!cancelled) setAllItems(normaliseItems(list));
         } else {
           const btNoParam = selectedBT.billTypeNo ? `billTypeNo=${encodeURIComponent(selectedBT.billTypeNo)}&` : "";
-          const url = `${BASE}investigation-items/?${btNoParam}billType=${encodeURIComponent(String(selectedBT.bill_type))}`;
+          const custType = (patient?.patient_type || patient?.customer_type || "").trim();
+          const custParam = custType ? `&customer_type=${encodeURIComponent(custType)}` : "";
+          const url = `${BASE}discharge-billing/?action=investigation_items&${btNoParam}billType=${encodeURIComponent(String(selectedBT.bill_type))}${custParam}`;
           const res = await apiRequest(url, "GET");
 
           const list =
@@ -1628,7 +1834,7 @@ const DischargeBilling = () => {
 
     fetchItems();
     return () => { cancelled = true; };
-  }, [selectedBT.billTypeNo, selectedBT.bill_type, selectedBT.isInsurance, selectedInsuranceScheme]);
+  }, [selectedBT.billTypeNo, selectedBT.bill_type, selectedBT.isInsurance, selectedInsuranceScheme, patient?.patient_type, patient?.customer_type]);
 
   // ── Bill type change handler ────────────────────────────────────────────────
   const handleBillTypeChange = e => {
@@ -1672,19 +1878,109 @@ const DischargeBilling = () => {
     return {
       ...it,
       _baseRate: baseRate,
+      _appliedWard: ward,
       rate: adjRate,
       amount: adjAmount,
     };
   }, [getWardMultiplier]);
 
+  const applyWardMultiplier = useCallback((wardType) => {
+    setPatientWard(wardType);
+    setItems(prevItems => {
+      const targetKeys = selectedKeys.length > 0 ? selectedKeys : prevItems.map(i => i._key);
+      if (targetKeys.length === 0) return prevItems;
+      return prevItems.map(it => {
+        if (targetKeys.includes(it._key)) {
+          return applyWardToItem(it, wardType);
+        }
+        return it;
+      });
+    });
+    const count = selectedKeys.length > 0 ? selectedKeys.length : items.length;
+    const label = wardType === "PRIVATE WARD" ? "+5% (Private Ward)" : wardType === "GENERAL WARD" ? "-5% (General Ward)" : "Normal Rate (0%)";
+    if (count > 0) {
+      showToast(`Applied ${label} to ${count} item(s)`);
+    }
+  }, [selectedKeys, items.length, applyWardToItem, showToast]);
+
   const handleWardChange = (e) => {
     const newWard = e.target.value;
-    setPatientWard(newWard);
-    setItems(prevItems => prevItems.map(it => applyWardToItem(it, newWard)));
+    applyWardMultiplier(newWard);
   };
 
+  // ── Apply NABH Rate vs Non-NABH Rate ──────────────────────────────────────
+  const applyRateCategory = useCallback((cat) => {
+    setRateCategory(cat);
+    // Update newly entered item if present
+    setNewItem(prev => {
+      if (!prev.itemName) return prev;
+      let newBase = prev._baseRate !== undefined ? prev._baseRate : (parseFloat(prev.rate) || 0);
+      if (cat === "NON_NABH" && prev.non_nabh_rate != null && !isNaN(Number(prev.non_nabh_rate)) && Number(prev.non_nabh_rate) > 0) {
+        newBase = parseFloat(prev.non_nabh_rate);
+      } else if (cat === "NABH" && prev.nabh_rate != null && !isNaN(Number(prev.nabh_rate)) && Number(prev.nabh_rate) > 0) {
+        newBase = parseFloat(prev.nabh_rate);
+      }
+      const mult = getWardMultiplier(patientWard);
+      const adjRate = parseFloat((newBase * mult).toFixed(2));
+      const qty = parseFloat(prev.quantity) || 1;
+      const disc = parseFloat(prev.discount) || 0;
+      const adjAmount = Math.max(0, parseFloat((adjRate * qty - disc).toFixed(2)));
+      return {
+        ...prev,
+        _baseRate: newBase,
+        _rateCategory: cat,
+        rate_category: cat,
+        rate: adjRate,
+        amount: adjAmount,
+      };
+    });
+
+    setItems(prevItems => {
+      const targetKeys = selectedKeys.length > 0 ? selectedKeys : prevItems.map(i => i._key);
+      if (targetKeys.length === 0) return prevItems;
+      return prevItems.map(it => {
+        if (!targetKeys.includes(it._key)) return it;
+        let newBase = it._baseRate !== undefined ? it._baseRate : (parseFloat(it.rate) || 0);
+        if (cat === "NON_NABH") {
+          if (it.non_nabh_rate != null && it.non_nabh_rate !== "" && !isNaN(Number(it.non_nabh_rate)) && Number(it.non_nabh_rate) > 0) {
+            newBase = parseFloat(it.non_nabh_rate);
+          }
+        } else {
+          if (it.nabh_rate != null && it.nabh_rate !== "" && !isNaN(Number(it.nabh_rate)) && Number(it.nabh_rate) > 0) {
+            newBase = parseFloat(it.nabh_rate);
+          }
+        }
+        const mult = getWardMultiplier(it._appliedWard || patientWard);
+        const adjRate = parseFloat((newBase * mult).toFixed(2));
+        const qty = parseFloat(it.quantity) || 1;
+        const disc = parseFloat(it.discount) || 0;
+        const adjAmount = Math.max(0, parseFloat((adjRate * qty - disc).toFixed(2)));
+        return {
+          ...it,
+          _baseRate: newBase,
+          _rateCategory: cat,
+          rate_category: cat,
+          rate: adjRate,
+          amount: adjAmount,
+        };
+      });
+    });
+    const count = selectedKeys.length > 0 ? selectedKeys.length : items.length;
+    const label = cat === "NON_NABH" ? "Non-NABH Rate" : "NABH Rate";
+    if (count > 0) {
+      showToast(`Switched to ${label} for ${count} item(s)`);
+    }
+  }, [selectedKeys, items.length, patientWard, getWardMultiplier, showToast]);
+
   const investToRow = useCallback((inv, idx) => {
-    const baseRate = parseFloat(inv.rate) || parseFloat(inv.price) || 0;
+    let baseRate = 0;
+    if (rateCategory === "NON_NABH" && inv.non_nabh_rate != null && !isNaN(Number(inv.non_nabh_rate)) && Number(inv.non_nabh_rate) > 0) {
+      baseRate = parseFloat(inv.non_nabh_rate);
+    } else if (inv.nabh_rate != null && !isNaN(Number(inv.nabh_rate)) && Number(inv.nabh_rate) > 0) {
+      baseRate = parseFloat(inv.nabh_rate);
+    } else {
+      baseRate = parseFloat(inv.rate != null ? inv.rate : (inv.price || 0)) || 0;
+    }
     const qty = parseFloat(inv.quantity) || 1;
     const disc = parseFloat(inv.discount) || 0;
     const mult = getWardMultiplier(patientWard);
@@ -1695,20 +1991,25 @@ const DischargeBilling = () => {
       ...inv,
       code: inv.code || inv.item_code || (inv.test_id != null ? String(inv.test_id) : "") || (inv.sl_no != null ? String(inv.sl_no) : "") || "",
       nabh_code: inv.nabh_code || inv.nabhCode || "",
+      nabh_rate: inv.nabh_rate != null ? inv.nabh_rate : null,
+      non_nabh_rate: inv.non_nabh_rate != null ? inv.non_nabh_rate : null,
+      rate_category: rateCategory,
+      _rateCategory: rateCategory,
       _baseRate: baseRate,
+      _appliedWard: patientWard,
       rate: adjRate,
       amount: adjAmount,
       _key: `inv_${idx}_${Date.now()}`,
       _fromInvest: true,
     };
-  }, [patientWard, getWardMultiplier]);
+  }, [patientWard, getWardMultiplier, rateCategory]);
 
   // ── Patient search ─────────────────────────────────────────────────────────
   const doSearch = async (mode, explicitVal = null) => {
     const val = (explicitVal || (mode === "uhid" ? uhid : ipNumber)).trim();
     if (!val) { setSearchErr("Please enter a value"); return; }
     setSearchErr(""); setSearching(true);
-    setPatient(null); setItems([]); setNewItem(EMPTY_ITEM);
+    setPatient(null); setItems([]); setNewItem(EMPTY_ITEM); setSelectedKeys([]);
     try {
       const param = mode === "uhid"
         ? `uhid=${encodeURIComponent(val)}`
@@ -1766,7 +2067,14 @@ const DischargeBilling = () => {
   const handleItemSelect = useCallback(item => {
     setNewItem(p => {
       const itemName = item.itemName || item.name || "";
-      const baseRate = parseFloat(item.price != null && item.price !== "" ? item.price : (item.nabh_rate || item.rate || 0)) || 0;
+      let baseRate = 0;
+      if (rateCategory === "NON_NABH" && item.non_nabh_rate != null && !isNaN(Number(item.non_nabh_rate)) && Number(item.non_nabh_rate) > 0) {
+        baseRate = parseFloat(item.non_nabh_rate);
+      } else if (item.nabh_rate != null && !isNaN(Number(item.nabh_rate)) && Number(item.nabh_rate) > 0) {
+        baseRate = parseFloat(item.nabh_rate);
+      } else {
+        baseRate = parseFloat(item.price != null && item.price !== "" ? item.price : (item.rate || 0)) || 0;
+      }
       const mult = getWardMultiplier(patientWard);
       const rate = parseFloat((baseRate * mult).toFixed(2));
       const qty = parseFloat(p.quantity) || 1;
@@ -1782,6 +2090,10 @@ const DischargeBilling = () => {
         itemName,
         code: itemCode,
         nabh_code: nabhCode,
+        nabh_rate: item.nabh_rate != null ? item.nabh_rate : null,
+        non_nabh_rate: item.non_nabh_rate != null ? item.non_nabh_rate : null,
+        rate_category: rateCategory,
+        _rateCategory: rateCategory,
         _baseRate: baseRate,
         rate,
         amount,
@@ -1789,20 +2101,28 @@ const DischargeBilling = () => {
         item_description: desc || p.item_description,
       };
     });
-  }, [patientWard, getWardMultiplier, selectedBT]);
+  }, [patientWard, getWardMultiplier, selectedBT, rateCategory]);
 
   const handleAddItem = () => {
     if (!newItem.itemName.trim()) { showToast("Enter item name first", true); return; }
     const added = applyWardToItem(newItem, patientWard);
-    setItems(p => [...p, { ...added, _key: `m_${Date.now()}`, _fromInvest: false }]);
+    setItems(p => [...p, {
+      ...added,
+      _rateCategory: rateCategory,
+      rate_category: rateCategory,
+      _key: `m_${Date.now()}`,
+      _fromInvest: false
+    }]);
     setNewItem(EMPTY_ITEM);
   };
 
   const handleReset = () => {
     setPatient(null); setItems([]); setNewItem(EMPTY_ITEM);
+    setSelectedKeys([]);
     setUhid(""); setIpNumber(""); setSearchErr(""); setFormRaw(EMPTY_FORM);
     setEditingEst(null);
     setPatientWard("SEMI-PRIVATE WARD");
+    setRateCategory("NABH");
   };
 
   // ── Edit / Convert from estimates list ─────────────────────────────────────
@@ -1827,8 +2147,10 @@ const DischargeBilling = () => {
     setPatient(initialPatient);
     setUhid(est.uhid || "");
     setIpNumber(est.ip_number || "");
+    setSelectedKeys([]);
     setItems(parseItems(est.items).map((it, idx) => ({
       ...EMPTY_ITEM, ...it,
+      _baseRate: parseFloat(it.rate) || 0,
       amount: parseFloat(it.amount) || (parseFloat(it.quantity || 1) * parseFloat(it.rate || 0)),
       _key: `est_${idx}_${Date.now()}`, _fromInvest: false,
     })));
@@ -2033,97 +2355,60 @@ const DischargeBilling = () => {
                 </div>
               )}
 
-              {/* Main Split: Left (Stay Parameters) & Right (Patient Profile) */}
-              <PatientSectionSplit>
-                {/* Left Side: Stay & Discharge Parameters */}
-                <StayParamsCard>
-                  <StayParamsTitle>🛏️ Stay &amp; Discharge Parameters</StayParamsTitle>
-                  <FG>
-                    <FL>Patient Ward</FL>
-                    <FSelect value={patientWard} onChange={handleWardChange}>
-                      <option value="SEMI-PRIVATE WARD">SEMI-PRIVATE WARD (Normal)</option>
-                      <option value="GENERAL WARD">GENERAL WARD (-5%)</option>
-                      <option value="PRIVATE WARD">PRIVATE WARD (+5%)</option>
-                    </FSelect>
-                  </FG>
+              {/* Patient Profile Card */}
+              {patient ? (
+                <PatientProfileCard>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <PatientAvatar>{getInitials(patient.patient_name)}</PatientAvatar>
+                    <PatientMainInfo>
+                      <PatientNameRow>
+                        <PatientNameText>{patient.patient_name}</PatientNameText>
+                        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: T.textMid }}>
+                          {patient.age || "—"} yrs / {patient.gender || "—"}
+                        </span>
+                      </PatientNameRow>
+                      <PatientMetaPills>
+                        <MetaChip $mono>UHID: {patient.uhid}</MetaChip>
+                        <MetaChip $mono>IP: {patient.ip_number}</MetaChip>
+                        {patient.mobile && <span>📞 {patient.mobile}</span>}
+                      </PatientMetaPills>
+                    </PatientMainInfo>
+                  </div>
 
-                  <FG>
-                    <FL>Discharge Date</FL>
-                    <FInput
-                      type="date"
-                      value={form.bill_upto || new Date().toISOString().split("T")[0]}
-                      disabled
-                      readOnly
-                      style={{ background: "#f8fafc", color: T.textMid, cursor: "not-allowed" }}
-                    />
-                  </FG>
-
-                  <FG>
-                    <FL>Next Visit Date <span style={{ textTransform: "none", color: T.textMuted, fontWeight: 400 }}>(Optional)</span></FL>
-                    <FInput
-                      type="date"
-                      value={form.next_visit_date || ""}
-                      onChange={e => setForm("next_visit_date", e.target.value)}
-                      min={new Date().toISOString().split("T")[0]}
-                    />
-                  </FG>
-                </StayParamsCard>
-
-                {/* Right Side: Patient Profile Card */}
-                {patient ? (
-                  <PatientProfileCard>
-                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                      <PatientAvatar>{getInitials(patient.patient_name)}</PatientAvatar>
-                      <PatientMainInfo>
-                        <PatientNameRow>
-                          <PatientNameText>{patient.patient_name}</PatientNameText>
-                          <span style={{ fontSize: "0.82rem", fontWeight: 600, color: T.textMid }}>
-                            {patient.age || "—"} yrs / {patient.gender || "—"}
-                          </span>
-                        </PatientNameRow>
-                        <PatientMetaPills>
-                          <MetaChip $mono>UHID: {patient.uhid}</MetaChip>
-                          <MetaChip $mono>IP: {patient.ip_number}</MetaChip>
-                          {patient.mobile && <span>📞 {patient.mobile}</span>}
-                        </PatientMetaPills>
-                      </PatientMainInfo>
+                  <PatientMetrics2Col>
+                    {/* Left Column: Doctor & Admission Date */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
+                      <MetricBox>
+                        <MetricLabel>👨‍⚕️ Attending Doctor</MetricLabel>
+                        <MetricVal title={patient.doctor}>{patient.doctor || "—"}</MetricVal>
+                      </MetricBox>
+                      <MetricBox>
+                        <MetricLabel>📅 Admission Date</MetricLabel>
+                        <MetricVal>{formatAdmissionDate(patient.admission_date)}</MetricVal>
+                      </MetricBox>
                     </div>
 
-                    <PatientMetrics2Col>
-                      {/* Left Column: Doctor & Admission Date */}
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
-                        <MetricBox>
-                          <MetricLabel>👨‍⚕️ Attending Doctor</MetricLabel>
-                          <MetricVal title={patient.doctor}>{patient.doctor || "—"}</MetricVal>
-                        </MetricBox>
-                        <MetricBox>
-                          <MetricLabel>📅 Admission Date</MetricLabel>
-                          <MetricVal>{formatAdmissionDate(patient.admission_date)}</MetricVal>
-                        </MetricBox>
-                      </div>
-
-                      {/* Right Column: Room & Stay and Billing Type */}
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
-                        <MetricBox>
-                          <MetricLabel>🛏️ Room &amp; Stay</MetricLabel>
-                          <MetricVal>{patient.room_no ? `Room ${patient.room_no}` : "—"} · {patient.total_days ?? 0} Days</MetricVal>
-                        </MetricBox>
-                        <MetricBox>
-                          <MetricLabel>🏢 Billing Type</MetricLabel>
-                          <MetricVal style={{ color: T.primary, textTransform: "uppercase" }} title={patient.company || patient.company_code}>
-                            {patient.patient_type || "General"}
-                            {patient.company ? ` / ${patient.company}` : patient.company_code ? ` / ${patient.company_code}` : ""}
-                          </MetricVal>
-                        </MetricBox>
-                      </div>
-                    </PatientMetrics2Col>
-                  </PatientProfileCard>
-                ) : (
-                  <PatientEmptyState>
-                    <span>🔍 Enter a <strong>UHID</strong> or <strong>IP Number</strong> above and click Search to load patient records &amp; stay details.</span>
-                  </PatientEmptyState>
-                )}
-              </PatientSectionSplit>
+                    {/* Right Column: Room & Stay and Billing Type */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
+                      <MetricBox>
+                        <MetricLabel>🛏️ Room &amp; Stay</MetricLabel>
+                        <MetricVal>{patient.room_no ? `Room ${patient.room_no}` : "—"} · {patient.total_days ?? 0} Days</MetricVal>
+                      </MetricBox>
+                      <MetricBox>
+                        <MetricLabel>🏢 Billing Type</MetricLabel>
+                        <MetricVal style={{ color: T.primary, textTransform: "uppercase" }} title={patient.company || patient.company_code}>
+                          {patient.patient_type || "General"}
+                          {patient.company ? ` / ${patient.company}` : patient.company_code ? ` / ${patient.company_code}` : ""}
+                        </MetricVal>
+                      </MetricBox>
+                    </div>
+                  </PatientMetrics2Col>
+                </PatientProfileCard>
+              ) : (
+                <PatientEmptyState>
+                  <span>🔍 Enter a <strong>UHID</strong> or <strong>IP Number</strong> above and click Search to load patient records &amp; stay details.</span>
+                </PatientEmptyState>
+              )}
             </SearchSectionWrap>
           </Card>
 
@@ -2154,26 +2439,28 @@ const DischargeBilling = () => {
 
             {/* ── Bill type selection bar ── */}
             <BillTypeBar>
-              <span style={{ fontSize: "0.76rem", fontWeight: 700, color: T.textMid, flexShrink: 0 }}>
-                Bill Type:
-              </span>
-              <div style={{ maxWidth: 320, flex: "0 1 320px" }}>
-                <SearchSelect
-                  options={billTypeOptions}
-                  value={selectedBT.bill_type != null ? String(selectedBT.bill_type) : ""}
-                  onChange={e => handleBillTypeChange({ target: { value: e.target.value } })}
-                  placeholder="Search Bill Type..."
-                  disabled={masterLoading}
-                  height="32px"
-                />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <span style={{ fontSize: "0.76rem", fontWeight: 700, color: T.textMid, flexShrink: 0, whiteSpace: "nowrap" }}>
+                  Bill Type:
+                </span>
+                <div style={{ width: 300, minWidth: 220 }}>
+                  <SearchSelect
+                    options={billTypeOptions}
+                    value={selectedBT.bill_type != null ? String(selectedBT.bill_type) : ""}
+                    onChange={e => handleBillTypeChange({ target: { value: e.target.value } })}
+                    placeholder="Search Bill Type..."
+                    disabled={masterLoading}
+                    height="32px"
+                  />
+                </div>
               </div>
 
               {(selectedBT.bill_type === "INSURANCE_PACKAGES" || selectedBT.isInsurance) && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "0.76rem", fontWeight: 700, color: T.primary, flexShrink: 0 }}>
-                    🛡️ Insurance Scheme:
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <span style={{ fontSize: "0.76rem", fontWeight: 700, color: T.textMid, flexShrink: 0, whiteSpace: "nowrap" }}>
+                    Insurance Scheme:
                   </span>
-                  <div style={{ minWidth: 260, maxWidth: 360, flex: "0 1 340px" }}>
+                  <div style={{ width: 300, minWidth: 220 }}>
                     <SearchSelect
                       options={insuranceSchemes.map(s => ({
                         value: s.id,
@@ -2204,13 +2491,23 @@ const DischargeBilling = () => {
               onAdd={handleAddItem}
               onClear={() => setNewItem(EMPTY_ITEM)}
               onEdit={(key, field, val) => setItems(p => p.map(i => i._key === key ? recalcItem(i, field, val) : i))}
-              onRemove={key => setItems(p => p.filter(i => i._key !== key))}
+              onRemove={key => {
+                setItems(p => p.filter(i => i._key !== key));
+                setSelectedKeys(p => p.filter(k => k !== key));
+              }}
               disabled={!patient}
               doctors={doctors}
               billTypeNo={selectedBT.billTypeNo}
               billTypeName={selectedBT.bill_name}
               allItems={allItems}
               itemsLoading={itemsLoading}
+              selectedKeys={selectedKeys}
+              onToggleSelect={handleToggleSelect}
+              onToggleSelectAll={handleToggleSelectAll}
+              onApplyWard={applyWardMultiplier}
+              patientWard={patientWard}
+              rateCategory={rateCategory}
+              onApplyRateCategory={applyRateCategory}
             />
           </Card>
 
