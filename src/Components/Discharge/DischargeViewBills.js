@@ -249,7 +249,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
     setListBusy(true);
     setListErr("");
     try {
-      const params = new URLSearchParams({ status: "Billed" });
+      const params = new URLSearchParams();
       if (fromDate) params.append("from_date", fromDate);
       if (toDate) params.append("to_date", toDate);
       if (searchQuery && searchQuery.trim()) params.append("search", searchQuery.trim());
@@ -298,10 +298,74 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
 
   const handleDownloadWord = () => {
     if (!printRef.current || !printBill) return;
-    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Discharge Bill</title><style>body{font-family:'Courier New',monospace;font-size:11pt;}table{width:100%;border-collapse:collapse;}th,td{padding:6px;border:1px solid #000;}</style></head><body>";
-    const footer = "</body></html>";
-    const html = header + printRef.current.innerHTML + footer;
-    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+
+    let bodyHtml = printRef.current.innerHTML;
+
+    // Convert img src to base64 or absolute URL so Word displays the logo offline
+    const imgEl = printRef.current.querySelector("img");
+    if (imgEl && imgEl.src) {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = imgEl.naturalWidth || imgEl.width || 750;
+        canvas.height = imgEl.naturalHeight || imgEl.height || 85;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/png");
+        bodyHtml = bodyHtml.replace(/src="[^"]+"/, `src="${dataUrl}"`);
+      } catch (e) {
+        if (imgEl.src.startsWith("/")) {
+          bodyHtml = bodyHtml.replace(/src="\/([^"]+)"/, `src="${window.location.origin}/$1"`);
+        }
+      }
+    }
+
+    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset='utf-8'>
+  <title>Discharge Bill - ${printBill.bill_no || printBill.estimate_number || "Bill"}</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    @page Section1 {
+      size: 8.5in 11.0in;
+      margin: 0.4in 0.4in 0.4in 0.4in;
+      mso-header-margin: 0.3in;
+      mso-footer-margin: 0.3in;
+      mso-paper-source: 0;
+    }
+    div.Section1 { page: Section1; }
+    body {
+      font-family: 'Courier New', Courier, monospace, sans-serif;
+      font-size: 9.5pt;
+      color: #000000;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+    td, th {
+      font-family: 'Courier New', Courier, monospace, sans-serif;
+      font-size: 9.5pt;
+    }
+  </style>
+</head>
+<body>
+<div class="Section1">`;
+    const footer = `</div></body></html>`;
+    const html = header + bodyHtml + footer;
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -316,10 +380,10 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
     if (!printRef.current || !printBill) return;
     const element = printRef.current;
     const opt = {
-      margin:       [0.3, 0.3, 0.3, 0.3],
+      margin:       [0.25, 0.25, 0.25, 0.25],
       filename:     `Discharge_Bill_${(printBill.bill_no || printBill.estimate_number || "Bill").replace(/\//g, "_")}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
+      html2canvas:  { scale: 2, useCORS: true, logging: false },
       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
     if (window.html2pdf) {
@@ -876,7 +940,7 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
 
   return (
     <div ref={ref} className="print-area" style={{
-      width: "100%", background: "#fff", color: "#000",
+      width: "100%", maxWidth: "780px", margin: "0 auto", background: "#fff", color: "#000",
       fontFamily: "'Courier New', Courier, monospace, sans-serif", padding: "20px 24px", boxSizing: "border-box"
     }}>
       <style>{`
@@ -894,46 +958,79 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
       </div>
 
       {/* Title & Banner */}
-      <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
+      <table style={{
+        width: "100%", borderCollapse: "collapse",
         borderTop: "2px solid #000", borderBottom: "2px solid #000",
-        padding: "4px 8px", fontWeight: "bold", fontSize: "0.85rem", marginBottom: 10
+        fontWeight: "bold", fontSize: "0.85rem", marginBottom: 10
       }}>
-        <span>DISCHARGE BILL &nbsp;-&nbsp; GST EXEMPT</span>
-        <span>CREDIT BILL</span>
-      </div>
+        <tbody>
+          <tr>
+            <td style={{ padding: "4px 8px", textAlign: "left" }}>DISCHARGE BILL &nbsp;-&nbsp; GST EXEMPT</td>
+            <td style={{ padding: "4px 8px", textAlign: "right" }}>CREDIT BILL</td>
+          </tr>
+        </tbody>
+      </table>
 
-      {/* Patient & Bill Info Grid */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "3px 16px",
-        fontSize: "0.78rem", lineHeight: "1.4", borderBottom: "1.5px solid #000", paddingBottom: 8, marginBottom: 10
+      {/* Patient & Bill Info Table */}
+      <table style={{
+        width: "100%", borderCollapse: "collapse",
+        fontSize: "0.78rem", lineHeight: "1.5", borderBottom: "1.5px solid #000", paddingBottom: 6, marginBottom: 10
       }}>
-        <div><strong>OP Number</strong> &nbsp;&nbsp;: {bill.uhid || pd.uhid || "—"}</div>
-        <div><strong>SH-Bill No</strong> &nbsp;: {bill.bill_no || bill.estimate_number || "—"}</div>
-
-        <div><strong>Name</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {(pd.patient_name || "—").toUpperCase()}, {pd.gender || ""}, {pd.age ? `${pd.age} YEARS` : ""}</div>
-        <div><strong>IP Number</strong> &nbsp;&nbsp;: {bill.ip_number || pd.ip_number || "—"}</div>
-
-        <div><strong>Phone</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {pd.mobile || pd.mobilePhone || pd.phone || "—"}</div>
-        <div><strong>Bill Date</strong> &nbsp;&nbsp;: {fmtDateStr(bill.bill_date)}</div>
-
-        <div><strong>Address</strong> &nbsp;&nbsp;&nbsp;: {pd.address || pd.permanent_address || "—"}</div>
-        <div><strong>DOA</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {fmtDateStr(pd.admission_date || pd.admissionDateTime)}</div>
-
-        <div><strong>Doctor</strong> &nbsp;&nbsp;&nbsp;&nbsp;: {pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN"}</div>
-        <div><strong>DOD</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {fmtDateStr(bill.bill_date)}</div>
-
-        <div><strong>Room Details</strong>: {pd.room_no || pd.roomNo || "GENERAL WARD"}</div>
-        <div><strong>Next Visit</strong> &nbsp;: {bill.next_visit_date ? fmtDateStr(bill.next_visit_date) : "—"}</div>
-      </div>
+        <tbody>
+          <tr>
+            <td style={{ width: "55%", padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>OP Number</strong> &nbsp;&nbsp;: {bill.uhid || pd.uhid || "—"}
+            </td>
+            <td style={{ width: "45%", padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>SH-Bill No</strong> &nbsp;: {bill.bill_no || bill.estimate_number || "—"}
+            </td>
+          </tr>
+          <tr>
+            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>Name</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {(pd.patient_name || "—").toUpperCase()}, {pd.gender || ""}, {pd.age ? `${pd.age} YEARS` : ""}
+            </td>
+            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>IP Number</strong> &nbsp;&nbsp;: {bill.ip_number || pd.ip_number || "—"}
+            </td>
+          </tr>
+          <tr>
+            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>Phone</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {pd.mobile || pd.mobilePhone || pd.phone || "—"}
+            </td>
+            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>Bill Date</strong> &nbsp;&nbsp;: {fmtDateStr(bill.bill_date)}
+            </td>
+          </tr>
+          <tr>
+            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>Address</strong> &nbsp;&nbsp;&nbsp;: {pd.address || pd.permanent_address || "—"}
+            </td>
+            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>DOA</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {fmtDateStr(pd.admission_date || pd.admissionDateTime)}
+            </td>
+          </tr>
+          <tr>
+            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>Doctor</strong> &nbsp;&nbsp;&nbsp;&nbsp;: {pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN"}
+            </td>
+            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>DOD</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {fmtDateStr(bill.bill_date)}
+            </td>
+          </tr>
+          <tr>
+            <td colSpan={2} style={{ padding: "2px 4px", verticalAlign: "top" }}>
+              <strong>Room Details</strong>: {pd.room_no || pd.roomNo || "GENERAL WARD"}
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       {/* Items Table */}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem", marginBottom: 12 }}>
         <thead>
           <tr style={{ borderBottom: "1.5px solid #000", borderTop: "1.5px solid #000" }}>
             <th style={{ textAlign: "left", padding: "6px 4px", width: "35px" }}>SlNo</th>
-            <th style={{ textAlign: "left", padding: "6px 4px", width: "75px" }}>Code</th>
-            <th style={{ textAlign: "left", padding: "6px 4px", width: "95px" }}>NABH Code</th>
+            <th style={{ textAlign: "left", padding: "6px 4px", width: "110px" }}>NABH Code</th>
             <th style={{ textAlign: "left", padding: "6px 4px" }}>Description</th>
             <th style={{ textAlign: "right", padding: "6px 4px", width: "60px" }}>Quantity</th>
             <th style={{ textAlign: "right", padding: "6px 4px", width: "80px" }}>Rate</th>
@@ -942,20 +1039,18 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
         </thead>
         <tbody>
           {items.map((it, idx) => {
-            const itemCode = it.code || it.item_code || (it.test_id != null ? String(it.test_id) : "") || (it.sl_no != null ? String(it.sl_no) : "") || it.billTypeNo || "—";
-            let nabhCode = it.nabh_code || it.nabhCode || "";
+            let nabhCode = it.nabh_code || it.nabhCode || it.nabh || "";
             if (!nabhCode && it.item_description && it.item_description.includes("NABH:")) {
               const match = it.item_description.match(/NABH:\s*([^\s·,]+)/i);
               if (match) nabhCode = match[1];
             }
-            if (!nabhCode) nabhCode = "—";
+            if (!nabhCode) nabhCode = "-";
 
             return (
               <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
-                <td style={{ padding: "5px 4px", verticalAlign: "top" }}>{idx + 1}</td>
-                <td style={{ padding: "5px 4px", verticalAlign: "top", fontFamily: "monospace", fontSize: "0.74rem" }}>{itemCode}</td>
-                <td style={{ padding: "5px 4px", verticalAlign: "top", fontFamily: "monospace", fontSize: "0.74rem" }}>{nabhCode}</td>
-                <td style={{ padding: "5px 4px", verticalAlign: "top" }}>
+                <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left" }}>{idx + 1}</td>
+                <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left", fontFamily: "'Courier New', Courier, monospace", fontSize: "0.74rem" }}>{nabhCode}</td>
+                <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left" }}>
                   <div style={{ fontWeight: 600 }}>{it.itemName}</div>
                   {it.package_name && (
                     <div style={{ fontSize: "0.68rem", color: "#475569" }}>
@@ -974,57 +1069,71 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
 
       {/* Summary Totals */}
       <div style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", paddingTop: 8, paddingBottom: 8, marginBottom: 20 }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", marginBottom: 3 }}>
-          <span>Total Items Amount :</span>
-          <span style={{ width: "110px", textAlign: "right" }}>₹{fmt(bill.total_amount)}</span>
-        </div>
-        {parseFloat(bill.medicines_amount) > 0 && (
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", marginBottom: 3 }}>
-            <span>Medicines :</span>
-            <span style={{ width: "110px", textAlign: "right" }}>₹{fmt(bill.medicines_amount)}</span>
-          </div>
-        )}
-        {parseFloat(bill.gst_amount) > 0 && (
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", marginBottom: 3 }}>
-            <span>GST :</span>
-            <span style={{ width: "110px", textAlign: "right" }}>₹{fmt(bill.gst_amount)}</span>
-          </div>
-        )}
-        {parseFloat(bill.advance_amount) > 0 && (
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", color: "#b91c1c", marginBottom: 3 }}>
-            <span>Less: Advance Paid :</span>
-            <span style={{ width: "110px", textAlign: "right" }}>-₹{fmt(bill.advance_amount)}</span>
-          </div>
-        )}
-        {parseFloat(bill.sales_return) > 0 && (
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", color: "#b91c1c", marginBottom: 3 }}>
-            <span>Less: Sales Return :</span>
-            <span style={{ width: "110px", textAlign: "right" }}>-₹{fmt(bill.sales_return)}</span>
-          </div>
-        )}
-        {parseFloat(bill.discount_amount) > 0 && (
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", color: "#b91c1c", marginBottom: 3 }}>
-            <span>Less: Discount :</span>
-            <span style={{ width: "110px", textAlign: "right" }}>-₹{fmt(bill.discount_amount)}</span>
-          </div>
-        )}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.92rem", fontWeight: "bold", marginTop: 6, borderTop: "1px dashed #666", paddingTop: 4 }}>
-          <span>{parseFloat(bill.net_amount) < 0 ? "Net Amount (Refund) :" : "Net Amount :"}</span>
-          <span style={{ width: "110px", textAlign: "right", color: parseFloat(bill.net_amount) < 0 ? "#b91c1c" : "#15803d" }}>
-            ₹{fmt(bill.net_amount)}
-          </span>
-        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
+          <tbody>
+            <tr>
+              <td style={{ textAlign: "right", padding: "2px 8px" }}>Total Items Amount :</td>
+              <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.total_amount)}</td>
+            </tr>
+            {parseFloat(bill.medicines_amount) > 0 && (
+              <tr>
+                <td style={{ textAlign: "right", padding: "2px 8px" }}>Medicines :</td>
+                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.medicines_amount)}</td>
+              </tr>
+            )}
+            {parseFloat(bill.gst_amount) > 0 && (
+              <tr>
+                <td style={{ textAlign: "right", padding: "2px 8px" }}>GST :</td>
+                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.gst_amount)}</td>
+              </tr>
+            )}
+            {parseFloat(bill.advance_amount) > 0 && (
+              <tr style={{ color: "#b91c1c" }}>
+                <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Advance Paid :</td>
+                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.advance_amount)}</td>
+              </tr>
+            )}
+            {parseFloat(bill.sales_return) > 0 && (
+              <tr style={{ color: "#b91c1c" }}>
+                <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Sales Return :</td>
+                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.sales_return)}</td>
+              </tr>
+            )}
+            {parseFloat(bill.discount_amount) > 0 && (
+              <tr style={{ color: "#b91c1c" }}>
+                <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Discount :</td>
+                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.discount_amount)}</td>
+              </tr>
+            )}
+            <tr>
+              <td style={{ textAlign: "right", padding: "6px 8px 2px", fontWeight: "bold", fontSize: "0.92rem", borderTop: "1px dashed #666" }}>
+                {parseFloat(bill.net_amount) < 0 ? "Net Amount (Refund) :" : "Net Amount :"}
+              </td>
+              <td style={{
+                width: "120px", textAlign: "right", padding: "6px 4px 2px", fontWeight: "bold", fontSize: "0.92rem",
+                borderTop: "1px dashed #666",
+                color: parseFloat(bill.net_amount) < 0 ? "#b91c1c" : "#15803d"
+              }}>
+                ₹{fmt(bill.net_amount)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {/* Footer Signatures */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 30, fontSize: "0.82rem" }}>
-        <div>
-          <strong>Prepared By :</strong> {bill.created_by_name || bill.created_by || "CASHIER"}
-        </div>
-        <div>
-          <strong>Signature</strong>
-        </div>
-      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 30, fontSize: "0.82rem" }}>
+        <tbody>
+          <tr>
+            <td style={{ textAlign: "left", verticalAlign: "bottom" }}>
+              <strong>Prepared By :</strong> {bill.created_by_name || bill.created_by || "CASHIER"}
+            </td>
+            <td style={{ textAlign: "right", verticalAlign: "bottom" }}>
+              <strong>Signature</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <div style={{ textAlign: "center", fontSize: "0.68rem", fontStyle: "italic", marginTop: 24, borderTop: "1px solid #ccc", paddingTop: 6 }}>
         Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST Exempt Invoice.
