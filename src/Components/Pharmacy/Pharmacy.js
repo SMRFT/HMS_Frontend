@@ -856,7 +856,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [saving, setSaving] = useState(false);
   const [qtyErrors, setQtyErrors] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPaymentMode, setSelectedPaymentMode] = useState("cash");
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState(() => {
+    const currentOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+    return currentOutlet === "OLET002" ? "cash" : "credit";
+  });
   const [pendingBillIntent, setPendingBillIntent] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printBillData, setPrintBillData] = useState(null);
@@ -2084,7 +2087,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     // For Direct bill → show payment mode modal first
     if (intentStatus !== "Estimate") {
       setPendingBillIntent(intentStatus);
-      setSelectedPaymentMode("cash");
+      const currentOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+      if (currentOutlet === "OLET002") {
+        setSelectedPaymentMode("cash");
+      } else {
+        setSelectedPaymentMode("credit");
+      }
       setShowPaymentModal(true);
       return;
     }
@@ -4612,7 +4620,15 @@ const loadedMedicines = rawMeds.map((item) => {
                 {[
                   { value: "cash", label: "Pay Now", desc: "Patient pays immediately (Cash / Card / UPI)" },
                   { value: "credit", label: "Pay Later", desc: "Bill on credit — patient pays at a later date" },
-                ].map(opt => (
+                ]
+                  .filter(opt => {
+                    const currentOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+                    if (opt.value === "cash" && currentOutlet !== "OLET002") {
+                      return false; // Hide Pay Now for OLET001 (only show for OLET002)
+                    }
+                    return true;
+                  })
+                  .map(opt => (
                   <label
                     key={opt.value}
                     onClick={() => setSelectedPaymentMode(opt.value)}

@@ -1650,6 +1650,59 @@ export default function BreastCancerScreening({ isPublic = false }) {
     };
   }, [studentRecords]);
 
+  // Formatters for Printable Slip (extracts accurate date and time from DB record)
+  const formatSlipDate = (rec) => {
+    if (!rec) return "—";
+    const raw = rec.date || rec.created_date;
+    if (!raw) return new Date().toLocaleDateString("en-GB");
+    try {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const yyyy = d.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+      }
+    } catch (_) {}
+    return String(raw).slice(0, 10);
+  };
+
+  const formatSlipTime = (rec) => {
+    if (!rec) return "—";
+    const raw = rec.created_date || rec.created_at;
+    if (raw) {
+      try {
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) {
+          let hours = d.getHours();
+          const minutes = String(d.getMinutes()).padStart(2, "0");
+          const seconds = String(d.getSeconds()).padStart(2, "0");
+          const ampm = hours >= 12 ? "PM" : "AM";
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          const strHours = String(hours).padStart(2, "0");
+          return `${strHours}:${minutes}:${seconds} ${ampm}`;
+        }
+      } catch (_) {}
+    }
+    if (rec.date && typeof rec.date === "string" && rec.date.includes("T") && !rec.date.includes("T00:00:00")) {
+      try {
+        const d = new Date(rec.date);
+        if (!isNaN(d.getTime())) {
+          let hours = d.getHours();
+          const minutes = String(d.getMinutes()).padStart(2, "0");
+          const seconds = String(d.getSeconds()).padStart(2, "0");
+          const ampm = hours >= 12 ? "PM" : "AM";
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          const strHours = String(hours).padStart(2, "0");
+          return `${strHours}:${minutes}:${seconds} ${ampm}`;
+        }
+      } catch (_) {}
+    }
+    return "—";
+  };
+
   // View Slip Modal Trigger
   const handleOpenSlip = (rec) => {
     setSelectedRecord(rec);
@@ -2843,7 +2896,13 @@ export default function BreastCancerScreening({ isPublic = false }) {
                     <tr>
                       <td className="meta-lbl">Bill Date:</td>
                       <td className="meta-val">
-                        {selectedRecord.date || new Date().toISOString().slice(0, 10)}
+                        {formatSlipDate(selectedRecord)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="meta-lbl">Bill Time:</td>
+                      <td className="meta-val">
+                        {formatSlipTime(selectedRecord)}
                       </td>
                     </tr>
                     <tr>
