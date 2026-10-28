@@ -26,7 +26,10 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
-  X
+  X,
+  Globe,
+  Share2,
+  Megaphone
 } from "lucide-react"
 import ReactSelect from 'react-select'
 import ReferenceDoctorForm from "./ReferenceDoctorForm"
@@ -35,6 +38,7 @@ import QRRegistrationSidebar from "./QRRegistrationSidebar"
 import { toast } from "react-toastify"
 import Swal from "sweetalert2"
 import CreateABHAModal from "./CreateABHAModal"
+import { INDIAN_STATES, DISTRICTS_BY_STATE, searchLocations } from "../../data/indiaLocations"
 
 // Modal component for search results and overlays
 const Modal = ({ show, onClose, title, children, footer, maxWidth }) => {
@@ -64,6 +68,15 @@ const cleanMobileNumber = (val) => {
     s = s.slice(2).trim();
   }
   return s.replace(/\D/g, "").slice(0, 10);
+};
+
+const getDoctorConsultingFee = (doc, custType) => {
+  if (!doc) return 0;
+  const isInsurance = (custType || "").toLowerCase() === "insurance";
+  if (isInsurance && doc.insuranceConsultingFee !== undefined && doc.insuranceConsultingFee !== null && Number(doc.insuranceConsultingFee) > 0) {
+    return Number(doc.insuranceConsultingFee);
+  }
+  return Number(doc.consultingFee) || 0;
 };
 
 const formatDoctorDisplayName = (name) => {
@@ -120,7 +133,8 @@ const PatientRegistrationForm = () => {
     area: "",
     zipcode: "",
     city: "",
-    state: "",
+    district: "",
+    state: "Tamil Nadu",
     email: "",
     mobilePhone: "",
     homePhone: "",
@@ -149,7 +163,7 @@ const PatientRegistrationForm = () => {
     emergencyContact: "",
     referredDoctorPhone: "",
     sourceOfVisit: "",
-    customerType: "New",
+    customerType: "General",
     insuranceProviderCode: "",
     visitType: "New",
     department: "",
@@ -173,6 +187,149 @@ const PatientRegistrationForm = () => {
   const [customerTypes, setCustomerTypes] = useState([])
   const [areaOptions, setAreaOptions] = useState([])
 
+  // Location autocomplete & cascading states
+  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
+  const [citySearchQuery, setCitySearchQuery] = useState("");
+
+  // Available districts for currently selected state
+  const availableDistricts = useMemo(() => {
+    const st = patient.state || "Tamil Nadu";
+    return DISTRICTS_BY_STATE[st] || [];
+  }, [patient.state]);
+
+  // Matching locations based on city search query, district, state
+  const matchingLocations = useMemo(() => {
+    const q = citySearchQuery !== "" ? citySearchQuery : (patient.city || "");
+    return searchLocations(q, patient.state || null, patient.district || null, 30);
+  }, [citySearchQuery, patient.city, patient.state, patient.district]);
+
+  // Location handlers
+  const handleStateChange = (e) => {
+    const selectedState = e.target.value;
+    setPatient(prev => ({
+      ...prev,
+      state: selectedState,
+      district: "",
+      city: ""
+    }));
+    setCitySearchQuery("");
+  };
+
+  const handleDistrictChange = (e) => {
+    const selectedDistrict = e.target.value;
+    setPatient(prev => ({
+      ...prev,
+      district: selectedDistrict,
+      state: prev.state || "Tamil Nadu"
+    }));
+  };
+
+  const handleSelectLocation = (loc) => {
+    setPatient(prev => ({
+      ...prev,
+      city: loc.city,
+      district: loc.district,
+      state: loc.state
+    }));
+    setCitySearchQuery("");
+    setIsCityDropdownOpen(false);
+  };
+
+  const handleCityInputChange = (e) => {
+    const val = e.target.value.toUpperCase();
+    setCitySearchQuery(val);
+    setPatient(prev => ({ ...prev, city: val }));
+    setIsCityDropdownOpen(true);
+  };
+
+  // Referral Sources configuration
+  const REFERRAL_SOURCES = useMemo(() => [
+    { id: "walk-in", label: "Walk-in / Direct", icon: "🚶", value: "Direct / Walk-in", defaultRef: "Self / Walk-in" },
+    {
+      id: "website",
+      label: "Website",
+      icon: "🌐",
+      value: "Website",
+      defaultRef: "Website (Hospital Website)",
+      subChannels: [
+        "Hospital Website",
+        "Google Search / Maps",
+        "Online Booking Portal",
+        "Other Online"
+      ]
+    },
+    {
+      id: "social-media",
+      label: "Social Media",
+      icon: "📱",
+      value: "Social Media",
+      defaultRef: "Social Media (Instagram)",
+      subChannels: [
+        "Instagram",
+        "Facebook",
+        "YouTube",
+        "WhatsApp",
+        "Twitter / X"
+      ]
+    },
+    {
+      id: "advertisement",
+      label: "Advertisement",
+      icon: "📢",
+      value: "Advertisement",
+      defaultRef: "Advertisement (Newspaper)",
+      subChannels: [
+        "Newspaper Ad",
+        "Digital Ad",
+        "Billboard / Hoarding",
+        "TV / Cable Ad",
+        "Pamphlet / Flyer"
+      ]
+    },
+    { id: "doctor", label: "Doctor Referral", icon: "🩺", value: "Doctor Referral", defaultRef: "" },
+    { id: "friend", label: "Friend / Relative", icon: "👥", value: "Friend / Relative", defaultRef: "Friend / Relative" },
+    { id: "camp", label: "Camp / Outreach", icon: "🏕️", value: "Camp / Outreach", defaultRef: "Camp / Outreach" },
+    { id: "corporate", label: "Corporate / Insurance", icon: "🏢", value: "Corporate / Insurance", defaultRef: "Corporate / Insurance" },
+    { id: "other", label: "Other", icon: "✨", value: "Other", defaultRef: "Other" }
+  ], []);
+
+  const handleSelectReferralSource = (sourceItem) => {
+    const val = typeof sourceItem === "string" ? sourceItem : sourceItem.value;
+    const item = REFERRAL_SOURCES.find(s => s.value === val);
+
+    if (val === "Doctor Referral") {
+      setPatient(prev => ({
+        ...prev,
+        sourceOfVisit: val,
+        referredBy: prev.referredBy === "Self / Walk-in" || (prev.referredBy && (prev.referredBy.startsWith("Website") || prev.referredBy.startsWith("Social") || prev.referredBy.startsWith("Ad"))) ? "" : prev.referredBy
+      }));
+      setRefDoctorSearchQuery("");
+      setIsRefDoctorDropdownOpen(true);
+    } else {
+      const defaultRefVal = item ? (item.subChannels ? `${item.value} (${item.subChannels[0]})` : item.defaultRef) : val;
+      setPatient(prev => ({
+        ...prev,
+        sourceOfVisit: val,
+        referredBy: defaultRefVal
+      }));
+      if (validationErrors.referredBy) {
+        setValidationErrors(prev => ({ ...prev, referredBy: false }));
+      }
+    }
+  };
+
+  const handleSelectSubChannel = (sub) => {
+    const currentSource = patient.sourceOfVisit || "Website";
+    const refVal = `${currentSource} (${sub})`;
+    setPatient(prev => ({
+      ...prev,
+      referredBy: refVal
+    }));
+    if (validationErrors.referredBy) {
+      setValidationErrors(prev => ({ ...prev, referredBy: false }));
+    }
+  };
+
   // Stats State
   const [stats, setStats] = useState({ new_visit: 0, existing_visit: 0, total_visit: 0 });
   const [filterDate, setFilterDate] = useState({
@@ -186,6 +343,7 @@ const PatientRegistrationForm = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [doctorSearchQuery, setDoctorSearchQuery] = useState("");
+  const [isDoctorSearching, setIsDoctorSearching] = useState(false);
   const [showABHAModal, setShowABHAModal] = useState(false);
   const [unusedQRCount, setUnusedQRCount] = useState(0);
   const [showEditVisitModal, setShowEditVisitModal] = useState(false);
@@ -219,7 +377,7 @@ const PatientRegistrationForm = () => {
     let addressLeft = 0;
     if (!patient.zipcode) addressLeft++;
     if (!patient.mobilePhone) addressLeft++;
-    if (!patient.emergencyContact) addressLeft++;
+    if (!patient.emergencyContact || cleanMobileNumber(patient.emergencyContact).length !== 10) addressLeft++;
 
     let doctorLeft = (!patient.doctorId && !patient.doctorName) ? 1 : 0;
     let referredLeft = !patient.referredBy ? 1 : 0;
@@ -475,10 +633,10 @@ const PatientRegistrationForm = () => {
           </div>
           <table class="info-table">
             <tr><td>Bill Number</td><td>: ${visit.billNumber || visit.bill_number || visit.bill_no || 'N/A'}</td></tr>
-            <tr><td>Op Number</td><td>: ${visit.uhid}</td></tr>
+            <tr><td>UHID</td><td>: ${visit.uhid || 'N/A'}</td></tr>
             <tr><td>Bill Date</td><td>: ${visit.date}</td></tr>
             <tr><td>Name</td><td>: ${visit.patientName}</td></tr>
-            <tr><td>Doctor</td><td>: DR ${visit.doctorName || visit.doctor}</td></tr>
+            <tr><td>Doctor</td><td>: ${formatDoctorDisplayName(visit.doctorName || visit.doctor)}</td></tr>
           </table>
           <table class="items-table">
             <thead>
@@ -567,8 +725,9 @@ const PatientRegistrationForm = () => {
     }
 
     if (name === "firstName" || name === "lastName") {
-      const newPatient = { ...patient, [name]: value }
-      const fullName = `${newPatient.firstName} ${newPatient.lastName}`.trim()
+      const upperVal = typeof value === "string" ? value.toUpperCase() : value;
+      const newPatient = { ...patient, [name]: upperVal }
+      const fullName = `${newPatient.firstName || ""} ${newPatient.lastName || ""}`.trim()
       setPatient({ ...newPatient, name: fullName })
     } else if (name === "dob") {
       const calculatedAge = calculateAgeFromDOB(value)
@@ -578,10 +737,17 @@ const PatientRegistrationForm = () => {
       setPatient({ ...patient, age: value, dob: calculatedDOB })
     } else if (name === "zipcode") {
       setPatient(prev => ({ ...prev, zipcode: value }))
+    } else if (name === "emergencyContact") {
+      const cleanEmergency = cleanMobileNumber(value)
+      setPatient(prev => ({ ...prev, emergencyContact: cleanEmergency }))
+    } else if (name === "mobilePhone") {
+      const cleanMobile = cleanMobileNumber(value)
+      setPatient(prev => ({ ...prev, mobilePhone: cleanMobile }))
     } else if (type === "checkbox") {
       setPatient({ ...patient, [name]: checked })
     } else {
-      setPatient({ ...patient, [name]: value })
+      const upperVal = typeof value === "string" ? value.toUpperCase() : value;
+      setPatient({ ...patient, [name]: upperVal })
     }
   }
 
@@ -606,7 +772,8 @@ const PatientRegistrationForm = () => {
     const cleanMobile = (patient.mobilePhone || "").replace(/\D/g, "")
     if (!cleanMobile || cleanMobile.length !== 10) errors.mobilePhone = true
 
-    if (!patient.emergencyContact || !patient.emergencyContact.trim()) errors.emergencyContact = true
+    const cleanEmergency = cleanMobileNumber(patient.emergencyContact)
+    if (!cleanEmergency || cleanEmergency.length !== 10) errors.emergencyContact = true
     if (!patient.referredBy || !patient.referredBy.trim()) errors.referredBy = true
     if (!patient.doctorId && !patient.doctorName) errors.consultingDoctor = true
 
@@ -676,6 +843,7 @@ const PatientRegistrationForm = () => {
       const backendKeys = {
         salutation: "salutation",
         permanentAddress: "permanent_address",
+        district: "district",
         homePhone: "home_phone",
         bloodGroup: "blood_group",
         guardianType: "guardian_type",
@@ -728,6 +896,7 @@ const PatientRegistrationForm = () => {
         });
 
         if (resultConfirm.isConfirmed) {
+          const formattedAddress = [patient.permanentAddress, patient.area, patient.city, patient.district, patient.state, patient.zipcode].filter(Boolean).join(", ");
           const visitObj = {
             uhid: result.data.uhid,
             billNumber: result.data.bill_number,
@@ -737,7 +906,7 @@ const PatientRegistrationForm = () => {
             guardianType: patient.guardianType || "W/o",
             guardianName: patient.guardianName || patient.spouseName || "",
             spouseName: patient.guardianName || patient.spouseName || "",
-            address: patient.permanentAddress,
+            address: formattedAddress || patient.permanentAddress,
             mobile: patient.mobilePhone,
             doctorName: patient.doctorName,
             consultingFee: consultingFee,
@@ -764,7 +933,8 @@ const PatientRegistrationForm = () => {
           area: "",
           zipcode: "",
           city: "",
-          state: "",
+          district: "",
+          state: "Tamil Nadu",
           email: "",
           mobilePhone: "",
           homePhone: "",
@@ -791,7 +961,7 @@ const PatientRegistrationForm = () => {
           emergencyContact: "",
           referredDoctorPhone: "",
           sourceOfVisit: "",
-          customerType: "New",
+          customerType: "General",
           visitType: "New",
           department: "",
           isNewborn: false,
@@ -926,7 +1096,8 @@ const PatientRegistrationForm = () => {
       area: selectedPatient.area || "",
       zipcode: selectedPatient.zipcode || "",
       city: selectedPatient.city || "",
-      state: selectedPatient.state || "",
+      district: selectedPatient.district || "",
+      state: selectedPatient.state || "Tamil Nadu",
       email: selectedPatient.email || "",
       mobilePhone: cleanMobileNumber(selectedPatient.mobilePhone || selectedPatient.mobile_phone || ""),
       homePhone: selectedPatient.homePhone || selectedPatient.home_phone || "",
@@ -939,7 +1110,7 @@ const PatientRegistrationForm = () => {
       referredBy: selectedPatient.referredBy || selectedPatient.referred_by || "",
       referredDoctorPhone: selectedPatient.referredDoctorPhone || selectedPatient.referred_doctor_phone || "",
       sourceOfVisit: selectedPatient.sourceOfVisit || selectedPatient.source_of_visit || "",
-      emergencyContact: selectedPatient.emergencyContact || selectedPatient.emergency_contact || "",
+      emergencyContact: cleanMobileNumber(selectedPatient.emergencyContact || selectedPatient.emergency_contact || ""),
       customerType: selectedPatient.customerType || selectedPatient.customer_type || "General",
       insuranceProviderCode: selectedPatient.insuranceProviderCode || selectedPatient.company_code || "",
       abhaNumber: selectedPatient.abhaNumber || selectedPatient.abha_number || "",
@@ -949,7 +1120,7 @@ const PatientRegistrationForm = () => {
     }
 
     setPatient(mappedPatient)
-    if (mappedPatient.emergencyContact) {
+    if (mappedPatient.emergencyContact && cleanMobileNumber(mappedPatient.emergencyContact).length === 10) {
       setValidationErrors(prev => ({ ...prev, emergencyContact: false }))
     }
     if (selectedPatient.uhid) setUhid(selectedPatient.uhid)
@@ -964,67 +1135,87 @@ const PatientRegistrationForm = () => {
   }
 
   const loadDoctors = async () => {
-    const todayDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-    const result = await apiRequest(`${Hmsbaseurl}doctor_schedule/`);
-    if (result.success && Array.isArray(result.data)) {
-      const doctorsData = result.data.map((doctor) => {
-        let fullName = (doctor.employeeName || `${doctor.first_name || ""} ${doctor.middle_name || ""} ${doctor.last_name || ""}`).trim();
-        if (!fullName) fullName = doctor.employeeId || "Doctor";
-        const displayName = formatDoctorDisplayName(fullName);
-        const rawName = getDoctorRawName(fullName);
-        const isScheduledToday = Boolean(doctor.day_schedule && doctor.day_schedule.includes(todayDay));
-        return {
-          id: doctor.employeeId,
-          employeeId: doctor.employeeId,
-          name: displayName,
-          rawName: rawName,
-          registrationFee: Number.parseFloat(doctor.registration_fee) || 0,
-          consultingFee: Number.parseFloat(doctor.consulting_fee) || 0,
-          specialty: doctor.specialty || doctor.department || "General",
-          department: doctor.department || "",
-          daySchedule: doctor.day_schedule || [],
-          isScheduledToday: isScheduledToday,
-          type: "Internal"
-        };
-      });
+    try {
+      const todayDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+      const result = await apiRequest(`${Hmsbaseurl}doctor_schedule/`);
+      const rawList = Array.isArray(result?.data) ? result.data : (Array.isArray(result?.data?.data) ? result.data.data : []);
+      if (result?.success && rawList.length > 0) {
+        const doctorsData = rawList.map((doctor) => {
+          let fullName = (doctor.employeeName || `${doctor.first_name || ""} ${doctor.middle_name || ""} ${doctor.last_name || ""}`).trim();
+          if (!fullName) fullName = doctor.employeeId || "Doctor";
+          const displayName = formatDoctorDisplayName(fullName);
+          const rawName = getDoctorRawName(fullName);
+          const isScheduledToday = Boolean(doctor.day_schedule && doctor.day_schedule.includes(todayDay));
+          return {
+            id: doctor.employeeId,
+            employeeId: doctor.employeeId,
+            name: displayName,
+            rawName: rawName,
+            registrationFee: Number.parseFloat(doctor.registration_fee) || 0,
+            consultingFee: Number.parseFloat(doctor.consulting_fee) || 0,
+            insuranceConsultingFee: Number.parseFloat(doctor.insurance_consulting_fee) || 0,
+            specialty: doctor.specialty || doctor.department || "General",
+            department: doctor.department || "",
+            daySchedule: doctor.day_schedule || [],
+            isScheduledToday: isScheduledToday,
+            type: "Internal"
+          };
+        });
 
-      // Sort: Today's scheduled doctors first, then alphabetical by name
-      doctorsData.sort((a, b) => {
-        if (a.isScheduledToday && !b.isScheduledToday) return -1;
-        if (!a.isScheduledToday && b.isScheduledToday) return 1;
-        return a.name.localeCompare(b.name);
-      });
+        // Sort: Today's scheduled doctors first, then alphabetical by name
+        doctorsData.sort((a, b) => {
+          if (a.isScheduledToday && !b.isScheduledToday) return -1;
+          if (!a.isScheduledToday && b.isScheduledToday) return 1;
+          return a.name.localeCompare(b.name);
+        });
 
-      setDoctors(doctorsData);
+        setDoctors(doctorsData);
+      }
+    } catch (err) {
+      console.error("Error loading doctor schedule:", err);
     }
   };
 
   const loadReferenceDoctors = async () => {
-    const result = await apiRequest(`${Hmsbaseurl}get-reference-doctors/`);
-    if (result.success) {
-      const formattedRefs = result.data.map(d => ({
-        ...d,
-        id: d.id,
-        name: d.doctor,
-        type: "Reference"
-      }));
-      setReferenceDoctors(formattedRefs)
+    try {
+      const result = await apiRequest(`${Hmsbaseurl}get-reference-doctors/`);
+      if (result?.success) {
+        const rawList = Array.isArray(result.data) ? result.data : (Array.isArray(result.data?.data) ? result.data.data : []);
+        const formattedRefs = rawList.map((d, idx) => ({
+          ...d,
+          id: d.id || d.doctor || `ref-${idx}`,
+          name: d.doctor || "Doctor",
+          type: "Reference"
+        }));
+        setReferenceDoctors(formattedRefs);
+      }
+    } catch (err) {
+      console.error("Error loading reference doctors:", err);
     }
-  }
+  };
 
   const loadInsuranceProviders = async () => {
-    const result = await apiRequest(`${Hmsbaseurl}insurance-providers/`);
-    if (result.success) {
-      const fetchedData = result.data.data || result.data;
-      const activeProviders = Array.isArray(fetchedData) ? fetchedData.filter(p => !p.blocked) : [];
-      setInsuranceProviders(activeProviders);
+    try {
+      const result = await apiRequest(`${Hmsbaseurl}insurance-providers/`);
+      if (result?.success) {
+        const fetchedData = result.data?.data || result.data;
+        const activeProviders = Array.isArray(fetchedData) ? fetchedData.filter(p => !p.blocked) : [];
+        setInsuranceProviders(activeProviders);
+      }
+    } catch (err) {
+      console.error("Error loading insurance providers:", err);
     }
   };
 
   const loadCustomerTypes = async () => {
-    const result = await apiRequest(`${Hmsbaseurl}customer-types/`);
-    if (result.success) {
-      setCustomerTypes(result.data.filter(t => t.is_active));
+    try {
+      const result = await apiRequest(`${Hmsbaseurl}customer-types/`);
+      if (result?.success) {
+        const rawList = Array.isArray(result.data) ? result.data : (Array.isArray(result.data?.data) ? result.data.data : []);
+        setCustomerTypes(rawList.filter(t => t.is_active));
+      }
+    } catch (err) {
+      console.error("Error loading customer types:", err);
     }
   };
 
@@ -1071,7 +1262,7 @@ const PatientRegistrationForm = () => {
 
   const filteredDoctors = useMemo(() => {
     const rawQuery = (doctorSearchQuery !== undefined && doctorSearchQuery !== null ? doctorSearchQuery : "").trim();
-    if (!rawQuery || rawQuery.toLowerCase() === (patient.doctorName || "").trim().toLowerCase()) {
+    if (!isDoctorSearching || !rawQuery) {
       return doctors;
     }
     const q = rawQuery.toLowerCase();
@@ -1083,18 +1274,25 @@ const PatientRegistrationForm = () => {
       const rawName = (doc.rawName || "").toLowerCase();
       const specialty = (doc.specialty || "").toLowerCase();
       const dept = (doc.department || "").toLowerCase();
+      const empId = String(doc.employeeId || doc.id || "").toLowerCase();
 
       let score = -1;
       if (cleanQ && rawName.startsWith(cleanQ)) {
         score = 1;
-      } else if (docName.startsWith(q)) {
+      } else if (cleanQ && docName.startsWith(cleanQ)) {
         score = 2;
-      } else if (cleanQ && (rawName.includes(cleanQ) || docName.includes(cleanQ))) {
+      } else if (docName.startsWith(q)) {
         score = 3;
-      } else if (cleanQ && (specialty.startsWith(cleanQ) || dept.startsWith(cleanQ))) {
+      } else if (cleanQ && (rawName.includes(cleanQ) || docName.includes(cleanQ))) {
         score = 4;
-      } else if (specialty.includes(q) || dept.includes(q)) {
+      } else if (docName.includes(q)) {
         score = 5;
+      } else if (cleanQ && (specialty.startsWith(cleanQ) || dept.startsWith(cleanQ))) {
+        score = 6;
+      } else if (specialty.includes(q) || dept.includes(q) || (cleanQ && (specialty.includes(cleanQ) || dept.includes(cleanQ)))) {
+        score = 7;
+      } else if (empId.includes(q) || (cleanQ && empId.includes(cleanQ))) {
+        score = 8;
       }
 
       if (score !== -1) {
@@ -1110,11 +1308,12 @@ const PatientRegistrationForm = () => {
     });
 
     return scored.map(s => s.doc);
-  }, [doctors, doctorSearchQuery, patient.doctorName]);
+  }, [doctors, doctorSearchQuery, isDoctorSearching]);
 
   const handleDoctorKeyDown = (e) => {
     if (!isDoctorDropdownOpen) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setIsDoctorSearching(false);
         setIsDoctorDropdownOpen(true);
         setHighlightedDoctorIndex(0);
         e.preventDefault();
@@ -1137,41 +1336,52 @@ const PatientRegistrationForm = () => {
       }
     } else if (e.key === "Escape") {
       setIsDoctorDropdownOpen(false);
+      setIsDoctorSearching(false);
     }
   };
 
   const handleDoctorChange = (event) => {
-    const doctorName = event.target.value
-    setDoctorSearchQuery(doctorName)
-    setPatient(prev => ({ ...prev, doctorName }))
-    setIsDoctorDropdownOpen(true)
-    setHighlightedDoctorIndex(0)
-    const selected = doctors.find((doctor) => doctor.name.toLowerCase() === doctorName.toLowerCase())
+    const doctorName = event.target.value.toUpperCase();
+    setIsDoctorSearching(true);
+    setDoctorSearchQuery(doctorName);
+    setPatient(prev => ({ ...prev, doctorName, doctorId: "" }));
+    setSelectedDoctor(null);
+    setIsDoctorDropdownOpen(true);
+    setHighlightedDoctorIndex(0);
+
+    const selected = doctors.find((doctor) => 
+      doctor.name.toLowerCase() === doctorName.toLowerCase() ||
+      (doctor.rawName && doctor.rawName.toLowerCase() === doctorName.toLowerCase())
+    );
     if (selected) {
-      handleDoctorSelect(selected)
+      handleDoctorSelect(selected);
     } else {
-      resetFeeCalculator(false)
+      resetFeeCalculator(false);
     }
-  }
+  };
 
   const handleClearDoctor = (e) => {
-    if (e) e.stopPropagation()
-    resetFeeCalculator(true)
-    setDoctorSearchQuery("")
-    setHighlightedDoctorIndex(-1)
-    setIsDoctorDropdownOpen(true)
-  }
+    if (e) e.stopPropagation();
+    resetFeeCalculator(true);
+    setSelectedDoctor(null);
+    setIsDoctorSearching(false);
+    setDoctorSearchQuery("");
+    setHighlightedDoctorIndex(-1);
+    setIsDoctorDropdownOpen(true);
+  };
 
   const handleDoctorSelect = (selected) => {
-    const regFee = includeRegFee ? (selected.registrationFee || 0) : 0
-    const consFee = includeConsFee ? (selected.consultingFee || 0) : 0
-    const total = regFee + consFee
+    const docFee = getDoctorConsultingFee(selected, patient.customerType);
+    const regFee = includeRegFee ? (registrationFee || selected.registrationFee || 0) : 0;
+    const consFee = includeConsFee ? docFee : 0;
+    const total = regFee + consFee;
 
-    setSelectedDoctor(selected)
-    setRegistrationFee(regFee)
-    setConsultingFee(consFee)
-    setTotalFees(total)
-    setDoctorSearchQuery(selected.name)
+    setSelectedDoctor(selected);
+    setRegistrationFee(regFee);
+    setConsultingFee(consFee);
+    setTotalFees(total);
+    setDoctorSearchQuery(selected.name);
+    setIsDoctorSearching(false);
 
     setPatient(prev => ({
       ...prev,
@@ -1180,10 +1390,13 @@ const PatientRegistrationForm = () => {
       registrationFee: regFee,
       consultingFee: consFee,
       totalFees: total,
-    }))
-    setHighlightedDoctorIndex(-1)
-    setIsDoctorDropdownOpen(false)
-  }
+    }));
+    setHighlightedDoctorIndex(-1);
+    setIsDoctorDropdownOpen(false);
+    if (validationErrors.consultingDoctor) {
+      setValidationErrors(prev => ({ ...prev, consultingDoctor: false }));
+    }
+  };
 
   const handleToggleRegFee = (checked) => {
     setIncludeRegFee(checked)
@@ -1200,7 +1413,8 @@ const PatientRegistrationForm = () => {
 
   const handleToggleConsFee = (checked) => {
     setIncludeConsFee(checked)
-    const effectiveConsFee = checked ? (selectedDoctor.consultingFee || 0) : 0
+    const docFee = getDoctorConsultingFee(selectedDoctor, patient.customerType)
+    const effectiveConsFee = checked ? docFee : 0
     setConsultingFee(effectiveConsFee)
     const newTotal = (includeRegFee ? registrationFee : 0) + effectiveConsFee
     setTotalFees(newTotal)
@@ -1236,10 +1450,14 @@ const PatientRegistrationForm = () => {
   }
 
   const resetFeeCalculator = (clearName = true) => {
-    setSelectedDoctor({})
+    setSelectedDoctor(null)
     setRegistrationFee(0)
     setConsultingFee(0)
     setTotalFees(0)
+    if (clearName) {
+      setDoctorSearchQuery("")
+      setIsDoctorSearching(false)
+    }
 
     setPatient(prev => ({
       ...prev,
@@ -1300,7 +1518,8 @@ const PatientRegistrationForm = () => {
       area: "",
       zipcode: "",
       city: "",
-      state: "",
+      district: "",
+      state: "Tamil Nadu",
       email: "",
       mobilePhone: "",
       homePhone: "",
@@ -1329,7 +1548,7 @@ const PatientRegistrationForm = () => {
       emergencyContact: "",
       referredDoctorPhone: "",
       sourceOfVisit: "",
-      customerType: "New",
+      customerType: "General",
       insuranceProviderCode: "",
       visitType: "New",
       department: "",
@@ -1405,7 +1624,7 @@ const PatientRegistrationForm = () => {
             type="text"
             placeholder="UHID / Last 4 digits"
             value={uhid}
-            onChange={(e) => setUhid(e.target.value)}
+            onChange={(e) => setUhid(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === "Enter" && fetchPatients()}
           />
         </LookupField>
@@ -1414,7 +1633,7 @@ const PatientRegistrationForm = () => {
             type="text"
             placeholder="IP number / Last 4 digits"
             value={ipNumber}
-            onChange={(e) => setIpNumber(e.target.value)}
+            onChange={(e) => setIpNumber(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === "Enter" && fetchPatients()}
           />
         </LookupField>
@@ -1467,12 +1686,21 @@ const PatientRegistrationForm = () => {
                     const typeObj = customerTypes.find(t => t.type_name === selectedValue);
                     const fee = typeObj ? parseFloat(typeObj.registration_fee) : 0;
                     setRegistrationFee(fee);
-                    const total = fee + consultingFee;
+
+                    let newConsFee = consultingFee;
+                    if (selectedDoctor && (selectedDoctor.name || selectedDoctor.id)) {
+                      const docFee = getDoctorConsultingFee(selectedDoctor, selectedValue);
+                      newConsFee = includeConsFee ? docFee : 0;
+                      setConsultingFee(newConsFee);
+                    }
+
+                    const total = fee + newConsFee;
                     setTotalFees(total);
                     setPatient(prev => ({
                       ...prev,
                       customerType: selectedValue,
                       registrationFee: fee,
+                      consultingFee: newConsFee,
                       totalFees: total
                     }));
                   }}
@@ -1646,7 +1874,7 @@ const PatientRegistrationForm = () => {
                     name="guardianName"
                     value={patient.guardianName || patient.spouseName || ""}
                     onChange={(e) => {
-                      const val = e.target.value;
+                      const val = e.target.value.toUpperCase();
                       setPatient(prev => ({
                         ...prev,
                         guardianName: val,
@@ -1762,27 +1990,96 @@ const PatientRegistrationForm = () => {
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="city">City</FormLabel>
-                <FormInput
-                  type="text"
-                  id="city"
-                  name="city"
-                  value={patient.city}
-                  onChange={handleChange}
-                  placeholder="Enter city / district"
-                />
+                <FormLabel htmlFor="state">State</FormLabel>
+                <FormSelect
+                  id="state"
+                  name="state"
+                  value={patient.state || "Tamil Nadu"}
+                  onChange={handleStateChange}
+                >
+                  <option value="">Select State</option>
+                  {INDIAN_STATES.map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </FormSelect>
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="state">State</FormLabel>
-                <FormInput
-                  type="text"
-                  id="state"
-                  name="state"
-                  value={patient.state}
-                  onChange={handleChange}
-                  placeholder="Enter state"
-                />
+                <FormLabel htmlFor="district">District</FormLabel>
+                <FormSelect
+                  id="district"
+                  name="district"
+                  value={patient.district || ""}
+                  onChange={handleDistrictChange}
+                >
+                  <option value="">Select District</option>
+                  {availableDistricts.map((dist) => (
+                    <option key={dist} value={dist}>{dist}</option>
+                  ))}
+                </FormSelect>
+              </FormGroup>
+
+              <FormGroup>
+                <FormLabel htmlFor="city">
+                  City / Taluk
+                  {patient.city && (
+                    <span style={{ fontSize: '10px', color: '#004d40', marginLeft: '6px', fontWeight: '500' }}>
+                      ({patient.district || "District"}, {patient.state || "State"})
+                    </span>
+                  )}
+                </FormLabel>
+                <SearchableSelectWrapper>
+                  <FormInput
+                    type="text"
+                    id="city"
+                    name="city"
+                    value={citySearchQuery !== "" ? citySearchQuery : (patient.city || "")}
+                    onChange={handleCityInputChange}
+                    onFocus={() => setIsCityDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setIsCityDropdownOpen(false), 250)}
+                    placeholder="Search city/taluk (e.g. Salem, Sankagiri, Namakkal)..."
+                    autoComplete="off"
+                    style={{ paddingRight: patient.city ? '28px' : '8px' }}
+                  />
+                  {patient.city && (
+                    <ClearRefDoctorBtn
+                      type="button"
+                      onClick={() => {
+                        setPatient(prev => ({ ...prev, city: "", district: "" }));
+                        setCitySearchQuery("");
+                      }}
+                      title="Clear city"
+                    >
+                      <X size={14} />
+                    </ClearRefDoctorBtn>
+                  )}
+                  {isCityDropdownOpen && (
+                    <LightDropdownList>
+                      {matchingLocations.map((loc, idx) => (
+                        <LightDropdownItem key={idx} onMouseDown={() => handleSelectLocation(loc)}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: '600', color: '#111827', fontSize: '12px' }}>
+                              {loc.city}
+                            </span>
+                            <LocationBadge>
+                              {loc.district}, {loc.state}
+                            </LocationBadge>
+                          </div>
+                          {loc.aliases && loc.aliases.length > 0 && (
+                            <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                              Also known as: {loc.aliases.join(", ")}
+                            </div>
+                          )}
+                        </LightDropdownItem>
+                      ))}
+                      {matchingLocations.length === 0 && (
+                        <div style={{ padding: '8px 12px', fontSize: '11px', color: '#64748b', textAlign: 'center' }}>
+                          No predefined location found. Type freely to enter a custom city or village.
+                        </div>
+                      )}
+                    </LightDropdownList>
+                  )}
+                </SearchableSelectWrapper>
               </FormGroup>
 
               <FormGroup>
@@ -1835,13 +2132,15 @@ const PatientRegistrationForm = () => {
               <FormGroup>
                 <FormLabel htmlFor="emergencyContact">Emergency contact <ReqAsterisk>*</ReqAsterisk></FormLabel>
                 <FormInput
-                  type="text"
+                  type="tel"
                   id="emergencyContact"
                   name="emergencyContact"
                   $hasError={Boolean(validationErrors.emergencyContact)}
-                  value={patient.emergencyContact}
+                  value={cleanMobileNumber(patient.emergencyContact)}
                   onChange={handleChange}
-                  placeholder="Name and number"
+                  placeholder="10-digit emergency number"
+                  maxLength={10}
+                  inputMode="numeric"
                   required
                 />
               </FormGroup>
@@ -1855,45 +2154,133 @@ const PatientRegistrationForm = () => {
                 <SectionNumber>03</SectionNumber>
                 <SectionName>REFERRAL</SectionName>
               </CardTitleGroup>
-              <InfoBadge>doctor set in fee panel</InfoBadge>
+              <InfoBadge>{patient.sourceOfVisit || "Select referral channel"}</InfoBadge>
             </CardHeaderRow>
+
+            {/* Quick Referral Source Chips */}
+            <ReferralChipContainer>
+              {REFERRAL_SOURCES.map((source) => {
+                const isActive = patient.sourceOfVisit === source.value ||
+                  (!patient.sourceOfVisit && source.value === "Direct / Walk-in");
+                return (
+                  <ReferralChip
+                    key={source.id}
+                    type="button"
+                    $active={isActive}
+                    onClick={() => handleSelectReferralSource(source)}
+                  >
+                    <span>{source.icon}</span>
+                    <span>{source.label}</span>
+                  </ReferralChip>
+                );
+              })}
+            </ReferralChipContainer>
+
+            {/* Sub-channel pills when Website, Social Media, or Advertisement is selected */}
+            {(() => {
+              const currentSourceObj = REFERRAL_SOURCES.find(s => s.value === patient.sourceOfVisit);
+              if (currentSourceObj && currentSourceObj.subChannels) {
+                return (
+                  <SubChannelPillContainer>
+                    <SubChannelPillLabel>
+                      {currentSourceObj.label} Channel:
+                    </SubChannelPillLabel>
+                    {currentSourceObj.subChannels.map((sub, sIdx) => {
+                      const isActive = (patient.referredBy || "").includes(sub);
+                      return (
+                        <SubChannelPill
+                          key={sIdx}
+                          type="button"
+                          $active={isActive}
+                          onClick={() => handleSelectSubChannel(sub)}
+                        >
+                          {sub}
+                        </SubChannelPill>
+                      );
+                    })}
+                  </SubChannelPillContainer>
+                );
+              }
+              return null;
+            })()}
 
             <FormGrid columns={2}>
               <FormGroup>
-                <FormLabel htmlFor="referredBy">Referred by <ReqAsterisk>*</ReqAsterisk></FormLabel>
-                <InputGroupInline id="referredByContainer">
-                  <SearchableSelectWrapper style={{ flex: 1 }}>
-                    <FormInput
-                      type="text"
-                      id="referredBy"
-                      name="referredBy"
-                      placeholder="Search or select doctor / hospital"
-                      value={patient.referredBy || ""}
-                      $hasError={Boolean(validationErrors.referredBy)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setRefDoctorSearchQuery(val);
-                        setPatient(prev => ({ ...prev, referredBy: val }));
-                        setSearchDoctorTerm(val);
-                        if (validationErrors.referredBy) {
-                          setValidationErrors(prev => ({ ...prev, referredBy: false }));
-                        }
-                        setIsRefDoctorDropdownOpen(true);
-                      }}
-                      onFocus={() => setIsRefDoctorDropdownOpen(true)}
-                      onBlur={() => setTimeout(() => setIsRefDoctorDropdownOpen(false), 250)}
-                      style={{ paddingRight: patient.referredBy ? '28px' : '8px' }}
-                      autoComplete="off"
-                    />
-                    {patient.referredBy && (
-                      <ClearRefDoctorBtn onClick={handleClearRefDoctor} type="button" title="Clear doctor">
-                        <X size={14} />
-                      </ClearRefDoctorBtn>
-                    )}
-                    {isRefDoctorDropdownOpen && (
-                      <LightDropdownList>
-                        {allDoctors
-                          .filter(doc => {
+                <FormLabel htmlFor="sourceOfVisit">Source of visit / Referral Channel</FormLabel>
+                <FormSelect
+                  id="sourceOfVisit"
+                  name="sourceOfVisit"
+                  value={patient.sourceOfVisit || ""}
+                  onChange={(e) => handleSelectReferralSource(e.target.value)}
+                >
+                  <option value="">Select source of visit</option>
+                  {REFERRAL_SOURCES.map((s) => (
+                    <option key={s.id} value={s.value}>{s.label}</option>
+                  ))}
+                </FormSelect>
+              </FormGroup>
+
+              <FormGroup>
+                <FormLabel htmlFor="referredBy">
+                  {patient.sourceOfVisit === "Doctor Referral" ? "Referring Doctor / Hospital" : "Referred by / Referral Detail"}{" "}
+                  <ReqAsterisk>*</ReqAsterisk>
+                </FormLabel>
+                {patient.sourceOfVisit === "Doctor Referral" ? (
+                  <InputGroupInline id="referredByContainer">
+                    <SearchableSelectWrapper style={{ flex: 1 }}>
+                      <FormInput
+                        type="text"
+                        id="referredBy"
+                        name="referredBy"
+                        placeholder="Search or select doctor / hospital"
+                        value={patient.referredBy || ""}
+                        $hasError={Boolean(validationErrors.referredBy)}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setRefDoctorSearchQuery(val);
+                          setPatient(prev => ({ ...prev, referredBy: val }));
+                          setSearchDoctorTerm(val);
+                          if (validationErrors.referredBy) {
+                            setValidationErrors(prev => ({ ...prev, referredBy: false }));
+                          }
+                          setIsRefDoctorDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsRefDoctorDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setIsRefDoctorDropdownOpen(false), 250)}
+                        style={{ paddingRight: patient.referredBy ? '28px' : '8px' }}
+                        autoComplete="off"
+                      />
+                      {patient.referredBy && (
+                        <ClearRefDoctorBtn onClick={handleClearRefDoctor} type="button" title="Clear doctor">
+                          <X size={14} />
+                        </ClearRefDoctorBtn>
+                      )}
+                      {isRefDoctorDropdownOpen && (
+                        <LightDropdownList>
+                          {allDoctors
+                            .filter(doc => {
+                              const query = (refDoctorSearchQuery || patient.referredBy || "").toLowerCase();
+                              if (!query) return true;
+                              const name = (doc.name || "").toLowerCase();
+                              const qual = (doc.qualification || doc.specialty || "").toLowerCase();
+                              const area = (doc.area || "").toLowerCase();
+                              const clinic = (doc.clinic_name || "").toLowerCase();
+                              return name.includes(query) || qual.includes(query) || area.includes(query) || clinic.includes(query);
+                            })
+                            .map((doc, index) => (
+                              <LightDropdownItem key={index} onMouseDown={() => handleRefDoctorSelect(doc)}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: '600', color: '#111827', fontSize: '12px' }}>{doc.name}</span>
+                                  <DoctorTypeTag isRef={doc.type === "Reference"}>
+                                    {doc.type === "Reference" ? "External" : "Internal"}
+                                  </DoctorTypeTag>
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                                  {[doc.qualification || doc.specialty, doc.area, doc.clinic_name].filter(Boolean).join(" · ")}
+                                </div>
+                              </LightDropdownItem>
+                            ))}
+                          {allDoctors.filter(doc => {
                             const query = (refDoctorSearchQuery || patient.referredBy || "").toLowerCase();
                             if (!query) return true;
                             const name = (doc.name || "").toLowerCase();
@@ -1901,77 +2288,64 @@ const PatientRegistrationForm = () => {
                             const area = (doc.area || "").toLowerCase();
                             const clinic = (doc.clinic_name || "").toLowerCase();
                             return name.includes(query) || qual.includes(query) || area.includes(query) || clinic.includes(query);
-                          })
-                          .map((doc, index) => (
-                            <LightDropdownItem key={index} onMouseDown={() => handleRefDoctorSelect(doc)}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontWeight: '600', color: '#111827', fontSize: '12px' }}>{doc.name}</span>
-                                <DoctorTypeTag isRef={doc.type === "Reference"}>
-                                  {doc.type === "Reference" ? "External" : "Internal"}
-                                </DoctorTypeTag>
-                              </div>
-                              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
-                                {[doc.qualification || doc.specialty, doc.area, doc.clinic_name].filter(Boolean).join(" · ")}
-                              </div>
-                            </LightDropdownItem>
-                          ))}
-                        {allDoctors.filter(doc => {
-                          const query = (refDoctorSearchQuery || patient.referredBy || "").toLowerCase();
-                          if (!query) return true;
-                          const name = (doc.name || "").toLowerCase();
-                          const qual = (doc.qualification || doc.specialty || "").toLowerCase();
-                          const area = (doc.area || "").toLowerCase();
-                          const clinic = (doc.clinic_name || "").toLowerCase();
-                          return name.includes(query) || qual.includes(query) || area.includes(query) || clinic.includes(query);
-                        }).length === 0 && (
-                          <div style={{ padding: '10px 12px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
-                            No matching doctor. Type freely or click + to add.
-                          </div>
-                        )}
-                      </LightDropdownList>
+                          }).length === 0 && (
+                            <div style={{ padding: '10px 12px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
+                              No matching doctor. Type freely or click + to add.
+                            </div>
+                          )}
+                        </LightDropdownList>
+                      )}
+                    </SearchableSelectWrapper>
+                    <AddDoctorBtn type="button" onClick={() => setIsModalOpen(true)} title="Add Ref Doctor">
+                      <Plus size={14} />
+                    </AddDoctorBtn>
+                  </InputGroupInline>
+                ) : (
+                  <SearchableSelectWrapper>
+                    <FormInput
+                      type="text"
+                      id="referredBy"
+                      name="referredBy"
+                      placeholder="e.g. Website, Social Media, Self, Friend"
+                      value={patient.referredBy || ""}
+                      $hasError={Boolean(validationErrors.referredBy)}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setPatient(prev => ({ ...prev, referredBy: val }));
+                        if (validationErrors.referredBy) {
+                          setValidationErrors(prev => ({ ...prev, referredBy: false }));
+                        }
+                      }}
+                    />
+                    {patient.referredBy && (
+                      <ClearRefDoctorBtn
+                        type="button"
+                        onClick={() => setPatient(prev => ({ ...prev, referredBy: "" }))}
+                        title="Clear"
+                      >
+                        <X size={14} />
+                      </ClearRefDoctorBtn>
                     )}
                   </SearchableSelectWrapper>
-                  <AddDoctorBtn type="button" onClick={() => setIsModalOpen(true)} title="Add Ref Doctor">
-                    <Plus size={14} />
-                  </AddDoctorBtn>
-                </InputGroupInline>
+                )}
               </FormGroup>
 
-              <FormGroup>
-                <FormLabel htmlFor="referredDoctorPhone">Referred doctor phone</FormLabel>
-                <FormInput
-                  type="text"
-                  id="referredDoctorPhone"
-                  name="referredDoctorPhone"
-                  value={patient.referredDoctorPhone}
-                  onChange={handleChange}
-                  placeholder="Optional"
-                  maxLength={10}
-                />
-              </FormGroup>
+              {patient.sourceOfVisit === "Doctor Referral" && (
+                <FormGroup>
+                  <FormLabel htmlFor="referredDoctorPhone">Referred doctor phone</FormLabel>
+                  <FormInput
+                    type="text"
+                    id="referredDoctorPhone"
+                    name="referredDoctorPhone"
+                    value={patient.referredDoctorPhone}
+                    onChange={handleChange}
+                    placeholder="Optional 10-digit phone"
+                    maxLength={10}
+                  />
+                </FormGroup>
+              )}
 
-              <FormGroup>
-                <FormLabel htmlFor="sourceOfVisit">Source of visit / Referral</FormLabel>
-                <FormSelect
-                  id="sourceOfVisit"
-                  name="sourceOfVisit"
-                  value={patient.sourceOfVisit || ""}
-                  onChange={handleChange}
-                >
-                  <option value="">Select source of visit</option>
-                  <option value="Direct / Walk-in">Direct / Walk-in</option>
-                  <option value="Doctor Referral">Doctor Referral</option>
-                  <option value="Friend / Relative">Friend / Relative</option>
-                  <option value="Camp / Outreach">Camp / Outreach</option>
-                  <option value="Social Media / Website">Social Media / Website</option>
-                  <option value="Newspaper / Advertisement">Newspaper / Advertisement</option>
-                  <option value="Corporate / Insurance">Corporate / Insurance</option>
-                  <option value="Staff / Internal">Staff / Internal</option>
-                  <option value="Other">Other</option>
-                </FormSelect>
-              </FormGroup>
-
-              <FormGroup className="span-two">
+              <FormGroup className={patient.sourceOfVisit === "Doctor Referral" ? "" : "span-two"}>
                 <CheckboxCard>
                   <input
                     type="checkbox"
@@ -2162,22 +2536,29 @@ const PatientRegistrationForm = () => {
                   id="consultingDoctor"
                   $hasError={Boolean(validationErrors.consultingDoctor)}
                   placeholder="Search or select doctor"
-                  value={patient.doctorName || ""}
+                  value={doctorSearchQuery !== "" ? doctorSearchQuery : (patient.doctorName || "")}
                   onChange={handleDoctorChange}
                   onKeyDown={handleDoctorKeyDown}
                   onFocus={(e) => {
+                    setIsDoctorSearching(false);
                     setIsDoctorDropdownOpen(true);
                     e.target.select();
                   }}
                   onClick={(e) => {
+                    setIsDoctorSearching(false);
                     setIsDoctorDropdownOpen(true);
                     e.target.select();
                   }}
-                  onBlur={() => setTimeout(() => setIsDoctorDropdownOpen(false), 250)}
-                  style={{ paddingRight: patient.doctorName ? '28px' : '8px' }}
+                  onBlur={() => {
+                    setTimeout(() => {
+                      setIsDoctorDropdownOpen(false);
+                      setIsDoctorSearching(false);
+                    }, 250);
+                  }}
+                  style={{ paddingRight: (patient.doctorName || doctorSearchQuery) ? '28px' : '8px' }}
                   autoComplete="off"
                 />
-                {patient.doctorName && (
+                {(patient.doctorName || doctorSearchQuery) && (
                   <ClearDoctorBtn onClick={handleClearDoctor} type="button" title="Change or clear doctor">
                     <X size={14} />
                   </ClearDoctorBtn>
@@ -2200,7 +2581,12 @@ const PatientRegistrationForm = () => {
                           )}
                         </div>
                         <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                          {[doctor.specialty || doctor.department, `Consulting: ₹${doctor.consultingFee || 0}`].filter(Boolean).join(" · ")}
+                          {[
+                            doctor.specialty || doctor.department,
+                            (patient.customerType || "").toLowerCase() === "insurance" && Number(doctor.insuranceConsultingFee) > 0
+                              ? `Insurance Consulting: ₹${doctor.insuranceConsultingFee}`
+                              : `Consulting: ₹${doctor.consultingFee || 0}`
+                          ].filter(Boolean).join(" · ")}
                         </div>
                       </DarkDropdownItem>
                     ))}
@@ -2315,7 +2701,7 @@ const PatientRegistrationForm = () => {
               type="text"
               placeholder="Search or filter in modal (UHID, IP Number, Mobile, Name)..."
               value={modalFilterTerm}
-              onChange={(e) => setModalFilterTerm(e.target.value)}
+              onChange={(e) => setModalFilterTerm(e.target.value.toUpperCase())}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   handleModalSearch(modalFilterTerm);
@@ -2602,6 +2988,7 @@ const PatientRegistrationForm = () => {
             mobilePhone: cleanMobileNumber(abhaData.mobile) || prev.mobilePhone,
             zipcode: abhaData.pinCode || abhaData.pincode || prev.zipcode,
             city: abhaData.districtName || prev.city,
+            district: abhaData.districtName || prev.district,
             state: abhaData.stateName || prev.state,
             abhaNumber: abhaData.ABHANumber || abhaData.abhaNumber || prev.abhaNumber,
           }));
@@ -2783,6 +3170,11 @@ const LookupInput = styled.input`
   border-radius: 4px;
   font-size: 12px;
   outline: none;
+  text-transform: uppercase;
+
+  &::placeholder {
+    text-transform: none;
+  }
 
   &:focus {
     border-color: #004d40;
@@ -2958,6 +3350,11 @@ const FormInput = styled.input`
   width: 100%;
   box-sizing: border-box;
   transition: all 0.15s ease;
+  text-transform: uppercase;
+
+  &::placeholder {
+    text-transform: none;
+  }
 
   &:focus {
     border-color: ${props => props.$hasError ? '#ef4444' : '#004d40'};
@@ -3156,9 +3553,11 @@ const FeeSelectInput = styled.input`
   box-sizing: border-box;
   box-shadow: ${props => props.$hasError ? '0 0 0 2px rgba(239, 68, 68, 0.3)' : 'none'};
   transition: all 0.15s ease;
+  text-transform: uppercase;
 
   &::placeholder {
     color: #9ca3af;
+    text-transform: none;
   }
 `
 
@@ -3271,13 +3670,13 @@ const DarkDropdownList = styled.ul`
 const DarkDropdownItem = styled.li`
   padding: 8px 10px;
   font-size: 11px;
-  color: #e5e7eb;
+  color: ${props => props.$isHighlighted ? '#34d399' : '#e5e7eb'};
   cursor: pointer;
   border-bottom: 1px solid #24342d;
-  background: ${props => props.$isHighlighted ? '#24342d' : 'transparent'};
+  background: ${props => props.$isHighlighted ? '#1e382b' : 'transparent'};
 
   &:hover {
-    background: #24342d;
+    background: #1e382b;
     color: #34d399;
   }
 `
@@ -3327,9 +3726,11 @@ const GuardianNameInput = styled.input`
   flex: 1;
   width: 100%;
   background: transparent;
+  text-transform: uppercase;
 
   &::placeholder {
     color: #9ca3af;
+    text-transform: none;
   }
 `
 
@@ -3677,9 +4078,11 @@ const ModalSearchInput = styled.input`
   font-size: 13px;
   color: #111827;
   width: 100%;
+  text-transform: uppercase;
 
   &::placeholder {
     color: #9ca3af;
+    text-transform: none;
   }
 `
 
@@ -3707,6 +4110,80 @@ const ModalResultCountBar = styled.div`
   color: #6b7280;
   margin-bottom: 10px;
   padding: 0 2px;
+`
+
+const LocationBadge = styled.span`
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+`
+
+const ReferralChipContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+`
+
+const ReferralChip = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 16px;
+  cursor: pointer;
+  border: 1px solid ${props => props.$active ? '#004d40' : '#e2e8f0'};
+  background: ${props => props.$active ? '#004d40' : '#ffffff'};
+  color: ${props => props.$active ? '#ffffff' : '#475569'};
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #004d40;
+    color: ${props => props.$active ? '#ffffff' : '#004d40'};
+    background: ${props => props.$active ? '#004d40' : '#f0fdfa'};
+  }
+`
+
+const SubChannelPillContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: -4px;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+`
+
+const SubChannelPillLabel = styled.span`
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  margin-right: 4px;
+`
+
+const SubChannelPill = styled.button`
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid ${props => props.$active ? '#004d40' : '#d1d5db'};
+  background: ${props => props.$active ? '#e6f4f1' : '#ffffff'};
+  color: ${props => props.$active ? '#004d40' : '#374151'};
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #004d40;
+    color: #004d40;
+  }
 `
 
 export default PatientRegistrationForm

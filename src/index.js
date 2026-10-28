@@ -16,13 +16,22 @@ const REDIRECT_URL = process.env.REACT_APP_LOGIN_REDIRECT_URL;
 function setforlocaldev() {
   const dev_token = "";
   if (dev_token && dev_token.trim() !== "") {
-    const selectedBranch = "SHB001";
-    localStorage.setItem("selected_branch", selectedBranch);
-    const selectedOutlet = "OLET002";
-    localStorage.setItem("selected_outlet", selectedOutlet);
-    const selectedHospital = "SH001";
-    localStorage.setItem("selected_hospital", selectedHospital);
-    localStorage.setItem("hospital_code", selectedHospital);
+    if (!localStorage.getItem("selected_branch")) {
+      const selectedBranch = "SHB001";
+      localStorage.setItem("selected_branch", selectedBranch);
+    }
+    // Only set default outlet if user has not yet selected one
+    if (!localStorage.getItem("selected_outlet")) {
+      const selectedOutlet = "OLET003";
+      localStorage.setItem("selected_outlet", selectedOutlet);
+      localStorage.setItem("outlet_code", selectedOutlet);
+      localStorage.setItem("selected_outlet_name", "MAIN BLOCK");
+    }
+    if (!localStorage.getItem("selected_hospital")) {
+      const selectedHospital = "SH001";
+      localStorage.setItem("selected_hospital", selectedHospital);
+      localStorage.setItem("hospital_code", selectedHospital);
+    }
   }
   return dev_token;
 }
@@ -144,7 +153,7 @@ function isPublicRoute() {
           localStorage.setItem("selected_hospital", hospitalCode);
           localStorage.setItem(
             "allowed-outlets",
-            userPayload["allowed-outlets"],
+            JSON.stringify(userPayload["allowed-outlets"] || []),
           );
           localStorage.setItem(
             "hms_pages",
