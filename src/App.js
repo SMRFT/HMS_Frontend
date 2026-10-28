@@ -136,6 +136,7 @@ import StoresNonMovingReport from "./Components/Stores/StoresNonMovingReport";
 import StoresShortExpiryReport from "./Components/Stores/StoresShortExpiryReport";
 import StoresReorderLevelReport from "./Components/Stores/StoresReorderLevelReport";
 import StoresRackClassification from "./Components/Stores/StoresRackClassification";
+import StoresOpeningStockReport from "./Components/Stores/StoresOpeningStockReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -484,6 +485,8 @@ function App() {
       "/StoresShortExpiryReport": "Stores Short Expiry Report",
       "/StoresReorderLevelReport": "Stores Reorder Level Indication Report",
       "/StoresRackClassification": "Stores Barcode & Rack Classification",
+      "/StoresOpeningStockReport": "Stores Opening Stock Audit Report",
+      "/storesopeningstockreport": "Stores Opening Stock Audit Report",
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
@@ -1619,6 +1622,8 @@ function App() {
               <Route path="/StoresShortExpiryReport" element={<StoresShortExpiryReport />} />
               <Route path="/StoresReorderLevelReport" element={<StoresReorderLevelReport />} />
               <Route path="/StoresRackClassification" element={<StoresRackClassification />} />
+              <Route path="/StoresOpeningStockReport" element={<StoresOpeningStockReport />} />
+              <Route path="/storesopeningstockreport" element={<StoresOpeningStockReport />} />
               {hasPagePermission("/StoresReportsDashboard", allowedActions, dynamicPermissions) && (
                 <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
               )}

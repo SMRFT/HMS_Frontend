@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import styled, { createGlobalStyle } from 'styled-components';
 import { DatePicker, Select, ConfigProvider } from 'antd';
@@ -99,6 +99,24 @@ const StoresIntentManager = () => {
     const [itemsMaster, setItemsMaster] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [loading, setLoading] = useState(false);
+    const formDepartmentSelectRef = useRef(null);
+    const reportDepartmentSelectRef = useRef(null);
+
+    // F10 Shortcut to focus Department selector
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                if (activeTab === 'create') {
+                    formDepartmentSelectRef.current?.focus();
+                } else {
+                    reportDepartmentSelectRef.current?.focus();
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [activeTab]);
 
     // Intent Creation State
     const [isEditMode, setIsEditMode] = useState(false);
@@ -131,7 +149,22 @@ const StoresIntentManager = () => {
     const [indentReturns, setIndentReturns] = useState([]);
     const [filter, setFilter] = useState({
         from_date: dayjs().subtract(1, 'month').format('YYYY-MM-DD'),
-        to_date: dayjs().format('YYYY-MM-DD')
+        to_date: dayjs().format('YYYY-MM-DD'),
+        department: ''
+    });
+
+    const filteredIntents = intents.filter(intent => {
+        if (!filter.department) return true;
+        const dept = (intent.department_name || intent.department || '').toLowerCase().trim();
+        const target = filter.department.toLowerCase().trim();
+        return dept === target || dept.includes(target);
+    });
+
+    const filteredIndentReturns = indentReturns.filter(ret => {
+        if (!filter.department) return true;
+        const dept = (ret.department_name || ret.department || '').toLowerCase().trim();
+        const target = filter.department.toLowerCase().trim();
+        return dept === target || dept.includes(target);
     });
 
     const getIntentStatus = (item) => {
@@ -537,10 +570,14 @@ const StoresIntentManager = () => {
                                     />
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <S.Label required>Requesting Department</S.Label>
+                                    <S.Label required style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span>Requesting Department</span>
+                                        <span style={{ fontSize: '0.7rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>F10</span>
+                                    </S.Label>
                                     <Select
+                                        ref={formDepartmentSelectRef}
                                         showSearch
-                                        placeholder="Select Department"
+                                        placeholder="Select Department (F10)"
                                         value={intentForm.department || undefined}
                                         onChange={v => setIntentForm({...intentForm, department: v})}
                                         style={{ height: '42px' }}
@@ -858,16 +895,34 @@ const StoresIntentManager = () => {
                                 <DatePicker.RangePicker 
                                     value={[dayjs(filter.from_date), dayjs(filter.to_date)]}
                                     onChange={(dates) => setFilter({
+                                        ...filter,
                                         from_date: dates ? dates[0].format('YYYY-MM-DD') : '',
                                         to_date: dates ? dates[1].format('YYYY-MM-DD') : ''
                                     })}
                                     style={{ height: '42px', borderRadius: '8px' }}
                                 />
+                                <Select
+                                    ref={reportDepartmentSelectRef}
+                                    allowClear
+                                    showSearch
+                                    placeholder="All Departments (F10)"
+                                    value={filter.department || undefined}
+                                    onChange={v => setFilter({ ...filter, department: v || '' })}
+                                    style={{ minWidth: '220px', height: '42px' }}
+                                    optionFilterProp="children"
+                                >
+                                    <Option value="">All Departments</Option>
+                                    {departments.map(d => (
+                                        <Option key={d.department_code || d.department_id} value={d.department_code || d.department_id || d.department_name}>
+                                            {d.department_name}
+                                        </Option>
+                                    ))}
+                                </Select>
                                 <S.Button onClick={reportViewMode === 'intents' ? loadIntents : loadIndentReturns} style={{ background: '#0d9488' }}>
                                     <Search size={16} /> Filter Results
                                 </S.Button>
                                 <S.Button secondary onClick={() => {
-                                    const defaultF = { from_date: dayjs().subtract(1, 'month').format('YYYY-MM-DD'), to_date: dayjs().format('YYYY-MM-DD') };
+                                    const defaultF = { from_date: dayjs().subtract(1, 'month').format('YYYY-MM-DD'), to_date: dayjs().format('YYYY-MM-DD'), department: '' };
                                     setFilter(defaultF);
                                     if (reportViewMode === 'intents') loadIntents();
                                     else loadIndentReturns();
@@ -891,7 +946,7 @@ const StoresIntentManager = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {intents.length > 0 ? intents.map((intent) => {
+                                            {filteredIntents.length > 0 ? filteredIntents.map((intent) => {
                                                 const status = getIntentStatus(intent);
                                                 const statusColors = {
                                                     'Approved': { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0' },
@@ -1000,7 +1055,7 @@ const StoresIntentManager = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {indentReturns.length > 0 ? indentReturns.map((ret) => {
+                                            {filteredIndentReturns.length > 0 ? filteredIndentReturns.map((ret) => {
                                                 const retColors = {
                                                     'Approved': { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0' },
                                                     'Rejected': { bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
