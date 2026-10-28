@@ -460,7 +460,6 @@ const SummaryPrint = () => {
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showSendDropdown, setShowSendDropdown] = useState(false);
-  const [clinicalNotesOrder, setClinicalNotesOrder] = useState([]);
   const [previewTotalPages, setPreviewTotalPages] = useState(1);
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -494,25 +493,7 @@ const SummaryPrint = () => {
     calculatePages();
     const timer = setTimeout(calculatePages, 400);
     return () => clearTimeout(timer);
-  }, [summaryData, clinicalNotesOrder]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await apiRequest(`${HMSURL}summary-clinical-notes/`, "GET");
-        if (r.success && Array.isArray(r.data) && r.data.length > 0) {
-          const sorted = [...r.data].sort(
-            (a, b) => (Number(a.title_no) || 0) - (Number(b.title_no) || 0)
-          );
-          setClinicalNotesOrder(
-            sorted.map((item) => item.title_name).filter(Boolean)
-          );
-        }
-      } catch (err) {
-        console.error("Failed to fetch clinical notes order:", err);
-      }
-    })();
-  }, [HMSURL]);
+  }, [summaryData]);
 
   useEffect(() => {
     const id = "summary-print-css";
@@ -1508,12 +1489,6 @@ const SummaryPrint = () => {
       );
     };
 
-    const extraKeys = (fieldsData || [])
-      .map((f) => f.key)
-      .filter((k) => k && !clinicalNotesOrder.includes(k));
-
-    const SECTION_ORDER = [...clinicalNotesOrder, ...extraKeys];
-
     const contRows = [
       ["Name", safeStr(summaryData.patient)],
       ["IP No", safeStr(summaryData.ipNo)],
@@ -1538,8 +1513,8 @@ const SummaryPrint = () => {
     });
 
     const getDocTitle = () => {
-      const sType = safeStr(summaryData.summaryType);
-      const sHeading = safeStr(summaryData.heading);
+      const sType = safeStr(summaryData.summaryType).trim();
+      const sHeading = safeStr(summaryData.heading).trim();
       if (sType && sHeading) return `${sType} - ${sHeading}`;
       return sType || sHeading || "DISCHARGE SUMMARY";
     };
@@ -1751,22 +1726,24 @@ const SummaryPrint = () => {
               </div>
 
               <div className="sp-body" ref={bodyRef}>
-                {SECTION_ORDER.map((key) => {
-                  const content = getFieldValue(fieldsData, key, summaryData);
+                {fieldsData.map((item, idx) => {
+                  const key = item.key;
+                  if (!key) return null;
+                  const content = getFieldValue(fieldsData, key, summaryData) ?? item.value;
                   const hasContent = content && String(content).trim();
                   const hasLab =
                     key === "INVESTIGATIONS" &&
                     summaryData.testdetails?.length > 0;
                   if (!hasContent && !hasLab) return null;
                   return (
-                    <div key={key} className="sp-section" data-block-top="true">
+                    <div key={key || idx} className="sp-section" data-block-top="true">
                       <div className="sp-section-title">{key}</div>
                       {hasContent && (
                         <div className="sp-section-content">
                           {String(content)
                             .split("\n")
-                            .map((line, idx) => (
-                              <div key={idx} style={{ minHeight: "1.4em" }}>
+                            .map((line, lIdx) => (
+                              <div key={lIdx} style={{ minHeight: "1.4em" }}>
                                 {renderFormattedText(line)}
                               </div>
                             ))}

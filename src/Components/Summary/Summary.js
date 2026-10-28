@@ -23,6 +23,9 @@ import {
   RotateCcw,
   Globe,
   Volume2,
+  ArrowUp,
+  ArrowDown,
+  Eye,
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 import ICD11SearchComponent from "./ICD11SearchComponent";
@@ -695,6 +698,26 @@ const normalizeFieldsData = (fd) => {
     return Object.entries(fd).map(([key, value]) => ({ key, value }));
   return [];
 };
+const sortFieldsDataByUiOrder = (fieldsArr, orderArr) => {
+  if (!Array.isArray(fieldsArr) || fieldsArr.length <= 1) return fieldsArr || [];
+  const orderList = Array.isArray(orderArr) && orderArr.length > 0 ? orderArr : [];
+  if (orderList.length === 0) return fieldsArr;
+
+  const orderMap = new Map();
+  orderList.forEach((name, idx) => {
+    if (name) {
+      orderMap.set(String(name).trim().toUpperCase(), idx);
+    }
+  });
+
+  return [...fieldsArr].sort((a, b) => {
+    const keyA = String(a?.key || "").trim().toUpperCase();
+    const keyB = String(b?.key || "").trim().toUpperCase();
+    const idxA = orderMap.has(keyA) ? orderMap.get(keyA) : 99999;
+    const idxB = orderMap.has(keyB) ? orderMap.get(keyB) : 99999;
+    return idxA - idxB;
+  });
+};
 
 /* ─── Render Formatted/Bold Text Helper ──────────────────────────────────── */
 const renderFormattedText = (text) => {
@@ -731,6 +754,214 @@ const renderFormattedText = (text) => {
   });
 };
 
+/* ─── Package.js style UI tokens & styling for Type Management ───────────── */
+const pkgCss = {
+  editBanner: {
+    background: "linear-gradient(90deg, #0ea5e918, #0d948818)",
+    border: "1px solid #0ea5e940",
+    borderRadius: 10,
+    padding: "10px 18px",
+    marginBottom: 16,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    fontSize: 13.5,
+    color: "#1E2D45",
+    fontWeight: 500,
+  },
+  editBannerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: "#0ea5e9",
+    flexShrink: 0,
+  },
+  card: {
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #E2E8F0",
+    boxShadow: "0 4px 18px rgba(10,22,40,.05)",
+    marginBottom: 18,
+    padding: "18px 22px",
+  },
+  cardTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.8px",
+    color: "#0d9488",
+    marginBottom: 14,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionLine: {
+    width: 20,
+    height: 3,
+    borderRadius: 2,
+    background: "linear-gradient(90deg, #0d9488, #0ea5e9)",
+  },
+  pickerPanel: {
+    background: "#F8FAFC",
+    border: "1.5px solid #E2E8F0",
+    borderRadius: 12,
+    padding: "16px",
+    marginBottom: 18,
+  },
+  pickerTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.7px",
+    color: "#0d9488",
+    marginBottom: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  addSelectedBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+    background: "linear-gradient(135deg, #10B981, #34D399)",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+    boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+    whiteSpace: "nowrap",
+  },
+  itemsTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    border: "1px solid #E2E8F0",
+    borderRadius: 8,
+    overflow: "hidden",
+    marginTop: 8,
+  },
+  itemsTh: {
+    padding: "9px 12px",
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.7px",
+    color: "#64748B",
+    background: "#F1F5F9",
+    borderBottom: "2px solid #E2E8F0",
+    textAlign: "left",
+  },
+  itemsTd: {
+    padding: "8px 12px",
+    fontSize: 13,
+    color: "#0F172A",
+    borderBottom: "1px solid #E2E8F0",
+    verticalAlign: "middle",
+  },
+  countBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "2px 10px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 700,
+    background: "#0ea5e918",
+    color: "#0284c7",
+    border: "1px solid #0ea5e940",
+  },
+  statusBadge: (active = true) => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "3px 10px",
+    borderRadius: 20,
+    fontSize: 11,
+    fontWeight: 700,
+    background: active ? "#10B98118" : "#EF444418",
+    color: active ? "#10B981" : "#EF4444",
+    border: `1px solid ${active ? "#10B98140" : "#EF444440"}`,
+  }),
+  statusDot: (active = true) => ({
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    background: active ? "#10B981" : "#EF4444",
+  }),
+  btn: (variant = "primary") => {
+    const map = {
+      primary: {
+        bg: "linear-gradient(135deg, #0d9488, #0ea5e9)",
+        color: "#ffffff",
+      },
+      danger: {
+        bg: "linear-gradient(135deg, #EF4444, #F87171)",
+        color: "#ffffff",
+      },
+      success: {
+        bg: "linear-gradient(135deg, #10B981, #34D399)",
+        color: "#ffffff",
+      },
+      ghost: { bg: "#1E2D45", color: "#ffffff" },
+    };
+    const v = map[variant] || map.primary;
+    return {
+      padding: "8px 18px",
+      fontSize: 13,
+      fontWeight: 600,
+      background: v.bg,
+      color: v.color,
+      border: "none",
+      borderRadius: 9,
+      cursor: "pointer",
+      boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+      letterSpacing: "0.2px",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+    };
+  },
+  smallBtn: (variant = "primary") => {
+    const map = {
+      primary: {
+        bg: "linear-gradient(135deg, #0d9488, #0ea5e9)",
+        color: "#ffffff",
+      },
+      danger: {
+        bg: "linear-gradient(135deg, #EF4444, #F87171)",
+        color: "#ffffff",
+      },
+      success: {
+        bg: "linear-gradient(135deg, #10B981, #34D399)",
+        color: "#ffffff",
+      },
+      ghost: { bg: "#1E2D45", color: "#ffffff" },
+      outline: {
+        bg: "#ffffff",
+        color: "#64748B",
+        border: "1px solid #CBD5E1",
+      },
+    };
+    const v = map[variant] || map.primary;
+    return {
+      padding: "5px 12px",
+      fontSize: 12,
+      fontWeight: 600,
+      background: v.bg,
+      color: v.color,
+      border: v.border || "none",
+      borderRadius: 7,
+      cursor: "pointer",
+      boxShadow: v.border ? "none" : "0 2px 6px rgba(0,0,0,.10)",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 4,
+    };
+  },
+};
+
 /* ─── Component ──────────────────────────────────────────────────────────── */
 const Summary = () => {
   const currentDate = new Date().toLocaleDateString("en-GB");
@@ -749,17 +980,33 @@ const Summary = () => {
   const [summaryTypeOptions, setSummaryTypeOptions] = useState([]);
   const [headingOptions, setHeadingOptions] = useState([]);
 
-  // Summary Type modal state
-  const [showAddSummaryTypeModal, setShowAddSummaryTypeModal] = useState(false);
-  const [newSummaryTypeInput, setNewSummaryTypeInput] = useState("");
-  const [editingSummaryType, setEditingSummaryType] = useState(null);
-  const [savingSummaryType, setSavingSummaryType] = useState(false);
+  // Summary Type Management state (same UI like Package.js)
+  const [showManageSummaryTypeModal, setShowManageSummaryTypeModal] = useState(false);
+  const [typeSearchFilter, setTypeSearchFilter] = useState("");
+  const [showTypeFormModal, setShowTypeFormModal] = useState(false);
+  const [isEditTypeMode, setIsEditTypeMode] = useState(false);
+  const [editingTypeNo, setEditingTypeNo] = useState(null);
+  const [typeFormData, setTypeFormData] = useState({
+    summaryType: "",
+    headings: [],
+  });
+  const [savingType, setSavingType] = useState(false);
+  const [selectedHeadingToPick, setSelectedHeadingToPick] = useState("");
+  const [headingPickerSearch, setHeadingPickerSearch] = useState("");
+  const [viewTypeObj, setViewTypeObj] = useState(null);
+  const [editingHeadingDefaultIndex, setEditingHeadingDefaultIndex] = useState(null);
+  const [tempDefaultValue, setTempDefaultValue] = useState("");
 
-  // Heading modal state
-  const [showAddHeadingModal, setShowAddHeadingModal] = useState(false);
-  const [newHeadingInput, setNewHeadingInput] = useState("");
+  // Heading Master Management state (Add, Edit, Delete)
+  const [showManageHeadingModal, setShowManageHeadingModal] = useState(false);
+  const [headingInput, setHeadingInput] = useState("");
   const [editingHeading, setEditingHeading] = useState(null);
+  const [headingSearchFilter, setHeadingSearchFilter] = useState("");
   const [savingHeading, setSavingHeading] = useState(false);
+
+  // Consultant section doctors picker state
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
+  const [doctorSearchQuery, setDoctorSearchQuery] = useState("");
 
   const [showMedicines, setShowMedicines] = useState(false);
   const [medicines, setMedicines] = useState([]);
@@ -867,7 +1114,14 @@ const Summary = () => {
 
   const fetchDoctors = async () => {
     const r = await apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET");
-    if (r.success) setDoctors(r.data);
+    if (r.success) {
+      setDoctors(
+        (r.data || []).map((doc) => ({
+          ...doc,
+          employeeName: (doc.employeeName || "").toUpperCase(),
+        }))
+      );
+    }
   };
 
   const fetchSummaryTypes = async () => {
@@ -880,113 +1134,314 @@ const Summary = () => {
     if (r.success) setHeadingOptions(r.data);
   };
 
-  const fetchClinicalNotesTitles = async () => {
-    try {
-      const r = await apiRequest(`${HMSURL}summary-clinical-notes/`, "GET");
-      if (r.success && Array.isArray(r.data) && r.data.length > 0) {
-        const sorted = [...r.data].sort((a, b) => {
-          const numA = Number(a.title_no) || 0;
-          const numB = Number(b.title_no) || 0;
-          return numA - numB;
-        });
-        setNoteFields(
-          sorted.map((item) => item.title_name).filter(Boolean)
-        );
-      }
-    } catch (err) {
-      console.error("Failed to fetch clinical notes titles:", err);
-    }
-  };
-
   useEffect(() => {
     fetchDoctors();
     fetchSummaryTypes();
     fetchSummaryHeadings();
-    fetchClinicalNotesTitles();
   }, [HMSURL]);
+
+  // Derive Clinical Notes fields strictly from the selected Summary Type's headings
+  useEffect(() => {
+    if (!formData.summaryNo && !formData.summaryType) {
+      setNoteFields([]);
+      return;
+    }
+    const found = summaryTypeOptions.find(
+      (t) =>
+        (formData.summaryNo && String(t.summaryNo) === String(formData.summaryNo)) ||
+        (formData.summaryType &&
+          t.summaryType &&
+          t.summaryType.trim().toUpperCase() === formData.summaryType.trim().toUpperCase())
+    );
+    if (found && Array.isArray(found.headings) && found.headings.length > 0) {
+      const sorted = [...found.headings].sort(
+        (a, b) => (Number(a.order_id) || 0) - (Number(b.order_id) || 0)
+      );
+      const fields = sorted
+        .map((h) => (typeof h === "string" ? h : h.heading))
+        .filter(Boolean);
+      setNoteFields(fields);
+      // Auto-select first field if no field currently selected or not in list
+      if (fields.length > 0 && (!selectedField || !fields.includes(selectedField))) {
+        handleButtonClick(fields[0]);
+      }
+    } else {
+      setNoteFields([]);
+      setSelectedField("");
+    }
+  }, [formData.summaryNo, formData.summaryType, summaryTypeOptions]);
+
+  const getPredefinedValueForField = (fieldName) => {
+    if (!fieldName) return "";
+    const activeType = summaryTypeOptions.find(
+      (t) =>
+        (formData.summaryNo && String(t.summaryNo) === String(formData.summaryNo)) ||
+        (formData.summaryType &&
+          t.summaryType &&
+          t.summaryType.trim().toUpperCase() === formData.summaryType.trim().toUpperCase())
+    );
+    if (!activeType || !Array.isArray(activeType.headings)) return "";
+    const headingObj = activeType.headings.find(
+      (h) => (typeof h === "object" ? h.heading : h)?.trim().toLowerCase() === fieldName.trim().toLowerCase()
+    );
+    return (typeof headingObj === "object" ? (headingObj.defaultValue || headingObj.default_value) : "") || "";
+  };
 
   const handleSummaryTypeSelect = (e) => {
     const sNo = e.target.value;
     const found = summaryTypeOptions.find(
       (t) => String(t.summaryNo) === String(sNo)
     );
-    setFormData((prev) => ({
-      ...prev,
-      summaryNo: sNo,
-      summaryType: found ? found.summaryType : "",
-    }));
+    setFormData((prev) => {
+      let updatedFd = prev.fieldsData || [];
+      let orderedHeadings = [];
+      if (found && Array.isArray(found.headings)) {
+        const sortedHeadings = [...found.headings].sort(
+          (a, b) => (Number(a.order_id) || 0) - (Number(b.order_id) || 0)
+        );
+        orderedHeadings = sortedHeadings
+          .map((h) => (typeof h === "string" ? h : h.heading))
+          .filter(Boolean);
+        sortedHeadings.forEach((h) => {
+          const hName = typeof h === "string" ? h : h.heading;
+          const defVal = typeof h === "object" ? (h.defaultValue || h.default_value || "") : "";
+          if (hName && defVal) {
+            const existingVal = getFieldValue(updatedFd, hName);
+            if (!existingVal || !existingVal.trim()) {
+              updatedFd = setFieldValue(updatedFd, hName, defVal);
+            }
+          }
+        });
+      }
+      return {
+        ...prev,
+        summaryNo: sNo,
+        summaryType: found ? found.summaryType : "",
+        fieldsData: sortFieldsDataByUiOrder(updatedFd, orderedHeadings),
+      };
+    });
   };
 
-  const handleHeadingSelect = (e) => {
-    const hNo = e.target.value;
-    const found = headingOptions.find(
-      (h) => String(h.headingNo) === String(hNo)
-    );
-    setFormData((prev) => ({
-      ...prev,
-      headingNo: hNo,
-      heading: found ? found.heading : "",
-    }));
+  // ── Package.js style Type Management actions ──
+  const openCreateType = () => {
+    setTypeFormData({
+      summaryType: "",
+      headings: [],
+    });
+    setEditingHeadingDefaultIndex(null);
+    setTempDefaultValue("");
+    setIsEditTypeMode(false);
+    setEditingTypeNo(null);
+    setSelectedHeadingToPick("");
+    setHeadingPickerSearch("");
+    setShowTypeFormModal(true);
   };
 
-  const handleSaveSummaryType = async (e) => {
-    if (e) e.preventDefault();
-    const val = newSummaryTypeInput.trim();
-    if (!val) {
-      Swal.fire("Validation", "Please enter a summary type", "warning");
+  const openEditType = (t) => {
+    const sortedHeadings = Array.isArray(t.headings)
+      ? [...t.headings]
+        .sort((a, b) => (Number(a.order_id) || 0) - (Number(b.order_id) || 0))
+        .map((h, i) => ({
+          order_id: i + 1,
+          headingNo: h.headingNo || "",
+          heading: h.heading || "",
+          defaultValue: h.defaultValue || h.default_value || "",
+        }))
+      : [];
+    setTypeFormData({
+      summaryType: t.summaryType || "",
+      headings: sortedHeadings,
+    });
+    setEditingHeadingDefaultIndex(null);
+    setTempDefaultValue("");
+    setIsEditTypeMode(true);
+    setEditingTypeNo(t.summaryNo);
+    setSelectedHeadingToPick("");
+    setHeadingPickerSearch("");
+    setShowTypeFormModal(true);
+  };
+
+  const openEditHeadingDefault = (index) => {
+    const current = typeFormData.headings[index];
+    if (!current) return;
+    setEditingHeadingDefaultIndex(index);
+    setTempDefaultValue(current.defaultValue || "");
+  };
+
+  const handleSaveHeadingDefault = () => {
+    if (editingHeadingDefaultIndex === null) return;
+    setTypeFormData((prev) => {
+      const nextHeadings = [...prev.headings];
+      if (nextHeadings[editingHeadingDefaultIndex]) {
+        nextHeadings[editingHeadingDefaultIndex] = {
+          ...nextHeadings[editingHeadingDefaultIndex],
+          defaultValue: tempDefaultValue.trim(),
+        };
+      }
+      return { ...prev, headings: nextHeadings };
+    });
+    setEditingHeadingDefaultIndex(null);
+    setTempDefaultValue("");
+  };
+
+  const renderStatusToggle = ({ checked, onChange, disabled = false, title = "" }) => (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange();
+      }}
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        width: 38,
+        height: 20,
+        borderRadius: 10,
+        background: checked ? "#10b981" : "#cbd5e1",
+        border: "none",
+        cursor: disabled ? "not-allowed" : "pointer",
+        transition: "background-color 0.2s ease",
+        padding: 2,
+        outline: "none",
+        flexShrink: 0,
+      }}
+      title={title || (checked ? "Click to Deactivate" : "Click to Activate")}
+    >
+      <span
+        style={{
+          display: "inline-block",
+          width: 16,
+          height: 16,
+          borderRadius: "50%",
+          background: "#ffffff",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
+          transform: checked ? "translateX(18px)" : "translateX(0px)",
+          transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      />
+    </button>
+  );
+
+  const handleAddHeadingToType = (headingToAdd) => {
+    const val = typeof headingToAdd === "string" ? headingToAdd : "";
+    if (!val || !val.trim()) {
+      Swal.fire("Validation", "Please select a heading to add.", "warning");
       return;
     }
-    setSavingSummaryType(true);
+    const cleanVal = val.trim();
+    const matched = headingOptions.find(
+      (h) => h.heading && h.heading.trim().toLowerCase() === cleanVal.toLowerCase()
+    );
+    if (matched && matched.is_active === false) {
+      Swal.fire("Deactivated Heading", `"${cleanVal}" is deactivated and cannot be added to a type.`, "warning");
+      return;
+    }
+    const alreadyExists = typeFormData.headings.some(
+      (h) => h.heading && h.heading.trim().toLowerCase() === cleanVal.toLowerCase()
+    );
+    if (alreadyExists) {
+      Swal.fire("Already Added", `"${cleanVal}" is already in this type.`, "info");
+      return;
+    }
+    const newEntry = {
+      order_id: typeFormData.headings.length + 1,
+      headingNo: matched ? matched.headingNo : "",
+      heading: cleanVal,
+      defaultValue: "",
+    };
+    setTypeFormData((prev) => ({
+      ...prev,
+      headings: [...prev.headings, newEntry],
+    }));
+  };
 
-    if (editingSummaryType) {
-      // Update
+  const handleRemoveHeadingFromType = (idxToRemove) => {
+    setTypeFormData((prev) => {
+      const remaining = prev.headings.filter((_, idx) => idx !== idxToRemove);
+      const renumbered = remaining.map((h, idx) => ({
+        ...h,
+        order_id: idx + 1,
+      }));
+      return { ...prev, headings: renumbered };
+    });
+  };
+
+  const handleMoveHeadingOrder = (index, direction) => {
+    setTypeFormData((prev) => {
+      const items = [...prev.headings];
+      const targetIdx = direction === "up" ? index - 1 : index + 1;
+      if (targetIdx < 0 || targetIdx >= items.length) return prev;
+      const temp = items[index];
+      items[index] = items[targetIdx];
+      items[targetIdx] = temp;
+      const renumbered = items.map((h, idx) => ({
+        ...h,
+        order_id: idx + 1,
+      }));
+      return { ...prev, headings: renumbered };
+    });
+  };
+
+  const handleSaveTypeSubmit = async (e) => {
+    if (e) e.preventDefault();
+    const typeName = typeFormData.summaryType.trim();
+    if (!typeName) {
+      Swal.fire("Validation", "Please enter a Summary Type name", "warning");
+      return;
+    }
+    setSavingType(true);
+    if (isEditTypeMode) {
       const r = await apiRequest(
-        `${HMSURL}summary-type/update/${encodeURIComponent(editingSummaryType.summaryNo)}/`,
+        `${HMSURL}summary-type/update/${encodeURIComponent(editingTypeNo)}/`,
         "POST",
-        { summaryType: val }
+        {
+          summaryType: typeName,
+          headings: typeFormData.headings,
+        }
       );
-      setSavingSummaryType(false);
+      setSavingType(false);
       if (r.success) {
         Swal.fire({
           icon: "success",
           title: "Updated",
-          text: "Summary Type updated successfully",
+          text: "Summary Type updated successfully!",
           timer: 1500,
           showConfirmButton: false,
         });
         if (
-          String(formData.summaryNo) === String(editingSummaryType.summaryNo) ||
-          formData.summaryType === editingSummaryType.summaryType
+          String(formData.summaryNo) === String(editingTypeNo) ||
+          formData.summaryType === typeName
         ) {
           setFormData((prev) => ({
             ...prev,
-            summaryNo: editingSummaryType.summaryNo,
-            summaryType: val,
+            summaryNo: editingTypeNo,
+            summaryType: typeName,
           }));
         }
-        setEditingSummaryType(null);
-        setNewSummaryTypeInput("");
+        setShowTypeFormModal(false);
         await fetchSummaryTypes();
       } else {
         Swal.fire("Error", r.error || "Failed to update summary type", "error");
       }
     } else {
-      // Create
       const r = await apiRequest(`${HMSURL}summary-type/`, "POST", {
-        summaryType: val,
+        summaryType: typeName,
+        headings: typeFormData.headings,
       });
-      setSavingSummaryType(false);
+      setSavingType(false);
       if (r.success) {
         Swal.fire({
           icon: "success",
           title: "Created",
-          text: "Summary Type added successfully",
+          text: "Summary Type created successfully!",
           timer: 1500,
           showConfirmButton: false,
         });
         const created = r.data?.data;
-        setNewSummaryTypeInput("");
-        await fetchSummaryTypes();
         if (created) {
           setFormData((prev) => ({
             ...prev,
@@ -994,58 +1449,61 @@ const Summary = () => {
             summaryType: created.summaryType,
           }));
         }
+        setShowTypeFormModal(false);
+        await fetchSummaryTypes();
       } else {
-        Swal.fire("Error", r.error || "Failed to add summary type", "error");
+        Swal.fire("Error", r.error || "Failed to create summary type", "error");
       }
     }
   };
 
-  const handleDeleteSummaryType = async (summaryNo, typeName) => {
-    const result = await Swal.fire({
-      title: "Delete Summary Type?",
-      text: `Are you sure you want to delete "${typeName}"?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: T.red,
-      cancelButtonColor: T.muted,
-      confirmButtonText: "Yes, delete",
-    });
-
-    if (result.isConfirmed) {
-      const r = await apiRequest(
-        `${HMSURL}summary-type/delete/${encodeURIComponent(summaryNo)}/`,
-        "POST"
+  const handleToggleSummaryTypeStatus = async (t) => {
+    const currentActive = t.is_active !== false;
+    const newStatus = !currentActive;
+    const r = await apiRequest(
+      `${HMSURL}summary-type/update/${encodeURIComponent(t.summaryNo)}/`,
+      "POST",
+      { is_active: newStatus }
+    );
+    if (r.success) {
+      setSummaryTypeOptions((prev) =>
+        prev.map((item) =>
+          String(item.summaryNo) === String(t.summaryNo)
+            ? { ...item, is_active: newStatus }
+            : item
+        )
       );
-      if (r.success) {
-        Swal.fire({
-          icon: "success",
-          title: "Deleted",
-          text: "Summary Type deleted successfully",
-          timer: 1500,
-          showConfirmButton: false,
-        });
-        if (
-          String(formData.summaryNo) === String(summaryNo) ||
-          formData.summaryType === typeName
-        ) {
-          setFormData((prev) => ({ ...prev, summaryNo: "", summaryType: "" }));
-        }
-        if (editingSummaryType?.summaryNo === summaryNo) {
-          setEditingSummaryType(null);
-          setNewSummaryTypeInput("");
-        }
-        await fetchSummaryTypes();
-      } else {
-        Swal.fire("Error", r.error || "Failed to delete summary type", "error");
+      if (String(formData.summaryNo) === String(t.summaryNo) && !newStatus) {
+        setFormData((prev) => ({ ...prev, summaryNo: "", summaryType: "" }));
       }
+    } else {
+      Swal.fire("Error", r.error || "Failed to update summary type status", "error");
     }
+  };
+
+  // ── Headings Master (Add, Edit, Delete) Actions ──
+  const handleOpenHeadingModule = () => {
+    setHeadingInput("");
+    setEditingHeading(null);
+    setHeadingSearchFilter("");
+    setShowManageHeadingModal(true);
+  };
+
+  const handleEditHeadingClick = (h) => {
+    setEditingHeading(h);
+    setHeadingInput(h.heading);
+  };
+
+  const handleCancelEditHeading = () => {
+    setEditingHeading(null);
+    setHeadingInput("");
   };
 
   const handleSaveHeading = async (e) => {
     if (e) e.preventDefault();
-    const val = newHeadingInput.trim();
+    const val = headingInput.trim();
     if (!val) {
-      Swal.fire("Validation", "Please enter a heading", "warning");
+      Swal.fire("Validation", "Please enter a heading name", "warning");
       return;
     }
     setSavingHeading(true);
@@ -1062,49 +1520,57 @@ const Summary = () => {
         Swal.fire({
           icon: "success",
           title: "Updated",
-          text: "Heading updated successfully",
+          text: `Heading updated to "${val}"`,
           timer: 1500,
           showConfirmButton: false,
         });
+
+        // Update in typeFormData.headings if present
+        setTypeFormData((prev) => ({
+          ...prev,
+          headings: (prev.headings || []).map((h) =>
+            String(h.headingNo) === String(editingHeading.headingNo) ||
+              h.heading === editingHeading.heading
+              ? { ...h, heading: val }
+              : h
+          ),
+        }));
+
+        // Update in main form if currently selected
         if (
           String(formData.headingNo) === String(editingHeading.headingNo) ||
           formData.heading === editingHeading.heading
         ) {
-          setFormData((prev) => ({
-            ...prev,
-            headingNo: editingHeading.headingNo,
-            heading: val,
-          }));
+          setFormData((prev) => ({ ...prev, heading: val }));
         }
+
         setEditingHeading(null);
-        setNewHeadingInput("");
+        setHeadingInput("");
         await fetchSummaryHeadings();
+        await fetchSummaryTypes();
       } else {
         Swal.fire("Error", r.error || "Failed to update heading", "error");
       }
     } else {
-      // Create
+      // Add
       const r = await apiRequest(`${HMSURL}summary-heading/`, "POST", {
         heading: val,
       });
       setSavingHeading(false);
       if (r.success) {
+        const created = r.data?.data;
         Swal.fire({
           icon: "success",
           title: "Created",
-          text: "Heading added successfully",
+          text: `Heading "${val}" added to Headings table!`,
           timer: 1500,
           showConfirmButton: false,
         });
-        const created = r.data?.data;
-        setNewHeadingInput("");
+        setHeadingInput("");
         await fetchSummaryHeadings();
-        if (created) {
-          setFormData((prev) => ({
-            ...prev,
-            headingNo: created.headingNo,
-            heading: created.heading,
-          }));
+        // If Type Form modal is open, auto-add to the Type
+        if (showTypeFormModal && created) {
+          handleAddHeadingToType(created.heading);
         }
       } else {
         Swal.fire("Error", r.error || "Failed to add heading", "error");
@@ -1112,46 +1578,28 @@ const Summary = () => {
     }
   };
 
-  const handleDeleteHeading = async (headingNo, headingName) => {
-    const result = await Swal.fire({
-      title: "Delete Heading?",
-      text: `Are you sure you want to delete "${headingName}"?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: T.red,
-      cancelButtonColor: T.muted,
-      confirmButtonText: "Yes, delete",
-    });
-
-    if (result.isConfirmed) {
-      const r = await apiRequest(
-        `${HMSURL}summary-heading/delete/${encodeURIComponent(headingNo)}/`,
-        "POST"
+  const handleToggleHeadingStatus = async (h) => {
+    const currentActive = h.is_active !== false;
+    const newStatus = !currentActive;
+    const r = await apiRequest(
+      `${HMSURL}summary-heading/update/${encodeURIComponent(h.headingNo)}/`,
+      "POST",
+      { is_active: newStatus }
+    );
+    if (r.success) {
+      setHeadingOptions((prev) =>
+        prev.map((item) =>
+          String(item.headingNo) === String(h.headingNo)
+            ? { ...item, is_active: newStatus }
+            : item
+        )
       );
-      if (r.success) {
-        Swal.fire({
-          icon: "success",
-          title: "Deleted",
-          text: "Heading deleted successfully",
-          timer: 1500,
-          showConfirmButton: false,
-        });
-        if (
-          String(formData.headingNo) === String(headingNo) ||
-          formData.heading === headingName
-        ) {
-          setFormData((prev) => ({ ...prev, headingNo: "", heading: "" }));
-        }
-        if (editingHeading?.headingNo === headingNo) {
-          setEditingHeading(null);
-          setNewHeadingInput("");
-        }
-        await fetchSummaryHeadings();
-      } else {
-        Swal.fire("Error", r.error || "Failed to delete heading", "error");
-      }
+    } else {
+      Swal.fire("Error", r.error || "Failed to update heading status", "error");
     }
   };
+
+
 
   const fetchSummaries = async (params = {}) => {
     const q = new URLSearchParams();
@@ -1178,9 +1626,37 @@ const Summary = () => {
     setShowPatientModal(true);
   };
 
-  const handlePatientSelect = (item) => {
+  const checkSummaryExists = async (ip) => {
+    if (!ip?.trim()) return false;
+    try {
+      const checkRes = await apiRequest(
+        `${HMSURL}check-summary-exists/${encodeURIComponent(ip.trim())}/`,
+        "GET"
+      );
+      if (checkRes.success && checkRes.data?.exists) {
+        Swal.fire({
+          icon: "warning",
+          title: "Discharge Summary already exist with this IP number",
+          confirmButtonColor: "#0d9488",
+        });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Error checking summary existence:", err);
+      return false;
+    }
+  };
+
+  const handlePatientSelect = async (item) => {
     const selectedIp = item.ipNumber || item.ip_number || "";
     if (selectedIp) {
+      if (!isEditMode) {
+        const exists = await checkSummaryExists(selectedIp);
+        if (exists) {
+          return;
+        }
+      }
       setFormData((prev) => ({ ...prev, ipNo: selectedIp }));
       fetchIpPatient(selectedIp);
     }
@@ -1192,8 +1668,30 @@ const Summary = () => {
       Swal.fire("Validation Error", "Please enter IP Number", "warning");
       return;
     }
+    const cleanIp = ip.trim();
+
+    if (!isEditMode) {
+      const exists = await checkSummaryExists(cleanIp);
+      if (exists) {
+        setFormData((prev) => ({
+          ...prev,
+          ipNo: "",
+          uhid: "",
+          patient: "",
+          age: "",
+          gender: "",
+          roomNo: "",
+          doa: "",
+          doaTime: "",
+          doctor: "",
+          address: "",
+        }));
+        return;
+      }
+    }
+
     const r = await apiRequest(
-      `${HMSURL}ip-patient/${encodeURIComponent(ip)}/`,
+      `${HMSURL}ip-patient/${encodeURIComponent(cleanIp)}/`,
       "GET"
     );
     if (r.success) {
@@ -1212,7 +1710,7 @@ const Summary = () => {
         roomNo: d.roomNo || "",
         doa: d.admissionDate || "",
         doaTime: d.admissionTime || "",
-        doctor: d.admittingDoctor || "",
+        doctor: (d.admittingDoctor || "").toUpperCase(),
         address: fullAddress,
         is_high_risk: Boolean(d.is_high_risk),
         high_risk_reason: d.high_risk_reason || "",
@@ -1395,6 +1893,72 @@ const Summary = () => {
     setSelectedField(targetField);
     setShowMedicines(false);
     setSelectedMedicines([]);
+  };
+
+  const handleAddDoctorToConsultant = (docName) => {
+    const rawName = (docName || "").trim().toUpperCase();
+    if (!rawName) return;
+
+    setFormData((prev) => {
+      const curNotes = (prev.notes || "").trim();
+      let newNotes = "";
+      if (!curNotes) {
+        newNotes = rawName;
+      } else {
+        const lines = curNotes.split("\n").map((l) => l.trim().toUpperCase());
+        if (lines.includes(rawName)) {
+          return prev;
+        }
+        newNotes = `${curNotes}\n${rawName}`;
+      }
+      const targetField = prev.currentField || "CONSULTANT";
+      const updatedFD = setFieldValue(prev.fieldsData, targetField, newNotes);
+      return {
+        ...prev,
+        notes: newNotes,
+        fieldsData: updatedFD,
+      };
+    });
+  };
+
+  const handleToggleDoctorInConsultant = (docName) => {
+    const rawName = (docName || "").trim().toUpperCase();
+    if (!rawName) return;
+
+    setFormData((prev) => {
+      const curNotes = (prev.notes || "").trim();
+      let newNotes = "";
+      if (!curNotes) {
+        newNotes = rawName;
+      } else {
+        const lines = curNotes.split("\n");
+        const matchIdx = lines.findIndex(
+          (l) => l.trim().toUpperCase() === rawName
+        );
+        if (matchIdx !== -1) {
+          lines.splice(matchIdx, 1);
+          newNotes = lines.join("\n").trim();
+        } else {
+          newNotes = `${curNotes}\n${rawName}`;
+        }
+      }
+      const targetField = prev.currentField || "CONSULTANT";
+      const updatedFD = setFieldValue(prev.fieldsData, targetField, newNotes);
+      return {
+        ...prev,
+        notes: newNotes,
+        fieldsData: updatedFD,
+      };
+    });
+  };
+
+  const isDoctorIncludedInNotes = (docName) => {
+    const raw = (docName || "").trim().toUpperCase();
+    if (!raw) return false;
+    const lines = (formData.notes || "")
+      .split("\n")
+      .map((l) => l.trim().toUpperCase());
+    return lines.includes(raw);
   };
 
   const handleChange = (e) => {
@@ -1900,7 +2464,7 @@ const Summary = () => {
     setPreviousNotes(null);
     setSelectedField(fieldName);
     setFormData((prev) => {
-      const fd = setFieldValue(prev.fieldsData, prev.currentField, prev.notes);
+      let fd = setFieldValue(prev.fieldsData, prev.currentField, prev.notes);
       let val = getFieldValue(fd, fieldName);
       if (fieldName === "DOA AND DOD") {
         if (!val || !val.trim() || (!val.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(val))) {
@@ -1911,11 +2475,18 @@ const Summary = () => {
           const doaLine = `DOA : ${dStr} ${tStr}`.trim();
           const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
           val = `${doaLine}\n${dodLine}`;
+          fd = setFieldValue(fd, fieldName, val);
+        }
+      } else if (!val || !val.trim()) {
+        const defVal = getPredefinedValueForField(fieldName);
+        if (defVal) {
+          val = defVal;
+          fd = setFieldValue(fd, fieldName, val);
         }
       }
       return {
         ...prev,
-        fieldsData: fd,
+        fieldsData: sortFieldsDataByUiOrder(fd, noteFields),
         currentField: fieldName,
         notes: val || "",
       };
@@ -1932,25 +2503,30 @@ const Summary = () => {
   };
 
   const handleSubmit = async () => {
-    let fds = formData.fieldsData;
+    let fds = formData.fieldsData || [];
     if (formData.currentField && formData.notes) {
       fds = setFieldValue(
         formData.fieldsData,
         formData.currentField,
         formData.notes
       );
-      setFormData((prev) => ({ ...prev, fieldsData: fds }));
+      setFormData((prev) => ({ ...prev, fieldsData: sortFieldsDataByUiOrder(fds, noteFields) }));
     }
     const dp = prepareDiseasesPayload();
+    const sortedFields = sortFieldsDataByUiOrder(
+      fds.filter((f) => f.key !== "undefined" && f.value !== ""),
+      noteFields
+    );
     const payload = {
       ...formData,
       summaryType: undefined,
-      heading: undefined,
+      heading: (formData.heading || "").trim(),
+      headingNo: undefined,
       date: new Date().toISOString(),
       diseaseCode: dp.diseaseCode,
       disease: dp.disease,
       selectedDiseases,
-      fieldsData: fds.filter((f) => f.key !== "undefined" && f.value !== ""),
+      fieldsData: sortedFields,
     };
     const r = await apiRequest(`${HMSURL}summaries/create/`, "POST", payload);
     if (r.success) {
@@ -1979,6 +2555,7 @@ const Summary = () => {
       Swal.fire("Validation Error", "Please fill in the required fields.", "warning");
       return;
     }
+    const sortedFields = sortFieldsDataByUiOrder(filtered, noteFields);
     const dp = prepareDiseasesPayload();
     const r = await apiRequest(
       `${HMSURL}update-summary/${editingIpNo}/`,
@@ -1986,11 +2563,12 @@ const Summary = () => {
       {
         ...formData,
         summaryType: undefined,
-        heading: undefined,
+        heading: (formData.heading || "").trim(),
+        headingNo: undefined,
         diseaseCode: dp.diseaseCode,
         disease: dp.disease,
         selectedDiseases,
-        fieldsData: filtered,
+        fieldsData: sortedFields,
       }
     );
     if (r.success) {
@@ -2046,15 +2624,33 @@ const Summary = () => {
           name: (names[i] || "").trim(),
         }));
       }
+
+      const sType = summaryTypeOptions.find(
+        (t) =>
+          (d.summaryNo && String(t.summaryNo) === String(d.summaryNo)) ||
+          (d.summaryType &&
+            t.summaryType &&
+            t.summaryType.trim().toUpperCase() === d.summaryType.trim().toUpperCase())
+      );
+      let orderedHeadings = [];
+      if (sType && Array.isArray(sType.headings)) {
+        orderedHeadings = [...sType.headings]
+          .sort((a, b) => (Number(a.order_id) || 0) - (Number(b.order_id) || 0))
+          .map((h) => (typeof h === "string" ? h : h.heading))
+          .filter(Boolean);
+      }
+      const sortedFD = sortFieldsDataByUiOrder(parsedFD, orderedHeadings);
+
       setFormData({
         ...d,
+        doctor: (d.doctor || "").toUpperCase(),
         summaryNo: d.summaryNo || "",
         summaryType: d.summaryType || "",
         headingNo: d.headingNo || "",
         heading: d.heading || "",
         dodTime: d.dodTime || "17:00",
         notes: "",
-        fieldsData: parsedFD,
+        fieldsData: sortedFD,
         currentField: "",
       });
       setSelectedDiseases(parsedDiseases);
@@ -2222,6 +2818,16 @@ const Summary = () => {
   const fi = { ...S.inp, height: 32, fontSize: 12.5 };
   const fs = { ...S.sel, height: 32, fontSize: 12.5 };
 
+  const currentActiveField = (selectedField || formData.currentField || "").trim().toUpperCase();
+  const isConsultantSection = currentActiveField.includes("CONSULTANT") || currentActiveField.includes("CONSULTING");
+  const filteredModalDoctors = doctors.filter((doc) => {
+    if (!doctorSearchQuery.trim()) return true;
+    const q = doctorSearchQuery.trim().toLowerCase();
+    const name = (doc.employeeName || "").toLowerCase();
+    const dept = (doc.department || "").toLowerCase();
+    return name.includes(q) || dept.includes(q);
+  });
+
   /* ─── Render ──────────────────────────────────────────────────────────── */
   return (
     <PageWrapper>
@@ -2277,7 +2883,11 @@ const Summary = () => {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      openIpSearchModal();
+                      if (formData.ipNo?.trim()) {
+                        fetchIpPatient(formData.ipNo.trim());
+                      } else {
+                        openIpSearchModal();
+                      }
                     }
                   }}
                   readOnly={isEditMode}
@@ -2287,7 +2897,13 @@ const Summary = () => {
                   <button
                     type="button"
                     style={S.searchMicroBtn}
-                    onClick={openIpSearchModal}
+                    onClick={() => {
+                      if (formData.ipNo?.trim()) {
+                        fetchIpPatient(formData.ipNo.trim());
+                      } else {
+                        openIpSearchModal();
+                      }
+                    }}
                     title="Search IP Number"
                   >
                     <Search size={12} /> Search
@@ -2399,21 +3015,44 @@ const Summary = () => {
               <Fld label="Doctor">
                 <select
                   name="doctor"
-                  value={formData.doctor}
-                  onChange={handleChange}
-                  style={S.sel}
+                  value={
+                    doctors.find(
+                      (doc) =>
+                        (doc.employeeName || "").trim().toUpperCase() ===
+                        (formData.doctor || "").trim().toUpperCase()
+                    )?.employeeName || (formData.doctor || "").toUpperCase()
+                  }
+                  onChange={(e) => {
+                    const val = (e.target.value || "").toUpperCase();
+                    setFormData((prev) => ({ ...prev, doctor: val }));
+                  }}
+                  style={{ ...S.sel, textTransform: "uppercase" }}
                 >
-                  <option value="">— Doctor —</option>
-                  {doctors.map((doc, i) => (
-                    <option key={doc.employeeId || i} value={doc.employeeName}>
-                      {doc.employeeName}
-                    </option>
-                  ))}
+                  <option value="">— DOCTOR —</option>
+                  {formData.doctor &&
+                    !doctors.some(
+                      (doc) =>
+                        (doc.employeeName || "").trim().toUpperCase() ===
+                        (formData.doctor || "").trim().toUpperCase()
+                    ) && (
+                      <option value={(formData.doctor || "").toUpperCase()}>
+                        {(formData.doctor || "").toUpperCase()}
+                      </option>
+                    )}
+                  {doctors.map((doc, i) => {
+                    const upperName = (doc.employeeName || "").toUpperCase();
+                    return (
+                      <option key={doc.employeeId || i} value={upperName}>
+                        {upperName}
+                      </option>
+                    );
+                  })}
                 </select>
               </Fld>
               <Fld label="Summary Type">
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <select
+                    id="summaryTypeSelect"
                     name="summaryNo"
                     value={formData.summaryNo}
                     onChange={handleSummaryTypeSelect}
@@ -2429,19 +3068,22 @@ const Summary = () => {
                           {formData.summaryType || formData.summaryNo}
                         </option>
                       )}
-                    {summaryTypeOptions.map((t, i) => (
-                      <option key={t.summaryNo || i} value={t.summaryNo}>
-                        {t.summaryType}
-                      </option>
-                    ))}
+                    {summaryTypeOptions
+                      .filter(
+                        (t) =>
+                          t.is_active !== false ||
+                          String(t.summaryNo) === String(formData.summaryNo)
+                      )
+                      .map((t, i) => (
+                        <option key={t.summaryNo || i} value={t.summaryNo}>
+                          {t.summaryType}
+                        </option>
+                      ))}
                   </select>
                   <button
+                    id="manageSummaryTypesBtn"
                     type="button"
-                    onClick={() => {
-                      setNewSummaryTypeInput("");
-                      setEditingSummaryType(null);
-                      setShowAddSummaryTypeModal(true);
-                    }}
+                    onClick={() => setShowManageSummaryTypeModal(true)}
                     title="Manage Summary Types"
                     style={{
                       ...S.actionBtn(T.teal),
@@ -2462,50 +3104,12 @@ const Summary = () => {
             {/* Row 3: 2 cols */}
             <div style={S.grid(2)}>
               <Fld label="Heading">
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <select
-                    name="headingNo"
-                    value={formData.headingNo}
-                    onChange={handleHeadingSelect}
-                    style={{ ...S.sel, flex: 1 }}
-                  >
-                    <option value="">— Heading —</option>
-                    {formData.headingNo &&
-                      !headingOptions.some(
-                        (h) =>
-                          String(h.headingNo) === String(formData.headingNo)
-                      ) && (
-                        <option value={formData.headingNo}>
-                          {formData.heading || formData.headingNo}
-                        </option>
-                      )}
-                    {headingOptions.map((h, i) => (
-                      <option key={h.headingNo || i} value={h.headingNo}>
-                        {h.heading}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewHeadingInput("");
-                      setEditingHeading(null);
-                      setShowAddHeadingModal(true);
-                    }}
-                    title="Manage Headings"
-                    style={{
-                      ...S.actionBtn(T.teal),
-                      flexShrink: 0,
-                      height: 38,
-                      width: 38,
-                      borderRadius: 8,
-                      border: `1.5px solid ${T.teal}`,
-                      background: `${T.teal}12`,
-                    }}
-                  >
-                    <Plus size={18} color={T.teal} />
-                  </button>
-                </div>
+                <CInp
+                  name="heading"
+                  value={formData.heading || ""}
+                  onChange={handleChange}
+                  placeholder="Heading"
+                />
               </Fld>
               <Fld label="Address">
                 <CInp
@@ -2541,17 +3145,66 @@ const Summary = () => {
           <div style={S.sidebar}>
             <div style={S.sidebarHead}>
               <Activity size={14} />
-              Clinical Fields
+              Clinical Fields {noteFields.length > 0 && `(${noteFields.length})`}
             </div>
-            {noteFields.map((field) => (
-              <div
-                key={field}
-                style={S.sidebarItem(selectedField === field)}
-                onClick={() => handleButtonClick(field)}
-              >
-                {field}
+            {noteFields.length === 0 ? (
+              <div style={{ padding: "18px 14px", textAlign: "center", color: T.muted, fontSize: 12.5, lineHeight: 1.5 }}>
+                {formData.summaryNo ? (
+                  <>
+                    <div style={{ marginBottom: 8, fontWeight: 500 }}>
+                      No headings configured for <strong>{formData.summaryType || "this Type"}</strong>.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const found = summaryTypeOptions.find(
+                          (t) => String(t.summaryNo) === String(formData.summaryNo)
+                        );
+                        if (found) openEditType(found);
+                        else openCreateType();
+                      }}
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        background: `linear-gradient(135deg, ${T.teal}, #0284c7)`,
+                        color: "white",
+                        border: "none",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                      }}
+                    >
+                      + Configure Headings
+                    </button>
+                  </>
+                ) : (
+                  "← Select a Summary Type above to view Clinical Notes."
+                )}
               </div>
-            ))}
+            ) : (
+              noteFields.map((field, idx) => (
+                <div
+                  key={field}
+                  id={`field-btn-${field.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`}
+                  style={S.sidebarItem(selectedField === field)}
+                  onClick={() => handleButtonClick(field)}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      minWidth: 20,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: selectedField === field ? "white" : T.teal,
+                      opacity: 0.9,
+                    }}
+                  >
+                    {idx + 1}.
+                  </span>
+                  <span style={{ flex: 1, wordBreak: "break-word" }}>{field}</span>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Notes area */}
@@ -2589,6 +3242,88 @@ const Summary = () => {
                   <Bold size={14} strokeWidth={3} />
                   <span>Bold</span>
                 </button>
+
+                {/* ── CONSULTANT DOCTORS OPTION ── */}
+                {isConsultantSection && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDoctorModal(true)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#f0fdfa",
+                      border: `1.5px solid #0d9488`,
+                      color: "#0f766e",
+                      borderRadius: 6,
+                      padding: "4px 11px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: "0 1px 2px rgba(13, 148, 136, 0.12)",
+                      transition: "all 0.15s ease",
+                    }}
+                    title="Browse and search doctors to include in Consultant section"
+                  >
+                    <Stethoscope size={14} color="#0d9488" />
+                    <span>Browse</span>
+                  </button>
+                )}
+
+                {/* ── PREDEFINED DEFAULT VALUE TEMPLATE OPTION ── */}
+                {getPredefinedValueForField(selectedField || formData.currentField) && (
+                  <button
+                    id="defaultTemplateToolbarBtn"
+                    type="button"
+                    onClick={() => {
+                      const curField = selectedField || formData.currentField;
+                      const defVal = getPredefinedValueForField(curField);
+                      if (!defVal) return;
+                      const applyVal = () => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          notes: defVal,
+                          fieldsData: setFieldValue(prev.fieldsData, curField, defVal),
+                        }));
+                        notesRef.current?.focus();
+                      };
+                      if (formData.notes && formData.notes.trim() && formData.notes.trim() !== defVal.trim()) {
+                        Swal.fire({
+                          title: "Reset to Default Template?",
+                          text: "This will replace current notes in this section with the predefined default template.",
+                          icon: "question",
+                          showCancelButton: true,
+                          confirmButtonText: "Yes, Reset",
+                          cancelButtonText: "Cancel",
+                          confirmButtonColor: T.teal,
+                        }).then((res) => {
+                          if (res.isConfirmed) applyVal();
+                        });
+                      } else {
+                        applyVal();
+                      }
+                    }}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#f0fdf4",
+                      border: `1.5px solid #16a34a`,
+                      color: "#15803d",
+                      borderRadius: 6,
+                      padding: "4px 11px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: "0 1px 2px rgba(22, 163, 74, 0.12)",
+                      transition: "all 0.15s ease",
+                    }}
+                    title="Insert or reset to predefined default template configured for this heading"
+                  >
+                    <FileText size={14} color="#16a34a" />
+                    <span>Default Template</span>
+                  </button>
+                )}
 
                 {/* Voice Dictation Language Dropdown */}
                 <div
@@ -2836,6 +3571,7 @@ const Summary = () => {
 
             {notesTab === "edit" ? (
               <textarea
+                id="notesTextarea"
                 ref={notesRef}
                 style={S.textarea}
                 name="notes"
@@ -2873,6 +3609,16 @@ const Summary = () => {
 
             {/* Quick-add */}
             <div style={S.actionRow}>
+              {isConsultantSection && (
+                <button
+                  type="button"
+                  style={{ ...S.outBtn(T.teal), fontWeight: 700 }}
+                  onClick={() => setShowDoctorModal(true)}
+                  title="Choose and include doctors into Consultant section"
+                >
+                  <Stethoscope size={14} /> + Doctors
+                </button>
+              )}
               <button style={S.outBtn(T.teal)} onClick={fetchInvestigations}>
                 <Plus size={14} /> Investigations
               </button>
@@ -3497,168 +4243,261 @@ const Summary = () => {
           )}
         </div>
 
-        {/* ── MANAGE SUMMARY TYPE MODAL ── */}
-        {showAddSummaryTypeModal && (
+        {/* ── MANAGE SUMMARY TYPES MODAL (Package.js UI Style) ── */}
+        {showManageSummaryTypeModal && (
           <div
             style={S.overlay}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
-                setShowAddSummaryTypeModal(false);
-                setEditingSummaryType(null);
-                setNewSummaryTypeInput("");
+                setShowManageSummaryTypeModal(false);
+                setTypeSearchFilter("");
               }
             }}
           >
-            <div style={{ ...S.modalBox, width: "min(560px, 94vw)" }}>
+            <div style={{ ...S.modalBox, width: "min(960px, 96vw)", maxHeight: "90vh" }}>
               <div style={S.modalHead}>
                 <span style={S.modalTitle}>
-                  <Plus size={16} /> Manage Summary Types
-                </span>
-                <button
-                  style={S.modalClose}
-                  onClick={() => {
-                    setShowAddSummaryTypeModal(false);
-                    setEditingSummaryType(null);
-                    setNewSummaryTypeInput("");
-                  }}
-                >
-                  <X size={15} />
-                </button>
-              </div>
-
-              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-                {/* Input & Action Form */}
-                <form onSubmit={handleSaveSummaryType}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
-                      <span style={S.lbl}>
-                        {editingSummaryType ? "Edit Summary Type" : "New Summary Type"}
-                      </span>
-                      <CInp
-                        value={newSummaryTypeInput}
-                        onChange={(e) => setNewSummaryTypeInput(e.target.value)}
-                        placeholder="e.g. DAY CARE SUMMARY"
-                        autoFocus
-                      />
-                    </div>
-                    {editingSummaryType && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingSummaryType(null);
-                          setNewSummaryTypeInput("");
-                        }}
-                        style={{
-                          height: 38,
-                          padding: "0 12px",
-                          fontSize: 12,
-                          fontWeight: 600,
-                          border: `1px solid ${T.border}`,
-                          borderRadius: 7,
-                          background: "white",
-                          color: T.muted,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={savingSummaryType}
-                      style={{
-                        ...S.btn(editingSummaryType ? "primary" : "primary"),
-                        height: 38,
-                        padding: "0 16px",
-                        fontSize: 12.5,
-                        opacity: savingSummaryType ? 0.7 : 1,
-                        cursor: savingSummaryType ? "not-allowed" : "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {savingSummaryType
-                        ? "Saving..."
-                        : editingSummaryType
-                          ? "Update"
-                          : "Add Type"}
-                    </button>
-                  </div>
-                </form>
-
-                {/* Existing Types List */}
-                <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
-                  <span style={{ ...S.lbl, color: T.teal, marginBottom: 8, display: "block" }}>
-                    Existing Summary Types ({summaryTypeOptions.length})
-                  </span>
-
-                  <div
+                  <span
                     style={{
-                      maxHeight: 280,
-                      overflowY: "auto",
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
+                      display: "inline-block",
+                    }}
+                  />
+                  Summary Type Management
+                </span>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <button
+                    type="button"
+                    onClick={handleOpenHeadingModule}
+                    style={{
+                      ...pkgCss.btn("ghost"),
+                      background: "#ffffff",
+                      color: T.slate,
                       border: `1px solid ${T.border}`,
-                      borderRadius: 8,
-                      background: T.bg,
+                      fontSize: 12.5,
+                      padding: "7px 14px",
+                    }}
+                    title="Add, edit, or delete headings in Headings Master table"
+                  >
+                    <FileText size={15} color={T.teal} /> Manage Headings ({headingOptions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCreateType}
+                    style={pkgCss.btn("primary")}
+                  >
+                    <Plus size={16} /> Add Type
+                  </button>
+                  <button
+                    style={S.modalClose}
+                    onClick={() => {
+                      setShowManageSummaryTypeModal(false);
+                      setTypeSearchFilter("");
                     }}
                   >
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ padding: "16px 22px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flexGrow: 1 }}>
+                {/* Search / Filter bar */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    background: "#F8FAFC",
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 10,
+                    padding: "10px 14px",
+                  }}
+                >
+                  <Search size={16} color={T.muted} />
+                  <input
+                    type="text"
+                    value={typeSearchFilter}
+                    onChange={(e) => setTypeSearchFilter(e.target.value)}
+                    placeholder="Search by summary type or section heading..."
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      fontSize: 13,
+                      color: T.slate,
+                    }}
+                  />
+                  {typeSearchFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setTypeSearchFilter("")}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: T.muted,
+                        cursor: "pointer",
+                        fontSize: 12,
+                        padding: "2px 6px",
+                      }}
+                    >
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Summary Types Table */}
+                <div
+                  style={{
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 10,
+                    overflow: "hidden",
+                    background: T.white,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 18px",
+                      background: `linear-gradient(135deg, ${T.slate}, #334155)`,
+                      color: T.white,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>🏷️ Configured Summary Types</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.85 }}>
+                      {summaryTypeOptions.filter((t) => {
+                        if (!typeSearchFilter) return true;
+                        const q = typeSearchFilter.toLowerCase();
+                        const matchType = (t.summaryType || "").toLowerCase().includes(q);
+                        const matchHeadings = Array.isArray(t.headings) && t.headings.some((h) => (h.heading || "").toLowerCase().includes(q));
+                        return matchType || matchHeadings;
+                      }).length} record(s)
+                    </span>
+                  </div>
+
+                  <div style={{ overflowX: "auto", maxHeight: 380 }}>
                     {summaryTypeOptions.length === 0 ? (
-                      <p style={{ textAlign: "center", padding: 20, color: T.muted, fontSize: 13 }}>
-                        No summary types available.
+                      <p style={{ textAlign: "center", padding: 32, color: T.muted, fontSize: 13 }}>
+                        No summary types available. Click <strong>+ Add Type</strong> to create one.
                       </p>
                     ) : (
                       <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
                           <tr>
-                            <th style={{ ...S.th, width: 60 }}>#</th>
-                            <th style={S.th}>Summary Type</th>
-                            <th style={{ ...S.th, width: 90, textAlign: "center" }}>Actions</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 60 }}>#</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 220 }}>Summary Type</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 140 }}>Headings Count</th>
+                            <th style={pkgCss.itemsTh}>Configured Headings Preview</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 120, textAlign: "center" }}>Status</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 140, textAlign: "center" }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {summaryTypeOptions.map((t, i) => {
-                            const isCurrentEdit = editingSummaryType?.summaryNo === t.summaryNo;
-                            return (
-                              <tr
-                                key={t.summaryNo || i}
-                                style={{
-                                  background: isCurrentEdit
-                                    ? `${T.teal}15`
-                                    : i % 2 === 0
-                                      ? T.white
-                                      : T.bg,
-                                }}
-                              >
-                                <td style={{ ...S.td, fontSize: 12, fontWeight: 600, color: T.muted }}>
-                                  {t.summaryNo || i + 1}
-                                </td>
-                                <td style={{ ...S.td, fontSize: 12.5, fontWeight: 500 }}>
-                                  {t.summaryType}
-                                </td>
-                                <td style={{ ...S.td, textAlign: "center" }}>
-                                  <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingSummaryType(t);
-                                        setNewSummaryTypeInput(t.summaryType);
+                          {summaryTypeOptions
+                            .filter((t) => {
+                              if (!typeSearchFilter) return true;
+                              const q = typeSearchFilter.toLowerCase();
+                              const matchType = (t.summaryType || "").toLowerCase().includes(q);
+                              const matchHeadings = Array.isArray(t.headings) && t.headings.some((h) => (h.heading || "").toLowerCase().includes(q));
+                              return matchType || matchHeadings;
+                            })
+                            .map((t, i) => {
+                              const isActive = t.is_active !== false;
+                              const headingsArr = Array.isArray(t.headings) ? t.headings : [];
+                              const previewStr = headingsArr.length > 0
+                                ? headingsArr
+                                  .slice(0, 3)
+                                  .map((h, idx) => `${idx + 1}. ${h.heading || ""}`)
+                                  .join(", ") + (headingsArr.length > 3 ? ` ... (+${headingsArr.length - 3} more)` : "")
+                                : "— No headings configured —";
+
+                              return (
+                                <tr
+                                  key={t.summaryNo || i}
+                                  style={{
+                                    background: i % 2 === 0 ? T.white : "#F8FAFC",
+                                    borderBottom: `1px solid ${T.border}`,
+                                    opacity: isActive ? 1 : 0.7,
+                                  }}
+                                >
+                                  <td style={{ ...pkgCss.itemsTd, fontWeight: 700, color: T.muted }}>
+                                    {t.summaryNo || i + 1}
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, fontWeight: 700, color: isActive ? T.teal : "#64748b" }}>
+                                    {t.summaryType}
+                                    {!isActive && (
+                                      <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 500, color: "#94a3b8" }}>
+                                        (deactivated)
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={pkgCss.itemsTd}>
+                                    <span style={pkgCss.countBadge}>
+                                      {headingsArr.length} heading{headingsArr.length !== 1 ? "s" : ""}
+                                    </span>
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, fontSize: 12, color: headingsArr.length > 0 ? T.slate : T.muted }}>
+                                    {previewStr}
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                                    <div
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        justifyContent: "center",
                                       }}
-                                      title="Edit"
-                                      style={S.actionBtn(T.teal)}
                                     >
-                                      <Edit size={13} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteSummaryType(t.summaryNo, t.summaryType)}
-                                      title="Delete"
-                                      style={S.actionBtn(T.red)}
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                      {renderStatusToggle({
+                                        checked: isActive,
+                                        onChange: () => handleToggleSummaryTypeStatus(t),
+                                        title: isActive
+                                          ? "Click to Deactivate Summary Type"
+                                          : "Click to Activate Summary Type",
+                                      })}
+                                      <span
+                                        style={{
+                                          fontSize: 11.5,
+                                          fontWeight: 600,
+                                          color: isActive ? "#059669" : "#64748b",
+                                        }}
+                                      >
+                                        {isActive ? "Active" : "Inactive"}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                                    <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => setViewTypeObj(t)}
+                                        style={pkgCss.smallBtn("primary")}
+                                        title="View headings list"
+                                      >
+                                        <Eye size={12} /> View
+                                      </button>
+                                      <button
+                                        id={`edit-type-btn-${t.summaryNo}`}
+                                        type="button"
+                                        onClick={() => openEditType(t)}
+                                        style={pkgCss.smallBtn("ghost")}
+                                        title="Edit summary type & headings"
+                                      >
+                                        <Edit size={12} /> Edit
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                         </tbody>
                       </table>
                     )}
@@ -3670,9 +4509,8 @@ const Summary = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAddSummaryTypeModal(false);
-                    setEditingSummaryType(null);
-                    setNewSummaryTypeInput("");
+                    setShowManageSummaryTypeModal(false);
+                    setTypeSearchFilter("");
                   }}
                   style={{
                     padding: "8px 18px",
@@ -3692,168 +4530,898 @@ const Summary = () => {
           </div>
         )}
 
-        {/* ── MANAGE HEADING MODAL ── */}
-        {showAddHeadingModal && (
+        {/* ── CREATE / EDIT SUMMARY TYPE MODAL (Same UI like Package.js) ── */}
+        {showTypeFormModal && (
           <div
             style={S.overlay}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
-                setShowAddHeadingModal(false);
-                setEditingHeading(null);
-                setNewHeadingInput("");
+                if (window.confirm("Discard unsaved changes?")) {
+                  setShowTypeFormModal(false);
+                }
               }
             }}
           >
-            <div style={{ ...S.modalBox, width: "min(560px, 94vw)" }}>
+            <div style={{ ...S.modalBox, width: "min(880px, 95vw)", maxHeight: "90vh" }}>
               <div style={S.modalHead}>
                 <span style={S.modalTitle}>
-                  <Plus size={16} /> Manage Headings
+                  {isEditTypeMode
+                    ? `✏️ Edit Summary Type — #${editingTypeNo}`
+                    : "📑 New Summary Type"}
                 </span>
                 <button
                   style={S.modalClose}
                   onClick={() => {
-                    setShowAddHeadingModal(false);
-                    setEditingHeading(null);
-                    setNewHeadingInput("");
+                    if (window.confirm("Discard unsaved changes?")) {
+                      setShowTypeFormModal(false);
+                    }
                   }}
                 >
                   <X size={15} />
                 </button>
               </div>
 
-              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-                {/* Input & Action Form */}
-                <form onSubmit={handleSaveHeading}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
-                      <span style={S.lbl}>
-                        {editingHeading ? "Edit Heading" : "New Heading"}
-                      </span>
-                      <CInp
-                        value={newHeadingInput}
-                        onChange={(e) => setNewHeadingInput(e.target.value)}
-                        placeholder="e.g. CLINICAL SUMMARY"
-                        autoFocus
-                      />
+              <div style={{ padding: "20px 24px", overflowY: "auto", flexGrow: 1 }}>
+                {isEditTypeMode && (
+                  <div style={pkgCss.editBanner}>
+                    <div style={pkgCss.editBannerDot} />
+                    Editing Summary Type:{" "}
+                    <strong style={{ color: T.teal }}>
+                      {typeFormData.summaryType}
+                    </strong>
+                  </div>
+                )}
+
+                {/* Card 1: Type Details */}
+                <div style={pkgCss.card}>
+                  <div style={pkgCss.cardTitle}>
+                    <div style={pkgCss.sectionLine} /> Type Details
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: T.muted, display: "block", marginBottom: 6 }}>
+                      Summary Type Name *
+                    </span>
+                    <CInp
+                      value={typeFormData.summaryType}
+                      onChange={(e) =>
+                        setTypeFormData((prev) => ({
+                          ...prev,
+                          summaryType: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. Summary, DISCHARGE SUMMARY, DAY CARE SUMMARY"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                {/* Configured Headings Table with Order IDs */}
+                <div style={pkgCss.card}>
+                  <div style={{ ...pkgCss.cardTitle, justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={pkgCss.sectionLine} /> Configured Headings ({typeFormData.headings.length})
                     </div>
-                    {editingHeading && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: T.muted, textTransform: "none", letterSpacing: "normal" }}>
+                        Use ▲ / ▼ to reorder
+                      </span>
                       <button
                         type="button"
-                        onClick={() => {
-                          setEditingHeading(null);
-                          setNewHeadingInput("");
-                        }}
+                        onClick={handleOpenHeadingModule}
                         style={{
-                          height: 38,
-                          padding: "0 12px",
-                          fontSize: 12,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "6px 14px",
+                          fontSize: 12.5,
                           fontWeight: 600,
-                          border: `1px solid ${T.border}`,
+                          background: `linear-gradient(135deg, ${T.teal}, #0ea5e9)`,
+                          color: "white",
+                          border: "none",
                           borderRadius: 7,
-                          background: "white",
-                          color: T.muted,
                           cursor: "pointer",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
                         }}
+                        title="Add or select headings from Headings Master"
                       >
-                        Cancel
+                        <Plus size={14} /> Add & Manage Headings
                       </button>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={savingHeading}
-                      style={{
-                        ...S.btn(editingHeading ? "primary" : "primary"),
-                        height: 38,
-                        padding: "0 16px",
-                        fontSize: 12.5,
-                        opacity: savingHeading ? 0.7 : 1,
-                        cursor: savingHeading ? "not-allowed" : "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {savingHeading
-                        ? "Saving..."
-                        : editingHeading
-                          ? "Update"
-                          : "Add Heading"}
-                    </button>
+                    </div>
                   </div>
-                </form>
 
-                {/* Existing Headings List */}
-                <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
-                  <span style={{ ...S.lbl, color: T.teal, marginBottom: 8, display: "block" }}>
-                    Existing Headings ({headingOptions.length})
-                  </span>
+                  {typeFormData.headings.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "36px 20px" }}>
+                      <p style={{ color: T.muted, fontSize: 13, margin: 0 }}>
+                        No headings added to this type yet. Click <strong>+ Add & Manage Headings</strong> above to select or create headings.
+                      </p>
+                    </div>
+                  ) : (
+                    <table style={pkgCss.itemsTable}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...pkgCss.itemsTh, width: 75, textAlign: "center" }}>Order ID</th>
+                          <th style={pkgCss.itemsTh}>Heading / Section Name</th>
+                          <th style={{ ...pkgCss.itemsTh, width: 90 }}>Heading No</th>
+                          <th style={{ ...pkgCss.itemsTh, minWidth: 210 }}>Predefined Value</th>
+                          <th style={{ ...pkgCss.itemsTh, width: 85, textAlign: "center" }}>Reorder</th>
+                          <th style={{ ...pkgCss.itemsTh, width: 75, textAlign: "center" }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {typeFormData.headings.map((h, index) => (
+                          <tr
+                            key={index}
+                            style={{
+                              background: index % 2 === 0 ? T.white : "#F8FAFC",
+                            }}
+                          >
+                            <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: "50%",
+                                  background: "#e0f2fe",
+                                  color: "#0284c7",
+                                  fontWeight: 700,
+                                  fontSize: 12.5,
+                                }}
+                              >
+                                {index + 1}
+                              </span>
+                            </td>
+                            <td style={pkgCss.itemsTd}>
+                              <strong style={{ color: T.slate, fontSize: 13 }}>
+                                {h.heading}
+                              </strong>
+                            </td>
+                            <td style={{ ...pkgCss.itemsTd, color: T.muted, fontSize: 12 }}>
+                              {h.headingNo || "—"}
+                            </td>
+                            <td style={{ ...pkgCss.itemsTd, minWidth: 210 }}>
+                              {h.defaultValue && h.defaultValue.trim() ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      maxWidth: 140,
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      fontSize: 11.5,
+                                      background: "#ecfdf5",
+                                      color: "#065f46",
+                                      border: "1px solid #a7f3d0",
+                                      padding: "2px 7px",
+                                      borderRadius: 4,
+                                      fontFamily: "monospace",
+                                    }}
+                                    title={h.defaultValue}
+                                  >
+                                    {h.defaultValue.replace(/\n/g, " ↵ ")}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditHeadingDefault(index)}
+                                    style={{
+                                      ...pkgCss.smallBtn("outline"),
+                                      padding: "2px 6px",
+                                      fontSize: 11,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 3,
+                                    }}
+                                    title="Edit predefined default value"
+                                  >
+                                    <Edit size={10} /> Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTypeFormData((prev) => {
+                                        const next = [...prev.headings];
+                                        next[index] = { ...next[index], defaultValue: "" };
+                                        return { ...prev, headings: next };
+                                      });
+                                    }}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#ef4444",
+                                      cursor: "pointer",
+                                      padding: 2,
+                                    }}
+                                    title="Clear predefined value"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openEditHeadingDefault(index)}
+                                  style={{
+                                    background: "#f8fafc",
+                                    border: "1px dashed #cbd5e1",
+                                    color: "#64748b",
+                                    borderRadius: 6,
+                                    padding: "3px 8px",
+                                    fontSize: 11.5,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                  title="Set predefined template / default value for this heading"
+                                >
+                                  <Plus size={11} />
+                                  <span>Set Default</span>
+                                </button>
+                              )}
+                            </td>
+                            <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                              <div style={{ display: "inline-flex", gap: 4, justifyContent: "center" }}>
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => handleMoveHeadingOrder(index, "up")}
+                                  style={{
+                                    ...pkgCss.smallBtn("outline"),
+                                    padding: "3px 7px",
+                                    opacity: index === 0 ? 0.35 : 1,
+                                    cursor: index === 0 ? "not-allowed" : "pointer",
+                                  }}
+                                  title="Move Up"
+                                >
+                                  <ArrowUp size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === typeFormData.headings.length - 1}
+                                  onClick={() => handleMoveHeadingOrder(index, "down")}
+                                  style={{
+                                    ...pkgCss.smallBtn("outline"),
+                                    padding: "3px 7px",
+                                    opacity: index === typeFormData.headings.length - 1 ? 0.35 : 1,
+                                    cursor: index === typeFormData.headings.length - 1 ? "not-allowed" : "pointer",
+                                  }}
+                                  title="Move Down"
+                                >
+                                  <ArrowDown size={12} />
+                                </button>
+                              </div>
+                            </td>
+                            <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveHeadingFromType(index)}
+                                style={{
+                                  ...pkgCss.smallBtn("danger"),
+                                  padding: "4px 8px",
+                                }}
+                                title="Remove heading from this type"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
 
-                  <div
+              <div style={S.modalFoot}>
+                <button
+                  type="button"
+                  onClick={() => setShowTypeFormModal(false)}
+                  style={{
+                    padding: "8px 18px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 7,
+                    background: "white",
+                    color: T.muted,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTypeSubmit}
+                  disabled={savingType}
+                  style={{
+                    ...pkgCss.btn("primary"),
+                    opacity: savingType ? 0.7 : 1,
+                    cursor: savingType ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {savingType ? "Saving..." : isEditTypeMode ? "Update Summary Type" : "Save Summary Type"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── EDIT PREDEFINED HEADING VALUE MODAL ── */}
+        {editingHeadingDefaultIndex !== null && typeFormData.headings[editingHeadingDefaultIndex] && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(15, 23, 42, 0.65)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1150,
+              padding: 20,
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setEditingHeadingDefaultIndex(null);
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                borderRadius: 12,
+                width: "min(620px, 94vw)",
+                boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "16px 20px",
+                  borderBottom: "1px solid #e2e8f0",
+                  background: "#f8fafc",
+                }}
+              >
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b", display: "flex", alignItems: "center", gap: 8 }}>
+                    <FileText size={16} color="#0d9488" />
+                    <span>Predefined Default Value</span>
+                  </h4>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                    Section: <strong style={{ color: "#0f172a" }}>{typeFormData.headings[editingHeadingDefaultIndex].heading}</strong> &bull; Type: <span style={{ color: "#0d9488", fontWeight: 600 }}>{typeFormData.summaryType || "Summary Type"}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingHeadingDefaultIndex(null)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#94a3b8",
+                    padding: 4,
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ padding: "18px 20px" }}>
+                <p style={{ fontSize: 12.5, color: "#475569", margin: "0 0 10px 0" }}>
+                  Enter the default template / text for this heading in this summary type. When this summary type is selected on the discharge form, this section will automatically populate with this value.
+                </p>
+                <textarea
+                  rows={9}
+                  value={tempDefaultValue}
+                  onChange={(e) => setTempDefaultValue(e.target.value)}
+                  placeholder={"Enter predefined default value / template here...\n\ne.g. for VITALS:\nBP: 120/80 mm hg\nPR:65/min\nRR: 18/min\nT: 98.6'F\nGCS: 15/15"}
+                  style={{
+                    width: "100%",
+                    fontFamily: "monospace",
+                    fontSize: 13,
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1.5px solid #cbd5e1",
+                    outline: "none",
+                    boxSizing: "border-box",
+                    lineHeight: 1.5,
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = "#0d9488")}
+                  onBlur={(e) => (e.target.style.borderColor = "#cbd5e1")}
+                  autoFocus
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 20px",
+                  background: "#f8fafc",
+                  borderTop: "1px solid #e2e8f0",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setTempDefaultValue("")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#ef4444",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    padding: "4px 8px",
+                  }}
+                >
+                  Clear Text
+                </button>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingHeadingDefaultIndex(null)}
                     style={{
-                      maxHeight: 280,
-                      overflowY: "auto",
-                      border: `1px solid ${T.border}`,
-                      borderRadius: 8,
-                      background: T.bg,
+                      padding: "7px 14px",
+                      borderRadius: 6,
+                      border: "1px solid #cbd5e1",
+                      background: "white",
+                      color: "#475569",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
                     }}
                   >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveHeadingDefault}
+                    style={{
+                      padding: "7px 16px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: "#0d9488",
+                      color: "white",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      boxShadow: "0 2px 4px rgba(13, 148, 136, 0.2)",
+                    }}
+                  >
+                    Save Default Value
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MANAGE HEADINGS MODAL (Add, Edit, Delete Headings Master) ── */}
+        {showManageHeadingModal && (
+          <div
+            style={{ ...S.overlay, zIndex: 1100 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowManageHeadingModal(false);
+                setHeadingInput("");
+                setEditingHeading(null);
+                setHeadingSearchFilter("");
+              }
+            }}
+          >
+            <div
+              style={{
+                ...S.modalBox,
+                width: "min(740px, 95vw)",
+                maxHeight: "88vh",
+              }}
+            >
+              {/* Header */}
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <FileText size={18} /> Manage Headings Master
+                </span>
+                <button
+                  style={S.modalClose}
+                  onClick={() => {
+                    setShowManageHeadingModal(false);
+                    setHeadingInput("");
+                    setEditingHeading(null);
+                    setHeadingSearchFilter("");
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div
+                style={{
+                  padding: "18px 22px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                  overflowY: "auto",
+                  flexGrow: 1,
+                }}
+              >
+                {/* 1. Add / Edit Heading Form Card */}
+                <div
+                  style={{
+                    background: editingHeading ? "#fffbeb" : "#f8fafc",
+                    border: `1px solid ${editingHeading ? "#fde68a" : T.border}`,
+                    borderRadius: 10,
+                    padding: "16px 18px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: editingHeading ? "#b45309" : T.teal,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      {editingHeading ? (
+                        <>
+                          <Edit size={15} /> Edit Heading (No: {editingHeading.headingNo})
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={15} /> Add New Heading
+                        </>
+                      )}
+                    </div>
+
+                    {editingHeading && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: 12,
+                          background: "#fef3c7",
+                          color: "#92400e",
+                          border: "1px solid #fde68a",
+                        }}
+                      >
+                        Editing Mode
+                      </span>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleSaveHeading}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <div style={{ flex: 1 }}>
+                        <CInp
+                          value={headingInput}
+                          onChange={(e) => setHeadingInput(e.target.value)}
+                          placeholder="e.g. COURSE IN HOSPITAL, TREATMENT GIVEN, SURGICAL NOTES..."
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={savingHeading}
+                        style={{
+                          ...pkgCss.btn("primary"),
+                          padding: "8px 18px",
+                          fontSize: 13,
+                          whiteSpace: "nowrap",
+                          background: editingHeading
+                            ? "linear-gradient(135deg, #0d9488, #10b981)"
+                            : `linear-gradient(135deg, ${T.teal}, #0ea5e9)`,
+                          opacity: savingHeading ? 0.7 : 1,
+                          cursor: savingHeading ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {savingHeading
+                          ? "Saving..."
+                          : editingHeading
+                            ? "Save Update"
+                            : "+ Add Heading"}
+                      </button>
+                      {editingHeading && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditHeading}
+                          style={{
+                            ...pkgCss.btn("outline"),
+                            padding: "8px 14px",
+                            fontSize: 13,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+
+                {/* 2. Headings Search Bar */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    background: "#ffffff",
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                  }}
+                >
+                  <Search size={15} color={T.muted} />
+                  <input
+                    type="text"
+                    value={headingSearchFilter}
+                    onChange={(e) => setHeadingSearchFilter(e.target.value)}
+                    placeholder="Search headings by title or heading number..."
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      fontSize: 13,
+                      color: T.slate,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: T.muted,
+                      background: "#f1f5f9",
+                      padding: "2px 8px",
+                      borderRadius: 12,
+                    }}
+                  >
+                    {
+                      headingOptions.filter((h) => {
+                        if (!headingSearchFilter) return true;
+                        const q = headingSearchFilter.toLowerCase();
+                        return (
+                          (h.heading || "").toLowerCase().includes(q) ||
+                          String(h.headingNo || "").includes(q)
+                        );
+                      }).length
+                    }{" "}
+                    of {headingOptions.length}
+                  </span>
+                </div>
+
+                {/* 3. Master Headings Table */}
+                <div
+                  style={{
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 9,
+                    overflow: "hidden",
+                    background: T.white,
+                  }}
+                >
+                  <div style={{ overflowX: "auto", maxHeight: 320 }}>
                     {headingOptions.length === 0 ? (
-                      <p style={{ textAlign: "center", padding: 20, color: T.muted, fontSize: 13 }}>
-                        No headings available.
+                      <p style={{ textAlign: "center", padding: 28, color: T.muted, fontSize: 13 }}>
+                        No headings in master table. Use the form above to add one.
                       </p>
                     ) : (
                       <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
                           <tr>
-                            <th style={{ ...S.th, width: 60 }}>#</th>
-                            <th style={S.th}>Heading</th>
-                            <th style={{ ...S.th, width: 90, textAlign: "center" }}>Actions</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 70, textAlign: "center" }}>#</th>
+                            <th style={pkgCss.itemsTh}>Heading Title</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 125, textAlign: "center" }}>Status</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 180, textAlign: "center" }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {headingOptions.map((h, i) => {
-                            const isCurrentEdit = editingHeading?.headingNo === h.headingNo;
-                            return (
-                              <tr
-                                key={h.headingNo || i}
-                                style={{
-                                  background: isCurrentEdit
-                                    ? `${T.teal}15`
-                                    : i % 2 === 0
-                                      ? T.white
-                                      : T.bg,
-                                }}
-                              >
-                                <td style={{ ...S.td, fontSize: 12, fontWeight: 600, color: T.muted }}>
-                                  {h.headingNo || i + 1}
-                                </td>
-                                <td style={{ ...S.td, fontSize: 12.5, fontWeight: 500 }}>
-                                  {h.heading}
-                                </td>
-                                <td style={{ ...S.td, textAlign: "center" }}>
-                                  <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingHeading(h);
-                                        setNewHeadingInput(h.heading);
+                          {headingOptions
+                            .filter((h) => {
+                              if (!headingSearchFilter) return true;
+                              const q = headingSearchFilter.toLowerCase();
+                              return (
+                                (h.heading || "").toLowerCase().includes(q) ||
+                                String(h.headingNo || "").includes(q)
+                              );
+                            })
+                            .map((h, i) => {
+                              const isActive = h.is_active !== false;
+                              const isBeingEdited =
+                                editingHeading &&
+                                String(editingHeading.headingNo) === String(h.headingNo);
+                              const alreadyInType =
+                                showTypeFormModal &&
+                                Array.isArray(typeFormData.headings) &&
+                                typeFormData.headings.some(
+                                  (item) =>
+                                    String(item.headingNo) === String(h.headingNo) ||
+                                    item.heading === h.heading
+                                );
+
+                              return (
+                                <tr
+                                  key={h.headingNo || i}
+                                  style={{
+                                    background: isBeingEdited
+                                      ? "#fef9c3"
+                                      : i % 2 === 0
+                                        ? T.white
+                                        : "#F8FAFC",
+                                    borderBottom: `1px solid ${T.border}`,
+                                    opacity: isActive ? 1 : 0.72,
+                                  }}
+                                >
+                                  <td
+                                    style={{
+                                      ...pkgCss.itemsTd,
+                                      textAlign: "center",
+                                      fontWeight: 600,
+                                      color: T.muted,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    {h.headingNo || i + 1}
+                                  </td>
+                                  <td style={pkgCss.itemsTd}>
+                                    <strong
+                                      style={{
+                                        color: isBeingEdited ? "#854d0e" : isActive ? T.slate : "#64748b",
+                                        fontSize: 13,
                                       }}
-                                      title="Edit"
-                                      style={S.actionBtn(T.teal)}
                                     >
-                                      <Edit size={13} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteHeading(h.headingNo, h.heading)}
-                                      title="Delete"
-                                      style={S.actionBtn(T.red)}
+                                      {h.heading}
+                                    </strong>
+                                    {!isActive && (
+                                      <span
+                                        style={{
+                                          marginLeft: 6,
+                                          fontSize: 11,
+                                          fontWeight: 500,
+                                          color: "#94a3b8",
+                                        }}
+                                      >
+                                        (deactivated)
+                                      </span>
+                                    )}
+                                    {isBeingEdited && (
+                                      <span
+                                        style={{
+                                          marginLeft: 8,
+                                          fontSize: 11,
+                                          color: "#b45309",
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        (editing)
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                                    <div
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        justifyContent: "center",
+                                      }}
                                     >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                      {renderStatusToggle({
+                                        checked: isActive,
+                                        onChange: () => handleToggleHeadingStatus(h),
+                                        title: isActive
+                                          ? "Click to Deactivate Heading"
+                                          : "Click to Activate Heading",
+                                      })}
+                                      <span
+                                        style={{
+                                          fontSize: 11.5,
+                                          fontWeight: 600,
+                                          color: isActive ? "#059669" : "#64748b",
+                                        }}
+                                      >
+                                        {isActive ? "Active" : "Inactive"}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                                    <div
+                                      style={{
+                                        display: "inline-flex",
+                                        gap: 6,
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                      }}
+                                    >
+                                      {showTypeFormModal && (
+                                        <button
+                                          type="button"
+                                          disabled={alreadyInType || !isActive}
+                                          onClick={() => {
+                                            if (!isActive) return;
+                                            handleAddHeadingToType(h.heading);
+                                          }}
+                                          style={{
+                                            ...pkgCss.smallBtn(
+                                              alreadyInType
+                                                ? "outline"
+                                                : !isActive
+                                                  ? "ghost"
+                                                  : "primary"
+                                            ),
+                                            padding: "3px 10px",
+                                            fontSize: 11.5,
+                                            background: alreadyInType
+                                              ? "#ecfdf5"
+                                              : !isActive
+                                                ? "#f1f5f9"
+                                                : "linear-gradient(135deg, #0d9488, #0ea5e9)",
+                                            color: alreadyInType
+                                              ? "#047857"
+                                              : !isActive
+                                                ? "#94a3b8"
+                                                : "#ffffff",
+                                            border: alreadyInType
+                                              ? "1px solid #a7f3d0"
+                                              : !isActive
+                                                ? "1px dashed #cbd5e1"
+                                                : "none",
+                                            cursor: alreadyInType
+                                              ? "default"
+                                              : !isActive
+                                                ? "not-allowed"
+                                                : "pointer",
+                                          }}
+                                          title={
+                                            alreadyInType
+                                              ? "Already added to this type"
+                                              : !isActive
+                                                ? "Deactivated heading cannot be added to a type"
+                                                : "Add to current summary type"
+                                          }
+                                        >
+                                          {alreadyInType
+                                            ? "✓ Added"
+                                            : "+ Add to Type"}
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEditHeadingClick(h)}
+                                        style={pkgCss.smallBtn("outline")}
+                                        title="Edit this heading"
+                                      >
+                                        <Edit size={12} color={T.teal} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                         </tbody>
                       </table>
                     )}
@@ -3861,14 +5429,170 @@ const Summary = () => {
                 </div>
               </div>
 
+              {/* Footer */}
+              <div
+                style={{
+                  ...S.modalFoot,
+                  justifyContent: "space-between",
+                  background: "#f8fafc",
+                }}
+              >
+                <div style={{ fontSize: 12, color: T.muted }}>
+                  {showTypeFormModal ? (
+                    <span>
+                      <strong style={{ color: T.teal }}>{typeFormData.headings.length}</strong> heading(s) currently configured for this type.
+                    </span>
+                  ) : (
+                    <span>Total {headingOptions.length} headings in master table</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManageHeadingModal(false);
+                    setHeadingInput("");
+                    setEditingHeading(null);
+                    setHeadingSearchFilter("");
+                  }}
+                  style={{
+                    padding: "7px 18px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 7,
+                    border: `1px solid ${T.border}`,
+                    background: "white",
+                    color: T.slate,
+                    cursor: "pointer",
+                  }}
+                >
+                  {showTypeFormModal ? "Done (Return to Type)" : "Done"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── VIEW SUMMARY TYPE MODAL ── */}
+        {viewTypeObj && (
+          <div
+            style={S.overlay}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setViewTypeObj(null);
+            }}
+          >
+            <div style={{ ...S.modalBox, width: "min(620px, 92vw)", maxHeight: "85vh" }}>
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <Eye size={16} /> Summary Type — {viewTypeObj.summaryType}
+                </span>
+                <button style={S.modalClose} onClick={() => setViewTypeObj(null)}>
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div style={{ padding: "20px 24px", overflowY: "auto", flexGrow: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, borderBottom: `1px solid ${T.border}`, paddingBottom: 10 }}>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase" }}>Type No: </span>
+                    <strong style={{ color: T.teal }}>#{viewTypeObj.summaryNo}</strong>
+                  </div>
+                  <div>
+                    <span style={pkgCss.countBadge}>
+                      {viewTypeObj.headings?.length || 0} Headings
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: T.muted, marginBottom: 10 }}>
+                  Ordered Headings / Sections
+                </div>
+
+                {!viewTypeObj.headings || viewTypeObj.headings.length === 0 ? (
+                  <p style={{ color: T.muted, textAlign: "center", padding: 24, fontSize: 13 }}>
+                    No headings configured for this Summary Type.
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {viewTypeObj.headings.map((h, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          background: "#F8FAFC",
+                          border: `1px solid ${T.border}`,
+                          fontSize: 13,
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
+                            background: "#e0f2fe",
+                            color: "#0284c7",
+                            fontWeight: 700,
+                            fontSize: 12,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {i + 1}
+                        </span>
+                        <span style={{ fontWeight: 600, color: T.slate, flex: 1 }}>
+                          {h.heading}
+                        </span>
+                        {h.defaultValue && h.defaultValue.trim() && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "#047857",
+                              background: "#ecfdf5",
+                              border: "1px solid #a7f3d0",
+                              borderRadius: 4,
+                              padding: "2px 8px",
+                              maxWidth: 180,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              fontFamily: "monospace",
+                            }}
+                            title={`Predefined Default:\n${h.defaultValue}`}
+                          >
+                            Default: {h.defaultValue.replace(/\n/g, " ↵ ")}
+                          </span>
+                        )}
+                        {h.headingNo && (
+                          <span style={{ fontSize: 11, color: T.muted }}>
+                            Code: {h.headingNo}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div style={S.modalFoot}>
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAddHeadingModal(false);
-                    setEditingHeading(null);
-                    setNewHeadingInput("");
+                    const toEdit = viewTypeObj;
+                    setViewTypeObj(null);
+                    openEditType(toEdit);
                   }}
+                  style={pkgCss.btn("primary")}
+                >
+                  <Edit size={13} /> Edit Headings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewTypeObj(null)}
                   style={{
                     padding: "8px 18px",
                     fontSize: 13,
@@ -3895,6 +5619,248 @@ const Summary = () => {
           initialQuery={patientSearchQuery}
           mode="ip"
         />
+
+        {/* ── CONSULTANT DOCTORS MODAL ── */}
+        {showDoctorModal && (
+          <div
+            style={S.overlay}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowDoctorModal(false);
+                setDoctorSearchQuery("");
+              }
+            }}
+          >
+            <div
+              style={{
+                ...S.modalBox,
+                width: "min(680px, 95vw)",
+                maxHeight: "85vh",
+              }}
+            >
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <Stethoscope size={17} color={T.teal} /> Select Doctors for Consultant Section
+                </span>
+                <button
+                  style={S.modalClose}
+                  onClick={() => {
+                    setShowDoctorModal(false);
+                    setDoctorSearchQuery("");
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div style={{ padding: "16px 22px", flexGrow: 1, overflowY: "auto" }}>
+                {/* Search & Help */}
+                <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <Search
+                      size={15}
+                      style={{
+                        position: "absolute",
+                        left: 10,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: T.muted,
+                      }}
+                    />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={doctorSearchQuery}
+                      onChange={(e) => setDoctorSearchQuery(e.target.value)}
+                      placeholder="Search Doctors..."
+                      style={{
+                        ...S.inp,
+                        paddingLeft: 34,
+                        width: "100%",
+                        fontSize: 13,
+                        borderColor: T.teal,
+                      }}
+                    />
+                  </div>
+                  {doctorSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setDoctorSearchQuery("")}
+                      style={{
+                        border: "none",
+                        background: "#f1f5f9",
+                        color: T.slate,
+                        padding: "6px 12px",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: T.muted,
+                    marginBottom: 12,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span>Click any doctor to include or remove from the Consultant section notes.</span>
+                  <span style={{ fontWeight: 600, color: T.teal }}>
+                    {doctors.length} doctors available
+                  </span>
+                </div>
+
+                {/* Primary doctor quick add if available */}
+                {formData.doctor && (
+                  <div
+                    style={{
+                      background: "#f0fdfa",
+                      border: "1.5px dashed #0d9488",
+                      borderRadius: 8,
+                      padding: "10px 14px",
+                      marginBottom: 14,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#0f766e", textTransform: "uppercase" }}>
+                        Primary Admitting Doctor
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#134e4a" }}>
+                        {formData.doctor.toUpperCase()}
+                      </div>
+                    </div>
+                    {isDoctorIncludedInNotes(formData.doctor) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDoctorInConsultant(formData.doctor)}
+                        style={{
+                          background: "#fee2e2",
+                          border: "1px solid #f87171",
+                          color: "#b91c1c",
+                          padding: "5px 12px",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ✓ Included (Click to Remove)
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDoctorInConsultant(formData.doctor)}
+                        style={{
+                          background: "#0d9488",
+                          border: "none",
+                          color: "#ffffff",
+                          padding: "6px 14px",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        + Include Primary Doctor
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Doctors Grid / List */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
+                  {filteredModalDoctors.map((doc, idx) => {
+                    const upperName = (doc.employeeName || "").toUpperCase();
+                    const included = isDoctorIncludedInNotes(upperName);
+                    return (
+                      <div
+                        key={doc.employeeId || idx}
+                        onClick={() => handleToggleDoctorInConsultant(upperName)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: included ? "1.5px solid #0d9488" : `1px solid ${T.border}`,
+                          background: included ? "#f0fdfa" : "#ffffff",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          boxShadow: included ? "0 2px 6px rgba(13, 148, 136, 0.15)" : "none",
+                        }}
+                      >
+                        <div style={{ flex: 1, paddingRight: 8 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: included ? "#0f766e" : T.slate }}>
+                            {upperName}
+                          </div>
+                          {doc.department && doc.department !== "N/A" && (
+                            <div style={{ fontSize: 11, color: T.muted }}>
+                              {doc.department}
+                            </div>
+                          )}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "3px 8px",
+                            borderRadius: 6,
+                            background: included ? "#0d9488" : "#f1f5f9",
+                            color: included ? "#ffffff" : "#64748b",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {included ? "✓ Included" : "+ Add"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {filteredModalDoctors.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "30px 20px", color: T.muted }}>
+                    No doctors found matching "{doctorSearchQuery}".
+                  </div>
+                )}
+              </div>
+
+              <div style={{ ...S.modalFoot, justifyContent: "space-between", background: "#f8fafc" }}>
+                <span style={{ fontSize: 12, color: T.muted }}>
+                  Current Notes: <strong>{formData.notes ? formData.notes.split("\n").filter(Boolean).length : 0} line(s)</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDoctorModal(false);
+                    setDoctorSearchQuery("");
+                  }}
+                  style={{
+                    background: T.teal,
+                    color: "white",
+                    border: "none",
+                    borderRadius: 7,
+                    padding: "7px 20px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── AI Summarize Review & Edit Modal ── */}
         {showAiModal && (
