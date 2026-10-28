@@ -1238,9 +1238,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
   const [loading, setLoading]                 = useState(false);
   const [error, setError]                     = useState(null);
   const [expandedKey, setExpandedKey]         = useState(null);
-  // Default to all dates ("") so active ward prescriptions display immediately on load without needing to click View All Dates
-  const [fromDate, setFromDate]               = useState("");
-  const [toDate, setToDate]                   = useState("");
+  // Initially set to current date (today)
+  const [fromDate, setFromDate]               = useState(todayStr);
+  const [toDate, setToDate]                   = useState(todayStr);
   const [searchQuery, setSearchQuery]         = useState("");
   const [activeFilter, setActiveFilter]       = useState("All"); // All, Pending, Processing, Insurance, General
   const [printPatient, setPrintPatient]       = useState(null);
@@ -1342,41 +1342,19 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
 
   // ─── Fetch main chart data ────────────────────────────────────────────────
   // ─── Fetch main chart data (instantly loaded from pre-enriched backend API) ─
-  const fetchMedicineChart = async () => {
+  const fetchMedicineChart = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      let userPayload = {};
-      try {
-        userPayload = JSON.parse(localStorage.getItem("user_payload") || "{}");
-      } catch (e) {}
-
-      const activeHospital =
-        localStorage.getItem("selected_hospital") ||
-        localStorage.getItem("hospital_code") ||
-        userPayload.hospital_code ||
-        "SH001";
-
-      const activeBranch =
-        localStorage.getItem("selected_branch") ||
-        localStorage.getItem("branch_code") ||
-        (Array.isArray(userPayload["allowed-data"]) ? userPayload["allowed-data"][0] : "") ||
-        "SHB001";
-
-      const activeOutlet =
-        localStorage.getItem("selected_outlet") ||
-        localStorage.getItem("outlet_code") ||
-        "OLET002";
+      const payload = {};
+      if (fromDate) payload.from_date = fromDate;
+      if (toDate) payload.to_date = toDate;
 
       const response = await apiRequest(
         `${Hmsbaseurl}pharmacy_medicinechart/`,
         "POST",
-        {
-          outlet_code: activeOutlet,
-          branch_code: activeBranch,
-          hospital_code: activeHospital,
-        }
+        payload
       );
 
       if (!response.success) {
@@ -1395,9 +1373,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [Hmsbaseurl, fromDate, toDate, onCountChange]);
 
-  useEffect(() => { fetchMedicineChart(); }, []);
+  useEffect(() => {
+    fetchMedicineChart();
+  }, [fetchMedicineChart]);
 
   // ─── On-demand (lazy) fetch stocks for substitute modal only ──────────────
   const fetchMedicines = useCallback(async () => {

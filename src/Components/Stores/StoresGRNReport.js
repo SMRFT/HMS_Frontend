@@ -4,10 +4,11 @@ import styled, { createGlobalStyle } from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { DatePicker, ConfigProvider } from 'antd';
+import ReactSelect from 'react-select';
 import dayjs from 'dayjs';
 import { 
     Pencil, CheckCheck, CreditCard, Printer, Trash2, 
-    MoreVertical, Eye
+    MoreVertical, Eye, AlertTriangle, AlertCircle
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 import TablePagination, { usePagination } from './TablePagination';
@@ -128,7 +129,8 @@ const GRNActionPopover = ({
     onApprove,
     onPayment,
     onPrint,
-    onDelete
+    onDelete,
+    onCancel
 }) => {
     const isApproved = !!grn.is_approved;
     const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -170,8 +172,8 @@ const GRNActionPopover = ({
             label: "Cancel",
             color: "#ef4444",
             disabled: isApproved,
-            title: isApproved ? "Cannot delete verified GRN" : "Delete GRN",
-            onClick: onDelete,
+            title: isApproved ? "Cannot cancel verified GRN" : "Cancel GRN",
+            onClick: onCancel || onDelete,
         },
         {
             icon: <CreditCard size={18} strokeWidth={1.8} />,
@@ -301,7 +303,7 @@ const numberToWords = (num) => {
     return r.trim() + " Only /-";
 };
 
-const StoresGRNDocument = ({ grn, vendorName, items = [] }) => {
+const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: getDeptNameProp }) => {
     const fmt2 = (n) => (parseFloat(n) || 0).toFixed(2);
     const fmtDate = (d) => d ? dayjs(d).format('DD/MM/YYYY') : '—';
 
@@ -407,6 +409,27 @@ const StoresGRNDocument = ({ grn, vendorName, items = [] }) => {
                 </div>
             </div>
 
+            {(grn.cancellation_remarks || grn.is_cancelled || grn.is_active === false) && (
+                <div style={{
+                    background: '#fef2f2',
+                    borderBottom: '1.5px solid #ef4444',
+                    padding: '8px 12px',
+                    color: '#991b1b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '9px',
+                    fontWeight: 600
+                }}>
+                    <span>
+                        <strong style={{ color: '#dc2626' }}>[CANCELLED GRN]</strong> Reason: {grn.cancellation_remarks || '—'}
+                    </span>
+                    {grn.cancelled_by && (
+                        <span>Cancelled By: <strong>{grn.cancelled_by}</strong></span>
+                    )}
+                </div>
+            )}
+
             {/* Metadata Strip */}
             <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #7dd3fc" }}>
                 <tbody>
@@ -449,6 +472,7 @@ const StoresGRNDocument = ({ grn, vendorName, items = [] }) => {
                         <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: "8.5px", width: "33%" }}>
                             <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                                 {[
+                                    ["Department", getDeptNameProp ? getDeptNameProp(grn.department, grn) : (grn.department_name || grn.department || "—")],
                                     ["Order Number", grn.order_number || ""],
                                     ["Payment Mode", grn.payment_mode || "CHEQUE"],
                                     ["Approved Date", grn.is_approved ? fmtDate(grn.approved_date || grn.date) : (grn.approved_date ? fmtDate(grn.approved_date) : "—")],
@@ -587,6 +611,86 @@ const StoresGRNDocument = ({ grn, vendorName, items = [] }) => {
     );
 };
 
+const deptSelectStyles = {
+    control: (base, state) => ({
+        ...base,
+        height: '48px',
+        minHeight: '48px',
+        borderRadius: '12px',
+        border: `1.5px solid ${state.isFocused ? '#1e3a8a' : colors.border}`,
+        boxShadow: state.isFocused ? '0 0 0 2px rgba(30, 58, 138, 0.15)' : 'none',
+        fontSize: '0.9rem',
+        fontWeight: '600',
+        backgroundColor: '#ffffff',
+        cursor: 'pointer',
+        minWidth: '220px',
+        '&:hover': {
+            borderColor: '#1e3a8a'
+        }
+    }),
+    valueContainer: (base) => ({
+        ...base,
+        height: '48px',
+        padding: '0 12px'
+    }),
+    input: (base) => ({
+        ...base,
+        margin: '0px',
+        fontSize: '0.9rem',
+        fontWeight: '600',
+        color: colors.textMain
+    }),
+    singleValue: (base) => ({
+        ...base,
+        color: colors.textMain,
+        fontWeight: '600',
+        fontSize: '0.9rem'
+    }),
+    placeholder: (base) => ({
+        ...base,
+        color: colors.textMuted,
+        fontWeight: '500',
+        fontSize: '0.9rem'
+    }),
+    indicatorsContainer: (base) => ({
+        ...base,
+        height: '48px'
+    }),
+    menuPortal: (base) => ({
+        ...base,
+        zIndex: 99999
+    }),
+    menu: (base) => ({
+        ...base,
+        borderRadius: '12px',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+        border: `1px solid ${colors.border}`,
+        overflow: 'hidden',
+        zIndex: 99999,
+        marginTop: '6px'
+    }),
+    menuList: (base) => ({
+        ...base,
+        padding: '6px',
+        maxHeight: '260px'
+    }),
+    option: (base, state) => ({
+        ...base,
+        borderRadius: '8px',
+        padding: '8px 12px',
+        fontSize: '0.86rem',
+        fontWeight: state.isSelected ? '700' : '500',
+        backgroundColor: state.isSelected
+            ? '#0d9488'
+            : state.isFocused
+            ? '#f0fdfa'
+            : 'transparent',
+        color: state.isSelected ? '#ffffff' : '#1e293b',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease'
+    })
+};
+
 const StoresGRNReport = () => {
     const navigate = useNavigate();
     const [grns, setGrns] = useState([]);
@@ -600,6 +704,21 @@ const StoresGRNReport = () => {
     const [toDate, setToDate] = useState(today);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('ALL');
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState('ALL');
+    const departmentFilterRef = useRef(null);
+
+    // F10 Shortcut to focus Department filter
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                departmentFilterRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const [openPopover, setOpenPopover] = useState(null);
     const [popoverData, setPopoverData] = useState(null);
@@ -608,9 +727,14 @@ const StoresGRNReport = () => {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showApproveModal, setShowApproveModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
+    const [showCancelModal, setShowCancelModal] = useState(false);
     const [selectedGrn, setSelectedGrn] = useState(null);
     const [selectedGrnForApproval, setSelectedGrnForApproval] = useState(null);
     const [selectedGrnForView, setSelectedGrnForView] = useState(null);
+    const [selectedGrnForCancel, setSelectedGrnForCancel] = useState(null);
+    const [cancelRemark, setCancelRemark] = useState('');
+    const [cancelError, setCancelError] = useState('');
+    const [cancelling, setCancelling] = useState(false);
     const [paymentData, setPaymentData] = useState({
         amount_paid: '',
         payment_method: 'Cash',
@@ -621,6 +745,7 @@ const StoresGRNReport = () => {
     useEffect(() => { 
         fetchGRNs(); 
         fetchVendors();
+        fetchDepartments();
     }, []);
 
     useEffect(() => {
@@ -634,6 +759,55 @@ const StoresGRNReport = () => {
         document.addEventListener('mousedown', handleDocClick);
         return () => document.removeEventListener('mousedown', handleDocClick);
     }, []);
+
+    const fetchDepartments = async () => {
+        try {
+            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`, 'GET');
+            if (response?.success) {
+                const list = Array.isArray(response.data)
+                    ? response.data
+                    : Array.isArray(response.data?.data)
+                    ? response.data.data
+                    : [];
+                setDepartments(list);
+            }
+        } catch (error) {
+            console.error("Error fetching departments:", error);
+        }
+    };
+
+    const getDepartmentName = (deptCode, grnObj = null) => {
+        const directName = grnObj?.department_name;
+        const code = deptCode || grnObj?.department || grnObj?.department_code || '';
+        const codeStr = String(code || '').trim();
+
+        // 1. If departments list has a match for code (from backend_diagnostics_Departments)
+        if (codeStr && departments && departments.length > 0) {
+            const match = departments.find(d => 
+                String(d.department_code || d.department_id || d.id || d._id || '').toLowerCase() === codeStr.toLowerCase()
+            );
+            if (match && (match.department_name || match.name)) {
+                return match.department_name || match.name;
+            }
+        }
+
+        // 2. If directName is valid and not a raw unmapped DEPT code
+        if (directName && directName !== codeStr && !/^DEPT\d+$/i.test(directName)) {
+            return directName;
+        }
+
+        // 3. If directName itself matches a code in departments
+        if (directName && departments && departments.length > 0) {
+            const match = departments.find(d => 
+                String(d.department_code || d.department_id || d.id || d._id || '').toLowerCase() === String(directName).trim().toLowerCase()
+            );
+            if (match && (match.department_name || match.name)) {
+                return match.department_name || match.name;
+            }
+        }
+
+        return directName || codeStr || '—';
+    };
 
     const fetchVendors = async () => {
         try {
@@ -658,10 +832,14 @@ const StoresGRNReport = () => {
             let method = 'GET';
             let data = null;
 
-            if (fromDate || toDate) {
+            if (fromDate || toDate || (selectedDepartment && selectedDepartment !== 'ALL')) {
                 // Now using the same main endpoint, but with POST
                 method = 'POST';
-                data = { from_date: fromDate, to_date: toDate };
+                data = { 
+                    from_date: fromDate, 
+                    to_date: toDate,
+                    ...(selectedDepartment && selectedDepartment !== 'ALL' ? { department: selectedDepartment } : {})
+                };
             }
 
             const response = await apiRequest(url, method, data);
@@ -674,19 +852,72 @@ const StoresGRNReport = () => {
     const clearFilter = () => {
         setFromDate(oneMonthAgo);
         setToDate(today);
+        setSearchTerm('');
+        setFilterStatus('ALL');
+        setSelectedDepartment('ALL');
         setTimeout(() => fetchGRNs(), 0);
     };
 
-    const handleDelete = async (grnNumber, grn) => {
+    const handleOpenCancelModal = (grn) => {
         if (grn?.is_approved) {
-            alert("Approved GRNs cannot be deleted.");
+            alert("Approved GRNs cannot be cancelled.");
             return;
         }
-        if (window.confirm(`Are you sure you want to delete GRN ${grnNumber}?`)) {
-            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-grn/${grnNumber}/`, 'DELETE');
-            if (response.success) fetchGRNs();
-            else alert("Error deleting GRN");
+        setSelectedGrnForCancel(grn);
+        setCancelRemark('');
+        setCancelError('');
+        setShowCancelModal(true);
+    };
+
+    const handleCloseCancelModal = () => {
+        if (cancelling) return;
+        setShowCancelModal(false);
+        setSelectedGrnForCancel(null);
+        setCancelRemark('');
+        setCancelError('');
+    };
+
+    const handleConfirmCancel = async () => {
+        if (!selectedGrnForCancel) return;
+        const trimmed = cancelRemark.trim();
+        if (!trimmed) {
+            setCancelError('Cancellation remark is required. Please provide a reason.');
+            return;
         }
+
+        setCancelling(true);
+        setCancelError('');
+        try {
+            const grnNumber = selectedGrnForCancel.grn_number;
+            const response = await apiRequest(
+                `${getBaseUrl.replace(/\/$/, '')}/stores-grn/${grnNumber}/?cancellation_remarks=${encodeURIComponent(trimmed)}`,
+                'DELETE',
+                {
+                    cancellation_remarks: trimmed,
+                    remark: trimmed
+                }
+            );
+
+            if (response.success) {
+                setShowCancelModal(false);
+                setSelectedGrnForCancel(null);
+                setCancelRemark('');
+                setCancelError('');
+                alert(`GRN ${grnNumber} has been successfully cancelled.`);
+                fetchGRNs();
+            } else {
+                const errMsg = response.error || (response.data && response.data.error) || 'Failed to cancel GRN.';
+                setCancelError(errMsg);
+            }
+        } catch (err) {
+            setCancelError('An unexpected error occurred while cancelling the GRN.');
+        } finally {
+            setCancelling(false);
+        }
+    };
+
+    const handleDelete = (grnNumber, grn) => {
+        handleOpenCancelModal(grn || { grn_number: grnNumber });
     };
     
     const handleApprove = (grn) => {
@@ -754,6 +985,7 @@ const StoresGRNReport = () => {
                 "Date": grn.date ? new Date(grn.date).toLocaleDateString('en-IN') : '-',
                 "Vendor": getVendorName(grn.vendor_id),
                 "Category": grn.purchase_category,
+                "Department": getDepartmentName(grn.department, grn),
                 "Invoice No": grn.invoice_no,
                 "Net Amount": netAmt.toFixed(2),
                 "Total Paid": totalPaid.toFixed(2),
@@ -792,6 +1024,7 @@ const StoresGRNReport = () => {
                                 <th>Date</th>
                                 <th>Vendor</th>
                                 <th>Category</th>
+                                <th>Department</th>
                                 <th>Invoice No</th>
                                 <th>Net Amt</th>
                                 <th>Paid</th>
@@ -810,6 +1043,7 @@ const StoresGRNReport = () => {
                                         <td>${grn.date ? new Date(grn.date).toLocaleDateString('en-IN') : '-'}</td>
                                         <td>${getVendorName(grn.vendor_id)}</td>
                                         <td>${grn.purchase_category}</td>
+                                        <td>${getDepartmentName(grn.department, grn)}</td>
                                         <td>${grn.invoice_no}</td>
                                         <td>₹${netAmt.toFixed(2)}</td>
                                         <td>₹${totalPaid.toFixed(2)}</td>
@@ -965,6 +1199,7 @@ const StoresGRNReport = () => {
                                     </td>
                                     <td style="vertical-align: top; padding: 5px 8px; font-size: 8.5px; width: 33%;">
                                         <table style="border-collapse: collapse; width: 100%;">
+                                            <tr><td style="border:none;font-weight:700;width:95px;">Department</td><td style="border:none;font-weight:600;color:#0d9488;">: ${getDepartmentName(grn.department, grn)}</td></tr>
                                             <tr><td style="border:none;font-weight:700;width:95px;">Order Number</td><td style="border:none;">: ${grn.order_number || grn.po_number || '—'}</td></tr>
                                             <tr><td style="border:none;font-weight:700;">Payment Mode</td><td style="border:none;">: ${grn.payment_mode || 'CHEQUE'}</td></tr>
                                             <tr><td style="border:none;font-weight:700;">Approved Date</td><td style="border:none;">: ${grn.is_approved ? fmtDate(grn.approved_date || grn.date) : '—'}</td></tr>
@@ -1234,11 +1469,27 @@ const StoresGRNReport = () => {
         const grnNo = (grn.grn_number || '').toLowerCase();
         const invNo = (grn.invoice_no || '').toLowerCase();
         const cat = (grn.purchase_category || '').toLowerCase();
+        const deptDisplay = getDepartmentName(grn.department, grn);
+        const deptSearchStr = `${deptDisplay} ${grn.department || ''} ${grn.department_code || ''}`.toLowerCase();
         const enteredBy = (grn.entered_by || grn.created_by_name || grn.created_by || '').toLowerCase();
         const q = searchTerm.toLowerCase().trim();
-        const matchesSearch = !q || vName.includes(q) || grnNo.includes(q) || invNo.includes(q) || cat.includes(q) || enteredBy.includes(q);
+        const matchesSearch = !q || vName.includes(q) || grnNo.includes(q) || invNo.includes(q) || cat.includes(q) || deptSearchStr.includes(q) || enteredBy.includes(q);
 
         if (!matchesSearch) return false;
+
+        if (selectedDepartment && selectedDepartment !== 'ALL') {
+            const rawCode = String(grn.department || grn.department_code || '').trim().toLowerCase();
+            const resolvedName = String(deptDisplay || '').trim().toLowerCase();
+            const target = String(selectedDepartment).trim().toLowerCase();
+            const selDeptObj = departments.find(d => 
+                String(d.department_code || d.department_id || d.id || '').toLowerCase() === target
+            );
+            const selName = String(selDeptObj?.department_name || selDeptObj?.name || '').toLowerCase();
+
+            if (rawCode !== target && resolvedName !== target && (!selName || resolvedName !== selName)) {
+                return false;
+            }
+        }
         if (filterStatus === 'ALL') return true;
         if (filterStatus === 'APPROVED') return !!grn.is_approved;
         if (filterStatus === 'UNAPPROVED') return !grn.is_approved;
@@ -1403,9 +1654,40 @@ const StoresGRNReport = () => {
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ minWidth: '220px' }}>
+                                    <ReactSelect
+                                        ref={departmentFilterRef}
+                                        value={
+                                            selectedDepartment === 'ALL'
+                                                ? { value: 'ALL', label: 'All Departments' }
+                                                : (
+                                                    departments
+                                                        .map(d => ({
+                                                            value: d.department_code || d.department_id || d.id,
+                                                            label: d.department_name || d.name || (d.department_code || d.department_id || d.id)
+                                                        }))
+                                                        .find(opt => opt.value === selectedDepartment) || { value: selectedDepartment, label: selectedDepartment }
+                                                )
+                                        }
+                                        onChange={(opt) => setSelectedDepartment(opt ? opt.value : 'ALL')}
+                                        options={[
+                                            { value: 'ALL', label: 'All Departments' },
+                                            ...departments.map(d => ({
+                                                value: d.department_code || d.department_id || d.id,
+                                                label: d.department_name || d.name || (d.department_code || d.department_id || d.id)
+                                            }))
+                                        ]}
+                                        placeholder="All Departments (F10)"
+                                        isSearchable={true}
+                                        openMenuOnFocus
+                                        isClearable={selectedDepartment !== 'ALL'}
+                                        menuPortalTarget={document.body}
+                                        styles={deptSelectStyles}
+                                    />
+                                </div>
                                 <input
                                     type="text"
-                                    placeholder="Search GRN, Vendor, Invoice..."
+                                    placeholder="Search GRN, Vendor, Invoice, Department..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     style={{
@@ -1457,7 +1739,7 @@ const StoresGRNReport = () => {
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>GRN NO</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>DATE</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>VENDOR</Th>
-                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>CATEGORY</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>CATEGORY / DEPT</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>INVOICE NO</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>INVOICE DATE</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>PAYMENT</Th>
@@ -1510,7 +1792,25 @@ const StoresGRNReport = () => {
                                                     {getVendorName(grn.vendor_id)}
                                                 </Td>
                                                 <Td style={{ color: '#475569', fontSize: '0.78rem', fontWeight: '600', textTransform: 'uppercase', padding: '12px 10px' }}>
-                                                    {grn.purchase_category || '-'}
+                                                    <div>{grn.purchase_category || '-'}</div>
+                                                    {(grn.department_name || grn.department) && (
+                                                        <span style={{ 
+                                                            color: '#0d9488', 
+                                                            background: '#f0fdfa', 
+                                                            border: '1px solid #ccfbf1', 
+                                                            fontSize: '0.7rem', 
+                                                            fontWeight: '600', 
+                                                            textTransform: 'none', 
+                                                            padding: '1px 6px', 
+                                                            borderRadius: '4px', 
+                                                            display: 'inline-block', 
+                                                            marginTop: '3px' 
+                                                        }}
+                                                        title={`Code: ${grn.department_code || grn.department || '-'}`}
+                                                        >
+                                                            {getDepartmentName(grn.department, grn)}
+                                                        </span>
+                                                    )}
                                                 </Td>
                                                 <Td style={{ color: '#334155', fontSize: '0.82rem', fontWeight: '500', padding: '12px 10px' }}>
                                                     {grn.invoice_no || grn.invoice_number || '-'}
@@ -1585,7 +1885,8 @@ const StoresGRNReport = () => {
                                                                 onPayment={() => { setOpenPopover(null); setSelectedGrn(popoverData); setShowPaymentModal(true); }}
                                                                 onEdit={() => { setOpenPopover(null); navigate('/StoresGRNGeneration', { state: { editGrn: popoverData, fromAnalysis: true } }); }}
                                                                 onPrint={() => { setOpenPopover(null); handlePrintRow(popoverData); }}
-                                                                onDelete={() => { setOpenPopover(null); handleDelete(popoverData.grn_number, popoverData); }}
+                                                                onDelete={() => { setOpenPopover(null); handleOpenCancelModal(popoverData); }}
+                                                                onCancel={() => { setOpenPopover(null); handleOpenCancelModal(popoverData); }}
                                                             />
                                                         )}
                                                     </div>
@@ -1756,6 +2057,7 @@ const StoresGRNReport = () => {
                                 grn={selectedGrnForApproval}
                                 vendorName={getVendorName(selectedGrnForApproval.vendor_id)}
                                 items={selectedGrnForApproval.items}
+                                getDepartmentName={getDepartmentName}
                             />
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px' }}>
                                 <Button secondary onClick={() => setShowApproveModal(false)} style={{ padding: '10px 25px' }}>
@@ -1775,10 +2077,11 @@ const StoresGRNReport = () => {
             )}
 
             {/* View GRN Modal */}
+            {/* View GRN Modal */}
             {showViewModal && selectedGrnForView && (
                 <ModalOverlay onClick={e => e.target === e.currentTarget && setShowViewModal(false)}>
                     <ModalContainer style={{ maxWidth: '1200px', width: '96%', maxHeight: '92vh', overflowY: 'auto' }}>
-                        <ModalHeader style={{ borderBottom: `1px solid ${colors.border}`, padding: '12px 18px' }}>
+                        <ModalHeader style={{ borderBottom: `1px solid ${colors.border}`, padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                                 <ModalTitle style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Eye size={20} color={colors.primary} />
@@ -1797,7 +2100,92 @@ const StoresGRNReport = () => {
                                     {selectedGrnForView.is_approved ? 'APPROVED' : 'PENDING APPROVAL'}
                                 </span>
                             </div>
-                            <CloseButton onClick={() => setShowViewModal(false)}>✕</CloseButton>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <Button 
+                                    disabled={selectedGrnForView.is_approved}
+                                    onClick={() => {
+                                        setShowViewModal(false);
+                                        navigate('/StoresGRNGeneration', { state: { editGrn: selectedGrnForView, fromAnalysis: true } });
+                                    }}
+                                    style={{
+                                        padding: '6px 14px',
+                                        fontSize: '0.8rem',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        background: selectedGrnForView.is_approved ? '#f1f5f9' : '#0d9488',
+                                        color: selectedGrnForView.is_approved ? '#94a3b8' : '#ffffff',
+                                        cursor: selectedGrnForView.is_approved ? 'not-allowed' : 'pointer',
+                                        fontWeight: '600'
+                                    }}
+                                    title={selectedGrnForView.is_approved ? 'Cannot edit approved GRN' : 'Edit GRN'}
+                                >
+                                    <Pencil size={14} />
+                                    <span>Edit</span>
+                                </Button>
+                                <Button 
+                                    disabled={selectedGrnForView.is_approved}
+                                    onClick={() => {
+                                        setShowViewModal(false);
+                                        handleApprove(selectedGrnForView);
+                                    }}
+                                    style={{
+                                        padding: '6px 14px',
+                                        fontSize: '0.8rem',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        background: selectedGrnForView.is_approved ? '#ecfdf5' : '#ea580c',
+                                        color: selectedGrnForView.is_approved ? '#059669' : '#ffffff',
+                                        cursor: selectedGrnForView.is_approved ? 'not-allowed' : 'pointer',
+                                        fontWeight: '600'
+                                    }}
+                                    title={selectedGrnForView.is_approved ? 'Already approved' : 'Confirm & Approve GRN'}
+                                >
+                                    <CheckCheck size={14} />
+                                    <span>{selectedGrnForView.is_approved ? 'Verified' : 'Confirm'}</span>
+                                </Button>
+                                <Button 
+                                    onClick={() => handlePrintRow(selectedGrnForView)}
+                                    style={{
+                                        padding: '6px 14px',
+                                        fontSize: '0.8rem',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        background: '#7c3aed',
+                                        color: '#ffffff',
+                                        fontWeight: '600'
+                                    }}
+                                    title="Print GRN Voucher"
+                                >
+                                    <Printer size={14} />
+                                    <span>Print</span>
+                                </Button>
+                                <Button 
+                                    disabled={selectedGrnForView.is_approved}
+                                    onClick={() => {
+                                        setShowViewModal(false);
+                                        handleOpenCancelModal(selectedGrnForView);
+                                    }}
+                                    style={{
+                                        padding: '6px 14px',
+                                        fontSize: '0.8rem',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        background: selectedGrnForView.is_approved ? '#f1f5f9' : '#ef4444',
+                                        color: selectedGrnForView.is_approved ? '#94a3b8' : '#ffffff',
+                                        cursor: selectedGrnForView.is_approved ? 'not-allowed' : 'pointer',
+                                        fontWeight: '600'
+                                    }}
+                                    title={selectedGrnForView.is_approved ? 'Cannot cancel approved GRN' : 'Cancel GRN'}
+                                >
+                                    <Trash2 size={14} />
+                                    <span>Cancel GRN</span>
+                                </Button>
+                                <CloseButton onClick={() => setShowViewModal(false)}>✕</CloseButton>
+                            </div>
                         </ModalHeader>
 
                         <ModalBody style={{ padding: '16px' }}>
@@ -1805,19 +2193,244 @@ const StoresGRNReport = () => {
                                 grn={selectedGrnForView}
                                 vendorName={getVendorName(selectedGrnForView.vendor_id)}
                                 items={selectedGrnForView.items}
+                                getDepartmentName={getDepartmentName}
                             />
                             
                             {/* Modal Footer Actions */}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px', marginTop: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px', marginTop: '16px', flexWrap: 'wrap' }}>
                                 <Button secondary onClick={() => setShowViewModal(false)} style={{ padding: '8px 22px' }}>
                                     Close
                                 </Button>
                                 <Button 
+                                    disabled={selectedGrnForView.is_approved}
+                                    onClick={() => {
+                                        setShowViewModal(false);
+                                        navigate('/StoresGRNGeneration', { state: { editGrn: selectedGrnForView, fromAnalysis: true } });
+                                    }}
+                                    style={{
+                                        padding: '8px 22px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        background: selectedGrnForView.is_approved ? '#f1f5f9' : '#0d9488',
+                                        color: selectedGrnForView.is_approved ? '#94a3b8' : '#ffffff',
+                                        cursor: selectedGrnForView.is_approved ? 'not-allowed' : 'pointer',
+                                        fontWeight: '600'
+                                    }}
+                                    title={selectedGrnForView.is_approved ? 'Cannot edit approved GRN' : 'Edit GRN'}
+                                >
+                                    <Pencil size={16} />
+                                    <span>Edit</span>
+                                </Button>
+                                <Button 
+                                    disabled={selectedGrnForView.is_approved}
+                                    onClick={() => {
+                                        setShowViewModal(false);
+                                        handleApprove(selectedGrnForView);
+                                    }}
+                                    style={{
+                                        padding: '8px 22px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        background: selectedGrnForView.is_approved ? '#ecfdf5' : '#ea580c',
+                                        color: selectedGrnForView.is_approved ? '#059669' : '#ffffff',
+                                        cursor: selectedGrnForView.is_approved ? 'not-allowed' : 'pointer',
+                                        fontWeight: '600'
+                                    }}
+                                    title={selectedGrnForView.is_approved ? 'Already approved' : 'Confirm & Approve GRN'}
+                                >
+                                    <CheckCheck size={16} />
+                                    <span>{selectedGrnForView.is_approved ? 'Verified' : 'Confirm'}</span>
+                                </Button>
+                                {!selectedGrnForView.is_approved && (
+                                    <Button 
+                                        onClick={() => {
+                                            setShowViewModal(false);
+                                            handleOpenCancelModal(selectedGrnForView);
+                                        }}
+                                        style={{
+                                            padding: '8px 22px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            background: '#ef4444',
+                                            color: '#ffffff',
+                                            fontWeight: '600'
+                                        }}
+                                        title="Cancel GRN"
+                                    >
+                                        <Trash2 size={16} />
+                                        <span>Cancel GRN</span>
+                                    </Button>
+                                )}
+                                <Button 
                                     onClick={() => handlePrintRow(selectedGrnForView)}
-                                    style={{ padding: '8px 22px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                    style={{
+                                        padding: '8px 22px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        background: '#7c3aed',
+                                        color: '#ffffff',
+                                        fontWeight: '600'
+                                    }}
+                                    title="Print GRN Voucher"
                                 >
                                     <Printer size={16} />
                                     <span>Print Voucher</span>
+                                </Button>
+                            </div>
+                        </ModalBody>
+                    </ModalContainer>
+                </ModalOverlay>
+            )}
+
+            {/* Cancel GRN Modal */}
+            {showCancelModal && selectedGrnForCancel && (
+                <ModalOverlay onClick={e => e.target === e.currentTarget && handleCloseCancelModal()}>
+                    <ModalContainer style={{ maxWidth: '540px', width: '92%', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+                        <ModalHeader style={{ background: '#dc2626', color: 'white', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <ModalTitle style={{ color: 'white', margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <AlertTriangle size={20} color="#fef08a" />
+                                <span>Cancel GRN:</span>
+                                <span style={{ fontWeight: '800', letterSpacing: '0.5px' }}>{selectedGrnForCancel.grn_number}</span>
+                            </ModalTitle>
+                            <CloseButton style={{ color: 'white', opacity: 0.9 }} onClick={handleCloseCancelModal}>✕</CloseButton>
+                        </ModalHeader>
+                        <ModalBody style={{ padding: '24px' }}>
+                            {/* Warning message banner */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '12px',
+                                padding: '12px 16px',
+                                borderRadius: '10px',
+                                background: '#fef2f2',
+                                border: '1px solid #fee2e2',
+                                marginBottom: '18px'
+                            }}>
+                                <AlertCircle size={20} color="#dc2626" style={{ flexShrink: 0, marginTop: '2px' }} />
+                                <div style={{ fontSize: '0.85rem', color: '#991b1b', lineHeight: '1.4' }}>
+                                    <strong>Are you sure you want to cancel this GRN?</strong>
+                                    <div style={{ marginTop: '2px', color: '#b91c1c' }}>
+                                        Cancelling will deactivate this GRN record. You must provide a valid remark/reason below.
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* GRN Summary Info */}
+                            <div style={{
+                                background: '#f8fafc',
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: '10px',
+                                padding: '14px 16px',
+                                marginBottom: '20px',
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 1fr',
+                                gap: '10px 16px',
+                                fontSize: '0.82rem'
+                            }}>
+                                <div>
+                                    <span style={{ color: colors.textMuted, display: 'block', fontSize: '0.72rem' }}>Vendor:</span>
+                                    <strong style={{ color: '#1e293b' }}>{getVendorName(selectedGrnForCancel.vendor_id)}</strong>
+                                </div>
+                                <div>
+                                    <span style={{ color: colors.textMuted, display: 'block', fontSize: '0.72rem' }}>Invoice No:</span>
+                                    <strong style={{ color: '#1e293b' }}>{selectedGrnForCancel.invoice_no || selectedGrnForCancel.invoice_number || '—'}</strong>
+                                </div>
+                                <div>
+                                    <span style={{ color: colors.textMuted, display: 'block', fontSize: '0.72rem' }}>GRN Date:</span>
+                                    <strong style={{ color: '#1e293b' }}>
+                                        {selectedGrnForCancel.date ? dayjs(selectedGrnForCancel.date).format('DD/MM/YYYY') : '—'}
+                                    </strong>
+                                </div>
+                                <div>
+                                    <span style={{ color: colors.textMuted, display: 'block', fontSize: '0.72rem' }}>Net Amount:</span>
+                                    <strong style={{ color: '#0f766e', fontSize: '0.9rem' }}>
+                                        ₹{parseFloat(selectedGrnForCancel.net_invoice_amount?.$numberDecimal || selectedGrnForCancel.net_invoice_amount || 0).toFixed(2)}
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {/* Required Cancellation Remark */}
+                            <div style={{ marginBottom: '16px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                    <Label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', margin: 0 }}>
+                                        Cancellation Remark <span style={{ color: '#dc2626' }}>*</span>
+                                    </Label>
+                                    <span style={{ fontSize: '0.75rem', color: cancelRemark.trim() ? '#16a34a' : '#94a3b8' }}>
+                                        {cancelRemark.trim() ? '✓ Remark provided' : 'Required'}
+                                    </span>
+                                </div>
+                                <textarea
+                                    rows={4}
+                                    value={cancelRemark}
+                                    onChange={(e) => {
+                                        setCancelRemark(e.target.value);
+                                        if (cancelError) setCancelError('');
+                                    }}
+                                    placeholder="Enter the mandatory reason for cancelling this GRN (e.g. incorrect invoice details, duplicate GRN created, supplier cancelled shipment, wrong pricing applied)..."
+                                    style={{
+                                        width: '100%',
+                                        boxSizing: 'border-box',
+                                        padding: '10px 14px',
+                                        borderRadius: '10px',
+                                        border: cancelError ? '1.5px solid #ef4444' : `1.5px solid ${colors.border}`,
+                                        fontSize: '0.88rem',
+                                        lineHeight: '1.4',
+                                        outline: 'none',
+                                        fontFamily: 'inherit',
+                                        resize: 'vertical',
+                                        transition: 'border-color 0.2s',
+                                        background: '#ffffff'
+                                    }}
+                                    onFocus={(e) => {
+                                        if (!cancelError) e.target.style.borderColor = '#dc2626';
+                                    }}
+                                    onBlur={(e) => {
+                                        if (!cancelError) e.target.style.borderColor = colors.border;
+                                    }}
+                                />
+                                {cancelError && (
+                                    <div style={{ color: '#dc2626', fontSize: '0.78rem', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
+                                        <AlertCircle size={14} />
+                                        <span>{cancelError}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px' }}>
+                                <Button
+                                    type="button"
+                                    secondary
+                                    onClick={handleCloseCancelModal}
+                                    disabled={cancelling}
+                                    style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: '600' }}
+                                >
+                                    Go Back
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleConfirmCancel}
+                                    disabled={cancelling || !cancelRemark.trim()}
+                                    style={{
+                                        background: cancelling || !cancelRemark.trim() ? '#f87171' : '#dc2626',
+                                        color: 'white',
+                                        padding: '10px 24px',
+                                        borderRadius: '8px',
+                                        fontWeight: '700',
+                                        fontSize: '0.9rem',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        cursor: cancelling || !cancelRemark.trim() ? 'not-allowed' : 'pointer',
+                                        boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)'
+                                    }}
+                                >
+                                    <Trash2 size={16} />
+                                    {cancelling ? 'Cancelling GRN...' : 'Confirm Cancellation'}
                                 </Button>
                             </div>
                         </ModalBody>

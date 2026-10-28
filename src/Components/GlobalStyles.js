@@ -297,6 +297,8 @@ export const ControlsContainer = styled.div`
   gap: 10px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 20;
 
   @media (max-width: 768px) {
     flex-direction: column;
@@ -323,6 +325,8 @@ export const TableWrapper = styled.div`
   border: 1px solid ${colors.border};
   background: #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  position: relative;
+  z-index: 1;
 `;
 
 export const Table = styled.table`

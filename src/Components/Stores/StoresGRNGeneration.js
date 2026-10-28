@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import Select from 'react-select';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -97,16 +97,16 @@ const FormGrid = styled.div`
 
 const PurchaseInfoGrid = styled.div`
     display: grid;
-    grid-template-columns: minmax(130px, 1fr) minmax(280px, 2.6fr) minmax(130px, 1fr) minmax(65px, 0.55fr);
+    grid-template-columns: repeat(12, 1fr);
     gap: 12px;
     padding: 20px;
     align-items: flex-start;
 
-    @media (max-width: 1100px) {
-        grid-template-columns: 1fr 2fr;
-    }
-    @media (max-width: 600px) {
+    @media (max-width: 900px) {
         grid-template-columns: 1fr;
+        & > div {
+            grid-column: span 1 !important;
+        }
     }
 `;
 
@@ -675,17 +675,32 @@ const StoresGRNGeneration = () => {
     const [loading, setLoading] = useState(false);
 
     const [items, setItems] = useState([]);
+    const [loadingItems, setLoadingItems] = useState(false);
     const [vendors, setVendors] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [groups, setGroups] = useState([]);
     const [categories, setCategories] = useState([]);
     const [groupTypes, setGroupTypes] = useState([]);
+    const departmentSelectRef = useRef(null);
+
+    // F10 Shortcut to focus Department selector
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                departmentSelectRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split('T')[0],
         purchase_category: '',
+        department: '',
         vendor_id: '',
         supplier_address: '',
         contact_person: '',
@@ -726,6 +741,7 @@ const StoresGRNGeneration = () => {
         item_id: '',
         name: '',
         hsn: '',
+        department: '',
         batch: '',
         expMonth: '',
         expYear: '',
@@ -784,6 +800,73 @@ const StoresGRNGeneration = () => {
         approved_quantity: 0
     });
 
+    const newItemModalGroupOptions = useMemo(() => {
+        return [...groups].sort((a, b) => {
+            const nameA = (a.group_name || a.groupName || a.name || '').toLowerCase();
+            const nameB = (b.group_name || b.groupName || b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        }).map(g => ({
+            value: g.group_id,
+            label: g.group_name || g.groupName || g.name || g.group_id
+        }));
+    }, [groups]);
+
+    const newItemModalCategoryOptions = useMemo(() => {
+        return categories
+            .filter(c => {
+                if (!newItemMasterData.group) return true;
+                const mappedGrp = c.group || c.group_id;
+                return !mappedGrp || mappedGrp === newItemMasterData.group;
+            })
+            .sort((a, b) => {
+                const nameA = (a.category_name || a.categoryName || a.name || '').toLowerCase();
+                const nameB = (b.category_name || b.categoryName || b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            })
+            .map(c => ({
+                value: c.category_id,
+                label: c.category_name || c.categoryName || c.name || c.category_id
+            }));
+    }, [categories, newItemMasterData.group]);
+
+    const itemSelectOptions = useMemo(() => {
+        const filtered = items.filter(i => {
+            if (!formData.department) return true;
+            const targetDept = String(formData.department).toLowerCase().trim();
+            const iDept = String(i.department || '').toLowerCase().trim();
+            const iDeptCode = String(i.department_code || '').toLowerCase().trim();
+            const iDeptName = String(i.department_name || '').toLowerCase().trim();
+            if (iDept === targetDept || iDeptCode === targetDept || iDeptName === targetDept) return true;
+            const deptObj = departments.find(d => 
+                String(d.department_id || '').toLowerCase().trim() === targetDept ||
+                String(d.id || '').toLowerCase().trim() === targetDept ||
+                String(d.department_code || '').toLowerCase().trim() === targetDept ||
+                String(d.department_name || '').toLowerCase().trim() === targetDept
+            );
+            if (deptObj) {
+                const dId = String(deptObj.department_id || deptObj.id || deptObj.department_code || '').toLowerCase().trim();
+                const dName = String(deptObj.department_name || '').toLowerCase().trim();
+                return (dId && (iDept === dId || iDeptCode === dId || iDeptName === dId)) ||
+                       (dName && (iDept === dName || iDeptCode === dName || iDeptName === dName));
+            }
+            return false;
+        });
+        return filtered.map(i => ({
+            value: i.item_id,
+            label: i.itemName,
+            hsn: i.hsn || '',
+            stock: i.total_quantity || 0,
+            deptStock: i.approved_quantity || 0
+        }));
+    }, [items, formData.department, departments]);
+
+    const departmentOptions = useMemo(() => {
+        return departments.map(d => ({
+            value: d.department_id || d.id || d.name,
+            label: d.department_name || d.name
+        }));
+    }, [departments]);
+
     const [currentItem, setCurrentItem] = useState(initialCurrentItemState);
 
     useEffect(() => {
@@ -801,6 +884,7 @@ const StoresGRNGeneration = () => {
                 ...prev,
                 date: editGrn.date || new Date().toISOString().split('T')[0],
                 purchase_category: editGrn.purchase_category || '',
+                department: editGrn.department || '',
                 vendor_id: editGrn.vendor_id || '',
                 invoice_no: editGrn.invoice_no || '',
                 invoice_date: editGrn.invoice_date || new Date().toISOString().split('T')[0],
@@ -894,10 +978,37 @@ const StoresGRNGeneration = () => {
         }
     }, [editGrn, vendors]);
 
+    const isInitialDeptMount = useRef(true);
+
+    const fetchItemsByDepartment = async (deptId = '') => {
+        setLoadingItems(true);
+        try {
+            const query = deptId ? `?department=${encodeURIComponent(deptId)}` : '';
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/${query}`);
+            if (res?.success && Array.isArray(res.data)) {
+                setItems(res.data);
+            }
+        } catch (error) {
+            console.error("Error fetching items for department:", error);
+        } finally {
+            setLoadingItems(false);
+        }
+    };
+
+    // Whenever formData.department changes, get items based on department, or all items if no department selected
+    useEffect(() => {
+        if (isInitialDeptMount.current) {
+            isInitialDeptMount.current = false;
+            return;
+        }
+        fetchItemsByDepartment(formData.department);
+    }, [formData.department]);
+
     const fetchMasters = async () => {
         try {
+            const deptQuery = formData.department ? `?department=${encodeURIComponent(formData.department)}` : '';
             const [itemsRes, storeVendorsRes, deptsRes, groupsRes, catsRes, groupTypesRes] = await Promise.all([
-                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/`),
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/${deptQuery}`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/general-store-vendors/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-master/`),
@@ -1037,6 +1148,7 @@ const StoresGRNGeneration = () => {
                     item_id: selectedItem.item_id,
                     name: selectedItem.itemName,
                     hsn: hsn,
+                    department: selectedItem.department || '',
                     totalStock: stock,
                     deptStock: deptStock,
                     mrp: itemMrp,
@@ -1050,6 +1162,10 @@ const StoresGRNGeneration = () => {
                     lastPurchaseCost: itemRate,
                     lastSellingPrice: itemMrp
                 }));
+
+                if (selectedItem.department) {
+                    setFormData(prev => prev.department ? prev : ({ ...prev, department: selectedItem.department }));
+                }
             }
         } else {
             setCurrentItem(prev => ({
@@ -1148,6 +1264,7 @@ const StoresGRNGeneration = () => {
             item_id: item.item_id || masterItem?.item_id || '',
             name: item.name || item.itemName || masterItem?.itemName || '',
             hsn: item.hsn || masterItem?.hsn || '',
+            department: item.department || masterItem?.department || '',
             batch: item.batch || '',
             expMonth,
             expYear,
@@ -1359,6 +1476,11 @@ const StoresGRNGeneration = () => {
             return;
         }
 
+        if (!formData.department) {
+            alert("Please select a Department");
+            return;
+        }
+
         setLoading(true);
         try {
             const payload = {
@@ -1422,6 +1544,7 @@ const StoresGRNGeneration = () => {
                 }
                 setFormData({
                     ...formData,
+                    department: '',
                     invoice_no: '',
                     remarks: '',
                     round_type: 'add',
@@ -1447,12 +1570,19 @@ const StoresGRNGeneration = () => {
 
         setLoading(true);
         try {
-            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/`, 'POST', newItemMasterData);
+            const payload = {
+                ...newItemMasterData,
+                group: newItemMasterData.group,
+                group_code: newItemMasterData.group,
+                category: newItemMasterData.category,
+                category_code: newItemMasterData.category
+            };
+            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/`, 'POST', payload);
             if (response.success) {
                 alert("New Item Master Added Successfully!");
                 setShowAddItemMasterModal(false);
-                // Refresh items list
-                fetchMasters();
+                // Refresh items list for selected department (or all items if empty)
+                fetchItemsByDepartment(formData.department);
                 // Optionally auto-select the new item
                 setCurrentItem(prev => ({
                     ...prev,
@@ -1538,108 +1668,165 @@ const StoresGRNGeneration = () => {
                                         <h3>Purchase Information</h3>
                                     </SectionTitleCard>
                                     <PurchaseInfoGrid>
-                                            <div>
-                                                <Label required>Category</Label>
-                                                <Select
-                                                    options={purchaseCategories}
-                                                    value={purchaseCategories.find(c => c.value === formData.purchase_category)}
-                                                    onChange={(opt) => handleInputChange({ target: { name: 'purchase_category', value: opt ? opt.value : '' } })}
-                                                    menuPortalTarget={document.body}
-                                                    styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label required>Vendor</Label>
-                                                <div
-                                                    onClick={() => {
-                                                        if (!isVerified) {
-                                                            setVendorSearchQuery('');
-                                                            setShowVendorListModal(true);
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        width: '100%',
+                                        <div style={{ gridColumn: 'span 3' }}>
+                                            <Label required>Category</Label>
+                                            <Select
+                                                options={purchaseCategories}
+                                                value={purchaseCategories.find(c => c.value === formData.purchase_category)}
+                                                onChange={(opt) => handleInputChange({ target: { name: 'purchase_category', value: opt ? opt.value : '' } })}
+                                                menuPortalTarget={document.body}
+                                                isDisabled={isVerified}
+                                                styles={{
+                                                    menuPortal: base => ({ ...base, zIndex: 99999 }),
+                                                    control: base => ({
+                                                        ...base,
+                                                        minHeight: '34px',
                                                         height: '34px',
-                                                        padding: '0 10px',
                                                         borderRadius: '6px',
-                                                        border: `1px solid ${formData.vendor_id ? '#0d9488' : colors.border}`,
-                                                        backgroundColor: isVerified ? '#f1f5f9' : (formData.vendor_id ? '#f0fdfa' : '#ffffff'),
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        cursor: isVerified ? 'not-allowed' : 'pointer',
-                                                        transition: 'all 0.15s ease',
-                                                        boxShadow: formData.vendor_id ? '0 0 0 1px rgba(13,148,136,0.1)' : 'none',
-                                                        overflow: 'hidden',
-                                                        boxSizing: 'border-box'
-                                                    }}
-                                                    title={(() => {
-                                                        if (isVerified) return 'Vendor locked';
-                                                        const found = vendors.find(v => v.vendor_id === formData.vendor_id);
-                                                        return found ? `${found.name || found.vendor_name} (Click to change vendor)` : 'Click to select vendor from modal';
-                                                    })()}
-                                                >
-                                                    <div style={{
-                                                        flex: 1,
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap',
-                                                        fontSize: '0.85rem',
-                                                        color: formData.vendor_id ? '#0f172a' : '#94a3b8',
-                                                        fontWeight: formData.vendor_id ? '600' : 'normal',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px'
-                                                    }}>
-                                                        <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>🏢</span>
-                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {(() => {
-                                                                if (!formData.vendor_id) return 'Click to select vendor...';
-                                                                const found = vendors.find(v => v.vendor_id === formData.vendor_id);
-                                                                return found ? (found.name || found.vendor_name) : formData.vendor_id;
-                                                            })()}
-                                                        </span>
-                                                    </div>
+                                                        borderColor: colors.border
+                                                    })
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ gridColumn: 'span 5' }}>
+                                            <Label required style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span>Department</span>
+                                                <span style={{ fontSize: '0.7rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>F10</span>
+                                            </Label>
+                                            <Select
+                                                ref={departmentSelectRef}
+                                                options={departmentOptions}
+                                                value={(() => {
+                                                    const dVal = formData.department;
+                                                    if (!dVal) return null;
+                                                    const found = departments.find(d =>
+                                                        String(d.department_id) === String(dVal) ||
+                                                        String(d.id) === String(dVal) ||
+                                                        String(d.department_name).toLowerCase() === String(dVal).toLowerCase() ||
+                                                        String(d.name).toLowerCase() === String(dVal).toLowerCase()
+                                                    );
+                                                    return found
+                                                        ? { value: found.department_id || found.id || found.name, label: found.department_name || found.name }
+                                                        : { value: dVal, label: dVal };
+                                                })()}
+                                                onChange={(opt) => handleInputChange({ target: { name: 'department', value: opt ? opt.value : '' } })}
+                                                placeholder="Select Department (F10)"
+                                                isClearable
+                                                openMenuOnFocus
+                                                isDisabled={isVerified}
+                                                menuPortalTarget={document.body}
+                                                styles={{
+                                                    menuPortal: base => ({ ...base, zIndex: 99999 }),
+                                                    control: base => ({
+                                                        ...base,
+                                                        minHeight: '34px',
+                                                        height: '34px',
+                                                        borderRadius: '6px',
+                                                        borderColor: colors.border
+                                                    })
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ gridColumn: 'span 4' }}>
+                                            <Label required>GRN Date</Label>
+                                            <DatePicker
+                                                value={formData.date ? dayjs(formData.date) : null}
+                                                onChange={(d) => handleInputChange({ target: { name: 'date', value: d ? d.format('YYYY-MM-DD') : '' } })}
+                                                format="DD/MM/YYYY"
+                                                placeholder="Select Date"
+                                                allowClear={false}
+                                                disabled={isVerified}
+                                                style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
+                                            />
+                                        </div>
 
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px', flexShrink: 0 }}>
-                                                        {formData.vendor_id && !isVerified && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleClearVendor}
-                                                                title="Clear selected vendor"
-                                                                style={{
-                                                                    background: 'transparent',
-                                                                    border: 'none',
-                                                                    color: '#94a3b8',
-                                                                    cursor: 'pointer',
-                                                                    padding: '2px 5px',
-                                                                    fontSize: '12px',
-                                                                    lineHeight: 1,
-                                                                    borderRadius: '4px'
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                                                                onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
-                                                            >
-                                                                ✕
-                                                            </button>
-                                                        )}
-                                                    </div>
+                                        <div style={{ gridColumn: 'span 9' }}>
+                                            <Label required>Vendor</Label>
+                                            <div
+                                                onClick={() => {
+                                                    if (!isVerified) {
+                                                        setVendorSearchQuery('');
+                                                        setShowVendorListModal(true);
+                                                    }
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '34px',
+                                                    padding: '0 10px',
+                                                    borderRadius: '6px',
+                                                    border: `1px solid ${formData.vendor_id ? '#0d9488' : colors.border}`,
+                                                    backgroundColor: isVerified ? '#f1f5f9' : (formData.vendor_id ? '#f0fdfa' : '#ffffff'),
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    cursor: isVerified ? 'not-allowed' : 'pointer',
+                                                    transition: 'all 0.15s ease',
+                                                    boxShadow: formData.vendor_id ? '0 0 0 1px rgba(13,148,136,0.1)' : 'none',
+                                                    overflow: 'hidden',
+                                                    boxSizing: 'border-box'
+                                                }}
+                                                title={(() => {
+                                                    if (isVerified) return 'Vendor locked';
+                                                    const found = vendors.find(v => v.vendor_id === formData.vendor_id);
+                                                    return found ? `${found.name || found.vendor_name} (Click to change vendor)` : 'Click to select vendor from modal';
+                                                })()}
+                                            >
+                                                <div style={{
+                                                    flex: 1,
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    fontSize: '0.85rem',
+                                                    color: formData.vendor_id ? '#0f172a' : '#94a3b8',
+                                                    fontWeight: formData.vendor_id ? '600' : 'normal',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px'
+                                                }}>
+                                                    <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>🏢</span>
+                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {(() => {
+                                                            if (!formData.vendor_id) return 'Click to select vendor...';
+                                                            const found = vendors.find(v => v.vendor_id === formData.vendor_id);
+                                                            return found ? (found.name || found.vendor_name) : formData.vendor_id;
+                                                        })()}
+                                                    </span>
+                                                </div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px', flexShrink: 0 }}>
+                                                    {formData.vendor_id && !isVerified && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleClearVendor}
+                                                            title="Clear selected vendor"
+                                                            style={{
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: '#94a3b8',
+                                                                cursor: 'pointer',
+                                                                padding: '2px 5px',
+                                                                fontSize: '12px',
+                                                                lineHeight: 1,
+                                                                borderRadius: '4px'
+                                                            }}
+                                                            onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                                                            onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <div>
-                                                <Label required>GRN Date</Label>
-                                                <DatePicker
-                                                    value={formData.date ? dayjs(formData.date) : null}
-                                                    onChange={(d) => handleInputChange({ target: { name: 'date', value: d ? d.format('YYYY-MM-DD') : '' } })}
-                                                    format="DD/MM/YYYY"
-                                                    placeholder="Select Date"
-                                                    allowClear={false}
-                                                    disabled={isVerified}
-                                                    style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
-                                                />
-                                            </div>
+                                        </div>
 
-                                            <div><Label>Vendor ID</Label><Input value={formData.vendor_id} readOnly style={{ backgroundColor: '#f8fafc', fontWeight: '600', textAlign: 'center' }} /></div>
+                                        <div style={{ gridColumn: 'span 3' }}>
+                                            <Label>Vendor ID</Label>
+                                            <Input
+                                                value={formData.vendor_id}
+                                                readOnly
+                                                style={{ backgroundColor: '#f8fafc', fontWeight: '600', textAlign: 'center', height: '34px' }}
+                                            />
+                                        </div>
                                     </PurchaseInfoGrid>
                                  </FormCard>
 
@@ -1753,7 +1940,17 @@ const StoresGRNGeneration = () => {
                                         {grnItems.map((item, index) => (
                                             <Tr key={item.id} style={{ background: index % 2 === 0 ? 'white' : '#f9fafb' }}>
                                                 <Td style={{ textAlign: 'center', width: '50px' }}>{index + 1}</Td>
-                                                <Td style={{ fontWeight: '600', color: colors.primaryDark }}>{item.name || item.itemName}</Td>
+                                                <Td style={{ fontWeight: '600', color: colors.primaryDark }}>
+                                                    <div>{item.name || item.itemName}</div>
+                                                    {item.department && (
+                                                        <span style={{ fontSize: '0.72rem', color: '#0d9488', fontWeight: '500', background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '1px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '3px' }}>
+                                                            {(() => {
+                                                                const d = departments.find(dep => String(dep.department_id) === String(item.department) || String(dep.id) === String(item.department) || String(dep.department_name).toLowerCase() === String(item.department).toLowerCase() || String(dep.name).toLowerCase() === String(item.department).toLowerCase());
+                                                                return d ? (d.department_name || d.name) : item.department;
+                                                            })()}
+                                                        </span>
+                                                    )}
+                                                </Td>
                                                 <Td style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: '0.8rem', color: '#475569' }}>{item.hsn || '-'}</Td>
                                                 <Td>{item.batch || '-'}</Td>
                                                 <Td>{item.packing}</Td>
@@ -2223,9 +2420,25 @@ const StoresGRNGeneration = () => {
                                         {/* 1. Item Name (without Purchase Order field) */}
                                         <div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                                <CompactLabel required style={{ margin: 0 }}>Item Name</CompactLabel>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <CompactLabel required style={{ margin: 0 }}>Item Name</CompactLabel>
+                                                    {formData.department ? (
+                                                        <span style={{ fontSize: '0.72rem', color: '#0d9488', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                                                            Dept: {departments.find(d => String(d.department_id) === String(formData.department) || String(d.id) === String(formData.department) || String(d.department_name).toLowerCase() === String(formData.department).toLowerCase())?.department_name || formData.department} ({itemSelectOptions.length} items)
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.72rem', color: '#64748b', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: '4px', fontWeight: '500' }}>
+                                                            All Departments ({itemSelectOptions.length} items)
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <span
-                                                    onClick={() => setShowAddItemMasterModal(true)}
+                                                    onClick={() => {
+                                                        if (formData.department && !newItemMasterData.department) {
+                                                            setNewItemMasterData(prev => ({ ...prev, department: formData.department }));
+                                                        }
+                                                        setShowAddItemMasterModal(true);
+                                                    }}
                                                     style={{
                                                         color: '#0d9488',
                                                         fontSize: '0.78rem',
@@ -2244,20 +2457,15 @@ const StoresGRNGeneration = () => {
                                                 </span>
                                             </div>
                                             <Select
-                                                options={items.map(i => ({
-                                                    value: i.item_id,
-                                                    label: i.itemName,
-                                                    hsn: i.hsn || '',
-                                                    stock: i.total_quantity || 0,
-                                                    deptStock: i.approved_quantity || 0
-                                                }))}
+                                                isLoading={loadingItems}
+                                                options={itemSelectOptions}
                                                 value={currentItem.item_id ? {
                                                     value: currentItem.item_id,
                                                     label: currentItem.name,
                                                     hsn: currentItem.hsn
                                                 } : null}
                                                 onChange={handleItemSelect}
-                                                placeholder="Type item name or HSN code to search..."
+                                                placeholder={loadingItems ? "Loading department items..." : (formData.department ? "Search items in selected department..." : "Type item name or HSN code to search (All Departments)...")}
                                                 filterOption={(candidate, input) => {
                                                     if (!input) return true;
                                                     const q = input.toLowerCase().trim();
@@ -2917,23 +3125,49 @@ const StoresGRNGeneration = () => {
                                         />
                                     </div>
                                     <div>
-                                        <Label required>Category</Label>
+                                        <Label required>Group</Label>
                                         <Select
-                                            options={categories.map(c => ({ value: c.category_id, label: c.category_name }))}
-                                            placeholder="Select Category"
-                                            value={categories.find(c => c.category_id === newItemMasterData.category) ? { value: newItemMasterData.category, label: categories.find(c => c.category_id === newItemMasterData.category).category_name } : null}
-                                            onChange={(opt) => setNewItemMasterData({ ...newItemMasterData, category: opt ? opt.value : '' })}
+                                            options={newItemModalGroupOptions}
+                                            placeholder="Select Group"
+                                            isClearable
+                                            value={newItemModalGroupOptions.find(g => g.value === newItemMasterData.group) || null}
+                                            onChange={(opt) => {
+                                                const newGroup = opt ? opt.value : '';
+                                                let currentCat = newItemMasterData.category;
+                                                if (newGroup && currentCat) {
+                                                    const catObj = categories.find(c => c.category_id === currentCat);
+                                                    const mappedGrp = catObj?.group || catObj?.group_id;
+                                                    if (mappedGrp && mappedGrp !== newGroup) {
+                                                        currentCat = '';
+                                                    }
+                                                } else if (!newGroup) {
+                                                    currentCat = '';
+                                                }
+                                                setNewItemMasterData(prev => ({ ...prev, group: newGroup, category: currentCat }));
+                                            }}
                                             menuPortalTarget={document.body}
                                             styles={{ menuPortal: base => ({ ...base, zIndex: 10001 }) }}
                                         />
                                     </div>
                                     <div>
-                                        <Label required>Group</Label>
+                                        <Label required>Category</Label>
                                         <Select
-                                            options={groups.map(g => ({ value: g.group_id, label: g.group_name }))}
-                                            placeholder="Select Group"
-                                            value={groups.find(g => g.group_id === newItemMasterData.group) ? { value: newItemMasterData.group, label: groups.find(g => g.group_id === newItemMasterData.group).group_name } : null}
-                                            onChange={(opt) => setNewItemMasterData({ ...newItemMasterData, group: opt ? opt.value : '' })}
+                                            options={newItemModalCategoryOptions}
+                                            placeholder={newItemMasterData.group ? "Select Category" : "Select Category"}
+                                            isClearable
+                                            value={newItemModalCategoryOptions.find(c => c.value === newItemMasterData.category) || null}
+                                            onChange={(opt) => {
+                                                const newCat = opt ? opt.value : '';
+                                                let autoGroup = newItemMasterData.group;
+                                                if (newCat) {
+                                                    const catObj = categories.find(c => c.category_id === newCat);
+                                                    const mappedGrp = catObj?.group || catObj?.group_id;
+                                                    if (mappedGrp) {
+                                                        autoGroup = mappedGrp;
+                                                    }
+                                                }
+                                                setNewItemMasterData(prev => ({ ...prev, category: newCat, group: autoGroup }));
+                                            }}
                                             menuPortalTarget={document.body}
                                             styles={{ menuPortal: base => ({ ...base, zIndex: 10001 }) }}
                                         />

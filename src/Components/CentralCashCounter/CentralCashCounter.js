@@ -446,24 +446,28 @@ const Table = styled.table`
 const TableHeader = styled.th`
   border: none;
   border-bottom: 1px solid #e2e8f0;
-  padding: 13px 16px;
-  text-align: left;
+  padding: 11px 12px;
+  text-align: ${(props) => (props.align ? props.align : props.center ? "center" : props.right ? "right" : "left")};
   background-color: #f8fafc;
   font-weight: 700;
   font-size: 12px;
   color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
+  vertical-align: middle;
 `;
 
 const TableCell = styled.td`
   border: none;
   border-bottom: 1px solid #f1f5f9;
-  padding: 13px 16px;
-  text-align: ${(props) => (props.center ? "center" : "left")};
+  padding: 10px 12px;
+  text-align: ${(props) => (props.align ? props.align : props.center ? "center" : props.right ? "right" : "left")};
   color: ${(props) => (props.muted ? "#64748b" : "#1e293b")};
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
+  vertical-align: middle;
 
   tr:last-child & {
     border-bottom: none;
@@ -956,6 +960,7 @@ export default function CentralCashCounter() {
   // ── Receipt / Payment state ──────────────────────────────────────────────────
   const [rpReceiptType, setRpReceiptType] = useState("Receipt");
   const [rpAccountHeads, setRpAccountHeads] = useState([]);
+  const [rpAccountHeadsLoading, setRpAccountHeadsLoading] = useState(false);
   const [rpSelectedSNo, setRpSelectedSNo] = useState("");
   const [rpAmount, setRpAmount] = useState("");
   const [rpDescFields, setRpDescFields] = useState({});
@@ -1000,18 +1005,21 @@ export default function CentralCashCounter() {
   };
 
   const rpFetchAccountHeads = async () => {
+    setRpAccountHeadsLoading(true);
     try {
       const res = await apiRequest(`${HmsBaseUrl}get_active_account_heads/`, "GET");
       let list = [];
       if (Array.isArray(res)) list = res;
-      else if (Array.isArray(res?.data)) list = res.data;
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
+      else if (Array.isArray(res?.data)) list = res.data;
       else if (Array.isArray(res?.results)) list = res.results;
       setRpAccountHeads(list);
       if (list.length > 0) setRpSelectedSNo(list[0]["S.No"]);
     } catch (err) {
       console.error("Failed to fetch account heads:", err);
       setRpAccountHeads([]);
+    } finally {
+      setRpAccountHeadsLoading(false);
     }
   };
 
@@ -1431,10 +1439,19 @@ export default function CentralCashCounter() {
   };
 
   // ── Fetch pending bills ───────────────────────────────────────────────────────
-  const fetchPendingBills = useCallback(async () => {
-    setLoading(true);
+  // ── Fetch pending bills ───────────────────────────────────────────────────────
+  const fetchPendingBills = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const response = await apiRequest(`${HmsBaseUrl}get_mainblock_pendingbills/`, "GET");
+      if (!response?.success) {
+        if (!silent) {
+          console.error("Pending bills error:", response);
+          showToast("error", response?.error || "Unable to connect to HMS server. Please try again.");
+        }
+        return;
+      }
+
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : Array.isArray(response?.data)
@@ -1472,10 +1489,12 @@ export default function CentralCashCounter() {
 
       setPendingBills(formatted);
     } catch (err) {
-      console.error("Pending bills error:", err);
-      showToast("error", "Unable to connect to HMS server. Please try again.");
+      if (!silent) {
+        console.error("Pending bills error:", err);
+        showToast("error", "Unable to connect to HMS server. Please try again.");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -1493,9 +1512,16 @@ export default function CentralCashCounter() {
     }
   }, []);
 
-  const fetchOpPharmacyPendingBills = useCallback(async () => {
+  const fetchOpPharmacyPendingBills = useCallback(async (silent = false) => {
     try {
       const response = await apiRequest(`${HmsBaseUrl}OPPharmacy_pending_bills/`, "GET");
+      if (!response?.success) {
+        if (!silent) {
+          console.error("OP Pharmacy bills fetch error:", response);
+        }
+        return;
+      }
+
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : Array.isArray(response?.data)
@@ -1507,8 +1533,13 @@ export default function CentralCashCounter() {
       const billTypeDetails = Array.isArray(response?.data?.allowed_bill_type_details)
         ? response.data.allowed_bill_type_details
         : [];
-      setAllowedBillTypes(billTypeDetails);
-      setCashCounterId(response?.data?.cashcounter?.counter_id || response?.cashcounter?.counter_id || "");
+      if (billTypeDetails.length > 0) {
+        setAllowedBillTypes(billTypeDetails);
+      }
+      if (response?.data?.cashcounter?.counter_id || response?.cashcounter?.counter_id) {
+        setCashCounterId(response?.data?.cashcounter?.counter_id || response?.cashcounter?.counter_id);
+      }
+
       // Parse payment_details (JSON or Python OrderedDict string) into structured data
       const parsePaymentDetails = (raw) => {
         if (!raw) return { label: "-", breakdown: null };
@@ -1580,29 +1611,33 @@ export default function CentralCashCounter() {
       setOpPharmacyBills(formatted);
       setOpPharmacyReceivedBills(formattedReceived);
     } catch (err) {
-      console.error("OP Pharmacy bills fetch error:", err);
-      showToast("error", "Unable to load OP Pharmacy bills.");
+      if (!silent) {
+        console.error("OP Pharmacy bills fetch error:", err);
+        showToast("error", "Unable to load OP Pharmacy bills.");
+      }
     }
   }, []);
 
-  const fetchIpAdvancePendingBills = useCallback(async () => {
-    setLoading(true);
+  const fetchIpAdvancePendingBills = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "GET");
       const billsArray = Array.isArray(response?.data?.data) ? response.data.data : [];
 
       if (!billsArray.length && response?.data?.error) {
-        showToast("error", "IP Advance API error: " + response.data.error);
+        if (!silent) showToast("error", "IP Advance API error: " + response.data.error);
         return;
       }
 
       const formatted = formatIpAdvanceData(billsArray);
       setIpAdvancePendingBills(formatted);
     } catch (err) {
-      console.error("IP Advance fetch error:", err?.message || err);
-      showToast("error", "Failed to load IP Advance data. Please try again.");
+      if (!silent) {
+        console.error("IP Advance fetch error:", err?.message || err);
+        showToast("error", "Failed to load IP Advance data. Please try again.");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1622,8 +1657,8 @@ export default function CentralCashCounter() {
   }, []);
 
   // ── Fetch Return Bills ────────────────────────────────────────────────────────
-  const fetchReturnBills = useCallback(async () => {
-    setLoading(true);
+  const fetchReturnBills = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await apiRequest(`${HmsBaseUrl}get_return_bills/`, "GET", {});
       // API returns { status, count, data: [...] }
@@ -1687,10 +1722,12 @@ export default function CentralCashCounter() {
       setReturnPendingBills(pending);
       setReturnReceivedBills(received);
     } catch (err) {
-      console.error("Return bills fetch error:", err);
-      showToast("error", "Unable to load Return Bills.");
+      if (!silent) {
+        console.error("Return bills fetch error:", err);
+        showToast("error", "Unable to load Return Bills.");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -1819,7 +1856,7 @@ export default function CentralCashCounter() {
       return;
     }
 
-    const currentBillType = selectedBill.raw_bill_type || selectedBill.bill_type || "";
+    const currentBillType = selectedBill.raw_bill_type || selectedBill.bill_type || selectedBill.type || "";
     let statusFields = {};
     if (currentBillType === "Discharge") {
       statusFields = { status: "Paid" };
@@ -1833,6 +1870,8 @@ export default function CentralCashCounter() {
 
     const payload = {
       bill_no: selectedBill.raw_bill_no || selectedBill.bill_no,
+      type: currentBillType,
+      bill_category: currentBillType,
       ...statusFields,
       payment_details,
       shiftno: activeShift?.shiftno || "",
@@ -1846,8 +1885,19 @@ export default function CentralCashCounter() {
       const billRes = res?.data || res;
       if (billRes?.success || billRes?.status === "success") {
         setShowPaymentModal(false);
+        const paidBillNo = selectedBill.raw_bill_no || selectedBill.bill_no;
+        // Immediate local state removal for instant UI feedback
+        setPendingBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+        setOpPharmacyBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         fetchPendingBills();
+        fetchOpPharmacyPendingBills();
         refreshActiveShift();
+        try {
+          localStorage.setItem("hms_last_billing_update", Date.now().toString());
+          if (typeof BroadcastChannel !== "undefined") {
+            new BroadcastChannel("hms_billing_channel").postMessage({ type: "BILL_PAID", billNo: paidBillNo });
+          }
+        } catch (e) {}
         showToast("success", "Payment collected successfully!");
       } else {
         const errMsg = extractErrorMessage(billRes?.message || billRes?.error || "Payment failed. Please try again.");
@@ -2077,6 +2127,79 @@ export default function CentralCashCounter() {
   useEffect(() => {
     filterBills();
   }, [filterBills]);
+
+  // ── Auto-refresh pending bills in real time (no manual page reload needed) ────
+  useEffect(() => {
+    if (selectedType !== "pending") return;
+
+    const pollPendingData = () => {
+      // Don't disturb active payment form modal
+      if (showPaymentModal) return;
+
+      if (activeMenuItem === "Pending Bills") {
+        fetchPendingBills(true);
+        fetchOpPharmacyPendingBills(true);
+      } else if (activeMenuItem === "IP Advance") {
+        fetchIpAdvancePendingBills(true);
+      } else if (activeMenuItem === "Returns Bills") {
+        fetchReturnBills(true);
+      }
+    };
+
+    // Auto-poll silently every 3 seconds
+    const intervalTimer = setInterval(pollPendingData, 3000);
+
+    // Also auto-refresh whenever the tab or window becomes visible/focused
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        pollPendingData();
+      }
+    };
+
+    // Cross-tab synchronization via storage event
+    const handleStorageChange = (e) => {
+      if (e.key === "hms_last_billing_update") {
+        pollPendingData();
+      }
+    };
+
+    // Real-time broadcast channel across tabs/windows
+    let channel = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel("hms_billing_channel");
+        channel.onmessage = () => {
+          pollPendingData();
+        };
+      }
+    } catch (e) {
+      console.warn("BroadcastChannel not supported:", e);
+    }
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      clearInterval(intervalTimer);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("storage", handleStorageChange);
+      if (channel) {
+        try {
+          channel.close();
+        } catch (e) {}
+      }
+    };
+  }, [
+    activeMenuItem,
+    selectedType,
+    showPaymentModal,
+    fetchPendingBills,
+    fetchOpPharmacyPendingBills,
+    fetchIpAdvancePendingBills,
+    fetchReturnBills,
+  ]);
 
   const colSpan =
     activeMenuItem === "Returns Bills"
@@ -2330,7 +2453,10 @@ export default function CentralCashCounter() {
                               }}
                               style={{ minWidth:200 }}
                             >
-                              {(!Array.isArray(rpAccountHeads) || rpAccountHeads.length === 0) && <option value="">Loading...</option>}
+                              {rpAccountHeadsLoading && <option value="">Loading...</option>}
+                              {!rpAccountHeadsLoading && (!Array.isArray(rpAccountHeads) || rpAccountHeads.length === 0) && (
+                                <option value="">No Account Head Available</option>
+                              )}
                               {Array.isArray(rpAccountHeads) && rpAccountHeads.map((h) => (
                                 <option key={h["S.No"]} value={h["S.No"]}>{h.account_head}</option>
                               ))}
@@ -2761,6 +2887,7 @@ export default function CentralCashCounter() {
                     </SearchWrapper>
                   </TableControls>
 
+                  <div style={{ width: "100%", overflowX: "auto" }}>
                   <Table>
                     <thead>
                       <tr>
@@ -2975,6 +3102,7 @@ export default function CentralCashCounter() {
                       )}
                     </tbody>
                   </Table>
+                  </div>
 
                   <Pagination>
                     <div>

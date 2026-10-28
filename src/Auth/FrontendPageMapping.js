@@ -76,7 +76,7 @@ export const hasPagePermission = (route, allowedActions, dynamicPermissions = {}
                 const permissionId = PAGE_PERMISSIONS[route];
                 if (!permissionId) return true;
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     // 4. Fallback check for missing routes

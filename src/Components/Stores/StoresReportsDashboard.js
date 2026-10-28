@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
     FileText, Building2, ClipboardList, ShoppingCart, BarChart3, 
     CheckCircle, Search, ArrowRight, Maximize2, X, RefreshCw, Layers,
-    ShoppingBag, RotateCcw, TrendingUp, Clock, AlertTriangle, AlertCircle, Grid
+    ShoppingBag, RotateCcw, TrendingUp, Clock, AlertTriangle, AlertCircle, Grid, ShieldCheck
 } from 'lucide-react';
 import {
     PageWrapper,
@@ -35,6 +35,7 @@ const StoresNonMovingReport = lazy(() => import('./StoresNonMovingReport'));
 const StoresShortExpiryReport = lazy(() => import('./StoresShortExpiryReport'));
 const StoresReorderLevelReport = lazy(() => import('./StoresReorderLevelReport'));
 const StoresRackClassification = lazy(() => import('./StoresRackClassification'));
+const StoresOpeningStockReport = lazy(() => import('./StoresOpeningStockReport'));
 
 const reportsConfig = [
     {
@@ -186,6 +187,16 @@ const reportsConfig = [
         bg: '#fef2f2',
         route: '/StoresAbcVedReport',
         component: StoresAbcVedReport
+    },
+    {
+        id: 'opening-stock-audit',
+        title: 'Opening Stock Audit Report',
+        description: 'Complete audit trail of Item Master opening stock values, adjustments, audit remarks, and user history.',
+        icon: ShieldCheck,
+        color: '#0284c7',
+        bg: '#f0f9ff',
+        route: '/StoresOpeningStockReport',
+        component: StoresOpeningStockReport
     }
 ];
 

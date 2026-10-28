@@ -35,9 +35,10 @@ const ReferenceDoctorForm = ({ closeModal, setReferredBy, fetchReferenceDoctors,
     if (name === "doctor" && nameError) {
       setNameError(false);
     }
+    const val = typeof value === "string" ? value.toUpperCase() : value;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: val,
     }));
   };
 
@@ -51,7 +52,7 @@ const ReferenceDoctorForm = ({ closeModal, setReferredBy, fetchReferenceDoctors,
 
   const handleAddressChange = (e, index) => {
     const newAddress = [...formData.clinic_address];
-    newAddress[index] = e.target.value;
+    newAddress[index] = typeof e.target.value === "string" ? e.target.value.toUpperCase() : e.target.value;
     setFormData((prev) => ({
       ...prev,
       clinic_address: newAddress,
@@ -508,10 +509,12 @@ const Input = styled.input`
   outline: none;
   box-sizing: border-box;
   transition: all 0.15s ease;
+  text-transform: uppercase;
 
   &::placeholder {
     color: #94a3b8;
     font-size: 12px;
+    text-transform: none;
   }
 
   &:focus {

@@ -685,6 +685,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [selectedMedicines, setSelectedMedicines] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [billTypeOptions, setBillTypeOptions] = useState([]);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -800,7 +801,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           setBillTypeNo(opt.billTypeNo);
           setBilltype(opt.bill_type);
           setBillTypeName(opt.bill_name);
-          setPharmacyDept(opt.outlet_code || "");
+          if (opt.outlet_code && opt.outlet_code !== pharmacyDept) {
+            setPharmacyDept(opt.outlet_code);
+          }
         }
       }
     } catch (e) {
@@ -840,36 +843,37 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   };
 
   const handleMedicineSearch = async (val) => {
-    if (val.length > 2) {
+    if (val && val.trim().length > 1) {
+      setSearchLoading(true);
       try {
+        const queryTerm = encodeURIComponent(val.trim());
         const res = await apiRequest(
-          `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${pharmacyDept}`,
+          `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${pharmacyDept}&search=${queryTerm}`,
           "GET",
         );
         const list = res.success
           ? Array.isArray(res.data?.data)
-            ? res.data?.data
-            : Array.isArray(res.data?.data)
-              ? res.data.data
+            ? res.data.data
+            : Array.isArray(res.data)
+              ? res.data
               : []
           : [];
 
-        const filtered = list
-          .filter((item) =>
-            item.item_name?.toLowerCase().includes(val.toLowerCase()),
-          )
-          .map((item) => ({
-            id: item.item_id + "_" + item.batch_number,
-            item_id: item.item_id,
-            batch_number: item.batch_number,
-            name: item.item_name,
-            price: item.mrp,
-            total_stock: item.total_stock || 0,
-            expiry_date: item.expiry_date || "-",
-          }));
+        const filtered = list.map((item) => ({
+          id: item.item_id + "_" + item.batch_number,
+          item_id: item.item_id,
+          batch_number: item.batch_number,
+          name: item.item_name,
+          price: item.mrp || item.Selling_Price || item.price || 0,
+          total_stock: item.available_stock != null ? item.available_stock : (item.total_stock || 0),
+          expiry_date: item.expiry_date || "-",
+        }));
         setSearchResults(filtered);
       } catch (e) {
         console.error("Search error", e);
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
       }
     } else {
       setSearchResults([]);
@@ -1918,7 +1922,19 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                 </button>
               </div>
 
-              {searchResults.length > 0 ? (
+              {searchLoading ? (
+                <div
+                  style={{
+                    padding: "40px",
+                    textAlign: "center",
+                    color: colors.primary,
+                    fontWeight: 600,
+                  }}
+                >
+                  <span style={{ display: "inline-block", animation: "spin 1s linear infinite", marginRight: "8px" }}>⏳</span>
+                  Searching medicines in {pharmacyDept}...
+                </div>
+              ) : searchResults.length > 0 ? (
                 <div
                   style={{
                     overflowX: "auto",
