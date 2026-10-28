@@ -42,7 +42,7 @@ function setforlocaldev() {
     }
     // Only set default outlet if user has not yet selected one
     if (!localStorage.getItem("selected_outlet")) {
-      const selectedOutlet = "OLET003";
+      const selectedOutlet = "OLET002";
       localStorage.setItem("selected_outlet", selectedOutlet);
       localStorage.setItem("outlet_code", selectedOutlet);
       localStorage.setItem("selected_outlet_name", "MAIN BLOCK");

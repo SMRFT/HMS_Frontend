@@ -165,9 +165,10 @@ const TabPanel = styled.div`
   flex: 1;
 `;
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 const OPPharmacyTabs = () => {
-  const [activeTab, setActiveTab] = useState("pharmacy_bill");
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem("pharmacy_active_tab") || "pharmacy_bill";
+  });
   const [estimateToLoad, setEstimateToLoad] = useState(null);
   const [billToEdit, setBillToEdit] = useState(null);
   const [estimateRefreshKey, setEstimateRefreshKey] = useState(0);
@@ -339,38 +340,22 @@ const OPPharmacyTabs = () => {
     setWardRequestToLoad(null);
   };
 
-  const [visitedTabs, setVisitedTabs] = useState(new Set(["pharmacy_bill"]));
+  const [visitedTabs, setVisitedTabs] = useState(() => {
+    const saved = localStorage.getItem("pharmacy_active_tab") || "pharmacy_bill";
+    return new Set(["pharmacy_bill", saved]);
+  });
+
+  useEffect(() => {
+    if (activeTab) {
+      localStorage.setItem("pharmacy_active_tab", activeTab);
+      setVisitedTabs((prev) => new Set(prev).add(activeTab));
+    }
+  }, [activeTab]);
   const [medichartCount, setMedichartCount] = useState(0);
 
   const fetchMedichartCount = useCallback(async () => {
     try {
-      let userPayload = {};
-      try {
-        userPayload = JSON.parse(localStorage.getItem("user_payload") || "{}");
-      } catch (e) {}
-
-      const activeHospital =
-        localStorage.getItem("selected_hospital") ||
-        localStorage.getItem("hospital_code") ||
-        userPayload.hospital_code ||
-        "SH001";
-
-      const activeBranch =
-        localStorage.getItem("selected_branch") ||
-        localStorage.getItem("branch_code") ||
-        (Array.isArray(userPayload["allowed-data"]) ? userPayload["allowed-data"][0] : "") ||
-        "SHB001";
-
-      const activeOutlet =
-        localStorage.getItem("selected_outlet") ||
-        localStorage.getItem("outlet_code") ||
-        "OLET002";
-
-      const res = await apiRequest(`${Hmsbaseurl}pharmacy_medicinechart/`, "POST", {
-        outlet_code: activeOutlet,
-        branch_code: activeBranch,
-        hospital_code: activeHospital,
-      });
+      const res = await apiRequest(`${Hmsbaseurl}pharmacy_medicinechart/`, "POST");
 
       if (res.success && res.data) {
         const list = res.data.data || [];
