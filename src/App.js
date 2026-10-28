@@ -319,38 +319,60 @@ function App() {
             fetchOutlets(),
           ]);
 
-          const assignedOutletCodes = userPerms.hms_outlets || [];
+          let assignedOutletCodes = userPerms?.hms_outlets || [];
 
-          if (assignedOutletCodes.length > 0) {
-            // Map codes to full outlet objects
-            const userAssignedOutlets = allOutlets.filter((o) =>
-              assignedOutletCodes.includes(o.outlet_code),
-            );
-
-            setUserOutlets(userAssignedOutlets);
-
-            const storedOutlet = localStorage.getItem("selected_outlet");
-            const isValidStoredOutlet =
-              storedOutlet &&
-              userAssignedOutlets.some((o) => o.outlet_code === storedOutlet);
-
-            if (!isValidStoredOutlet) {
-              localStorage.removeItem("selected_outlet");
-              localStorage.removeItem("outlet_code");
-              localStorage.removeItem("selected_outlet_name");
-
-              if (userAssignedOutlets.length === 1) {
-                // Auto-select if only one
-                const outlet = userAssignedOutlets[0];
-                localStorage.setItem("selected_outlet", outlet.outlet_code);
-                localStorage.setItem("outlet_code", outlet.outlet_code);
-                localStorage.setItem(
-                  "selected_outlet_name",
-                  outlet.outlet_name,
-                );
-              } else if (userAssignedOutlets.length > 1) {
-                setShowOutletModal(true);
+          // Fallback to localStorage allowed-outlets if backend didn't return any
+          if (!assignedOutletCodes || assignedOutletCodes.length === 0) {
+            const rawAllowed = localStorage.getItem("allowed-outlets");
+            if (rawAllowed) {
+              try {
+                const parsed = JSON.parse(rawAllowed);
+                assignedOutletCodes = Array.isArray(parsed)
+                  ? parsed
+                  : rawAllowed.split(",").map((c) => c.trim()).filter(Boolean);
+              } catch (e) {
+                assignedOutletCodes = rawAllowed.split(",").map((c) => c.trim()).filter(Boolean);
               }
+            }
+          }
+
+          // Map codes to full outlet objects
+          const userAssignedOutlets = (assignedOutletCodes.length > 0)
+            ? allOutlets.filter((o) => assignedOutletCodes.includes(o.outlet_code))
+            : allOutlets;
+
+          const effectiveOutlets = userAssignedOutlets.length > 0 ? userAssignedOutlets : allOutlets;
+          setUserOutlets(effectiveOutlets);
+
+          const storedOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code");
+          const isValidStoredOutlet =
+            storedOutlet &&
+            effectiveOutlets.some((o) => o.outlet_code === storedOutlet);
+
+          if (!isValidStoredOutlet) {
+            localStorage.removeItem("selected_outlet");
+            localStorage.removeItem("outlet_code");
+            localStorage.removeItem("selected_outlet_name");
+
+            if (effectiveOutlets.length === 1) {
+              // Auto-select if only one
+              const outlet = effectiveOutlets[0];
+              localStorage.setItem("selected_outlet", outlet.outlet_code);
+              localStorage.setItem("outlet_code", outlet.outlet_code);
+              localStorage.setItem(
+                "selected_outlet_name",
+                outlet.outlet_name,
+              );
+            } else if (effectiveOutlets.length > 1) {
+              setShowOutletModal(true);
+            }
+          } else {
+            // Keep selected_outlet, outlet_code and selected_outlet_name in sync
+            const currentOutletObj = effectiveOutlets.find((o) => o.outlet_code === storedOutlet);
+            if (currentOutletObj) {
+              localStorage.setItem("selected_outlet", currentOutletObj.outlet_code);
+              localStorage.setItem("outlet_code", currentOutletObj.outlet_code);
+              localStorage.setItem("selected_outlet_name", currentOutletObj.outlet_name);
             }
           }
         } catch (error) {
