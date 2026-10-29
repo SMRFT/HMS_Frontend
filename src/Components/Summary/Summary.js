@@ -26,6 +26,8 @@ import {
   ArrowUp,
   ArrowDown,
   Eye,
+  Type,
+  ChevronDown,
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 import ICD11SearchComponent from "./ICD11SearchComponent";
@@ -33,274 +35,352 @@ import { PageWrapper, colors } from "../GlobalStyles";
 import HighRiskBadge from "../Common/HighRiskBadge";
 import PatientSearchModal from "../Common/PatientSearchModal";
 
-/* ─── Design tokens ─────────────────────────────────────────────────────── */
+/* ─── Modern Design tokens ───────────────────────────────────────────────── */
 const T = {
   teal: colors.primary || "#0d9488",
   tealDk: "#0f766e",
-  tealLt: "#ccfbf1",
-  sky: "#0ea5e9",
-  skyLt: "#e0f2fe",
-  slate: "#1e293b",
+  tealLt: "#f0fdfa",
+  tealGlow: "rgba(13, 148, 136, 0.16)",
+  sky: "#0284c7",
+  skyLt: "#f0f9ff",
+  indigo: "#4f46e5",
+  indigoLt: "#eef2ff",
+  slate: "#0f172a",
+  slateMuted: "#334155",
   muted: "#64748b",
-  border: "#e2e8f0",
+  border: "#cbd5e1",
+  borderLt: "#e2e8f0",
   bg: "#f8fafc",
   bgAlt: "#f1f5f9",
   white: "#ffffff",
   text: "#0f172a",
-  textSm: "#475569",
+  textSm: "#334155",
   green: "#16a34a",
+  greenLt: "#f0fdf4",
   amber: "#d97706",
+  amberLt: "#fffbeb",
   red: "#dc2626",
+  redLt: "#fef2f2",
 };
+
+/* ─── Global & Scoped CSS Enhancements ───────────────────────────────────── */
+const SUMMARY_CUSTOM_STYLES = `
+  .sum-card-lift {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .sum-card-lift:hover {
+    box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+  }
+  .sum-sidebar-scroll::-webkit-scrollbar,
+  .sum-custom-scroll::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .sum-sidebar-scroll::-webkit-scrollbar-track,
+  .sum-custom-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sum-sidebar-scroll::-webkit-scrollbar-thumb,
+  .sum-custom-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+  }
+  .sum-sidebar-scroll::-webkit-scrollbar-thumb:hover,
+  .sum-custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  .sum-btn-hover {
+    transition: all 0.16s ease;
+  }
+  .sum-btn-hover:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+  }
+  .sum-btn-hover:active:not(:disabled) {
+    transform: translateY(0);
+    filter: brightness(0.96);
+  }
+  .sum-table-row {
+    transition: background-color 0.15s ease;
+  }
+  .sum-table-row:hover {
+    background-color: #f1f5f9 !important;
+  }
+  @keyframes sumPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.75; }
+  }
+  .sum-pulse-dot {
+    animation: sumPulse 1.4s infinite ease-in-out;
+  }
+`;
 
 /* ─── Utility styles ─────────────────────────────────────────────────────── */
 const S = {
-  inner: { maxWidth: 1320, margin: "0 auto", paddingBottom: 40 },
+  inner: { maxWidth: 1440, margin: "0 auto", paddingBottom: 50, paddingLeft: 8, paddingRight: 8 },
 
   /* Header */
   topBar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 24,
-    padding: "18px 24px",
-    background: "white",
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
+    marginBottom: 20,
+    padding: "16px 24px",
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -2px rgba(15, 23, 42, 0.05)",
   },
   pageTitle: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
     fontSize: 22,
-    fontWeight: 700,
-    color: T.slate,
+    fontWeight: 800,
+    color: "#0f172a",
     letterSpacing: "-0.4px",
     margin: 0,
   },
   titleIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    background: "linear-gradient(135deg, #0d9488 0%, #0284c7 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: "white",
-    boxShadow: "0 4px 10px rgba(13, 148, 136, 0.25)",
+    boxShadow: "0 6px 16px -2px rgba(13, 148, 136, 0.35)",
   },
   datePill: {
     display: "flex",
     alignItems: "center",
-    gap: 6,
-    background: T.bgAlt,
-    color: T.slate,
-    border: `1px solid ${T.border}`,
-    borderRadius: 20,
-    padding: "6px 16px",
+    gap: 7,
+    background: "#f8fafc",
+    color: "#334155",
+    border: "1.5px solid #e2e8f0",
+    borderRadius: 30,
+    padding: "7px 16px",
     fontSize: 13,
-    fontWeight: 600,
+    fontWeight: 700,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
   },
 
   /* Edit banner */
   editBanner: {
-    background: T.skyLt,
-    border: `1px solid ${T.sky}60`,
-    borderRadius: 10,
-    padding: "12px 18px",
+    background: "linear-gradient(90deg, #eff6ff 0%, #f0fdfa 100%)",
+    border: "1.5px solid #93c5fd",
+    borderRadius: 12,
+    padding: "12px 20px",
     marginBottom: 20,
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    fontSize: 14,
-    color: T.slate,
-    fontWeight: 500,
-    boxShadow: "0 2px 8px rgba(14, 165, 233, 0.1)",
+    gap: 12,
+    fontSize: 13.5,
+    color: "#1e3a8a",
+    fontWeight: 600,
+    boxShadow: "0 2px 8px rgba(37, 99, 235, 0.08)",
   },
 
   /* Card */
   card: {
-    background: T.white,
-    borderRadius: 12,
-    border: `1px solid ${T.border}`,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
-    marginBottom: 20,
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -4px rgba(15, 23, 42, 0.05)",
+    marginBottom: 22,
     overflow: "hidden",
   },
   cardHead: {
-    padding: "14px 20px",
-    background: `linear-gradient(90deg, #f8fafc, #f1f5f9)`,
-    borderBottom: `1px solid ${T.border}`,
+    padding: "13px 22px",
+    background: "linear-gradient(90deg, #f8fafc 0%, #ffffff 100%)",
+    borderBottom: "1px solid #e2e8f0",
     display: "flex",
     alignItems: "center",
     gap: 10,
-    fontSize: 13,
-    fontWeight: 700,
+    fontSize: 12.5,
+    fontWeight: 800,
     textTransform: "uppercase",
     letterSpacing: "0.8px",
-    color: T.teal,
+    color: "#0f766e",
   },
   cardHeadBar: {
     width: 4,
     height: 16,
     borderRadius: 2,
-    background: `linear-gradient(${T.teal}, ${T.sky})`,
+    background: "linear-gradient(#0d9488, #0284c7)",
   },
-  cardBody: { padding: "20px" },
+  cardBody: { padding: "20px 22px" },
 
   /* Compact grid */
   grid: (cols) => ({
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gap: "12px 14px",
-    marginBottom: 14,
+    gap: "14px 16px",
+    marginBottom: 16,
   }),
 
   /* Inputs & Selects */
   inp: {
-    height: 36,
-    padding: "0 11px",
+    height: 38,
+    padding: "0 12px",
     fontSize: 13,
-    color: T.text,
-    background: T.white,
-    border: `1px solid ${T.border}`,
-    borderRadius: 7,
+    fontWeight: 500,
+    color: "#0f172a",
+    background: "#ffffff",
+    border: "1px solid #cbd5e1",
+    borderRadius: 8,
     outline: "none",
     width: "100%",
     fontFamily: "inherit",
-    transition: "all .15s",
+    transition: "all 0.18s ease",
   },
   sel: {
-    height: 36,
-    padding: "0 28px 0 11px",
+    height: 38,
+    padding: "0 30px 0 12px",
     fontSize: 13,
-    color: T.text,
-    background: T.white,
-    border: `1px solid ${T.border}`,
-    borderRadius: 7,
+    fontWeight: 500,
+    color: "#0f172a",
+    background: "#ffffff",
+    border: "1px solid #cbd5e1",
+    borderRadius: 8,
     outline: "none",
     width: "100%",
     fontFamily: "inherit",
     cursor: "pointer",
     appearance: "none",
-    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-    backgroundPosition: "right 8px center",
+    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%230f766e' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+    backgroundPosition: "right 10px center",
     backgroundRepeat: "no-repeat",
     backgroundSize: "1.1em",
+    transition: "all 0.18s ease",
   },
   lbl: {
     fontSize: 11,
-    fontWeight: 600,
+    fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "0.5px",
-    color: T.muted,
+    color: "#475569",
     marginBottom: 5,
-    display: "block",
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
   },
   fld: { display: "flex", flexDirection: "column" },
 
   /* Search button inside input block */
   searchMicroBtn: {
-    marginTop: 4,
-    height: 28,
+    height: 32,
     padding: "0 12px",
     fontSize: 12,
-    fontWeight: 600,
-    background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
-    color: T.white,
+    fontWeight: 700,
+    background: "linear-gradient(135deg, #0d9488 0%, #0284c7 100%)",
+    color: "#ffffff",
     border: "none",
     borderRadius: 6,
     cursor: "pointer",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    transition: "opacity 0.2s",
+    gap: 5,
+    boxShadow: "0 2px 6px rgba(13, 148, 136, 0.25)",
+    transition: "all 0.15s ease",
   },
 
   /* Notes layout */
   notesLayout: {
     display: "grid",
-    gridTemplateColumns: "240px 1fr",
-    gap: 20,
+    gridTemplateColumns: "280px minmax(0, 1fr)",
+    gap: 22,
     marginBottom: 24,
+    alignItems: "start",
   },
 
   /* Sidebar */
   sidebar: {
-    background: T.white,
-    borderRadius: 12,
-    border: `1px solid ${T.border}`,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -4px rgba(15, 23, 42, 0.05)",
     overflow: "hidden",
-    alignSelf: "start",
+    position: "sticky",
+    top: 16,
+    maxHeight: "calc(100vh - 40px)",
+    display: "flex",
+    flexDirection: "column",
   },
   sidebarHead: {
-    padding: "14px 16px",
-    background: `linear-gradient(135deg, ${T.slate}, #334155)`,
-    fontSize: 11,
-    fontWeight: 700,
+    padding: "14px 18px",
+    background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
+    fontSize: 12,
+    fontWeight: 800,
     textTransform: "uppercase",
-    letterSpacing: "1px",
-    color: T.white,
+    letterSpacing: "0.8px",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    boxShadow: "0 2px 6px rgba(13, 148, 136, 0.2)",
+  },
+  sidebarItem: (active) => ({
+    padding: "10px 14px",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: active ? 700 : 600,
+    color: active ? "#0f766e" : "#334155",
+    background: active ? "linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(13, 148, 136, 0.04) 100%)" : "transparent",
+    borderLeft: `4px solid ${active ? "#0d9488" : "transparent"}`,
+    borderBottom: "1px solid #f1f5f9",
+    transition: "all 0.15s ease",
+    lineHeight: 1.4,
     display: "flex",
     alignItems: "center",
     gap: 8,
-  },
-  sidebarItem: (active) => ({
-    padding: "9px 14px",
-    cursor: "pointer",
-    fontSize: 12,
-    fontWeight: active ? 700 : 500,
-    color: active ? T.teal : T.textSm,
-    background: active ? `${T.teal}10` : "transparent",
-    borderLeft: `4px solid ${active ? T.teal : "transparent"}`,
-    borderBottom: `1px solid ${T.border}`,
-    transition: "all .15s",
-    lineHeight: 1.35,
   }),
 
   /* Notes main area */
   notesCard: {
-    background: T.white,
-    borderRadius: 12,
-    border: `1px solid ${T.border}`,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
-    padding: 20,
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -4px rgba(15, 23, 42, 0.05)",
+    padding: 22,
     display: "flex",
     flexDirection: "column",
-    gap: 14,
+    gap: 16,
   },
   notesActiveLabel: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: T.teal,
+    fontSize: 15,
+    fontWeight: 800,
+    color: "#0f766e",
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   textarea: {
-    minHeight: 520,
+    width: "100%",
+    boxSizing: "border-box",
+    minHeight: 540,
     resize: "vertical",
-    padding: 14,
-    fontSize: 13.5,
-    color: T.text,
-    background: T.bg,
-    border: `1px solid ${T.border}`,
-    borderRadius: 8,
+    padding: "16px 18px",
+    fontSize: 14,
+    color: "#0f172a",
+    background: "#ffffff",
+    border: "1.5px solid #cbd5e1",
+    borderRadius: 10,
     outline: "none",
     fontFamily: "inherit",
-    lineHeight: 1.65,
-    transition: "all .15s",
+    lineHeight: 1.7,
+    transition: "all 0.18s ease",
   },
   notesToolbar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "6px 10px",
+    padding: "8px 12px",
     background: "#f8fafc",
-    border: `1px solid ${T.border}`,
-    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+    borderRadius: 10,
     gap: 10,
     flexWrap: "wrap",
   },
@@ -308,91 +388,105 @@ const S = {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "5px 12px",
-    fontSize: 12.5,
+    padding: "6px 12px",
+    fontSize: 12,
     fontWeight: 700,
     color: "#0f172a",
     background: "#ffffff",
-    border: `1.5px solid #94a3b8`,
-    borderRadius: 6,
+    border: "1.5px solid #cbd5e1",
+    borderRadius: 7,
     cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-    transition: "all .15s",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    transition: "all 0.15s ease",
+  },
+  caseMenuItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    padding: "7px 12px",
+    borderRadius: 6,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    textAlign: "left",
+    transition: "background 0.15s ease",
   },
   micBtn: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "5px 12px",
-    fontSize: 12.5,
+    padding: "6px 13px",
+    fontSize: 12,
     fontWeight: 700,
     color: "#0f766e",
     background: "#f0fdf4",
     border: "1.5px solid #86efac",
-    borderRadius: 6,
+    borderRadius: 7,
     cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-    transition: "all .15s",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    transition: "all 0.15s ease",
   },
   micBtnActive: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "5px 12px",
-    fontSize: 12.5,
+    padding: "6px 13px",
+    fontSize: 12,
     fontWeight: 700,
     color: "#b91c1c",
     background: "#fef2f2",
     border: "1.5px solid #f87171",
-    borderRadius: 6,
+    borderRadius: 7,
     cursor: "pointer",
     boxShadow: "0 0 0 3px rgba(239,68,68,0.25)",
-    transition: "all .15s",
+    transition: "all 0.15s ease",
   },
   aiBtn: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "5px 12px",
-    fontSize: 12.5,
+    padding: "6px 13px",
+    fontSize: 12,
     fontWeight: 700,
     color: "#4338ca",
-    background: "#eef2ff",
+    background: "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)",
     border: "1.5px solid #a5b4fc",
-    borderRadius: 6,
+    borderRadius: 7,
     cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-    transition: "all .15s",
+    boxShadow: "0 1px 3px rgba(79, 70, 229, 0.12)",
+    transition: "all 0.15s ease",
   },
   undoBtn: {
     display: "inline-flex",
     alignItems: "center",
     gap: 5,
-    padding: "5px 10px",
+    padding: "6px 11px",
     fontSize: 12,
     fontWeight: 600,
-    color: "#64748b",
+    color: "#475569",
     background: "#ffffff",
-    border: "1px solid #cbd5e1",
-    borderRadius: 6,
+    border: "1.5px solid #cbd5e1",
+    borderRadius: 7,
     cursor: "pointer",
-    transition: "all .15s",
+    transition: "all 0.15s ease",
   },
   listeningBanner: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "7px 12px",
+    padding: "8px 14px",
     background: "#fef2f2",
-    border: "1px solid #fca5a5",
-    borderRadius: 6,
+    border: "1.5px solid #fca5a5",
+    borderRadius: 8,
     fontSize: 12,
     color: "#991b1b",
     fontWeight: 600,
+    boxShadow: "0 2px 6px rgba(239, 68, 68, 0.08)",
   },
   pulsingDot: {
-    width: 8,
-    height: 8,
+    width: 9,
+    height: 9,
     borderRadius: "50%",
     backgroundColor: "#ef4444",
     display: "inline-block",
@@ -400,155 +494,167 @@ const S = {
   },
   toolbarHint: {
     fontSize: 11.5,
-    color: T.muted,
+    color: "#64748b",
   },
   tabGroup: {
     display: "flex",
     alignItems: "center",
     background: "#e2e8f0",
-    padding: 2,
-    borderRadius: 7,
+    padding: 3,
+    borderRadius: 8,
     gap: 2,
   },
   tabBtn: {
-    padding: "4px 12px",
+    padding: "5px 14px",
     fontSize: 12,
     fontWeight: 600,
-    color: T.muted,
+    color: "#64748b",
     background: "transparent",
     border: "none",
-    borderRadius: 5,
+    borderRadius: 6,
     cursor: "pointer",
-    transition: "all .15s",
+    transition: "all 0.15s ease",
   },
   tabBtnActive: {
-    padding: "4px 12px",
+    padding: "5px 14px",
     fontSize: 12,
     fontWeight: 700,
-    color: T.teal,
+    color: "#0f766e",
     background: "#ffffff",
-    border: `1px solid ${T.border}`,
-    borderRadius: 5,
+    border: "1px solid #cbd5e1",
+    borderRadius: 6,
     cursor: "pointer",
     boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
   },
   previewBox: {
-    minHeight: 520,
-    padding: 16,
-    fontSize: 13.5,
-    color: T.text,
+    width: "100%",
+    boxSizing: "border-box",
+    minHeight: 540,
+    padding: "18px 20px",
+    fontSize: 14,
+    color: "#0f172a",
     background: "#ffffff",
-    border: `1px solid ${T.border}`,
-    borderRadius: 8,
-    lineHeight: 1.65,
+    border: "1.5px solid #e2e8f0",
+    borderRadius: 10,
+    lineHeight: 1.7,
     overflowY: "auto",
     whiteSpace: "pre-wrap",
+    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.03)",
   },
 
   /* Action row */
-  actionRow: { display: "flex", gap: 10, flexWrap: "wrap" },
+  actionRow: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" },
   outBtn: (color) => ({
-    padding: "6px 14px",
+    padding: "7px 15px",
     fontSize: 12,
-    fontWeight: 600,
+    fontWeight: 700,
     border: `1.5px solid ${color}`,
     color: color,
-    background: "white",
-    borderRadius: 7,
+    background: "#ffffff",
+    borderRadius: 8,
     cursor: "pointer",
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    transition: "all .15s",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+    transition: "all 0.15s ease",
   }),
 
   /* Primary/variant buttons */
   btn: (v = "primary") => {
     const map = {
       primary: {
-        bg: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
-        color: T.white,
+        bg: "linear-gradient(135deg, #0d9488 0%, #0284c7 100%)",
+        color: "#ffffff",
+        shadow: "0 4px 14px rgba(13, 148, 136, 0.3)",
       },
       danger: {
-        bg: `linear-gradient(135deg, ${T.red}, #ef4444)`,
-        color: T.white,
+        bg: "linear-gradient(135deg, #dc2626 0%, #ef4444 100%)",
+        color: "#ffffff",
+        shadow: "0 4px 14px rgba(220, 38, 38, 0.3)",
       },
       success: {
-        bg: `linear-gradient(135deg, ${T.green}, #22c55e)`,
-        color: T.white,
+        bg: "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)",
+        color: "#ffffff",
+        shadow: "0 4px 14px rgba(22, 163, 74, 0.3)",
       },
-      ghost: { bg: T.slate, color: T.white },
+      ghost: {
+        bg: "#0f172a",
+        color: "#ffffff",
+        shadow: "0 2px 8px rgba(15, 23, 42, 0.15)",
+      },
     };
     const s = map[v] || map.primary;
     return {
-      padding: "8px 18px",
+      padding: "9px 22px",
       fontSize: 13,
-      fontWeight: 600,
+      fontWeight: 700,
       background: s.bg,
       color: s.color,
       border: "none",
-      borderRadius: 7,
+      borderRadius: 8,
       cursor: "pointer",
-      boxShadow: "0 2px 6px rgba(0,0,0,.12)",
+      boxShadow: s.shadow,
       display: "inline-flex",
       alignItems: "center",
-      gap: 6,
-      transition: "opacity .15s",
+      gap: 7,
+      transition: "all 0.15s ease",
     };
   },
 
   /* Table */
   tableWrap: {
-    background: T.white,
-    borderRadius: 12,
-    border: `1px solid ${T.border}`,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -4px rgba(15, 23, 42, 0.05)",
     overflow: "hidden",
     marginTop: 28,
   },
   tableHead: {
-    padding: "16px 20px",
-    background: `linear-gradient(135deg, ${T.slate}, #334155)`,
+    padding: "16px 22px",
+    background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
+    boxShadow: "0 2px 6px rgba(13, 148, 136, 0.2)",
   },
-  tableTitle: { fontSize: 15, fontWeight: 700, color: T.white, display: "flex", alignItems: "center", gap: 8 },
-  tableCount: { fontSize: 12, color: "rgba(255,255,255,.75)", fontWeight: 500 },
+  tableTitle: { fontSize: 15, fontWeight: 800, color: "#ffffff", display: "flex", alignItems: "center", gap: 10, letterSpacing: "-0.2px" },
+  tableCount: { fontSize: 12, color: "#ffffff", fontWeight: 700, background: "rgba(255,255,255,0.22)", padding: "3px 12px", borderRadius: 20 },
   filterBar: {
-    padding: "14px 18px",
-    background: T.bg,
-    borderBottom: `1px solid ${T.border}`,
+    padding: "16px 20px",
+    background: "#f8fafc",
+    borderBottom: "1px solid #e2e8f0",
   },
   filterGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1.2fr 1fr 1fr auto auto",
-    gap: "10px 12px",
+    gridTemplateColumns: "1.2fr 1.2fr 1.8fr 1.6fr 1.2fr auto auto",
+    gap: "12px 14px",
     alignItems: "end",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   filterGrid2: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 5fr",
-    gap: "10px 12px",
+    gridTemplateColumns: "1.5fr 1.5fr 1fr",
+    gap: "12px 14px",
     alignItems: "end",
   },
   th: {
-    padding: "10px 14px",
+    padding: "12px 16px",
     fontSize: 11,
-    fontWeight: 700,
+    fontWeight: 800,
     textTransform: "uppercase",
-    letterSpacing: "0.7px",
-    color: T.muted,
-    background: T.bg,
-    borderBottom: `2px solid ${T.border}`,
+    letterSpacing: "0.8px",
+    color: "#475569",
+    background: "#f1f5f9",
+    borderBottom: "2px solid #cbd5e1",
     whiteSpace: "nowrap",
   },
   td: {
-    padding: "11px 14px",
+    padding: "12px 16px",
     fontSize: 13,
-    color: T.text,
-    borderBottom: `1px solid ${T.border}`,
+    color: "#0f172a",
+    borderBottom: "1px solid #e2e8f0",
     verticalAlign: "middle",
   },
 
@@ -557,13 +663,14 @@ const S = {
     display: "inline-flex",
     alignItems: "center",
     gap: 5,
-    padding: "3px 10px",
+    padding: "4px 11px",
     borderRadius: 20,
     fontSize: 11,
     fontWeight: 700,
-    background: ok ? `#dcfce7` : `#fef3c7`,
-    color: ok ? `#15803d` : `#b45309`,
-    border: `1px solid ${ok ? "#86efac" : "#fde68a"}`,
+    background: ok ? "#f0fdf4" : "#fffbeb",
+    color: ok ? "#15803d" : "#b45309",
+    border: `1.5px solid ${ok ? "#86efac" : "#fde68a"}`,
+    letterSpacing: "0.2px",
   }),
   dot: (ok) => ({
     width: 6,
@@ -576,88 +683,94 @@ const S = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(15,23,42,.6)",
-    backdropFilter: "blur(4px)",
+    background: "rgba(15, 23, 42, 0.65)",
+    backdropFilter: "blur(6px)",
     zIndex: 1050,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    padding: 16,
   },
   modalBox: {
-    background: T.white,
-    borderRadius: 14,
-    width: "min(700px, 94vw)",
-    maxHeight: "85vh",
+    background: "#ffffff",
+    borderRadius: 16,
+    width: "min(720px, 94vw)",
+    maxHeight: "86vh",
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 20px 60px rgba(15,23,42,.25)",
+    boxShadow: "0 25px 60px -15px rgba(15, 23, 42, 0.35)",
     overflow: "hidden",
+    border: "1px solid #e2e8f0",
   },
   modalHead: {
-    padding: "16px 20px",
-    background: `linear-gradient(135deg, ${T.slate}, #334155)`,
+    padding: "16px 22px",
+    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     flexShrink: 0,
   },
-  modalTitle: { fontSize: 15, fontWeight: 700, color: T.white, display: "flex", alignItems: "center", gap: 8 },
+  modalTitle: { fontSize: 15, fontWeight: 800, color: "#ffffff", display: "flex", alignItems: "center", gap: 10, letterSpacing: "-0.2px" },
   modalClose: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: "50%",
-    background: "rgba(255,255,255,.15)",
+    background: "rgba(255,255,255,0.12)",
     border: "none",
-    color: T.white,
+    color: "#ffffff",
     cursor: "pointer",
     fontSize: 14,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    transition: "background 0.15s ease",
   },
-  modalBody: { padding: 18, overflowY: "auto", flexGrow: 1 },
+  modalBody: { padding: 22, overflowY: "auto", flexGrow: 1 },
   modalFoot: {
-    padding: "14px 18px",
-    borderTop: `1px solid ${T.border}`,
+    padding: "16px 22px",
+    borderTop: "1px solid #e2e8f0",
+    background: "#f8fafc",
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 10,
+    gap: 12,
     flexShrink: 0,
   },
   invCard: (sel, warn) => ({
-    borderRadius: 9,
-    padding: "12px 14px",
+    borderRadius: 10,
+    padding: "13px 16px",
     marginBottom: 10,
     cursor: "pointer",
     border: sel
-      ? `2px solid ${T.teal}`
+      ? "2px solid #0d9488"
       : warn
-        ? `2px solid ${T.amber}`
-        : `1.5px solid ${T.border}`,
-    background: sel ? `${T.teal}0d` : warn ? `${T.amber}08` : T.white,
-    transition: "all .15s",
+        ? "2px solid #d97706"
+        : "1.5px solid #e2e8f0",
+    background: sel ? "#f0fdfa" : warn ? "#fffbeb" : "#ffffff",
+    boxShadow: sel ? "0 2px 8px rgba(13, 148, 136, 0.12)" : "0 1px 3px rgba(0,0,0,0.02)",
+    transition: "all 0.16s ease",
   }),
 
   /* Table action button icon */
-  actionBtn: (color = T.teal) => ({
-    background: "white",
-    border: `1px solid ${T.border}`,
+  actionBtn: (color = "#0d9488") => ({
+    background: "#ffffff",
+    border: "1.5px solid #cbd5e1",
     color: color,
-    width: 32,
-    height: 32,
-    borderRadius: 6,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
-    transition: "all 0.15s",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    transition: "all 0.15s ease",
   }),
 };
 
 /* ─── Tiny helpers ───────────────────────────────────────────────────────── */
-const Fld = ({ label, children }) => (
-  <div style={S.fld}>
+const Fld = ({ label, children, style }) => (
+  <div style={{ ...S.fld, ...style }}>
     <span style={S.lbl}>{label}</span>
     {children}
   </div>
@@ -668,10 +781,10 @@ const CInp = ({ style, ...props }) => (
     style={{ ...S.inp, ...style }}
     onFocus={(e) => {
       e.target.style.borderColor = T.teal;
-      e.target.style.boxShadow = `0 0 0 3px ${T.teal}18`;
+      e.target.style.boxShadow = `0 0 0 3px ${T.tealGlow || "rgba(13, 148, 136, 0.16)"}`;
     }}
     onBlur={(e) => {
-      e.target.style.borderColor = T.border;
+      e.target.style.borderColor = "#cbd5e1";
       e.target.style.boxShadow = "none";
     }}
     {...props}
@@ -717,6 +830,55 @@ const sortFieldsDataByUiOrder = (fieldsArr, orderArr) => {
     const idxB = orderMap.has(keyB) ? orderMap.get(keyB) : 99999;
     return idxA - idxB;
   });
+};
+
+const formatDisplayDate = (d) => {
+  if (!d) return "—";
+  if (typeof d === "string") {
+    const s = d.trim();
+    if (!s) return "—";
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s.replace(/-/g, "/");
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      const [y, m, day] = s.slice(0, 10).split("-");
+      return `${day}/${m}/${y}`;
+    }
+  }
+  try {
+    const dt = new Date(d);
+    if (!isNaN(dt.getTime())) {
+      return dt.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    }
+  } catch { }
+  return String(d);
+};
+
+const buildDoaDodText = (doa, doaTime, dod, dodTime) => {
+  const dStr = formatDisplayDate(doa);
+  const tStr = doaTime ? String(doaTime).trim() : "";
+  const dodStr = formatDisplayDate(dod);
+  const dodTStr = dodTime ? String(dodTime).trim() : "";
+  const doaLine = `DOA : ${dStr} ${tStr}`.trim();
+  const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
+  return `${doaLine}\n${dodLine}`;
+};
+
+const formatDoaDodWithExtras = (existingVal, doa, doaTime, dod, dodTime, defVal = "") => {
+  const autoText = buildDoaDodText(doa, doaTime, dod, dodTime);
+  const text = (existingVal || defVal || "").trim();
+  if (!text) return autoText;
+  const lines = text.split("\n");
+  const extraLines = lines.filter(
+    (l) => !/^DOA\s*:/i.test(l.trim()) && !/^DOD\s*:/i.test(l.trim())
+  );
+  if (extraLines.length > 0) {
+    return `${autoText}\n${extraLines.join("\n")}`.trim();
+  }
+  return autoText;
 };
 
 /* ─── Render Formatted/Bold Text Helper ──────────────────────────────────── */
@@ -1022,6 +1184,7 @@ const Summary = () => {
   const canApprove = allowedActions.includes("HMS-P-SUMA-RW");
 
   const [noteFields, setNoteFields] = useState([]);
+  const [sidebarSearch, setSidebarSearch] = useState("");
 
   const emptyForm = {
     date: "",
@@ -1039,6 +1202,8 @@ const Summary = () => {
     surgeryDate: "",
     nextReviewDate: "",
     doctor: "",
+    explainedBy: "",
+    explainedTo: "",
     gender: "",
     summaryNo: "",
     summaryType: "",
@@ -1082,6 +1247,24 @@ const Summary = () => {
   const gainNodeRef = useRef(null);
   const [speechStatus, setSpeechStatus] = useState("Listening… Speak into your microphone");
   const [audioLevel, setAudioLevel] = useState(0);
+
+  // Case Conversion Toolbar dropdown state
+  const [showCaseMenu, setShowCaseMenu] = useState(false);
+  const caseMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (caseMenuRef.current && !caseMenuRef.current.contains(e.target)) {
+        setShowCaseMenu(false);
+      }
+    };
+    if (showCaseMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showCaseMenu]);
 
   const toggleMicBoost = () => {
     setMicBoost((prev) => {
@@ -1192,8 +1375,11 @@ const Summary = () => {
     const found = summaryTypeOptions.find(
       (t) => String(t.summaryNo) === String(sNo)
     );
+    let firstHeading = "";
+    let firstVal = "";
+
     setFormData((prev) => {
-      let updatedFd = prev.fieldsData || [];
+      let updatedFd = [];
       let orderedHeadings = [];
       if (found && Array.isArray(found.headings)) {
         const sortedHeadings = [...found.headings].sort(
@@ -1202,24 +1388,33 @@ const Summary = () => {
         orderedHeadings = sortedHeadings
           .map((h) => (typeof h === "string" ? h : h.heading))
           .filter(Boolean);
+
         sortedHeadings.forEach((h) => {
           const hName = typeof h === "string" ? h : h.heading;
           const defVal = typeof h === "object" ? (h.defaultValue || h.default_value || "") : "";
-          if (hName && defVal) {
-            const existingVal = getFieldValue(updatedFd, hName);
-            if (!existingVal || !existingVal.trim()) {
-              updatedFd = setFieldValue(updatedFd, hName, defVal);
-            }
+          if (hName === "DOA AND DOD") {
+            const formatted = formatDoaDodWithExtras("", prev.doa, prev.doaTime, prev.dod, prev.dodTime, defVal);
+            updatedFd = setFieldValue(updatedFd, hName, formatted);
+          } else {
+            updatedFd = setFieldValue(updatedFd, hName, defVal || "");
           }
         });
       }
+
+      firstHeading = orderedHeadings[0] || "";
+      firstVal = firstHeading ? getFieldValue(updatedFd, firstHeading) : "";
+
       return {
         ...prev,
         summaryNo: sNo,
         summaryType: found ? found.summaryType : "",
         fieldsData: sortFieldsDataByUiOrder(updatedFd, orderedHeadings),
+        currentField: firstHeading,
+        notes: firstVal || "",
       };
     });
+
+    setSelectedField(firstHeading);
   };
 
   // ── Package.js style Type Management actions ──
@@ -1612,10 +1807,12 @@ const Summary = () => {
   };
 
   useEffect(() => {
-    fetchSummaries({
-      fromDate: new Date().toISOString().split("T")[0],
-      toDate: new Date().toISOString().split("T")[0],
-    });
+    if (!location.state?.archiveFilter) {
+      fetchSummaries({
+        fromDate: new Date().toISOString().split("T")[0],
+        toDate: new Date().toISOString().split("T")[0],
+      });
+    }
   }, []);
 
   const [showPatientModal, setShowPatientModal] = useState(false);
@@ -1700,28 +1897,46 @@ const Summary = () => {
         `${d.salutation || ""} ${d.firstName || ""} ${d.lastName || ""}`
           .trim()
           .replace(/\s+/g, " ");
-      const fullAddress = [d.area, d.city, d.state].filter(Boolean).join(", ");
-      setFormData((prev) => ({
-        ...prev,
-        uhid: d.uhid || "",
-        patient: fullName,
-        age: d.age || "",
-        gender: d.gender || "",
-        roomNo: d.roomNo || "",
-        doa: d.admissionDate || "",
-        doaTime: d.admissionTime || "",
-        doctor: (d.admittingDoctor || "").toUpperCase(),
-        address: fullAddress,
-        is_high_risk: Boolean(d.is_high_risk),
-        high_risk_reason: d.high_risk_reason || "",
-      }));
+      const fullAddress = (d.address || [d.area, d.city, d.state, d.zipcode].filter(Boolean).join(", ")).trim();
+      const newDoa = d.admissionDate || "";
+      const newDoaTime = d.admissionTime || "";
+      setFormData((prev) => {
+        const nextDod = prev.dod || "";
+        const nextDodTime = prev.dodTime || "17:00";
+        const curDoaDod = getFieldValue(prev.fieldsData, "DOA AND DOD");
+        const defVal = getPredefinedValueForField("DOA AND DOD");
+        const autoDoaDodText = formatDoaDodWithExtras(curDoaDod, newDoa, newDoaTime, nextDod, nextDodTime, defVal);
+        let updatedFd = setFieldValue(prev.fieldsData, "DOA AND DOD", autoDoaDodText);
+        const activeDoaDod = getFieldValue(updatedFd, "DOA AND DOD");
+        const isViewingDoaDod =
+          (selectedField || prev.currentField || "").trim().toUpperCase() === "DOA AND DOD" ||
+          (!prev.currentField && !selectedField);
+        return {
+          ...prev,
+          uhid: d.uhid || "",
+          patient: fullName,
+          age: d.age || "",
+          gender: d.gender || "",
+          roomNo: d.roomNo || "",
+          doa: newDoa,
+          doaTime: newDoaTime,
+          doctor: (d.admittingDoctor || "").toUpperCase(),
+          address: fullAddress,
+          is_high_risk: Boolean(d.is_high_risk),
+          high_risk_reason: d.high_risk_reason || "",
+          explainedBy: prev.explainedBy || (d.admittingDoctor ? (d.admittingDoctor.toUpperCase().startsWith("DR.") ? d.admittingDoctor.toUpperCase() : `DR. ${d.admittingDoctor.toUpperCase()}`) : ""),
+          explainedTo: prev.explainedTo || fullName,
+          fieldsData: updatedFd,
+          notes: isViewingDoaDod && activeDoaDod ? activeDoaDod : prev.notes,
+        };
+      });
     } else {
       Swal.fire("Error", "Patient not found for the entered IP Number", "error");
     }
   };
 
   useEffect(() => {
-    if (location.state?.ipNo) {
+    if (location.state?.ipNo && !location.state?.archiveFilter) {
       setFormData((prev) => ({ ...prev, ipNo: location.state.ipNo }));
       fetchIpPatient(location.state.ipNo);
       navigate(location.pathname, { replace: true, state: {} });
@@ -1963,11 +2178,35 @@ const Summary = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "file" ? files[0] : type === "checkbox" ? checked : value,
-    }));
+    const finalVal = type === "file" ? files[0] : type === "checkbox" ? checked : value;
+
+    setFormData((prev) => {
+      const nextForm = {
+        ...prev,
+        [name]: finalVal,
+      };
+
+      if (["doa", "doaTime", "dod", "dodTime"].includes(name)) {
+        const nextDoa = name === "doa" ? finalVal : prev.doa;
+        const nextDoaTime = name === "doaTime" ? finalVal : prev.doaTime;
+        const nextDod = name === "dod" ? finalVal : prev.dod;
+        const nextDodTime = name === "dodTime" ? finalVal : prev.dodTime;
+
+        const curDoaDod = getFieldValue(prev.fieldsData, "DOA AND DOD");
+        const defVal = getPredefinedValueForField("DOA AND DOD");
+        const autoText = formatDoaDodWithExtras(curDoaDod, nextDoa, nextDoaTime, nextDod, nextDodTime, defVal);
+        const updatedFd = setFieldValue(prev.fieldsData, "DOA AND DOD", autoText);
+        nextForm.fieldsData = updatedFd;
+        const isViewingDoaDod =
+          (selectedField || prev.currentField || "").trim().toUpperCase() === "DOA AND DOD" ||
+          (!prev.currentField && !selectedField);
+        if (isViewingDoaDod) {
+          nextForm.notes = autoText;
+        }
+      }
+
+      return nextForm;
+    });
   };
 
   const handleToggleBold = () => {
@@ -2050,10 +2289,93 @@ const Summary = () => {
     }
   };
 
+  /* ─── Case Conversion Helpers & Handlers ─── */
+  const toSentenceCase = (str) => {
+    if (!str) return "";
+    return str
+      .toLowerCase()
+      .replace(/(^[\s\W_]*|[.!?\n]\s*[\W_]*)([a-z])/g, (_, prefix, char) => prefix + char.toUpperCase());
+  };
+
+  const toTitleCase = (str) => {
+    if (!str) return "";
+    return str
+      .toLowerCase()
+      .replace(/\b([a-z])/g, (char) => char.toUpperCase());
+  };
+
+  const handleTransformCase = (mode) => {
+    if (notesTab !== "edit") {
+      setNotesTab("edit");
+    }
+    const textarea = notesRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = formData.notes || "";
+    const hasSelection = end > start;
+
+    const targetText = hasSelection ? text.substring(start, end) : text;
+    if (!targetText) return;
+
+    let converted = targetText;
+    if (mode === "upper") {
+      converted = targetText.toUpperCase();
+    } else if (mode === "lower") {
+      converted = targetText.toLowerCase();
+    } else if (mode === "sentence") {
+      converted = toSentenceCase(targetText);
+    } else if (mode === "title" || mode === "capitalize") {
+      converted = toTitleCase(targetText);
+    }
+
+    const newText = hasSelection
+      ? text.substring(0, start) + converted + text.substring(end)
+      : converted;
+
+    setFormData((prev) => ({
+      ...prev,
+      notes: newText,
+      fieldsData: setFieldValue(prev.fieldsData, prev.currentField, newText),
+    }));
+
+    setTimeout(() => {
+      textarea.focus();
+      if (hasSelection) {
+        textarea.setSelectionRange(start, start + converted.length);
+      } else {
+        textarea.setSelectionRange(newText.length, newText.length);
+      }
+    }, 0);
+  };
+
+  const handleCycleCase = () => {
+    const textarea = notesRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = formData.notes || "";
+    const hasSelection = end > start;
+    const targetText = hasSelection ? text.substring(start, end) : text;
+    if (!targetText) return;
+
+    if (targetText === targetText.toUpperCase()) {
+      handleTransformCase("sentence");
+    } else if (targetText === targetText.toLowerCase()) {
+      handleTransformCase("upper");
+    } else {
+      handleTransformCase("lower");
+    }
+  };
+
   const handleNotesKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
       e.preventDefault();
       handleToggleBold();
+    } else if (e.shiftKey && e.key === "F3") {
+      e.preventDefault();
+      handleCycleCase();
     }
   };
 
@@ -2467,16 +2789,9 @@ const Summary = () => {
       let fd = setFieldValue(prev.fieldsData, prev.currentField, prev.notes);
       let val = getFieldValue(fd, fieldName);
       if (fieldName === "DOA AND DOD") {
-        if (!val || !val.trim() || (!val.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(val))) {
-          const dStr = prev.doa ? fmtDate(prev.doa) : "—";
-          const tStr = prev.doaTime || "";
-          const dodStr = prev.dod ? fmtDate(prev.dod) : "—";
-          const dodTStr = prev.dodTime || "";
-          const doaLine = `DOA : ${dStr} ${tStr}`.trim();
-          const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
-          val = `${doaLine}\n${dodLine}`;
-          fd = setFieldValue(fd, fieldName, val);
-        }
+        const defVal = getPredefinedValueForField(fieldName);
+        val = formatDoaDodWithExtras(val, prev.doa, prev.doaTime, prev.dod, prev.dodTime, defVal);
+        fd = setFieldValue(fd, fieldName, val);
       } else if (!val || !val.trim()) {
         const defVal = getPredefinedValueForField(fieldName);
         if (defVal) {
@@ -2640,17 +2955,34 @@ const Summary = () => {
           .filter(Boolean);
       }
       const sortedFD = sortFieldsDataByUiOrder(parsedFD, orderedHeadings);
+      let updatedSortedFD = sortedFD;
+      const doaDodVal = getFieldValue(sortedFD, "DOA AND DOD");
+      if (doaDodVal !== undefined) {
+        let defVal = "";
+        if (sType && Array.isArray(sType.headings)) {
+          const hObj = sType.headings.find(
+            (h) => (typeof h === "object" ? h.heading : h)?.trim().toLowerCase() === "doa and dod"
+          );
+          if (typeof hObj === "object") {
+            defVal = hObj.defaultValue || hObj.default_value || "";
+          }
+        }
+        const formatted = formatDoaDodWithExtras(doaDodVal, d.doa, d.doaTime, d.dod, d.dodTime || "17:00", defVal);
+        updatedSortedFD = setFieldValue(sortedFD, "DOA AND DOD", formatted);
+      }
 
       setFormData({
         ...d,
         doctor: (d.doctor || "").toUpperCase(),
+        explainedBy: d.explainedBy || "",
+        explainedTo: d.explainedTo || "",
         summaryNo: d.summaryNo || "",
         summaryType: d.summaryType || "",
         headingNo: d.headingNo || "",
         heading: d.heading || "",
         dodTime: d.dodTime || "17:00",
         notes: "",
-        fieldsData: sortedFD,
+        fieldsData: updatedSortedFD,
         currentField: "",
       });
       setSelectedDiseases(parsedDiseases);
@@ -2662,8 +2994,10 @@ const Summary = () => {
     }
   };
 
-  const handlePrint = (ipNo) =>
-    navigate(`/SummaryPrint/${encodeURIComponent(ipNo)}`);
+  const handlePrint = (ipNo, date = null) =>
+    navigate(`/SummaryPrint/${encodeURIComponent(ipNo)}`, {
+      state: { ipNo, date },
+    });
 
   const handleDelete = async (ipNo) => {
     const result = await Swal.fire({
@@ -2719,14 +3053,7 @@ const Summary = () => {
     }
   };
 
-  const fmtDate = (d) =>
-    d
-      ? new Date(d).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-      : "—";
+  const fmtDate = (d) => formatDisplayDate(d);
 
   const fmtDateTime = (d) => {
     if (!d) return "—";
@@ -2797,6 +3124,37 @@ const Summary = () => {
       toDate: filters.toDate,
       summaryType: filters.summaryType,
     });
+
+  // Handle returning from SummaryPrint with archiveFilter (ipNo + date)
+  useEffect(() => {
+    if (location.state?.archiveFilter) {
+      const { ipNo: archIp, date: archDate } = location.state.archiveFilter;
+      const targetDate = archDate || todayStr;
+
+      setFilters((prev) => ({
+        ...prev,
+        ipNo: archIp || prev.ipNo,
+        fromDate: targetDate,
+        toDate: targetDate,
+      }));
+
+      fetchSummaries({
+        fromDate: targetDate,
+        toDate: targetDate,
+      });
+
+      // Clear the state to avoid reapplying on page refresh
+      navigate(location.pathname, { replace: true, state: {} });
+
+      // Smooth scroll to the Discharge Summaries Archive section
+      setTimeout(() => {
+        const archiveEl = document.getElementById("discharge-summaries-archive");
+        if (archiveEl) {
+          archiveEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 350);
+    }
+  }, [location.state]);
   const filteredSummaries = summaries.filter(
     (s) =>
       (!filters.patient ||
@@ -2815,8 +3173,8 @@ const Summary = () => {
   );
 
   /* ─── Filter input style (compact) ───────────────────────────────────── */
-  const fi = { ...S.inp, height: 32, fontSize: 12.5 };
-  const fs = { ...S.sel, height: 32, fontSize: 12.5 };
+  const fi = { ...S.inp, height: 38, fontSize: 13 };
+  const fs = { ...S.sel, height: 38, fontSize: 13 };
 
   const currentActiveField = (selectedField || formData.currentField || "").trim().toUpperCase();
   const isConsultantSection = currentActiveField.includes("CONSULTANT") || currentActiveField.includes("CONSULTING");
@@ -2828,21 +3186,54 @@ const Summary = () => {
     return name.includes(q) || dept.includes(q);
   });
 
+  const visibleNoteFields = noteFields.filter((f) =>
+    f.toLowerCase().includes((sidebarSearch || "").trim().toLowerCase())
+  );
+  const filledFieldsCount = noteFields.filter((f) => Boolean(getFieldValue(formData.fieldsData, f)?.trim())).length;
+
   /* ─── Render ──────────────────────────────────────────────────────────── */
   return (
     <PageWrapper>
+      <style>{SUMMARY_CUSTOM_STYLES}</style>
       <div style={S.inner}>
         {/* Top bar */}
         <div style={S.topBar}>
-          <h1 style={S.pageTitle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <span style={S.titleIcon}>
               <FileText size={22} />
             </span>
-            {isEditMode ? "Edit Discharge Summary" : "Discharge Summary"}
-          </h1>
-          <div style={S.datePill}>
-            <Calendar size={15} />
-            <span>{currentDate}</span>
+            <div>
+              <h1 style={S.pageTitle}>
+                {isEditMode ? "Edit Discharge Summary" : "Discharge Summary"}
+              </h1>
+              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                Clinical Inpatient Documentation & Discharge Protocol
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {isEditMode && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#eff6ff",
+                  border: "1.5px solid #93c5fd",
+                  color: "#1d4ed8",
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                <Edit size={13} /> Editing IP: {editingIpNo}
+              </span>
+            )}
+            <div style={S.datePill}>
+              <Calendar size={15} color="#0d9488" />
+              <span>{currentDate}</span>
+            </div>
           </div>
         </div>
 
@@ -2850,67 +3241,109 @@ const Summary = () => {
         {isEditMode && (
           <div style={S.editBanner}>
             <Edit size={18} color={T.sky} />
-            <span>
-              Editing summary for IP No:&nbsp;
-              <strong style={{ color: T.teal }}>{editingIpNo}</strong>
-              &nbsp;— scroll down to the notes section to make changes.
-            </span>
+            <div style={{ flex: 1 }}>
+              <span>
+                Currently editing active discharge record for IP No:&nbsp;
+                <strong style={{ color: T.teal }}>{editingIpNo}</strong>
+                {formData.patient && (
+                  <span> &bull; Patient: <strong style={{ color: "#0f172a" }}>{formData.patient}</strong></span>
+                )}
+                &nbsp;— Review and update clinical fields below, then click Update Summary.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              style={{
+                background: "transparent",
+                border: "1px solid #93c5fd",
+                color: "#1e40af",
+                padding: "4px 10px",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancel Edit
+            </button>
           </div>
         )}
 
-        {/* ── Patient Info ── */}
-        <div style={S.card}>
+        {/* ── Patient Info Card (Clean 12-Column Balanced Grid) ── */}
+        <div style={S.card} className="sum-card-lift">
           <div style={S.cardHead}>
-            <div style={S.cardHeadBar} />
-            <User size={16} />
-            Patient Information
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={S.cardHeadBar} />
+              <User size={16} />
+              <span>Patient & Admission Details</span>
+            </div>
+            {formData.ipNo && (
+              <span
+                style={{
+                  fontSize: 12,
+                  color: T.teal,
+                  fontWeight: 700,
+                  textTransform: "none",
+                  background: T.tealLt,
+                  padding: "3px 12px",
+                  borderRadius: 20,
+                  border: `1px solid ${T.tealGlow}`,
+                }}
+              >
+                IP: {formData.ipNo}
+              </span>
+            )}
           </div>
           <div style={S.cardBody}>
-            {/* Row 1: 8 cols */}
-            <div style={S.grid(8)}>
-              <Fld label="Summary Date">
-                <CInp
-                  value={isEditMode ? fmtDate(formData.date) : currentDate}
-                  readOnly
-                  style={{ background: T.bgAlt }}
-                />
-              </Fld>
-              <Fld label="IP Number">
-                <CInp
-                  name="ipNo"
-                  value={formData.ipNo}
-                  onChange={handleChange}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (formData.ipNo?.trim()) {
-                        fetchIpPatient(formData.ipNo.trim());
-                      } else {
-                        openIpSearchModal();
-                      }
-                    }
-                  }}
-                  readOnly={isEditMode}
-                  placeholder="IP No"
-                />
-                {!isEditMode && (
-                  <button
-                    type="button"
-                    style={S.searchMicroBtn}
-                    onClick={() => {
-                      if (formData.ipNo?.trim()) {
-                        fetchIpPatient(formData.ipNo.trim());
-                      } else {
-                        openIpSearchModal();
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(12, 1fr)",
+                gap: "14px 16px",
+              }}
+            >
+              {/* Row 1: Identification (3 + 2 + 4 + 1 + 1 + 1 = 12 cols) */}
+              <Fld label="IP Number" style={{ gridColumn: "span 3" }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <CInp
+                    name="ipNo"
+                    value={formData.ipNo}
+                    onChange={handleChange}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (formData.ipNo?.trim()) {
+                          fetchIpPatient(formData.ipNo.trim());
+                        } else {
+                          openIpSearchModal();
+                        }
                       }
                     }}
-                    title="Search IP Number"
-                  >
-                    <Search size={12} /> Search
-                  </button>
-                )}
+                    readOnly={isEditMode}
+                    placeholder="Enter IP No…"
+                    style={{ flex: 1 }}
+                  />
+                  {!isEditMode && (
+                    <button
+                      type="button"
+                      style={{ ...S.searchMicroBtn, height: 38, padding: "0 13px", flexShrink: 0 }}
+                      onClick={() => {
+                        if (formData.ipNo?.trim()) {
+                          fetchIpPatient(formData.ipNo.trim());
+                        } else {
+                          openIpSearchModal();
+                        }
+                      }}
+                      title="Search IP Number"
+                    >
+                      <Search size={13} /> Search
+                    </button>
+                  )}
+                </div>
               </Fld>
-              <Fld label="UHID">
+
+              <Fld label="UHID" style={{ gridColumn: "span 2" }}>
                 <CInp
                   name="uhid"
                   value={formData.uhid}
@@ -2918,6 +3351,7 @@ const Summary = () => {
                   placeholder="UHID"
                 />
               </Fld>
+
               <Fld
                 label={
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -2927,16 +3361,17 @@ const Summary = () => {
                     )}
                   </span>
                 }
+                style={{ gridColumn: "span 4" }}
               >
                 <CInp
                   name="patient"
                   value={formData.patient}
                   onChange={handleChange}
-                  placeholder="Full Name"
-                  style={{ gridColumn: "span 2" }}
+                  placeholder="Patient Full Name"
                 />
               </Fld>
-              <Fld label="Age">
+
+              <Fld label="Age" style={{ gridColumn: "span 1" }}>
                 <CInp
                   name="age"
                   value={formData.age}
@@ -2944,7 +3379,8 @@ const Summary = () => {
                   placeholder="Age"
                 />
               </Fld>
-              <Fld label="Gender">
+
+              <Fld label="Gender" style={{ gridColumn: "span 1" }}>
                 <CInp
                   name="gender"
                   value={formData.gender}
@@ -2952,7 +3388,8 @@ const Summary = () => {
                   placeholder="Gender"
                 />
               </Fld>
-              <Fld label="Room No">
+
+              <Fld label="Room No" style={{ gridColumn: "span 1" }}>
                 <CInp
                   name="roomNo"
                   value={formData.roomNo}
@@ -2960,11 +3397,17 @@ const Summary = () => {
                   placeholder="Room"
                 />
               </Fld>
-            </div>
 
-            {/* Row 2: 8 cols */}
-            <div style={S.grid(8)}>
-              <Fld label="D.O.A">
+              {/* Row 2: Timeline & Dates (2 + 2 + 1 + 2 + 1 + 2 + 2 = 12 cols) */}
+              <Fld label="Summary Date" style={{ gridColumn: "span 2" }}>
+                <CInp
+                  value={isEditMode ? fmtDate(formData.date) : currentDate}
+                  readOnly
+                  style={{ background: T.bgAlt, color: "#334155", fontWeight: 600 }}
+                />
+              </Fld>
+
+              <Fld label="D.O.A" style={{ gridColumn: "span 2" }}>
                 <CInp
                   name="doa"
                   value={formData.doa}
@@ -2972,7 +3415,8 @@ const Summary = () => {
                   placeholder="DD/MM/YYYY"
                 />
               </Fld>
-              <Fld label="DOA Time">
+
+              <Fld label="DOA Time" style={{ gridColumn: "span 1" }}>
                 <CInp
                   name="doaTime"
                   value={formData.doaTime}
@@ -2980,7 +3424,8 @@ const Summary = () => {
                   placeholder="HH:MM"
                 />
               </Fld>
-              <Fld label="D.O.D">
+
+              <Fld label="D.O.D" style={{ gridColumn: "span 2" }}>
                 <CInp
                   type="date"
                   name="dod"
@@ -2988,7 +3433,8 @@ const Summary = () => {
                   onChange={handleChange}
                 />
               </Fld>
-              <Fld label="DOD Time">
+
+              <Fld label="DOD Time" style={{ gridColumn: "span 1" }}>
                 <CInp
                   type="time"
                   name="dodTime"
@@ -2996,7 +3442,8 @@ const Summary = () => {
                   onChange={handleChange}
                 />
               </Fld>
-              <Fld label="Surgery Date">
+
+              <Fld label="Surgery Date" style={{ gridColumn: "span 2" }}>
                 <CInp
                   type="date"
                   name="surgeryDate"
@@ -3004,7 +3451,8 @@ const Summary = () => {
                   onChange={handleChange}
                 />
               </Fld>
-              <Fld label="Next Review">
+
+              <Fld label="Next Review" style={{ gridColumn: "span 2" }}>
                 <CInp
                   type="date"
                   name="nextReviewDate"
@@ -3012,7 +3460,9 @@ const Summary = () => {
                   onChange={handleChange}
                 />
               </Fld>
-              <Fld label="Doctor">
+
+              {/* Row 3: Assignment & Metadata (4 + 4 + 2 + 2 = 12 cols) */}
+              <Fld label="Consultant Doctor" style={{ gridColumn: "span 4" }}>
                 <select
                   name="doctor"
                   value={
@@ -3024,11 +3474,15 @@ const Summary = () => {
                   }
                   onChange={(e) => {
                     const val = (e.target.value || "").toUpperCase();
-                    setFormData((prev) => ({ ...prev, doctor: val }));
+                    setFormData((prev) => ({
+                      ...prev,
+                      doctor: val,
+                      explainedBy: prev.explainedBy || (val ? (val.startsWith("DR.") ? val : `DR. ${val}`) : ""),
+                    }));
                   }}
                   style={{ ...S.sel, textTransform: "uppercase" }}
                 >
-                  <option value="">— DOCTOR —</option>
+                  <option value="">— SELECT CONSULTANT DOCTOR —</option>
                   {formData.doctor &&
                     !doctors.some(
                       (doc) =>
@@ -3049,7 +3503,8 @@ const Summary = () => {
                   })}
                 </select>
               </Fld>
-              <Fld label="Summary Type">
+
+              <Fld label="Summary Type" style={{ gridColumn: "span 4" }}>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <select
                     id="summaryTypeSelect"
@@ -3058,7 +3513,7 @@ const Summary = () => {
                     onChange={handleSummaryTypeSelect}
                     style={{ ...S.sel, flex: 1 }}
                   >
-                    <option value="">— Type —</option>
+                    <option value="">— SELECT SUMMARY TYPE —</option>
                     {formData.summaryNo &&
                       !summaryTypeOptions.some(
                         (t) =>
@@ -3099,19 +3554,17 @@ const Summary = () => {
                   </button>
                 </div>
               </Fld>
-            </div>
 
-            {/* Row 3: 2 cols */}
-            <div style={S.grid(2)}>
-              <Fld label="Heading">
+              <Fld label="Heading / Subtitle" style={{ gridColumn: "span 2" }}>
                 <CInp
                   name="heading"
                   value={formData.heading || ""}
                   onChange={handleChange}
-                  placeholder="Heading"
+                  placeholder="Optional Heading"
                 />
               </Fld>
-              <Fld label="Address">
+
+              <Fld label="Patient Address" style={{ gridColumn: "span 2" }}>
                 <CInp
                   name="address"
                   value={formData.address}
@@ -3120,119 +3573,262 @@ const Summary = () => {
                 />
               </Fld>
             </div>
+
+            {/* Row 4: ICD-11 Diagnosis Coding (Integrated & Compact) */}
+            <div
+              style={{
+                marginTop: 18,
+                paddingTop: 14,
+                borderTop: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, flexWrap: "wrap" }}>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11.5,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.6px",
+                    color: "#0f766e",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Stethoscope size={15} color="#0d9488" />
+                  ICD‑11 Diagnoses:
+                </span>
+                <div style={{ flex: 1, minWidth: 260 }}>
+                  <ICD11SearchComponent
+                    key={editingIpNo || "new"}
+                    onDiseasesChange={(d) => setSelectedDiseases(d)}
+                    initialDiseases={selectedDiseases}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* ── ICD-11 ── */}
-        <div style={S.card}>
-          <div style={S.cardHead}>
-            <div style={S.cardHeadBar} />
-            <Stethoscope size={16} />
-            ICD‑11 Disease Coding
-          </div>
-          <div style={S.cardBody}>
-            <ICD11SearchComponent
-              key={editingIpNo || "new"}
-              onDiseasesChange={(d) => setSelectedDiseases(d)}
-              initialDiseases={selectedDiseases}
-            />
-          </div>
-        </div>
-
-        {/* ── Notes ── */}
+        {/* ── Notes Layout ── */}
         <div style={S.notesLayout}>
           {/* Sidebar */}
-          <div style={S.sidebar}>
+          <div style={S.sidebar} className="sum-card-lift">
             <div style={S.sidebarHead}>
-              <Activity size={14} />
-              Clinical Fields {noteFields.length > 0 && `(${noteFields.length})`}
-            </div>
-            {noteFields.length === 0 ? (
-              <div style={{ padding: "18px 14px", textAlign: "center", color: T.muted, fontSize: 12.5, lineHeight: 1.5 }}>
-                {formData.summaryNo ? (
-                  <>
-                    <div style={{ marginBottom: 8, fontWeight: 500 }}>
-                      No headings configured for <strong>{formData.summaryType || "this Type"}</strong>.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const found = summaryTypeOptions.find(
-                          (t) => String(t.summaryNo) === String(formData.summaryNo)
-                        );
-                        if (found) openEditType(found);
-                        else openCreateType();
-                      }}
-                      style={{
-                        padding: "6px 12px",
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        background: `linear-gradient(135deg, ${T.teal}, #0284c7)`,
-                        color: "white",
-                        border: "none",
-                        borderRadius: 6,
-                        cursor: "pointer",
-                      }}
-                    >
-                      + Configure Headings
-                    </button>
-                  </>
-                ) : (
-                  "← Select a Summary Type above to view Clinical Notes."
-                )}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Activity size={14} />
+                <span>Clinical Fields</span>
               </div>
-            ) : (
-              noteFields.map((field, idx) => (
-                <div
-                  key={field}
-                  id={`field-btn-${field.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`}
-                  style={S.sidebarItem(selectedField === field)}
-                  onClick={() => handleButtonClick(field)}
+              {noteFields.length > 0 && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background: "rgba(255, 255, 255, 0.18)",
+                    padding: "2px 8px",
+                    borderRadius: 12,
+                  }}
+                  title={`${filledFieldsCount} of ${noteFields.length} fields filled`}
                 >
-                  <span
+                  {filledFieldsCount}/{noteFields.length}
+                </span>
+              )}
+            </div>
+
+            {noteFields.length > 0 && (
+              <div style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                <div style={{ position: "relative" }}>
+                  <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+                  <input
+                    type="text"
+                    value={sidebarSearch}
+                    onChange={(e) => setSidebarSearch(e.target.value)}
+                    placeholder="Filter headings…"
                     style={{
-                      display: "inline-block",
-                      minWidth: 20,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: selectedField === field ? "white" : T.teal,
-                      opacity: 0.9,
+                      width: "100%",
+                      height: 30,
+                      padding: "0 24px 0 28px",
+                      fontSize: 11.5,
+                      borderRadius: 6,
+                      border: "1px solid #cbd5e1",
+                      outline: "none",
+                      background: "#ffffff",
+                      color: "#0f172a",
                     }}
-                  >
-                    {idx + 1}.
-                  </span>
-                  <span style={{ flex: 1, wordBreak: "break-word" }}>{field}</span>
+                  />
+                  {sidebarSearch && (
+                    <X
+                      size={13}
+                      onClick={() => setSidebarSearch("")}
+                      style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", cursor: "pointer", color: "#94a3b8" }}
+                    />
+                  )}
                 </div>
-              ))
+              </div>
             )}
+
+            <div style={{ overflowY: "auto", flex: 1, maxHeight: "calc(100vh - 220px)" }} className="sum-sidebar-scroll">
+              {noteFields.length === 0 ? (
+                <div style={{ padding: "24px 16px", textAlign: "center", color: T.muted, fontSize: 12.5, lineHeight: 1.5 }}>
+                  {formData.summaryNo ? (
+                    <>
+                      <div style={{ marginBottom: 10, fontWeight: 500 }}>
+                        No headings configured for <strong>{formData.summaryType || "this Type"}</strong>.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const found = summaryTypeOptions.find(
+                            (t) => String(t.summaryNo) === String(formData.summaryNo)
+                          );
+                          if (found) openEditType(found);
+                          else openCreateType();
+                        }}
+                        style={{
+                          padding: "7px 14px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: "linear-gradient(135deg, #0d9488 0%, #0284c7 100%)",
+                          color: "white",
+                          border: "none",
+                          borderRadius: 7,
+                          cursor: "pointer",
+                          boxShadow: "0 2px 6px rgba(13, 148, 136, 0.2)",
+                        }}
+                      >
+                        + Configure Headings
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "10px 0" }}>
+                      <FileText size={24} color="#94a3b8" />
+                      <span>Select a <strong>Summary Type</strong> in the form above to view clinical headings.</span>
+                    </div>
+                  )}
+                </div>
+              ) : visibleNoteFields.length === 0 ? (
+                <div style={{ padding: "20px 14px", textAlign: "center", color: T.muted, fontSize: 12 }}>
+                  No headings matching "{sidebarSearch}"
+                </div>
+              ) : (
+                visibleNoteFields.map((field) => {
+                  const originalIdx = noteFields.indexOf(field);
+                  const isFilled = Boolean(getFieldValue(formData.fieldsData, field)?.trim());
+                  const isSelected = selectedField === field;
+                  return (
+                    <div
+                      key={field}
+                      id={`field-btn-${field.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`}
+                      style={S.sidebarItem(isSelected)}
+                      onClick={() => handleButtonClick(field)}
+                      title={field}
+                    >
+                      <span
+                        style={{
+                          display: "inline-block",
+                          minWidth: 22,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: isSelected ? "#0d9488" : "#64748b",
+                        }}
+                      >
+                        {String(originalIdx + 1).padStart(2, "0")}.
+                      </span>
+                      <span style={{ flex: 1, wordBreak: "break-word", lineHeight: 1.35 }}>{field}</span>
+                      {isFilled && (
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: "#16a34a",
+                            flexShrink: 0,
+                            boxShadow: "0 0 0 2px rgba(22, 163, 74, 0.2)",
+                          }}
+                          title="Section has notes entered"
+                        />
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Notes area */}
-          <div style={S.notesCard}>
-            <div style={S.notesActiveLabel}>
-              {selectedField ? (
-                <>
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: T.teal,
-                      display: "inline-block",
-                    }}
-                  />
-                  {selectedField}
-                </>
-              ) : (
-                <span style={{ color: T.muted, fontSize: 13 }}>
-                  ← Select a clinical field from the sidebar
-                </span>
-              )}
+          <div style={S.notesCard} className="sum-card-lift">
+            {/* Notes Header with section title & Edit/Preview tab switcher */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingBottom: 14,
+                borderBottom: "1px solid #e2e8f0",
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              <div>
+                <div style={S.notesActiveLabel}>
+                  {selectedField ? (
+                    <>
+                      <span
+                        style={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: "50%",
+                          background: "#0d9488",
+                          display: "inline-block",
+                          boxShadow: "0 0 0 3px rgba(13, 148, 136, 0.2)",
+                        }}
+                      />
+                      <span>{selectedField}</span>
+                    </>
+                  ) : (
+                    <span style={{ color: T.muted, fontSize: 13.5, fontWeight: 600 }}>
+                      ← Select a clinical field from the sidebar to start writing
+                    </span>
+                  )}
+                </div>
+                {selectedField && (
+                  <span style={{ fontSize: 11.5, color: "#64748b", fontWeight: 600, marginTop: 3, display: "block" }}>
+                    Section {noteFields.indexOf(selectedField) + 1} of {noteFields.length}
+                  </span>
+                )}
+              </div>
+
+              {/* Tab toggle */}
+              <div style={S.tabGroup}>
+                <button
+                  type="button"
+                  style={notesTab === "edit" ? S.tabBtnActive : S.tabBtn}
+                  onClick={() => setNotesTab("edit")}
+                >
+                  <Edit size={13} style={{ marginRight: 4 }} />
+                  Edit Mode
+                </button>
+                <button
+                  type="button"
+                  style={notesTab === "preview" ? S.tabBtnActive : S.tabBtn}
+                  onClick={() => setNotesTab("preview")}
+                >
+                  <Eye size={13} style={{ marginRight: 4 }} />
+                  Document Preview
+                </button>
+              </div>
             </div>
 
             {/* Formatting Toolbar */}
             <div style={S.notesToolbar}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {/* Bold */}
                 <button
                   type="button"
                   style={S.boldBtn}
@@ -3243,34 +3839,119 @@ const Summary = () => {
                   <span>Bold</span>
                 </button>
 
-                {/* ── CONSULTANT DOCTORS OPTION ── */}
-                {isConsultantSection && (
+                {/* Case Menu */}
+                <div ref={caseMenuRef} style={{ position: "relative", display: "inline-block" }}>
                   <button
+                    id="caseOptionToolbarBtn"
                     type="button"
-                    onClick={() => setShowDoctorModal(true)}
                     style={{
+                      ...S.boldBtn,
+                      background: showCaseMenu ? "#f1f5f9" : "#ffffff",
+                      borderColor: showCaseMenu ? T.teal : "#cbd5e1",
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: 6,
-                      background: "#f0fdfa",
-                      border: `1.5px solid #0d9488`,
-                      color: "#0f766e",
-                      borderRadius: 6,
-                      padding: "4px 11px",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      boxShadow: "0 1px 2px rgba(13, 148, 136, 0.12)",
-                      transition: "all 0.15s ease",
+                      gap: 5,
                     }}
-                    title="Browse and search doctors to include in Consultant section"
+                    onClick={() => setShowCaseMenu((prev) => !prev)}
+                    title="Change text case (Upper Case / Lower Case / Sentence Case)"
                   >
-                    <Stethoscope size={14} color="#0d9488" />
-                    <span>Browse</span>
+                    <Type size={14} strokeWidth={2.4} color={showCaseMenu ? T.teal : "#0f172a"} />
+                    <span>Case</span>
+                    <ChevronDown size={12} color={showCaseMenu ? T.teal : "#64748b"} />
                   </button>
-                )}
 
-                {/* ── PREDEFINED DEFAULT VALUE TEMPLATE OPTION ── */}
+                  {showCaseMenu && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 4px)",
+                        left: 0,
+                        background: "#ffffff",
+                        border: "1.5px solid #cbd5e1",
+                        borderRadius: 8,
+                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)",
+                        zIndex: 100,
+                        minWidth: 170,
+                        padding: "5px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      <button
+                        id="caseOptionUpper"
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          handleTransformCase("upper");
+                          setShowCaseMenu(false);
+                        }}
+                        style={S.caseMenuItem}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        title="UPPER CASE: Converts selected text or entire section to capital letters"
+                      >
+                        <span style={{ fontWeight: 700, color: "#1e293b", fontSize: 12 }}>UPPER CASE</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>ABC</span>
+                      </button>
+
+                      <button
+                        id="caseOptionLower"
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          handleTransformCase("lower");
+                          setShowCaseMenu(false);
+                        }}
+                        style={S.caseMenuItem}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        title="lower case: Converts selected text or entire section to lowercase"
+                      >
+                        <span style={{ fontWeight: 500, color: "#1e293b", fontSize: 12 }}>lower case</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>abc</span>
+                      </button>
+
+                      <button
+                        id="caseOptionSentence"
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          handleTransformCase("sentence");
+                          setShowCaseMenu(false);
+                        }}
+                        style={S.caseMenuItem}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        title="Sentence case: Capitalizes the first letter of each sentence"
+                      >
+                        <span style={{ fontWeight: 600, color: "#1e293b", fontSize: 12 }}>Sentence case</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>Abc</span>
+                      </button>
+
+                      <div style={{ height: 1, background: "#f1f5f9", margin: "2px 0" }} />
+
+                      <button
+                        id="caseOptionTitle"
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          handleTransformCase("title");
+                          setShowCaseMenu(false);
+                        }}
+                        style={S.caseMenuItem}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        title="Capitalize Each Word (Title Case)"
+                      >
+                        <span style={{ fontWeight: 600, color: "#1e293b", fontSize: 12 }}>Capitalize Words</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>Abc Def</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Predefined Default Template */}
                 {getPredefinedValueForField(selectedField || formData.currentField) && (
                   <button
                     id="defaultTemplateToolbarBtn"
@@ -3280,10 +3961,14 @@ const Summary = () => {
                       const defVal = getPredefinedValueForField(curField);
                       if (!defVal) return;
                       const applyVal = () => {
+                        let finalVal = defVal;
+                        if (curField === "DOA AND DOD") {
+                          finalVal = formatDoaDodWithExtras("", formData.doa, formData.doaTime, formData.dod, formData.dodTime, defVal);
+                        }
                         setFormData((prev) => ({
                           ...prev,
-                          notes: defVal,
-                          fieldsData: setFieldValue(prev.fieldsData, curField, defVal),
+                          notes: finalVal,
+                          fieldsData: setFieldValue(prev.fieldsData, curField, finalVal),
                         }));
                         notesRef.current?.focus();
                       };
@@ -3304,19 +3989,10 @@ const Summary = () => {
                       }
                     }}
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
+                      ...S.boldBtn,
                       background: "#f0fdf4",
-                      border: `1.5px solid #16a34a`,
+                      borderColor: "#16a34a",
                       color: "#15803d",
-                      borderRadius: 6,
-                      padding: "4px 11px",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      boxShadow: "0 1px 2px rgba(22, 163, 74, 0.12)",
-                      transition: "all 0.15s ease",
                     }}
                     title="Insert or reset to predefined default template configured for this heading"
                   >
@@ -3324,6 +4000,8 @@ const Summary = () => {
                     <span>Default Template</span>
                   </button>
                 )}
+
+                <div style={{ width: 1, height: 22, background: "#cbd5e1" }} />
 
                 {/* Voice Dictation Language Dropdown */}
                 <div
@@ -3333,8 +4011,9 @@ const Summary = () => {
                     gap: 5,
                     background: "#ffffff",
                     border: `1.5px solid #cbd5e1`,
-                    borderRadius: 6,
+                    borderRadius: 7,
                     padding: "3px 8px",
+                    height: 32,
                   }}
                   title="Select voice recognition dictation language"
                 >
@@ -3360,24 +4039,18 @@ const Summary = () => {
                   </select>
                 </div>
 
-                {/* Low-Voice Sensitivity Boost Toggle on Toolbar */}
+                {/* Low-Voice Sensitivity Boost Toggle */}
                 <button
                   type="button"
                   onClick={toggleMicBoost}
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
+                    ...S.boldBtn,
+                    height: 32,
+                    padding: "0 10px",
                     background: micBoost ? "#f0fdf4" : "#ffffff",
-                    border: `1.5px solid ${micBoost ? "#16a34a" : "#cbd5e1"}`,
+                    borderColor: micBoost ? "#16a34a" : "#cbd5e1",
                     color: micBoost ? "#15803d" : "#64748b",
-                    borderRadius: 6,
-                    padding: "3px 9px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    boxShadow: micBoost ? "0 0 6px rgba(22, 163, 74, 0.2)" : "none",
-                    transition: "all 0.15s",
+                    boxShadow: micBoost ? "0 0 8px rgba(22, 163, 74, 0.25)" : "none",
                   }}
                   title="Toggle Microphone Sensitivity Boost: Amplifies low, soft, or whispered voices"
                 >
@@ -3385,6 +4058,7 @@ const Summary = () => {
                   <span>{micBoost ? "Boost: ON (3×)" : "Boost: OFF"}</span>
                 </button>
 
+                {/* Voice Dictation button */}
                 <button
                   type="button"
                   style={isListening ? S.micBtnActive : S.micBtn}
@@ -3397,7 +4071,7 @@ const Summary = () => {
                 >
                   {isListening ? (
                     <>
-                      <span style={S.pulsingDot} />
+                      <span style={S.pulsingDot} className="sum-pulse-dot" />
                       <MicOff size={14} />
                       <span>Stop Voice</span>
                     </>
@@ -3409,6 +4083,9 @@ const Summary = () => {
                   )}
                 </button>
 
+                <div style={{ width: 1, height: 22, background: "#cbd5e1" }} />
+
+                {/* AI Summarize */}
                 <button
                   type="button"
                   style={S.aiBtn}
@@ -3432,23 +4109,6 @@ const Summary = () => {
                   </button>
                 )}
               </div>
-
-              <div style={S.tabGroup}>
-                <button
-                  type="button"
-                  style={notesTab === "edit" ? S.tabBtnActive : S.tabBtn}
-                  onClick={() => setNotesTab("edit")}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  style={notesTab === "preview" ? S.tabBtnActive : S.tabBtn}
-                  onClick={() => setNotesTab("preview")}
-                >
-                  Preview
-                </button>
-              </div>
             </div>
 
             {/* Live listening banner */}
@@ -3456,8 +4116,8 @@ const Summary = () => {
               <div style={S.listeningBanner}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={S.pulsingDot} />
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{speechStatus}</span>
+                    <span style={S.pulsingDot} className="sum-pulse-dot" />
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>{speechStatus}</span>
                   </div>
 
                   {/* Live Mic Volume Level Indicator */}
@@ -3523,7 +4183,7 @@ const Summary = () => {
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11, opacity: 0.9 }}>Lang:</span>
                     {[
-                      { code: "en-IN", label: "English (India / Medical)" },
+                      { code: "en-IN", label: "English" },
                       { code: "ta-IN", label: "Tamil (தமிழ்)" },
                       { code: "hi-IN", label: "Hindi (हिन्दी)" },
                     ].map((l) => (
@@ -3535,7 +4195,7 @@ const Summary = () => {
                           border: "none",
                           background: speechLang === l.code ? "white" : "rgba(255, 255, 255, 0.2)",
                           color: speechLang === l.code ? "#b91c1c" : "white",
-                          padding: "2px 7px",
+                          padding: "2px 8px",
                           borderRadius: 4,
                           fontSize: 11,
                           fontWeight: 700,
@@ -3555,107 +4215,278 @@ const Summary = () => {
                     border: "none",
                     background: "#991b1b",
                     color: "white",
-                    padding: "4px 12px",
-                    borderRadius: 5,
+                    padding: "4px 14px",
+                    borderRadius: 6,
                     fontSize: 12,
                     fontWeight: 700,
                     cursor: "pointer",
                     marginLeft: 10,
                     whiteSpace: "nowrap",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
                   }}
                 >
-                  Stop
+                  Stop Mic
                 </button>
               </div>
             )}
 
             {notesTab === "edit" ? (
-              <textarea
-                id="notesTextarea"
-                ref={notesRef}
-                style={S.textarea}
-                name="notes"
-                placeholder="Type clinical notes here… (Select text and click Bold or press Ctrl+B)"
-                value={formData.notes}
-                onChange={handleChange}
-                onKeyDown={handleNotesKeyDown}
-                onFocus={(e) => {
-                  e.target.style.borderColor = T.teal;
-                  e.target.style.boxShadow = `0 0 0 3px ${T.teal}18`;
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = T.border;
-                  e.target.style.boxShadow = "none";
-                }}
-              />
+              <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+                <textarea
+                  id="notesTextarea"
+                  ref={notesRef}
+                  style={S.textarea}
+                  name="notes"
+                  placeholder="Type clinical notes here… (Select text and click Bold or press Ctrl+B)"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  onKeyDown={handleNotesKeyDown}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = T.teal;
+                    e.target.style.boxShadow = `0 0 0 3px ${T.tealGlow}`;
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#cbd5e1";
+                    e.target.style.boxShadow = "none";
+                  }}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "6px 8px",
+                    fontSize: 11.5,
+                    color: "#64748b",
+                    fontWeight: 500,
+                  }}
+                >
+                  <span>
+                    Tip: Press{" "}
+                    <kbd
+                      style={{
+                        padding: "2px 7px",
+                        background: "#f1f5f9",
+                        color: "#0f172a",
+                        border: "1.5px solid #cbd5e1",
+                        borderRadius: 4,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        fontFamily: "monospace",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+                      }}
+                    >
+                      Ctrl+B
+                    </kbd>{" "}
+                    to toggle bold formatting
+                  </span>
+                  <span>
+                    {formData.notes?.trim() ? formData.notes.trim().split(/\s+/).length : 0} words &bull; {formData.notes?.length || 0} characters
+                  </span>
+                </div>
+              </div>
             ) : (
               <div style={S.previewBox}>
                 {formData.notes && formData.notes.trim() ? (
                   formData.notes.split("\n").map((line, idx) => (
                     <div
                       key={idx}
-                      style={{ minHeight: "1.4em", marginBottom: 2 }}
+                      style={{ minHeight: "1.4em", marginBottom: 3 }}
                     >
                       {renderFormattedText(line)}
                     </div>
                   ))
                 ) : (
                   <span style={{ color: T.muted, fontStyle: "italic" }}>
-                    No notes entered yet. Switch to Edit tab to type notes.
+                    No notes entered yet. Switch to Edit mode above to type clinical observations.
                   </span>
                 )}
               </div>
             )}
 
-            {/* Quick-add */}
-            <div style={S.actionRow}>
-              {isConsultantSection && (
-                <button
-                  type="button"
-                  style={{ ...S.outBtn(T.teal), fontWeight: 700 }}
-                  onClick={() => setShowDoctorModal(true)}
-                  title="Choose and include doctors into Consultant section"
+            {/* Discharge Sign-off & Explanation Details (Directly above Quick Insert & Save) */}
+            <div
+              style={{
+                marginTop: 16,
+                marginBottom: 14,
+                padding: "12px 16px",
+                background: "#f8fafc",
+                borderRadius: 10,
+                border: "1.5px solid #e2e8f0",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "14px 18px",
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    color: "#0f766e",
+                    marginBottom: 6,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.4px",
+                  }}
                 >
-                  <Stethoscope size={14} /> + Doctors
-                </button>
-              )}
-              <button style={S.outBtn(T.teal)} onClick={fetchInvestigations}>
-                <Plus size={14} /> Investigations
-              </button>
-              <button style={S.outBtn(T.sky)} onClick={fetchMedicines}>
-                <Pill size={14} /> Admission Medicines
-              </button>
-              <button
-                style={S.outBtn(T.green)}
-                onClick={fetchDischargeMedicines}
-              >
-                <Pill size={14} /> Discharge Medicines
-              </button>
+                  <Stethoscope size={14} color="#0d9488" />
+                  Explained By (Doctor Name)
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    name="explainedBy"
+                    value={formData.explainedBy || ""}
+                    onChange={handleChange}
+                    placeholder="Doctor Name (e.g. Dr. Rajesh Kumar)"
+                    list="explained-by-doctors-list"
+                    style={{
+                      width: "100%",
+                      height: 38,
+                      padding: "0 12px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#0f172a",
+                      background: "#ffffff",
+                      border: "1.5px solid #cbd5e1",
+                      borderRadius: 8,
+                      outline: "none",
+                      boxSizing: "border-box",
+                      transition: "all 0.15s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#0d9488";
+                      e.target.style.boxShadow = "0 0 0 3px rgba(13, 148, 136, 0.12)";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#cbd5e1";
+                      e.target.style.boxShadow = "none";
+                    }}
+                  />
+                  <datalist id="explained-by-doctors-list">
+                    {doctors.map((doc, i) => {
+                      const upperName = (doc.employeeName || "").toUpperCase();
+                      const prefix = upperName.startsWith("DR.") ? upperName : `DR. ${upperName}`;
+                      return <option key={doc.employeeId || i} value={prefix} />;
+                    })}
+                  </datalist>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    color: "#0f766e",
+                    marginBottom: 6,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.4px",
+                  }}
+                >
+                  <Activity size={14} color="#0d9488" />
+                  Explained To Patient / Attender
+                </label>
+                <input
+                  type="text"
+                  name="explainedTo"
+                  value={formData.explainedTo || ""}
+                  onChange={handleChange}
+                  placeholder="Patient or Attender Name (e.g. Patient Name or Attender Name / Relation)"
+                  style={{
+                    width: "100%",
+                    height: 38,
+                    padding: "0 12px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#0f172a",
+                    background: "#ffffff",
+                    border: "1.5px solid #cbd5e1",
+                    borderRadius: 8,
+                    outline: "none",
+                    boxSizing: "border-box",
+                    transition: "all 0.15s ease",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#0d9488";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(13, 148, 136, 0.12)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#cbd5e1";
+                    e.target.style.boxShadow = "none";
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Submit */}
+            {/* Quick-add & Actions */}
             <div
-              style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 12,
+                paddingTop: 12,
+                borderTop: "1px solid #e2e8f0",
+              }}
             >
-              {isEditMode && (
-                <button style={S.btn("danger")} onClick={handleCancelEdit}>
-                  <X size={15} /> Cancel
-                </button>
-              )}
-              <button
-                style={S.btn("primary")}
-                onClick={isEditMode ? handleUpdate : handleSubmit}
-              >
-                {isEditMode ? (
-                  <>
-                    <Edit size={15} /> Update Summary
-                  </>
-                ) : (
-                  <>
-                    <Plus size={15} /> Save Summary
-                  </>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Quick Insert:
+                </span>
+                {isConsultantSection && (
+                  <button
+                    type="button"
+                    style={{ ...S.outBtn(T.teal), fontWeight: 700 }}
+                    onClick={() => setShowDoctorModal(true)}
+                    title="Choose and include doctors into Consultant section"
+                  >
+                    <Stethoscope size={14} /> + Doctors
+                  </button>
                 )}
-              </button>
+                <button style={S.outBtn(T.teal)} onClick={fetchInvestigations}>
+                  <Plus size={14} /> + Investigations
+                </button>
+                <button style={S.outBtn(T.sky)} onClick={fetchMedicines}>
+                  <Pill size={14} /> + Admission Meds
+                </button>
+                <button
+                  style={S.outBtn(T.green)}
+                  onClick={fetchDischargeMedicines}
+                >
+                  <Pill size={14} /> + Discharge Meds
+                </button>
+              </div>
+
+              {/* Submit Actions */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {isEditMode && (
+                  <button style={S.btn("danger")} onClick={handleCancelEdit}>
+                    <X size={15} /> Cancel Edit
+                  </button>
+                )}
+                <button
+                  style={S.btn("primary")}
+                  onClick={isEditMode ? handleUpdate : handleSubmit}
+                >
+                  {isEditMode ? (
+                    <>
+                      <Edit size={15} /> Update Summary
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={15} /> Save Summary
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3958,11 +4789,14 @@ const Summary = () => {
         )}
 
         {/* ══ SUMMARY TABLE ══ */}
-        <div style={S.tableWrap}>
+        <div id="discharge-summaries-archive" style={S.tableWrap} className="sum-card-lift">
           <div style={S.tableHead}>
-            <span style={S.tableTitle}>
-              <Activity size={18} /> Summary Reports
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={S.tableTitle}>
+                <Activity size={18} />
+                <span>Discharge Summaries Archive</span>
+              </span>
+            </div>
             <span style={S.tableCount}>
               {filteredSummaries.length} of {summaries.length} records
             </span>
@@ -3970,8 +4804,15 @@ const Summary = () => {
 
           {/* Filter bar */}
           <div style={S.filterBar}>
-            <div style={S.filterGrid}>
-              <div style={S.fld}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(12, 1fr)",
+                gap: "12px 14px",
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ ...S.fld, gridColumn: "span 2" }}>
                 <span style={{ ...S.lbl, color: T.teal }}>From Date</span>
                 <input
                   type="date"
@@ -3981,7 +4822,7 @@ const Summary = () => {
                   style={fi}
                 />
               </div>
-              <div style={S.fld}>
+              <div style={{ ...S.fld, gridColumn: "span 2" }}>
                 <span style={{ ...S.lbl, color: T.teal }}>To Date</span>
                 <input
                   type="date"
@@ -3991,7 +4832,7 @@ const Summary = () => {
                   style={fi}
                 />
               </div>
-              <div style={S.fld}>
+              <div style={{ ...S.fld, gridColumn: "span 3" }}>
                 <span style={{ ...S.lbl, color: T.teal }}>Summary Type</span>
                 <select
                   name="summaryType"
@@ -3999,7 +4840,7 @@ const Summary = () => {
                   onChange={handleSummaryTypeFilterChange}
                   style={fs}
                 >
-                  <option value="">All Types</option>
+                  <option value="">All Summary Types</option>
                   {summaryTypeOptions.map((t, i) => (
                     <option key={t.summaryNo || i} value={t.summaryType}>
                       {t.summaryType}
@@ -4007,17 +4848,7 @@ const Summary = () => {
                   ))}
                 </select>
               </div>
-              <div style={S.fld}>
-                <span style={{ ...S.lbl, color: T.teal }}>Patient Name</span>
-                <input
-                  name="patient"
-                  value={filters.patient}
-                  onChange={handleFilterChange}
-                  placeholder="Search…"
-                  style={fi}
-                />
-              </div>
-              <div style={S.fld}>
+              <div style={{ ...S.fld, gridColumn: "span 2" }}>
                 <span style={{ ...S.lbl, color: T.teal }}>Status</span>
                 <select
                   name="status"
@@ -4025,40 +4856,41 @@ const Summary = () => {
                   onChange={handleFilterChange}
                   style={fs}
                 >
-                  <option value="">All</option>
+                  <option value="">All Statuses</option>
                   <option value="approved">Approved</option>
                   <option value="pending">Pending</option>
                 </select>
               </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <div style={{ gridColumn: "span 3", display: "flex", alignItems: "flex-end", gap: 8 }}>
                 <button
                   onClick={applyServerFilters}
                   style={{
                     ...S.btn("primary"),
-                    height: 32,
-                    padding: "0 14px",
-                    fontSize: 12,
+                    height: 38,
+                    padding: "0 16px",
+                    fontSize: 12.5,
+                    flex: 1,
+                    justifyContent: "center",
                   }}
                 >
-                  <Search size={13} /> Search
+                  <Search size={14} /> Search
                 </button>
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
                 <button
                   onClick={clearFilters}
                   style={{
-                    height: 32,
+                    height: 38,
                     padding: "0 14px",
-                    fontSize: 12,
+                    fontSize: 12.5,
                     fontWeight: 600,
-                    border: `1px solid ${T.border}`,
-                    borderRadius: 7,
+                    border: `1.5px solid ${T.border}`,
+                    borderRadius: 8,
                     background: T.white,
                     color: T.muted,
                     cursor: "pointer",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 4,
+                    gap: 5,
+                    transition: "all 0.15s ease",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = T.red;
@@ -4068,29 +4900,48 @@ const Summary = () => {
                     e.currentTarget.style.borderColor = T.border;
                     e.currentTarget.style.color = T.muted;
                   }}
+                  title="Reset filter values"
                 >
-                  <X size={13} /> Clear
+                  <X size={14} /> Clear
                 </button>
               </div>
             </div>
-            <div style={S.filterGrid2}>
-              <div style={S.fld}>
+
+            {/* Filter row 2: Search by Name, UHID, IP No */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(12, 1fr)",
+                gap: "12px 14px",
+              }}
+            >
+              <div style={{ ...S.fld, gridColumn: "span 4" }}>
+                <span style={{ ...S.lbl, color: T.teal }}>Patient Name</span>
+                <input
+                  name="patient"
+                  value={filters.patient}
+                  onChange={handleFilterChange}
+                  placeholder="Filter by patient name…"
+                  style={fi}
+                />
+              </div>
+              <div style={{ ...S.fld, gridColumn: "span 4" }}>
                 <span style={{ ...S.lbl, color: T.teal }}>UHID</span>
                 <input
                   name="uhid"
                   value={filters.uhid}
                   onChange={handleFilterChange}
-                  placeholder="Search UHID…"
+                  placeholder="Filter by UHID…"
                   style={fi}
                 />
               </div>
-              <div style={S.fld}>
-                <span style={{ ...S.lbl, color: T.teal }}>IP No</span>
+              <div style={{ ...S.fld, gridColumn: "span 4" }}>
+                <span style={{ ...S.lbl, color: T.teal }}>IP Number</span>
                 <input
                   name="ipNo"
                   value={filters.ipNo}
                   onChange={handleFilterChange}
-                  placeholder="Search IP No…"
+                  placeholder="Filter by IP No…"
                   style={fi}
                 />
               </div>
@@ -4099,26 +4950,14 @@ const Summary = () => {
 
           {/* Table */}
           {summaries.length === 0 ? (
-            <p
-              style={{
-                textAlign: "center",
-                padding: 40,
-                color: T.muted,
-                fontSize: 13,
-              }}
-            >
-              No summary reports found.
-            </p>
+            <div style={{ textAlign: "center", padding: "48px 20px", color: T.muted }}>
+              <FileText size={32} style={{ marginBottom: 10, opacity: 0.5 }} />
+              <p style={{ fontSize: 13.5, fontWeight: 500 }}>No summary reports found in database.</p>
+            </div>
           ) : filteredSummaries.length === 0 ? (
-            <p
-              style={{
-                textAlign: "center",
-                padding: 40,
-                color: T.muted,
-                fontSize: 13,
-              }}
-            >
-              No records match your filters.{" "}
+            <div style={{ textAlign: "center", padding: "48px 20px", color: T.muted }}>
+              <Search size={32} style={{ marginBottom: 10, opacity: 0.5 }} />
+              <p style={{ fontSize: 13.5, fontWeight: 500 }}>No records match your filter criteria.</p>
               <button
                 onClick={clearFilters}
                 style={{
@@ -4126,14 +4965,16 @@ const Summary = () => {
                   border: "none",
                   color: T.teal,
                   cursor: "pointer",
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  marginTop: 6,
                 }}
               >
-                Clear filters
+                Clear all filters
               </button>
-            </p>
+            </div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
+            <div style={{ overflowX: "auto" }} className="sum-custom-scroll">
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -4157,10 +4998,11 @@ const Summary = () => {
                   {filteredSummaries.map((s, i) => (
                     <tr
                       key={s.id || i}
-                      style={{ background: i % 2 === 0 ? T.white : T.bg }}
+                      className="sum-table-row"
+                      style={{ background: i % 2 === 0 ? T.white : "#f8fafc" }}
                     >
                       <td style={S.td}>{fmtDate(s.date)}</td>
-                      <td style={{ ...S.td, fontWeight: 600, color: T.teal }}>
+                      <td style={{ ...S.td, fontWeight: 700, color: "#0f766e" }}>
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <span>{s.patient}</span>
                           {s.is_high_risk && (
@@ -4174,10 +5016,10 @@ const Summary = () => {
                           {s.approve ? "Approved" : "Pending"}
                         </span>
                       </td>
-                      <td style={{ ...S.td, fontSize: 12.5 }}>{s.summaryType}</td>
-                      <td style={S.td}>{s.uhid}</td>
-                      <td style={{ ...S.td, fontWeight: 600 }}>{s.ipNo}</td>
-                      <td style={{ ...S.td, fontSize: 12.5 }}>
+                      <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600 }}>{s.summaryType}</td>
+                      <td style={{ ...S.td, color: "#475569" }}>{s.uhid}</td>
+                      <td style={{ ...S.td, fontWeight: 700, color: "#0f172a" }}>{s.ipNo}</td>
+                      <td style={{ ...S.td, fontSize: 12, color: "#64748b" }}>
                         {fmtDateTime(s.approve_time)}
                       </td>
                       <td style={S.td}>
@@ -4186,12 +5028,13 @@ const Summary = () => {
                         >
                           {canEdit && (
                             <button
+                              className="sum-btn-hover"
                               style={{
                                 ...S.actionBtn(T.teal),
                                 opacity: s.approve ? 0.35 : 1,
                                 cursor: s.approve ? "not-allowed" : "pointer",
                               }}
-                              title="Edit Summary"
+                              title={s.approve ? "Approved summaries cannot be edited" : "Edit Summary"}
                               onClick={() => handleEdit(s.ipNo)}
                               disabled={s.approve}
                             >
@@ -4200,12 +5043,13 @@ const Summary = () => {
                           )}
                           {canDelete && (
                             <button
+                              className="sum-btn-hover"
                               style={{
                                 ...S.actionBtn(T.red),
                                 opacity: s.approve ? 0.35 : 1,
                                 cursor: s.approve ? "not-allowed" : "pointer",
                               }}
-                              title="Delete Summary"
+                              title={s.approve ? "Approved summaries cannot be deleted" : "Delete Summary"}
                               onClick={() => handleDelete(s.ipNo)}
                               disabled={s.approve}
                             >
@@ -4214,12 +5058,13 @@ const Summary = () => {
                           )}
                           {canApprove && (
                             <button
+                              className="sum-btn-hover"
                               style={{
                                 ...S.actionBtn(T.green),
                                 opacity: s.approve ? 0.35 : 1,
                                 cursor: s.approve ? "not-allowed" : "pointer",
                               }}
-                              title="Approve Summary"
+                              title={s.approve ? "Already Approved" : "Approve Summary"}
                               onClick={() => handleApprove(s.ipNo)}
                               disabled={s.approve}
                             >
@@ -4227,9 +5072,10 @@ const Summary = () => {
                             </button>
                           )}
                           <button
+                            className="sum-btn-hover"
                             style={S.actionBtn(T.sky)}
                             title="Print Summary"
-                            onClick={() => handlePrint(s.ipNo)}
+                            onClick={() => handlePrint(s.ipNo, s.date)}
                           >
                             <Printer size={15} />
                           </button>
