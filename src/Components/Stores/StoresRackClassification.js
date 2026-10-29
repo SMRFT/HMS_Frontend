@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
@@ -99,10 +99,25 @@ const StoresRackClassification = () => {
     const [shelves, setShelves] = useState([]);
     const [rackMasters, setRackMasters] = useState([]);
     const [shelfMasters, setShelfMasters] = useState([]);
+    const [allDepartments, setAllDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState('');
+    const departmentFilterRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRack, setSelectedRack] = useState('');
     const [selectedShelf, setSelectedShelf] = useState('');
+
+    // F10 Shortcut to focus Department filter
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                departmentFilterRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     // Quick editing state
     const [editingItem, setEditingItem] = useState(null);
@@ -142,13 +157,14 @@ const StoresRackClassification = () => {
     useEffect(() => {
         fetchItems();
         fetchMasters();
-    }, [selectedRack, selectedShelf]);
+    }, [selectedRack, selectedShelf, selectedDepartment]);
 
     const fetchMasters = async () => {
         try {
-            const [racksRes, shelvesRes] = await Promise.all([
+            const [racksRes, shelvesRes, deptsRes] = await Promise.all([
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/rack-master/`),
-                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/shelf-master/`)
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/shelf-master/`),
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`)
             ]);
             if (racksRes && racksRes.success) {
                 setRackMasters(racksRes.data || []);
@@ -156,8 +172,11 @@ const StoresRackClassification = () => {
             if (shelvesRes && shelvesRes.success) {
                 setShelfMasters(shelvesRes.data || []);
             }
+            if (deptsRes && deptsRes.success) {
+                setAllDepartments(deptsRes.data || []);
+            }
         } catch (err) {
-            console.error("Error fetching rack/shelf masters:", err);
+            console.error("Error fetching rack/shelf/dept masters:", err);
         }
     };
 
@@ -167,6 +186,7 @@ const StoresRackClassification = () => {
             let query = [];
             if (selectedRack) query.push(`rack_no=${encodeURIComponent(selectedRack)}`);
             if (selectedShelf) query.push(`shelf_no=${encodeURIComponent(selectedShelf)}`);
+            if (selectedDepartment) query.push(`department=${encodeURIComponent(selectedDepartment)}`);
             if (searchTerm) query.push(`search=${encodeURIComponent(searchTerm)}`);
 
             const queryString = query.length > 0 ? `?${query.join('&')}` : '';
@@ -444,6 +464,35 @@ const StoresRackClassification = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                <span>Filter Department</span>
+                                <span style={{ fontSize: '0.7rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>F10</span>
+                            </label>
+                            <ReactSelect
+                                ref={departmentFilterRef}
+                                options={[
+                                    { value: '', label: 'All Departments' },
+                                    ...allDepartments.map(d => ({
+                                        value: d.department_id || d.id || d.department_name,
+                                        label: d.department_name || d.name || d.department_id
+                                    }))
+                                ]}
+                                value={[
+                                    { value: '', label: 'All Departments' },
+                                    ...allDepartments.map(d => ({
+                                        value: d.department_id || d.id || d.department_name,
+                                        label: d.department_name || d.name || d.department_id
+                                    }))
+                                ].find(opt => opt.value === selectedDepartment) || { value: '', label: 'All Departments' }}
+                                onChange={opt => setSelectedDepartment(opt ? opt.value : '')}
+                                styles={customSelectStyles}
+                                menuPortalTarget={document.body}
+                                isSearchable
+                                openMenuOnFocus
+                                placeholder="All Departments (F10)"
+                            />
+                        </div>
                         <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
                             <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Filter Rack</label>
                             <ReactSelect

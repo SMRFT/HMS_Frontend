@@ -11,6 +11,7 @@ import {
   Pill,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Shield,
   User,
   AlertCircle,
@@ -24,7 +25,8 @@ import {
   Layers,
   Building2,
   Activity,
-  AlertTriangle
+  AlertTriangle,
+  Eye
 } from "lucide-react";
 
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -218,82 +220,397 @@ const HeaderSubtitle = styled.p`
   font-weight: 500;
 `;
 
-// ─── Stats Overview Grid ──────────────────────────────────────────────────────
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-`;
-
-const StatCard = styled.div`
-  background: ${T.surface};
-  border-radius: 16px;
-  border: 1px solid ${T.border};
-  padding: 18px 20px;
+// ─── Search & Segment Filter Bar (matching Screenshot 2) ──────────────────────
+const FilterBarCard = styled.div`
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02), 0 8px 20px rgba(0, 0, 0, 0.03);
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
+  gap: 16px;
+  flex-wrap: wrap;
+`;
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: ${({ $color }) => $color || T.accent};
+const SearchInputWrap = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 280px;
+`;
+
+const CleanSearchInput = styled.input`
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 0.82rem;
+  color: #0f172a;
+  background: transparent;
+  font-family: inherit;
+
+  &::placeholder {
+    color: #94a3b8;
+    font-size: 0.82rem;
   }
+`;
+
+const SegmentPillsWrap = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f8fafc;
+  padding: 3px 4px;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+`;
+
+const SegmentPillBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: ${({ $active }) => ($active ? "700" : "600")};
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: ${({ $active }) => ($active ? "#0f172a" : "transparent")};
+  color: ${({ $active }) => ($active ? "#ffffff" : "#475569")};
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+    color: ${({ $active }) => ($active ? "#ffffff" : "#0f172a")};
+    background: ${({ $active }) => ($active ? "#0f172a" : "#e2e8f0")};
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: 9999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: ${({ $active }) => ($active ? "#334155" : "#e2e8f0")};
+    color: ${({ $active }) => ($active ? "#ffffff" : "#475569")};
   }
 `;
 
-const StatInfo = styled.div`
+const PrescriptionMetaRow = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-`;
-
-const StatLabel = styled.span`
-  font-size: 0.73rem;
-  font-weight: 700;
-  color: ${T.slateMuted};
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-`;
-
-const StatValue = styled.span`
-  font-size: 1.45rem;
-  font-weight: 800;
-  color: ${T.slateDark};
-  font-family: 'JetBrains Mono', monospace;
-  letter-spacing: -0.02em;
-`;
-
-const StatSubtext = styled.span`
-  font-size: 0.72rem;
-  color: ${T.slateMuted};
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 4px;
+  font-size: 0.74rem;
+  color: #64748b;
   font-weight: 500;
 `;
 
-const StatIconWrapper = styled.div`
-  width: 44px;
-  height: 44px;
+// ─── Prescription Cards List (matching Screenshot 2) ──────────────────────────
+const PrescriptionCardsList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+`;
+
+const PrescriptionCard = styled.div`
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  background: ${({ $bg }) => $bg || "#f0fdfa"};
-  color: ${({ $color }) => $color || "#0d9488"};
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+
+  &:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+  }
+`;
+
+const AvatarInitialsBox = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #ccfbf1;
+  color: #0f766e;
+  font-size: 0.85rem;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 `;
+
+const CardPatientName = styled.div`
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+`;
+
+const CardPatientSubtext = styled.div`
+  font-size: 0.73rem;
+  color: #64748b;
+  margin-top: 3px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+`;
+
+const CardRoomTitle = styled.div`
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+`;
+
+const CardDateSubtext = styled.div`
+  font-size: 0.73rem;
+  color: #64748b;
+  margin-top: 3px;
+`;
+
+const CardItemsTitle = styled.div`
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+`;
+
+const CardAdvanceSubtext = styled.div`
+  font-size: 0.73rem;
+  color: #64748b;
+  margin-top: 3px;
+`;
+
+const StatusPill = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: ${({ $status }) => ($status === "Processing" ? "#f5f3ff" : "#fff7ed")};
+  color: ${({ $status }) => ($status === "Processing" ? "#7c3aed" : "#c2410c")};
+  border: 1px solid ${({ $status }) => ($status === "Processing" ? "#ede9fe" : "#ffedd5")};
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: ${({ $status }) => ($status === "Processing" ? "#8b5cf6" : "#f97316")};
+  }
+`;
+
+const CardPrintBtn = styled.button`
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #cbd5e1;
+  }
+`;
+
+const CardViewBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: #115e59;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.2);
+  }
+`;
+
+const CardConvertBtn = CardViewBtn;
+
+// ─── Bottom Legend ────────────────────────────────────────────────────────────
+const BottomLegendWrap = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 6px;
+  flex-wrap: wrap;
+`;
+
+const LegendEntry = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 500;
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+`;
+
+// ─── Detail Modal (matching Screenshot 1) ─────────────────────────────────────
+const DetailModalBox = styled.div`
+  background: #ffffff;
+  border-radius: 16px;
+  width: 1040px;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: ${fadeIn} 0.2s ease;
+`;
+
+const DetailModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px 24px 14px;
+`;
+
+const PatientSummaryStrip = styled.div`
+  margin: 0 24px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 20px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+`;
+
+const StripCell = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 16px;
+  border-right: 1px solid #e2e8f0;
+
+  &:first-child {
+    padding-left: 0;
+  }
+
+  &:last-child {
+    border-right: none;
+    padding-right: 0;
+  }
+
+  @media (max-width: 900px) {
+    border-right: none;
+    padding: 0;
+  }
+`;
+
+const StripLabel = styled.span`
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 500;
+`;
+
+const StripVal = styled.span`
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: ${({ $color }) => $color || "#0f172a"};
+  letter-spacing: -0.01em;
+`;
+
+const ModalTableContainer = styled.div`
+  margin: 0 24px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 50vh;
+  overflow-y: auto;
+`;
+
+const DetailTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+
+  thead {
+    background: #f8fafc;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+
+    th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #64748b;
+      border-bottom: 1px solid #e2e8f0;
+      white-space: nowrap;
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #f1f5f9;
+      &:hover {
+        background: #f8fafc;
+      }
+
+      td {
+        padding: 10px 14px;
+        color: #1e293b;
+        vertical-align: middle;
+      }
+    }
+  }
+`;
+
+const DetailModalFooter = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  border-top: 1px solid #f1f5f9;
+  background: #ffffff;
+`;
+
+
 
 // ─── Filter & Search Bar ──────────────────────────────────────────────────────
 const FilterToolbar = styled.div`
@@ -667,58 +984,7 @@ const AdvanceTag = styled.span`
   border-radius: 6px;
 `;
 
-const StatusPill = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
 
-  ${({ $status }) => {
-    switch ($status) {
-      case "Pending":
-        return css`
-          background: #fffbeb;
-          color: #b45309;
-          border: 1px solid #fde68a;
-        `;
-      case "Processing":
-        return css`
-          background: #f5f3ff;
-          color: #6d28d9;
-          border: 1px solid #ddd6fe;
-        `;
-      case "Billed":
-        return css`
-          background: #eff6ff;
-          color: #1d4ed8;
-          border: 1px solid #bfdbfe;
-        `;
-      case "Approved":
-        return css`
-          background: #f0fdf4;
-          color: #15803d;
-          border: 1px solid #bbf7d0;
-        `;
-      case "Cancelled":
-        return css`
-          background: #fef2f2;
-          color: #b91c1c;
-          border: 1px solid #fecaca;
-        `;
-      default:
-        return css`
-          background: #f1f5f9;
-          color: #64748b;
-          border: 1px solid #e2e8f0;
-        `;
-    }
-  }}
-`;
 
 const StatusDotAnim = styled.span`
   width: 6px;
@@ -1238,12 +1504,84 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
   const [loading, setLoading]                 = useState(false);
   const [error, setError]                     = useState(null);
   const [expandedKey, setExpandedKey]         = useState(null);
-  // Default to all dates ("") so active ward prescriptions display immediately on load without needing to click View All Dates
-  const [fromDate, setFromDate]               = useState("");
-  const [toDate, setToDate]                   = useState("");
+  // Initially set to current date (today)
+  const [fromDate, setFromDate]               = useState(todayStr);
+  const [toDate, setToDate]                   = useState(todayStr);
   const [searchQuery, setSearchQuery]         = useState("");
   const [activeFilter, setActiveFilter]       = useState("All"); // All, Pending, Processing, Insurance, General
   const [printPatient, setPrintPatient]       = useState(null);
+  const [selectedPatientModal, setSelectedPatientModal] = useState(null);
+
+  // ── Format & Calculation Helpers (matching screenshots) ──
+  const formatDateTime = (dateVal) => {
+    if (!dateVal) return "—";
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return String(dateVal);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      const ampm = hours >= 12 ? "pm" : "am";
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const strHours = String(hours).padStart(2, "0");
+      return `${day}/${month}/${year} · ${strHours}:${minutes} ${ampm}`;
+    } catch {
+      return String(dateVal);
+    }
+  };
+
+  const formatCurrency = (val) => {
+    const num = Number(val || 0);
+    return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const getPatientInitials = (patient) => {
+    const name = patient?.patient_details?.patient_name || patient?.patient_name || "";
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length === 0) return "PT";
+    const titles = ["mr", "mr.", "mrs", "mrs.", "ms", "ms.", "dr", "dr.", "master", "baby"];
+    const nonTitleParts = titles.includes(parts[0].toLowerCase()) ? parts.slice(1) : parts;
+    if (nonTitleParts.length === 0) return parts[0].slice(0, 2).toUpperCase();
+    if (nonTitleParts.length === 1) return nonTitleParts[0][0].toUpperCase();
+    return (nonTitleParts[0][0] + nonTitleParts[nonTitleParts.length - 1][0]).toUpperCase();
+  };
+
+  const getPatientFinancials = (patient) => {
+    const items = Array.isArray(patient?.medicine_items) ? patient.medicine_items : [];
+    const prescriptionTotal = items.reduce((sum, it) => {
+      const rate = getUnitPrice(it);
+      const q = Number(it.qty ?? it.quantity ?? 1) || 1;
+      return sum + rate * q;
+    }, 0);
+
+    const advance = Number(patient?.total_ip_advance || 0);
+    const remaining = advance - prescriptionTotal;
+
+    return {
+      itemsCount: items.length,
+      prescriptionTotal,
+      advance,
+      remaining,
+    };
+  };
+
+  const getItemDotColor = (item) => {
+    if (item?.is_substitute) return "#2563eb";
+    if (item?.is_emergency) return "#dc2626";
+    if (item?.is_consumable_items) return "#ea580c";
+    if (item?.is_insurance_covered) return "#16a34a";
+    return "#6b7280";
+  };
+
+  const getItemTypeName = (item) => {
+    if (item?.is_substitute) return "Substitute";
+    if (item?.is_emergency) return "Emergency";
+    if (item?.is_consumable_items) return "Consumable";
+    return "Regular";
+  };
 
   // Substitute modal
   const [substituteModal, setSubstituteModal] = useState(null);
@@ -1342,41 +1680,19 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
 
   // ─── Fetch main chart data ────────────────────────────────────────────────
   // ─── Fetch main chart data (instantly loaded from pre-enriched backend API) ─
-  const fetchMedicineChart = async () => {
+  const fetchMedicineChart = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      let userPayload = {};
-      try {
-        userPayload = JSON.parse(localStorage.getItem("user_payload") || "{}");
-      } catch (e) {}
-
-      const activeHospital =
-        localStorage.getItem("selected_hospital") ||
-        localStorage.getItem("hospital_code") ||
-        userPayload.hospital_code ||
-        "SH001";
-
-      const activeBranch =
-        localStorage.getItem("selected_branch") ||
-        localStorage.getItem("branch_code") ||
-        (Array.isArray(userPayload["allowed-data"]) ? userPayload["allowed-data"][0] : "") ||
-        "SHB001";
-
-      const activeOutlet =
-        localStorage.getItem("selected_outlet") ||
-        localStorage.getItem("outlet_code") ||
-        "OLET002";
+      const payload = {};
+      if (fromDate) payload.from_date = fromDate;
+      if (toDate) payload.to_date = toDate;
 
       const response = await apiRequest(
         `${Hmsbaseurl}pharmacy_medicinechart/`,
         "POST",
-        {
-          outlet_code: activeOutlet,
-          branch_code: activeBranch,
-          hospital_code: activeHospital,
-        }
+        payload
       );
 
       if (!response.success) {
@@ -1395,16 +1711,23 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [Hmsbaseurl, fromDate, toDate, onCountChange]);
 
-  useEffect(() => { fetchMedicineChart(); }, []);
+  useEffect(() => {
+    fetchMedicineChart();
+  }, [fetchMedicineChart]);
 
-  // ─── On-demand (lazy) fetch stocks for substitute modal only ──────────────
-  const fetchMedicines = useCallback(async () => {
-    if (!HmsBaseUrl || medicines.length > 0) return;
+  // ─── Fast search-as-you-type stock lookup for substitute modal (>= 2 chars) ──
+  const fetchMedicines = useCallback(async (query) => {
+    const q = (query || "").trim();
+    if (!HmsBaseUrl || q.length < 2) {
+      setMedicines([]);
+      setSubstLoading(false);
+      return;
+    }
     try {
       setSubstLoading(true);
-      const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST");
+      const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST", { search: q });
       const medicineArray = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.data) ? response.data.data : [];
@@ -1426,13 +1749,29 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
           return true;
         });
         setMedicines(unique);
+      } else {
+        setMedicines([]);
       }
     } catch (err) {
       console.error("Error fetching medicines for substitute:", err);
+      setMedicines([]);
     } finally {
       setSubstLoading(false);
     }
-  }, [HmsBaseUrl, medicines.length]);
+  }, [HmsBaseUrl]);
+
+  // Debounced search when typing at least 2 characters in substitute modal
+  useEffect(() => {
+    const q = substSearch.trim();
+    if (q.length >= 2) {
+      const timer = setTimeout(() => {
+        fetchMedicines(q);
+      }, 250);
+      return () => clearTimeout(timer);
+    } else {
+      setMedicines([]);
+    }
+  }, [substSearch, fetchMedicines]);
 
   // ─── Filter based strictly on ward_request_date ───────────────────────────
   const dateFilteredData = useMemo(() => {
@@ -1582,9 +1921,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     setSubstSearch("");
     setSubstSelected(null);
     setSubstDropOpen(false);
-    if (medicines.length === 0) {
-      fetchMedicines();
-    }
+    setMedicines([]);
   };
 
   const handleSubstituteConfirm = async () => {
@@ -1628,6 +1965,14 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
       })
     );
 
+    setSelectedPatientModal(prev => {
+      if (!prev || (prev.Bill_id ?? prev.bill_id) !== billId) return prev;
+      const updatedItems = (prev.medicine_items || []).map(item =>
+        item.item_id === originalItemId ? substituteItemPayload : item
+      );
+      return { ...prev, medicine_items: updatedItems };
+    });
+
     try {
       const res = await apiRequest(`${HmsBaseUrl}substitute_medicine/`, "POST", {
         Bill_id:         billId,
@@ -1643,36 +1988,38 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     setSubstituteModal(null);
   };
 
-  const substSuggestions = substSearch.length >= 2
-    ? medicines.filter(m => m.name.toLowerCase().includes(substSearch.toLowerCase()))
-    : [];
+  const substSuggestions = useMemo(() => {
+    const q = substSearch.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const startsWith = [];
+    const others = [];
+    for (const med of medicines) {
+      const name = (med.name || "").toLowerCase();
+      if (name.startsWith(q)) {
+        startsWith.push(med);
+      } else if (name.includes(` ${q}`) || name.includes(`-${q}`)) {
+        others.push(med);
+      }
+    }
+    return startsWith.length > 0 ? startsWith : others;
+  }, [substSearch, medicines]);
 
   return (
     <>
       <GlobalStyle />
       <PageContainer>
-        {/* ── Top Header ── */}
+        {/* ── Top Header (matching Screenshot 2) ── */}
         <HeaderContainer>
           <HeaderLeft>
-            <HeaderIconBox>
-              <Pill size={28} />
-            </HeaderIconBox>
             <HeaderTitleGroup>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {medicineData.length > 0 && (
-                  <HeaderBlinkBadgeWrapper title={`${medicineData.length} active ward prescriptions`}>
-                    <HeaderBlinkBadge>{medicineData.length}</HeaderBlinkBadge>
-                  </HeaderBlinkBadgeWrapper>
-                )}
-                <div>
-                  <HeaderTitle>
-                    <span>Medicine Chart</span>
-                    <HeaderBadge>Ward Prescriptions</HeaderBadge>
-                  </HeaderTitle>
-                </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <HeaderTitle style={{ fontSize: "1.35rem" }}>Medicine Chart</HeaderTitle>
+                <HeaderBadge style={{ background: "#dcfce7", color: "#0f766e", border: "1px solid #bbf7d0", textTransform: "none", fontSize: "0.74rem", padding: "3px 10px", borderRadius: 9999 }}>
+                  Ward prescriptions
+                </HeaderBadge>
               </div>
-              <HeaderSubtitle>
-                Inpatient prescription tracking, insurance consumable separation &amp; dispensing workflow
+              <HeaderSubtitle style={{ marginTop: 3, fontSize: "0.82rem", color: "#64748b" }}>
+                Review ward requests, check IP advance and convert to bill.
               </HeaderSubtitle>
             </HeaderTitleGroup>
           </HeaderLeft>
@@ -1701,7 +2048,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                 onClick={() => handleSetDatePreset("last7")}
                 title="Show last 7 days ward requests"
               >
-                Last 7 Days
+                Last 7 days
               </DatePresetBtn>
               <DatePresetBtn
                 type="button"
@@ -1709,7 +2056,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                 onClick={() => handleSetDatePreset("all")}
                 title="Show all requests across all dates"
               >
-                All Dates
+                All dates
               </DatePresetBtn>
             </DatePresetGroup>
 
@@ -1722,7 +2069,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                 placeholder="From"
                 title="From Ward Request Date"
               />
-              <DateSep>→</DateSep>
+              <DateSep>to</DateSep>
               <DateInput
                 type="date"
                 value={toDate}
@@ -1730,6 +2077,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                 placeholder="To"
                 title="To Ward Request Date"
               />
+              <Calendar size={15} color={T.slateMuted} />
               {(fromDate || toDate) && (
                 <button
                   type="button"
@@ -1749,100 +2097,53 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
           </ControlsRight>
         </HeaderContainer>
 
-        {/* ── Top Statistics Overview Cards ── */}
-        <StatsGrid>
-          <StatCard $color="#0d9488">
-            <StatInfo>
-              <StatLabel>Total Prescriptions</StatLabel>
-              <StatValue>{stats.total}</StatValue>
-              <StatSubtext>Active ward requests</StatSubtext>
-            </StatInfo>
-            <StatIconWrapper $bg="#f0fdfa" $color="#0d9488">
-              <Layers size={22} />
-            </StatIconWrapper>
-          </StatCard>
+        {/* ── Search & Segment Filter Bar (matching Screenshot 2) ── */}
+        <FilterBarCard>
+          <SearchInputWrap>
+            <Search size={16} color="#94a3b8" />
+            <CleanSearchInput
+              type="text"
+              placeholder="Search patient, UHID, IP number, room or doctor"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", padding: "0 4px" }}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </SearchInputWrap>
 
-          <StatCard $color="#f59e0b">
-            <StatInfo>
-              <StatLabel>Pending Dispense</StatLabel>
-              <StatValue>{stats.pending}</StatValue>
-              <StatSubtext>Awaiting pharmacy action</StatSubtext>
-            </StatInfo>
-            <StatIconWrapper $bg="#fffbeb" $color="#d97706">
-              <Clock size={22} />
-            </StatIconWrapper>
-          </StatCard>
+          <SegmentPillsWrap>
+            {[
+              { id: "All", label: "All", count: stats.total },
+              { id: "Pending", label: "Pending", count: stats.pending },
+              { id: "Processing", label: "Processing", count: stats.processing },
+              { id: "Insurance", label: "Insurance", count: stats.insuranceCount },
+              { id: "General", label: "General", count: stats.total - stats.insuranceCount },
+            ].map(tab => (
+              <SegmentPillBtn
+                key={tab.id}
+                type="button"
+                $active={activeFilter === tab.id}
+                onClick={() => setActiveFilter(tab.id)}
+              >
+                <span>{tab.label}</span>
+                <span className="badge">{tab.count}</span>
+              </SegmentPillBtn>
+            ))}
+          </SegmentPillsWrap>
+        </FilterBarCard>
 
-          <StatCard $color="#8b5cf6">
-            <StatInfo>
-              <StatLabel>Processing</StatLabel>
-              <StatValue>{stats.processing}</StatValue>
-              <StatSubtext>In billing queue</StatSubtext>
-            </StatInfo>
-            <StatIconWrapper $bg="#f5f3ff" $color="#7c3aed">
-              <Activity size={22} />
-            </StatIconWrapper>
-          </StatCard>
-
-          <StatCard $color="#10b981">
-            <StatInfo>
-              <StatLabel>Insurance Cases</StatLabel>
-              <StatValue>{stats.insuranceCount}</StatValue>
-              <StatSubtext>Consumable payable rules applied</StatSubtext>
-            </StatInfo>
-            <StatIconWrapper $bg="#ecfdf5" $color="#059669">
-              <Shield size={22} />
-            </StatIconWrapper>
-          </StatCard>
-
-        </StatsGrid>
-
-        {/* ── Filter & Search Toolbar ── */}
-        <FilterToolbar>
-          <FilterTopRow>
-            <SearchBox>
-              <SearchIcon>
-                <Search size={16} />
-              </SearchIcon>
-              <SearchInput
-                type="text"
-                placeholder="Search by UHID, Patient Name, Room/Ward, IP Number, or Doctor..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <ClearSearchBtn onClick={() => setSearchQuery("")}>
-                  <X size={15} />
-                </ClearSearchBtn>
-              )}
-            </SearchBox>
-          </FilterTopRow>
-
-          <FilterPillsRow>
-            <FilterPillsGroup>
-              {[
-                { id: "All", label: "All Requests", count: stats.total },
-                { id: "Pending", label: "Pending", count: stats.pending },
-                { id: "Processing", label: "Processing", count: stats.processing },
-                { id: "Insurance", label: "Insurance", count: stats.insuranceCount },
-                { id: "General", label: "General", count: stats.total - stats.insuranceCount },
-              ].map(f => (
-                <FilterPill
-                  key={f.id}
-                  $active={activeFilter === f.id}
-                  onClick={() => setActiveFilter(f.id)}
-                >
-                  {f.label}
-                  <PillCount $active={activeFilter === f.id}>{f.count}</PillCount>
-                </FilterPill>
-              ))}
-            </FilterPillsGroup>
-
-            <span style={{ fontSize: "0.76rem", color: T.slateMuted, fontWeight: 600 }}>
-              Showing {filteredData.length} of {medicineData.length} prescriptions
-            </span>
-          </FilterPillsRow>
-        </FilterToolbar>
+        {/* ── Prescription Meta Row ── */}
+        <PrescriptionMetaRow>
+          <span>Showing {filteredData.length} of {medicineData.length} prescriptions</span>
+          <span>Click a patient to see medicines</span>
+        </PrescriptionMetaRow>
 
         {/* ── Error Banner ── */}
         {error && (
@@ -1852,538 +2153,362 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
           </div>
         )}
 
-        {/* ── Main Prescriptions Table Card ── */}
-        <TableCard>
-          <TableWrapper>
-            <StyledTable>
-              <Thead>
-                <tr>
-                  <th style={{ width: 44, textAlign: "center" }}>Print</th>
-                  <th>UHID</th>
-                  <th>Patient Details</th>
-                  <th>Ward &amp; Room</th>
-                  <th>IP Number</th>
-                  <th>Contact</th>
-                  <th>Status</th>
-                  <th>Billing Action</th>
-                  <th>Prescribed Medicines</th>
-                </tr>
-              </Thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="9" style={{ textAlign: "center", padding: "48px 20px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, color: T.primary }}>
-                        <SpinIcon size={26} />
-                        <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>Loading medicine charts…</span>
+                {/* ── Prescription Cards List (matching Screenshot 2) ── */}
+        <PrescriptionCardsList>
+          {loading ? (
+            <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "48px 20px", textAlign: "center", color: "#0f766e" }}>
+              <SpinIcon size={24} />
+              <div style={{ marginTop: 8, fontWeight: 600, fontSize: "0.85rem" }}>Loading medicine charts…</div>
+            </div>
+          ) : filteredData.length === 0 ? (
+            <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "48px 20px", textAlign: "center", color: "#64748b" }}>
+              <Pill size={36} color="#94a3b8" style={{ margin: "0 auto 8px" }} />
+              <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#0f172a" }}>No prescriptions found</div>
+              <div style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: 4 }}>
+                {medicineData.length > 0 ? "Try adjusting your search or filters" : "No ward prescriptions awaiting dispense"}
+              </div>
+            </div>
+          ) : (
+            filteredData.map(patient => {
+              const billKey = getBillKey(patient);
+              const { itemsCount, prescriptionTotal, advance } = getPatientFinancials(patient);
+              const initials = getPatientInitials(patient);
+              const pName = patient.patient_details?.patient_name || patient.patient_name || "—";
+              const uhid = patient.uhid || "—";
+              const ipNo = patient.inpatient_number || patient.ip_number || "—";
+              const ward = patient.ward_name || patient.room_no || "—";
+              const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date);
+              const isInsurance = Boolean(
+                patient.is_insurance ||
+                String(patient.customer_type || "").toLowerCase() === "insurance" ||
+                patient.insurance_company
+              );
+              const insCompany = patient.insurance_company || patient.patient_details?.insurance_company || "";
+              const custType = isInsurance
+                ? (insCompany ? `Insurance (${insCompany})` : "Insurance")
+                : (patient.customer_type || "General");
+
+              return (
+                <PrescriptionCard
+                  key={billKey}
+                  onClick={() => setSelectedPatientModal(patient)}
+                >
+                  <div style={{ minWidth: 260 }}>
+                    <CardPatientName>{pName}</CardPatientName>
+                    <CardPatientSubtext>
+                      UHID {uhid} &nbsp; IP {ipNo}
+                    </CardPatientSubtext>
+                  </div>
+
+                  <div style={{ minWidth: 150 }}>
+                    <CardRoomTitle>Room {ward}</CardRoomTitle>
+                    <CardDateSubtext>{dateFormatted}</CardDateSubtext>
+                  </div>
+
+                  <div style={{ minWidth: 140 }}>
+                    <CardItemsTitle>
+                      {itemsCount} {itemsCount === 1 ? "item" : "items"} · ₹{formatCurrency(prescriptionTotal)}
+                    </CardItemsTitle>
+                    <CardAdvanceSubtext>
+                      {custType} · Adv ₹{formatCurrency(advance)}
+                    </CardAdvanceSubtext>
+                  </div>
+
+                  <StatusPill $status={patient.billing_status || "Pending"}>
+                    <span className="dot" />
+                    {patient.billing_status || "Pending"}
+                  </StatusPill>
+
+                  <CardPrintBtn
+                    type="button"
+                    title="Print Prescription"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPrintPatient(patient);
+                    }}
+                  >
+                    <Printer size={15} />
+                  </CardPrintBtn>
+
+                  <CardViewBtn
+                    type="button"
+                    title="View Items"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPatientModal(patient);
+                    }}
+                  >
+                    <Eye size={14} />
+                    View Items
+                  </CardViewBtn>
+
+                  <div style={{ color: "#94a3b8", display: "flex", alignItems: "center" }}>
+                    <ChevronDown size={16} />
+                  </div>
+                </PrescriptionCard>
+              );
+            })
+          )}
+        </PrescriptionCardsList>
+
+        {/* ── Bottom Legend (matching Screenshot 2) ── */}
+        <BottomLegendWrap>
+          <LegendEntry>
+            <span className="dot" style={{ background: "#6b7280" }} /> Regular
+          </LegendEntry>
+          <LegendEntry>
+            <span className="dot" style={{ background: "#2563eb" }} /> Substitute given
+          </LegendEntry>
+          <LegendEntry>
+            <span className="dot" style={{ background: "#dc2626" }} /> Emergency
+          </LegendEntry>
+          <LegendEntry>
+            <span className="dot" style={{ background: "#16a34a" }} /> Insurance covered
+          </LegendEntry>
+          <LegendEntry>
+            <span className="dot" style={{ background: "#ea580c" }} /> Consumable (patient payable)
+          </LegendEntry>
+        </BottomLegendWrap>
+      </PageContainer>
+
+      
+      {/* ── Patient Detail Modal (matching Screenshot 1) ── */}
+      {selectedPatientModal && createPortal(
+        <ModalOverlay onClick={() => setSelectedPatientModal(null)}>
+          <DetailModalBox onClick={e => e.stopPropagation()}>
+            {(() => {
+              const patient = selectedPatientModal;
+              const { itemsCount, prescriptionTotal, advance, remaining } = getPatientFinancials(patient);
+              const initials = getPatientInitials(patient);
+              const pName = patient.patient_details?.patient_name || patient.patient_name || "—";
+              const uhid = patient.uhid || "—";
+              const ipNo = patient.inpatient_number || patient.ip_number || "—";
+              const ward = patient.ward_name || patient.room_no || "—";
+              const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date);
+              const doctorName = patient.doctor_name
+                ? (patient.doctor_name.toLowerCase().startsWith("dr") ? patient.doctor_name : `Dr. ${patient.doctor_name}`)
+                : "Dr. Murugavel R";
+              const contact = patient.patient_details?.mobile || patient.mobile || patient.contact || "—";
+              const items = Array.isArray(patient.medicine_items) ? patient.medicine_items : [];
+              const isModalInsurance = Boolean(
+                patient.is_insurance ||
+                String(patient.customer_type || "").toLowerCase() === "insurance" ||
+                patient.insurance_company
+              );
+              const modalInsCompany = patient.insurance_company || patient.patient_details?.insurance_company || "";
+
+              return (
+                <>
+                  <DetailModalHeader>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: "1rem", fontWeight: 800, color: "#0f172a" }}>
+                          {pName}
+                        </span>
+                        <StatusPill $status={patient.billing_status || "Pending"}>
+                          <span className="dot" />
+                          {patient.billing_status || "Pending"}
+                        </StatusPill>
                       </div>
-                    </td>
-                  </tr>
-                ) : filteredData.length === 0 ? (
-                  <tr>
-                    <td colSpan="9" style={{ textAlign: "center", padding: "52px 20px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, color: T.slateLight }}>
-                        <Pill size={38} color={T.slateLight} />
-                        <span style={{ fontWeight: 800, fontSize: "0.95rem", color: T.slateDark }}>
-                          {fromDate || toDate
-                            ? `No ward prescriptions found for ${fromDate === toDate ? fromDate : `${fromDate || 'Start'} to ${toDate || 'End'}`}`
-                            : "No prescriptions found"}
-                        </span>
-                        <span style={{ fontSize: "0.8rem", color: T.slateMuted, maxWidth: 440 }}>
-                          {medicineData.length > 0
-                            ? `There are ${medicineData.length} total ward prescriptions on other dates. You can change the date filter or view all records.`
-                            : "No ward request prescriptions are currently awaiting dispense."}
-                        </span>
-                        {medicineData.length > 0 && (
-                          <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap", justifyContent: "center" }}>
-                            <button
-                              type="button"
-                              onClick={() => handleSetDatePreset("all")}
-                              style={{
-                                background: "#0f766e",
-                                color: "#fff",
-                                border: "none",
-                                padding: "6px 14px",
-                                borderRadius: 8,
-                                fontSize: "0.78rem",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                            >
-                              View All Dates ({medicineData.length})
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleSetDatePreset("yesterday")}
-                              style={{
-                                background: "#f1f5f9",
-                                color: T.slateMid,
-                                border: `1px solid ${T.border}`,
-                                padding: "6px 14px",
-                                borderRadius: 8,
-                                fontSize: "0.78rem",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                            >
-                              Check Yesterday
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleSetDatePreset("last7")}
-                              style={{
-                                background: "#f1f5f9",
-                                color: T.slateMid,
-                                border: `1px solid ${T.border}`,
-                                padding: "6px 14px",
-                                borderRadius: 8,
-                                fontSize: "0.78rem",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                            >
-                              Last 7 Days
-                            </button>
-                          </div>
+                      <div style={{ fontSize: "0.73rem", color: "#64748b", marginTop: 4, display: "flex", gap: 14, flexWrap: "wrap", letterSpacing: "0.01em" }}>
+                        <span>UHID {uhid}</span>
+                        <span>IP {ipNo}</span>
+                        <span>Room {ward}</span>
+                        <span>{dateFormatted}</span>
+                        {isModalInsurance && modalInsCompany && (
+                          <span style={{ color: "#047857", fontWeight: 700 }}>
+                            🛡️ {modalInsCompany}
+                          </span>
                         )}
                       </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredData.map((patient, idx) => {
-                    const patientKey = `${getBillKey(patient)}-${idx}`;
-                    const isExpanded = expandedKey === patientKey;
-                    const items = Array.isArray(patient?.medicine_items) ? patient.medicine_items : [];
-                    const pName = patient.patient_details?.patient_name || patient.patient_name || `Patient (${patient.uhid})`;
-                    const initials = pName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase() || "PT";
-                    const wardRawDate = patient.ward_request_date || patient.created_date;
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPatientModal(null)}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        border: "1px solid #e2e8f0",
+                        background: "#ffffff",
+                        color: "#64748b",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </DetailModalHeader>
 
-                    return (
-                      <React.Fragment key={patientKey}>
-                        <PatientRow
-                          $active={isExpanded}
-                          onClick={() => handleToggleMedicines(patientKey)}
-                        >
-                          {/* Print Icon Button */}
-                          <td style={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
-                            <PrintBtnIcon
-                              title="Print Ward Prescription"
-                              onClick={() => setPrintPatient(patient)}
-                            >
-                              <Printer size={16} />
-                            </PrintBtnIcon>
-                          </td>
+                  <PatientSummaryStrip>
+                    <StripCell>
+                      <StripLabel>Admitting doctor</StripLabel>
+                      <StripVal>{doctorName}</StripVal>
+                    </StripCell>
+                    <StripCell>
+                      <StripLabel>Contact</StripLabel>
+                      <StripVal>{contact}</StripVal>
+                    </StripCell>
+                    <StripCell>
+                      <StripLabel>Prescription total</StripLabel>
+                      <StripVal>₹{formatCurrency(prescriptionTotal)}</StripVal>
+                    </StripCell>
+                    <StripCell>
+                      <StripLabel>Available IP advance</StripLabel>
+                      <StripVal>₹{formatCurrency(advance)}</StripVal>
+                    </StripCell>
+                    <StripCell>
+                      <StripLabel style={{ color: "#0f766e" }}>Remaining after deduction</StripLabel>
+                      <StripVal $color="#0f766e">₹{formatCurrency(remaining)}</StripVal>
+                    </StripCell>
+                  </PatientSummaryStrip>
 
-                          {/* UHID */}
-                          <td>
-                            <UHIDBadge>{patient.uhid}</UHIDBadge>
-                          </td>
+                  <ModalTableContainer>
+                    <DetailTable>
+                      <thead>
+                        <tr>
+                          <th>Medicine</th>
+                          <th>Type</th>
+                          <th style={{ textAlign: "center" }}>Qty</th>
+                          <th style={{ textAlign: "right" }}>Unit ₹</th>
+                          <th style={{ textAlign: "right" }}>Amount ₹</th>
+                          <th>Stock</th>
+                          <th>Dosage</th>
+                          <th>Requested</th>
+                          <th style={{ textAlign: "center" }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.length === 0 ? (
+                          <tr>
+                            <td colSpan="9" style={{ textAlign: "center", padding: "28px", color: "#94a3b8" }}>
+                              No medicine items in this prescription.
+                            </td>
+                          </tr>
+                        ) : (
+                          items.map((item, idx) => {
+                            const q = Number(item.qty ?? item.quantity ?? 1) || 1;
+                            const unitPrice = getUnitPrice(item);
+                            const amount = q * unitPrice;
+                            const stock = item.available_stock;
+                            const isOutOfStock = stock !== undefined && stock !== null && Number(stock) <= 0;
+                            const dotColor = getItemDotColor(item);
+                            const typeName = getItemTypeName(item);
+                            const requestedTime = formatDateTime(item.ward_request_date || patient.ward_request_date || patient.created_date);
 
-                          {/* Patient Name & Tags */}
-                          <td>
-                            <PatientInfoCell>
-                              <PatientAvatar $isInsurance={patient.is_insurance}>
-                                {initials}
-                              </PatientAvatar>
-                              <PatientMeta>
-                                <PatientName>{pName}</PatientName>
-                                <PatientSubPills>
-                                  <TypeTag $isInsurance={patient.is_insurance}>
-                                    {patient.is_insurance ? (
-                                      <>
-                                        <Shield size={10} />
-                                        <span>Insurance {patient.insurance_company ? `(${patient.insurance_company})` : ""}</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <User size={10} />
-                                        <span>General</span>
-                                      </>
-                                    )}
-                                  </TypeTag>
-                                  {Number(patient.total_ip_advance || 0) > 0 && (
-                                    <AdvanceTag>
-                                      Adv: ₹{Number(patient.total_ip_advance).toLocaleString("en-IN")}
-                                    </AdvanceTag>
+                            return (
+                              <tr key={item.item_id || idx}>
+                                <td>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
+                                    <span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase" }}>
+                                      {item.item_name || item.medicine_name || `Item #${idx + 1}`}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td style={{ color: "#475569" }}>{typeName}</td>
+                                <td style={{ textAlign: "center", fontWeight: 600 }}>{q}</td>
+                                <td style={{ textAlign: "right", fontFamily: "'JetBrains Mono', monospace" }}>
+                                  {formatCurrency(unitPrice)}
+                                </td>
+                                <td style={{ textAlign: "right", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                                  {formatCurrency(amount)}
+                                </td>
+                                <td>
+                                  {stock !== undefined && stock !== null ? (
+                                    <span style={{
+                                      fontSize: "0.72rem",
+                                      fontWeight: 700,
+                                      color: isOutOfStock ? "#dc2626" : "#0f766e"
+                                    }}>
+                                      {isOutOfStock ? "Out of stock" : `${stock} in stock`}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: "#94a3b8" }}>—</span>
                                   )}
-                                </PatientSubPills>
-                              </PatientMeta>
-                            </PatientInfoCell>
-                          </td>
+                                </td>
+                                <td style={{ color: "#475569" }}>{item.dosage || item.dose || "—"}</td>
+                                <td style={{ fontSize: "0.73rem", color: "#64748b" }}>{requestedTime}</td>
+                                <td style={{ textAlign: "center" }}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => openSubstituteModal(patient, item, e)}
+                                    style={{
+                                      background: "#ffffff",
+                                      border: "1px solid #e2e8f0",
+                                      color: "#334155",
+                                      borderRadius: 6,
+                                      padding: "4px 12px",
+                                      fontSize: "0.72rem",
+                                      fontWeight: 600,
+                                      cursor: "pointer"
+                                    }}
+                                  >
+                                    Substitute
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </DetailTable>
+                  </ModalTableContainer>
 
-                          {/* Ward & Room + Ward Request Date */}
-                          <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-                              <Bed size={15} color={T.primary} />
-                              <span>{patient.ward_name || patient.room_no || "General Ward"}</span>
-                            </div>
-                            {wardRawDate && (
-                              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.71rem", color: T.slateMuted, marginTop: 3 }}>
-                                <Clock size={11} />
-                                <span>
-                                  {new Date(wardRawDate).toLocaleDateString("en-GB")}
-                                  {" "}
-                                  {new Date(wardRawDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                                </span>
-                              </div>
-                            )}
-                          </td>
-
-                          {/* IP Number */}
-                          <td>
-                            {(patient.inpatient_number || patient.ip_number) ? (
-                              <IPNumberBadge>
-                                {patient.inpatient_number || patient.ip_number}
-                              </IPNumberBadge>
-                            ) : (
-                              <span style={{ color: T.slateLight }}>—</span>
-                            )}
-                          </td>
-
-                          {/* Mobile */}
-                          <td>
-                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.78rem", color: T.slateMuted }}>
-                              {patient.patient_details?.mobile || patient.mobile || "—"}
-                            </span>
-                          </td>
-
-                          {/* Status */}
-                          <td>
-                            <StatusPill $status={patient.billing_status || "Pending"}>
-                              <StatusDotAnim />
-                              {patient.billing_status || "Pending"}
-                            </StatusPill>
-                          </td>
-
-                          {/* To Bill action */}
-                          <td onClick={e => e.stopPropagation()}>
-                            <ActionBtnToBill
-                              title="Convert entire prescription to a single pharmacy bill"
-                              onClick={(e) => handleConvertToBillSafe(patient, e)}
-                            >
-                              <Receipt size={14} />
-                              Convert to Bill
-                            </ActionBtnToBill>
-                          </td>
-
-                          {/* Medicines pill button */}
-                          <td onClick={e => e.stopPropagation()}>
-                            <ActionBtnMedicines
-                              $active={isExpanded}
-                              onClick={() => handleToggleMedicines(patientKey)}
-                            >
-                              <Pill size={14} />
-                              <span>{items.length} Items</span>
-                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            </ActionBtnMedicines>
-                          </td>
-                        </PatientRow>
-
-                        {/* ── Expanded Detail Drawer ── */}
-                        {isExpanded && (() => {
-                          const isInsurance = Boolean(patient.is_insurance);
-                          const totalPrescriptionAmount = items.reduce((acc, it) => {
-                            const q = Number(it.qty ?? it.quantity ?? 0);
-                            const p = getUnitPrice(it);
-                            return acc + (q * p);
-                          }, 0);
-
-                          const consumablePayableAmount = items.reduce((acc, it) => {
-                            if (Boolean(it.is_consumable_items)) {
-                              const q = Number(it.qty ?? it.quantity ?? 0);
-                              const p = getUnitPrice(it);
-                              return acc + (q * p);
-                            }
-                            return acc;
-                          }, 0);
-
-                          const insuranceCoveredAmount = totalPrescriptionAmount - consumablePayableAmount;
-                          const availableIpAdvance = Number(patient.total_ip_advance || 0);
-                          const amountDeducted = isInsurance
-                            ? Math.min(consumablePayableAmount, availableIpAdvance)
-                            : Math.min(totalPrescriptionAmount, availableIpAdvance);
-                          const remainingIpAdvance = isInsurance
-                            ? Math.max(0, availableIpAdvance - consumablePayableAmount)
-                            : Math.max(0, availableIpAdvance - totalPrescriptionAmount);
-                          const excessPayable = isInsurance
-                            ? Math.max(0, consumablePayableAmount - availableIpAdvance)
-                            : Math.max(0, totalPrescriptionAmount - availableIpAdvance);
-
-                          return (
-                            <DetailDrawerRow onClick={e => e.stopPropagation()}>
-                              <DetailDrawerCell colSpan="9">
-                                <DetailDrawerInner>
-                                  {/* 1. Context Information Strip */}
-                                  <ContextStrip>
-                                    <ContextItem>
-                                      <ContextIconBox><User size={16} /></ContextIconBox>
-                                      <ContextText>
-                                        <ContextKey>Patient UHID</ContextKey>
-                                        <ContextVal>{patient.uhid ? <UHIDBadge>{patient.uhid}</UHIDBadge> : "—"}</ContextVal>
-                                      </ContextText>
-                                    </ContextItem>
-
-                                    <ContextItem>
-                                      <ContextIconBox><Building2 size={16} /></ContextIconBox>
-                                      <ContextText>
-                                        <ContextKey>IP Number</ContextKey>
-                                        <ContextVal>
-                                          {(patient.inpatient_number || patient.ip_number) ? (
-                                            <IPNumberBadge>{patient.inpatient_number || patient.ip_number}</IPNumberBadge>
-                                          ) : (
-                                            "—"
-                                          )}
-                                        </ContextVal>
-                                      </ContextText>
-                                    </ContextItem>
-
-                                    <ContextItem>
-                                      <ContextIconBox><Bed size={16} /></ContextIconBox>
-                                      <ContextText>
-                                        <ContextKey>Ward / Bed</ContextKey>
-                                        <ContextVal>{patient.ward_name || patient.room_no || "—"}</ContextVal>
-                                      </ContextText>
-                                    </ContextItem>
-
-                                    <ContextItem>
-                                      <ContextIconBox><Activity size={16} /></ContextIconBox>
-                                      <ContextText>
-                                        <ContextKey>Admitting Doctor</ContextKey>
-                                        <ContextVal>Dr. {patient.doctor_name || "Assigned Doctor"}</ContextVal>
-                                      </ContextText>
-                                    </ContextItem>
-
-                                    <ContextItem>
-                                      <ContextIconBox><Phone size={16} /></ContextIconBox>
-                                      <ContextText>
-                                        <ContextKey>Contact</ContextKey>
-                                        <ContextVal>{patient.patient_details?.mobile || patient.mobile || "—"}</ContextVal>
-                                      </ContextText>
-                                    </ContextItem>
-                                  </ContextStrip>
-
-                                  {/* 2. Advance & Consumable Financial Summary Card */}
-                                  <FinancialSummaryCard>
-                                    <FinCardHeader>
-                                      <FinCardTitle>
-                                        {isInsurance ? <Shield size={16} /> : <DollarSign size={16} />}
-                                        {isInsurance ? "Insurance & IP Advance Breakdown" : "IP Advance Settlement Summary"}
-                                      </FinCardTitle>
-                                      <TypeTag $isInsurance={isInsurance}>
-                                        {isInsurance ? `🛡️ Insurance: ${patient.insurance_company || "Approved"}` : "👤 General Patient"}
-                                      </TypeTag>
-                                    </FinCardHeader>
-
-                                    <FinGrid>
-                                      <FinStat>
-                                        <FinLabel>Total Prescription</FinLabel>
-                                        <FinValue>₹{totalPrescriptionAmount.toFixed(2)}</FinValue>
-                                      </FinStat>
-
-                                      {isInsurance && (
-                                        <>
-                                          <FinStat>
-                                            <FinLabel>Insurance Covered</FinLabel>
-                                            <FinValue $color="#16a34a">₹{insuranceCoveredAmount.toFixed(2)}</FinValue>
-                                          </FinStat>
-
-                                          <FinStat>
-                                            <FinLabel>Payable (Consumables)</FinLabel>
-                                            <FinValue $color="#ea580c">₹{consumablePayableAmount.toFixed(2)}</FinValue>
-                                          </FinStat>
-                                        </>
-                                      )}
-
-                                      <FinStat>
-                                        <FinLabel>Available IP Advance</FinLabel>
-                                        <FinValue $color="#0d9488">₹{availableIpAdvance.toFixed(2)}</FinValue>
-                                      </FinStat>
-
-                                      <FinStat>
-                                        <FinLabel>{isInsurance ? "Deducted for Consumables" : "Deducted from Advance"}</FinLabel>
-                                        <FinValue $color="#0284c7">- ₹{amountDeducted.toFixed(2)}</FinValue>
-                                      </FinStat>
-
-                                      <FinStat>
-                                        <FinLabel>Remaining IP Advance</FinLabel>
-                                        <FinValue $color={remainingIpAdvance > 0 ? "#16a34a" : "#dc2626"}>
-                                          ₹{remainingIpAdvance.toFixed(2)}
-                                        </FinValue>
-                                      </FinStat>
-
-                                      {excessPayable > 0 && (
-                                        <FinStat>
-                                          <FinLabel style={{ color: "#dc2626" }}>Excess Payable by Patient</FinLabel>
-                                          <FinValue $color="#dc2626">₹{excessPayable.toFixed(2)}</FinValue>
-                                        </FinStat>
-                                      )}
-                                    </FinGrid>
-                                  </FinancialSummaryCard>
-
-                                  {/* 3. Medicine Items Table */}
-                                  <MedicineTableCard>
-                                    <StyledTable>
-                                      <SubThead>
-                                        <tr>
-                                          <th>Medicine Item</th>
-                                          <th>Type / Payable</th>
-                                          <th>Qty</th>
-                                          <th>Unit Price (₹)</th>
-                                          <th>Amount (₹)</th>
-                                          <th>Stock Status</th>
-                                          <th>Dosage</th>
-                                          <th>Ward Request Date &amp; Time</th>
-                                          <th>Action</th>
-                                        </tr>
-                                      </SubThead>
-                                      <tbody>
-                                        {items.length > 0 ? (
-                                          items.map((item, i) => {
-                                            if (!item) return null;
-
-                                            const wardReqRaw = patient.ward_request_date || patient.created_date;
-                                            let wardDateStr = "—", wardTimeStr = "—";
-                                            if (wardReqRaw) {
-                                              const d = new Date(wardReqRaw);
-                                              wardDateStr = d.toLocaleDateString("en-GB");
-                                              wardTimeStr = d.toLocaleTimeString("en-IN", {
-                                                hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true,
-                                              });
-                                            }
-
-                                            const stockLow = item.available_stock !== undefined && item.available_stock < 10;
-                                            const isSubstituted = item.is_substitute || item.substituted;
-                                            const dotType =
-                                              isSubstituted     ? "substitute" :
-                                              item.is_emergency ? "emergency"  :
-                                              item.is_insurance ? "insurance"  :
-                                              "regular";
-
-                                            const q = Number(item.qty ?? item.quantity ?? 0);
-                                            // Displays Selling_Price in place of Unit Price
-                                            const unitPrice = getUnitPrice(item);
-                                            const lineAmt = (q * unitPrice).toFixed(2);
-                                            const isConsumable = Boolean(item.is_consumable_items);
-
-                                            return (
-                                              <SubRow key={`${item.item_id ?? i}-${i}`}>
-                                                <td>
-                                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                    <ItemDot $type={dotType} />
-                                                    <span style={{ fontWeight: 700, color: T.slateDark }}>
-                                                      {item.item_name || item.medicine_name || "—"}
-                                                    </span>
-                                                    {isSubstituted && (
-                                                      <span style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: 4, padding: "1px 6px", fontSize: "0.66rem", fontWeight: 700 }}>
-                                                        Substituted
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </td>
-
-                                                <td>
-                                                  {isConsumable ? (
-                                                    <ConsumableTag title="Consumable item — Payable by patient from IP Advance">
-                                                      🟠 Consumable (Payable)
-                                                    </ConsumableTag>
-                                                  ) : isInsurance ? (
-                                                    <CoveredTag title="Covered under insurance claim">
-                                                      🛡️ Insurance Covered
-                                                    </CoveredTag>
-                                                  ) : (
-                                                    <span style={{ fontSize: "0.74rem", color: T.slateMuted, fontWeight: 600 }}>Regular</span>
-                                                  )}
-                                                </td>
-
-                                                <td>
-                                                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, background: "#f1f5f9", padding: "2px 8px", borderRadius: 6, fontSize: "0.78rem" }}>
-                                                    {q}
-                                                  </span>
-                                                </td>
-
-                                                <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.78rem", color: T.slateMid }}>
-                                                  ₹{unitPrice.toFixed(2)}
-                                                </td>
-
-                                                <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.82rem", fontWeight: 800, color: T.slateDark }}>
-                                                  ₹{lineAmt}
-                                                </td>
-
-                                                <td>
-                                                  {item.available_stock !== undefined && item.available_stock !== null ? (
-                                                    <StockIndicator $low={stockLow}>
-                                                      {stockLow ? <AlertCircle size={11} /> : <CheckCircle2 size={11} />}
-                                                      {item.available_stock} in stock
-                                                    </StockIndicator>
-                                                  ) : (
-                                                    <span style={{ color: T.slateLight }}>—</span>
-                                                  )}
-                                                </td>
-
-                                                <td style={{ fontSize: "0.77rem", color: T.slateMid, fontWeight: 500 }}>
-                                                  {item.dosage || item.dose || "—"}
-                                                </td>
-
-                                                <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.74rem", color: T.slateMuted }}>
-                                                  {wardDateStr} {wardTimeStr !== "—" ? `• ${wardTimeStr}` : ""}
-                                                </td>
-
-                                                <td>
-                                                  <SubstituteActionBtn
-                                                    title={`Substitute ${item.item_name || "this item"}`}
-                                                    onClick={(e) => openSubstituteModal(patient, item, e)}
-                                                  >
-                                                    <Repeat size={12} />
-                                                    Substitute
-                                                  </SubstituteActionBtn>
-                                                </td>
-                                              </SubRow>
-                                            );
-                                          })
-                                        ) : (
-                                          <tr>
-                                            <td colSpan="9" style={{ textAlign: "center", padding: "24px", color: T.slateLight }}>
-                                              No prescribed medicine items.
-                                            </td>
-                                          </tr>
-                                        )}
-                                      </tbody>
-                                    </StyledTable>
-                                  </MedicineTableCard>
-                                </DetailDrawerInner>
-                              </DetailDrawerCell>
-                            </DetailDrawerRow>
-                          );
-                        })()}
-                      </React.Fragment>
-                    );
-                  })
-                )}
-              </tbody>
-            </StyledTable>
-          </TableWrapper>
-        </TableCard>
-
-        {/* ── Legend ── */}
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center", padding: "12px 18px", marginTop: 16, background: "#ffffff", borderRadius: 12, border: `1px solid ${T.border}`, fontSize: "0.76rem", color: T.slateMid }}>
-          <span style={{ fontWeight: 800, color: T.slateDark, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.7rem" }}>Legend</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-            <ItemDot $type="substitute" /> Substitute Given
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-            <ItemDot $type="emergency" /> Emergency
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-            <ItemDot $type="insurance" /> Insurance Covered
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-            <ItemDot $type="regular" /> Regular
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b" }} /> Consumable (Patient Payable)
-          </span>
-        </div>
-      </PageContainer>
+                  <DetailModalFooter>
+                    <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#0f172a" }}>
+                      {itemsCount} {itemsCount === 1 ? "item" : "items"} · Total ₹{formatCurrency(prescriptionTotal)}
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPatientModal(null);
+                          setPrintPatient(patient);
+                        }}
+                        style={{
+                          background: "#ffffff",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 8,
+                          padding: "8px 18px",
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          color: "#334155",
+                          cursor: "pointer"
+                        }}
+                      >
+                        Print
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          setSelectedPatientModal(null);
+                          handleConvertToBillSafe(patient, e);
+                        }}
+                        style={{
+                          background: "#0f766e",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: 8,
+                          padding: "8px 20px",
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          cursor: "pointer"
+                        }}
+                      >
+                        Convert to bill
+                      </button>
+                    </div>
+                  </DetailModalFooter>
+                </>
+              );
+            })()}
+          </DetailModalBox>
+        </ModalOverlay>,
+        document.body
+      )}
 
       {/* ── Substitute Medicine Modal ── */}
       {substituteModal && createPortal(
@@ -2410,7 +2535,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                 Search Available Replacement
                 {substLoading && (
                   <span style={{ marginLeft: 8, fontSize: "0.72rem", color: T.primary, textTransform: "none", fontWeight: 600 }}>
-                    (Loading stock inventory...)
+                    (Searching pharmacy stock...)
                   </span>
                 )}
               </label>
@@ -2421,31 +2546,43 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                   placeholder="Type at least 2 letters to search pharmacy stock…"
                   value={substSearch}
                   onChange={e => {
-                    setSubstSearch(e.target.value);
+                    const val = e.target.value;
+                    setSubstSearch(val);
                     setSubstDropOpen(true);
-                    if (!e.target.value) setSubstSelected(null);
+                    if (!val) setSubstSelected(null);
                   }}
-                  onFocus={() => substSearch.length >= 2 && setSubstDropOpen(true)}
+                  onFocus={() => substSearch.trim().length >= 2 && setSubstDropOpen(true)}
                   style={{ background: "#fff", paddingLeft: 14 }}
                 />
-                {substDropOpen && substSuggestions.length > 0 && (
+                {substDropOpen && substSearch.trim().length >= 2 && (
                   <DropdownList>
-                    {substSuggestions.map((med, idx) => (
-                      <DropdownItem
-                        key={`${med.item_id}-${idx}`}
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => {
-                          setSubstSelected(med);
-                          setSubstSearch(med.name);
-                          setSubstDropOpen(false);
-                        }}
-                      >
-                        <span style={{ fontWeight: 600 }}>{med.name}</span>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.75rem", color: T.primary }}>
-                          Stock: {med.available_stock}
-                        </span>
-                      </DropdownItem>
-                    ))}
+                    {substLoading ? (
+                      <div style={{ padding: "12px 14px", fontSize: "0.82rem", color: T.slateMuted, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" style={{ width: 14, height: 14 }}></span>
+                        <span>Searching available stock...</span>
+                      </div>
+                    ) : substSuggestions.length > 0 ? (
+                      substSuggestions.map((med, idx) => (
+                        <DropdownItem
+                          key={`${med.item_id}-${idx}`}
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => {
+                            setSubstSelected(med);
+                            setSubstSearch(med.name);
+                            setSubstDropOpen(false);
+                          }}
+                        >
+                          <span style={{ fontWeight: 600 }}>{med.name}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.75rem", color: T.primary }}>
+                            Stock: {med.available_stock}
+                          </span>
+                        </DropdownItem>
+                      ))
+                    ) : (
+                      <div style={{ padding: "12px 14px", fontSize: "0.82rem", color: T.slateMuted }}>
+                        No medicines in stock matching &quot;{substSearch.trim()}&quot;
+                      </div>
+                    )}
                   </DropdownList>
                 )}
               </div>

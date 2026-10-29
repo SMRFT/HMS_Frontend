@@ -8,6 +8,7 @@ import ViewEstimate from "../Pharmacy/Viewestimate";
 import MedicineChart from "./Medicinechart";
 import apiRequest from "../../Auth/apiRequest";
 import WardReturnApprovals from "./WardReturnApprovals";
+import SalesReturn from "./SalesReturn";
 import PrescriptionDetails from "./PrescriptionDetails";
 import PharmacyBillAnalysis from "./PharmacyBillAnalysis";
 
@@ -165,9 +166,10 @@ const TabPanel = styled.div`
   flex: 1;
 `;
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 const OPPharmacyTabs = () => {
-  const [activeTab, setActiveTab] = useState("pharmacy_bill");
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem("pharmacy_active_tab") || "pharmacy_bill";
+  });
   const [estimateToLoad, setEstimateToLoad] = useState(null);
   const [billToEdit, setBillToEdit] = useState(null);
   const [estimateRefreshKey, setEstimateRefreshKey] = useState(0);
@@ -177,6 +179,43 @@ const OPPharmacyTabs = () => {
 
   // ── Doctor Prescription state (used for PrescriptionDetails → Convert to Bill flow) ──
   const [prescriptionToLoad, setPrescriptionToLoad] = useState(null);
+  const selectedOutlet =
+    localStorage.getItem("selected_outlet") ||
+    localStorage.getItem("outlet_code") ||
+    "";
+
+  // Dynamic tab list based on selected outlet
+  const tabs = React.useMemo(() => {
+    const list = [
+      { key: "pharmacy_bill",        label: "Pharmacy Bill",        Icon: FaPills             },
+      { key: "view_estimate",        label: "View Estimate",        Icon: FaFileInvoiceDollar },
+      { key: "view_bills",           label: "View Bills",           Icon: FaListAlt           },
+      { key: "medichart",            label: "Medicine Chart",       Icon: FaChartBar          },
+    ];
+
+    if (selectedOutlet === "OLET001") {
+      list.push({ key: "ward_returns", label: "Ward Returns", Icon: FaUndo });
+    } else if (selectedOutlet === "OLET002") {
+      list.push({ key: "sales_returns", label: "Sales Return", Icon: FaUndo });
+    }
+
+    list.push(
+      { key: "prescription_details", label: "Prescription Details", Icon: FaPrescription      },
+      { key: "bill_analysis",        label: "Bill Analysis",        Icon: FaChartLine         }
+    );
+
+    return list;
+  }, [selectedOutlet]);
+
+  // Handle activeTab adjustment if outlet switches
+  useEffect(() => {
+    if (selectedOutlet === "OLET002" && activeTab === "ward_returns") {
+      setActiveTab("sales_returns");
+    } else if (selectedOutlet === "OLET001" && activeTab === "sales_returns") {
+      setActiveTab("ward_returns");
+    }
+  }, [selectedOutlet, activeTab]);
+
   const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const handleConvertPrescription = (prescription) => {
@@ -339,38 +378,22 @@ const OPPharmacyTabs = () => {
     setWardRequestToLoad(null);
   };
 
-  const [visitedTabs, setVisitedTabs] = useState(new Set(["pharmacy_bill"]));
+  const [visitedTabs, setVisitedTabs] = useState(() => {
+    const saved = localStorage.getItem("pharmacy_active_tab") || "pharmacy_bill";
+    return new Set(["pharmacy_bill", saved]);
+  });
+
+  useEffect(() => {
+    if (activeTab) {
+      localStorage.setItem("pharmacy_active_tab", activeTab);
+      setVisitedTabs((prev) => new Set(prev).add(activeTab));
+    }
+  }, [activeTab]);
   const [medichartCount, setMedichartCount] = useState(0);
 
   const fetchMedichartCount = useCallback(async () => {
     try {
-      let userPayload = {};
-      try {
-        userPayload = JSON.parse(localStorage.getItem("user_payload") || "{}");
-      } catch (e) {}
-
-      const activeHospital =
-        localStorage.getItem("selected_hospital") ||
-        localStorage.getItem("hospital_code") ||
-        userPayload.hospital_code ||
-        "SH001";
-
-      const activeBranch =
-        localStorage.getItem("selected_branch") ||
-        localStorage.getItem("branch_code") ||
-        (Array.isArray(userPayload["allowed-data"]) ? userPayload["allowed-data"][0] : "") ||
-        "SHB001";
-
-      const activeOutlet =
-        localStorage.getItem("selected_outlet") ||
-        localStorage.getItem("outlet_code") ||
-        "OLET002";
-
-      const res = await apiRequest(`${Hmsbaseurl}pharmacy_medicinechart/`, "POST", {
-        outlet_code: activeOutlet,
-        branch_code: activeBranch,
-        hospital_code: activeHospital,
-      });
+      const res = await apiRequest(`${Hmsbaseurl}pharmacy_medicinechart/`, "POST");
 
       if (res.success && res.data) {
         const list = res.data.data || [];
@@ -406,7 +429,7 @@ const OPPharmacyTabs = () => {
     <Wrapper>
       {/* ── Tab Bar ── */}
       <TabBar>
-        {TABS.map(({ key, label, Icon }) => {
+        {tabs.map(({ key, label, Icon }) => {
           const isMedichart = key === "medichart";
           return (
             <TabButton
@@ -473,10 +496,17 @@ const OPPharmacyTabs = () => {
         </TabPanel>
       )}
 
-      {/* ── Ward Returns tab ── */}
-      {visitedTabs.has("ward_returns") && (
+      {/* ── Ward Returns tab (OLET001 only) ── */}
+      {selectedOutlet === "OLET001" && visitedTabs.has("ward_returns") && (
         <TabPanel $visible={activeTab === "ward_returns"}>
           <WardReturnApprovals />
+        </TabPanel>
+      )}
+
+      {/* ── Sales Return tab (OLET002 only) ── */}
+      {selectedOutlet === "OLET002" && visitedTabs.has("sales_returns") && (
+        <TabPanel $visible={activeTab === "sales_returns"}>
+          <SalesReturn />
         </TabPanel>
       )}
 
