@@ -1,5 +1,8 @@
 export const PAGE_PERMISSIONS = {
     "/CashCounterManager": "HMS-P-CCC",
+    "/FrontOfficeReports": "HMS-P-FOR",
+    "/RoomOccupencyReport": "HMS-P-ROR",
+    "/PreDayRoomOccupancyReport": "HMS-P-ROR",
 };
 
 /**

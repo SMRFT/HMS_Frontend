@@ -140,17 +140,19 @@ const Title = styled.h2`
 const ContentBody = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 10px 16px;
 `;
 
 const PatientPanel = styled.div`
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 20px;
-  padding: 24px;
-  margin-bottom: 24px;
-  box-shadow: 0 8px 32px rgba(19, 106, 99, 0.08);
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  align-items: center;
+  gap: 16px;
   position: relative;
   overflow: hidden;
 
@@ -159,85 +161,118 @@ const PatientPanel = styled.div`
     position: absolute;
     top: 0;
     left: 0;
-    width: 6px;
-    height: 100%;
-    background: linear-gradient(to bottom, ${colors.primary}, ${colors.primaryDark});
-    border-radius: 20px 0 0 20px;
+    bottom: 0;
+    width: 4px;
+    background: #0d8a7a;
+  }
+
+  .patient-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .patient-divider {
+    width: 1px;
+    height: 30px;
+    background: #e2e8f0;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 12px;
+
+    .patient-divider {
+      display: none;
+    }
   }
 `;
 
-const PatientHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px dashed ${colors.border};
-`;
-
 const PatientAvatar = styled.div`
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, ${colors.primary}20, ${colors.primary}40);
-  border-radius: 14px;
+  width: 34px;
+  height: 34px;
+  background: #e6f9f3;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: ${colors.primary};
-  font-size: 1.4rem;
+  color: #0d8a7a;
+  font-size: 0.9rem;
   font-weight: 800;
-  border: 1px solid ${colors.primary}30;
+  flex-shrink: 0;
 `;
 
 const PatientIdentity = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
 
   h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 0.95rem;
     font-weight: 800;
-    color: ${colors.textMain};
+    color: #0f172a;
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+    white-space: nowrap;
   }
 
   .sub-text {
-    font-size: 0.85rem;
-    color: ${colors.textMuted};
-    font-weight: 500;
+    font-size: 0.72rem;
+    color: #0d8a7a;
+    font-weight: 600;
+    white-space: nowrap;
   }
 `;
 
 const PatientGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px 24px;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  @media (max-width: 900px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 10px;
+  }
 `;
 
 const FieldBox = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
+  min-width: 0;
 `;
 
 const FieldLabel = styled.span`
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   font-weight: 700;
-  color: ${colors.textMuted};
+  color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.4px;
 `;
 
 const FieldValue = styled.div`
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: ${colors.textMain};
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
 `;
 
 const TopActionBar = styled.div`
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 15px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 `;
 
 const RequestBtn = styled.button`
@@ -245,15 +280,19 @@ const RequestBtn = styled.button`
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 10px 24px;
+  padding: 6px 16px;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  height: 32px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(248, 140, 34, 0.25);
+  box-shadow: 0 2px 8px rgba(248, 140, 34, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(248, 140, 34, 0.35);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(248, 140, 34, 0.35);
   }
   &:active {
     transform: translateY(0);
@@ -263,12 +302,12 @@ const RequestBtn = styled.button`
 const RequestFormWrapper = styled.div`
   display: flex;
   flex-direction: row;
-  border: 1px solid ${colors.border};
-  border-radius: 16px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 25px;
+  margin-bottom: 12px;
   background: ${colors.white};
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
   @media (max-width: 1024px) {
     flex-direction: column;
   }
@@ -276,17 +315,17 @@ const RequestFormWrapper = styled.div`
 
 const FormPanel = styled.div`
   flex: 1;
-  padding: 24px;
-  border-right: 1px solid ${colors.border};
+  padding: 12px 16px;
+  border-right: 1px solid #e2e8f0;
   @media (max-width: 1024px) {
     border-right: none;
-    border-bottom: 1px solid ${colors.border};
+    border-bottom: 1px solid #e2e8f0;
   }
 `;
 
 const SidePanel = styled.div`
-  width: 360px;
-  background: #fdfdfd;
+  width: 290px;
+  background: #f8fafc;
   display: flex;
   flex-direction: column;
   @media (max-width: 1024px) {
@@ -295,27 +334,27 @@ const SidePanel = styled.div`
 `;
 
 const SidePanelHeader = styled.div`
-  background: #f1f5f7;
-  padding: 12px 20px;
-  font-size: 0.9rem;
+  background: #f1f5f9;
+  padding: 8px 14px;
+  font-size: 0.82rem;
   font-weight: 700;
-  color: ${colors.dark};
-  border-bottom: 1px solid ${colors.border};
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
 `;
 
 const SidePanelContent = styled.div`
   flex: 1;
-  padding: 10px 20px;
-  max-height: 500px;
+  padding: 8px 10px;
+  max-height: 190px;
   overflow-y: auto;
 `;
 
 const SidePanelFooter = styled.div`
-  padding: 20px;
-  border-top: 1px solid ${colors.border};
-  background: #f9fbfc;
+  padding: 8px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: white;
 `;
 
 const FormGrid = styled.div`
@@ -328,43 +367,48 @@ const FormGrid = styled.div`
 const FormItem = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   position: relative;
 `;
 
 const FormLabel = styled.label`
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: ${colors.textMuted};
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 `;
 
 const StyledInput = styled.input`
-  border: 1px solid ${colors.border};
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.84rem;
   width: 100%;
+  height: 34px;
   box-sizing: border-box;
   transition: all 0.2s ease;
+  background: #fff;
   &:focus {
     outline: none;
     border-color: ${colors.primary};
-    box-shadow: 0 0 0 3px rgba(19, 106, 99, 0.15);
+    box-shadow: 0 0 0 2px rgba(19, 106, 99, 0.15);
   }
 `;
 
 const StyledSelect = styled.select`
-  border: 1px solid ${colors.border};
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  border: 1px solid #cbd5e1;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.84rem;
   width: 100%;
+  height: 34px;
   background-color: white;
   transition: all 0.2s ease;
   &:focus {
     outline: none;
     border-color: ${colors.primary};
-    box-shadow: 0 0 0 3px rgba(19, 106, 99, 0.15);
+    box-shadow: 0 0 0 2px rgba(19, 106, 99, 0.15);
   }
 `;
 
@@ -380,10 +424,10 @@ const RadioGroup = styled.div`
 const CheckboxGroup = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: ${colors.textMain};
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
   cursor: pointer;
   user-select: none;
 `;
@@ -391,34 +435,42 @@ const CheckboxGroup = styled.div`
 const ActionButtons = styled.div`
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
+  gap: 8px;
 `;
 
 const AddBtn = styled.button`
   background: linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark});
   color: white;
   border: none;
-  border-radius: 8px;
-  padding: 10px 28px;
+  border-radius: 6px;
+  padding: 8px 18px;
   font-weight: 700;
+  font-size: 0.82rem;
+  height: 34px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(19, 106, 99, 0.2);
+  box-shadow: 0 2px 6px rgba(19, 106, 99, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(19, 106, 99, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(19, 106, 99, 0.25);
   }
 `;
 
 const CancelBtn = styled.button`
   background: #f1f5f9;
-  color: ${colors.textMain};
+  color: #475569;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 10px 28px;
-  font-weight: 600;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  height: 34px;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.2s ease;
   &:hover {
     background: #e2e8f0;
@@ -1252,24 +1304,24 @@ const MedicineWardRequest = ({ patient, onClose }) => {
 
   return (
     <>
-      <div style={{ padding: "20px" }}>
+      <div style={{ padding: "10px 16px" }}>
         <PatientPanel>
-          <PatientHeader>
+          <div className="patient-left">
             <PatientAvatar>
               {resolvedPatient.name ? resolvedPatient.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "P"}
             </PatientAvatar>
             <PatientIdentity>
               <h3>{resolvedPatient.name || "Unknown Patient"}</h3>
               <div className="sub-text">
-                UHID: {resolvedPatient.uhid || "-"} | IP No: {resolvedPatient.ipNo || "-"} {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}
+                UHID: {resolvedPatient.uhid || "-"} · IP: {resolvedPatient.ipNo || "-"} {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}
               </div>
             </PatientIdentity>
-          </PatientHeader>
-
+          </div>
+          <div className="patient-divider" />
           <PatientGrid>
             <FieldBox>
               <FieldLabel>Admitting Dr</FieldLabel>
-              <FieldValue>{resolvedPatient.admittingDr || "-"}</FieldValue>
+              <FieldValue title={resolvedPatient.admittingDr}>{resolvedPatient.admittingDr || "-"}</FieldValue>
             </FieldBox>
             <FieldBox>
               <FieldLabel>Room | Bed</FieldLabel>
@@ -1285,23 +1337,25 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             </FieldBox>
             <FieldBox>
               <FieldLabel>Company Name</FieldLabel>
-              <FieldValue>{resolvedPatient.companyName || "-"}</FieldValue>
+              <FieldValue title={resolvedPatient.companyName}>{resolvedPatient.companyName || "-"}</FieldValue>
             </FieldBox>
           </PatientGrid>
         </PatientPanel>
 
         <TopActionBar>
-          <div style={{ display: "flex", gap: "10px" }}>
-            <RequestBtn onClick={() => setShowForm(!showForm)}>
-              {showForm ? "✕ Close Form" : "＋ New Medicine Request"}
-            </RequestBtn>
+          <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#64748b" }}>
+            {showForm ? "📝 Fill in medicine details below" : `💊 Pharmacy Medicine Requests (${requests.length} record${requests.length === 1 ? "" : "s"})`}
           </div>
+          <RequestBtn onClick={() => setShowForm(!showForm)}>
+            {showForm ? "✕ Close Form" : "＋ New Medicine Request"}
+          </RequestBtn>
         </TopActionBar>
 
         {showForm && (
           <RequestFormWrapper>
             <FormPanel>
-              <FormGrid>
+              {/* Row 1: Bill Type | Medicine Name & Actions | Doctor */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 2fr 1.3fr", gap: "10px", marginBottom: "8px" }}>
                 <FormItem>
                   <FormLabel>Medicine Bill Type</FormLabel>
                   <SearchableDropdown
@@ -1327,9 +1381,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   />
                 </FormItem>
 
-                <FormItem style={{ gridColumn: "span 2" }}>
+                <FormItem>
                   <FormLabel>Medicine Name</FormLabel>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div style={{ display: "flex", gap: "6px" }}>
                     <StyledInput
                       style={{ flex: 1 }}
                       placeholder="Search medicine (min 3 chars)..."
@@ -1363,17 +1417,20 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       style={{
                         background: colors.primary,
                         color: "white",
-                        padding: "0 16px",
-                        borderRadius: "4px",
+                        padding: "0 12px",
+                        borderRadius: "6px",
                         border: "none",
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
-                        gap: "6px",
-                        fontSize: "14px",
+                        gap: "4px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                        height: "34px",
                       }}
                     >
-                      <Search size={16} /> Search
+                      <Search size={14} /> Search
                     </button>
                     <button
                       type="button"
@@ -1381,14 +1438,17 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       style={{
                         background: colors.secondary || "#f59e0b",
                         color: "white",
-                        padding: "0 16px",
-                        borderRadius: "4px",
+                        padding: "0 12px",
+                        borderRadius: "6px",
                         border: "none",
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
-                        gap: "6px",
-                        fontSize: "14px",
+                        gap: "4px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                        height: "34px",
                       }}
                     >
                       🎁 Package
@@ -1411,10 +1471,13 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     }))}
                   />
                 </FormItem>
+              </div>
 
+              {/* Row 2: Dosage | No. of Days | Quantity | Dose | Dose Unit | Route */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.8fr 0.8fr 0.8fr 0.9fr 0.9fr", gap: "8px", marginBottom: "8px" }}>
                 <FormItem>
                   <FormLabel>Dosage</FormLabel>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div style={{ display: "flex", gap: "4px" }}>
                     <StyledSelect
                       value={dosage}
                       onChange={(e) => setDosage(e.target.value)}
@@ -1438,17 +1501,19 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       style={{
                         background: colors.primary,
                         color: "white",
-                        width: "38px",
-                        height: "38px",
-                        borderRadius: "4px",
+                        width: "34px",
+                        height: "34px",
+                        borderRadius: "6px",
                         border: "none",
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        flexShrink: 0,
                       }}
+                      title="Add Custom Dosage"
                     >
-                      <Plus size={18} />
+                      <Plus size={16} />
                     </button>
                   </div>
                 </FormItem>
@@ -1500,38 +1565,39 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     onChange={(e) => setRoute(e.target.value)}
                   />
                 </FormItem>
-              </FormGrid>
-
-              <FormItem style={{ marginBottom: "20px" }}>
-                <FormLabel>Remark</FormLabel>
-                <StyledInput
-                  value={remark}
-                  onChange={(e) => setRemark(e.target.value)}
-                />
-              </FormItem>
-
-              <div
-                style={{ display: "flex", gap: "30px", marginBottom: "20px" }}
-              >
-                <CheckboxGroup onClick={() => setIsRegular(!isRegular)}>
-                  <input type="checkbox" checked={isRegular} readOnly /> Regular
-                  Medicine
-                </CheckboxGroup>
-                <CheckboxGroup onClick={() => setIsDischarge(!isDischarge)}>
-                  <input type="checkbox" checked={isDischarge} readOnly />{" "}
-                  Discharge Medicine
-                </CheckboxGroup>
               </div>
 
-              <ActionButtons>
-                <CancelBtn onClick={resetForm}>✕ Reset</CancelBtn>
-                <AddBtn onClick={handleAddMedicine}>＋ Add Medicine</AddBtn>
-              </ActionButtons>
+              {/* Row 3: Remark | Checkboxes | Action Buttons */}
+              <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap" }}>
+                <FormItem style={{ flex: 1.8, minWidth: "180px" }}>
+                  <FormLabel>Remark</FormLabel>
+                  <StyledInput
+                    placeholder="Instructions or remark..."
+                    value={remark}
+                    onChange={(e) => setRemark(e.target.value)}
+                  />
+                </FormItem>
+
+                <div style={{ display: "flex", gap: "16px", paddingBottom: "6px", whiteSpace: "nowrap" }}>
+                  <CheckboxGroup onClick={() => setIsRegular(!isRegular)}>
+                    <input type="checkbox" checked={isRegular} readOnly /> Regular Medicine
+                  </CheckboxGroup>
+                  <CheckboxGroup onClick={() => setIsDischarge(!isDischarge)}>
+                    <input type="checkbox" checked={isDischarge} readOnly /> Discharge Medicine
+                  </CheckboxGroup>
+                </div>
+
+                <div style={{ display: "flex", gap: "8px", marginLeft: "auto", paddingBottom: "2px" }}>
+                  <CancelBtn onClick={resetForm}>✕ Reset</CancelBtn>
+                  <AddBtn onClick={handleAddMedicine}>＋ Add Medicine</AddBtn>
+                </div>
+              </div>
             </FormPanel>
 
             <SidePanel>
               <SidePanelHeader>
-                Selected Items ({selectedMedicines.length})
+                <span>Selected Items ({selectedMedicines.length})</span>
+                {selectedMedicines.length > 0 && <span style={{ color: "#0d8a7a", fontSize: "0.75rem" }}>Ready</span>}
               </SidePanelHeader>
               <SidePanelContent>
                 {selectedMedicines.length === 0 ? (
@@ -1550,7 +1616,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     <div
                       key={idx}
                       style={{
-                        padding: "12px 10px 12px 12px",
+                        padding: "8px 10px",
                         borderBottom: "1px solid #F0F0F0",
                         position: "relative",
                         borderRadius: "6px",
@@ -1565,23 +1631,26 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                         title="Click to edit this medicine"
                         style={{
                           fontWeight: "700",
-                          fontSize: "0.85rem",
+                          fontSize: "0.82rem",
                           color: colors.primary,
                           cursor: "pointer",
-                          paddingRight: "50px",
+                          paddingRight: "36px",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                         }}
                       >
                         ✎ {m.name || `Item ID: ${m.item_id}`}
                       </div>
                       <div
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: colors.textMuted,
-                          marginTop: "4px",
-                          paddingRight: "50px",
+                          marginTop: "2px",
+                          paddingRight: "36px",
                         }}
                       >
-                        {m.dosage} | {m.noOfDays} Days | Qty: {m.qty}
+                        {m.dosage} | {m.noOfDays}d | Qty: {m.qty}
                         {m.batch_number ? ` | B: ${m.batch_number}` : ""}
                       </div>
                       {/* Remove button */}
@@ -1590,7 +1659,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                         title="Remove"
                         style={{
                           position: "absolute",
-                          right: "8px",
+                          right: "6px",
                           top: "50%",
                           transform: "translateY(-50%)",
                           background: "#ffe8e8",
@@ -1598,8 +1667,8 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                           color: "#e53935",
                           cursor: "pointer",
                           borderRadius: "4px",
-                          width: "26px",
-                          height: "26px",
+                          width: "22px",
+                          height: "22px",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -1620,18 +1689,19 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       onClick={handleCancelEdit}
                       style={{
                         flex: 1,
-                        padding: "12px",
+                        padding: "8px",
                         borderRadius: "6px",
                         border: `1px solid ${colors.border}`,
                         background: "white",
                         cursor: "pointer",
                         fontWeight: 600,
+                        fontSize: "0.82rem",
                       }}
                     >
                       Cancel
                     </button>
                     <AddBtn
-                      style={{ flex: 2, padding: "12px" }}
+                      style={{ flex: 2, padding: "8px", height: "34px" }}
                       onClick={handleEditSave}
                       disabled={editSaving}
                     >
@@ -1640,7 +1710,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   </div>
                 ) : (
                   <AddBtn
-                    style={{ width: "100%", padding: "12px" }}
+                    style={{ width: "100%", padding: "8px", height: "34px" }}
                     onClick={handleConfirm}
                   >
                     Confirm Request
