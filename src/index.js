@@ -8,7 +8,7 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 // Patch performance.measure to prevent DataCloneError / Out of memory crashes from React dev User Timing profiling
 if (typeof performance !== 'undefined' && typeof performance.measure === 'function') {
   const _origMeasure = performance.measure.bind(performance);
-  performance.measure = function(name, startOrOptions, endMark) {
+  performance.measure = function (name, startOrOptions, endMark) {
     try {
       return _origMeasure(name, startOrOptions, endMark);
     } catch (err) {
@@ -18,7 +18,7 @@ if (typeof performance !== 'undefined' && typeof performance.measure === 'functi
             const { start, end } = startOrOptions;
             return _origMeasure(name, start !== undefined && end !== undefined ? { start, end } : undefined);
           }
-        } catch (_) {}
+        } catch (_) { }
         return;
       }
       throw err;

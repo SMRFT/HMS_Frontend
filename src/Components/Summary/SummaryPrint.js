@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import SummaryHead from "../Images/SummaryHead.png";
@@ -364,27 +364,75 @@ const safeStr = (v) => (v != null ? String(v) : "");
 const safeUpper = (v) => (v != null ? String(v).toUpperCase() : "");
 const fmtDate = (d) => {
   if (!d) return "—";
-  try {
-    return new Date(d).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  } catch {
-    return safeStr(d);
+  if (typeof d === "string") {
+    const s = d.trim();
+    if (!s) return "—";
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s.replace(/-/g, "/");
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      const [y, m, day] = s.slice(0, 10).split("-");
+      return `${day}/${m}/${y}`;
+    }
   }
+  try {
+    const dt = new Date(d);
+    if (!isNaN(dt.getTime())) {
+      return dt.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    }
+  } catch { }
+  return safeStr(d);
 };
 const fmtTime = (t) => {
   if (!t) return "";
-  try {
-    return new Date(t).toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return safeStr(t);
+  if (typeof t === "string") {
+    const s = t.trim();
+    if (/^\d{1,2}:\d{2}(\s*(AM|PM))?$/i.test(s)) {
+      return s;
+    }
   }
+  try {
+    const dt = new Date(t);
+    if (!isNaN(dt.getTime())) {
+      return dt.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+  } catch { }
+  return safeStr(t);
+};
+
+const buildDoaDodText = (doa, doaTime, dod, dodTime) => {
+  const dStr = doa ? fmtDate(doa) : "—";
+  const tStr = fmtTime(doaTime) || "";
+  const dodStr = dod ? fmtDate(dod) : "—";
+  const dodTStr = fmtTime(dodTime) || "";
+  const doaLine = `DOA : ${dStr} ${tStr}`.trim();
+  const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
+  return `${doaLine}\n${dodLine}`;
+};
+
+const formatDoaDodWithExtras = (existingVal, doa, doaTime, dod, dodTime) => {
+  const autoText = buildDoaDodText(doa, doaTime, dod, dodTime);
+  const text = (existingVal || "").trim();
+  if (!text) return autoText;
+  let strVal = text;
+  if (!strVal.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(strVal)) {
+    strVal = strVal.replace(/(DOA\s*:[^D\n]*?)(DOD\s*:)/i, "$1\n$2");
+  }
+  const lines = strVal.split("\n");
+  const extraLines = lines.filter(
+    (l) => !/^DOA\s*:/i.test(l.trim()) && !/^DOD\s*:/i.test(l.trim())
+  );
+  if (extraLines.length > 0) {
+    return `${autoText}\n${extraLines.join("\n")}`.trim();
+  }
+  return autoText;
 };
 
 const getFieldValue = (fieldsDataArr, key, summaryData = null) => {
@@ -392,25 +440,34 @@ const getFieldValue = (fieldsDataArr, key, summaryData = null) => {
   let val = entry ? entry.value : undefined;
 
   if (key === "DOA AND DOD") {
-    if (val != null && String(val).trim()) {
-      let strVal = String(val);
-      // Fix if previously saved stuck together without newline
-      if (!strVal.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(strVal)) {
-        strVal = strVal.replace(/(DOA\s*:[^D\n]*?)(DOD\s*:)/i, "$1\n$2");
-      }
-      return strVal;
+    let strVal = val != null ? String(val) : "";
+    if (strVal && !strVal.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(strVal)) {
+      strVal = strVal.replace(/(DOA\s*:[^D\n]*?)(DOD\s*:)/i, "$1\n$2");
     }
-    if (summaryData) {
-      const dStr = summaryData.doa ? fmtDate(summaryData.doa) : "";
-      const tStr = fmtTime(summaryData.doaTime) || "";
-      const dodStr = summaryData.dod ? fmtDate(summaryData.dod) : "";
-      const dodTStr = fmtTime(summaryData.dodTime) || "";
-      const doaLine = `DOA : ${dStr} ${tStr}`.trim();
-      const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
-      if (doaLine || dodLine) {
-        return `${doaLine}\n${dodLine}`;
-      }
+
+    if (summaryData && (summaryData.doa || summaryData.dod)) {
+      return formatDoaDodWithExtras(
+        strVal,
+        summaryData.doa,
+        summaryData.doaTime,
+        summaryData.dod,
+        summaryData.dodTime
+      );
     }
+
+    const hasDoaInVal = /^DOA\s*:/im.test(strVal);
+    const hasDodInVal = /^DOD\s*:/im.test(strVal);
+    if (!hasDoaInVal && !hasDodInVal) {
+      return formatDoaDodWithExtras(
+        strVal,
+        summaryData?.doa,
+        summaryData?.doaTime,
+        summaryData?.dod,
+        summaryData?.dodTime
+      );
+    }
+
+    return strVal || undefined;
   }
 
   return val;
@@ -456,12 +513,57 @@ const SummaryPrint = () => {
   const { ipNo, ip_no } = useParams();
   const targetIpNo = ipNo || ip_no;
   const navigate = useNavigate();
+  const location = useLocation();
   const bodyRef = useRef(null);
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const [previewTotalPages, setPreviewTotalPages] = useState(1);
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  const getFilterDate = (val) => {
+    if (!val) return "";
+    if (typeof val === "string") {
+      const isoMatch = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+      const dmyMatch = val.match(/^(\d{2})[-/](\d{2})[-/](\d{4})/);
+      if (dmyMatch) return `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
+      const dt = new Date(val);
+      if (!isNaN(dt.getTime())) {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, "0");
+        const d = String(dt.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+    } else if (val instanceof Date && !isNaN(val.getTime())) {
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, "0");
+      const d = String(val.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+    return "";
+  };
+
+  const handleBack = () => {
+    const ip = targetIpNo || summaryData?.ipNo || location.state?.ipNo || "";
+    const rawDate =
+      summaryData?.date ||
+      location.state?.date ||
+      summaryData?.created_date ||
+      summaryData?.dod ||
+      summaryData?.doa ||
+      "";
+    const dateStr = getFilterDate(rawDate);
+
+    navigate("/Summary", {
+      state: {
+        archiveFilter: {
+          ipNo: ip,
+          date: dateStr,
+        },
+      },
+    });
+  };
 
   useEffect(() => {
     if (!summaryData) return;
@@ -1526,8 +1628,8 @@ const SummaryPrint = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <button
               className="sp-btn sp-btn-back"
-              onClick={() => navigate(-1)}
-              title="Go Back"
+              onClick={handleBack}
+              title="Go Back to Discharge Summaries Archive"
             >
               <svg
                 width="15"
@@ -1756,14 +1858,31 @@ const SummaryPrint = () => {
                 <div className="sp-explained" data-block-top="true">
                   <div className="sp-explained-col">
                     <div className="sp-explained-title">Explained By</div>
-                    <div className="sp-explained-field">Doctor Name :</div>
+                    <div className="sp-explained-field">
+                      Doctor Name :{" "}
+                      <strong style={{ fontWeight: 700, color: "#0f172a" }}>
+                        {safeStr(
+                          summaryData.explainedBy ||
+                            (summaryData.doctor
+                              ? summaryData.doctor.toUpperCase().startsWith("DR.")
+                                ? summaryData.doctor
+                                : `Dr. ${summaryData.doctor}`
+                              : "")
+                        )}
+                      </strong>
+                    </div>
                     <div className="sp-explained-field">Signature :</div>
                   </div>
                   <div className="sp-explained-col">
                     <div className="sp-explained-title">
                       Explained To Patient / Attender
                     </div>
-                    <div className="sp-explained-field">Name :</div>
+                    <div className="sp-explained-field">
+                      Name :{" "}
+                      <strong style={{ fontWeight: 700, color: "#0f172a" }}>
+                        {safeStr(summaryData.explainedTo || summaryData.patient)}
+                      </strong>
+                    </div>
                     <div className="sp-explained-field">Signature :</div>
                   </div>
                 </div>
