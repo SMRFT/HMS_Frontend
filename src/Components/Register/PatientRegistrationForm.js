@@ -298,20 +298,27 @@ const PatientRegistrationForm = () => {
     const item = REFERRAL_SOURCES.find(s => s.value === val);
 
     if (val === "Doctor Referral") {
+      const isKnownDoc = allDoctors.some(d => d.name && patient.referredBy && d.name.toLowerCase() === patient.referredBy.toLowerCase());
       setPatient(prev => ({
         ...prev,
         sourceOfVisit: val,
-        referredBy: prev.referredBy === "Self / Walk-in" || (prev.referredBy && (prev.referredBy.startsWith("Website") || prev.referredBy.startsWith("Social") || prev.referredBy.startsWith("Ad"))) ? "" : prev.referredBy
+        referredBy: isKnownDoc ? prev.referredBy : "",
+        referredDoctorPhone: isKnownDoc ? prev.referredDoctorPhone : ""
       }));
-      setRefDoctorSearchQuery("");
+      setRefDoctorSearchQuery(isKnownDoc ? (patient.referredBy || "") : "");
+      setSearchDoctorTerm(isKnownDoc ? (patient.referredBy || "") : "");
       setIsRefDoctorDropdownOpen(true);
     } else {
       const defaultRefVal = item ? (item.subChannels ? `${item.value} (${item.subChannels[0]})` : item.defaultRef) : val;
       setPatient(prev => ({
         ...prev,
         sourceOfVisit: val,
-        referredBy: defaultRefVal
+        referredBy: defaultRefVal,
+        referredDoctorPhone: ""
       }));
+      setRefDoctorSearchQuery("");
+      setSearchDoctorTerm("");
+      setIsRefDoctorDropdownOpen(false);
       if (validationErrors.referredBy) {
         setValidationErrors(prev => ({ ...prev, referredBy: false }));
       }
@@ -745,6 +752,9 @@ const PatientRegistrationForm = () => {
       setPatient(prev => ({ ...prev, mobilePhone: cleanMobile }))
     } else if (type === "checkbox") {
       setPatient({ ...patient, [name]: checked })
+    } else if (e.target.tagName === "SELECT" || type === "select-one") {
+      // Keep select dropdown values exactly as defined in their option elements
+      setPatient({ ...patient, [name]: value })
     } else {
       const upperVal = typeof value === "string" ? value.toUpperCase() : value;
       setPatient({ ...patient, [name]: upperVal })
@@ -1746,7 +1756,13 @@ const PatientRegistrationForm = () => {
                   id="salutation"
                   name="salutation"
                   $hasError={Boolean(validationErrors.salutation)}
-                  value={patient.salutation}
+                  value={
+                    patient.salutation
+                      ? (["Mr.", "Mrs.", "Ms.", "Dr.", "Master", "Baby"].find(
+                          s => s.toLowerCase() === String(patient.salutation).toLowerCase()
+                        ) || patient.salutation)
+                      : ""
+                  }
                   onChange={handleChange}
                   required
                 >
@@ -1821,7 +1837,17 @@ const PatientRegistrationForm = () => {
                   id="gender"
                   name="gender"
                   $hasError={Boolean(validationErrors.gender)}
-                  value={patient.gender}
+                  value={
+                    patient.gender
+                      ? (String(patient.gender).toLowerCase() === "male"
+                          ? "Male"
+                          : String(patient.gender).toLowerCase() === "female"
+                          ? "Female"
+                          : String(patient.gender).toLowerCase() === "other"
+                          ? "Other"
+                          : patient.gender)
+                      : ""
+                  }
                   onChange={handleChange}
                   required
                 >

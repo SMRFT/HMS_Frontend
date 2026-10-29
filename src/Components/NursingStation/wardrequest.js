@@ -491,17 +491,21 @@ const RequestActionButton = styled.button`
 // Request Action Modal Styles (Image 2)
 const ActionModalCard = styled.div`
   background: white;
-  border-radius: 16px;
+  border-radius: 20px;
   width: 100%;
-  max-width: 580px;
+  max-width: 860px;
   overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   animation: ${modalUp} 0.25s ease-out;
 
+  @media (max-width: 900px) {
+    max-width: 94%;
+  }
+
   .modal-banner {
-    background: #0d9488;
+    background: #0d8a7a;
     color: white;
-    padding: 20px 24px;
+    padding: 18px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -512,28 +516,31 @@ const ActionModalCard = styled.div`
       gap: 14px;
 
       .circle-avatar {
-        width: 44px;
-        height: 44px;
-        background: rgba(255, 255, 255, 0.2);
-        border: 2px solid rgba(255, 255, 255, 0.3);
+        width: 48px;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.18);
+        border: 2px solid rgba(255, 255, 255, 0.35);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
+        font-size: 17px;
         font-weight: 800;
         color: white;
+        flex-shrink: 0;
       }
 
       .info {
         .name {
-          font-size: 18px;
+          font-size: 20px;
           font-weight: 800;
           line-height: 1.2;
+          letter-spacing: -0.3px;
         }
         .bed-details {
           font-size: 13px;
-          color: rgba(255, 255, 255, 0.85);
+          color: rgba(255, 255, 255, 0.9);
+          font-weight: 500;
           margin-top: 2px;
         }
       }
@@ -542,8 +549,8 @@ const ActionModalCard = styled.div`
     .close-btn {
       background: rgba(255, 255, 255, 0.2);
       border: none;
-      width: 32px;
-      height: 32px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
       color: white;
       font-size: 16px;
@@ -551,18 +558,19 @@ const ActionModalCard = styled.div`
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      &:hover { background: rgba(255, 255, 255, 0.3); }
+      transition: background 0.15s;
+      &:hover { background: rgba(255, 255, 255, 0.35); }
     }
   }
 
   .modal-body {
-    padding: 24px;
+    padding: 22px 28px;
 
     .section-title {
       font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      color: #94a3b8;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #64748b;
       text-transform: uppercase;
       margin-bottom: 12px;
     }
@@ -570,55 +578,57 @@ const ActionModalCard = styled.div`
     .most-used-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 24px;
+      gap: 16px;
+      margin-bottom: 20px;
+
+      @media (max-width: 600px) {
+        grid-template-columns: 1fr;
+      }
     }
 
     .featured-card {
-      border-radius: 12px;
-      padding: 16px;
+      background: #f0fdf9;
+      border: 1.5px solid #d1fae5;
+      border-radius: 16px;
+      padding: 14px 18px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
       cursor: pointer;
-      transition: all 0.15s ease-in-out;
+      transition: all 0.2s ease-in-out;
 
-      &.filled {
-        background: #0d9488;
+      &:hover {
+        background: #e6f9f3;
+        border-color: #0d8a7a;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(13, 138, 122, 0.12);
+      }
+
+      .icon-badge {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: #0d8a7a;
         color: white;
-        .sub { color: rgba(255, 255, 255, 0.8); }
-        &:hover {
-          background: #059669;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        }
-      }
-
-      &.outline {
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        color: #0f172a;
-        .sub { color: #64748b; }
-        &:hover {
-          background: #dcfce7;
-          border-color: #10b981;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-        }
-      }
-
-      .icon-box {
-        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        font-weight: 800;
+        flex-shrink: 0;
       }
 
       .meta {
         .title {
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 800;
+          color: #0f172a;
           line-height: 1.2;
         }
         .sub {
-          font-size: 11px;
+          font-size: 12px;
+          color: #64748b;
+          font-weight: 500;
           margin-top: 2px;
         }
       }
@@ -626,61 +636,62 @@ const ActionModalCard = styled.div`
 
     .request-types-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
 
-      @media (max-width: 480px) {
+      @media (max-width: 768px) {
         grid-template-columns: repeat(2, 1fr);
       }
     }
 
     .type-card {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 14px 12px;
+      background: white;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 14px 16px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
       cursor: pointer;
       transition: all 0.2s ease-in-out;
 
       &:hover {
-        background: #f0fdf4;
-        border-color: #10b981;
-        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.2);
-        transform: translateY(-3px);
+        border-color: #0d8a7a;
+        background: #fcfdfd;
+        box-shadow: 0 6px 16px rgba(13, 138, 122, 0.12);
+        transform: translateY(-2px);
 
-        .icon {
-          color: #059669;
-        }
         .title {
-          color: #047857;
-        }
-        .sub {
-          color: #10b981;
+          color: #0d8a7a;
         }
       }
 
-      .icon {
-        font-size: 18px;
-        color: #334155;
-        margin-bottom: 4px;
-        transition: color 0.2s ease;
+      .pill-badge {
+        background: #e6f9f3;
+        color: #0d8a7a;
+        font-size: 11px;
+        font-weight: 800;
+        padding: 3px 8px;
+        border-radius: 8px;
+        width: fit-content;
+        margin-bottom: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .title {
-        font-size: 13px;
-        font-weight: 700;
+        font-size: 14px;
+        font-weight: 800;
         color: #0f172a;
         line-height: 1.2;
+        margin-bottom: 2px;
         transition: color 0.2s ease;
       }
 
       .sub {
-        font-size: 11px;
-        color: #94a3b8;
-        transition: color 0.2s ease;
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 500;
       }
     }
   }
@@ -706,14 +717,15 @@ const ModalOverlayContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
 `;
 
 const RequestSubModalCard = styled.div`
   background: white;
-  border-radius: 16px;
+  border-radius: 20px;
   width: 95%;
-  max-width: 1200px;
-  height: 90vh;
+  max-width: 1100px;
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -721,30 +733,28 @@ const RequestSubModalCard = styled.div`
   animation: ${modalUp} 0.2s ease-out;
 
   .submodal-header {
-    background: #0d9488;
+    background: #0d8a7a;
     color: white;
-    padding: 14px 20px;
+    padding: 16px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 
     .title-group {
       display: flex;
-      align-items: center;
-      gap: 10px;
+      flex-direction: column;
+      gap: 3px;
 
       h3 {
         color: white;
         margin: 0;
-        font-size: 16px;
+        font-size: 18px;
         font-weight: 700;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        letter-spacing: -0.2px;
       }
 
       .patient-sub {
-        color: rgba(255, 255, 255, 0.85);
+        color: rgba(255, 255, 255, 0.88);
         font-size: 13px;
         font-weight: 400;
       }
@@ -753,8 +763,8 @@ const RequestSubModalCard = styled.div`
     .close-btn {
       background: rgba(255, 255, 255, 0.2);
       border: none;
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       color: white;
       font-size: 16px;
@@ -762,7 +772,8 @@ const RequestSubModalCard = styled.div`
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      &:hover { background: rgba(255, 255, 255, 0.3); }
+      transition: background 0.2s;
+      &:hover { background: rgba(255, 255, 255, 0.35); }
     }
   }
 
@@ -770,7 +781,7 @@ const RequestSubModalCard = styled.div`
     flex: 1;
     overflow-y: auto;
     background: #f8fafc;
-    padding: 16px;
+    padding: 18px 24px;
   }
 `;
 
@@ -1620,81 +1631,81 @@ const WardRequest = () => {
             <div className="modal-body">
               <div className="section-title">MOST USED</div>
               <div className="most-used-grid">
-                <div className="featured-card outline" onClick={() => handleActionOption("pharmacy")}>
-                  <div className="icon-box" style={{ color: "#0d9488" }}><MdOutlineMedication /></div>
+                <div className="featured-card" onClick={() => handleActionOption("pharmacy")}>
+                  <div className="icon-badge">Rx</div>
                   <div className="meta">
-                    <div className="title" style={{ color: "#0f172a" }}>Pharmacy</div>
+                    <div className="title">Pharmacy</div>
                     <div className="sub">Medication request</div>
                   </div>
                 </div>
 
-                <div className="featured-card outline" onClick={() => handleActionOption("lab")}>
-                  <div className="icon-box" style={{ color: "#0d9488" }}><MdOutlineScience /></div>
+                <div className="featured-card" onClick={() => handleActionOption("lab")}>
+                  <div className="icon-badge">Lab</div>
                   <div className="meta">
-                    <div className="title" style={{ color: "#0f172a" }}>Laboratory</div>
+                    <div className="title">Laboratory</div>
                     <div className="sub">Pathology & lab</div>
                   </div>
                 </div>
               </div>
 
-              <div className="section-title">ALL REQUEST TYPES</div>
+              <div className="section-title" style={{ marginTop: "18px" }}>ALL REQUEST TYPES</div>
               <div className="request-types-grid">
                 <div className="type-card" onClick={() => handleActionOption("radiology")}>
-                  <div className="icon"><FiFileText /></div>
+                  <div className="pill-badge">XR</div>
                   <div className="title">Radiology</div>
                   <div className="sub">Imaging</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("dietary")}>
-                  <div className="icon"><MdOutlineRestaurant /></div>
+                  <div className="pill-badge">Dt</div>
                   <div className="title">Dietary</div>
                   <div className="sub">Meal plan</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("laundry")}>
-                  <div className="icon"><MdLocalLaundryService /></div>
+                  <div className="pill-badge">Ln</div>
                   <div className="title">Laundry</div>
                   <div className="sub">Linen</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("implant")}>
-                  <div className="icon"><FiLayers /></div>
+                  <div className="pill-badge">Im</div>
                   <div className="title">Implant</div>
                   <div className="sub">Surgical</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("status")}>
-                  <div className="icon"><MdManageAccounts /></div>
+                  <div className="pill-badge">St</div>
                   <div className="title">Update status</div>
                   <div className="sub">Condition</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("shift")}>
-                  <div className="icon"><MdTransferWithinAStation /></div>
+                  <div className="pill-badge">Sh</div>
                   <div className="title">Room shift</div>
                   <div className="sub">Transfer</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("discharge_summary")}>
-                  <div className="icon"><MdAssignment /></div>
+                  <div className="pill-badge">DS</div>
                   <div className="title">Discharge summary</div>
                   <div className="sub">View / edit</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("nursing_notes")}>
-                  <div className="icon" style={{ color: "#0284c7" }}><MdOutlineAssignmentInd /></div>
+                  <div className="pill-badge">NN</div>
                   <div className="title">Nursing Notes</div>
                   <div className="sub">Vitals & Pain Scale</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("doctor_notes")}>
-                  <div className="icon" style={{ color: "#0d9488" }}><MdOutlineLocalHospital /></div>
+                  <div className="pill-badge">DN</div>
                   <div className="title">Doctor Notes</div>
                   <div className="sub">IP EMR / Notes</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("billing")}>
-                  <div className="icon"><FiCreditCard /></div>
+                  <div className="pill-badge">DB</div>
                   <div className="title">Discharge billing</div>
                   <div className="sub">Send to billing</div>
                 </div>
@@ -1817,8 +1828,8 @@ const WardRequest = () => {
           <RequestSubModalCard onClick={e => e.stopPropagation()}>
             <div className="submodal-header">
               <div className="title-group">
-                <h3><MdOutlineScience size={22} /> Lab Ward Request</h3>
-                <span className="patient-sub">| {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no")} Bed {getField(selectedPatient, "bed_no")}</span>
+                <h3>Lab Ward Request</h3>
+                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
               </div>
               <button className="close-btn" onClick={() => setShowLabModal(false)}>✕</button>
             </div>
@@ -1831,11 +1842,11 @@ const WardRequest = () => {
 
       {showMedicineModal && selectedPatient && (
         <ModalOverlayContainer onClick={() => setShowMedicineModal(false)}>
-          <RequestSubModalCard onClick={e => e.stopPropagation()}>
+          <RequestSubModalCard onClick={e => e.stopPropagation()} style={{ maxWidth: "1280px" }}>
             <div className="submodal-header">
               <div className="title-group">
-                <h3><MdOutlineMedication size={22} /> Medicine / Pharmacy Ward Request</h3>
-                <span className="patient-sub">| {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no")} Bed {getField(selectedPatient, "bed_no")}</span>
+                <h3>Medicine / Pharmacy Ward Request</h3>
+                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
               </div>
               <button className="close-btn" onClick={() => setShowMedicineModal(false)}>✕</button>
             </div>
@@ -1851,8 +1862,8 @@ const WardRequest = () => {
           <RequestSubModalCard onClick={e => e.stopPropagation()}>
             <div className="submodal-header">
               <div className="title-group">
-                <h3><FiFileText size={22} /> Radiology Ward Request</h3>
-                <span className="patient-sub">| {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no")} Bed {getField(selectedPatient, "bed_no")}</span>
+                <h3>Radiology Ward Request</h3>
+                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
               </div>
               <button className="close-btn" onClick={() => setShowRadiologyModal(false)}>✕</button>
             </div>
@@ -1868,8 +1879,8 @@ const WardRequest = () => {
           <RequestSubModalCard onClick={e => e.stopPropagation()}>
             <div className="submodal-header">
               <div className="title-group">
-                <h3><MdLocalLaundryService size={22} /> Laundry Ward Request</h3>
-                <span className="patient-sub">| {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no")} Bed {getField(selectedPatient, "bed_no")}</span>
+                <h3>Laundry Ward Request</h3>
+                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
               </div>
               <button className="close-btn" onClick={() => setShowLaundryModal(false)}>✕</button>
             </div>
@@ -1885,8 +1896,8 @@ const WardRequest = () => {
           <RequestSubModalCard onClick={e => e.stopPropagation()}>
             <div className="submodal-header">
               <div className="title-group">
-                <h3><FiLayers size={22} /> Implant Ward Request</h3>
-                <span className="patient-sub">| {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no")} Bed {getField(selectedPatient, "bed_no")}</span>
+                <h3>Implant Ward Request</h3>
+                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
               </div>
               <button className="close-btn" onClick={() => setShowImplantModal(false)}>✕</button>
             </div>
