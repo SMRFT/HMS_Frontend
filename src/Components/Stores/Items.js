@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import ReactSelect from 'react-select';
 import { 
     LineChart, X, Plus, Search, Edit2, Trash2, FilterX, Layers, 
-    AlertCircle, CheckCircle, Package, Building2, Tag, LayoutGrid, 
+    AlertCircle, CheckCircle, Package, Building2, Tag, 
     AlertTriangle, Box, ShieldCheck, Sparkles, ArrowUpDown, PackagePlus
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 import TablePagination, { usePagination } from './TablePagination';
+import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import {
     PageWrapper,
     Container,
@@ -42,8 +44,7 @@ const tabs = [
     { id: 'item', label: 'Item Master', icon: Package, endpoint: 'item-master' },
     { id: 'department', label: 'Department Master', icon: Building2, endpoint: 'department-master' },
     { id: 'group', label: 'Group Master', icon: Layers, endpoint: 'group-master' },
-    { id: 'category', label: 'Category Master', icon: Tag, endpoint: 'category-master' },
-    { id: 'grouptype', label: 'Group Type Master', icon: LayoutGrid, endpoint: 'group-type-master' }
+    { id: 'category', label: 'Category Master', icon: Tag, endpoint: 'category-master' }
 ];
 
 const filterSelectStyles = {
@@ -215,7 +216,8 @@ const Items = () => {
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterDepartment, setFilterDepartment] = useState('');
+    const [filterDepartment, setFilterDepartment] = useState(getSelectedStoreDepartment());
+    useStoresDepartment((newDept) => setFilterDepartment(newDept || ''));
     const [filterCategory, setFilterCategory] = useState('');
     const [filterGroup, setFilterGroup] = useState('');
     const [filterLowStock, setFilterLowStock] = useState(false);
@@ -243,8 +245,6 @@ const Items = () => {
     const [priceData, setPriceData] = useState(null);
     const [selectedItemName, setSelectedItemName] = useState('');
     const [selectedItemForPrice, setSelectedItemForPrice] = useState(null);
-    const [priceFromDate, setPriceFromDate] = useState('');
-    const [priceToDate, setPriceToDate] = useState('');
     const [loadingPrices, setLoadingPrices] = useState(false);
 
     // Opening Stock Action Modal states
@@ -259,7 +259,6 @@ const Items = () => {
     const [allDepartments, setAllDepartments] = useState([]);
     const [allGroups, setAllGroups] = useState([]);
     const [allCategories, setAllCategories] = useState([]);
-    const [allGroupTypes, setAllGroupTypes] = useState([]);
     const [allVendors, setAllVendors] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
     const [manufacturers, setManufacturers] = useState([]);
@@ -297,18 +296,16 @@ const Items = () => {
 
     const fetchMasters = async () => {
         try {
-            const [deptRes, groupRes, catRes, typeRes, storeVendorRes, generalVendorRes] = await Promise.all([
+            const [deptRes, groupRes, catRes, storeVendorRes, generalVendorRes] = await Promise.all([
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/category-master/`),
-                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-type-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/general-store-vendors/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/vendors/`)
             ]);
             if (deptRes.success) setAllDepartments(deptRes.data);
             if (groupRes.success) setAllGroups(groupRes.data);
             if (catRes.success) setAllCategories(catRes.data);
-            if (typeRes.success) setAllGroupTypes(typeRes.data);
 
             const combinedVendors = [];
             const addVendors = (list) => {
@@ -390,7 +387,6 @@ const Items = () => {
             case 'department': return 'department_id';
             case 'group': return 'group_id';
             case 'category': return 'category_id';
-            case 'grouptype': return 'group_type_id';
             default: return 'id';
         }
     };
@@ -401,7 +397,6 @@ const Items = () => {
             case 'department': return 'department_name';
             case 'group': return 'group_name';
             case 'category': return 'category_name';
-            case 'grouptype': return 'group_type_name';
             default: return 'name';
         }
     };
@@ -480,7 +475,7 @@ const Items = () => {
         }
     };
 
-    const fetchPriceHistory = async (item, nameField, idField, overrideFromDate, overrideToDate) => {
+    const fetchPriceHistory = async (item, nameField, idField) => {
         const targetItem = item || selectedItemForPrice;
         if (!targetItem) return;
         const itemId = targetItem[idField || getIdField()];
@@ -489,17 +484,8 @@ const Items = () => {
         setLoadingPrices(true);
         setShowPriceModal(true);
 
-        const fromD = overrideFromDate !== undefined ? overrideFromDate : priceFromDate;
-        const toD = overrideToDate !== undefined ? overrideToDate : priceToDate;
-
         try {
-            let query = '';
-            const params = [];
-            if (fromD) params.push(`from_date=${fromD}`);
-            if (toD) params.push(`to_date=${toD}`);
-            if (params.length > 0) query = `?${params.join('&')}`;
-
-            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/price-history/${itemId}/${query}`);
+            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/price-history/${itemId}/`);
             if (response.success) {
                 setPriceData(response.data);
             } else {
@@ -579,7 +565,8 @@ const Items = () => {
     };
 
     const resetForm = () => {
-        setFormData({});
+        const activeDept = getSelectedStoreDepartment();
+        setFormData(activeDept ? { department: activeDept } : {});
         setIsEditing(false);
         setShowForm(false);
     };
@@ -680,6 +667,7 @@ const Items = () => {
     const clearFilters = () => {
         setSearchTerm('');
         setFilterDepartment('');
+        setSelectedStoreDepartment('');
         setFilterCategory('');
         setFilterGroup('');
         setFilterLowStock(false);
@@ -735,10 +723,6 @@ const Items = () => {
             }));
     }, [allCategories, filterGroup, allGroups]);
 
-    const getGroupTypeName = (id) => {
-        const type = allGroupTypes.find(g => g.group_type_id === id);
-        return type ? type.group_type_name : id;
-    };
 
     const getVendorName = (vendorId) => {
         if (!vendorId) return '-';
@@ -782,7 +766,12 @@ const Items = () => {
                                     ? { value: found.department_id || found.department_code || found.id, label: found.department_name } 
                                     : { value: val, label: val };
                             })()}
-                            onChange={(option) => handleSelectChange('department', option)}
+                            onChange={(option) => {
+                                handleSelectChange('department', option);
+                                if (option) {
+                                    setSelectedStoreDepartment(option.value || option.label, option.label);
+                                }
+                            }}
                             options={departmentOptions}
                             placeholder="Select Department"
                             isClearable
@@ -869,9 +858,6 @@ const Items = () => {
                                             next.group = cObj.group;
                                             next.group_code = cObj.group;
                                         }
-                                        if (cObj?.group_type && !prev.group_type) {
-                                            next.group_type = cObj.group_type;
-                                        }
                                         return next;
                                     });
                                 } else {
@@ -896,20 +882,6 @@ const Items = () => {
                                     }));
                             })()}
                             placeholder={formData.group || formData.group_code ? "Select Category for Group" : "Select Category (Auto-sets Group)"}
-                            isClearable
-                            required
-                            styles={formSelectStyles}
-                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label required>Group Type</Label>
-                        <ReactSelect
-                            name="group_type"
-                            value={allGroupTypes.find(gt => gt.group_type_id === formData.group_type) ? { value: formData.group_type, label: allGroupTypes.find(gt => gt.group_type_id === formData.group_type).group_type_name } : null}
-                            onChange={(option) => handleSelectChange('group_type', option)}
-                            options={allGroupTypes.map(gt => ({ value: gt.group_type_id, label: gt.group_type_name }))}
-                            placeholder="Select Group Type"
                             isClearable
                             required
                             styles={formSelectStyles}
@@ -1073,24 +1045,11 @@ const Items = () => {
                             menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                         />
                     </InputWrapper>
-                    <InputWrapper>
-                        <Label>Group Type</Label>
-                        <ReactSelect
-                            name="group_type"
-                            value={allGroupTypes.find(gt => gt.group_type_id === formData.group_type) ? { value: formData.group_type, label: allGroupTypes.find(gt => gt.group_type_id === formData.group_type).group_type_name } : null}
-                            onChange={(option) => setFormData(prev => ({ ...prev, group_type: option ? option.value : '' }))}
-                            options={allGroupTypes.map(gt => ({ value: gt.group_type_id, label: gt.group_type_name }))}
-                            placeholder="Select Group Type (Optional)"
-                            isClearable
-                            styles={formSelectStyles}
-                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        />
-                    </InputWrapper>
                 </>
             );
         }
 
-        // Generic Name field for Department, Group, GroupType
+        // Generic Name field for Department, Group
         return (
             <>
                 <InputWrapper>
@@ -1198,7 +1157,15 @@ const Items = () => {
                             )}
                             <Button 
                                 success 
-                                onClick={() => setShowForm(true)} 
+                                onClick={() => {
+                                    if (activeTab.id === 'item' && !isEditing) {
+                                        const activeDept = getSelectedStoreDepartment();
+                                        if (activeDept) {
+                                            setFormData(prev => ({ ...prev, department: activeDept }));
+                                        }
+                                    }
+                                    setShowForm(true);
+                                }} 
                                 style={{ 
                                     display: 'inline-flex', 
                                     alignItems: 'center', 
@@ -1281,31 +1248,12 @@ const Items = () => {
 
                             {activeTab.id === 'item' && (
                                 <>
-                                    <div style={{ minWidth: '190px' }}>
-                                        <ReactSelect
-                                            ref={departmentFilterRef}
-                                            value={(() => {
-                                                if (!filterDepartment) return null;
-                                                const fLower = String(filterDepartment).toLowerCase().trim();
-                                                const found = allDepartments.find(d => 
-                                                    String(d.department_id || '').toLowerCase().trim() === fLower || 
-                                                    String(d.department_code || '').toLowerCase().trim() === fLower || 
-                                                    String(d.id || '').toLowerCase().trim() === fLower ||
-                                                    String(d.department_name || '').toLowerCase().trim() === fLower
-                                                );
-                                                return found 
-                                                    ? { value: found.department_id || found.department_code || found.id, label: found.department_name || found.department_code } 
-                                                    : { value: filterDepartment, label: filterDepartment };
-                                            })()}
-                                            onChange={(option) => setFilterDepartment(option ? (option.value || option.label) : '')}
-                                            options={departmentOptions}
-                                            placeholder="All Departments (F10)"
-                                            isClearable
-                                            openMenuOnFocus
-                                            styles={filterSelectStyles}
-                                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                        />
-                                    </div>
+                                    <DepartmentFilterControl
+                                        departments={allDepartments}
+                                        onDepartmentChange={(dept) => {
+                                            setFilterDepartment(dept || '');
+                                        }}
+                                    />
 
                                     <div style={{ minWidth: '190px' }}>
                                         <ReactSelect
@@ -1432,20 +1380,21 @@ const Items = () => {
                                                     <>
                                                         <Th>Group & Category</Th>
                                                         <Th>HSN</Th>
-                                                        <Th style={{ textAlign: 'center' }}>VED / ABC</Th>
                                                         <Th style={{ textAlign: 'right' }}>Stock Level</Th>
+                                                        <Th style={{ textAlign: 'center' }}>Price History</Th>
+                                                        <Th style={{ textAlign: 'center', width: '130px' }}>Actions</Th>
+                                                        <Th style={{ textAlign: 'center' }}>VED / ABC</Th>
                                                         <Th style={{ textAlign: 'right' }}>Unit Rate</Th>
                                                         <Th>Supplier / Maker</Th>
-                                                        <Th style={{ textAlign: 'center' }}>Price History</Th>
                                                     </>
                                                 ) : (
                                                     <>
                                                         <Th>Master Code / ID</Th>
                                                         {activeTab.id === 'category' && <Th>Mapped Group</Th>}
                                                         <Th style={{ textAlign: 'center' }}>Status</Th>
+                                                        <Th style={{ textAlign: 'center', width: '120px' }}>Actions</Th>
                                                     </>
                                                 )}
-                                                <Th style={{ textAlign: 'center', width: '120px' }}>Actions</Th>
                                             </Tr>
                                         </thead>
                                         <tbody>
@@ -1464,36 +1413,19 @@ const Items = () => {
                                                         <Td>
                                                             <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                 {item[nameField] || item['categoryName'] || item['groupName']}
-                                                                {item.is_VM && (
+                                                                {activeTab.id !== 'item' && item.is_VM && (
                                                                     <span style={{ fontSize: '0.68rem', background: '#ecfdf5', color: '#059669', padding: '2px 6px', borderRadius: '4px', border: '1px solid #a7f3d0', fontWeight: '800' }}>
                                                                         VM
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>
-                                                                <span style={{ fontSize: '0.74rem', color: colors.primary, fontWeight: '600', fontFamily: 'monospace' }}>
-                                                                    ID: {item[idField]}
-                                                                </span>
-                                                                {activeTab.id === 'item' && (() => {
-                                                                    const deptLabel = (item.department_name && item.department_name !== '-')
-                                                                        ? item.department_name
-                                                                        : (item.department && item.department !== '-' ? getDepartmentName(item.department) : '');
-                                                                    if (!deptLabel || deptLabel === '-') return null;
-                                                                    return (
-                                                                        <span style={{ 
-                                                                            fontSize: '0.7rem', 
-                                                                            background: '#f0fdfa', 
-                                                                            color: '#0d9488', 
-                                                                            border: '1px solid #ccfbf1', 
-                                                                            padding: '1px 6px', 
-                                                                            borderRadius: '4px', 
-                                                                            fontWeight: '600' 
-                                                                        }}>
-                                                                            {deptLabel}
-                                                                        </span>
-                                                                    );
-                                                                })()}
-                                                            </div>
+                                                            {activeTab.id !== 'item' && (
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>
+                                                                    <span style={{ fontSize: '0.74rem', color: colors.primary, fontWeight: '600', fontFamily: 'monospace' }}>
+                                                                        ID: {item[idField]}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </Td>
 
                                                         {activeTab.id === 'item' ? (
@@ -1511,33 +1443,7 @@ const Items = () => {
                                                                     </div>
                                                                 </Td>
                                                                 <Td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{item.hsn || '-'}</Td>
-                                                                <Td style={{ textAlign: 'center' }}>
-                                                                    <div style={{ display: 'inline-flex', gap: '4px' }}>
-                                                                        <span style={{
-                                                                            padding: '2px 7px',
-                                                                            borderRadius: '6px',
-                                                                            fontSize: '0.72rem',
-                                                                            fontWeight: '800',
-                                                                            background: item.ved_category === 'V' ? '#fee2e2' : item.ved_category === 'E' ? '#eff6ff' : '#f1f5f9',
-                                                                            color: item.ved_category === 'V' ? '#dc2626' : item.ved_category === 'E' ? '#2563eb' : '#475569',
-                                                                            border: `1px solid ${item.ved_category === 'V' ? '#fca5a5' : item.ved_category === 'E' ? '#bfdbfe' : '#cbd5e1'}`
-                                                                        }}>
-                                                                            VED: {item.ved_category || 'D'}
-                                                                        </span>
-                                                                        <span style={{
-                                                                            padding: '2px 7px',
-                                                                            borderRadius: '6px',
-                                                                            fontSize: '0.72rem',
-                                                                            fontWeight: '800',
-                                                                            background: item.abc_category === 'A' ? '#f5f3ff' : item.abc_category === 'B' ? '#ecfdf5' : '#f8fafc',
-                                                                            color: item.abc_category === 'A' ? '#7c3aed' : item.abc_category === 'B' ? '#059669' : '#64748b',
-                                                                            border: `1px solid ${item.abc_category === 'A' ? '#ddd6fe' : item.abc_category === 'B' ? '#a7f3d0' : '#e2e8f0'}`
-                                                                        }}>
-                                                                            ABC: {item.abc_category || 'C'}
-                                                                        </span>
-                                                                    </div>
-                                                                </Td>
-                                                                <Td style={{ textAlign: 'right' }}>
+<Td style={{ textAlign: 'right' }}>
                                                                     <div style={{ fontWeight: '800', fontSize: '0.95rem', color: isLowStock ? '#dc2626' : '#16a34a' }}>
                                                                         {availQty} units
                                                                     </div>
@@ -1566,14 +1472,7 @@ const Items = () => {
                                                                         </div>
                                                                     )}
                                                                 </Td>
-                                                                <Td style={{ textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>
-                                                                    ₹{parseFloat(item.unit_price || 0).toFixed(2)}
-                                                                </Td>
-                                                                <Td style={{ fontSize: '0.82rem' }}>
-                                                                    <div style={{ color: '#1e293b' }}>{getVendorName(item.supplier)}</div>
-                                                                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{getVendorName(item.manufacturer)}</div>
-                                                                </Td>
-                                                                <Td style={{ textAlign: 'center' }}>
+<Td style={{ textAlign: 'center' }}>
                                                                     <Button
                                                                         onClick={() => fetchPriceHistory(item, nameField, idField)}
                                                                         style={{ 
@@ -1593,36 +1492,7 @@ const Items = () => {
                                                                         <LineChart size={14} /> Trends
                                                                     </Button>
                                                                 </Td>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Td style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.primary }}>
-                                                                    {item[idField]}
-                                                                </Td>
-                                                                {activeTab.id === 'category' && (
-                                                                    <Td>
-                                                                        <span style={{ 
-                                                                            fontSize: '0.8rem', 
-                                                                            fontWeight: '700', 
-                                                                            color: '#0f766e', 
-                                                                            background: '#f0fdfa', 
-                                                                            padding: '3px 10px', 
-                                                                            borderRadius: '6px', 
-                                                                            border: '1px solid #ccfbf1' 
-                                                                        }}>
-                                                                            {item.group_name && item.group_name !== '-' ? item.group_name : getGroupName(item.group)}
-                                                                        </span>
-                                                                    </Td>
-                                                                )}
-                                                                <Td style={{ textAlign: 'center' }}>
-                                                                    <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700', background: '#dcfce7', color: '#15803d' }}>
-                                                                        Active
-                                                                    </span>
-                                                                </Td>
-                                                            </>
-                                                        )}
-
-                                                        <Td style={{ textAlign: 'center' }}>
+<Td style={{ textAlign: 'center' }}>
                                                             <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'center' }}>
                                                                 {activeTab.id === 'item' && (
                                                                     <button
@@ -1679,6 +1549,105 @@ const Items = () => {
                                                                 </button>
                                                             </div>
                                                         </Td>
+<Td style={{ textAlign: 'center' }}>
+                                                                    <div style={{ display: 'inline-flex', gap: '4px' }}>
+                                                                        <span style={{
+                                                                            padding: '2px 7px',
+                                                                            borderRadius: '6px',
+                                                                            fontSize: '0.72rem',
+                                                                            fontWeight: '800',
+                                                                            background: item.ved_category === 'V' ? '#fee2e2' : item.ved_category === 'E' ? '#eff6ff' : '#f1f5f9',
+                                                                            color: item.ved_category === 'V' ? '#dc2626' : item.ved_category === 'E' ? '#2563eb' : '#475569',
+                                                                            border: `1px solid ${item.ved_category === 'V' ? '#fca5a5' : item.ved_category === 'E' ? '#bfdbfe' : '#cbd5e1'}`
+                                                                        }}>
+                                                                            VED: {item.ved_category || 'D'}
+                                                                        </span>
+                                                                        <span style={{
+                                                                            padding: '2px 7px',
+                                                                            borderRadius: '6px',
+                                                                            fontSize: '0.72rem',
+                                                                            fontWeight: '800',
+                                                                            background: item.abc_category === 'A' ? '#f5f3ff' : item.abc_category === 'B' ? '#ecfdf5' : '#f8fafc',
+                                                                            color: item.abc_category === 'A' ? '#7c3aed' : item.abc_category === 'B' ? '#059669' : '#64748b',
+                                                                            border: `1px solid ${item.abc_category === 'A' ? '#ddd6fe' : item.abc_category === 'B' ? '#a7f3d0' : '#e2e8f0'}`
+                                                                        }}>
+                                                                            ABC: {item.abc_category || 'C'}
+                                                                        </span>
+                                                                    </div>
+                                                                </Td>
+<Td style={{ textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>
+                                                                    ₹{parseFloat(item.unit_price || 0).toFixed(2)}
+                                                                </Td>
+                                                                <Td style={{ fontSize: '0.82rem' }}>
+                                                                    <div style={{ color: '#1e293b' }}>{getVendorName(item.supplier)}</div>
+                                                                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{getVendorName(item.manufacturer)}</div>
+                                                                </Td>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Td style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.primary }}>
+                                                                    {item[idField]}
+                                                                </Td>
+                                                                {activeTab.id === 'category' && (
+                                                                    <Td>
+                                                                        <span style={{ 
+                                                                            fontSize: '0.8rem', 
+                                                                            fontWeight: '700', 
+                                                                            color: '#0f766e', 
+                                                                            background: '#f0fdfa', 
+                                                                            padding: '3px 10px', 
+                                                                            borderRadius: '6px', 
+                                                                            border: '1px solid #ccfbf1' 
+                                                                        }}>
+                                                                            {item.group_name && item.group_name !== '-' ? item.group_name : getGroupName(item.group)}
+                                                                        </span>
+                                                                    </Td>
+                                                                )}
+                                                                <Td style={{ textAlign: 'center' }}>
+                                                                    <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700', background: '#dcfce7', color: '#15803d' }}>
+                                                                        Active
+                                                                    </span>
+                                                                </Td>
+                                                                <Td style={{ textAlign: 'center' }}>
+                                                                    <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'center' }}>
+                                                                        <button
+                                                                            onClick={() => handleEdit(item)}
+                                                                            style={{ 
+                                                                                background: '#f0fdf4', 
+                                                                                color: '#16a34a', 
+                                                                                border: '1px solid #bbf7d0', 
+                                                                                padding: '6px 8px',
+                                                                                borderRadius: '6px',
+                                                                                cursor: 'pointer',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center'
+                                                                            }}
+                                                                            title="Edit Record"
+                                                                        >
+                                                                            <Edit2 size={15} />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleDelete(item[idField])}
+                                                                            style={{ 
+                                                                                background: '#fef2f2', 
+                                                                                color: '#dc2626', 
+                                                                                border: '1px solid #fecaca', 
+                                                                                padding: '6px 8px',
+                                                                                borderRadius: '6px',
+                                                                                cursor: 'pointer',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center'
+                                                                            }}
+                                                                            title="Delete Record"
+                                                                        >
+                                                                            <Trash2 size={15} />
+                                                                        </button>
+                                                                    </div>
+                                                                </Td>
+                                                            </>
+                                                        )}
                                                     </Tr>
                                                 );
                                             })}
@@ -1721,23 +1690,6 @@ const Items = () => {
                             </CloseButton>
                         </ModalHeader>
                         <ModalBody>
-                            {/* Date Filter Bar */}
-                            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginBottom: '20px', background: colors.tabBg, padding: '12px 16px', borderRadius: '8px' }}>
-                                <InputWrapper style={{ marginBottom: 0, flex: 1 }}>
-                                    <Label style={{ fontSize: '0.8rem' }}>From Date</Label>
-                                    <Input type="date" value={priceFromDate} onChange={(e) => setPriceFromDate(e.target.value)} style={{ height: '36px' }} />
-                                </InputWrapper>
-                                <InputWrapper style={{ marginBottom: 0, flex: 1 }}>
-                                    <Label style={{ fontSize: '0.8rem' }}>To Date</Label>
-                                    <Input type="date" value={priceToDate} onChange={(e) => setPriceToDate(e.target.value)} style={{ height: '36px' }} />
-                                </InputWrapper>
-                                <Button onClick={() => fetchPriceHistory(selectedItemForPrice)} style={{ height: '36px', padding: '0 16px', fontSize: '0.85rem' }}>
-                                    Apply Filter
-                                </Button>
-                                <Button secondary onClick={() => { setPriceFromDate(''); setPriceToDate(''); fetchPriceHistory(selectedItemForPrice, null, null); }} style={{ height: '36px', padding: '0 12px', fontSize: '0.85rem' }}>
-                                    Clear
-                                </Button>
-                            </div>
                             {loadingPrices ? (
                                 <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>Loading price history...</div>
                             ) : priceData?.error ? (

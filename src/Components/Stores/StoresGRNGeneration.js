@@ -5,6 +5,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { DatePicker, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
+import { Building2 } from 'lucide-react';
+import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import DepartmentSelectionModal from './DepartmentSelectionModal';
 import {
     PageWrapper,
     Container,
@@ -681,14 +684,14 @@ const StoresGRNGeneration = () => {
     const [groups, setGroups] = useState([]);
     const [categories, setCategories] = useState([]);
     const [groupTypes, setGroupTypes] = useState([]);
-    const departmentSelectRef = useRef(null);
+    const [showDeptModal, setShowDeptModal] = useState(false);
 
-    // F10 Shortcut to focus Department selector
+    // F10 Shortcut to open Department modal
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'F10') {
                 e.preventDefault();
-                departmentSelectRef.current?.focus();
+                setShowDeptModal(prev => !prev);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -697,10 +700,17 @@ const StoresGRNGeneration = () => {
 
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
+    useStoresDepartment((newDept) => {
+        if (newDept && newDept !== formData.department) {
+            setFormData(prev => ({ ...prev, department: newDept }));
+            fetchItemsByDepartment(newDept);
+        }
+    });
+
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split('T')[0],
         purchase_category: '',
-        department: '',
+        department: getSelectedStoreDepartment(),
         vendor_id: '',
         supplier_address: '',
         contact_person: '',
@@ -790,7 +800,7 @@ const StoresGRNGeneration = () => {
 
     const [newItemMasterData, setNewItemMasterData] = useState({
         itemName: '',
-        department: '',
+        department: getSelectedStoreDepartment(),
         category: '',
         group: '',
         group_type: '',
@@ -1024,7 +1034,14 @@ const StoresGRNGeneration = () => {
                         : [];
                 setVendors(list);
             }
-            if (deptsRes.success) setDepartments(deptsRes.data);
+            if (deptsRes.success) {
+                setDepartments(deptsRes.data);
+                const activeDept = getSelectedStoreDepartment();
+                if (activeDept && !formData.department) {
+                    setFormData(prev => ({ ...prev, department: activeDept }));
+                    fetchItemsByDepartment(activeDept);
+                }
+            }
             if (groupsRes.success) setGroups(groupsRes.data);
             if (catsRes.success) setCategories(catsRes.data);
             if (groupTypesRes.success) setGroupTypes(groupTypesRes.data);
@@ -1563,7 +1580,7 @@ const StoresGRNGeneration = () => {
     };
 
     const handleSaveItemMaster = async () => {
-        if (!newItemMasterData.itemName || !newItemMasterData.department || !newItemMasterData.category || !newItemMasterData.group || !newItemMasterData.group_type || !newItemMasterData.stockReorderLevel) {
+        if (!newItemMasterData.itemName || !newItemMasterData.department || !newItemMasterData.category || !newItemMasterData.group || !newItemMasterData.stockReorderLevel) {
             alert("Please fill all required fields marked with *");
             return;
         }
@@ -1645,6 +1662,7 @@ const StoresGRNGeneration = () => {
                                 {editGrn ? 'Update the Goods Receipt Note details below' : 'Streamline your inventory intake process'}
                             </p>
                         </div>
+
                         {location.state?.fromAnalysis && (
                             <Button
                                 secondary
@@ -1659,246 +1677,342 @@ const StoresGRNGeneration = () => {
                     {/* 2. Main Form Content */}
                     <form onSubmit={handleSubmit} style={{ background: colors.background, padding: '24px' }}>
 
-                        {/* Purchase & Supplier Info Section */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1.2fr)', gap: '20px' }}>
+                        {/* Purchase, Invoice & Supplier Details - Single Unified Card */}
+                        <FormCard style={{ marginBottom: '18px' }}>
+                            <SectionTitleCard style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Purchase, Invoice & Supplier Details
+                                </h3>
+                                {!isVerified && (
+                                    <span
+                                        onClick={() => { setVendorSearchQuery(''); setShowVendorListModal(true); }}
+                                        style={{
+                                            color: '#0d9488',
+                                            fontSize: '0.78rem',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '5px',
+                                            padding: '4px 12px',
+                                            background: '#f0fdfa',
+                                            border: '1px solid #99f6e4',
+                                            borderRadius: '6px',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        title="Open Vendor Directory Modal"
+                                    >
+                                        📋 Browse Supplier List
+                                    </span>
+                                )}
+                            </SectionTitleCard>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <FormCard>
-                                    <SectionTitleCard>
-                                        <h3>Purchase Information</h3>
-                                    </SectionTitleCard>
-                                    <PurchaseInfoGrid>
-                                        <div style={{ gridColumn: 'span 3' }}>
-                                            <Label required>Category</Label>
-                                            <Select
-                                                options={purchaseCategories}
-                                                value={purchaseCategories.find(c => c.value === formData.purchase_category)}
-                                                onChange={(opt) => handleInputChange({ target: { name: 'purchase_category', value: opt ? opt.value : '' } })}
-                                                menuPortalTarget={document.body}
-                                                isDisabled={isVerified}
-                                                styles={{
-                                                    menuPortal: base => ({ ...base, zIndex: 99999 }),
-                                                    control: base => ({
-                                                        ...base,
-                                                        minHeight: '34px',
-                                                        height: '34px',
-                                                        borderRadius: '6px',
-                                                        borderColor: colors.border
-                                                    })
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ gridColumn: 'span 5' }}>
-                                            <Label required style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <span>Department</span>
-                                                <span style={{ fontSize: '0.7rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>F10</span>
-                                            </Label>
-                                            <Select
-                                                ref={departmentSelectRef}
-                                                options={departmentOptions}
-                                                value={(() => {
-                                                    const dVal = formData.department;
-                                                    if (!dVal) return null;
-                                                    const found = departments.find(d =>
-                                                        String(d.department_id) === String(dVal) ||
-                                                        String(d.id) === String(dVal) ||
-                                                        String(d.department_name).toLowerCase() === String(dVal).toLowerCase() ||
-                                                        String(d.name).toLowerCase() === String(dVal).toLowerCase()
-                                                    );
-                                                    return found
-                                                        ? { value: found.department_id || found.id || found.name, label: found.department_name || found.name }
-                                                        : { value: dVal, label: dVal };
-                                                })()}
-                                                onChange={(opt) => handleInputChange({ target: { name: 'department', value: opt ? opt.value : '' } })}
-                                                placeholder="Select Department (F10)"
-                                                isClearable
-                                                openMenuOnFocus
-                                                isDisabled={isVerified}
-                                                menuPortalTarget={document.body}
-                                                styles={{
-                                                    menuPortal: base => ({ ...base, zIndex: 99999 }),
-                                                    control: base => ({
-                                                        ...base,
-                                                        minHeight: '34px',
-                                                        height: '34px',
-                                                        borderRadius: '6px',
-                                                        borderColor: colors.border
-                                                    })
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ gridColumn: 'span 4' }}>
-                                            <Label required>GRN Date</Label>
-                                            <DatePicker
-                                                value={formData.date ? dayjs(formData.date) : null}
-                                                onChange={(d) => handleInputChange({ target: { name: 'date', value: d ? d.format('YYYY-MM-DD') : '' } })}
-                                                format="DD/MM/YYYY"
-                                                placeholder="Select Date"
-                                                allowClear={false}
-                                                disabled={isVerified}
-                                                style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
-                                            />
-                                        </div>
-
-                                        <div style={{ gridColumn: 'span 9' }}>
-                                            <Label required>Vendor</Label>
-                                            <div
-                                                onClick={() => {
-                                                    if (!isVerified) {
-                                                        setVendorSearchQuery('');
-                                                        setShowVendorListModal(true);
-                                                    }
-                                                }}
-                                                style={{
-                                                    width: '100%',
+                            <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                {/* Row 1: Purchase & Invoice Essentials */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
+                                    <div style={{ gridColumn: 'span 3' }}>
+                                        <Label required>Category</Label>
+                                        <Select
+                                            options={purchaseCategories}
+                                            value={purchaseCategories.find(c => c.value === formData.purchase_category)}
+                                            onChange={(opt) => handleInputChange({ target: { name: 'purchase_category', value: opt ? opt.value : '' } })}
+                                            menuPortalTarget={document.body}
+                                            isDisabled={isVerified}
+                                            styles={{
+                                                menuPortal: base => ({ ...base, zIndex: 99999 }),
+                                                control: base => ({
+                                                    ...base,
+                                                    minHeight: '34px',
                                                     height: '34px',
-                                                    padding: '0 10px',
                                                     borderRadius: '6px',
-                                                    border: `1px solid ${formData.vendor_id ? '#0d9488' : colors.border}`,
-                                                    backgroundColor: isVerified ? '#f1f5f9' : (formData.vendor_id ? '#f0fdfa' : '#ffffff'),
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    cursor: isVerified ? 'not-allowed' : 'pointer',
-                                                    transition: 'all 0.15s ease',
-                                                    boxShadow: formData.vendor_id ? '0 0 0 1px rgba(13,148,136,0.1)' : 'none',
-                                                    overflow: 'hidden',
-                                                    boxSizing: 'border-box'
-                                                }}
-                                                title={(() => {
-                                                    if (isVerified) return 'Vendor locked';
-                                                    const found = vendors.find(v => v.vendor_id === formData.vendor_id);
-                                                    return found ? `${found.name || found.vendor_name} (Click to change vendor)` : 'Click to select vendor from modal';
-                                                })()}
-                                            >
-                                                <div style={{
-                                                    flex: 1,
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                    fontSize: '0.85rem',
-                                                    color: formData.vendor_id ? '#0f172a' : '#94a3b8',
-                                                    fontWeight: formData.vendor_id ? '600' : 'normal',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px'
-                                                }}>
-                                                    <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>🏢</span>
-                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {(() => {
-                                                            if (!formData.vendor_id) return 'Click to select vendor...';
-                                                            const found = vendors.find(v => v.vendor_id === formData.vendor_id);
-                                                            return found ? (found.name || found.vendor_name) : formData.vendor_id;
-                                                        })()}
-                                                    </span>
-                                                </div>
-
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px', flexShrink: 0 }}>
-                                                    {formData.vendor_id && !isVerified && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleClearVendor}
-                                                            title="Clear selected vendor"
-                                                            style={{
-                                                                background: 'transparent',
-                                                                border: 'none',
-                                                                color: '#94a3b8',
-                                                                cursor: 'pointer',
-                                                                padding: '2px 5px',
-                                                                fontSize: '12px',
-                                                                lineHeight: 1,
-                                                                borderRadius: '4px'
-                                                            }}
-                                                            onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                                                            onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
-                                                        >
-                                                            ✕
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ gridColumn: 'span 3' }}>
-                                            <Label>Vendor ID</Label>
-                                            <Input
-                                                value={formData.vendor_id}
-                                                readOnly
-                                                style={{ backgroundColor: '#f8fafc', fontWeight: '600', textAlign: 'center', height: '34px' }}
-                                            />
-                                        </div>
-                                    </PurchaseInfoGrid>
-                                 </FormCard>
-
-                                <FormCard>
-                                    <SectionTitleCard $color="#6366f1">
-                                        <h3>Invoice & Payment Details</h3>
-                                    </SectionTitleCard>
-                                    <FormGrid $minWidth="160px">
-                                        <div><Label required>Invoice No</Label><Input placeholder="EX: INV-1001" name="invoice_no" value={formData.invoice_no} onChange={handleInputChange} disabled={isVerified} /></div>
-                                        <div>
-                                            <Label required>Invoice Date</Label>
-                                            <DatePicker
-                                                value={formData.invoice_date ? dayjs(formData.invoice_date) : null}
-                                                onChange={(d) => handleInputChange({ target: { name: 'invoice_date', value: d ? d.format('YYYY-MM-DD') : '' } })}
-                                                format="DD/MM/YYYY"
-                                                placeholder="Select Date"
-                                                allowClear={false}
-                                                disabled={isVerified}
-                                                style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
-                                            />
-                                        </div>
-
-                                        <div><Label>Credit (Days)</Label><Input name="credit_period" value={formData.credit_period} onChange={handleInputChange} disabled={isVerified} /></div>
-                                        <div><Label>Payment Mode</Label>
-                                            <Select
-                                                options={paymentModes}
-                                                value={paymentModes.find(m => m.value === formData.payment_mode)}
-                                                onChange={(opt) => handleInputChange({ target: { name: 'payment_mode', value: opt ? opt.value : '' } })}
-                                                menuPortalTarget={document.body}
-                                                isDisabled={isVerified}
-                                                styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                                            />
-                                        </div>
-                                    </FormGrid>
-                                </FormCard>
-                            </div>
-
-                            <FormCard style={{ height: 'fit-content' }}>
-                                <SectionTitleCard $color="#b45309" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <h3>Supplier Snapshot</h3>
-                                    {!isVerified && (
-                                        <span
-                                            onClick={() => { setVendorSearchQuery(''); setShowVendorListModal(true); }}
+                                                    borderColor: colors.border
+                                                })
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ gridColumn: 'span 3' }}>
+                                        <Label required style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span>Department</span>
+                                            <span style={{ fontSize: '0.7rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>F10</span>
+                                        </Label>
+                                        <div
+                                            onClick={() => {
+                                                if (!isVerified) {
+                                                    setShowDeptModal(true);
+                                                }
+                                            }}
                                             style={{
-
-
-
-
-
-                                                
-                                                color: '#b45309',
-                                                fontSize: '0.72rem',
-                                                fontWeight: '700',
-                                                cursor: 'pointer',
+                                                width: '100%',
+                                                height: '34px',
+                                                padding: '0 10px',
+                                                borderRadius: '6px',
+                                                border: `1px solid ${formData.department ? '#0d9488' : colors.border}`,
+                                                backgroundColor: isVerified ? '#f1f5f9' : (formData.department ? '#f0fdfa' : '#ffffff'),
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                gap: '3px'
+                                                justifyContent: 'space-between',
+                                                cursor: isVerified ? 'not-allowed' : 'pointer',
+                                                transition: 'all 0.15s ease',
+                                                boxSizing: 'border-box'
                                             }}
-                                            title="Open Vendor Directory Modal"
+                                            title={isVerified ? 'Department locked' : 'Click to switch department (F10)'}
                                         >
-                                            📋 Browse List
-                                        </span>
-                                    )}
-                                </SectionTitleCard>
-                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                    <div><Label>Vendor ID</Label><Input value={formData.vendor_id} readOnly style={{ backgroundColor: '#f8fafc', fontWeight: '600' }} /></div>
-                                    <div><Label>Contact Person</Label><Input value={formData.contact_person} readOnly style={{ backgroundColor: '#f8fafc' }} /></div>
-                                    <div><Label>Phone Number</Label><Input value={formData.phone} readOnly style={{ backgroundColor: '#f8fafc' }} /></div>
-                                    <div><Label>Office Address</Label><Input value={formData.supplier_address} readOnly style={{ backgroundColor: '#f8fafc' }} /></div>
+                                            <div style={{
+                                                flex: 1,
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                fontSize: '0.85rem',
+                                                color: formData.department ? '#0f172a' : '#94a3b8',
+                                                fontWeight: formData.department ? '600' : 'normal',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}>
+                                                <Building2 size={14} color={formData.department ? '#0d9488' : '#94a3b8'} style={{ flexShrink: 0 }} />
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {(() => {
+                                                        if (!formData.department) return 'All Departments';
+                                                        const found = departments.find(d =>
+                                                            String(d.department_id) === String(formData.department) ||
+                                                            String(d.id) === String(formData.department) ||
+                                                            String(d.department_name).toLowerCase() === String(formData.department).toLowerCase() ||
+                                                            String(d.name).toLowerCase() === String(formData.department).toLowerCase()
+                                                        );
+                                                        return found ? (found.department_name || found.name) : formData.department;
+                                                    })()}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                                <span style={{
+                                                    fontSize: '0.68rem',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    background: formData.department ? '#ccfbf1' : '#f1f5f9',
+                                                    color: formData.department ? '#0f766e' : '#64748b',
+                                                    fontWeight: '700'
+                                                }}>
+                                                    Switch
+                                                </span>
+                                                {formData.department && !isVerified && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleInputChange({ target: { name: 'department', value: '' } });
+                                                            setSelectedStoreDepartment('', 'All Departments');
+                                                        }}
+                                                        title="Clear selected department"
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            color: '#94a3b8',
+                                                            cursor: 'pointer',
+                                                            padding: '2px 4px',
+                                                            fontSize: '12px',
+                                                            lineHeight: 1,
+                                                            borderRadius: '4px'
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                                                        onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label required>GRN Date</Label>
+                                        <DatePicker
+                                            value={formData.date ? dayjs(formData.date) : null}
+                                            onChange={(d) => handleInputChange({ target: { name: 'date', value: d ? d.format('YYYY-MM-DD') : '' } })}
+                                            format="DD/MM/YYYY"
+                                            placeholder="Select Date"
+                                            allowClear={false}
+                                            disabled={isVerified}
+                                            style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
+                                        />
+                                    </div>
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label required>Invoice No</Label>
+                                        <Input
+                                            placeholder="EX: INV-1001"
+                                            name="invoice_no"
+                                            value={formData.invoice_no}
+                                            onChange={handleInputChange}
+                                            disabled={isVerified}
+                                            style={{ height: '34px' }}
+                                        />
+                                    </div>
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label required>Invoice Date</Label>
+                                        <DatePicker
+                                            value={formData.invoice_date ? dayjs(formData.invoice_date) : null}
+                                            onChange={(d) => handleInputChange({ target: { name: 'invoice_date', value: d ? d.format('YYYY-MM-DD') : '' } })}
+                                            format="DD/MM/YYYY"
+                                            placeholder="Select Date"
+                                            allowClear={false}
+                                            disabled={isVerified}
+                                            style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
+                                        />
+                                    </div>
                                 </div>
-                            </FormCard>
-                        </div>
+
+                                {/* Row 2: Vendor, Credit, Payment Mode, Phone */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
+                                    <div style={{ gridColumn: 'span 4' }}>
+                                        <Label required>Vendor</Label>
+                                        <div
+                                            onClick={() => {
+                                                if (!isVerified) {
+                                                    setVendorSearchQuery('');
+                                                    setShowVendorListModal(true);
+                                                }
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                height: '34px',
+                                                padding: '0 10px',
+                                                borderRadius: '6px',
+                                                border: `1px solid ${formData.vendor_id ? '#0d9488' : colors.border}`,
+                                                backgroundColor: isVerified ? '#f1f5f9' : (formData.vendor_id ? '#f0fdfa' : '#ffffff'),
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                cursor: isVerified ? 'not-allowed' : 'pointer',
+                                                transition: 'all 0.15s ease',
+                                                boxShadow: formData.vendor_id ? '0 0 0 1px rgba(13,148,136,0.1)' : 'none',
+                                                overflow: 'hidden',
+                                                boxSizing: 'border-box'
+                                            }}
+                                            title={(() => {
+                                                if (isVerified) return 'Vendor locked';
+                                                const found = vendors.find(v => v.vendor_id === formData.vendor_id);
+                                                return found ? `${found.name || found.vendor_name} (Click to change vendor)` : 'Click to select vendor from modal';
+                                            })()}
+                                        >
+                                            <div style={{
+                                                flex: 1,
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                fontSize: '0.85rem',
+                                                color: formData.vendor_id ? '#0f172a' : '#94a3b8',
+                                                fontWeight: formData.vendor_id ? '600' : 'normal',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}>
+                                                <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>🏢</span>
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {(() => {
+                                                        if (!formData.vendor_id) return 'Click to select vendor...';
+                                                        const found = vendors.find(v => v.vendor_id === formData.vendor_id);
+                                                        return found ? (found.name || found.vendor_name) : formData.vendor_id;
+                                                    })()}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px', flexShrink: 0 }}>
+                                                {formData.vendor_id && !isVerified && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleClearVendor}
+                                                        title="Clear selected vendor"
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            color: '#94a3b8',
+                                                            cursor: 'pointer',
+                                                            padding: '2px 5px',
+                                                            fontSize: '12px',
+                                                            lineHeight: 1,
+                                                            borderRadius: '4px'
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                                                        onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label>Vendor ID</Label>
+                                        <Input
+                                            value={formData.vendor_id}
+                                            readOnly
+                                            style={{ backgroundColor: '#f8fafc', fontWeight: '600', textAlign: 'center', height: '34px' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label>Credit (Days)</Label>
+                                        <Input
+                                            name="credit_period"
+                                            value={formData.credit_period}
+                                            onChange={handleInputChange}
+                                            disabled={isVerified}
+                                            style={{ height: '34px' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label>Payment Mode</Label>
+                                        <Select
+                                            options={paymentModes}
+                                            value={paymentModes.find(m => m.value === formData.payment_mode)}
+                                            onChange={(opt) => handleInputChange({ target: { name: 'payment_mode', value: opt ? opt.value : '' } })}
+                                            menuPortalTarget={document.body}
+                                            isDisabled={isVerified}
+                                            styles={{
+                                                menuPortal: base => ({ ...base, zIndex: 99999 }),
+                                                control: base => ({
+                                                    ...base,
+                                                    minHeight: '34px',
+                                                    height: '34px',
+                                                    borderRadius: '6px',
+                                                    borderColor: colors.border
+                                                })
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label>Phone Number</Label>
+                                        <Input
+                                            value={formData.phone}
+                                            readOnly
+                                            style={{ backgroundColor: '#f8fafc', height: '34px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Row 3: Supplier Contact & Address */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
+                                    <div style={{ gridColumn: 'span 4' }}>
+                                        <Label>Contact Person</Label>
+                                        <Input
+                                            value={formData.contact_person}
+                                            readOnly
+                                            style={{ backgroundColor: '#f8fafc', height: '34px' }}
+                                        />
+                                    </div>
+                                    <div style={{ gridColumn: 'span 8' }}>
+                                        <Label>Office Address</Label>
+                                        <Input
+                                            value={formData.supplier_address}
+                                            readOnly
+                                            style={{ backgroundColor: '#f8fafc', height: '34px' }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </FormCard>
 
                         {/* 3. Items Management Section */}
                         <FormCard style={{ marginTop: '5px' }}>
@@ -2190,6 +2304,21 @@ const StoresGRNGeneration = () => {
                 </Container>
 
                 {/* Vendor List Modal */}
+                                {showDeptModal && (
+                    <DepartmentSelectionModal
+                        departments={departments}
+                        currentDepartmentId={formData.department}
+                        onClose={() => setShowDeptModal(false)}
+                        onSelect={(dept) => {
+                            const val = dept ? (dept.department_id || dept.department_code || '') : '';
+                            const lbl = dept ? (dept.department_name || val) : '';
+                            handleInputChange({ target: { name: 'department', value: val } });
+                            setSelectedStoreDepartment(val, lbl);
+                            setShowDeptModal(false);
+                        }}
+                    />
+                )}
+
                 {showVendorListModal && (() => {
                     const q = (vendorSearchQuery || '').toLowerCase().trim();
                     const filteredVendors = vendors.filter(v => {
@@ -2434,8 +2563,9 @@ const StoresGRNGeneration = () => {
                                                 </div>
                                                 <span
                                                     onClick={() => {
-                                                        if (formData.department && !newItemMasterData.department) {
-                                                            setNewItemMasterData(prev => ({ ...prev, department: formData.department }));
+                                                        const activeDept = formData.department || getSelectedStoreDepartment();
+                                                        if (activeDept) {
+                                                            setNewItemMasterData(prev => ({ ...prev, department: activeDept }));
                                                         }
                                                         setShowAddItemMasterModal(true);
                                                     }}
@@ -3119,7 +3249,12 @@ const StoresGRNGeneration = () => {
                                             options={departments.map(d => ({ value: d.department_id, label: d.department_name }))}
                                             placeholder="Select Department"
                                             value={departments.find(d => d.department_id === newItemMasterData.department) ? { value: newItemMasterData.department, label: departments.find(d => d.department_id === newItemMasterData.department).department_name } : null}
-                                            onChange={(opt) => setNewItemMasterData({ ...newItemMasterData, department: opt ? opt.value : '' })}
+                                            onChange={(opt) => {
+                                                const val = opt ? opt.value : '';
+                                                const lbl = opt ? opt.label : '';
+                                                setNewItemMasterData({ ...newItemMasterData, department: val });
+                                                if (val) setSelectedStoreDepartment(val, lbl);
+                                            }}
                                             menuPortalTarget={document.body}
                                             styles={{ menuPortal: base => ({ ...base, zIndex: 10001 }) }}
                                         />
@@ -3168,17 +3303,6 @@ const StoresGRNGeneration = () => {
                                                 }
                                                 setNewItemMasterData(prev => ({ ...prev, category: newCat, group: autoGroup }));
                                             }}
-                                            menuPortalTarget={document.body}
-                                            styles={{ menuPortal: base => ({ ...base, zIndex: 10001 }) }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label required>Group Type</Label>
-                                        <Select
-                                            options={groupTypes.map(gt => ({ value: gt.group_type_id, label: gt.group_type_name }))}
-                                            placeholder="Select Group Type"
-                                            value={groupTypes.find(gt => gt.group_type_id === newItemMasterData.group_type) ? { value: newItemMasterData.group_type, label: groupTypes.find(gt => gt.group_type_id === newItemMasterData.group_type).group_type_name } : null}
-                                            onChange={(opt) => setNewItemMasterData({ ...newItemMasterData, group_type: opt ? opt.value : '' })}
                                             menuPortalTarget={document.body}
                                             styles={{ menuPortal: base => ({ ...base, zIndex: 10001 }) }}
                                         />

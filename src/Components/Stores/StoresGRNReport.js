@@ -11,6 +11,8 @@ import {
     MoreVertical, Eye, AlertTriangle, AlertCircle
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
+import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import TablePagination, { usePagination } from './TablePagination';
 import {
     PageWrapper,
@@ -705,7 +707,8 @@ const StoresGRNReport = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('ALL');
     const [departments, setDepartments] = useState([]);
-    const [selectedDepartment, setSelectedDepartment] = useState('ALL');
+    const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment() || 'ALL');
+    useStoresDepartment((newDept) => setSelectedDepartment(newDept || 'ALL'));
     const departmentFilterRef = useRef(null);
 
     // F10 Shortcut to focus Department filter
@@ -855,6 +858,7 @@ const StoresGRNReport = () => {
         setSearchTerm('');
         setFilterStatus('ALL');
         setSelectedDepartment('ALL');
+        setSelectedStoreDepartment('');
         setTimeout(() => fetchGRNs(), 0);
     };
 
@@ -1654,37 +1658,12 @@ const StoresGRNReport = () => {
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                <div style={{ minWidth: '220px' }}>
-                                    <ReactSelect
-                                        ref={departmentFilterRef}
-                                        value={
-                                            selectedDepartment === 'ALL'
-                                                ? { value: 'ALL', label: 'All Departments' }
-                                                : (
-                                                    departments
-                                                        .map(d => ({
-                                                            value: d.department_code || d.department_id || d.id,
-                                                            label: d.department_name || d.name || (d.department_code || d.department_id || d.id)
-                                                        }))
-                                                        .find(opt => opt.value === selectedDepartment) || { value: selectedDepartment, label: selectedDepartment }
-                                                )
-                                        }
-                                        onChange={(opt) => setSelectedDepartment(opt ? opt.value : 'ALL')}
-                                        options={[
-                                            { value: 'ALL', label: 'All Departments' },
-                                            ...departments.map(d => ({
-                                                value: d.department_code || d.department_id || d.id,
-                                                label: d.department_name || d.name || (d.department_code || d.department_id || d.id)
-                                            }))
-                                        ]}
-                                        placeholder="All Departments (F10)"
-                                        isSearchable={true}
-                                        openMenuOnFocus
-                                        isClearable={selectedDepartment !== 'ALL'}
-                                        menuPortalTarget={document.body}
-                                        styles={deptSelectStyles}
-                                    />
-                                </div>
+                                <DepartmentFilterControl
+                                    departments={departments}
+                                    onDepartmentChange={(dept) => {
+                                        setSelectedDepartment(dept || 'ALL');
+                                    }}
+                                />
                                 <input
                                     type="text"
                                     placeholder="Search GRN, Vendor, Invoice, Department..."

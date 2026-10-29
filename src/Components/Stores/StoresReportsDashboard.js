@@ -1,4 +1,8 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import ReactSelect from 'react-select';
+import apiRequest from '../../Auth/apiRequest';
+import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import { useNavigate } from 'react-router-dom';
 import { 
     FileText, Building2, ClipboardList, ShoppingCart, BarChart3, 
@@ -204,6 +208,37 @@ const StoresReportsDashboard = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeModalReport, setActiveModalReport] = useState(null);
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
+    const departmentFilterRef = useRef(null);
+
+    useStoresDepartment((newDept) => setSelectedDepartment(newDept || ''));
+
+    useEffect(() => {
+        const fetchDepts = async () => {
+            try {
+                const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
+                const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`);
+                if (res && res.success && Array.isArray(res.data)) {
+                    setDepartments(res.data);
+                }
+            } catch (err) {
+                console.error("Error fetching departments:", err);
+            }
+        };
+        fetchDepts();
+    }, []);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                departmentFilterRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const filteredReports = reportsConfig.filter(rep => 
         rep.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -232,8 +267,17 @@ const StoresReportsDashboard = () => {
                         </p>
                     </div>
 
-                    {/* Quick Search */}
-                    <div style={{ position: 'relative', width: '300px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                        {/* Active Department Selector */}
+                        <DepartmentFilterControl
+                                departments={departments}
+                                onDepartmentChange={(dept) => {
+                                    setSelectedDepartment(dept || '');
+                                }}
+                            />
+
+                        {/* Quick Search */}
+                        <div style={{ position: 'relative', width: '280px' }}>
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: colors.textMuted }} />
                         <input
                             type="text"
@@ -252,6 +296,7 @@ const StoresReportsDashboard = () => {
                                 fontSize: '0.9rem'
                             }}
                         />
+                        </div>
                     </div>
                 </div>
 

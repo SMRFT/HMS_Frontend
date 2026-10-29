@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
+import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
 import TablePagination, { usePagination } from './TablePagination';
@@ -101,7 +103,8 @@ const StoresPurchaseReturn = () => {
     const [grnList, setGrnList] = useState([]);
     const [vendors, setVendors] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [selectedDepartment, setSelectedDepartment] = useState('');
+    const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
+    useStoresDepartment((newDept) => setSelectedDepartment(newDept || ''));
     const departmentFilterRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -773,33 +776,12 @@ const StoresPurchaseReturn = () => {
                         <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>To Date</label>
                         <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} style={{ width: '100%' }} />
                     </div>
-                    <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <span>Department</span>
-                            <span style={{ fontSize: '0.7rem', background: '#fee2e2', color: '#b91c1c', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>F10</span>
-                        </label>
-                        <ReactSelect
-                            ref={departmentFilterRef}
-                            options={[
-                                { value: '', label: 'All Departments' },
-                                ...departments.map(d => ({
-                                    value: d.department_code || d.department_id || d.id || d.department_name,
-                                    label: d.department_name || d.name || (d.department_code || d.department_id)
-                                }))
-                            ]}
-                            value={[
-                                { value: '', label: 'All Departments' },
-                                ...departments.map(d => ({
-                                    value: d.department_code || d.department_id || d.id || d.department_name,
-                                    label: d.department_name || d.name || (d.department_code || d.department_id)
-                                }))
-                            ].find(opt => opt.value === selectedDepartment) || { value: '', label: 'All Departments' }}
-                            onChange={opt => setSelectedDepartment(opt ? opt.value : '')}
-                            styles={customSelectStyles}
-                            menuPortalTarget={document.body}
-                            isSearchable
-                            openMenuOnFocus
-                            placeholder="All Departments (F10)"
+                    <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <DepartmentFilterControl
+                            departments={departments}
+                            onDepartmentChange={(dept) => {
+                                setSelectedDepartment(dept || '');
+                            }}
                         />
                     </div>
                     <div style={{ flex: '1 1 220px', minWidth: '190px' }}>
