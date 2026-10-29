@@ -7,6 +7,8 @@ import { DatePicker, Table, Modal, Button as AntButton, Select, Card, Statistic,
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
+import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import * as S from '../GlobalStyles';
 import { RotateCcw, CheckCircle, Clock, X, Download, RefreshCw, Search, ShieldCheck, FileText, AlertCircle, MoreVertical, Eye, CheckCheck, Printer, Trash2, Ban } from 'lucide-react';
 import TablePagination, { usePagination } from './TablePagination';
@@ -470,7 +472,8 @@ const StoresApprovalManager = () => {
     // Intent Approval State
     const [intents, setIntents] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [selectedDepartment, setSelectedDepartment] = useState('');
+    const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
+    useStoresDepartment((newDept) => setSelectedDepartment(newDept || ''));
     const departmentFilterRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [intentSearch, setIntentSearch] = useState('');
@@ -1302,24 +1305,14 @@ const StoresApprovalManager = () => {
                                             style={{ height: '38px', borderRadius: '8px' }}
                                         />
                                     </div>
-                                    <div style={{ minWidth: '200px', flex: '1 1 180px' }}>
-                                        <Select
-                                            ref={departmentFilterRef}
-                                            allowClear
-                                            showSearch
-                                            placeholder="All Departments (F10)"
-                                            value={selectedDepartment || undefined}
-                                            onChange={v => setSelectedDepartment(v || '')}
-                                            style={{ width: '100%', height: '38px' }}
-                                            optionFilterProp="children"
-                                        >
-                                            <Option value="">All Departments</Option>
-                                            {departments.map(d => (
-                                                <Option key={d.department_code || d.department_id} value={d.department_code || d.department_id || d.department_name}>
-                                                    {d.department_name}
-                                                </Option>
-                                            ))}
-                                        </Select>
+                                    <div style={{ flex: '0 0 auto' }}>
+                                        <DepartmentFilterControl
+                                            departments={departments}
+                                            onDepartmentChange={(dept) => {
+                                                setSelectedDepartment(dept || '');
+                                                
+                                            }}
+                                        />
                                     </div>
                                     <div style={{ minWidth: '220px', flex: '1 1 200px' }}>
                                         <Input
@@ -1331,7 +1324,7 @@ const StoresApprovalManager = () => {
                                         />
                                     </div>
                                     <S.Button onClick={() => loadPendingIntents()} style={{ background: '#0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>🔍 Search</S.Button>
-                                    <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }} onClick={() => { setIntentSearch(''); setSelectedDepartment(''); handleClearFilter(); }}>✕ Clear</S.Button>
+                                    <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }} onClick={() => { setIntentSearch(''); setSelectedDepartment(''); setSelectedStoreDepartment(''); handleClearFilter(); }}>✕ Clear</S.Button>
                                     <S.Button secondary onClick={() => handleExportIntentExcel()} style={{ background: '#f8fafc', color: '#0d9488', border: '1px solid #0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>
                                         📥 Export Excel
                                     </S.Button>
@@ -1561,23 +1554,14 @@ const StoresApprovalManager = () => {
                                             <Option value="Rejected">Rejected</Option>
                                         </Select>
                                     </div>
-                                    <div style={{ minWidth: '200px', flex: '1 1 180px' }}>
-                                        <Select
-                                            allowClear
-                                            showSearch
-                                            placeholder="All Departments (F10)"
-                                            value={selectedDepartment || undefined}
-                                            onChange={v => setSelectedDepartment(v || '')}
-                                            style={{ width: '100%', height: '38px' }}
-                                            optionFilterProp="children"
-                                        >
-                                            <Option value="">All Departments</Option>
-                                            {departments.map(d => (
-                                                <Option key={d.department_code || d.department_id} value={d.department_code || d.department_id || d.department_name}>
-                                                    {d.department_name}
-                                                </Option>
-                                            ))}
-                                        </Select>
+                                    <div style={{ flex: '0 0 auto' }}>
+                                        <DepartmentFilterControl
+                                            departments={departments}
+                                            onDepartmentChange={(dept) => {
+                                                setSelectedDepartment(dept || '');
+                                                
+                                            }}
+                                        />
                                     </div>
                                     <div style={{ minWidth: '220px', flex: '1 1 200px' }}>
                                         <Input
@@ -1589,7 +1573,7 @@ const StoresApprovalManager = () => {
                                         />
                                     </div>
                                     <S.Button onClick={() => loadIndentReturns()} style={{ background: '#0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>🔍 Filter</S.Button>
-                                    <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }} onClick={() => { setSelectedDepartment(''); handleClearReturnFilter(); }}>✕ Clear</S.Button>
+                                    <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }} onClick={() => { setSelectedDepartment(''); setSelectedStoreDepartment(''); handleClearReturnFilter(); }}>✕ Clear</S.Button>
                                     <S.Button secondary onClick={handleExportReturnExcel} style={{ background: '#f8fafc', color: '#0d9488', border: '1px solid #0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>
                                         📥 Export Excel
                                     </S.Button>

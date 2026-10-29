@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import apiRequest from '../../Auth/apiRequest';
+import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
 import { 
@@ -100,7 +102,8 @@ const StoresRackClassification = () => {
     const [rackMasters, setRackMasters] = useState([]);
     const [shelfMasters, setShelfMasters] = useState([]);
     const [allDepartments, setAllDepartments] = useState([]);
-    const [selectedDepartment, setSelectedDepartment] = useState('');
+    const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
+    useStoresDepartment((newDept) => setSelectedDepartment(newDept || ''));
     const departmentFilterRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -464,33 +467,12 @@ const StoresRackClassification = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
-                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span>Filter Department</span>
-                                <span style={{ fontSize: '0.7rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>F10</span>
-                            </label>
-                            <ReactSelect
-                                ref={departmentFilterRef}
-                                options={[
-                                    { value: '', label: 'All Departments' },
-                                    ...allDepartments.map(d => ({
-                                        value: d.department_id || d.id || d.department_name,
-                                        label: d.department_name || d.name || d.department_id
-                                    }))
-                                ]}
-                                value={[
-                                    { value: '', label: 'All Departments' },
-                                    ...allDepartments.map(d => ({
-                                        value: d.department_id || d.id || d.department_name,
-                                        label: d.department_name || d.name || d.department_id
-                                    }))
-                                ].find(opt => opt.value === selectedDepartment) || { value: '', label: 'All Departments' }}
-                                onChange={opt => setSelectedDepartment(opt ? opt.value : '')}
-                                styles={customSelectStyles}
-                                menuPortalTarget={document.body}
-                                isSearchable
-                                openMenuOnFocus
-                                placeholder="All Departments (F10)"
+                        <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <DepartmentFilterControl
+                                departments={allDepartments}
+                                onDepartmentChange={(dept) => {
+                                    setSelectedDepartment(dept || '');
+                                }}
                             />
                         </div>
                         <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
