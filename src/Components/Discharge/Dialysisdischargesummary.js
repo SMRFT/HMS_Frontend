@@ -1,5 +1,6 @@
 import { useState } from "react";
 import apiRequest from "../../Auth/apiRequest";
+import { toast as rToast } from "react-toastify";
 import {
   TODAY,
   buildDefaultBloodInvestigations,
@@ -8,38 +9,48 @@ import {
   buildDefaultAdvice,
 } from "./Dischargeconstants";
 
-
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+const initialFormState = () => ({
+  name: "",
+  age: "",
+  gender: "",
+  uhid: "",
+  consultant: "",
+  id_no: "",
+  insurance: "",
+  address: "",
+  diagnosis: "",
+  date_of_first_dialysis: TODAY,
+  date_of_last_dialysis: TODAY,
+  blood_investigations: buildDefaultBloodInvestigations(),
+  hd_sessions: buildDefaultHdSessions(),
+  complications_during_hd: buildDefaultComplications(),
+  condition_on_discharge: "",
+  advice_on_discharge: buildDefaultAdvice(),
+  next_hd_session_on: TODAY,
+});
+
 export default function DialysisDischargeSummary() {
-  const [form, setForm] = useState({
-    name: "",
-    age: "",
-    gender: "",
-    uhid: "",
-    consultant: "",
-    id_no: "",
-    insurance: "",                    // ← after ID No
-    address: "",
-    diagnosis: "",
-    date_of_first_dialysis: TODAY,    // ← after Diagnosis
-    date_of_last_dialysis: TODAY,     // ← after Diagnosis
-    blood_investigations: buildDefaultBloodInvestigations(),
-    hd_sessions: buildDefaultHdSessions(),
-    complications_during_hd: buildDefaultComplications(),
-    condition_on_discharge: "",
-    advice_on_discharge: buildDefaultAdvice(),
-    next_hd_session_on: TODAY,
-  });
- 
+  const [form, setForm] = useState(initialFormState);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeSection, setActiveSection] = useState(0);
   const [uhidLoading, setUhidLoading] = useState(false);
   const [uhidError, setUhidError] = useState(null);
 
-  // ── Toast helper defined first so all async functions can use it ──
+  // ── Toast helper using react-toastify + local banner fallback ──
   const showToast = (message, type = "success") => {
+    if (type === "error") {
+      rToast.error(message);
+    } else if (type === "warning") {
+      rToast.warning(message);
+    } else if (type === "info") {
+      rToast.info(message);
+    } else {
+      rToast.success(message);
+    }
+
     setToast({ message, type });
     setTimeout(() => setToast(null), 5000);
   };
@@ -53,8 +64,10 @@ export default function DialysisDischargeSummary() {
         `${Hmsbaseurl}dialysis_patient_details/?uhid=${encodeURIComponent(uhidValue.trim())}`,
         "GET"
       );
-      // apiRequest wraps response: array lives at res.data.data  (same pattern as OPPharmacy)
       const resBody = res?.data || res;
+      if (resBody?.already_saved_today) {
+        showToast("Note: A dialysis discharge summary has already been saved for this patient today.", "warning");
+      }
       const list = Array.isArray(resBody?.data)
         ? resBody.data
         : Array.isArray(resBody)
@@ -169,42 +182,27 @@ export default function DialysisDischargeSummary() {
       const res = await apiRequest(`${Hmsbaseurl}create_dialysis_discharge_summary/`, "POST", payload);
       console.log("API RESPONSE:", res);
 
-      const backendSuccess = res?.data?.success;
-      const backendMessage = res?.data?.message;
+      const backendSuccess = Boolean(
+        res?.data?.success !== undefined ? res.data.success : res?.success
+      );
+      const backendMessage =
+        res?.data?.message ||
+        res?.error ||
+        res?.message ||
+        (backendSuccess ? "Discharge summary saved successfully." : "Failed to save. Please try again.");
 
       if (!backendSuccess) {
-        showToast(backendMessage || "Failed to save. Please try again.", "error");
+        showToast(backendMessage, "error");
         setLoading(false);
         return;
       }
 
-      // Show toast FIRST — before any state resets — so React doesn't
-      // swallow the toast in the same batch as the form clear
-      showToast(backendMessage || "Discharge summary saved successfully.", "success");
+      showToast(backendMessage, "success");
 
-      // Reset form after toast is queued
-      setTimeout(() => {
-        setForm({
-          name: "",
-          age: "",
-          gender: "",
-          uhid: "",
-          consultant: "",
-          id_no: "",
-          insurance: "",
-          address: "",
-          diagnosis: "",
-          date_of_first_dialysis: TODAY,
-          date_of_last_dialysis: TODAY,
-          blood_investigations: buildDefaultBloodInvestigations(),
-          hd_sessions: buildDefaultHdSessions(),
-          complications_during_hd: buildDefaultComplications(),
-          condition_on_discharge: "",
-          advice_on_discharge: buildDefaultAdvice(),
-          next_hd_session_on: TODAY,
-        });
-        setActiveSection(0);
-      }, 300);
+      // Clear all fields on success
+      setForm(initialFormState());
+      setActiveSection(0);
+      setUhidError(null);
     } catch (err) {
       // Handle both Axios-style errors (err.response.data) and plain Error objects
       const errData = err?.response?.data || err?.data || {};
@@ -775,8 +773,8 @@ export default function DialysisDischargeSummary() {
  
       {/* ── Toast ── */}
       {toast && (
-        <div className="toast" style={{ background: toast.type === "error" ? "#ef4444" : "#22c55e" }}>
-          {toast.type === "error" ? "❌ " : "✅ "}{toast.message}
+        <div className="toast" style={{ background: toast.type === "error" ? "#ef4444" : toast.type === "warning" ? "#f59e0b" : "#22c55e" }}>
+          {toast.type === "error" ? "❌ " : toast.type === "warning" ? "⚠️ " : "✅ "}{toast.message}
         </div>
       )}
     </div>
