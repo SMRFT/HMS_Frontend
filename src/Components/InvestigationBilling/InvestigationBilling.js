@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import { useNavigate, useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
+import Swal from "sweetalert2";
 import apiRequest from "../../Auth/apiRequest";
 import PrintModal from "./PrintModal"; // ← fast in-page print modal
 import PatientSearchModal from "../Common/PatientSearchModal";
@@ -784,30 +786,61 @@ const InvestigationBilling = () => {
   // ── Product list management ─────────────────────────────────────────────────
 
   const addProduct = () => {
-    if (selectedItem && selectedPrice) {
-      const obj = items.find((item) => item.itemName === selectedItem);
-      const newProduct = {
-        itemName: selectedItem,
-        price: selectedPrice,
-        quantity: quantity,
-        billTypeNo: formData.billTypeNo,
-        nabh_code: obj?.nabh_code || "",
-        ...(obj?.test_id && { test_id: obj.test_id }),
-        ...(obj?.item_id && { item_id: obj.item_id }),
-      };
-      const updatedList = [...productList, newProduct];
-      setProductList(updatedList);
-      setFormData((prev) => ({ ...prev, item: JSON.stringify(updatedList) }));
-      setSelectedItem("");
-      setSelectedPrice("");
-      setQuantity(1);
+    if (!selectedItem) {
+      toast.warning("Please select an item!");
+      return;
     }
+    if (!selectedPrice && selectedPrice !== 0) {
+      toast.warning("Selected item price is missing!");
+      return;
+    }
+
+    const obj = items.find((item) => item.itemName === selectedItem);
+
+    // Validate if the same item is already added to the product list
+    const isDuplicate = productList.some((p) => {
+      const matchName =
+        p.itemName &&
+        selectedItem &&
+        p.itemName.trim().toLowerCase() === selectedItem.trim().toLowerCase();
+      const matchTestId =
+        p.test_id && obj?.test_id && String(p.test_id) === String(obj.test_id);
+      const matchItemId =
+        p.item_id && obj?.item_id && String(p.item_id) === String(obj.item_id);
+      return matchName || matchTestId || matchItemId;
+    });
+
+    if (isDuplicate) {
+      toast.error(`"${selectedItem}" is already added to the list!`);
+      return;
+    }
+
+    const newProduct = {
+      itemName: selectedItem,
+      price: selectedPrice,
+      quantity: quantity,
+      billTypeNo: formData.billTypeNo,
+      nabh_code: obj?.nabh_code || "",
+      ...(obj?.test_id && { test_id: obj.test_id }),
+      ...(obj?.item_id && { item_id: obj.item_id }),
+    };
+    const updatedList = [...productList, newProduct];
+    setProductList(updatedList);
+    setFormData((prev) => ({ ...prev, item: JSON.stringify(updatedList) }));
+    toast.success(`"${selectedItem}" added to bill.`);
+    setSelectedItem("");
+    setSelectedPrice("");
+    setQuantity(1);
   };
 
   const deleteProduct = (index) => {
+    const itemToDelete = productList[index];
     const updatedList = productList.filter((_, i) => i !== index);
     setProductList(updatedList);
     setFormData((prev) => ({ ...prev, item: JSON.stringify(updatedList) }));
+    if (itemToDelete?.itemName) {
+      toast.info(`"${itemToDelete.itemName}" removed.`);
+    }
   };
 
   // ── Patient search modal state & handlers ──────────────────────────────────
@@ -881,36 +914,45 @@ const InvestigationBilling = () => {
   const validateForm = () => {
     const ageVal = String(formData.calculatedAge || formData.age || "").trim();
     if (!ageVal) {
-      alert("Age is required!");
+      toast.warning("Age is required!");
       return false;
     }
     const ageTypeVal = String(formData.ageType || formData.age_type || "").trim();
     if (!ageTypeVal) {
-      alert("Age Type is required!");
+      toast.warning("Age Type is required!");
       return false;
     }
     if (!formData.doctor?.trim()) {
-      alert("Doctor is required!");
+      toast.warning("Doctor is required!");
       return false;
     }
     if (!formData.total || parseFloat(formData.total) <= 0) {
-      alert("Total amount is required!");
+      toast.warning("Total amount is required!");
       return false;
     }
     if (!formData.finalPrice || parseFloat(formData.finalPrice) <= 0) {
-      alert("Final Price is required!");
+      toast.warning("Final Price is required!");
       return false;
     }
     if (!formData.paymentMethod?.trim()) {
-      alert("Payment Method is required!");
+      toast.warning("Payment Method is required!");
       return false;
     }
     if (!productList?.length) {
-      alert("Please add at least one item!");
+      toast.warning("Please add at least one item!");
       return false;
     }
+    const seenItems = new Set();
+    for (const p of productList) {
+      const key = (p.itemName || "").trim().toLowerCase();
+      if (seenItems.has(key)) {
+        toast.error(`Duplicate item "${p.itemName}" found in the product list. Please remove duplicates!`);
+        return false;
+      }
+      seenItems.add(key);
+    }
     if (isEditMode && !formData.editRemarks?.trim()) {
-      alert("Edit Remarks is required!");
+      toast.warning("Edit Remarks is required!");
       return false;
     }
     return true;
@@ -985,12 +1027,16 @@ const InvestigationBilling = () => {
           toastMsg: "Estimate generated successfully!",
         });
       } else {
-        alert(
+        toast.error(
           "Estimate generated but estimate number not received from server!",
         );
       }
     } else {
-      alert(`Failed to save estimate: ${result.error}`);
+      Swal.fire({
+        icon: "error",
+        title: "Failed to Save Estimate",
+        text: result.error || "An error occurred while saving the estimate.",
+      });
     }
   };
 
@@ -1053,10 +1099,14 @@ const InvestigationBilling = () => {
           toastMsg: "Bill generated successfully!",
         });
       } else {
-        alert("Bill generated but bill number not received from server!");
+        toast.error("Bill generated but bill number not received from server!");
       }
     } else {
-      alert(`Failed to save bill: ${result.error}`);
+      Swal.fire({
+        icon: "error",
+        title: "Failed to Save Bill",
+        text: result.error || "An error occurred while saving the bill.",
+      });
     }
   };
 
