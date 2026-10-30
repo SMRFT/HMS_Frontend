@@ -49,13 +49,15 @@ const SecondaryButton = styled.button`
 `;
 
 const PatientPanel = styled.div`
-  background: ${colors.surface}80;
-  backdrop-filter: blur(8px);
-  border: 1px solid ${colors.border};
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  align-items: center;
+  gap: 16px;
   position: relative;
   overflow: hidden;
 
@@ -64,84 +66,111 @@ const PatientPanel = styled.div`
     position: absolute;
     top: 0;
     left: 0;
+    bottom: 0;
     width: 4px;
-    height: 100%;
-    background: ${colors.primary};
+    background: #0d8a7a;
+  }
+
+  .patient-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .patient-divider {
+    width: 1px;
+    height: 30px;
+    background: #e2e8f0;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 12px;
+
+    .patient-divider {
+      display: none;
+    }
   }
 `;
 
-const PatientHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px dashed ${colors.border};
-`;
-
 const PatientAvatar = styled.div`
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, ${colors.primary}20, ${colors.primary}40);
-  border-radius: 14px;
+  width: 34px;
+  height: 34px;
+  background: #e6f9f3;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: ${colors.primary};
-  font-size: 1.4rem;
+  color: #0d8a7a;
+  font-size: 0.9rem;
   font-weight: 800;
-  border: 1px solid ${colors.primary}30;
+  flex-shrink: 0;
 `;
 
 const PatientIdentity = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
 
   h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 0.95rem;
     font-weight: 800;
-    color: ${colors.textMain};
+    color: #0f172a;
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+    white-space: nowrap;
   }
 
   .sub-text {
-    font-size: 0.85rem;
-    color: ${colors.textMuted};
-    font-weight: 500;
+    font-size: 0.72rem;
+    color: #0d8a7a;
+    font-weight: 600;
+    white-space: nowrap;
   }
 `;
 
 const PatientGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px 24px;
-  @media (max-width: 1024px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  @media (max-width: 900px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 10px;
   }
 `;
 
 const FieldBox = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
+  min-width: 0;
 `;
 
 const FieldLabel = styled.span`
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   font-weight: 700;
-  color: ${colors.textMuted};
+  color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.4px;
 `;
 
 const FieldValue = styled.div`
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: ${colors.textMain};
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
 `;
 
 const StatusBadge = styled.span`
@@ -191,11 +220,33 @@ const ActionsBar = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  background: ${colors.surface};
-  padding: 12px 16px;
-  border: 1px solid ${colors.border};
+  margin-bottom: 12px;
+  background: white;
+  padding: 8px 16px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+
+  .history-count {
+    font-size: 0.85rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+`;
+
+const ViewHistoryBtn = styled.button`
+  background: #0d8a7a;
+  color: white;
+  border: none;
   border-radius: 8px;
+  padding: 7px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: #0f766e;
+  }
 `;
 
 // ─── Expand: History Details (SubTable) ───────────────────────────────────────
@@ -217,88 +268,141 @@ const SubTableWrapper = styled.div`
 const RequestFormWrapper = styled.div`
   display: grid;
   grid-template-columns: 1fr 340px;
-  gap: 0;
-  border: 1px solid ${colors.border};
-  border-radius: 8px;
-  overflow: hidden;
-  margin-bottom: 20px;
-  background: ${colors.white};
+  gap: 16px;
+  border: none;
+  background: transparent;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const FormPanel = styled.div`
-  padding: 20px 24px;
-  border-right: 1px solid ${colors.border};
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
 `;
 
 const FormRow = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 `;
 
 const FormLabel = styled.label`
   font-size: 0.8rem;
-  font-weight: 600;
-  color: ${colors.textMuted};
-  margin-bottom: 5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
   display: block;
 `;
 
 const FormSelect = styled.select`
   width: 100%;
-  border: 1px solid ${colors.border};
-  border-radius: 4px;
-  padding: 7px 10px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 8px 12px;
   font-size: 0.88rem;
-  background: ${colors.white};
+  background: white;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s;
+
   &:focus {
-    outline: none;
-    border-color: ${colors.primary};
+    border-color: #0d8a7a;
   }
 `;
 
 const FormInput = styled.input`
   width: 100%;
-  border: 1px solid ${colors.border};
-  border-radius: 4px;
-  padding: 7px 10px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 8px 12px;
   font-size: 0.88rem;
+  background: ${props => props.disabled ? "#f8fafc" : "white"};
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s;
+
   &:focus {
-    outline: none;
-    border-color: ${colors.primary};
+    border-color: #0d8a7a;
+  }
+
+  &::placeholder {
+    color: #94a3b8;
   }
 `;
 
+const HelperBanner = styled.div`
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fef3c7;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
 const SidePanel = styled.div`
-  background: #fdfdfd;
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
-  padding: 0;
+  overflow: hidden;
 `;
 
 const SidePanelHeader = styled.div`
-  background: #f1f5f7;
-  padding: 12px 16px;
+  background: white;
+  padding: 12px 18px;
   font-size: 0.85rem;
-  font-weight: 700;
-  color: ${colors.dark};
-  border-bottom: 1px solid ${colors.border};
+  font-weight: 800;
+  color: #0f172a;
+  border-bottom: 1.5px solid #f1f5f9;
   display: flex;
   justify-content: space-between;
+  align-items: center;
 `;
 
 const SidePanelContent = styled.div`
   flex: 1;
-  padding: 10px 16px;
-  max-height: 400px;
+  padding: 12px 18px;
+  min-height: 120px;
+  max-height: 180px;
   overflow-y: auto;
 `;
 
 const SidePanelFooter = styled.div`
-  padding: 16px;
-  border-top: 1px solid ${colors.border};
-  background: #f9fbfc;
+  padding: 14px 18px;
+  border-top: 1.5px solid #f1f5f9;
+  background: white;
+
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+
+    .label {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .amount {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #0d8a7a;
+    }
+  }
 `;
 
 const SelectedItem = styled.div`
@@ -306,48 +410,58 @@ const SelectedItem = styled.div`
   grid-template-columns: 1fr auto auto;
   gap: 8px;
   padding: 10px 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #f1f5f9;
   align-items: center;
 `;
 
 const RemoveBtn = styled.button`
   background: none;
   border: none;
-  color: #e53935;
+  color: #ef4444;
   cursor: pointer;
   font-size: 1.1rem;
   padding: 0 4px;
   display: flex;
   align-items: center;
+  transition: opacity 0.15s;
+
+  &:hover {
+    opacity: 0.7;
+  }
 `;
 
 const SaveBtn = styled.button`
-  background: ${colors.primary};
-  color: ${colors.white};
+  background: #73bba3;
+  color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
   padding: 10px 16px;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   width: 100%;
+  transition: background 0.15s;
+
   &:hover {
-    background: ${colors.primaryDark};
+    background: #5fa890;
   }
 `;
 
 const CancelBtn = styled.button`
-  background: ${colors.textMuted};
-  color: ${colors.white};
+  background: #627282;
+  color: white;
   border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
+  border-radius: 10px;
+  padding: 9px 16px;
   font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   width: 100%;
   margin-top: 8px;
+  transition: background 0.15s;
+
   &:hover {
-    opacity: 0.9;
+    background: #4f5e6e;
   }
 `;
 
@@ -358,29 +472,30 @@ const SearchWrapper = styled.div`
 
 const DropdownList = styled.ul`
   position: absolute;
-  top: 100%;
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
   background: white;
-  border: 1px solid ${colors.primary};
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   max-height: 200px;
   overflow-y: auto;
   z-index: 1000;
   margin: 0;
-  padding: 0;
+  padding: 4px 0;
   list-style: none;
-  border-radius: 0 0 4px 4px;
 `;
 
 const DropdownItem = styled.li`
-  padding: 10px 15px;
-  font-size: 0.88rem;
+  padding: 9px 14px;
+  font-size: 0.85rem;
   cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
   &:hover {
-    background: ${colors.background};
-    color: ${colors.primaryDark};
+    background: #f0fdf9;
+    color: #0d8a7a;
     font-weight: 600;
   }
   &:last-child {
@@ -419,14 +534,30 @@ const SearchableDropdown = ({ value, onChange, options, placeholder = "Select...
 
   return (
     <SearchWrapper ref={wrapperRef}>
-      <FormInput
-        type="text"
-        value={searchTerm}
-        onChange={(e) => { setSearchTerm(e.target.value); setIsOpen(true); }}
-        onFocus={() => setIsOpen(true)}
-        placeholder={placeholder}
-        disabled={disabled}
-      />
+      <div style={{ position: "relative" }}>
+        <FormInput
+          type="text"
+          value={searchTerm}
+          onChange={(e) => { setSearchTerm(e.target.value); setIsOpen(true); }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          disabled={disabled}
+          style={{ paddingRight: "30px", cursor: "pointer" }}
+        />
+        <span
+          style={{
+            position: "absolute",
+            right: "12px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            pointerEvents: "none",
+            color: "#64748b",
+            fontSize: "10px"
+          }}
+        >
+          ▼
+        </span>
+      </div>
       {isOpen && filtered.length > 0 && (
         <DropdownList>
           {filtered.map((opt, idx) => (
@@ -485,13 +616,33 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   const [search, setSearch] = useState("");
   const [showUpTo, setShowUpTo] = useState(10);
 
+  const formatAdmitDate = (dt) => {
+    if (!dt) return "-";
+    try {
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return dt;
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      const ampm = hours >= 12 ? "pm" : "am";
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const strHours = String(hours).padStart(2, "0");
+      return `${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
+    } catch (e) {
+      return dt;
+    }
+  };
+
   const pd = patient?.patient_details || {};
   const resolvedPatient = {
     ipNo: patient?.ipNumber || patient?.ip_number || patient?.ipNo || pd.ipNumber || "-",
     uhid: patient?.uhid || patient?.patient_id || pd.uhid || "-",
     name: patient?.patient_name || patient?.patientName || [patient?.salutation ?? pd.salutation, patient?.firstName ?? pd.firstName, patient?.lastName ?? pd.lastName].filter(Boolean).join(" ") || "Unknown Patient",
     address: patient?.address || pd.permanent_address || "-",
-    admitting: patient?.admissionDateTime ? new Date(patient.admissionDateTime).toLocaleString("en-GB") : "-",
+    admitting: formatAdmitDate(patient?.admissionDateTime || pd?.admissionDateTime),
     admittingDr: patient?.admittingDoctor || patient?.doctor_name || patient?.doctorName || pd?.admittingDoctor || "-",
     roomBed: `${patient?.roomNo || patient?.room_no || "-"} | ${patient?.bedNo || patient?.bed_no || "-"}`,
     customerType: patient?.customerType || patient?.customer_type || pd.customer_type || "-",
@@ -655,23 +806,24 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   ).slice(0, showUpTo);
 
   return (
-    <PageWrapper style={{ padding: "10px", minHeight: "600px" }}>
+    <div style={{ padding: "0", background: "transparent" }}>
       <PatientPanel>
-        <PatientHeader>
+        <div className="patient-left">
           <PatientAvatar>
             {resolvedPatient.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
           </PatientAvatar>
           <PatientIdentity>
             <h3>{resolvedPatient.name}</h3>
             <div className="sub-text">
-              UHID: {resolvedPatient.uhid} | IP No: {resolvedPatient.ipNo}
+              UHID: {resolvedPatient.uhid} · IP: {resolvedPatient.ipNo}
             </div>
           </PatientIdentity>
-        </PatientHeader>
+        </div>
+        <div className="patient-divider" />
         <PatientGrid>
           <FieldBox>
             <FieldLabel>Admitting Dr</FieldLabel>
-            <FieldValue>{resolvedPatient.admittingDr}</FieldValue>
+            <FieldValue title={resolvedPatient.admittingDr}>{resolvedPatient.admittingDr}</FieldValue>
           </FieldBox>
           <FieldBox>
             <FieldLabel>Room | Bed</FieldLabel>
@@ -686,21 +838,17 @@ export default function RadiologyWardRequest({ patient, onClose }) {
             <FieldValue>{resolvedPatient.admitting}</FieldValue>
           </FieldBox>
           <FieldBox>
-            <FieldLabel>Ward Name</FieldLabel>
-            <FieldValue>{resolvedPatient.wardName}</FieldValue>
-          </FieldBox>
-          <FieldBox>
             <FieldLabel>Address</FieldLabel>
-            <FieldValue style={{ fontSize: '0.85rem' }}>{resolvedPatient.address}</FieldValue>
+            <FieldValue title={resolvedPatient.address}>{resolvedPatient.address}</FieldValue>
           </FieldBox>
         </PatientGrid>
       </PatientPanel>
 
       <ActionsBar>
-        <div />
-        <Button onClick={() => { setShowRequestForm(!showRequestForm); if (!showRequestForm) setExpandedRow(null); }}>
+        <span className="history-count">{requests.length} previous radiology request(s)</span>
+        <ViewHistoryBtn onClick={() => { setShowRequestForm(!showRequestForm); if (!showRequestForm) setExpandedRow(null); }}>
           {showRequestForm ? "View History" : "+ New Other Request"}
-        </Button>
+        </ViewHistoryBtn>
       </ActionsBar>
 
       {showRequestForm ? (
@@ -773,9 +921,9 @@ export default function RadiologyWardRequest({ patient, onClose }) {
               </div>
             </FormRow>
             {!selectedBillType && (
-              <div style={{ marginTop: "20px", padding: "15px", background: "#FFF3E0", color: "#E65100", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 500 }}>
-                💡 Select a Bill Type to begin searching for investigations or packages.
-              </div>
+              <HelperBanner>
+                Select a Bill Type to begin searching for investigations or packages.
+              </HelperBanner>
             )}
           </FormPanel>
 
@@ -783,35 +931,33 @@ export default function RadiologyWardRequest({ patient, onClose }) {
             <SidePanelHeader>
               <span>Selected Items</span>
               <span>Cost</span>
-              <span></span>
             </SidePanelHeader>
             <SidePanelContent>
               {selectedTests.length === 0 ? (
-                <div style={{ padding: "40px 20px", textAlign: "center", color: colors.textMuted }}>
-                  <div style={{ fontSize: "2rem", marginBottom: "10px" }}>📋</div>
+                <div style={{ padding: "36px 12px", textAlign: "center", color: "#64748b", fontSize: "0.88rem" }}>
                   No items selected
                 </div>
               ) : (
                 selectedTests.map((t, idx) => (
                   <SelectedItem key={idx}>
                     <div style={{ display: "flex", flexDirection: "column" }}>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>{t.itemName}</span>
-                      {t.type === "package" && <small style={{ color: colors.primary }}>Pkg: {t.packageName}</small>}
+                      <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>{t.itemName}</span>
+                      {t.type === "package" && <small style={{ color: "#0d8a7a", fontWeight: "600" }}>Pkg: {t.packageName}</small>}
                     </div>
-                    <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>₹{parseFloat(t.price).toFixed(2)}</span>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#0d8a7a" }}>₹{parseFloat(t.price).toFixed(2)}</span>
                     <RemoveBtn onClick={() => setSelectedTests(selectedTests.filter((_, i) => i !== idx))}>✕</RemoveBtn>
                   </SelectedItem>
                 ))
               )}
             </SidePanelContent>
             <SidePanelFooter>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", borderTop: "1px solid #ccc", paddingTop: "12px" }}>
-                <strong style={{ color: colors.dark }}>Total Amount:</strong>
-                <strong style={{ color: colors.primaryDark, fontSize: "1.05rem" }}>
+              <div className="total-row">
+                <span className="label">Total Amount:</span>
+                <span className="amount">
                   ₹{selectedTests.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0).toFixed(2)}
-                </strong>
+                </span>
               </div>
-              <SaveBtn onClick={handleSave}>💾 Save Request</SaveBtn>
+              <SaveBtn onClick={handleSave}>Save Request</SaveBtn>
               <CancelBtn onClick={() => setShowRequestForm(false)}>✕ Cancel</CancelBtn>
             </SidePanelFooter>
           </SidePanel>
@@ -933,6 +1079,6 @@ export default function RadiologyWardRequest({ patient, onClose }) {
           </TableWrapper>
         </>
       )}
-    </PageWrapper>
+    </div>
   );
 }

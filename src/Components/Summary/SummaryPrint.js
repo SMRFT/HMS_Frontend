@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import SummaryHead from "../Images/SummaryHead.png";
@@ -13,16 +13,64 @@ const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .sp-shell { min-height: 100vh; background: #d6dce5; font-family: 'Source Sans 3', Arial, sans-serif; }
+  .sp-shell { min-height: 100vh; background: #d6dce5; font-family: 'Source Sans 3', Arial, sans-serif; overflow-x: hidden; }
 
   .sp-bar {
     position: sticky; top: 0; z-index: 999; background: #fff;
-    border-bottom: 2px solid #2563a8; padding: 10px 28px;
+    border-bottom: 2px solid #2563a8; padding: 10px 24px;
     display: flex; align-items: center; justify-content: space-between;
     box-shadow: 0 2px 12px rgba(0,0,0,0.12);
   }
+  .sp-bar-left { display: flex; align-items: center; gap: 14px; }
   .sp-bar-title { font-size: 20px; font-weight: 700; color: #1a3a6e; }
-  .sp-bar-sub   { font-size: 15px; color: #6b7a99; margin-top: 2px; }
+  .sp-bar-sub   { font-size: 14px; color: #6b7a99; margin-top: 2px; }
+  .sp-bar-actions { display: flex; align-items: center; gap: 10px; }
+
+  .sp-zoom-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1.5px solid #cbd5e1;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    margin: 14px auto 6px;
+    position: sticky;
+    top: 68px;
+    z-index: 990;
+    width: fit-content;
+  }
+  .sp-zoom-btn {
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #1e293b;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all .15s ease;
+    font-family: inherit;
+  }
+  .sp-zoom-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+  .sp-zoom-btn.active {
+    background: #2563a8;
+    color: #ffffff;
+    border-color: #2563a8;
+  }
+  .sp-zoom-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    min-width: 44px;
+    text-align: center;
+    user-select: none;
+  }
+
   .sp-btn {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 9px 22px; border: none; border-radius: 5px;
@@ -46,11 +94,69 @@ const GLOBAL_CSS = `
   }
   @keyframes sp-spin { to { transform: rotate(360deg); } }
 
-  .sp-pages { padding: 28px; display: flex; flex-direction: column; align-items: center; }
+  .sp-pages {
+    padding: 16px 8px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sp-page-scaler {
+    position: relative;
+    overflow: visible;
+    flex-shrink: 0;
+    transition: width 0.15s ease, height 0.15s ease;
+  }
 
   .preview-page {
     width: 794px; background: #fff;
     box-shadow: 0 4px 28px rgba(0,0,0,.20); border-radius: 2px;
+  }
+
+  @media (max-width: 768px) {
+    .sp-bar {
+      padding: 10px 14px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+    .sp-bar-left {
+      width: 100%;
+      gap: 10px;
+    }
+    .sp-bar-title {
+      font-size: 16px;
+    }
+    .sp-bar-sub {
+      font-size: 12px;
+    }
+    .sp-bar-actions {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+    .sp-bar-actions .sp-btn {
+      flex: 1;
+      justify-content: center;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .sp-bar-actions .sp-dropdown-container {
+      flex: 1;
+    }
+    .sp-bar-actions .sp-dropdown-container > .sp-btn {
+      width: 100%;
+      justify-content: center;
+    }
+    .sp-zoom-toolbar {
+      top: 106px;
+      margin: 8px auto 4px;
+      padding: 4px 10px;
+    }
   }
   .sp-outer-border {
     margin: 19px; border: 1px solid #aab4c6; display: flex; flex-direction: column;
@@ -364,27 +470,75 @@ const safeStr = (v) => (v != null ? String(v) : "");
 const safeUpper = (v) => (v != null ? String(v).toUpperCase() : "");
 const fmtDate = (d) => {
   if (!d) return "—";
-  try {
-    return new Date(d).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  } catch {
-    return safeStr(d);
+  if (typeof d === "string") {
+    const s = d.trim();
+    if (!s) return "—";
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s.replace(/-/g, "/");
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      const [y, m, day] = s.slice(0, 10).split("-");
+      return `${day}/${m}/${y}`;
+    }
   }
+  try {
+    const dt = new Date(d);
+    if (!isNaN(dt.getTime())) {
+      return dt.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    }
+  } catch { }
+  return safeStr(d);
 };
 const fmtTime = (t) => {
   if (!t) return "";
-  try {
-    return new Date(t).toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return safeStr(t);
+  if (typeof t === "string") {
+    const s = t.trim();
+    if (/^\d{1,2}:\d{2}(\s*(AM|PM))?$/i.test(s)) {
+      return s;
+    }
   }
+  try {
+    const dt = new Date(t);
+    if (!isNaN(dt.getTime())) {
+      return dt.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+  } catch { }
+  return safeStr(t);
+};
+
+const buildDoaDodText = (doa, doaTime, dod, dodTime) => {
+  const dStr = doa ? fmtDate(doa) : "—";
+  const tStr = fmtTime(doaTime) || "";
+  const dodStr = dod ? fmtDate(dod) : "—";
+  const dodTStr = fmtTime(dodTime) || "";
+  const doaLine = `DOA : ${dStr} ${tStr}`.trim();
+  const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
+  return `${doaLine}\n${dodLine}`;
+};
+
+const formatDoaDodWithExtras = (existingVal, doa, doaTime, dod, dodTime) => {
+  const autoText = buildDoaDodText(doa, doaTime, dod, dodTime);
+  const text = (existingVal || "").trim();
+  if (!text) return autoText;
+  let strVal = text;
+  if (!strVal.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(strVal)) {
+    strVal = strVal.replace(/(DOA\s*:[^D\n]*?)(DOD\s*:)/i, "$1\n$2");
+  }
+  const lines = strVal.split("\n");
+  const extraLines = lines.filter(
+    (l) => !/^DOA\s*:/i.test(l.trim()) && !/^DOD\s*:/i.test(l.trim())
+  );
+  if (extraLines.length > 0) {
+    return `${autoText}\n${extraLines.join("\n")}`.trim();
+  }
+  return autoText;
 };
 
 const getFieldValue = (fieldsDataArr, key, summaryData = null) => {
@@ -392,25 +546,34 @@ const getFieldValue = (fieldsDataArr, key, summaryData = null) => {
   let val = entry ? entry.value : undefined;
 
   if (key === "DOA AND DOD") {
-    if (val != null && String(val).trim()) {
-      let strVal = String(val);
-      // Fix if previously saved stuck together without newline
-      if (!strVal.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(strVal)) {
-        strVal = strVal.replace(/(DOA\s*:[^D\n]*?)(DOD\s*:)/i, "$1\n$2");
-      }
-      return strVal;
+    let strVal = val != null ? String(val) : "";
+    if (strVal && !strVal.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(strVal)) {
+      strVal = strVal.replace(/(DOA\s*:[^D\n]*?)(DOD\s*:)/i, "$1\n$2");
     }
-    if (summaryData) {
-      const dStr = summaryData.doa ? fmtDate(summaryData.doa) : "";
-      const tStr = fmtTime(summaryData.doaTime) || "";
-      const dodStr = summaryData.dod ? fmtDate(summaryData.dod) : "";
-      const dodTStr = fmtTime(summaryData.dodTime) || "";
-      const doaLine = `DOA : ${dStr} ${tStr}`.trim();
-      const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
-      if (doaLine || dodLine) {
-        return `${doaLine}\n${dodLine}`;
-      }
+
+    if (summaryData && (summaryData.doa || summaryData.dod)) {
+      return formatDoaDodWithExtras(
+        strVal,
+        summaryData.doa,
+        summaryData.doaTime,
+        summaryData.dod,
+        summaryData.dodTime
+      );
     }
+
+    const hasDoaInVal = /^DOA\s*:/im.test(strVal);
+    const hasDodInVal = /^DOD\s*:/im.test(strVal);
+    if (!hasDoaInVal && !hasDodInVal) {
+      return formatDoaDodWithExtras(
+        strVal,
+        summaryData?.doa,
+        summaryData?.doaTime,
+        summaryData?.dod,
+        summaryData?.dodTime
+      );
+    }
+
+    return strVal || undefined;
   }
 
   return val;
@@ -456,19 +619,110 @@ const SummaryPrint = () => {
   const { ipNo, ip_no } = useParams();
   const targetIpNo = ipNo || ip_no;
   const navigate = useNavigate();
+  const location = useLocation();
   const bodyRef = useRef(null);
+  const pageRef = useRef(null);
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showSendDropdown, setShowSendDropdown] = useState(false);
-  const [clinicalNotesOrder, setClinicalNotesOrder] = useState([]);
   const [previewTotalPages, setPreviewTotalPages] = useState(1);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [isAutoFit, setIsAutoFit] = useState(true);
+  const [pageHeight, setPageHeight] = useState(1123);
+  const previewScaleRef = useRef(1);
+  previewScaleRef.current = zoomScale;
+
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  const computeFitScale = () => {
+    if (typeof window === "undefined") return 1;
+    const screenW = window.innerWidth;
+    if (screenW >= 840) return 1;
+    const availW = Math.max(280, screenW - 16);
+    return Math.min(1, Math.max(0.3, +(availW / 794).toFixed(3)));
+  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (isAutoFit) {
+        setZoomScale(computeFitScale());
+      }
+    };
+    setZoomScale(computeFitScale());
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isAutoFit]);
+
+  useEffect(() => {
+    if (!pageRef.current) return;
+    const updateH = () => {
+      if (pageRef.current) {
+        setPageHeight(pageRef.current.offsetHeight || pageRef.current.scrollHeight || 1123);
+      }
+    };
+    updateH();
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => updateH());
+      ro.observe(pageRef.current);
+    }
+    const t = setTimeout(updateH, 500);
+    return () => {
+      clearTimeout(t);
+      if (ro) ro.disconnect();
+    };
+  }, [summaryData]);
+
+  const getFilterDate = (val) => {
+    if (!val) return "";
+    if (typeof val === "string") {
+      const isoMatch = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+      const dmyMatch = val.match(/^(\d{2})[-/](\d{2})[-/](\d{4})/);
+      if (dmyMatch) return `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
+      const dt = new Date(val);
+      if (!isNaN(dt.getTime())) {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, "0");
+        const d = String(dt.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+    } else if (val instanceof Date && !isNaN(val.getTime())) {
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, "0");
+      const d = String(val.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+    return "";
+  };
+
+  const handleBack = () => {
+    const ip = targetIpNo || summaryData?.ipNo || location.state?.ipNo || "";
+    const rawDate =
+      summaryData?.date ||
+      location.state?.date ||
+      summaryData?.created_date ||
+      summaryData?.dod ||
+      summaryData?.doa ||
+      "";
+    const dateStr = getFilterDate(rawDate);
+
+    navigate("/Summary", {
+      state: {
+        archiveFilter: {
+          ipNo: ip,
+          date: dateStr,
+        },
+      },
+    });
+  };
 
   useEffect(() => {
     if (!summaryData) return;
     const calculatePages = () => {
       if (!bodyRef.current) return;
       const bodyRect = bodyRef.current.getBoundingClientRect();
+      const curScale = previewScaleRef.current || 1;
       const allBlocks = Array.from(
         bodyRef.current.querySelectorAll("[data-block-top]")
       );
@@ -476,7 +730,7 @@ const SummaryPrint = () => {
       for (const el of [...allBlocks, ...Array.from(bodyRef.current.children)]) {
         const r = el.getBoundingClientRect();
         if (r.height > 0) {
-          const bot = r.bottom - bodyRect.top;
+          const bot = (r.bottom - bodyRect.top) / curScale;
           if (bot > contentH) contentH = bot;
         }
       }
@@ -494,25 +748,7 @@ const SummaryPrint = () => {
     calculatePages();
     const timer = setTimeout(calculatePages, 400);
     return () => clearTimeout(timer);
-  }, [summaryData, clinicalNotesOrder]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await apiRequest(`${HMSURL}summary-clinical-notes/`, "GET");
-        if (r.success && Array.isArray(r.data) && r.data.length > 0) {
-          const sorted = [...r.data].sort(
-            (a, b) => (Number(a.title_no) || 0) - (Number(b.title_no) || 0)
-          );
-          setClinicalNotesOrder(
-            sorted.map((item) => item.title_name).filter(Boolean)
-          );
-        }
-      } catch (err) {
-        console.error("Failed to fetch clinical notes order:", err);
-      }
-    })();
-  }, [HMSURL]);
+  }, [summaryData]);
 
   useEffect(() => {
     const id = "summary-print-css";
@@ -618,6 +854,10 @@ const SummaryPrint = () => {
 
       /* ── STEP B: collect repeatable thead metadata ── */
       const bodyRect = bodyRef.current.getBoundingClientRect();
+      const curScale = previewScaleRef.current || 1;
+      const getRelTop = (r) => ((r.top - bodyRect.top) / curScale) * SCALE;
+      const getRelBot = (r) => ((r.bottom - bodyRect.top) / curScale) * SCALE;
+
       const theadNodes = bodyRef.current.querySelectorAll(
         "thead[data-thead-id]",
       );
@@ -630,14 +870,14 @@ const SummaryPrint = () => {
         const thRect = thead.getBoundingClientRect();
         const tbRect = tbl.getBoundingClientRect();
 
-        const theadTop = (thRect.top - bodyRect.top) * SCALE;
-        const theadBot = (thRect.bottom - bodyRect.top) * SCALE;
-        const tableBottom = (tbRect.bottom - bodyRect.top) * SCALE;
+        const theadTop = getRelTop(thRect);
+        const theadBot = getRelBot(thRect);
+        const tableBottom = getRelBot(tbRect);
         const theadH = Math.round(theadBot - theadTop);
 
         const blockEl = tbl.closest("[data-block-top]");
         const blockTop = blockEl
-          ? (blockEl.getBoundingClientRect().top - bodyRect.top) * SCALE
+          ? getRelTop(blockEl.getBoundingClientRect())
           : theadTop;
 
         // Crop thead strip directly from bodyCanvas
@@ -671,24 +911,22 @@ const SummaryPrint = () => {
       const allTables = Array.from(bodyRef.current.querySelectorAll("table"));
       const tableBoundaries = allTables.map((tbl) => {
         const tbRect = tbl.getBoundingClientRect();
-        const tableTop = (tbRect.top - bodyRect.top) * SCALE;
-        const tableBottom = (tbRect.bottom - bodyRect.top) * SCALE;
+        const tableTop = getRelTop(tbRect);
+        const tableBottom = getRelBot(tbRect);
 
         const theadEl = tbl.querySelector("thead");
         const theadBot = theadEl
-          ? (theadEl.getBoundingClientRect().bottom - bodyRect.top) * SCALE
+          ? getRelBot(theadEl.getBoundingClientRect())
           : tableTop;
 
         const blockEl = tbl.closest("[data-block-top]");
         const blockTop = blockEl
-          ? (blockEl.getBoundingClientRect().top - bodyRect.top) * SCALE
+          ? getRelTop(blockEl.getBoundingClientRect())
           : tableTop;
 
         const tbodyRows = Array.from(tbl.querySelectorAll("tbody tr"));
         const rowBounds = tbodyRows
-          .map(
-            (tr) => (tr.getBoundingClientRect().bottom - bodyRect.top) * SCALE,
-          )
+          .map((tr) => getRelBot(tr.getBoundingClientRect()))
           .filter((b) => b > theadBot && b <= tableBottom + 1);
 
         return { blockTop, tableTop, theadBot, tableBottom, rowBounds };
@@ -702,8 +940,8 @@ const SummaryPrint = () => {
         .map((el) => {
           const r = el.getBoundingClientRect();
           return {
-            elTop: (r.top - bodyRect.top) * SCALE,
-            elBot: (r.bottom - bodyRect.top) * SCALE,
+            elTop: getRelTop(r),
+            elBot: getRelBot(r),
           };
         });
 
@@ -715,7 +953,7 @@ const SummaryPrint = () => {
       for (const el of [...allBlocks, ...Array.from(bodyRef.current.children)]) {
         const r = el.getBoundingClientRect();
         if (r.height > 0) {
-          const bot = Math.round((r.bottom - bodyRect.top) * SCALE);
+          const bot = Math.round(getRelBot(r));
           if (bot > contentBottom) contentBottom = bot;
         }
       }
@@ -1508,12 +1746,6 @@ const SummaryPrint = () => {
       );
     };
 
-    const extraKeys = (fieldsData || [])
-      .map((f) => f.key)
-      .filter((k) => k && !clinicalNotesOrder.includes(k));
-
-    const SECTION_ORDER = [...clinicalNotesOrder, ...extraKeys];
-
     const contRows = [
       ["Name", safeStr(summaryData.patient)],
       ["IP No", safeStr(summaryData.ipNo)],
@@ -1538,8 +1770,8 @@ const SummaryPrint = () => {
     });
 
     const getDocTitle = () => {
-      const sType = safeStr(summaryData.summaryType);
-      const sHeading = safeStr(summaryData.heading);
+      const sType = safeStr(summaryData.summaryType).trim();
+      const sHeading = safeStr(summaryData.heading).trim();
       if (sType && sHeading) return `${sType} - ${sHeading}`;
       return sType || sHeading || "DISCHARGE SUMMARY";
     };
@@ -1548,11 +1780,11 @@ const SummaryPrint = () => {
       <div className="sp-shell">
         {/* ── Action bar ── */}
         <div className="sp-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div className="sp-bar-left">
             <button
               className="sp-btn sp-btn-back"
-              onClick={() => navigate(-1)}
-              title="Go Back"
+              onClick={handleBack}
+              title="Go Back to Discharge Summaries Archive"
             >
               <svg
                 width="15"
@@ -1576,7 +1808,7 @@ const SummaryPrint = () => {
             </div>
           </div>
           {isApproved ? (
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div className="sp-bar-actions">
               <button
                 className="sp-btn sp-btn-primary"
                 onClick={() => handlePrint(false)}
@@ -1700,8 +1932,71 @@ const SummaryPrint = () => {
           )}
         </div>
 
+        {/* ── Zoom Controls for Mobile & Desktop ── */}
+        <div className="sp-zoom-toolbar">
+          <button
+            type="button"
+            className="sp-zoom-btn"
+            onClick={() => {
+              setIsAutoFit(false);
+              setZoomScale((s) => Math.max(0.3, +(s - 0.1).toFixed(2)));
+            }}
+            title="Zoom out"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className={`sp-zoom-btn ${isAutoFit ? "active" : ""}`}
+            onClick={() => {
+              setIsAutoFit(true);
+              setZoomScale(computeFitScale());
+            }}
+            title="Fit to Screen width"
+          >
+            Fit Screen
+          </button>
+          <span className="sp-zoom-text">{Math.round(zoomScale * 100)}%</span>
+          <button
+            type="button"
+            className={`sp-zoom-btn ${zoomScale === 1 && !isAutoFit ? "active" : ""}`}
+            onClick={() => {
+              setIsAutoFit(false);
+              setZoomScale(1);
+            }}
+            title="Actual 100% size"
+          >
+            100%
+          </button>
+          <button
+            type="button"
+            className="sp-zoom-btn"
+            onClick={() => {
+              setIsAutoFit(false);
+              setZoomScale((s) => Math.min(2.0, +(s + 0.1).toFixed(2)));
+            }}
+            title="Zoom in"
+          >
+            +
+          </button>
+        </div>
+
         <div className="sp-pages">
-          <div className="preview-page">
+          <div
+            className="sp-page-scaler"
+            style={{
+              width: Math.round(794 * zoomScale),
+              height: pageHeight ? Math.round(pageHeight * zoomScale) : "auto",
+            }}
+          >
+            <div
+              ref={pageRef}
+              className="preview-page"
+              style={{
+                transform: `scale(${zoomScale})`,
+                transformOrigin: "top left",
+              }}
+            >
             <div className="sp-outer-border">
               <img src={SummaryHead} alt="Header" className="sp-header-img" />
               <div className="sp-doc-title">
@@ -1751,22 +2046,24 @@ const SummaryPrint = () => {
               </div>
 
               <div className="sp-body" ref={bodyRef}>
-                {SECTION_ORDER.map((key) => {
-                  const content = getFieldValue(fieldsData, key, summaryData);
+                {fieldsData.map((item, idx) => {
+                  const key = item.key;
+                  if (!key) return null;
+                  const content = getFieldValue(fieldsData, key, summaryData) ?? item.value;
                   const hasContent = content && String(content).trim();
                   const hasLab =
                     key === "INVESTIGATIONS" &&
                     summaryData.testdetails?.length > 0;
                   if (!hasContent && !hasLab) return null;
                   return (
-                    <div key={key} className="sp-section" data-block-top="true">
+                    <div key={key || idx} className="sp-section" data-block-top="true">
                       <div className="sp-section-title">{key}</div>
                       {hasContent && (
                         <div className="sp-section-content">
                           {String(content)
                             .split("\n")
-                            .map((line, idx) => (
-                              <div key={idx} style={{ minHeight: "1.4em" }}>
+                            .map((line, lIdx) => (
+                              <div key={lIdx} style={{ minHeight: "1.4em" }}>
                                 {renderFormattedText(line)}
                               </div>
                             ))}
@@ -1779,14 +2076,31 @@ const SummaryPrint = () => {
                 <div className="sp-explained" data-block-top="true">
                   <div className="sp-explained-col">
                     <div className="sp-explained-title">Explained By</div>
-                    <div className="sp-explained-field">Doctor Name :</div>
+                    <div className="sp-explained-field">
+                      Doctor Name :{" "}
+                      <strong style={{ fontWeight: 700, color: "#0f172a" }}>
+                        {safeStr(
+                          summaryData.explainedBy ||
+                            (summaryData.doctor
+                              ? summaryData.doctor.toUpperCase().startsWith("DR.")
+                                ? summaryData.doctor
+                                : `Dr. ${summaryData.doctor}`
+                              : "")
+                        )}
+                      </strong>
+                    </div>
                     <div className="sp-explained-field">Signature :</div>
                   </div>
                   <div className="sp-explained-col">
                     <div className="sp-explained-title">
                       Explained To Patient / Attender
                     </div>
-                    <div className="sp-explained-field">Name :</div>
+                    <div className="sp-explained-field">
+                      Name :{" "}
+                      <strong style={{ fontWeight: 700, color: "#0f172a" }}>
+                        {safeStr(summaryData.explainedTo || summaryData.patient)}
+                      </strong>
+                    </div>
                     <div className="sp-explained-field">Signature :</div>
                   </div>
                 </div>
@@ -1870,6 +2184,7 @@ const SummaryPrint = () => {
             </div>
           </div>
         </div>
+      </div>
 
         {/* ══ HIDDEN STRIPS — PDF capture only ══ */}
 

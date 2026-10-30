@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
+import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
 import TablePagination, { usePagination } from './TablePagination';
@@ -100,6 +102,10 @@ const StoresPurchaseReturn = () => {
     const [returnsList, setReturnsList] = useState([]);
     const [grnList, setGrnList] = useState([]);
     const [vendors, setVendors] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
+    useStoresDepartment((newDept) => setSelectedDepartment(newDept || ''));
+    const departmentFilterRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [fromDate, setFromDate] = useState(oneMonthAgo);
@@ -107,7 +113,26 @@ const StoresPurchaseReturn = () => {
     const [selectedVendor, setSelectedVendor] = useState('');
     const [totalReturnValue, setTotalReturnValue] = useState(0);
 
+    // F10 Shortcut to focus Department filter
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                departmentFilterRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     const filteredReturns = returnsList.filter(ret => {
+        if (selectedDepartment) {
+            const matchedGrn = grnList.find(g => String(g.grn_number).toLowerCase() === String(ret.grn_number).toLowerCase());
+            const dept = (ret.department_name || ret.department || matchedGrn?.department_name || matchedGrn?.department || '').toLowerCase().trim();
+            const target = selectedDepartment.toLowerCase().trim();
+            if (dept !== target && !dept.includes(target)) return false;
+        }
+
         if (!searchTerm) return true;
         const q = searchTerm.toLowerCase();
         const retId = (ret.return_id || '').toLowerCase();
@@ -142,8 +167,21 @@ const StoresPurchaseReturn = () => {
     useEffect(() => {
         fetchVendors();
         fetchGrns();
+        fetchDepartments();
         fetchReturns();
     }, []);
+
+    const fetchDepartments = async () => {
+        try {
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`);
+            if (res && res.success) {
+                const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+                setDepartments(list);
+            }
+        } catch (err) {
+            console.error("Error fetching departments:", err);
+        }
+    };
 
     const fetchVendors = async () => {
         try {
@@ -738,6 +776,14 @@ const StoresPurchaseReturn = () => {
                         <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>To Date</label>
                         <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} style={{ width: '100%' }} />
                     </div>
+                    <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <DepartmentFilterControl
+                            departments={departments}
+                            onDepartmentChange={(dept) => {
+                                setSelectedDepartment(dept || '');
+                            }}
+                        />
+                    </div>
                     <div style={{ flex: '1 1 220px', minWidth: '190px' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Supplier / Vendor</label>
                         <ReactSelect
@@ -770,7 +816,7 @@ const StoresPurchaseReturn = () => {
                         <Button onClick={fetchReturns} style={{ background: '#dc2626', color: '#fff', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600' }}>
                             <Search size={16} /> Filter
                         </Button>
-                        <Button onClick={() => { setFromDate(oneMonthAgo); setToDate(today); setSelectedVendor(''); setSearchTerm(''); setTimeout(fetchReturns, 50); }} style={{ background: '#e2e8f0', color: colors.textMain, padding: '9px 14px', borderRadius: '8px', border: 'none' }}>
+                        <Button onClick={() => { setFromDate(oneMonthAgo); setToDate(today); setSelectedVendor(''); setSelectedDepartment(''); setSearchTerm(''); setTimeout(fetchReturns, 50); }} style={{ background: '#e2e8f0', color: colors.textMain, padding: '9px 14px', borderRadius: '8px', border: 'none' }}>
                             <RefreshCw size={16} />
                         </Button>
                     </div>

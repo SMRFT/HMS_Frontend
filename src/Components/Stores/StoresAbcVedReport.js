@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import styled, { keyframes, createGlobalStyle } from 'styled-components';
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
+import ReactSelect from 'react-select';
 import { Search, Download, Printer, RefreshCw, FilterX, AlertTriangle, ShieldCheck, DollarSign, Layers, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 
@@ -326,6 +327,73 @@ const Select = styled.select`
     }
 `;
 
+const customSelectStyles = {
+    control: (provided, state) => ({
+        ...provided,
+        minHeight: '38px',
+        height: '38px',
+        borderRadius: '8px',
+        borderColor: state.isFocused ? '#2563eb' : '#cbd5e1',
+        boxShadow: state.isFocused ? '0 0 0 3px rgba(37, 99, 235, 0.1)' : 'none',
+        fontSize: '0.85rem',
+        backgroundColor: '#ffffff',
+        '&:hover': {
+            borderColor: '#2563eb'
+        }
+    }),
+    valueContainer: (provided) => ({
+        ...provided,
+        height: '38px',
+        padding: '0 10px'
+    }),
+    input: (provided) => ({
+        ...provided,
+        margin: '0px',
+        fontSize: '0.85rem'
+    }),
+    indicatorsContainer: (provided) => ({
+        ...provided,
+        height: '38px'
+    }),
+    menu: (provided) => ({
+        ...provided,
+        zIndex: 9999,
+        fontSize: '0.85rem',
+        borderRadius: '8px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+    }),
+    menuPortal: (provided) => ({
+        ...provided,
+        zIndex: 9999
+    }),
+    option: (provided, state) => ({
+        ...provided,
+        backgroundColor: state.isSelected
+            ? '#2563eb'
+            : state.isFocused
+            ? '#eff6ff'
+            : '#ffffff',
+        color: state.isSelected ? '#ffffff' : '#1e293b',
+        cursor: 'pointer',
+        fontSize: '0.85rem',
+        padding: '8px 12px'
+    })
+};
+
+const abcOptions = [
+    { value: 'ALL', label: 'All ABC Classes' },
+    { value: 'A', label: 'Class A (Top 70% Spend)' },
+    { value: 'B', label: 'Class B (Next 20% Spend)' },
+    { value: 'C', label: 'Class C (Low Spend)' }
+];
+
+const vedOptions = [
+    { value: 'ALL', label: 'All VED Criticalities' },
+    { value: 'V', label: 'V - Vital (Operation Stops)' },
+    { value: 'E', label: 'E - Essential (Quality Degraded)' },
+    { value: 'D', label: 'D - Desirable (Minor Impact)' }
+];
+
 const ActionButton = styled.button`
     display: flex;
     align-items: center;
@@ -476,6 +544,17 @@ const PrintOnlyHeader = styled.div`
 const StoresAbcVedReport = () => {
     const [loading, setLoading] = useState(false);
     const [rawItems, setRawItems] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [departmentFilter, setDepartmentFilter] = useState('ALL');
+    const departmentFilterRef = useRef(null);
+
+    const departmentOptions = useMemo(() => [
+        { value: 'ALL', label: 'All Departments (F10)' },
+        ...departments.map((d) => ({
+            value: String(d.department_code || d.department_id || d.id || d.department_name),
+            label: d.department_name || d.name || String(d.department_id)
+        }))
+    ], [departments]);
     const [search, setSearch] = useState('');
     const [abcFilter, setAbcFilter] = useState('ALL');
     const [vedFilter, setVedFilter] = useState('ALL');
@@ -488,6 +567,18 @@ const StoresAbcVedReport = () => {
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // F10 Shortcut to focus Department filter
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                departmentFilterRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const fetchItemsData = async () => {
         setLoading(true);
@@ -506,8 +597,21 @@ const StoresAbcVedReport = () => {
         }
     };
 
+    const fetchDepartments = async () => {
+        try {
+            const url = `${Hmsbaseurl.replace(/\/$/, '')}/department-master/`;
+            const response = await apiRequest(url, 'GET');
+            if (response.success && Array.isArray(response.data)) {
+                setDepartments(response.data);
+            }
+        } catch (err) {
+            console.error('Error fetching departments:', err);
+        }
+    };
+
     useEffect(() => {
         fetchItemsData();
+        fetchDepartments();
     }, []);
 
     // Dynamic ABC Calculation Engine & Cumulative Value Ranking
@@ -638,6 +742,26 @@ const StoresAbcVedReport = () => {
                 if (!matchesName && !matchesId && !matchesHsn) return false;
             }
 
+            if (departmentFilter && departmentFilter !== 'ALL') {
+                const itemDept = String(item.department || item.department_name || item.department_id || '').toLowerCase().trim();
+                const target = String(departmentFilter).toLowerCase().trim();
+                const matchedDeptObj = departments.find(d => 
+                    String(d.department_code || d.department_id || d.id || d.department_name).toLowerCase() === target
+                );
+                const deptName = matchedDeptObj ? String(matchedDeptObj.department_name || '').toLowerCase() : '';
+                const deptCode = matchedDeptObj ? String(matchedDeptObj.department_code || '').toLowerCase() : '';
+                const deptId = matchedDeptObj ? String(matchedDeptObj.department_id || matchedDeptObj.id || '').toLowerCase() : '';
+
+                const matches = (
+                    itemDept === target ||
+                    itemDept.includes(target) ||
+                    (deptName && (itemDept === deptName || itemDept.includes(deptName))) ||
+                    (deptCode && itemDept === deptCode) ||
+                    (deptId && itemDept === deptId)
+                );
+                if (!matches) return false;
+            }
+
             if (abcFilter !== 'ALL' && item.abc_category !== abcFilter) return false;
             if (vedFilter !== 'ALL' && item.ved_category !== vedFilter) return false;
             if (selectedMatrixCell && item.matrixCode !== selectedMatrixCell) return false;
@@ -648,12 +772,12 @@ const StoresAbcVedReport = () => {
 
             return true;
         });
-    }, [processedItems, search, abcFilter, vedFilter, selectedMatrixCell, lowStockOnly]);
+    }, [processedItems, search, departmentFilter, abcFilter, vedFilter, selectedMatrixCell, lowStockOnly, departments]);
 
     // Reset pagination to page 1 whenever filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, abcFilter, vedFilter, selectedMatrixCell, lowStockOnly, itemsPerPage]);
+    }, [search, departmentFilter, abcFilter, vedFilter, selectedMatrixCell, lowStockOnly, itemsPerPage]);
 
     // Paginated Items Slice (If printing, render ALL filtered items)
     const totalPages = useMemo(() => {
@@ -669,6 +793,7 @@ const StoresAbcVedReport = () => {
 
     const handleClearFilters = () => {
         setSearch('');
+        setDepartmentFilter('ALL');
         setAbcFilter('ALL');
         setVedFilter('ALL');
         setSelectedMatrixCell(null);
@@ -861,19 +986,45 @@ const StoresAbcVedReport = () => {
                         </SearchInputWrapper>
 
                         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <Select value={abcFilter} onChange={(e) => setAbcFilter(e.target.value)}>
-                                <option value="ALL">All ABC Classes</option>
-                                <option value="A">Class A (Top 70% Spend)</option>
-                                <option value="B">Class B (Next 20% Spend)</option>
-                                <option value="C">Class C (Low Spend)</option>
-                            </Select>
+                            <div style={{ minWidth: '220px', flex: '1 1 200px' }}>
+                                <ReactSelect
+                                    ref={departmentFilterRef}
+                                    options={departmentOptions}
+                                    value={departmentOptions.find(opt => opt.value === departmentFilter) || departmentOptions[0]}
+                                    onChange={(opt) => setDepartmentFilter(opt ? opt.value : 'ALL')}
+                                    styles={customSelectStyles}
+                                    menuPortalTarget={document.body}
+                                    isSearchable
+                                    openMenuOnFocus
+                                    placeholder="All Departments (F10)"
+                                />
+                            </div>
 
-                            <Select value={vedFilter} onChange={(e) => setVedFilter(e.target.value)}>
-                                <option value="ALL">All VED Criticalities</option>
-                                <option value="V">V - Vital (Operation Stops)</option>
-                                <option value="E">E - Essential (Quality Degraded)</option>
-                                <option value="D">D - Desirable (Minor Impact)</option>
-                            </Select>
+                            <div style={{ minWidth: '180px', flex: '1 1 160px' }}>
+                                <ReactSelect
+                                    options={abcOptions}
+                                    value={abcOptions.find(opt => opt.value === abcFilter) || abcOptions[0]}
+                                    onChange={(opt) => setAbcFilter(opt ? opt.value : 'ALL')}
+                                    styles={customSelectStyles}
+                                    menuPortalTarget={document.body}
+                                    isSearchable
+                                    openMenuOnFocus
+                                    placeholder="All ABC Classes"
+                                />
+                            </div>
+
+                            <div style={{ minWidth: '190px', flex: '1 1 170px' }}>
+                                <ReactSelect
+                                    options={vedOptions}
+                                    value={vedOptions.find(opt => opt.value === vedFilter) || vedOptions[0]}
+                                    onChange={(opt) => setVedFilter(opt ? opt.value : 'ALL')}
+                                    styles={customSelectStyles}
+                                    menuPortalTarget={document.body}
+                                    isSearchable
+                                    openMenuOnFocus
+                                    placeholder="All VED Criticalities"
+                                />
+                            </div>
 
                             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: '600', color: lowStockOnly ? '#dc2626' : '#64748b', cursor: 'pointer' }}>
                                 <input

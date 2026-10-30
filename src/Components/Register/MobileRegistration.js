@@ -441,9 +441,13 @@ const MobileRegistration = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    let finalValue = value;
+    if (name === "emergencyContact" || name === "mobilePhone") {
+      finalValue = value.replace(/\D/g, "").slice(0, 10);
+    }
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: finalValue
     }));
   };
 

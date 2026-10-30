@@ -360,6 +360,23 @@ const SingleFrontOfficeReport = ({ reportType, startDate, endDate }) => {
         return data.slice(start, start + pageSize);
     };
 
+    const allowedActions = (() => {
+        try {
+            return JSON.parse(localStorage.getItem("allowedActions") || "[]");
+        } catch {
+            return [];
+        }
+    })();
+    const canExport = !allowedActions.length ||
+        allowedActions.includes("HMS-R-SA") ||
+        allowedActions.includes("SUPERADMIN") ||
+        allowedActions.some(a => 
+            a.startsWith("HMS-P-FOR-RW") || 
+            a.startsWith("EXPORT-FOR") || 
+            a.startsWith("HMS-P-AIN-RW") ||
+            a === "HMS-ADMIN"
+        );
+
     const handleExport = () => {
         const data = getFilteredData();
         if (data.length === 0) {
@@ -369,31 +386,49 @@ const SingleFrontOfficeReport = ({ reportType, startDate, endDate }) => {
         let exportData = [];
         if (reportType === 'referred_patients' || reportType === 'op_patients') {
             exportData = data.map(r => ({
-                "UHID": r.uhid, "Name": `${r.firstName} ${r.lastName}`, "Age/Gender": `${r.age}/${r.gender}`,
-                "Mobile": r.mobilePhone, "Reg Date": dayjs(r.created_date).format('DD-MM-YYYY'),
-                "Referred By": r.referredBy || 'Direct', "Doctor": r.doctorName || 'N/A'
+                "UHID": r.uhid || '',
+                "Name": r.patient_name || `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'N/A',
+                "Age/Gender": `${r.age || '-'}/${r.gender || '-'}`,
+                "Mobile": r.mobilePhone || '',
+                "Reg Date": r.created_date ? dayjs(r.created_date).format('DD-MM-YYYY') : '',
+                "Referred By": r.referredBy || 'Direct',
+                "Doctor": r.doctorName || 'N/A'
             }));
         } else if (reportType === 'admission_register' || reportType === 'doctor_wise_admission') {
             exportData = data.map(r => ({
-                "IP No": r.ipNumber, "UHID": r.uhid, "Patient Name": r.patient_name,
-                "Admission Date": dayjs(r.admissionDateTime).format('DD-MM-YYYY HH:mm'),
-                "Doctor": r.admittingDoctor, "Reason": r.reasonForAdmission || ''
+                "IP No": r.ipNumber || '',
+                "UHID": r.uhid || '',
+                "Patient Name": r.patient_name || `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'N/A',
+                "Admission Date": r.admissionDateTime ? dayjs(r.admissionDateTime).format('DD-MM-YYYY HH:mm') : '',
+                "Doctor": r.admittingDoctor || 'N/A',
+                "Reason": r.reasonForAdmission || ''
             }));
         } else if (reportType === 'discharge_register') {
             exportData = data.map(r => ({
-                "IP No": r.ipNo, "UHID": r.uhid, "Patient Name": r.patient_name,
-                "Discharge Date": r.dod, "Doctor": r.admitting_doctor || ''
+                "IP No": r.ipNo || '',
+                "UHID": r.uhid || '',
+                "Patient Name": r.patient_name || `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'N/A',
+                "Admission Date": r.admission_date ? dayjs(r.admission_date).format('DD-MM-YYYY') : '',
+                "Discharge Date": r.dod ? dayjs(r.dod).format('DD-MM-YYYY') : '',
+                "Doctor": r.admitting_doctor || ''
             }));
         } else if (reportType === 'new_born_babies') {
             exportData = data.map(r => ({
-                "Baby UHID": r.uhid, "Baby Name": `${r.firstName} ${r.lastName}`, "Mother UHID": r.mothers_uhid_no,
-                "Birth Time": `${r.birth_time} ${r.birth_time_am_pm}`, "Weight": r.weight,
-                "Gender": r.gender, "Pediatrician": r.pediatrician_responsible
+                "Baby UHID": r.uhid || '',
+                "Baby Name": `${r.firstName || ''} ${r.lastName || ''}`.trim() || `Baby of ${r.mothers_uhid_no || ''}`,
+                "Mother UHID": r.mothers_uhid_no || '',
+                "Birth Date": r.created_date ? dayjs(r.created_date).format('DD-MM-YYYY') : '',
+                "Birth Time": `${r.birth_time || ''} ${r.birth_time_am_pm || ''}`.trim(),
+                "Weight": r.weight ? `${r.weight} kg` : '',
+                "Gender": r.gender || '',
+                "Pediatrician": r.pediatrician_responsible || ''
             }));
         } else if (reportType === 'doctor_wise_ip_collection') {
             exportData = data.map(r => ({
-                "Doctor Name": r.doctor_name, "Patient Count": r.patient_count,
-                "Bill Count": r.bill_count, "Total Collection (₹)": r.total_collection
+                "Doctor Name": r.doctor_name || '',
+                "Patient Count": r.patient_count || 0,
+                "Bill Count": r.bill_count || 0,
+                "Total Collection (₹)": Number((r.total_collection || 0).toFixed(2))
             }));
         }
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -453,12 +488,12 @@ const SingleFrontOfficeReport = ({ reportType, startDate, endDate }) => {
                         {data.map((r, idx) => (
                             <Tr key={idx}>
                                 <Td><Badge bg="#f0fdfa" color={colors.primary}>{r.uhid}</Badge></Td>
-                                <Td style={{ fontWeight: 600 }}>{r.firstName} {r.lastName}</Td>
-                                <Td>{r.age}/{r.gender}</Td>
-                                <Td>{r.mobilePhone}</Td>
-                                <Td>{dayjs(r.created_date).format('DD-MM-YYYY')}</Td>
+                                <Td style={{ fontWeight: 600 }}>{r.patient_name || `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'N/A'}</Td>
+                                <Td>{r.age || '-'}/{r.gender || '-'}</Td>
+                                <Td>{r.mobilePhone || '-'}</Td>
+                                <Td>{r.created_date ? dayjs(r.created_date).format('DD-MM-YYYY') : '-'}</Td>
                                 <Td><Badge bg="#f1f5f9" color="#475569">{r.referredBy || 'Direct'}</Badge></Td>
-                                <Td>{r.doctorName}</Td>
+                                <Td>{r.doctorName || 'N/A'}</Td>
                             </Tr>
                         ))}
                     </tbody>
@@ -474,12 +509,12 @@ const SingleFrontOfficeReport = ({ reportType, startDate, endDate }) => {
                     <tbody>
                         {data.map((r, idx) => (
                             <Tr key={idx}>
-                                <Td><Badge bg="#eff6ff" color="#2563eb">{r.ipNumber}</Badge></Td>
+                                <Td><Badge bg="#eff6ff" color="#2563eb">{r.ipNumber || 'N/A'}</Badge></Td>
                                 <Td>{r.uhid}</Td>
-                                <Td style={{ fontWeight: 600 }}>{r.patient_name}</Td>
-                                <Td>{dayjs(r.admissionDateTime).format('DD-MM-YYYY HH:mm')}</Td>
-                                <Td>{r.admittingDoctor}</Td>
-                                <Td style={{ fontSize: '0.85rem' }}>{r.reasonForAdmission}</Td>
+                                <Td style={{ fontWeight: 600 }}>{r.patient_name || `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'N/A'}</Td>
+                                <Td>{r.admissionDateTime ? dayjs(r.admissionDateTime).format('DD-MM-YYYY HH:mm') : '-'}</Td>
+                                <Td>{r.admittingDoctor || 'N/A'}</Td>
+                                <Td style={{ fontSize: '0.85rem' }}>{r.reasonForAdmission || '-'}</Td>
                             </Tr>
                         ))}
                     </tbody>
@@ -495,12 +530,12 @@ const SingleFrontOfficeReport = ({ reportType, startDate, endDate }) => {
                     <tbody>
                         {data.map((r, idx) => (
                             <Tr key={idx}>
-                                <Td><Badge bg="#fef2f2" color={colors.danger}>{r.ipNo}</Badge></Td>
+                                <Td><Badge bg="#fef2f2" color={colors.danger}>{r.ipNo || 'N/A'}</Badge></Td>
                                 <Td>{r.uhid}</Td>
-                                <Td style={{ fontWeight: 600 }}>{r.patient_name}</Td>
-                                <Td>{dayjs(r.admission_date).format('DD-MM-YYYY')}</Td>
-                                <Td>{dayjs(r.dod).format('DD-MM-YYYY')}</Td>
-                                <Td>{r.admitting_doctor}</Td>
+                                <Td style={{ fontWeight: 600 }}>{r.patient_name || `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'N/A'}</Td>
+                                <Td>{r.admission_date ? dayjs(r.admission_date).format('DD-MM-YYYY') : '-'}</Td>
+                                <Td>{r.dod ? dayjs(r.dod).format('DD-MM-YYYY') : '-'}</Td>
+                                <Td>{r.admitting_doctor || 'N/A'}</Td>
                             </Tr>
                         ))}
                     </tbody>
@@ -516,10 +551,10 @@ const SingleFrontOfficeReport = ({ reportType, startDate, endDate }) => {
                     <tbody>
                         {data.map((r, idx) => (
                             <Tr key={idx}>
-                                <Td style={{ fontWeight: 600 }}>{r.doctor_name}</Td>
-                                <Td style={{ textAlign: 'center' }}><Badge bg="#f0f9ff" color="#0369a1">{r.patient_count}</Badge></Td>
-                                <Td style={{ textAlign: 'center' }}><Badge bg="#f0fdf4" color="#16a34a">{r.bill_count}</Badge></Td>
-                                <Td style={{ textAlign: 'right', fontWeight: 700 }}>{(r.total_collection || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Td>
+                                <Td style={{ fontWeight: 600 }}>{r.doctor_name || 'N/A'}</Td>
+                                <Td style={{ textAlign: 'center' }}><Badge bg="#f0f9ff" color="#0369a1">{r.patient_count || 0}</Badge></Td>
+                                <Td style={{ textAlign: 'center' }}><Badge bg="#f0fdf4" color="#16a34a">{r.bill_count || 0}</Badge></Td>
+                                <Td style={{ textAlign: 'right', fontWeight: 700 }}>₹{(r.total_collection || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Td>
                             </Tr>
                         ))}
                     </tbody>
@@ -536,12 +571,12 @@ const SingleFrontOfficeReport = ({ reportType, startDate, endDate }) => {
                         {data.map((r, idx) => (
                             <Tr key={idx}>
                                 <Td><Badge bg="#fdf2f8" color="#db2777">{r.uhid}</Badge></Td>
-                                <Td style={{ fontWeight: 600 }}>{r.firstName} {r.lastName}</Td>
-                                <Td>{r.mothers_uhid_no}</Td>
-                                <Td>{dayjs(r.created_date).format('DD-MM-YYYY')} {r.birth_time} {r.birth_time_am_pm}</Td>
-                                <Td>{r.weight} kg</Td>
-                                <Td>{r.gender}</Td>
-                                <Td>{r.pediatrician_responsible}</Td>
+                                <Td style={{ fontWeight: 600 }}>{`${r.firstName || ''} ${r.lastName || ''}`.trim() || `Baby of ${r.mothers_uhid_no || 'Unknown'}`}</Td>
+                                <Td>{r.mothers_uhid_no || 'N/A'}</Td>
+                                <Td>{r.created_date ? dayjs(r.created_date).format('DD-MM-YYYY') : ''} {r.birth_time || ''} {r.birth_time_am_pm || ''}</Td>
+                                <Td>{r.weight ? `${r.weight} kg` : '-'}</Td>
+                                <Td>{r.gender || '-'}</Td>
+                                <Td>{r.pediatrician_responsible || 'N/A'}</Td>
                             </Tr>
                         ))}
                     </tbody>
@@ -578,7 +613,9 @@ const SingleFrontOfficeReport = ({ reportType, startDate, endDate }) => {
                 <div style={{ display: 'flex', gap: 8 }}>
                     {reportData.length > 0 && (
                         <>
-                            <Button icon={<Download size={16} />} onClick={handleExport}>Export</Button>
+                            {canExport && (
+                                <Button icon={<Download size={16} />} onClick={handleExport}>Export</Button>
+                            )}
                             <Button icon={<Printer size={16} />} onClick={handlePrint}>Print</Button>
                         </>
                     )}

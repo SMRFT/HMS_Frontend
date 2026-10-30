@@ -90,33 +90,99 @@ const CloseBtn = styled.button`
 `;
 
 const Body = styled.div`
-  padding: 30px; overflow-y: auto; flex: 1;
-  display: flex; flex-direction: column; gap: 28px;
+  padding: 16px 24px; overflow-y: auto; flex: 1;
+  display: flex; flex-direction: column; gap: 16px;
   scroll-behavior: smooth;
   &::-webkit-scrollbar { width: 6px; }
   &::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 `;
 
-const PatientCard = styled.div`
-  background: linear-gradient(135deg, #ffffff, #f0fdf4);
-  border: 1px solid ${C.border};
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.05);
+const PatientPanel = styled.div`
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 4px;
+    background: #10b981;
+  }
+
+  .patient-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .patient-divider {
+    width: 1px;
+    height: 30px;
+    background: #e2e8f0;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 12px;
+    .patient-divider { display: none; }
+  }
 `;
 
-const PatientHeader = styled.div`
-  display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 20px; border-bottom: 1px dashed ${C.border};
-  padding-bottom: 15px;
+const PatientAvatar = styled.div`
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: #10b981;
+  font-weight: 700;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #a7f3d0;
+  flex-shrink: 0;
 `;
 
-const InfoGrid = styled.div`
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+const PatientGrid = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  flex: 1;
 `;
 
-const InfoItem = styled.div`
-  display: flex; flex-direction: column; gap: 4px;
+const PatientMeta = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  span.label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    line-height: 1.1;
+  }
+  span.val {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 `;
 
 const Label = styled.span`
@@ -490,33 +556,34 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
             </div>
           )}
           {/* Patient Profile */}
-          <PatientCard>
-            <PatientHeader>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <Label>Patient Information</Label>
-                <h2 style={{ margin: "4px 0 0 0", color: C.textMain, fontSize: "1.4rem", fontWeight: 900 }}>
+          <PatientPanel>
+            <div className="patient-left">
+              <PatientAvatar>
+                {rp.name.split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2) || "P"}
+              </PatientAvatar>
+              <div>
+                <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
                   {rp.name}
-                </h2>
+                </div>
+                <div style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
+                  UHID: <span style={{ color: "#10b981" }}>{rp.uhid}</span> · IP: <span style={{ color: "#10b981" }}>{rp.ipNo}</span>
+                </div>
               </div>
-              <div style={{ background: "#f0fdf4", color: "#166534", padding: "6px 12px", borderRadius: "10px", fontSize: "0.8rem", fontWeight: 800 }}>
-                {rp.ipNo}
-              </div>
-            </PatientHeader>
-            <InfoGrid>
-              <InfoItem>
-                <Label>UHID</Label>
-                <Value>{rp.uhid}</Value>
-              </InfoItem>
-              <InfoItem>
-                <Label>Location</Label>
-                <Value>{rp.ward || "General"}</Value>
-              </InfoItem>
-              <InfoItem>
-                <Label>Room / Bed</Label>
-                <Value>{rp.room} / {rp.bed}</Value>
-              </InfoItem>
-            </InfoGrid>
-          </PatientCard>
+            </div>
+
+            <div className="patient-divider" />
+
+            <PatientGrid>
+              <PatientMeta>
+                <span className="label">Ward / Location</span>
+                <span className="val">{rp.ward || "General"}</span>
+              </PatientMeta>
+              <PatientMeta>
+                <span className="label">Room · Bed</span>
+                <span className="val">Room {rp.room} · Bed {rp.bed}</span>
+              </PatientMeta>
+            </PatientGrid>
+          </PatientPanel>
 
           {/* Session Selection */}
           <section>

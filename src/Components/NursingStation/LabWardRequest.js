@@ -22,13 +22,15 @@ import {
 
 // ─── Patient Info Panel ───────────────────────────────────────────────────────
 const PatientPanel = styled.div`
-  background: ${colors.surface}80;
-  backdrop-filter: blur(8px);
-  border: 1px solid ${colors.border};
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  align-items: center;
+  gap: 16px;
   position: relative;
   overflow: hidden;
 
@@ -37,84 +39,111 @@ const PatientPanel = styled.div`
     position: absolute;
     top: 0;
     left: 0;
+    bottom: 0;
     width: 4px;
-    height: 100%;
-    background: ${colors.primary};
+    background: #0d8a7a;
+  }
+
+  .patient-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .patient-divider {
+    width: 1px;
+    height: 30px;
+    background: #e2e8f0;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 12px;
+
+    .patient-divider {
+      display: none;
+    }
   }
 `;
 
-const PatientHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px dashed ${colors.border};
-`;
-
 const PatientAvatar = styled.div`
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, ${colors.primary}20, ${colors.primary}40);
-  border-radius: 14px;
+  width: 34px;
+  height: 34px;
+  background: #e6f9f3;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: ${colors.primary};
-  font-size: 1.4rem;
+  color: #0d8a7a;
+  font-size: 0.9rem;
   font-weight: 800;
-  border: 1px solid ${colors.primary}30;
+  flex-shrink: 0;
 `;
 
 const PatientIdentity = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
 
   h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 0.95rem;
     font-weight: 800;
-    color: ${colors.textMain};
+    color: #0f172a;
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+    white-space: nowrap;
   }
 
   .sub-text {
-    font-size: 0.85rem;
-    color: ${colors.textMuted};
-    font-weight: 500;
+    font-size: 0.72rem;
+    color: #0d8a7a;
+    font-weight: 600;
+    white-space: nowrap;
   }
 `;
 
 const PatientGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px 24px;
-  @media (max-width: 1024px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  @media (max-width: 900px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 10px;
   }
 `;
 
 const FieldBox = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
+  min-width: 0;
 `;
 
 const FieldLabel = styled.span`
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   font-weight: 700;
-  color: ${colors.textMuted};
+  color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.4px;
 `;
 
 const FieldValue = styled.div`
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: ${colors.textMain};
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
 `;
 
 // ─── Legend & Actions bar ─────────────────────────────────────────────────────
@@ -122,7 +151,11 @@ const ActionsBar = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  background: white;
+  padding: 8px 16px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
 `;
 
 const StatusBadge = styled.span`
@@ -791,24 +824,25 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
     <PageWrapper>
       {/* ── Patient Info ── */}
       <PatientPanel>
-        <PatientHeader>
+        <div className="patient-left">
           <PatientAvatar>
             {resolvedPatient.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
           </PatientAvatar>
           <PatientIdentity>
             <h3>{resolvedPatient.name}</h3>
             <div className="sub-text">
-              UHID: {resolvedPatient.uhid} | IP No: {resolvedPatient.ipNo} ({resolvedPatient.ipBadge})
+              UHID: {resolvedPatient.uhid} · IP: {resolvedPatient.ipNo} {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}
             </div>
           </PatientIdentity>
-        </PatientHeader>
+        </div>
+        <div className="patient-divider" />
         <PatientGrid>
           <FieldBox>
             <FieldLabel>Admitting Dr</FieldLabel>
-            <FieldValue>{resolvedPatient.admittingDr}</FieldValue>
+            <FieldValue title={resolvedPatient.admittingDr}>{resolvedPatient.admittingDr}</FieldValue>
           </FieldBox>
           <FieldBox>
-            <FieldLabel>Room No | Bed</FieldLabel>
+            <FieldLabel>Room | Bed</FieldLabel>
             <FieldValue>{resolvedPatient.roomBed}</FieldValue>
           </FieldBox>
           <FieldBox>
@@ -816,16 +850,12 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
             <FieldValue>{resolvedPatient.customerType}</FieldValue>
           </FieldBox>
           <FieldBox>
-            <FieldLabel>Admitting Date & Time</FieldLabel>
+            <FieldLabel>Admitting Date</FieldLabel>
             <FieldValue>{resolvedPatient.admitting}</FieldValue>
           </FieldBox>
           <FieldBox>
-            <FieldLabel>Company Name</FieldLabel>
-            <FieldValue>{resolvedPatient.companyName}</FieldValue>
-          </FieldBox>
-          <FieldBox>
             <FieldLabel>Address</FieldLabel>
-            <FieldValue style={{ fontSize: '0.85rem' }}>{resolvedPatient.address}</FieldValue>
+            <FieldValue title={resolvedPatient.address}>{resolvedPatient.address}</FieldValue>
           </FieldBox>
         </PatientGrid>
       </PatientPanel>

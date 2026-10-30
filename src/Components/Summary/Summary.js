@@ -23,6 +23,11 @@ import {
   RotateCcw,
   Globe,
   Volume2,
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  Type,
+  ChevronDown,
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 import ICD11SearchComponent from "./ICD11SearchComponent";
@@ -30,274 +35,586 @@ import { PageWrapper, colors } from "../GlobalStyles";
 import HighRiskBadge from "../Common/HighRiskBadge";
 import PatientSearchModal from "../Common/PatientSearchModal";
 
-/* ─── Design tokens ─────────────────────────────────────────────────────── */
+/* ─── Modern Design tokens ───────────────────────────────────────────────── */
 const T = {
   teal: colors.primary || "#0d9488",
   tealDk: "#0f766e",
-  tealLt: "#ccfbf1",
-  sky: "#0ea5e9",
-  skyLt: "#e0f2fe",
-  slate: "#1e293b",
+  tealLt: "#f0fdfa",
+  tealGlow: "rgba(13, 148, 136, 0.16)",
+  sky: "#0284c7",
+  skyLt: "#f0f9ff",
+  indigo: "#4f46e5",
+  indigoLt: "#eef2ff",
+  slate: "#0f172a",
+  slateMuted: "#334155",
   muted: "#64748b",
-  border: "#e2e8f0",
+  border: "#cbd5e1",
+  borderLt: "#e2e8f0",
   bg: "#f8fafc",
   bgAlt: "#f1f5f9",
   white: "#ffffff",
   text: "#0f172a",
-  textSm: "#475569",
+  textSm: "#334155",
   green: "#16a34a",
+  greenLt: "#f0fdf4",
   amber: "#d97706",
+  amberLt: "#fffbeb",
   red: "#dc2626",
+  redLt: "#fef2f2",
 };
+
+/* ─── Global & Scoped CSS Enhancements ───────────────────────────────────── */
+const SUMMARY_CUSTOM_STYLES = `
+  .sum-card-lift {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .sum-card-lift:hover {
+    box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+  }
+  .sum-sidebar-scroll::-webkit-scrollbar,
+  .sum-custom-scroll::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .sum-sidebar-scroll::-webkit-scrollbar-track,
+  .sum-custom-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sum-sidebar-scroll::-webkit-scrollbar-thumb,
+  .sum-custom-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+  }
+  .sum-sidebar-scroll::-webkit-scrollbar-thumb:hover,
+  .sum-custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  .sum-btn-hover {
+    transition: all 0.16s ease;
+  }
+  .sum-btn-hover:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+  }
+  .sum-btn-hover:active:not(:disabled) {
+    transform: translateY(0);
+    filter: brightness(0.96);
+  }
+  .sum-table-row {
+    transition: background-color 0.15s ease;
+  }
+  .sum-table-row:hover {
+    background-color: #f1f5f9 !important;
+  }
+  .sum-sidebar-item {
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .sum-sidebar-item:hover {
+    filter: brightness(0.97);
+  }
+  @keyframes sumPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.75; }
+  }
+  .sum-pulse-dot {
+    animation: sumPulse 1.4s infinite ease-in-out;
+  }
+  @media (max-width: 1200px) {
+    .sum-notes-layout {
+      grid-template-columns: 240px minmax(0, 1fr) !important;
+    }
+  }
+  @media (max-width: 900px) {
+    .sum-notes-layout {
+      grid-template-columns: 1fr !important;
+      gap: 16px !important;
+    }
+    .sum-sidebar {
+      position: static !important;
+      max-height: 250px !important;
+    }
+    .sum-sidebar-scroll {
+      max-height: 190px !important;
+    }
+    .sum-notes-card-responsive {
+      padding: 14px 12px !important;
+    }
+  }
+
+  /* Responsive TopBar */
+  @media (max-width: 640px) {
+    .sum-top-bar {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 12px !important;
+      padding: 12px 14px !important;
+    }
+    .sum-top-bar > div:first-child {
+      width: 100% !important;
+    }
+    .sum-top-bar > div:last-child {
+      width: 100% !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+    }
+    .sum-page-title {
+      font-size: 18px !important;
+    }
+    .sum-card-body-responsive {
+      padding: 14px 12px !important;
+    }
+    .sum-card-head-responsive {
+      padding: 10px 14px !important;
+      font-size: 11.5px !important;
+    }
+  }
+
+  /* Responsive Patient & Admission Grid */
+  .sum-patient-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 14px 16px;
+  }
+  .sum-col-ip { grid-column: span 3; }
+  .sum-col-uhid { grid-column: span 2; }
+  .sum-col-name { grid-column: span 4; }
+  .sum-col-age { grid-column: span 1; }
+  .sum-col-gender { grid-column: span 1; }
+  .sum-col-room { grid-column: span 1; }
+  .sum-col-date { grid-column: span 2; }
+  .sum-col-doa { grid-column: span 2; }
+  .sum-col-doatime { grid-column: span 1; }
+  .sum-col-dod { grid-column: span 2; }
+  .sum-col-dodtime { grid-column: span 1; }
+  .sum-col-surg { grid-column: span 2; }
+  .sum-col-review { grid-column: span 2; }
+  .sum-col-doc { grid-column: span 4; }
+  .sum-col-type { grid-column: span 4; }
+  .sum-col-heading { grid-column: span 2; }
+  .sum-col-address { grid-column: span 2; }
+
+  @media (max-width: 1024px) and (min-width: 641px) {
+    .sum-patient-grid {
+      grid-template-columns: repeat(6, 1fr) !important;
+      gap: 12px 14px !important;
+    }
+    .sum-col-ip { grid-column: span 3 !important; }
+    .sum-col-uhid { grid-column: span 3 !important; }
+    .sum-col-name { grid-column: span 4 !important; }
+    .sum-col-age { grid-column: span 1 !important; }
+    .sum-col-gender { grid-column: span 1 !important; }
+    .sum-col-room { grid-column: span 2 !important; }
+    .sum-col-date { grid-column: span 2 !important; }
+    .sum-col-doa { grid-column: span 2 !important; }
+    .sum-col-doatime { grid-column: span 1 !important; }
+    .sum-col-dod { grid-column: span 2 !important; }
+    .sum-col-dodtime { grid-column: span 1 !important; }
+    .sum-col-surg { grid-column: span 2 !important; }
+    .sum-col-review { grid-column: span 2 !important; }
+    .sum-col-doc { grid-column: span 3 !important; }
+    .sum-col-type { grid-column: span 3 !important; }
+    .sum-col-heading { grid-column: span 3 !important; }
+    .sum-col-address { grid-column: span 3 !important; }
+  }
+
+  @media (max-width: 640px) {
+    .sum-patient-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 12px 10px !important;
+    }
+    .sum-col-ip { grid-column: span 2 !important; }
+    .sum-col-uhid { grid-column: span 2 !important; }
+    .sum-col-name { grid-column: span 2 !important; }
+    .sum-col-age { grid-column: span 1 !important; }
+    .sum-col-gender { grid-column: span 1 !important; }
+    .sum-col-room { grid-column: span 1 !important; }
+    .sum-col-date { grid-column: span 1 !important; }
+    .sum-col-doa { grid-column: span 1 !important; }
+    .sum-col-doatime { grid-column: span 1 !important; }
+    .sum-col-dod { grid-column: span 1 !important; }
+    .sum-col-dodtime { grid-column: span 1 !important; }
+    .sum-col-surg { grid-column: span 1 !important; }
+    .sum-col-review { grid-column: span 1 !important; }
+    .sum-col-doc { grid-column: span 2 !important; }
+    .sum-col-type { grid-column: span 2 !important; }
+    .sum-col-heading { grid-column: span 2 !important; }
+    .sum-col-address { grid-column: span 2 !important; }
+  }
+
+  /* Responsive Actions & Buttons */
+  @media (max-width: 640px) {
+    .sum-submit-actions {
+      width: 100% !important;
+      display: flex !important;
+      gap: 8px !important;
+    }
+    .sum-submit-actions button {
+      flex: 1 !important;
+      justify-content: center !important;
+    }
+  }
+
+  /* Responsive Archive Filters */
+  .sum-filter-grid-1 {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .sum-filter-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px 14px;
+  }
+  .sum-fg1-from { grid-column: span 2; }
+  .sum-fg1-to { grid-column: span 2; }
+  .sum-fg1-type { grid-column: span 3; }
+  .sum-fg1-status { grid-column: span 2; }
+  .sum-fg1-actions { grid-column: span 3; display: flex; align-items: flex-end; gap: 8px; }
+
+  .sum-fg2-patient { grid-column: span 4; }
+  .sum-fg2-uhid { grid-column: span 4; }
+  .sum-fg2-ip { grid-column: span 4; }
+
+  @media (max-width: 1024px) and (min-width: 641px) {
+    .sum-filter-grid-1 {
+      grid-template-columns: repeat(6, 1fr) !important;
+    }
+    .sum-fg1-from { grid-column: span 3 !important; }
+    .sum-fg1-to { grid-column: span 3 !important; }
+    .sum-fg1-type { grid-column: span 3 !important; }
+    .sum-fg1-status { grid-column: span 3 !important; }
+    .sum-fg1-actions { grid-column: span 6 !important; }
+
+    .sum-filter-grid-2 {
+      grid-template-columns: repeat(6, 1fr) !important;
+    }
+    .sum-fg2-patient { grid-column: span 3 !important; }
+    .sum-fg2-uhid { grid-column: span 3 !important; }
+    .sum-fg2-ip { grid-column: span 6 !important; }
+  }
+
+  @media (max-width: 640px) {
+    .sum-filter-grid-1 {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+    .sum-fg1-from, .sum-fg1-to, .sum-fg1-type, .sum-fg1-status, .sum-fg1-actions {
+      grid-column: span 1 !important;
+      width: 100% !important;
+    }
+    .sum-fg1-actions {
+      display: flex !important;
+      flex-direction: row !important;
+      gap: 8px !important;
+    }
+    .sum-fg1-actions button {
+      flex: 1 !important;
+    }
+    .sum-filter-grid-2 {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+    .sum-fg2-patient, .sum-fg2-uhid, .sum-fg2-ip {
+      grid-column: span 1 !important;
+      width: 100% !important;
+    }
+  }
+`;
 
 /* ─── Utility styles ─────────────────────────────────────────────────────── */
 const S = {
-  inner: { maxWidth: 1320, margin: "0 auto", paddingBottom: 40 },
+  inner: {
+    maxWidth: 1440,
+    width: "100%",
+    boxSizing: "border-box",
+    margin: "0 auto",
+    paddingBottom: 50,
+    paddingLeft: 8,
+    paddingRight: 8,
+  },
 
   /* Header */
   topBar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 24,
-    padding: "18px 24px",
-    background: "white",
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
+    marginBottom: 20,
+    padding: "16px 24px",
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -2px rgba(15, 23, 42, 0.05)",
   },
   pageTitle: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
     fontSize: 22,
-    fontWeight: 700,
-    color: T.slate,
+    fontWeight: 800,
+    color: "#0f172a",
     letterSpacing: "-0.4px",
     margin: 0,
   },
   titleIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    background: "linear-gradient(135deg, #0d9488 0%, #0284c7 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: "white",
-    boxShadow: "0 4px 10px rgba(13, 148, 136, 0.25)",
+    boxShadow: "0 6px 16px -2px rgba(13, 148, 136, 0.35)",
   },
   datePill: {
     display: "flex",
     alignItems: "center",
-    gap: 6,
-    background: T.bgAlt,
-    color: T.slate,
-    border: `1px solid ${T.border}`,
-    borderRadius: 20,
-    padding: "6px 16px",
+    gap: 7,
+    background: "#f8fafc",
+    color: "#334155",
+    border: "1.5px solid #e2e8f0",
+    borderRadius: 30,
+    padding: "7px 16px",
     fontSize: 13,
-    fontWeight: 600,
+    fontWeight: 700,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
   },
 
   /* Edit banner */
   editBanner: {
-    background: T.skyLt,
-    border: `1px solid ${T.sky}60`,
-    borderRadius: 10,
-    padding: "12px 18px",
+    background: "linear-gradient(90deg, #eff6ff 0%, #f0fdfa 100%)",
+    border: "1.5px solid #93c5fd",
+    borderRadius: 12,
+    padding: "12px 20px",
     marginBottom: 20,
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    fontSize: 14,
-    color: T.slate,
-    fontWeight: 500,
-    boxShadow: "0 2px 8px rgba(14, 165, 233, 0.1)",
+    gap: 12,
+    fontSize: 13.5,
+    color: "#1e3a8a",
+    fontWeight: 600,
+    boxShadow: "0 2px 8px rgba(37, 99, 235, 0.08)",
   },
 
   /* Card */
   card: {
-    background: T.white,
-    borderRadius: 12,
-    border: `1px solid ${T.border}`,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
-    marginBottom: 20,
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -4px rgba(15, 23, 42, 0.05)",
+    marginBottom: 22,
     overflow: "hidden",
   },
   cardHead: {
-    padding: "14px 20px",
-    background: `linear-gradient(90deg, #f8fafc, #f1f5f9)`,
-    borderBottom: `1px solid ${T.border}`,
+    padding: "13px 22px",
+    background: "linear-gradient(90deg, #f8fafc 0%, #ffffff 100%)",
+    borderBottom: "1px solid #e2e8f0",
     display: "flex",
     alignItems: "center",
     gap: 10,
-    fontSize: 13,
-    fontWeight: 700,
+    fontSize: 12.5,
+    fontWeight: 800,
     textTransform: "uppercase",
     letterSpacing: "0.8px",
-    color: T.teal,
+    color: "#0f766e",
   },
   cardHeadBar: {
     width: 4,
     height: 16,
     borderRadius: 2,
-    background: `linear-gradient(${T.teal}, ${T.sky})`,
+    background: "linear-gradient(#0d9488, #0284c7)",
   },
-  cardBody: { padding: "20px" },
+  cardBody: { padding: "20px 22px" },
 
   /* Compact grid */
   grid: (cols) => ({
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gap: "12px 14px",
-    marginBottom: 14,
+    gap: "14px 16px",
+    marginBottom: 16,
   }),
 
   /* Inputs & Selects */
   inp: {
-    height: 36,
-    padding: "0 11px",
+    height: 38,
+    padding: "0 12px",
     fontSize: 13,
-    color: T.text,
-    background: T.white,
-    border: `1px solid ${T.border}`,
-    borderRadius: 7,
+    fontWeight: 500,
+    color: "#0f172a",
+    background: "#ffffff",
+    border: "1px solid #cbd5e1",
+    borderRadius: 8,
     outline: "none",
     width: "100%",
+    boxSizing: "border-box",
+    minWidth: 0,
     fontFamily: "inherit",
-    transition: "all .15s",
+    transition: "all 0.18s ease",
   },
   sel: {
-    height: 36,
-    padding: "0 28px 0 11px",
+    height: 38,
+    padding: "0 30px 0 12px",
     fontSize: 13,
-    color: T.text,
-    background: T.white,
-    border: `1px solid ${T.border}`,
-    borderRadius: 7,
+    fontWeight: 500,
+    color: "#0f172a",
+    background: "#ffffff",
+    border: "1px solid #cbd5e1",
+    borderRadius: 8,
     outline: "none",
     width: "100%",
+    boxSizing: "border-box",
+    minWidth: 0,
     fontFamily: "inherit",
     cursor: "pointer",
     appearance: "none",
-    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-    backgroundPosition: "right 8px center",
+    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%230f766e' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+    backgroundPosition: "right 10px center",
     backgroundRepeat: "no-repeat",
     backgroundSize: "1.1em",
+    transition: "all 0.18s ease",
   },
   lbl: {
     fontSize: 11,
-    fontWeight: 600,
+    fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "0.5px",
-    color: T.muted,
+    color: "#475569",
     marginBottom: 5,
-    display: "block",
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
   },
-  fld: { display: "flex", flexDirection: "column" },
+  fld: { display: "flex", flexDirection: "column", minWidth: 0 },
 
   /* Search button inside input block */
   searchMicroBtn: {
-    marginTop: 4,
-    height: 28,
+    height: 32,
     padding: "0 12px",
     fontSize: 12,
-    fontWeight: 600,
-    background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
-    color: T.white,
+    fontWeight: 700,
+    background: "linear-gradient(135deg, #0d9488 0%, #0284c7 100%)",
+    color: "#ffffff",
     border: "none",
     borderRadius: 6,
     cursor: "pointer",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    transition: "opacity 0.2s",
+    gap: 5,
+    boxShadow: "0 2px 6px rgba(13, 148, 136, 0.25)",
+    transition: "all 0.15s ease",
   },
 
   /* Notes layout */
   notesLayout: {
     display: "grid",
-    gridTemplateColumns: "240px 1fr",
-    gap: 20,
+    gridTemplateColumns: "280px minmax(0, 1fr)",
+    gap: 22,
     marginBottom: 24,
+    alignItems: "start",
+    maxWidth: "100%",
+    boxSizing: "border-box",
   },
 
   /* Sidebar */
   sidebar: {
-    background: T.white,
-    borderRadius: 12,
-    border: `1px solid ${T.border}`,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -4px rgba(15, 23, 42, 0.05)",
     overflow: "hidden",
-    alignSelf: "start",
+    position: "sticky",
+    top: 16,
+    maxHeight: "calc(100vh - 40px)",
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box",
   },
   sidebarHead: {
-    padding: "14px 16px",
-    background: `linear-gradient(135deg, ${T.slate}, #334155)`,
-    fontSize: 11,
-    fontWeight: 700,
+    padding: "14px 18px",
+    background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
+    fontSize: 12,
+    fontWeight: 800,
     textTransform: "uppercase",
-    letterSpacing: "1px",
-    color: T.white,
+    letterSpacing: "0.8px",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    boxShadow: "0 2px 6px rgba(13, 148, 136, 0.2)",
+  },
+  sidebarItem: (active, isFilled = true) => ({
+    padding: "10px 14px",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: active ? 700 : 600,
+    color: active ? "#0f766e" : "#334155",
+    background: active
+      ? isFilled
+        ? "linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(13, 148, 136, 0.04) 100%)"
+        : "linear-gradient(90deg, #fee2e2 0%, #fef2f2 100%)"
+      : !isFilled
+        ? "#fee2e2"
+        : "transparent",
+    borderLeft: `4px solid ${active ? "#0d9488" : "transparent"}`,
+    borderBottom: `1px solid ${!isFilled ? "#fecaca" : "#f1f5f9"}`,
+    transition: "all 0.15s ease",
+    lineHeight: 1.4,
     display: "flex",
     alignItems: "center",
     gap: 8,
-  },
-  sidebarItem: (active) => ({
-    padding: "9px 14px",
-    cursor: "pointer",
-    fontSize: 12,
-    fontWeight: active ? 700 : 500,
-    color: active ? T.teal : T.textSm,
-    background: active ? `${T.teal}10` : "transparent",
-    borderLeft: `4px solid ${active ? T.teal : "transparent"}`,
-    borderBottom: `1px solid ${T.border}`,
-    transition: "all .15s",
-    lineHeight: 1.35,
   }),
 
   /* Notes main area */
   notesCard: {
-    background: T.white,
-    borderRadius: 12,
-    border: `1px solid ${T.border}`,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
-    padding: 20,
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -4px rgba(15, 23, 42, 0.05)",
+    padding: 22,
     display: "flex",
     flexDirection: "column",
-    gap: 14,
+    gap: 16,
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
   notesActiveLabel: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: T.teal,
+    fontSize: 15,
+    fontWeight: 800,
+    color: "#0f766e",
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   textarea: {
-    minHeight: 520,
+    width: "100%",
+    boxSizing: "border-box",
+    minHeight: 540,
     resize: "vertical",
-    padding: 14,
-    fontSize: 13.5,
-    color: T.text,
-    background: T.bg,
-    border: `1px solid ${T.border}`,
-    borderRadius: 8,
+    padding: "16px 18px",
+    fontSize: 14,
+    color: "#0f172a",
+    background: "#ffffff",
+    border: "1.5px solid #cbd5e1",
+    borderRadius: 10,
     outline: "none",
     fontFamily: "inherit",
-    lineHeight: 1.65,
-    transition: "all .15s",
+    lineHeight: 1.7,
+    transition: "all 0.18s ease",
   },
   notesToolbar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "6px 10px",
+    padding: "8px 12px",
     background: "#f8fafc",
-    border: `1px solid ${T.border}`,
-    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+    borderRadius: 10,
     gap: 10,
     flexWrap: "wrap",
   },
@@ -305,91 +622,105 @@ const S = {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "5px 12px",
-    fontSize: 12.5,
+    padding: "6px 12px",
+    fontSize: 12,
     fontWeight: 700,
     color: "#0f172a",
     background: "#ffffff",
-    border: `1.5px solid #94a3b8`,
-    borderRadius: 6,
+    border: "1.5px solid #cbd5e1",
+    borderRadius: 7,
     cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-    transition: "all .15s",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    transition: "all 0.15s ease",
+  },
+  caseMenuItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    padding: "7px 12px",
+    borderRadius: 6,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    textAlign: "left",
+    transition: "background 0.15s ease",
   },
   micBtn: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "5px 12px",
-    fontSize: 12.5,
+    padding: "6px 13px",
+    fontSize: 12,
     fontWeight: 700,
     color: "#0f766e",
     background: "#f0fdf4",
     border: "1.5px solid #86efac",
-    borderRadius: 6,
+    borderRadius: 7,
     cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-    transition: "all .15s",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    transition: "all 0.15s ease",
   },
   micBtnActive: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "5px 12px",
-    fontSize: 12.5,
+    padding: "6px 13px",
+    fontSize: 12,
     fontWeight: 700,
     color: "#b91c1c",
     background: "#fef2f2",
     border: "1.5px solid #f87171",
-    borderRadius: 6,
+    borderRadius: 7,
     cursor: "pointer",
     boxShadow: "0 0 0 3px rgba(239,68,68,0.25)",
-    transition: "all .15s",
+    transition: "all 0.15s ease",
   },
   aiBtn: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "5px 12px",
-    fontSize: 12.5,
+    padding: "6px 13px",
+    fontSize: 12,
     fontWeight: 700,
     color: "#4338ca",
-    background: "#eef2ff",
+    background: "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)",
     border: "1.5px solid #a5b4fc",
-    borderRadius: 6,
+    borderRadius: 7,
     cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-    transition: "all .15s",
+    boxShadow: "0 1px 3px rgba(79, 70, 229, 0.12)",
+    transition: "all 0.15s ease",
   },
   undoBtn: {
     display: "inline-flex",
     alignItems: "center",
     gap: 5,
-    padding: "5px 10px",
+    padding: "6px 11px",
     fontSize: 12,
     fontWeight: 600,
-    color: "#64748b",
+    color: "#475569",
     background: "#ffffff",
-    border: "1px solid #cbd5e1",
-    borderRadius: 6,
+    border: "1.5px solid #cbd5e1",
+    borderRadius: 7,
     cursor: "pointer",
-    transition: "all .15s",
+    transition: "all 0.15s ease",
   },
   listeningBanner: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "7px 12px",
+    padding: "8px 14px",
     background: "#fef2f2",
-    border: "1px solid #fca5a5",
-    borderRadius: 6,
+    border: "1.5px solid #fca5a5",
+    borderRadius: 8,
     fontSize: 12,
     color: "#991b1b",
     fontWeight: 600,
+    boxShadow: "0 2px 6px rgba(239, 68, 68, 0.08)",
   },
   pulsingDot: {
-    width: 8,
-    height: 8,
+    width: 9,
+    height: 9,
     borderRadius: "50%",
     backgroundColor: "#ef4444",
     display: "inline-block",
@@ -397,155 +728,167 @@ const S = {
   },
   toolbarHint: {
     fontSize: 11.5,
-    color: T.muted,
+    color: "#64748b",
   },
   tabGroup: {
     display: "flex",
     alignItems: "center",
     background: "#e2e8f0",
-    padding: 2,
-    borderRadius: 7,
+    padding: 3,
+    borderRadius: 8,
     gap: 2,
   },
   tabBtn: {
-    padding: "4px 12px",
+    padding: "5px 14px",
     fontSize: 12,
     fontWeight: 600,
-    color: T.muted,
+    color: "#64748b",
     background: "transparent",
     border: "none",
-    borderRadius: 5,
+    borderRadius: 6,
     cursor: "pointer",
-    transition: "all .15s",
+    transition: "all 0.15s ease",
   },
   tabBtnActive: {
-    padding: "4px 12px",
+    padding: "5px 14px",
     fontSize: 12,
     fontWeight: 700,
-    color: T.teal,
+    color: "#0f766e",
     background: "#ffffff",
-    border: `1px solid ${T.border}`,
-    borderRadius: 5,
+    border: "1px solid #cbd5e1",
+    borderRadius: 6,
     cursor: "pointer",
     boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
   },
   previewBox: {
-    minHeight: 520,
-    padding: 16,
-    fontSize: 13.5,
-    color: T.text,
+    width: "100%",
+    boxSizing: "border-box",
+    minHeight: 540,
+    padding: "18px 20px",
+    fontSize: 14,
+    color: "#0f172a",
     background: "#ffffff",
-    border: `1px solid ${T.border}`,
-    borderRadius: 8,
-    lineHeight: 1.65,
+    border: "1.5px solid #e2e8f0",
+    borderRadius: 10,
+    lineHeight: 1.7,
     overflowY: "auto",
     whiteSpace: "pre-wrap",
+    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.03)",
   },
 
   /* Action row */
-  actionRow: { display: "flex", gap: 10, flexWrap: "wrap" },
+  actionRow: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" },
   outBtn: (color) => ({
-    padding: "6px 14px",
+    padding: "7px 15px",
     fontSize: 12,
-    fontWeight: 600,
+    fontWeight: 700,
     border: `1.5px solid ${color}`,
     color: color,
-    background: "white",
-    borderRadius: 7,
+    background: "#ffffff",
+    borderRadius: 8,
     cursor: "pointer",
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    transition: "all .15s",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+    transition: "all 0.15s ease",
   }),
 
   /* Primary/variant buttons */
   btn: (v = "primary") => {
     const map = {
       primary: {
-        bg: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
-        color: T.white,
+        bg: "linear-gradient(135deg, #0d9488 0%, #0284c7 100%)",
+        color: "#ffffff",
+        shadow: "0 4px 14px rgba(13, 148, 136, 0.3)",
       },
       danger: {
-        bg: `linear-gradient(135deg, ${T.red}, #ef4444)`,
-        color: T.white,
+        bg: "linear-gradient(135deg, #dc2626 0%, #ef4444 100%)",
+        color: "#ffffff",
+        shadow: "0 4px 14px rgba(220, 38, 38, 0.3)",
       },
       success: {
-        bg: `linear-gradient(135deg, ${T.green}, #22c55e)`,
-        color: T.white,
+        bg: "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)",
+        color: "#ffffff",
+        shadow: "0 4px 14px rgba(22, 163, 74, 0.3)",
       },
-      ghost: { bg: T.slate, color: T.white },
+      ghost: {
+        bg: "#0f172a",
+        color: "#ffffff",
+        shadow: "0 2px 8px rgba(15, 23, 42, 0.15)",
+      },
     };
     const s = map[v] || map.primary;
     return {
-      padding: "8px 18px",
+      padding: "9px 22px",
       fontSize: 13,
-      fontWeight: 600,
+      fontWeight: 700,
       background: s.bg,
       color: s.color,
       border: "none",
-      borderRadius: 7,
+      borderRadius: 8,
       cursor: "pointer",
-      boxShadow: "0 2px 6px rgba(0,0,0,.12)",
+      boxShadow: s.shadow,
       display: "inline-flex",
       alignItems: "center",
-      gap: 6,
-      transition: "opacity .15s",
+      gap: 7,
+      transition: "all 0.15s ease",
     };
   },
 
   /* Table */
   tableWrap: {
-    background: T.white,
-    borderRadius: 12,
-    border: `1px solid ${T.border}`,
-    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 20px -4px rgba(15, 23, 42, 0.05)",
     overflow: "hidden",
     marginTop: 28,
   },
   tableHead: {
-    padding: "16px 20px",
-    background: `linear-gradient(135deg, ${T.slate}, #334155)`,
+    padding: "16px 22px",
+    background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
+    boxShadow: "0 2px 6px rgba(13, 148, 136, 0.2)",
   },
-  tableTitle: { fontSize: 15, fontWeight: 700, color: T.white, display: "flex", alignItems: "center", gap: 8 },
-  tableCount: { fontSize: 12, color: "rgba(255,255,255,.75)", fontWeight: 500 },
+  tableTitle: { fontSize: 15, fontWeight: 800, color: "#ffffff", display: "flex", alignItems: "center", gap: 10, letterSpacing: "-0.2px" },
+  tableCount: { fontSize: 12, color: "#ffffff", fontWeight: 700, background: "rgba(255,255,255,0.22)", padding: "3px 12px", borderRadius: 20 },
   filterBar: {
-    padding: "14px 18px",
-    background: T.bg,
-    borderBottom: `1px solid ${T.border}`,
+    padding: "16px 20px",
+    background: "#f8fafc",
+    borderBottom: "1px solid #e2e8f0",
   },
   filterGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1.2fr 1fr 1fr auto auto",
-    gap: "10px 12px",
+    gridTemplateColumns: "1.2fr 1.2fr 1.8fr 1.6fr 1.2fr auto auto",
+    gap: "12px 14px",
     alignItems: "end",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   filterGrid2: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 5fr",
-    gap: "10px 12px",
+    gridTemplateColumns: "1.5fr 1.5fr 1fr",
+    gap: "12px 14px",
     alignItems: "end",
   },
   th: {
-    padding: "10px 14px",
+    padding: "12px 16px",
     fontSize: 11,
-    fontWeight: 700,
+    fontWeight: 800,
     textTransform: "uppercase",
-    letterSpacing: "0.7px",
-    color: T.muted,
-    background: T.bg,
-    borderBottom: `2px solid ${T.border}`,
+    letterSpacing: "0.8px",
+    color: "#475569",
+    background: "#f1f5f9",
+    borderBottom: "2px solid #cbd5e1",
     whiteSpace: "nowrap",
   },
   td: {
-    padding: "11px 14px",
+    padding: "12px 16px",
     fontSize: 13,
-    color: T.text,
-    borderBottom: `1px solid ${T.border}`,
+    color: "#0f172a",
+    borderBottom: "1px solid #e2e8f0",
     verticalAlign: "middle",
   },
 
@@ -554,13 +897,14 @@ const S = {
     display: "inline-flex",
     alignItems: "center",
     gap: 5,
-    padding: "3px 10px",
+    padding: "4px 11px",
     borderRadius: 20,
     fontSize: 11,
     fontWeight: 700,
-    background: ok ? `#dcfce7` : `#fef3c7`,
-    color: ok ? `#15803d` : `#b45309`,
-    border: `1px solid ${ok ? "#86efac" : "#fde68a"}`,
+    background: ok ? "#f0fdf4" : "#fffbeb",
+    color: ok ? "#15803d" : "#b45309",
+    border: `1.5px solid ${ok ? "#86efac" : "#fde68a"}`,
+    letterSpacing: "0.2px",
   }),
   dot: (ok) => ({
     width: 6,
@@ -573,88 +917,94 @@ const S = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(15,23,42,.6)",
-    backdropFilter: "blur(4px)",
+    background: "rgba(15, 23, 42, 0.65)",
+    backdropFilter: "blur(6px)",
     zIndex: 1050,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    padding: 16,
   },
   modalBox: {
-    background: T.white,
-    borderRadius: 14,
-    width: "min(700px, 94vw)",
-    maxHeight: "85vh",
+    background: "#ffffff",
+    borderRadius: 16,
+    width: "min(720px, 94vw)",
+    maxHeight: "86vh",
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 20px 60px rgba(15,23,42,.25)",
+    boxShadow: "0 25px 60px -15px rgba(15, 23, 42, 0.35)",
     overflow: "hidden",
+    border: "1px solid #e2e8f0",
   },
   modalHead: {
-    padding: "16px 20px",
-    background: `linear-gradient(135deg, ${T.slate}, #334155)`,
+    padding: "16px 22px",
+    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     flexShrink: 0,
   },
-  modalTitle: { fontSize: 15, fontWeight: 700, color: T.white, display: "flex", alignItems: "center", gap: 8 },
+  modalTitle: { fontSize: 15, fontWeight: 800, color: "#ffffff", display: "flex", alignItems: "center", gap: 10, letterSpacing: "-0.2px" },
   modalClose: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: "50%",
-    background: "rgba(255,255,255,.15)",
+    background: "rgba(255,255,255,0.12)",
     border: "none",
-    color: T.white,
+    color: "#ffffff",
     cursor: "pointer",
     fontSize: 14,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    transition: "background 0.15s ease",
   },
-  modalBody: { padding: 18, overflowY: "auto", flexGrow: 1 },
+  modalBody: { padding: 22, overflowY: "auto", flexGrow: 1 },
   modalFoot: {
-    padding: "14px 18px",
-    borderTop: `1px solid ${T.border}`,
+    padding: "16px 22px",
+    borderTop: "1px solid #e2e8f0",
+    background: "#f8fafc",
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 10,
+    gap: 12,
     flexShrink: 0,
   },
   invCard: (sel, warn) => ({
-    borderRadius: 9,
-    padding: "12px 14px",
+    borderRadius: 10,
+    padding: "13px 16px",
     marginBottom: 10,
     cursor: "pointer",
     border: sel
-      ? `2px solid ${T.teal}`
+      ? "2px solid #0d9488"
       : warn
-        ? `2px solid ${T.amber}`
-        : `1.5px solid ${T.border}`,
-    background: sel ? `${T.teal}0d` : warn ? `${T.amber}08` : T.white,
-    transition: "all .15s",
+        ? "2px solid #d97706"
+        : "1.5px solid #e2e8f0",
+    background: sel ? "#f0fdfa" : warn ? "#fffbeb" : "#ffffff",
+    boxShadow: sel ? "0 2px 8px rgba(13, 148, 136, 0.12)" : "0 1px 3px rgba(0,0,0,0.02)",
+    transition: "all 0.16s ease",
   }),
 
   /* Table action button icon */
-  actionBtn: (color = T.teal) => ({
-    background: "white",
-    border: `1px solid ${T.border}`,
+  actionBtn: (color = "#0d9488") => ({
+    background: "#ffffff",
+    border: "1.5px solid #cbd5e1",
     color: color,
-    width: 32,
-    height: 32,
-    borderRadius: 6,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
-    transition: "all 0.15s",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    transition: "all 0.15s ease",
   }),
 };
 
 /* ─── Tiny helpers ───────────────────────────────────────────────────────── */
-const Fld = ({ label, children }) => (
-  <div style={S.fld}>
+const Fld = ({ label, children, style, className }) => (
+  <div style={{ ...S.fld, ...style }} className={className || ""}>
     <span style={S.lbl}>{label}</span>
     {children}
   </div>
@@ -665,10 +1015,10 @@ const CInp = ({ style, ...props }) => (
     style={{ ...S.inp, ...style }}
     onFocus={(e) => {
       e.target.style.borderColor = T.teal;
-      e.target.style.boxShadow = `0 0 0 3px ${T.teal}18`;
+      e.target.style.boxShadow = `0 0 0 3px ${T.tealGlow || "rgba(13, 148, 136, 0.16)"}`;
     }}
     onBlur={(e) => {
-      e.target.style.borderColor = T.border;
+      e.target.style.borderColor = "#cbd5e1";
       e.target.style.boxShadow = "none";
     }}
     {...props}
@@ -694,6 +1044,75 @@ const normalizeFieldsData = (fd) => {
   if (fd && typeof fd === "object")
     return Object.entries(fd).map(([key, value]) => ({ key, value }));
   return [];
+};
+const sortFieldsDataByUiOrder = (fieldsArr, orderArr) => {
+  if (!Array.isArray(fieldsArr) || fieldsArr.length <= 1) return fieldsArr || [];
+  const orderList = Array.isArray(orderArr) && orderArr.length > 0 ? orderArr : [];
+  if (orderList.length === 0) return fieldsArr;
+
+  const orderMap = new Map();
+  orderList.forEach((name, idx) => {
+    if (name) {
+      orderMap.set(String(name).trim().toUpperCase(), idx);
+    }
+  });
+
+  return [...fieldsArr].sort((a, b) => {
+    const keyA = String(a?.key || "").trim().toUpperCase();
+    const keyB = String(b?.key || "").trim().toUpperCase();
+    const idxA = orderMap.has(keyA) ? orderMap.get(keyA) : 99999;
+    const idxB = orderMap.has(keyB) ? orderMap.get(keyB) : 99999;
+    return idxA - idxB;
+  });
+};
+
+const formatDisplayDate = (d) => {
+  if (!d) return "—";
+  if (typeof d === "string") {
+    const s = d.trim();
+    if (!s) return "—";
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s.replace(/-/g, "/");
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      const [y, m, day] = s.slice(0, 10).split("-");
+      return `${day}/${m}/${y}`;
+    }
+  }
+  try {
+    const dt = new Date(d);
+    if (!isNaN(dt.getTime())) {
+      return dt.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    }
+  } catch { }
+  return String(d);
+};
+
+const buildDoaDodText = (doa, doaTime, dod, dodTime) => {
+  const dStr = formatDisplayDate(doa);
+  const tStr = doaTime ? String(doaTime).trim() : "";
+  const dodStr = formatDisplayDate(dod);
+  const dodTStr = dodTime ? String(dodTime).trim() : "";
+  const doaLine = `DOA : ${dStr} ${tStr}`.trim();
+  const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
+  return `${doaLine}\n${dodLine}`;
+};
+
+const formatDoaDodWithExtras = (existingVal, doa, doaTime, dod, dodTime, defVal = "") => {
+  const autoText = buildDoaDodText(doa, doaTime, dod, dodTime);
+  const text = (existingVal || defVal || "").trim();
+  if (!text) return autoText;
+  const lines = text.split("\n");
+  const extraLines = lines.filter(
+    (l) => !/^DOA\s*:/i.test(l.trim()) && !/^DOD\s*:/i.test(l.trim())
+  );
+  if (extraLines.length > 0) {
+    return `${autoText}\n${extraLines.join("\n")}`.trim();
+  }
+  return autoText;
 };
 
 /* ─── Render Formatted/Bold Text Helper ──────────────────────────────────── */
@@ -731,6 +1150,214 @@ const renderFormattedText = (text) => {
   });
 };
 
+/* ─── Package.js style UI tokens & styling for Type Management ───────────── */
+const pkgCss = {
+  editBanner: {
+    background: "linear-gradient(90deg, #0ea5e918, #0d948818)",
+    border: "1px solid #0ea5e940",
+    borderRadius: 10,
+    padding: "10px 18px",
+    marginBottom: 16,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    fontSize: 13.5,
+    color: "#1E2D45",
+    fontWeight: 500,
+  },
+  editBannerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: "#0ea5e9",
+    flexShrink: 0,
+  },
+  card: {
+    background: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #E2E8F0",
+    boxShadow: "0 4px 18px rgba(10,22,40,.05)",
+    marginBottom: 18,
+    padding: "18px 22px",
+  },
+  cardTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.8px",
+    color: "#0d9488",
+    marginBottom: 14,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionLine: {
+    width: 20,
+    height: 3,
+    borderRadius: 2,
+    background: "linear-gradient(90deg, #0d9488, #0ea5e9)",
+  },
+  pickerPanel: {
+    background: "#F8FAFC",
+    border: "1.5px solid #E2E8F0",
+    borderRadius: 12,
+    padding: "16px",
+    marginBottom: 18,
+  },
+  pickerTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.7px",
+    color: "#0d9488",
+    marginBottom: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  addSelectedBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+    background: "linear-gradient(135deg, #10B981, #34D399)",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+    boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+    whiteSpace: "nowrap",
+  },
+  itemsTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    border: "1px solid #E2E8F0",
+    borderRadius: 8,
+    overflow: "hidden",
+    marginTop: 8,
+  },
+  itemsTh: {
+    padding: "9px 12px",
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.7px",
+    color: "#64748B",
+    background: "#F1F5F9",
+    borderBottom: "2px solid #E2E8F0",
+    textAlign: "left",
+  },
+  itemsTd: {
+    padding: "8px 12px",
+    fontSize: 13,
+    color: "#0F172A",
+    borderBottom: "1px solid #E2E8F0",
+    verticalAlign: "middle",
+  },
+  countBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "2px 10px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 700,
+    background: "#0ea5e918",
+    color: "#0284c7",
+    border: "1px solid #0ea5e940",
+  },
+  statusBadge: (active = true) => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "3px 10px",
+    borderRadius: 20,
+    fontSize: 11,
+    fontWeight: 700,
+    background: active ? "#10B98118" : "#EF444418",
+    color: active ? "#10B981" : "#EF4444",
+    border: `1px solid ${active ? "#10B98140" : "#EF444440"}`,
+  }),
+  statusDot: (active = true) => ({
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    background: active ? "#10B981" : "#EF4444",
+  }),
+  btn: (variant = "primary") => {
+    const map = {
+      primary: {
+        bg: "linear-gradient(135deg, #0d9488, #0ea5e9)",
+        color: "#ffffff",
+      },
+      danger: {
+        bg: "linear-gradient(135deg, #EF4444, #F87171)",
+        color: "#ffffff",
+      },
+      success: {
+        bg: "linear-gradient(135deg, #10B981, #34D399)",
+        color: "#ffffff",
+      },
+      ghost: { bg: "#1E2D45", color: "#ffffff" },
+    };
+    const v = map[variant] || map.primary;
+    return {
+      padding: "8px 18px",
+      fontSize: 13,
+      fontWeight: 600,
+      background: v.bg,
+      color: v.color,
+      border: "none",
+      borderRadius: 9,
+      cursor: "pointer",
+      boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+      letterSpacing: "0.2px",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+    };
+  },
+  smallBtn: (variant = "primary") => {
+    const map = {
+      primary: {
+        bg: "linear-gradient(135deg, #0d9488, #0ea5e9)",
+        color: "#ffffff",
+      },
+      danger: {
+        bg: "linear-gradient(135deg, #EF4444, #F87171)",
+        color: "#ffffff",
+      },
+      success: {
+        bg: "linear-gradient(135deg, #10B981, #34D399)",
+        color: "#ffffff",
+      },
+      ghost: { bg: "#1E2D45", color: "#ffffff" },
+      outline: {
+        bg: "#ffffff",
+        color: "#64748B",
+        border: "1px solid #CBD5E1",
+      },
+    };
+    const v = map[variant] || map.primary;
+    return {
+      padding: "5px 12px",
+      fontSize: 12,
+      fontWeight: 600,
+      background: v.bg,
+      color: v.color,
+      border: v.border || "none",
+      borderRadius: 7,
+      cursor: "pointer",
+      boxShadow: v.border ? "none" : "0 2px 6px rgba(0,0,0,.10)",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 4,
+    };
+  },
+};
+
 /* ─── Component ──────────────────────────────────────────────────────────── */
 const Summary = () => {
   const currentDate = new Date().toLocaleDateString("en-GB");
@@ -748,18 +1375,50 @@ const Summary = () => {
   const [doctors, setDoctors] = useState([]);
   const [summaryTypeOptions, setSummaryTypeOptions] = useState([]);
   const [headingOptions, setHeadingOptions] = useState([]);
+  const [empNameMap, setEmpNameMap] = useState({});
+  const [actionsModalSummary, setActionsModalSummary] = useState(null);
 
-  // Summary Type modal state
-  const [showAddSummaryTypeModal, setShowAddSummaryTypeModal] = useState(false);
-  const [newSummaryTypeInput, setNewSummaryTypeInput] = useState("");
-  const [editingSummaryType, setEditingSummaryType] = useState(null);
-  const [savingSummaryType, setSavingSummaryType] = useState(false);
+  const resolveEmpName = (id, serverName) => {
+    if (serverName && serverName !== id && serverName !== "Unknown") return serverName;
+    if (!id) return "";
+    const strId = String(id).trim();
+    if (!strId) return "";
+    const docMatch = doctors.find(
+      (d) =>
+        String(d.employeeId || "").trim() === strId ||
+        (d.employeeName && d.employeeName.trim().toUpperCase() === strId.toUpperCase())
+    );
+    if (docMatch && docMatch.employeeName) return docMatch.employeeName;
+    return empNameMap[strId] || strId;
+  };
 
-  // Heading modal state
-  const [showAddHeadingModal, setShowAddHeadingModal] = useState(false);
-  const [newHeadingInput, setNewHeadingInput] = useState("");
+  // Summary Type Management state (same UI like Package.js)
+  const [showManageSummaryTypeModal, setShowManageSummaryTypeModal] = useState(false);
+  const [typeSearchFilter, setTypeSearchFilter] = useState("");
+  const [showTypeFormModal, setShowTypeFormModal] = useState(false);
+  const [isEditTypeMode, setIsEditTypeMode] = useState(false);
+  const [editingTypeNo, setEditingTypeNo] = useState(null);
+  const [typeFormData, setTypeFormData] = useState({
+    summaryType: "",
+    headings: [],
+  });
+  const [savingType, setSavingType] = useState(false);
+  const [selectedHeadingToPick, setSelectedHeadingToPick] = useState("");
+  const [headingPickerSearch, setHeadingPickerSearch] = useState("");
+  const [viewTypeObj, setViewTypeObj] = useState(null);
+  const [editingHeadingDefaultIndex, setEditingHeadingDefaultIndex] = useState(null);
+  const [tempDefaultValue, setTempDefaultValue] = useState("");
+
+  // Heading Master Management state (Add, Edit, Delete)
+  const [showManageHeadingModal, setShowManageHeadingModal] = useState(false);
+  const [headingInput, setHeadingInput] = useState("");
   const [editingHeading, setEditingHeading] = useState(null);
+  const [headingSearchFilter, setHeadingSearchFilter] = useState("");
   const [savingHeading, setSavingHeading] = useState(false);
+
+  // Consultant section doctors picker state
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
+  const [doctorSearchQuery, setDoctorSearchQuery] = useState("");
 
   const [showMedicines, setShowMedicines] = useState(false);
   const [medicines, setMedicines] = useState([]);
@@ -767,14 +1426,20 @@ const Summary = () => {
   const [medicinesLoading, setMedicinesLoading] = useState(false);
   const [medicineModalType, setMedicineModalType] = useState("");
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-  const allowedActions = JSON.parse(
-    localStorage.getItem("allowedActions") || "[]"
-  );
+  let allowedActions = [];
+  try {
+    const rawActions = localStorage.getItem("allowedActions");
+    allowedActions = rawActions ? JSON.parse(rawActions) : [];
+    if (!Array.isArray(allowedActions)) allowedActions = [];
+  } catch (e) {
+    allowedActions = [];
+  }
   const canEdit = allowedActions.includes("HMS-P-SUME-RW");
   const canDelete = allowedActions.includes("HMS-P-SUMD-RW");
   const canApprove = allowedActions.includes("HMS-P-SUMA-RW");
 
   const [noteFields, setNoteFields] = useState([]);
+  const [sidebarSearch, setSidebarSearch] = useState("");
 
   const emptyForm = {
     date: "",
@@ -792,6 +1457,8 @@ const Summary = () => {
     surgeryDate: "",
     nextReviewDate: "",
     doctor: "",
+    explainedBy: "",
+    explainedTo: "",
     gender: "",
     summaryNo: "",
     summaryType: "",
@@ -836,6 +1503,24 @@ const Summary = () => {
   const [speechStatus, setSpeechStatus] = useState("Listening… Speak into your microphone");
   const [audioLevel, setAudioLevel] = useState(0);
 
+  // Case Conversion Toolbar dropdown state
+  const [showCaseMenu, setShowCaseMenu] = useState(false);
+  const caseMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (caseMenuRef.current && !caseMenuRef.current.contains(e.target)) {
+        setShowCaseMenu(false);
+      }
+    };
+    if (showCaseMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showCaseMenu]);
+
   const toggleMicBoost = () => {
     setMicBoost((prev) => {
       const next = !prev;
@@ -867,7 +1552,14 @@ const Summary = () => {
 
   const fetchDoctors = async () => {
     const r = await apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET");
-    if (r.success) setDoctors(r.data);
+    if (r.success) {
+      setDoctors(
+        (r.data || []).map((doc) => ({
+          ...doc,
+          employeeName: (doc.employeeName || "").toUpperCase(),
+        }))
+      );
+    }
   };
 
   const fetchSummaryTypes = async () => {
@@ -880,113 +1572,326 @@ const Summary = () => {
     if (r.success) setHeadingOptions(r.data);
   };
 
-  const fetchClinicalNotesTitles = async () => {
-    try {
-      const r = await apiRequest(`${HMSURL}summary-clinical-notes/`, "GET");
-      if (r.success && Array.isArray(r.data) && r.data.length > 0) {
-        const sorted = [...r.data].sort((a, b) => {
-          const numA = Number(a.title_no) || 0;
-          const numB = Number(b.title_no) || 0;
-          return numA - numB;
-        });
-        setNoteFields(
-          sorted.map((item) => item.title_name).filter(Boolean)
-        );
-      }
-    } catch (err) {
-      console.error("Failed to fetch clinical notes titles:", err);
-    }
-  };
-
   useEffect(() => {
     fetchDoctors();
     fetchSummaryTypes();
     fetchSummaryHeadings();
-    fetchClinicalNotesTitles();
   }, [HMSURL]);
+
+  // Derive Clinical Notes fields strictly from the selected Summary Type's headings
+  useEffect(() => {
+    if (!formData.summaryNo && !formData.summaryType) {
+      setNoteFields([]);
+      return;
+    }
+    const found = summaryTypeOptions.find(
+      (t) =>
+        (formData.summaryNo && String(t.summaryNo) === String(formData.summaryNo)) ||
+        (formData.summaryType &&
+          t.summaryType &&
+          t.summaryType.trim().toUpperCase() === formData.summaryType.trim().toUpperCase())
+    );
+    if (found && Array.isArray(found.headings) && found.headings.length > 0) {
+      const sorted = [...found.headings].sort(
+        (a, b) => (Number(a.order_id) || 0) - (Number(b.order_id) || 0)
+      );
+      const fields = sorted
+        .map((h) => (typeof h === "string" ? h : h.heading))
+        .filter(Boolean);
+      setNoteFields(fields);
+      // Auto-select first field if no field currently selected or not in list
+      if (fields.length > 0 && (!selectedField || !fields.includes(selectedField))) {
+        handleButtonClick(fields[0]);
+      }
+    } else {
+      setNoteFields([]);
+      setSelectedField("");
+    }
+  }, [formData.summaryNo, formData.summaryType, summaryTypeOptions]);
+
+  const getPredefinedValueForField = (fieldName) => {
+    if (!fieldName) return "";
+    const activeType = summaryTypeOptions.find(
+      (t) =>
+        (formData.summaryNo && String(t.summaryNo) === String(formData.summaryNo)) ||
+        (formData.summaryType &&
+          t.summaryType &&
+          t.summaryType.trim().toUpperCase() === formData.summaryType.trim().toUpperCase())
+    );
+    if (!activeType || !Array.isArray(activeType.headings)) return "";
+    const headingObj = activeType.headings.find(
+      (h) => (typeof h === "object" ? h.heading : h)?.trim().toLowerCase() === fieldName.trim().toLowerCase()
+    );
+    return (typeof headingObj === "object" ? (headingObj.defaultValue || headingObj.default_value) : "") || "";
+  };
 
   const handleSummaryTypeSelect = (e) => {
     const sNo = e.target.value;
     const found = summaryTypeOptions.find(
       (t) => String(t.summaryNo) === String(sNo)
     );
-    setFormData((prev) => ({
-      ...prev,
-      summaryNo: sNo,
-      summaryType: found ? found.summaryType : "",
-    }));
+    let firstHeading = "";
+    let firstVal = "";
+
+    setFormData((prev) => {
+      let updatedFd = [];
+      let orderedHeadings = [];
+      if (found && Array.isArray(found.headings)) {
+        const sortedHeadings = [...found.headings].sort(
+          (a, b) => (Number(a.order_id) || 0) - (Number(b.order_id) || 0)
+        );
+        orderedHeadings = sortedHeadings
+          .map((h) => (typeof h === "string" ? h : h.heading))
+          .filter(Boolean);
+
+        sortedHeadings.forEach((h) => {
+          const hName = typeof h === "string" ? h : h.heading;
+          const defVal = typeof h === "object" ? (h.defaultValue || h.default_value || "") : "";
+          if (hName === "DOA AND DOD") {
+            const formatted = formatDoaDodWithExtras("", prev.doa, prev.doaTime, prev.dod, prev.dodTime, defVal);
+            updatedFd = setFieldValue(updatedFd, hName, formatted);
+          } else {
+            updatedFd = setFieldValue(updatedFd, hName, defVal || "");
+          }
+        });
+      }
+
+      firstHeading = orderedHeadings[0] || "";
+      firstVal = firstHeading ? getFieldValue(updatedFd, firstHeading) : "";
+
+      return {
+        ...prev,
+        summaryNo: sNo,
+        summaryType: found ? found.summaryType : "",
+        fieldsData: sortFieldsDataByUiOrder(updatedFd, orderedHeadings),
+        currentField: firstHeading,
+        notes: firstVal || "",
+      };
+    });
+
+    setSelectedField(firstHeading);
   };
 
-  const handleHeadingSelect = (e) => {
-    const hNo = e.target.value;
-    const found = headingOptions.find(
-      (h) => String(h.headingNo) === String(hNo)
-    );
-    setFormData((prev) => ({
-      ...prev,
-      headingNo: hNo,
-      heading: found ? found.heading : "",
-    }));
+  // ── Package.js style Type Management actions ──
+  const openCreateType = () => {
+    setTypeFormData({
+      summaryType: "",
+      headings: [],
+    });
+    setEditingHeadingDefaultIndex(null);
+    setTempDefaultValue("");
+    setIsEditTypeMode(false);
+    setEditingTypeNo(null);
+    setSelectedHeadingToPick("");
+    setHeadingPickerSearch("");
+    setShowTypeFormModal(true);
   };
 
-  const handleSaveSummaryType = async (e) => {
-    if (e) e.preventDefault();
-    const val = newSummaryTypeInput.trim();
-    if (!val) {
-      Swal.fire("Validation", "Please enter a summary type", "warning");
+  const openEditType = (t) => {
+    const sortedHeadings = Array.isArray(t.headings)
+      ? [...t.headings]
+        .sort((a, b) => (Number(a.order_id) || 0) - (Number(b.order_id) || 0))
+        .map((h, i) => ({
+          order_id: i + 1,
+          headingNo: h.headingNo || "",
+          heading: h.heading || "",
+          defaultValue: h.defaultValue || h.default_value || "",
+        }))
+      : [];
+    setTypeFormData({
+      summaryType: t.summaryType || "",
+      headings: sortedHeadings,
+    });
+    setEditingHeadingDefaultIndex(null);
+    setTempDefaultValue("");
+    setIsEditTypeMode(true);
+    setEditingTypeNo(t.summaryNo);
+    setSelectedHeadingToPick("");
+    setHeadingPickerSearch("");
+    setShowTypeFormModal(true);
+  };
+
+  const openEditHeadingDefault = (index) => {
+    const current = typeFormData.headings[index];
+    if (!current) return;
+    setEditingHeadingDefaultIndex(index);
+    setTempDefaultValue(current.defaultValue || "");
+  };
+
+  const handleSaveHeadingDefault = () => {
+    if (editingHeadingDefaultIndex === null) return;
+    setTypeFormData((prev) => {
+      const nextHeadings = [...prev.headings];
+      if (nextHeadings[editingHeadingDefaultIndex]) {
+        nextHeadings[editingHeadingDefaultIndex] = {
+          ...nextHeadings[editingHeadingDefaultIndex],
+          defaultValue: tempDefaultValue.trim(),
+        };
+      }
+      return { ...prev, headings: nextHeadings };
+    });
+    setEditingHeadingDefaultIndex(null);
+    setTempDefaultValue("");
+  };
+
+  const renderStatusToggle = ({ checked, onChange, disabled = false, title = "" }) => (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange();
+      }}
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        width: 38,
+        height: 20,
+        borderRadius: 10,
+        background: checked ? "#10b981" : "#cbd5e1",
+        border: "none",
+        cursor: disabled ? "not-allowed" : "pointer",
+        transition: "background-color 0.2s ease",
+        padding: 2,
+        outline: "none",
+        flexShrink: 0,
+      }}
+      title={title || (checked ? "Click to Deactivate" : "Click to Activate")}
+    >
+      <span
+        style={{
+          display: "inline-block",
+          width: 16,
+          height: 16,
+          borderRadius: "50%",
+          background: "#ffffff",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
+          transform: checked ? "translateX(18px)" : "translateX(0px)",
+          transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      />
+    </button>
+  );
+
+  const handleAddHeadingToType = (headingToAdd) => {
+    const val = typeof headingToAdd === "string" ? headingToAdd : "";
+    if (!val || !val.trim()) {
+      Swal.fire("Validation", "Please select a heading to add.", "warning");
       return;
     }
-    setSavingSummaryType(true);
+    const cleanVal = val.trim();
+    const matched = headingOptions.find(
+      (h) => h.heading && h.heading.trim().toLowerCase() === cleanVal.toLowerCase()
+    );
+    if (matched && matched.is_active === false) {
+      Swal.fire("Deactivated Heading", `"${cleanVal}" is deactivated and cannot be added to a type.`, "warning");
+      return;
+    }
+    const alreadyExists = typeFormData.headings.some(
+      (h) => h.heading && h.heading.trim().toLowerCase() === cleanVal.toLowerCase()
+    );
+    if (alreadyExists) {
+      Swal.fire("Already Added", `"${cleanVal}" is already in this type.`, "info");
+      return;
+    }
+    const newEntry = {
+      order_id: typeFormData.headings.length + 1,
+      headingNo: matched ? matched.headingNo : "",
+      heading: cleanVal,
+      defaultValue: "",
+    };
+    setTypeFormData((prev) => ({
+      ...prev,
+      headings: [...prev.headings, newEntry],
+    }));
+  };
 
-    if (editingSummaryType) {
-      // Update
+  const handleRemoveHeadingFromType = (idxToRemove) => {
+    setTypeFormData((prev) => {
+      const remaining = prev.headings.filter((_, idx) => idx !== idxToRemove);
+      const renumbered = remaining.map((h, idx) => ({
+        ...h,
+        order_id: idx + 1,
+      }));
+      return { ...prev, headings: renumbered };
+    });
+  };
+
+  const handleMoveHeadingOrder = (index, direction) => {
+    setTypeFormData((prev) => {
+      const items = [...prev.headings];
+      const targetIdx = direction === "up" ? index - 1 : index + 1;
+      if (targetIdx < 0 || targetIdx >= items.length) return prev;
+      const temp = items[index];
+      items[index] = items[targetIdx];
+      items[targetIdx] = temp;
+      const renumbered = items.map((h, idx) => ({
+        ...h,
+        order_id: idx + 1,
+      }));
+      return { ...prev, headings: renumbered };
+    });
+  };
+
+  const handleSaveTypeSubmit = async (e) => {
+    if (e) e.preventDefault();
+    const typeName = typeFormData.summaryType.trim();
+    if (!typeName) {
+      Swal.fire("Validation", "Please enter a Summary Type name", "warning");
+      return;
+    }
+    setSavingType(true);
+    if (isEditTypeMode) {
       const r = await apiRequest(
-        `${HMSURL}summary-type/update/${encodeURIComponent(editingSummaryType.summaryNo)}/`,
+        `${HMSURL}summary-type/update/${encodeURIComponent(editingTypeNo)}/`,
         "POST",
-        { summaryType: val }
+        {
+          summaryType: typeName,
+          headings: typeFormData.headings,
+        }
       );
-      setSavingSummaryType(false);
+      setSavingType(false);
       if (r.success) {
         Swal.fire({
           icon: "success",
           title: "Updated",
-          text: "Summary Type updated successfully",
+          text: "Summary Type updated successfully!",
           timer: 1500,
           showConfirmButton: false,
         });
         if (
-          String(formData.summaryNo) === String(editingSummaryType.summaryNo) ||
-          formData.summaryType === editingSummaryType.summaryType
+          String(formData.summaryNo) === String(editingTypeNo) ||
+          formData.summaryType === typeName
         ) {
           setFormData((prev) => ({
             ...prev,
-            summaryNo: editingSummaryType.summaryNo,
-            summaryType: val,
+            summaryNo: editingTypeNo,
+            summaryType: typeName,
           }));
         }
-        setEditingSummaryType(null);
-        setNewSummaryTypeInput("");
+        setShowTypeFormModal(false);
         await fetchSummaryTypes();
       } else {
         Swal.fire("Error", r.error || "Failed to update summary type", "error");
       }
     } else {
-      // Create
       const r = await apiRequest(`${HMSURL}summary-type/`, "POST", {
-        summaryType: val,
+        summaryType: typeName,
+        headings: typeFormData.headings,
       });
-      setSavingSummaryType(false);
+      setSavingType(false);
       if (r.success) {
         Swal.fire({
           icon: "success",
           title: "Created",
-          text: "Summary Type added successfully",
+          text: "Summary Type created successfully!",
           timer: 1500,
           showConfirmButton: false,
         });
         const created = r.data?.data;
-        setNewSummaryTypeInput("");
-        await fetchSummaryTypes();
         if (created) {
           setFormData((prev) => ({
             ...prev,
@@ -994,58 +1899,61 @@ const Summary = () => {
             summaryType: created.summaryType,
           }));
         }
+        setShowTypeFormModal(false);
+        await fetchSummaryTypes();
       } else {
-        Swal.fire("Error", r.error || "Failed to add summary type", "error");
+        Swal.fire("Error", r.error || "Failed to create summary type", "error");
       }
     }
   };
 
-  const handleDeleteSummaryType = async (summaryNo, typeName) => {
-    const result = await Swal.fire({
-      title: "Delete Summary Type?",
-      text: `Are you sure you want to delete "${typeName}"?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: T.red,
-      cancelButtonColor: T.muted,
-      confirmButtonText: "Yes, delete",
-    });
-
-    if (result.isConfirmed) {
-      const r = await apiRequest(
-        `${HMSURL}summary-type/delete/${encodeURIComponent(summaryNo)}/`,
-        "POST"
+  const handleToggleSummaryTypeStatus = async (t) => {
+    const currentActive = t.is_active !== false;
+    const newStatus = !currentActive;
+    const r = await apiRequest(
+      `${HMSURL}summary-type/update/${encodeURIComponent(t.summaryNo)}/`,
+      "POST",
+      { is_active: newStatus }
+    );
+    if (r.success) {
+      setSummaryTypeOptions((prev) =>
+        prev.map((item) =>
+          String(item.summaryNo) === String(t.summaryNo)
+            ? { ...item, is_active: newStatus }
+            : item
+        )
       );
-      if (r.success) {
-        Swal.fire({
-          icon: "success",
-          title: "Deleted",
-          text: "Summary Type deleted successfully",
-          timer: 1500,
-          showConfirmButton: false,
-        });
-        if (
-          String(formData.summaryNo) === String(summaryNo) ||
-          formData.summaryType === typeName
-        ) {
-          setFormData((prev) => ({ ...prev, summaryNo: "", summaryType: "" }));
-        }
-        if (editingSummaryType?.summaryNo === summaryNo) {
-          setEditingSummaryType(null);
-          setNewSummaryTypeInput("");
-        }
-        await fetchSummaryTypes();
-      } else {
-        Swal.fire("Error", r.error || "Failed to delete summary type", "error");
+      if (String(formData.summaryNo) === String(t.summaryNo) && !newStatus) {
+        setFormData((prev) => ({ ...prev, summaryNo: "", summaryType: "" }));
       }
+    } else {
+      Swal.fire("Error", r.error || "Failed to update summary type status", "error");
     }
+  };
+
+  // ── Headings Master (Add, Edit, Delete) Actions ──
+  const handleOpenHeadingModule = () => {
+    setHeadingInput("");
+    setEditingHeading(null);
+    setHeadingSearchFilter("");
+    setShowManageHeadingModal(true);
+  };
+
+  const handleEditHeadingClick = (h) => {
+    setEditingHeading(h);
+    setHeadingInput(h.heading);
+  };
+
+  const handleCancelEditHeading = () => {
+    setEditingHeading(null);
+    setHeadingInput("");
   };
 
   const handleSaveHeading = async (e) => {
     if (e) e.preventDefault();
-    const val = newHeadingInput.trim();
+    const val = headingInput.trim();
     if (!val) {
-      Swal.fire("Validation", "Please enter a heading", "warning");
+      Swal.fire("Validation", "Please enter a heading name", "warning");
       return;
     }
     setSavingHeading(true);
@@ -1062,49 +1970,57 @@ const Summary = () => {
         Swal.fire({
           icon: "success",
           title: "Updated",
-          text: "Heading updated successfully",
+          text: `Heading updated to "${val}"`,
           timer: 1500,
           showConfirmButton: false,
         });
+
+        // Update in typeFormData.headings if present
+        setTypeFormData((prev) => ({
+          ...prev,
+          headings: (prev.headings || []).map((h) =>
+            String(h.headingNo) === String(editingHeading.headingNo) ||
+              h.heading === editingHeading.heading
+              ? { ...h, heading: val }
+              : h
+          ),
+        }));
+
+        // Update in main form if currently selected
         if (
           String(formData.headingNo) === String(editingHeading.headingNo) ||
           formData.heading === editingHeading.heading
         ) {
-          setFormData((prev) => ({
-            ...prev,
-            headingNo: editingHeading.headingNo,
-            heading: val,
-          }));
+          setFormData((prev) => ({ ...prev, heading: val }));
         }
+
         setEditingHeading(null);
-        setNewHeadingInput("");
+        setHeadingInput("");
         await fetchSummaryHeadings();
+        await fetchSummaryTypes();
       } else {
         Swal.fire("Error", r.error || "Failed to update heading", "error");
       }
     } else {
-      // Create
+      // Add
       const r = await apiRequest(`${HMSURL}summary-heading/`, "POST", {
         heading: val,
       });
       setSavingHeading(false);
       if (r.success) {
+        const created = r.data?.data;
         Swal.fire({
           icon: "success",
           title: "Created",
-          text: "Heading added successfully",
+          text: `Heading "${val}" added to Headings table!`,
           timer: 1500,
           showConfirmButton: false,
         });
-        const created = r.data?.data;
-        setNewHeadingInput("");
+        setHeadingInput("");
         await fetchSummaryHeadings();
-        if (created) {
-          setFormData((prev) => ({
-            ...prev,
-            headingNo: created.headingNo,
-            heading: created.heading,
-          }));
+        // If Type Form modal is open, auto-add to the Type
+        if (showTypeFormModal && created) {
+          handleAddHeadingToType(created.heading);
         }
       } else {
         Swal.fire("Error", r.error || "Failed to add heading", "error");
@@ -1112,46 +2028,28 @@ const Summary = () => {
     }
   };
 
-  const handleDeleteHeading = async (headingNo, headingName) => {
-    const result = await Swal.fire({
-      title: "Delete Heading?",
-      text: `Are you sure you want to delete "${headingName}"?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: T.red,
-      cancelButtonColor: T.muted,
-      confirmButtonText: "Yes, delete",
-    });
-
-    if (result.isConfirmed) {
-      const r = await apiRequest(
-        `${HMSURL}summary-heading/delete/${encodeURIComponent(headingNo)}/`,
-        "POST"
+  const handleToggleHeadingStatus = async (h) => {
+    const currentActive = h.is_active !== false;
+    const newStatus = !currentActive;
+    const r = await apiRequest(
+      `${HMSURL}summary-heading/update/${encodeURIComponent(h.headingNo)}/`,
+      "POST",
+      { is_active: newStatus }
+    );
+    if (r.success) {
+      setHeadingOptions((prev) =>
+        prev.map((item) =>
+          String(item.headingNo) === String(h.headingNo)
+            ? { ...item, is_active: newStatus }
+            : item
+        )
       );
-      if (r.success) {
-        Swal.fire({
-          icon: "success",
-          title: "Deleted",
-          text: "Heading deleted successfully",
-          timer: 1500,
-          showConfirmButton: false,
-        });
-        if (
-          String(formData.headingNo) === String(headingNo) ||
-          formData.heading === headingName
-        ) {
-          setFormData((prev) => ({ ...prev, headingNo: "", heading: "" }));
-        }
-        if (editingHeading?.headingNo === headingNo) {
-          setEditingHeading(null);
-          setNewHeadingInput("");
-        }
-        await fetchSummaryHeadings();
-      } else {
-        Swal.fire("Error", r.error || "Failed to delete heading", "error");
-      }
+    } else {
+      Swal.fire("Error", r.error || "Failed to update heading status", "error");
     }
   };
+
+
 
   const fetchSummaries = async (params = {}) => {
     const q = new URLSearchParams();
@@ -1164,11 +2062,50 @@ const Summary = () => {
   };
 
   useEffect(() => {
-    fetchSummaries({
-      fromDate: new Date().toISOString().split("T")[0],
-      toDate: new Date().toISOString().split("T")[0],
-    });
+    if (!location.state?.archiveFilter) {
+      fetchSummaries({
+        fromDate: new Date().toISOString().split("T")[0],
+        toDate: new Date().toISOString().split("T")[0],
+      });
+    }
   }, []);
+
+  // Dynamically resolve any missing employee names from Global.backend_diagnostics_profile
+  useEffect(() => {
+    if (!summaries || !summaries.length) return;
+    const unresolved = new Set();
+    summaries.forEach((s) => {
+      [s.created_by, s.approved_by].forEach((id) => {
+        if (!id) return;
+        const strId = String(id).trim();
+        const isServerResolved =
+          (s.created_by === id && s.created_by_name && s.created_by_name !== strId && s.created_by_name !== "Unknown") ||
+          (s.approved_by === id && s.approved_by_name && s.approved_by_name !== strId && s.approved_by_name !== "Unknown");
+        const inDoctors = doctors.some(
+          (d) =>
+            String(d.employeeId || "").trim() === strId ||
+            (d.employeeName && d.employeeName.trim().toUpperCase() === strId.toUpperCase())
+        );
+        if (!isServerResolved && !inDoctors && !empNameMap[strId]) {
+          unresolved.add(strId);
+        }
+      });
+    });
+
+    if (unresolved.size > 0) {
+      unresolved.forEach(async (id) => {
+        try {
+          const res = await apiRequest(`${HMSURL}get_employee_name/?employee_id=${encodeURIComponent(id)}`, "GET");
+          const resolvedName = res?.name || res?.data?.name;
+          if (res?.success && resolvedName && resolvedName !== "Unknown") {
+            setEmpNameMap((prev) => ({ ...prev, [id]: resolvedName }));
+          }
+        } catch (e) {
+          // ignore
+        }
+      });
+    }
+  }, [summaries, doctors, HMSURL]);
 
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
@@ -1178,22 +2115,78 @@ const Summary = () => {
     setShowPatientModal(true);
   };
 
-  const handlePatientSelect = (item) => {
-    const selectedIp = item.ipNumber || item.ip_number || "";
-    if (selectedIp) {
-      setFormData((prev) => ({ ...prev, ipNo: selectedIp }));
-      fetchIpPatient(selectedIp);
+  const checkSummaryExists = async (ip) => {
+    if (!ip?.trim()) return false;
+    try {
+      const checkRes = await apiRequest(
+        `${HMSURL}check-summary-exists/${encodeURIComponent(ip.trim())}/`,
+        "GET"
+      );
+      if (checkRes.success && checkRes.data?.exists) {
+        Swal.fire({
+          icon: "warning",
+          title: "Discharge Summary already exist with this IP number",
+          confirmButtonColor: "#0d9488",
+        });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Error checking summary existence:", err);
+      return false;
     }
   };
 
-  const fetchIpPatient = async (overrideIp) => {
+  const handlePatientSelect = async (item) => {
+    const selectedIp =
+      item.ipNumber ||
+      item.ip_number ||
+      item.ip_no ||
+      item.ipNo ||
+      item.inpatient_number ||
+      "";
+    if (selectedIp) {
+      if (!isEditMode) {
+        const exists = await checkSummaryExists(selectedIp);
+        if (exists) {
+          return;
+        }
+      }
+      setFormData((prev) => ({ ...prev, ipNo: selectedIp }));
+      fetchIpPatient(selectedIp, true);
+    }
+  };
+
+  const fetchIpPatient = async (overrideIp, skipExistCheck = false) => {
     const ip = typeof overrideIp === "string" ? overrideIp : formData.ipNo;
     if (!ip?.trim()) {
       Swal.fire("Validation Error", "Please enter IP Number", "warning");
       return;
     }
+    const cleanIp = ip.trim();
+
+    if (!isEditMode && !skipExistCheck) {
+      const exists = await checkSummaryExists(cleanIp);
+      if (exists) {
+        setFormData((prev) => ({
+          ...prev,
+          ipNo: "",
+          uhid: "",
+          patient: "",
+          age: "",
+          gender: "",
+          roomNo: "",
+          doa: "",
+          doaTime: "",
+          doctor: "",
+          address: "",
+        }));
+        return;
+      }
+    }
+
     const r = await apiRequest(
-      `${HMSURL}ip-patient/${encodeURIComponent(ip)}/`,
+      `${HMSURL}ip-patient/${encodeURIComponent(cleanIp)}/`,
       "GET"
     );
     if (r.success) {
@@ -1202,28 +2195,46 @@ const Summary = () => {
         `${d.salutation || ""} ${d.firstName || ""} ${d.lastName || ""}`
           .trim()
           .replace(/\s+/g, " ");
-      const fullAddress = [d.area, d.city, d.state].filter(Boolean).join(", ");
-      setFormData((prev) => ({
-        ...prev,
-        uhid: d.uhid || "",
-        patient: fullName,
-        age: d.age || "",
-        gender: d.gender || "",
-        roomNo: d.roomNo || "",
-        doa: d.admissionDate || "",
-        doaTime: d.admissionTime || "",
-        doctor: d.admittingDoctor || "",
-        address: fullAddress,
-        is_high_risk: Boolean(d.is_high_risk),
-        high_risk_reason: d.high_risk_reason || "",
-      }));
+      const fullAddress = (d.address || [d.area, d.city, d.state, d.zipcode].filter(Boolean).join(", ")).trim();
+      const newDoa = d.admissionDate || "";
+      const newDoaTime = d.admissionTime || "";
+      setFormData((prev) => {
+        const nextDod = prev.dod || "";
+        const nextDodTime = prev.dodTime || "17:00";
+        const curDoaDod = getFieldValue(prev.fieldsData, "DOA AND DOD");
+        const defVal = getPredefinedValueForField("DOA AND DOD");
+        const autoDoaDodText = formatDoaDodWithExtras(curDoaDod, newDoa, newDoaTime, nextDod, nextDodTime, defVal);
+        let updatedFd = setFieldValue(prev.fieldsData, "DOA AND DOD", autoDoaDodText);
+        const activeDoaDod = getFieldValue(updatedFd, "DOA AND DOD");
+        const isViewingDoaDod =
+          (selectedField || prev.currentField || "").trim().toUpperCase() === "DOA AND DOD" ||
+          (!prev.currentField && !selectedField);
+        return {
+          ...prev,
+          uhid: d.uhid || "",
+          patient: fullName,
+          age: d.age || "",
+          gender: d.gender || "",
+          roomNo: d.roomNo || "",
+          doa: newDoa,
+          doaTime: newDoaTime,
+          doctor: (d.admittingDoctor || "").toUpperCase(),
+          address: fullAddress,
+          is_high_risk: Boolean(d.is_high_risk),
+          high_risk_reason: d.high_risk_reason || "",
+          explainedBy: prev.explainedBy || (d.admittingDoctor ? (d.admittingDoctor.toUpperCase().startsWith("DR.") ? d.admittingDoctor.toUpperCase() : `DR. ${d.admittingDoctor.toUpperCase()}`) : ""),
+          explainedTo: prev.explainedTo || fullName,
+          fieldsData: updatedFd,
+          notes: isViewingDoaDod && activeDoaDod ? activeDoaDod : prev.notes,
+        };
+      });
     } else {
       Swal.fire("Error", "Patient not found for the entered IP Number", "error");
     }
   };
 
   useEffect(() => {
-    if (location.state?.ipNo) {
+    if (location.state?.ipNo && !location.state?.archiveFilter) {
       setFormData((prev) => ({ ...prev, ipNo: location.state.ipNo }));
       fetchIpPatient(location.state.ipNo);
       navigate(location.pathname, { replace: true, state: {} });
@@ -1397,13 +2408,103 @@ const Summary = () => {
     setSelectedMedicines([]);
   };
 
+  const handleAddDoctorToConsultant = (docName) => {
+    const rawName = (docName || "").trim().toUpperCase();
+    if (!rawName) return;
+
+    setFormData((prev) => {
+      const curNotes = (prev.notes || "").trim();
+      let newNotes = "";
+      if (!curNotes) {
+        newNotes = rawName;
+      } else {
+        const lines = curNotes.split("\n").map((l) => l.trim().toUpperCase());
+        if (lines.includes(rawName)) {
+          return prev;
+        }
+        newNotes = `${curNotes}\n${rawName}`;
+      }
+      const targetField = prev.currentField || "CONSULTANT";
+      const updatedFD = setFieldValue(prev.fieldsData, targetField, newNotes);
+      return {
+        ...prev,
+        notes: newNotes,
+        fieldsData: updatedFD,
+      };
+    });
+  };
+
+  const handleToggleDoctorInConsultant = (docName) => {
+    const rawName = (docName || "").trim().toUpperCase();
+    if (!rawName) return;
+
+    setFormData((prev) => {
+      const curNotes = (prev.notes || "").trim();
+      let newNotes = "";
+      if (!curNotes) {
+        newNotes = rawName;
+      } else {
+        const lines = curNotes.split("\n");
+        const matchIdx = lines.findIndex(
+          (l) => l.trim().toUpperCase() === rawName
+        );
+        if (matchIdx !== -1) {
+          lines.splice(matchIdx, 1);
+          newNotes = lines.join("\n").trim();
+        } else {
+          newNotes = `${curNotes}\n${rawName}`;
+        }
+      }
+      const targetField = prev.currentField || "CONSULTANT";
+      const updatedFD = setFieldValue(prev.fieldsData, targetField, newNotes);
+      return {
+        ...prev,
+        notes: newNotes,
+        fieldsData: updatedFD,
+      };
+    });
+  };
+
+  const isDoctorIncludedInNotes = (docName) => {
+    const raw = (docName || "").trim().toUpperCase();
+    if (!raw) return false;
+    const lines = (formData.notes || "")
+      .split("\n")
+      .map((l) => l.trim().toUpperCase());
+    return lines.includes(raw);
+  };
+
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "file" ? files[0] : type === "checkbox" ? checked : value,
-    }));
+    const finalVal = type === "file" ? files[0] : type === "checkbox" ? checked : value;
+
+    setFormData((prev) => {
+      const nextForm = {
+        ...prev,
+        [name]: finalVal,
+      };
+
+      if (["doa", "doaTime", "dod", "dodTime"].includes(name)) {
+        const nextDoa = name === "doa" ? finalVal : prev.doa;
+        const nextDoaTime = name === "doaTime" ? finalVal : prev.doaTime;
+        const nextDod = name === "dod" ? finalVal : prev.dod;
+        const nextDodTime = name === "dodTime" ? finalVal : prev.dodTime;
+
+        const curDoaDod = getFieldValue(prev.fieldsData, "DOA AND DOD");
+        const defVal = getPredefinedValueForField("DOA AND DOD");
+        const autoText = formatDoaDodWithExtras(curDoaDod, nextDoa, nextDoaTime, nextDod, nextDodTime, defVal);
+        const updatedFd = setFieldValue(prev.fieldsData, "DOA AND DOD", autoText);
+        nextForm.fieldsData = updatedFd;
+        const isViewingDoaDod =
+          (selectedField || prev.currentField || "").trim().toUpperCase() === "DOA AND DOD" ||
+          (!prev.currentField && !selectedField);
+        if (isViewingDoaDod) {
+          nextForm.notes = autoText;
+        }
+      }
+
+      return nextForm;
+    });
   };
 
   const handleToggleBold = () => {
@@ -1486,10 +2587,93 @@ const Summary = () => {
     }
   };
 
+  /* ─── Case Conversion Helpers & Handlers ─── */
+  const toSentenceCase = (str) => {
+    if (!str) return "";
+    return str
+      .toLowerCase()
+      .replace(/(^[\s\W_]*|[.!?\n]\s*[\W_]*)([a-z])/g, (_, prefix, char) => prefix + char.toUpperCase());
+  };
+
+  const toTitleCase = (str) => {
+    if (!str) return "";
+    return str
+      .toLowerCase()
+      .replace(/\b([a-z])/g, (char) => char.toUpperCase());
+  };
+
+  const handleTransformCase = (mode) => {
+    if (notesTab !== "edit") {
+      setNotesTab("edit");
+    }
+    const textarea = notesRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = formData.notes || "";
+    const hasSelection = end > start;
+
+    const targetText = hasSelection ? text.substring(start, end) : text;
+    if (!targetText) return;
+
+    let converted = targetText;
+    if (mode === "upper") {
+      converted = targetText.toUpperCase();
+    } else if (mode === "lower") {
+      converted = targetText.toLowerCase();
+    } else if (mode === "sentence") {
+      converted = toSentenceCase(targetText);
+    } else if (mode === "title" || mode === "capitalize") {
+      converted = toTitleCase(targetText);
+    }
+
+    const newText = hasSelection
+      ? text.substring(0, start) + converted + text.substring(end)
+      : converted;
+
+    setFormData((prev) => ({
+      ...prev,
+      notes: newText,
+      fieldsData: setFieldValue(prev.fieldsData, prev.currentField, newText),
+    }));
+
+    setTimeout(() => {
+      textarea.focus();
+      if (hasSelection) {
+        textarea.setSelectionRange(start, start + converted.length);
+      } else {
+        textarea.setSelectionRange(newText.length, newText.length);
+      }
+    }, 0);
+  };
+
+  const handleCycleCase = () => {
+    const textarea = notesRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = formData.notes || "";
+    const hasSelection = end > start;
+    const targetText = hasSelection ? text.substring(start, end) : text;
+    if (!targetText) return;
+
+    if (targetText === targetText.toUpperCase()) {
+      handleTransformCase("sentence");
+    } else if (targetText === targetText.toLowerCase()) {
+      handleTransformCase("upper");
+    } else {
+      handleTransformCase("lower");
+    }
+  };
+
   const handleNotesKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
       e.preventDefault();
       handleToggleBold();
+    } else if (e.shiftKey && e.key === "F3") {
+      e.preventDefault();
+      handleCycleCase();
     }
   };
 
@@ -1900,22 +3084,22 @@ const Summary = () => {
     setPreviousNotes(null);
     setSelectedField(fieldName);
     setFormData((prev) => {
-      const fd = setFieldValue(prev.fieldsData, prev.currentField, prev.notes);
+      let fd = setFieldValue(prev.fieldsData, prev.currentField, prev.notes);
       let val = getFieldValue(fd, fieldName);
       if (fieldName === "DOA AND DOD") {
-        if (!val || !val.trim() || (!val.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(val))) {
-          const dStr = prev.doa ? fmtDate(prev.doa) : "—";
-          const tStr = prev.doaTime || "";
-          const dodStr = prev.dod ? fmtDate(prev.dod) : "—";
-          const dodTStr = prev.dodTime || "";
-          const doaLine = `DOA : ${dStr} ${tStr}`.trim();
-          const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
-          val = `${doaLine}\n${dodLine}`;
+        const defVal = getPredefinedValueForField(fieldName);
+        val = formatDoaDodWithExtras(val, prev.doa, prev.doaTime, prev.dod, prev.dodTime, defVal);
+        fd = setFieldValue(fd, fieldName, val);
+      } else if (!val || !val.trim()) {
+        const defVal = getPredefinedValueForField(fieldName);
+        if (defVal) {
+          val = defVal;
+          fd = setFieldValue(fd, fieldName, val);
         }
       }
       return {
         ...prev,
-        fieldsData: fd,
+        fieldsData: sortFieldsDataByUiOrder(fd, noteFields),
         currentField: fieldName,
         notes: val || "",
       };
@@ -1932,25 +3116,36 @@ const Summary = () => {
   };
 
   const handleSubmit = async () => {
-    let fds = formData.fieldsData;
+    let fds = formData.fieldsData || [];
     if (formData.currentField && formData.notes) {
       fds = setFieldValue(
         formData.fieldsData,
         formData.currentField,
         formData.notes
       );
-      setFormData((prev) => ({ ...prev, fieldsData: fds }));
+      setFormData((prev) => ({ ...prev, fieldsData: sortFieldsDataByUiOrder(fds, noteFields) }));
     }
     const dp = prepareDiseasesPayload();
+    const sortedFields = sortFieldsDataByUiOrder(
+      fds.filter((f) => f.key !== "undefined" && f.value !== ""),
+      noteFields
+    );
     const payload = {
       ...formData,
+      surgeryDate: formData.surgeryDate || null,
+      nextReviewDate: formData.nextReviewDate || null,
+      doa: formData.doa || null,
+      dod: formData.dod || null,
+      doaTime: formData.doaTime || null,
+      dodTime: formData.dodTime || null,
       summaryType: undefined,
-      heading: undefined,
+      heading: (formData.heading || "").trim(),
+      headingNo: undefined,
       date: new Date().toISOString(),
       diseaseCode: dp.diseaseCode,
       disease: dp.disease,
       selectedDiseases,
-      fieldsData: fds.filter((f) => f.key !== "undefined" && f.value !== ""),
+      fieldsData: sortedFields,
     };
     const r = await apiRequest(`${HMSURL}summaries/create/`, "POST", payload);
     if (r.success) {
@@ -1979,18 +3174,26 @@ const Summary = () => {
       Swal.fire("Validation Error", "Please fill in the required fields.", "warning");
       return;
     }
+    const sortedFields = sortFieldsDataByUiOrder(filtered, noteFields);
     const dp = prepareDiseasesPayload();
     const r = await apiRequest(
       `${HMSURL}update-summary/${editingIpNo}/`,
       "PATCH",
       {
         ...formData,
+        surgeryDate: formData.surgeryDate || null,
+        nextReviewDate: formData.nextReviewDate || null,
+        doa: formData.doa || null,
+        dod: formData.dod || null,
+        doaTime: formData.doaTime || null,
+        dodTime: formData.dodTime || null,
         summaryType: undefined,
-        heading: undefined,
+        heading: (formData.heading || "").trim(),
+        headingNo: undefined,
         diseaseCode: dp.diseaseCode,
         disease: dp.disease,
         selectedDiseases,
-        fieldsData: filtered,
+        fieldsData: sortedFields,
       }
     );
     if (r.success) {
@@ -2046,15 +3249,50 @@ const Summary = () => {
           name: (names[i] || "").trim(),
         }));
       }
+
+      const sType = summaryTypeOptions.find(
+        (t) =>
+          (d.summaryNo && String(t.summaryNo) === String(d.summaryNo)) ||
+          (d.summaryType &&
+            t.summaryType &&
+            t.summaryType.trim().toUpperCase() === d.summaryType.trim().toUpperCase())
+      );
+      let orderedHeadings = [];
+      if (sType && Array.isArray(sType.headings)) {
+        orderedHeadings = [...sType.headings]
+          .sort((a, b) => (Number(a.order_id) || 0) - (Number(b.order_id) || 0))
+          .map((h) => (typeof h === "string" ? h : h.heading))
+          .filter(Boolean);
+      }
+      const sortedFD = sortFieldsDataByUiOrder(parsedFD, orderedHeadings);
+      let updatedSortedFD = sortedFD;
+      const doaDodVal = getFieldValue(sortedFD, "DOA AND DOD");
+      if (doaDodVal !== undefined) {
+        let defVal = "";
+        if (sType && Array.isArray(sType.headings)) {
+          const hObj = sType.headings.find(
+            (h) => (typeof h === "object" ? h.heading : h)?.trim().toLowerCase() === "doa and dod"
+          );
+          if (typeof hObj === "object") {
+            defVal = hObj.defaultValue || hObj.default_value || "";
+          }
+        }
+        const formatted = formatDoaDodWithExtras(doaDodVal, d.doa, d.doaTime, d.dod, d.dodTime || "17:00", defVal);
+        updatedSortedFD = setFieldValue(sortedFD, "DOA AND DOD", formatted);
+      }
+
       setFormData({
         ...d,
+        doctor: (d.doctor || "").toUpperCase(),
+        explainedBy: d.explainedBy || "",
+        explainedTo: d.explainedTo || "",
         summaryNo: d.summaryNo || "",
         summaryType: d.summaryType || "",
         headingNo: d.headingNo || "",
         heading: d.heading || "",
         dodTime: d.dodTime || "17:00",
         notes: "",
-        fieldsData: parsedFD,
+        fieldsData: updatedSortedFD,
         currentField: "",
       });
       setSelectedDiseases(parsedDiseases);
@@ -2066,8 +3304,10 @@ const Summary = () => {
     }
   };
 
-  const handlePrint = (ipNo) =>
-    navigate(`/SummaryPrint/${encodeURIComponent(ipNo)}`);
+  const handlePrint = (ipNo, date = null) =>
+    navigate(`/SummaryPrint/${encodeURIComponent(ipNo)}`, {
+      state: { ipNo, date },
+    });
 
   const handleDelete = async (ipNo) => {
     const result = await Swal.fire({
@@ -2123,14 +3363,7 @@ const Summary = () => {
     }
   };
 
-  const fmtDate = (d) =>
-    d
-      ? new Date(d).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-      : "—";
+  const fmtDate = (d) => formatDisplayDate(d);
 
   const fmtDateTime = (d) => {
     if (!d) return "—";
@@ -2201,6 +3434,37 @@ const Summary = () => {
       toDate: filters.toDate,
       summaryType: filters.summaryType,
     });
+
+  // Handle returning from SummaryPrint with archiveFilter (ipNo + date)
+  useEffect(() => {
+    if (location.state?.archiveFilter) {
+      const { ipNo: archIp, date: archDate } = location.state.archiveFilter;
+      const targetDate = archDate || todayStr;
+
+      setFilters((prev) => ({
+        ...prev,
+        ipNo: archIp || prev.ipNo,
+        fromDate: targetDate,
+        toDate: targetDate,
+      }));
+
+      fetchSummaries({
+        fromDate: targetDate,
+        toDate: targetDate,
+      });
+
+      // Clear the state to avoid reapplying on page refresh
+      navigate(location.pathname, { replace: true, state: {} });
+
+      // Smooth scroll to the Discharge Summaries Archive section
+      setTimeout(() => {
+        const archiveEl = document.getElementById("discharge-summaries-archive");
+        if (archiveEl) {
+          archiveEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 350);
+    }
+  }, [location.state]);
   const filteredSummaries = summaries.filter(
     (s) =>
       (!filters.patient ||
@@ -2219,24 +3483,73 @@ const Summary = () => {
   );
 
   /* ─── Filter input style (compact) ───────────────────────────────────── */
-  const fi = { ...S.inp, height: 32, fontSize: 12.5 };
-  const fs = { ...S.sel, height: 32, fontSize: 12.5 };
+  const fi = { ...S.inp, height: 38, fontSize: 13 };
+  const fs = { ...S.sel, height: 38, fontSize: 13 };
+
+  const currentActiveField = (selectedField || formData.currentField || "").trim().toUpperCase();
+  const isConsultantSection = currentActiveField.includes("CONSULTANT") || currentActiveField.includes("CONSULTING");
+  const filteredModalDoctors = doctors.filter((doc) => {
+    if (!doctorSearchQuery.trim()) return true;
+    const q = doctorSearchQuery.trim().toLowerCase();
+    const name = (doc.employeeName || "").toLowerCase();
+    const dept = (doc.department || "").toLowerCase();
+    return name.includes(q) || dept.includes(q);
+  });
+
+  const visibleNoteFields = noteFields.filter((f) =>
+    f.toLowerCase().includes((sidebarSearch || "").trim().toLowerCase())
+  );
+  const filledFieldsCount = noteFields.filter((f) => {
+    const val =
+      f === selectedField && formData.notes !== undefined && formData.notes !== null
+        ? formData.notes
+        : getFieldValue(formData.fieldsData, f);
+    return Boolean(val?.trim());
+  }).length;
 
   /* ─── Render ──────────────────────────────────────────────────────────── */
   return (
     <PageWrapper>
+      <style>{SUMMARY_CUSTOM_STYLES}</style>
       <div style={S.inner}>
         {/* Top bar */}
-        <div style={S.topBar}>
-          <h1 style={S.pageTitle}>
+        <div style={S.topBar} className="sum-top-bar">
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <span style={S.titleIcon}>
               <FileText size={22} />
             </span>
-            {isEditMode ? "Edit Discharge Summary" : "Discharge Summary"}
-          </h1>
-          <div style={S.datePill}>
-            <Calendar size={15} />
-            <span>{currentDate}</span>
+            <div>
+              <h1 style={S.pageTitle} className="sum-page-title">
+                {isEditMode ? "Edit Discharge Summary" : "Discharge Summary"}
+              </h1>
+              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                Clinical Inpatient Documentation & Discharge Protocol
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {isEditMode && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#eff6ff",
+                  border: "1.5px solid #93c5fd",
+                  color: "#1d4ed8",
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                <Edit size={13} /> Editing IP: {editingIpNo}
+              </span>
+            )}
+            <div style={S.datePill}>
+              <Calendar size={15} color="#0d9488" />
+              <span>{currentDate}</span>
+            </div>
           </div>
         </div>
 
@@ -2244,57 +3557,93 @@ const Summary = () => {
         {isEditMode && (
           <div style={S.editBanner}>
             <Edit size={18} color={T.sky} />
-            <span>
-              Editing summary for IP No:&nbsp;
-              <strong style={{ color: T.teal }}>{editingIpNo}</strong>
-              &nbsp;— scroll down to the notes section to make changes.
-            </span>
+            <div style={{ flex: 1 }}>
+              <span>
+                Currently editing active discharge record for IP No:&nbsp;
+                <strong style={{ color: T.teal }}>{editingIpNo}</strong>
+                {formData.patient && (
+                  <span> &bull; Patient: <strong style={{ color: "#0f172a" }}>{formData.patient}</strong></span>
+                )}
+                &nbsp;— Review and update clinical fields below, then click Update Summary.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              style={{
+                background: "transparent",
+                border: "1px solid #93c5fd",
+                color: "#1e40af",
+                padding: "4px 10px",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancel Edit
+            </button>
           </div>
         )}
 
-        {/* ── Patient Info ── */}
-        <div style={S.card}>
-          <div style={S.cardHead}>
-            <div style={S.cardHeadBar} />
-            <User size={16} />
-            Patient Information
+        {/* ── Patient Info Card (Clean 12-Column Balanced Grid) ── */}
+        <div style={S.card} className="sum-card-lift">
+          <div style={S.cardHead} className="sum-card-head-responsive">
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={S.cardHeadBar} />
+              <User size={16} />
+              <span>Patient & Admission Details</span>
+            </div>
+            {formData.ipNo && (
+              <span
+                style={{
+                  fontSize: 12,
+                  color: T.teal,
+                  fontWeight: 700,
+                  textTransform: "none",
+                  background: T.tealLt,
+                  padding: "3px 12px",
+                  borderRadius: 20,
+                  border: `1px solid ${T.tealGlow}`,
+                }}
+              >
+                IP: {formData.ipNo}
+              </span>
+            )}
           </div>
-          <div style={S.cardBody}>
-            {/* Row 1: 8 cols */}
-            <div style={S.grid(8)}>
-              <Fld label="Summary Date">
-                <CInp
-                  value={isEditMode ? fmtDate(formData.date) : currentDate}
-                  readOnly
-                  style={{ background: T.bgAlt }}
-                />
+          <div style={S.cardBody} className="sum-card-body-responsive">
+            <div className="sum-patient-grid">
+              {/* Row 1: Identification */}
+              <Fld label="IP Number" className="sum-col-ip">
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <CInp
+                    name="ipNo"
+                    value={formData.ipNo}
+                    onChange={handleChange}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        openIpSearchModal();
+                      }
+                    }}
+                    readOnly={isEditMode}
+                    placeholder="Enter IP No…"
+                    style={{ flex: 1 }}
+                  />
+                  {!isEditMode && (
+                    <button
+                      type="button"
+                      style={{ ...S.searchMicroBtn, height: 38, padding: "0 13px", flexShrink: 0 }}
+                      onClick={openIpSearchModal}
+                      title="Search IP Number"
+                    >
+                      <Search size={13} /> Search
+                    </button>
+                  )}
+                </div>
               </Fld>
-              <Fld label="IP Number">
-                <CInp
-                  name="ipNo"
-                  value={formData.ipNo}
-                  onChange={handleChange}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      openIpSearchModal();
-                    }
-                  }}
-                  readOnly={isEditMode}
-                  placeholder="IP No"
-                />
-                {!isEditMode && (
-                  <button
-                    type="button"
-                    style={S.searchMicroBtn}
-                    onClick={openIpSearchModal}
-                    title="Search IP Number"
-                  >
-                    <Search size={12} /> Search
-                  </button>
-                )}
-              </Fld>
-              <Fld label="UHID">
+
+              <Fld label="UHID" className="sum-col-uhid">
                 <CInp
                   name="uhid"
                   value={formData.uhid}
@@ -2302,6 +3651,7 @@ const Summary = () => {
                   placeholder="UHID"
                 />
               </Fld>
+
               <Fld
                 label={
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -2311,16 +3661,17 @@ const Summary = () => {
                     )}
                   </span>
                 }
+                className="sum-col-name"
               >
                 <CInp
                   name="patient"
                   value={formData.patient}
                   onChange={handleChange}
-                  placeholder="Full Name"
-                  style={{ gridColumn: "span 2" }}
+                  placeholder="Patient Full Name"
                 />
               </Fld>
-              <Fld label="Age">
+
+              <Fld label="Age" className="sum-col-age">
                 <CInp
                   name="age"
                   value={formData.age}
@@ -2328,7 +3679,8 @@ const Summary = () => {
                   placeholder="Age"
                 />
               </Fld>
-              <Fld label="Gender">
+
+              <Fld label="Gender" className="sum-col-gender">
                 <CInp
                   name="gender"
                   value={formData.gender}
@@ -2336,7 +3688,8 @@ const Summary = () => {
                   placeholder="Gender"
                 />
               </Fld>
-              <Fld label="Room No">
+
+              <Fld label="Room No" className="sum-col-room">
                 <CInp
                   name="roomNo"
                   value={formData.roomNo}
@@ -2344,11 +3697,17 @@ const Summary = () => {
                   placeholder="Room"
                 />
               </Fld>
-            </div>
 
-            {/* Row 2: 8 cols */}
-            <div style={S.grid(8)}>
-              <Fld label="D.O.A">
+              {/* Row 2: Timeline & Dates */}
+              <Fld label="Summary Date" className="sum-col-date">
+                <CInp
+                  value={isEditMode ? fmtDate(formData.date) : currentDate}
+                  readOnly
+                  style={{ background: T.bgAlt, color: "#334155", fontWeight: 600 }}
+                />
+              </Fld>
+
+              <Fld label="D.O.A" className="sum-col-doa">
                 <CInp
                   name="doa"
                   value={formData.doa}
@@ -2356,7 +3715,8 @@ const Summary = () => {
                   placeholder="DD/MM/YYYY"
                 />
               </Fld>
-              <Fld label="DOA Time">
+
+              <Fld label="DOA Time" className="sum-col-doatime">
                 <CInp
                   name="doaTime"
                   value={formData.doaTime}
@@ -2364,7 +3724,8 @@ const Summary = () => {
                   placeholder="HH:MM"
                 />
               </Fld>
-              <Fld label="D.O.D">
+
+              <Fld label="D.O.D" className="sum-col-dod">
                 <CInp
                   type="date"
                   name="dod"
@@ -2372,7 +3733,8 @@ const Summary = () => {
                   onChange={handleChange}
                 />
               </Fld>
-              <Fld label="DOD Time">
+
+              <Fld label="DOD Time" className="sum-col-dodtime">
                 <CInp
                   type="time"
                   name="dodTime"
@@ -2380,46 +3742,78 @@ const Summary = () => {
                   onChange={handleChange}
                 />
               </Fld>
-              <Fld label="Surgery Date">
+
+              <Fld label="Surgery Date" className="sum-col-surg">
                 <CInp
                   type="date"
                   name="surgeryDate"
-                  value={formData.surgeryDate}
+                  value={formData.surgeryDate || ""}
                   onChange={handleChange}
                 />
               </Fld>
-              <Fld label="Next Review">
+
+              <Fld label="Next Review" className="sum-col-review">
                 <CInp
                   type="date"
                   name="nextReviewDate"
-                  value={formData.nextReviewDate}
+                  value={formData.nextReviewDate || ""}
                   onChange={handleChange}
                 />
               </Fld>
-              <Fld label="Doctor">
+
+              {/* Row 3: Assignment & Metadata */}
+              <Fld label="Consultant Doctor" className="sum-col-doc">
                 <select
                   name="doctor"
-                  value={formData.doctor}
-                  onChange={handleChange}
-                  style={S.sel}
+                  value={
+                    doctors.find(
+                      (doc) =>
+                        (doc.employeeName || "").trim().toUpperCase() ===
+                        (formData.doctor || "").trim().toUpperCase()
+                    )?.employeeName || (formData.doctor || "").toUpperCase()
+                  }
+                  onChange={(e) => {
+                    const val = (e.target.value || "").toUpperCase();
+                    setFormData((prev) => ({
+                      ...prev,
+                      doctor: val,
+                      explainedBy: prev.explainedBy || (val ? (val.startsWith("DR.") ? val : `DR. ${val}`) : ""),
+                    }));
+                  }}
+                  style={{ ...S.sel, textTransform: "uppercase" }}
                 >
-                  <option value="">— Doctor —</option>
-                  {doctors.map((doc, i) => (
-                    <option key={doc.employeeId || i} value={doc.employeeName}>
-                      {doc.employeeName}
-                    </option>
-                  ))}
+                  <option value="">— SELECT CONSULTANT DOCTOR —</option>
+                  {formData.doctor &&
+                    !doctors.some(
+                      (doc) =>
+                        (doc.employeeName || "").trim().toUpperCase() ===
+                        (formData.doctor || "").trim().toUpperCase()
+                    ) && (
+                      <option value={(formData.doctor || "").toUpperCase()}>
+                        {(formData.doctor || "").toUpperCase()}
+                      </option>
+                    )}
+                  {doctors.map((doc, i) => {
+                    const upperName = (doc.employeeName || "").toUpperCase();
+                    return (
+                      <option key={doc.employeeId || i} value={upperName}>
+                        {upperName}
+                      </option>
+                    );
+                  })}
                 </select>
               </Fld>
-              <Fld label="Summary Type">
+
+              <Fld label="Summary Type" className="sum-col-type">
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <select
+                    id="summaryTypeSelect"
                     name="summaryNo"
                     value={formData.summaryNo}
                     onChange={handleSummaryTypeSelect}
                     style={{ ...S.sel, flex: 1 }}
                   >
-                    <option value="">— Type —</option>
+                    <option value="">— SELECT SUMMARY TYPE —</option>
                     {formData.summaryNo &&
                       !summaryTypeOptions.some(
                         (t) =>
@@ -2429,85 +3823,50 @@ const Summary = () => {
                           {formData.summaryType || formData.summaryNo}
                         </option>
                       )}
-                    {summaryTypeOptions.map((t, i) => (
-                      <option key={t.summaryNo || i} value={t.summaryNo}>
-                        {t.summaryType}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewSummaryTypeInput("");
-                      setEditingSummaryType(null);
-                      setShowAddSummaryTypeModal(true);
-                    }}
-                    title="Manage Summary Types"
-                    style={{
-                      ...S.actionBtn(T.teal),
-                      flexShrink: 0,
-                      height: 38,
-                      width: 38,
-                      borderRadius: 8,
-                      border: `1.5px solid ${T.teal}`,
-                      background: `${T.teal}12`,
-                    }}
-                  >
-                    <Plus size={18} color={T.teal} />
-                  </button>
-                </div>
-              </Fld>
-            </div>
-
-            {/* Row 3: 2 cols */}
-            <div style={S.grid(2)}>
-              <Fld label="Heading">
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <select
-                    name="headingNo"
-                    value={formData.headingNo}
-                    onChange={handleHeadingSelect}
-                    style={{ ...S.sel, flex: 1 }}
-                  >
-                    <option value="">— Heading —</option>
-                    {formData.headingNo &&
-                      !headingOptions.some(
-                        (h) =>
-                          String(h.headingNo) === String(formData.headingNo)
-                      ) && (
-                        <option value={formData.headingNo}>
-                          {formData.heading || formData.headingNo}
+                    {summaryTypeOptions
+                      .filter(
+                        (t) =>
+                          t.is_active !== false ||
+                          String(t.summaryNo) === String(formData.summaryNo)
+                      )
+                      .map((t, i) => (
+                        <option key={t.summaryNo || i} value={t.summaryNo}>
+                          {t.summaryType}
                         </option>
-                      )}
-                    {headingOptions.map((h, i) => (
-                      <option key={h.headingNo || i} value={h.headingNo}>
-                        {h.heading}
-                      </option>
-                    ))}
+                      ))}
                   </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewHeadingInput("");
-                      setEditingHeading(null);
-                      setShowAddHeadingModal(true);
-                    }}
-                    title="Manage Headings"
-                    style={{
-                      ...S.actionBtn(T.teal),
-                      flexShrink: 0,
-                      height: 38,
-                      width: 38,
-                      borderRadius: 8,
-                      border: `1.5px solid ${T.teal}`,
-                      background: `${T.teal}12`,
-                    }}
-                  >
-                    <Plus size={18} color={T.teal} />
-                  </button>
+                  {canApprove && (
+                    <button
+                      id="manageSummaryTypesBtn"
+                      type="button"
+                      onClick={() => setShowManageSummaryTypeModal(true)}
+                      title="Manage Summary Types"
+                      style={{
+                        ...S.actionBtn(T.teal),
+                        flexShrink: 0,
+                        height: 38,
+                        width: 38,
+                        borderRadius: 8,
+                        border: `1.5px solid ${T.teal}`,
+                        background: `${T.teal}12`,
+                      }}
+                    >
+                      <Plus size={18} color={T.teal} />
+                    </button>
+                  )}
                 </div>
               </Fld>
-              <Fld label="Address">
+
+              <Fld label="Heading / Subtitle" className="sum-col-heading">
+                <CInp
+                  name="heading"
+                  value={formData.heading || ""}
+                  onChange={handleChange}
+                  placeholder="Optional Heading"
+                />
+              </Fld>
+
+              <Fld label="Patient Address" className="sum-col-address">
                 <CInp
                   name="address"
                   value={formData.address}
@@ -2516,70 +3875,267 @@ const Summary = () => {
                 />
               </Fld>
             </div>
-          </div>
-        </div>
 
-        {/* ── ICD-11 ── */}
-        <div style={S.card}>
-          <div style={S.cardHead}>
-            <div style={S.cardHeadBar} />
-            <Stethoscope size={16} />
-            ICD‑11 Disease Coding
-          </div>
-          <div style={S.cardBody}>
-            <ICD11SearchComponent
-              key={editingIpNo || "new"}
-              onDiseasesChange={(d) => setSelectedDiseases(d)}
-              initialDiseases={selectedDiseases}
-            />
-          </div>
-        </div>
-
-        {/* ── Notes ── */}
-        <div style={S.notesLayout}>
-          {/* Sidebar */}
-          <div style={S.sidebar}>
-            <div style={S.sidebarHead}>
-              <Activity size={14} />
-              Clinical Fields
-            </div>
-            {noteFields.map((field) => (
-              <div
-                key={field}
-                style={S.sidebarItem(selectedField === field)}
-                onClick={() => handleButtonClick(field)}
-              >
-                {field}
+            {/* Row 4: ICD-11 Diagnosis Coding (Integrated & Compact) */}
+            <div
+              style={{
+                marginTop: 18,
+                paddingTop: 14,
+                borderTop: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, flexWrap: "wrap" }}>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11.5,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.6px",
+                    color: "#0f766e",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Stethoscope size={15} color="#0d9488" />
+                  ICD‑11 Diagnoses:
+                </span>
+                <div style={{ flex: 1, minWidth: 260 }}>
+                  <ICD11SearchComponent
+                    key={editingIpNo || "new"}
+                    onDiseasesChange={(d) => setSelectedDiseases(d)}
+                    initialDiseases={selectedDiseases}
+                  />
+                </div>
               </div>
-            ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Notes Layout ── */}
+        <div style={S.notesLayout} className="sum-notes-layout">
+          {/* Sidebar */}
+          <div style={S.sidebar} className="sum-card-lift sum-sidebar">
+            <div style={S.sidebarHead}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Activity size={14} />
+                <span>Clinical Fields</span>
+              </div>
+              {noteFields.length > 0 && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background: "rgba(255, 255, 255, 0.18)",
+                    padding: "2px 8px",
+                    borderRadius: 12,
+                  }}
+                  title={`${filledFieldsCount} of ${noteFields.length} fields filled`}
+                >
+                  {filledFieldsCount}/{noteFields.length}
+                </span>
+              )}
+            </div>
+
+            {noteFields.length > 0 && (
+              <div style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                <div style={{ position: "relative" }}>
+                  <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+                  <input
+                    type="text"
+                    value={sidebarSearch}
+                    onChange={(e) => setSidebarSearch(e.target.value)}
+                    placeholder="Filter headings…"
+                    style={{
+                      width: "100%",
+                      height: 30,
+                      padding: "0 24px 0 28px",
+                      fontSize: 11.5,
+                      borderRadius: 6,
+                      border: "1px solid #cbd5e1",
+                      outline: "none",
+                      background: "#ffffff",
+                      color: "#0f172a",
+                    }}
+                  />
+                  {sidebarSearch && (
+                    <X
+                      size={13}
+                      onClick={() => setSidebarSearch("")}
+                      style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", cursor: "pointer", color: "#94a3b8" }}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div style={{ overflowY: "auto", flex: 1, maxHeight: "calc(100vh - 220px)" }} className="sum-sidebar-scroll">
+              {noteFields.length === 0 ? (
+                <div style={{ padding: "24px 16px", textAlign: "center", color: T.muted, fontSize: 12.5, lineHeight: 1.5 }}>
+                  {formData.summaryNo ? (
+                    <>
+                      <div style={{ marginBottom: 10, fontWeight: 500 }}>
+                        No headings configured for <strong>{formData.summaryType || "this Type"}</strong>.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const found = summaryTypeOptions.find(
+                            (t) => String(t.summaryNo) === String(formData.summaryNo)
+                          );
+                          if (found) openEditType(found);
+                          else openCreateType();
+                        }}
+                        style={{
+                          padding: "7px 14px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: "linear-gradient(135deg, #0d9488 0%, #0284c7 100%)",
+                          color: "white",
+                          border: "none",
+                          borderRadius: 7,
+                          cursor: "pointer",
+                          boxShadow: "0 2px 6px rgba(13, 148, 136, 0.2)",
+                        }}
+                      >
+                        + Configure Headings
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "10px 0" }}>
+                      <FileText size={24} color="#94a3b8" />
+                      <span>Select a <strong>Summary Type</strong> in the form above to view clinical headings.</span>
+                    </div>
+                  )}
+                </div>
+              ) : visibleNoteFields.length === 0 ? (
+                <div style={{ padding: "20px 14px", textAlign: "center", color: T.muted, fontSize: 12 }}>
+                  No headings matching "{sidebarSearch}"
+                </div>
+              ) : (
+                visibleNoteFields.map((field) => {
+                  const originalIdx = noteFields.indexOf(field);
+                  const fieldValue =
+                    field === selectedField && formData.notes !== undefined && formData.notes !== null
+                      ? formData.notes
+                      : getFieldValue(formData.fieldsData, field);
+                  const isFilled = Boolean(fieldValue?.trim());
+                  const isSelected = selectedField === field;
+                  return (
+                    <div
+                      key={field}
+                      id={`field-btn-${field.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`}
+                      className={`sum-sidebar-item ${isFilled ? "sum-filled" : "sum-unfilled"}`}
+                      style={S.sidebarItem(isSelected, isFilled)}
+                      onClick={() => handleButtonClick(field)}
+                      title={field}
+                    >
+                      <span
+                        style={{
+                          display: "inline-block",
+                          minWidth: 22,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: isSelected ? "#0d9488" : "#64748b",
+                        }}
+                      >
+                        {String(originalIdx + 1).padStart(2, "0")}.
+                      </span>
+                      <span style={{ flex: 1, wordBreak: "break-word", lineHeight: 1.35 }}>{field}</span>
+                      {isFilled && (
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: "#16a34a",
+                            flexShrink: 0,
+                            boxShadow: "0 0 0 2px rgba(22, 163, 74, 0.2)",
+                          }}
+                          title="Section has notes entered"
+                        />
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Notes area */}
-          <div style={S.notesCard}>
-            <div style={S.notesActiveLabel}>
-              {selectedField ? (
-                <>
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: T.teal,
-                      display: "inline-block",
-                    }}
-                  />
-                  {selectedField}
-                </>
-              ) : (
-                <span style={{ color: T.muted, fontSize: 13 }}>
-                  ← Select a clinical field from the sidebar
-                </span>
-              )}
+          <div style={S.notesCard} className="sum-card-lift sum-notes-card-responsive">
+            {/* Notes Header with section title & Edit/Preview tab switcher */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingBottom: 14,
+                borderBottom: "1px solid #e2e8f0",
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              <div>
+                <div style={S.notesActiveLabel}>
+                  {selectedField ? (
+                    <>
+                      <span
+                        style={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: "50%",
+                          background: "#0d9488",
+                          display: "inline-block",
+                          boxShadow: "0 0 0 3px rgba(13, 148, 136, 0.2)",
+                        }}
+                      />
+                      <span>{selectedField}</span>
+                    </>
+                  ) : (
+                    <span style={{ color: T.muted, fontSize: 13.5, fontWeight: 600 }}>
+                      ← Select a clinical field from the sidebar to start writing
+                    </span>
+                  )}
+                </div>
+                {selectedField && (
+                  <span style={{ fontSize: 11.5, color: "#64748b", fontWeight: 600, marginTop: 3, display: "block" }}>
+                    Section {noteFields.indexOf(selectedField) + 1} of {noteFields.length}
+                  </span>
+                )}
+              </div>
+
+              {/* Tab toggle */}
+              <div style={S.tabGroup}>
+                <button
+                  type="button"
+                  style={notesTab === "edit" ? S.tabBtnActive : S.tabBtn}
+                  onClick={() => setNotesTab("edit")}
+                >
+                  <Edit size={13} style={{ marginRight: 4 }} />
+                  Edit Mode
+                </button>
+                <button
+                  type="button"
+                  style={notesTab === "preview" ? S.tabBtnActive : S.tabBtn}
+                  onClick={() => setNotesTab("preview")}
+                >
+                  <Eye size={13} style={{ marginRight: 4 }} />
+                  Document Preview
+                </button>
+              </div>
             </div>
 
             {/* Formatting Toolbar */}
             <div style={S.notesToolbar}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {/* Bold */}
                 <button
                   type="button"
                   style={S.boldBtn}
@@ -2590,6 +4146,170 @@ const Summary = () => {
                   <span>Bold</span>
                 </button>
 
+                {/* Case Menu */}
+                <div ref={caseMenuRef} style={{ position: "relative", display: "inline-block" }}>
+                  <button
+                    id="caseOptionToolbarBtn"
+                    type="button"
+                    style={{
+                      ...S.boldBtn,
+                      background: showCaseMenu ? "#f1f5f9" : "#ffffff",
+                      borderColor: showCaseMenu ? T.teal : "#cbd5e1",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                    onClick={() => setShowCaseMenu((prev) => !prev)}
+                    title="Change text case (Upper Case / Lower Case / Sentence Case)"
+                  >
+                    <Type size={14} strokeWidth={2.4} color={showCaseMenu ? T.teal : "#0f172a"} />
+                    <span>Case</span>
+                    <ChevronDown size={12} color={showCaseMenu ? T.teal : "#64748b"} />
+                  </button>
+
+                  {showCaseMenu && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 4px)",
+                        left: 0,
+                        background: "#ffffff",
+                        border: "1.5px solid #cbd5e1",
+                        borderRadius: 8,
+                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)",
+                        zIndex: 100,
+                        minWidth: 170,
+                        padding: "5px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      <button
+                        id="caseOptionUpper"
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          handleTransformCase("upper");
+                          setShowCaseMenu(false);
+                        }}
+                        style={S.caseMenuItem}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        title="UPPER CASE: Converts selected text or entire section to capital letters"
+                      >
+                        <span style={{ fontWeight: 700, color: "#1e293b", fontSize: 12 }}>UPPER CASE</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>ABC</span>
+                      </button>
+
+                      <button
+                        id="caseOptionLower"
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          handleTransformCase("lower");
+                          setShowCaseMenu(false);
+                        }}
+                        style={S.caseMenuItem}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        title="lower case: Converts selected text or entire section to lowercase"
+                      >
+                        <span style={{ fontWeight: 500, color: "#1e293b", fontSize: 12 }}>lower case</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>abc</span>
+                      </button>
+
+                      <button
+                        id="caseOptionSentence"
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          handleTransformCase("sentence");
+                          setShowCaseMenu(false);
+                        }}
+                        style={S.caseMenuItem}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        title="Sentence case: Capitalizes the first letter of each sentence"
+                      >
+                        <span style={{ fontWeight: 600, color: "#1e293b", fontSize: 12 }}>Sentence case</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>Abc</span>
+                      </button>
+
+                      <div style={{ height: 1, background: "#f1f5f9", margin: "2px 0" }} />
+
+                      <button
+                        id="caseOptionTitle"
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          handleTransformCase("title");
+                          setShowCaseMenu(false);
+                        }}
+                        style={S.caseMenuItem}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        title="Capitalize Each Word (Title Case)"
+                      >
+                        <span style={{ fontWeight: 600, color: "#1e293b", fontSize: 12 }}>Capitalize Words</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>Abc Def</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Predefined Default Template */}
+                {getPredefinedValueForField(selectedField || formData.currentField) && (
+                  <button
+                    id="defaultTemplateToolbarBtn"
+                    type="button"
+                    onClick={() => {
+                      const curField = selectedField || formData.currentField;
+                      const defVal = getPredefinedValueForField(curField);
+                      if (!defVal) return;
+                      const applyVal = () => {
+                        let finalVal = defVal;
+                        if (curField === "DOA AND DOD") {
+                          finalVal = formatDoaDodWithExtras("", formData.doa, formData.doaTime, formData.dod, formData.dodTime, defVal);
+                        }
+                        setFormData((prev) => ({
+                          ...prev,
+                          notes: finalVal,
+                          fieldsData: setFieldValue(prev.fieldsData, curField, finalVal),
+                        }));
+                        notesRef.current?.focus();
+                      };
+                      if (formData.notes && formData.notes.trim() && formData.notes.trim() !== defVal.trim()) {
+                        Swal.fire({
+                          title: "Reset to Default Template?",
+                          text: "This will replace current notes in this section with the predefined default template.",
+                          icon: "question",
+                          showCancelButton: true,
+                          confirmButtonText: "Yes, Reset",
+                          cancelButtonText: "Cancel",
+                          confirmButtonColor: T.teal,
+                        }).then((res) => {
+                          if (res.isConfirmed) applyVal();
+                        });
+                      } else {
+                        applyVal();
+                      }
+                    }}
+                    style={{
+                      ...S.boldBtn,
+                      background: "#f0fdf4",
+                      borderColor: "#16a34a",
+                      color: "#15803d",
+                    }}
+                    title="Insert or reset to predefined default template configured for this heading"
+                  >
+                    <FileText size={14} color="#16a34a" />
+                    <span>Default Template</span>
+                  </button>
+                )}
+
+                <div style={{ width: 1, height: 22, background: "#cbd5e1" }} />
+
                 {/* Voice Dictation Language Dropdown */}
                 <div
                   style={{
@@ -2598,8 +4318,9 @@ const Summary = () => {
                     gap: 5,
                     background: "#ffffff",
                     border: `1.5px solid #cbd5e1`,
-                    borderRadius: 6,
+                    borderRadius: 7,
                     padding: "3px 8px",
+                    height: 32,
                   }}
                   title="Select voice recognition dictation language"
                 >
@@ -2625,24 +4346,18 @@ const Summary = () => {
                   </select>
                 </div>
 
-                {/* Low-Voice Sensitivity Boost Toggle on Toolbar */}
+                {/* Low-Voice Sensitivity Boost Toggle */}
                 <button
                   type="button"
                   onClick={toggleMicBoost}
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
+                    ...S.boldBtn,
+                    height: 32,
+                    padding: "0 10px",
                     background: micBoost ? "#f0fdf4" : "#ffffff",
-                    border: `1.5px solid ${micBoost ? "#16a34a" : "#cbd5e1"}`,
+                    borderColor: micBoost ? "#16a34a" : "#cbd5e1",
                     color: micBoost ? "#15803d" : "#64748b",
-                    borderRadius: 6,
-                    padding: "3px 9px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    boxShadow: micBoost ? "0 0 6px rgba(22, 163, 74, 0.2)" : "none",
-                    transition: "all 0.15s",
+                    boxShadow: micBoost ? "0 0 8px rgba(22, 163, 74, 0.25)" : "none",
                   }}
                   title="Toggle Microphone Sensitivity Boost: Amplifies low, soft, or whispered voices"
                 >
@@ -2650,6 +4365,7 @@ const Summary = () => {
                   <span>{micBoost ? "Boost: ON (3×)" : "Boost: OFF"}</span>
                 </button>
 
+                {/* Voice Dictation button */}
                 <button
                   type="button"
                   style={isListening ? S.micBtnActive : S.micBtn}
@@ -2662,7 +4378,7 @@ const Summary = () => {
                 >
                   {isListening ? (
                     <>
-                      <span style={S.pulsingDot} />
+                      <span style={S.pulsingDot} className="sum-pulse-dot" />
                       <MicOff size={14} />
                       <span>Stop Voice</span>
                     </>
@@ -2674,6 +4390,9 @@ const Summary = () => {
                   )}
                 </button>
 
+                <div style={{ width: 1, height: 22, background: "#cbd5e1" }} />
+
+                {/* AI Summarize */}
                 <button
                   type="button"
                   style={S.aiBtn}
@@ -2697,23 +4416,6 @@ const Summary = () => {
                   </button>
                 )}
               </div>
-
-              <div style={S.tabGroup}>
-                <button
-                  type="button"
-                  style={notesTab === "edit" ? S.tabBtnActive : S.tabBtn}
-                  onClick={() => setNotesTab("edit")}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  style={notesTab === "preview" ? S.tabBtnActive : S.tabBtn}
-                  onClick={() => setNotesTab("preview")}
-                >
-                  Preview
-                </button>
-              </div>
             </div>
 
             {/* Live listening banner */}
@@ -2721,8 +4423,8 @@ const Summary = () => {
               <div style={S.listeningBanner}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={S.pulsingDot} />
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{speechStatus}</span>
+                    <span style={S.pulsingDot} className="sum-pulse-dot" />
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>{speechStatus}</span>
                   </div>
 
                   {/* Live Mic Volume Level Indicator */}
@@ -2788,7 +4490,7 @@ const Summary = () => {
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11, opacity: 0.9 }}>Lang:</span>
                     {[
-                      { code: "en-IN", label: "English (India / Medical)" },
+                      { code: "en-IN", label: "English" },
                       { code: "ta-IN", label: "Tamil (தமிழ்)" },
                       { code: "hi-IN", label: "Hindi (हिन्दी)" },
                     ].map((l) => (
@@ -2800,7 +4502,7 @@ const Summary = () => {
                           border: "none",
                           background: speechLang === l.code ? "white" : "rgba(255, 255, 255, 0.2)",
                           color: speechLang === l.code ? "#b91c1c" : "white",
-                          padding: "2px 7px",
+                          padding: "2px 8px",
                           borderRadius: 4,
                           fontSize: 11,
                           fontWeight: 700,
@@ -2820,96 +4522,287 @@ const Summary = () => {
                     border: "none",
                     background: "#991b1b",
                     color: "white",
-                    padding: "4px 12px",
-                    borderRadius: 5,
+                    padding: "4px 14px",
+                    borderRadius: 6,
                     fontSize: 12,
                     fontWeight: 700,
                     cursor: "pointer",
                     marginLeft: 10,
                     whiteSpace: "nowrap",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
                   }}
                 >
-                  Stop
+                  Stop Mic
                 </button>
               </div>
             )}
 
             {notesTab === "edit" ? (
-              <textarea
-                ref={notesRef}
-                style={S.textarea}
-                name="notes"
-                placeholder="Type clinical notes here… (Select text and click Bold or press Ctrl+B)"
-                value={formData.notes}
-                onChange={handleChange}
-                onKeyDown={handleNotesKeyDown}
-                onFocus={(e) => {
-                  e.target.style.borderColor = T.teal;
-                  e.target.style.boxShadow = `0 0 0 3px ${T.teal}18`;
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = T.border;
-                  e.target.style.boxShadow = "none";
-                }}
-              />
+              <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+                <textarea
+                  id="notesTextarea"
+                  ref={notesRef}
+                  style={S.textarea}
+                  name="notes"
+                  placeholder="Type clinical notes here… (Select text and click Bold or press Ctrl+B)"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  onKeyDown={handleNotesKeyDown}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = T.teal;
+                    e.target.style.boxShadow = `0 0 0 3px ${T.tealGlow}`;
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#cbd5e1";
+                    e.target.style.boxShadow = "none";
+                  }}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "6px 8px",
+                    fontSize: 11.5,
+                    color: "#64748b",
+                    fontWeight: 500,
+                  }}
+                >
+                  <span>
+                    Tip: Press{" "}
+                    <kbd
+                      style={{
+                        padding: "2px 7px",
+                        background: "#f1f5f9",
+                        color: "#0f172a",
+                        border: "1.5px solid #cbd5e1",
+                        borderRadius: 4,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        fontFamily: "monospace",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+                      }}
+                    >
+                      Ctrl+B
+                    </kbd>{" "}
+                    to toggle bold formatting
+                  </span>
+                  <span>
+                    {formData.notes?.trim() ? formData.notes.trim().split(/\s+/).length : 0} words &bull; {formData.notes?.length || 0} characters
+                  </span>
+                </div>
+              </div>
             ) : (
               <div style={S.previewBox}>
                 {formData.notes && formData.notes.trim() ? (
                   formData.notes.split("\n").map((line, idx) => (
                     <div
                       key={idx}
-                      style={{ minHeight: "1.4em", marginBottom: 2 }}
+                      style={{ minHeight: "1.4em", marginBottom: 3 }}
                     >
                       {renderFormattedText(line)}
                     </div>
                   ))
                 ) : (
                   <span style={{ color: T.muted, fontStyle: "italic" }}>
-                    No notes entered yet. Switch to Edit tab to type notes.
+                    No notes entered yet. Switch to Edit mode above to type clinical observations.
                   </span>
                 )}
               </div>
             )}
 
-            {/* Quick-add */}
-            <div style={S.actionRow}>
-              <button style={S.outBtn(T.teal)} onClick={fetchInvestigations}>
-                <Plus size={14} /> Investigations
-              </button>
-              <button style={S.outBtn(T.sky)} onClick={fetchMedicines}>
-                <Pill size={14} /> Admission Medicines
-              </button>
-              <button
-                style={S.outBtn(T.green)}
-                onClick={fetchDischargeMedicines}
-              >
-                <Pill size={14} /> Discharge Medicines
-              </button>
+            {/* Discharge Sign-off & Explanation Details (Directly above Quick Insert & Save) */}
+            <div
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                marginTop: 16,
+                marginBottom: 14,
+                padding: "16px 20px",
+                background: "#f8fafc",
+                borderRadius: 12,
+                border: "1.5px solid #cbd5e1",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                gap: "16px 20px",
+              }}
+            >
+              <div style={{ minWidth: 0, width: "100%" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    color: "#0f766e",
+                    marginBottom: 6,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.4px",
+                  }}
+                >
+                  <Stethoscope size={14} color="#0d9488" />
+                  Explained By (Doctor Name)
+                </label>
+                <div style={{ position: "relative", width: "100%" }}>
+                  <input
+                    type="text"
+                    name="explainedBy"
+                    value={formData.explainedBy || ""}
+                    onChange={handleChange}
+                    placeholder="Doctor Name (e.g. Dr. Rajesh Kumar)"
+                    list="explained-by-doctors-list"
+                    style={{
+                      width: "100%",
+                      height: 40,
+                      padding: "0 14px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#0f172a",
+                      background: "#ffffff",
+                      border: "1.5px solid #cbd5e1",
+                      borderRadius: 8,
+                      outline: "none",
+                      boxSizing: "border-box",
+                      minWidth: 0,
+                      transition: "all 0.15s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#0d9488";
+                      e.target.style.boxShadow = "0 0 0 3px rgba(13, 148, 136, 0.12)";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#cbd5e1";
+                      e.target.style.boxShadow = "none";
+                    }}
+                  />
+                  <datalist id="explained-by-doctors-list">
+                    {doctors.map((doc, i) => {
+                      const upperName = (doc.employeeName || "").toUpperCase();
+                      const prefix = upperName.startsWith("DR.") ? upperName : `DR. ${upperName}`;
+                      return <option key={doc.employeeId || i} value={prefix} />;
+                    })}
+                  </datalist>
+                </div>
+              </div>
+
+              <div style={{ minWidth: 0, width: "100%" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    color: "#0f766e",
+                    marginBottom: 6,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.4px",
+                  }}
+                >
+                  <Activity size={14} color="#0d9488" />
+                  Explained To Patient / Attender
+                </label>
+                <input
+                  type="text"
+                  name="explainedTo"
+                  value={formData.explainedTo || ""}
+                  onChange={handleChange}
+                  placeholder="Patient or Attender Name (e.g. Patient Name or Attender Name / Relation)"
+                  style={{
+                    width: "100%",
+                    height: 40,
+                    padding: "0 14px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#0f172a",
+                    background: "#ffffff",
+                    border: "1.5px solid #cbd5e1",
+                    borderRadius: 8,
+                    outline: "none",
+                    boxSizing: "border-box",
+                    minWidth: 0,
+                    transition: "all 0.15s ease",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#0d9488";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(13, 148, 136, 0.12)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#cbd5e1";
+                    e.target.style.boxShadow = "none";
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Submit */}
+            {/* Quick-add & Actions */}
             <div
-              style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 12,
+                paddingTop: 12,
+                borderTop: "1px solid #e2e8f0",
+              }}
             >
-              {isEditMode && (
-                <button style={S.btn("danger")} onClick={handleCancelEdit}>
-                  <X size={15} /> Cancel
-                </button>
-              )}
-              <button
-                style={S.btn("primary")}
-                onClick={isEditMode ? handleUpdate : handleSubmit}
-              >
-                {isEditMode ? (
-                  <>
-                    <Edit size={15} /> Update Summary
-                  </>
-                ) : (
-                  <>
-                    <Plus size={15} /> Save Summary
-                  </>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Quick Insert:
+                </span>
+                {isConsultantSection && (
+                  <button
+                    type="button"
+                    style={{ ...S.outBtn(T.teal), fontWeight: 700 }}
+                    onClick={() => setShowDoctorModal(true)}
+                    title="Choose and include doctors into Consultant section"
+                  >
+                    <Stethoscope size={14} /> + Doctors
+                  </button>
                 )}
-              </button>
+                <button style={S.outBtn(T.teal)} onClick={fetchInvestigations}>
+                  <Plus size={14} /> + Investigations
+                </button>
+                <button style={S.outBtn(T.sky)} onClick={fetchMedicines}>
+                  <Pill size={14} /> + Admission Meds
+                </button>
+                <button
+                  style={S.outBtn(T.green)}
+                  onClick={fetchDischargeMedicines}
+                >
+                  <Pill size={14} /> + Discharge Meds
+                </button>
+              </div>
+
+              {/* Submit Actions */}
+              <div className="sum-submit-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {isEditMode && (
+                  <button style={S.btn("danger")} onClick={handleCancelEdit}>
+                    <X size={15} /> Cancel Edit
+                  </button>
+                )}
+                {isEditMode ? (
+                  canEdit && (
+                    <button
+                      style={S.btn("primary")}
+                      onClick={handleUpdate}
+                    >
+                      <Edit size={15} /> Update Summary
+                    </button>
+                  )
+                ) : (
+                  <button
+                    style={S.btn("primary")}
+                    onClick={handleSubmit}
+                  >
+                    <Plus size={15} /> Save Summary
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -3212,11 +5105,14 @@ const Summary = () => {
         )}
 
         {/* ══ SUMMARY TABLE ══ */}
-        <div style={S.tableWrap}>
+        <div id="discharge-summaries-archive" style={S.tableWrap} className="sum-card-lift">
           <div style={S.tableHead}>
-            <span style={S.tableTitle}>
-              <Activity size={18} /> Summary Reports
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={S.tableTitle}>
+                <Activity size={18} />
+                <span>Discharge Summaries Archive</span>
+              </span>
+            </div>
             <span style={S.tableCount}>
               {filteredSummaries.length} of {summaries.length} records
             </span>
@@ -3224,8 +5120,8 @@ const Summary = () => {
 
           {/* Filter bar */}
           <div style={S.filterBar}>
-            <div style={S.filterGrid}>
-              <div style={S.fld}>
+            <div className="sum-filter-grid-1">
+              <div style={S.fld} className="sum-fg1-from">
                 <span style={{ ...S.lbl, color: T.teal }}>From Date</span>
                 <input
                   type="date"
@@ -3235,7 +5131,7 @@ const Summary = () => {
                   style={fi}
                 />
               </div>
-              <div style={S.fld}>
+              <div style={S.fld} className="sum-fg1-to">
                 <span style={{ ...S.lbl, color: T.teal }}>To Date</span>
                 <input
                   type="date"
@@ -3245,7 +5141,7 @@ const Summary = () => {
                   style={fi}
                 />
               </div>
-              <div style={S.fld}>
+              <div style={S.fld} className="sum-fg1-type">
                 <span style={{ ...S.lbl, color: T.teal }}>Summary Type</span>
                 <select
                   name="summaryType"
@@ -3253,7 +5149,7 @@ const Summary = () => {
                   onChange={handleSummaryTypeFilterChange}
                   style={fs}
                 >
-                  <option value="">All Types</option>
+                  <option value="">All Summary Types</option>
                   {summaryTypeOptions.map((t, i) => (
                     <option key={t.summaryNo || i} value={t.summaryType}>
                       {t.summaryType}
@@ -3261,17 +5157,7 @@ const Summary = () => {
                   ))}
                 </select>
               </div>
-              <div style={S.fld}>
-                <span style={{ ...S.lbl, color: T.teal }}>Patient Name</span>
-                <input
-                  name="patient"
-                  value={filters.patient}
-                  onChange={handleFilterChange}
-                  placeholder="Search…"
-                  style={fi}
-                />
-              </div>
-              <div style={S.fld}>
+              <div style={S.fld} className="sum-fg1-status">
                 <span style={{ ...S.lbl, color: T.teal }}>Status</span>
                 <select
                   name="status"
@@ -3279,40 +5165,41 @@ const Summary = () => {
                   onChange={handleFilterChange}
                   style={fs}
                 >
-                  <option value="">All</option>
+                  <option value="">All Statuses</option>
                   <option value="approved">Approved</option>
                   <option value="pending">Pending</option>
                 </select>
               </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <div className="sum-fg1-actions">
                 <button
                   onClick={applyServerFilters}
                   style={{
                     ...S.btn("primary"),
-                    height: 32,
-                    padding: "0 14px",
-                    fontSize: 12,
+                    height: 38,
+                    padding: "0 16px",
+                    fontSize: 12.5,
+                    flex: 1,
+                    justifyContent: "center",
                   }}
                 >
-                  <Search size={13} /> Search
+                  <Search size={14} /> Search
                 </button>
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
                 <button
                   onClick={clearFilters}
                   style={{
-                    height: 32,
+                    height: 38,
                     padding: "0 14px",
-                    fontSize: 12,
+                    fontSize: 12.5,
                     fontWeight: 600,
-                    border: `1px solid ${T.border}`,
-                    borderRadius: 7,
+                    border: `1.5px solid ${T.border}`,
+                    borderRadius: 8,
                     background: T.white,
                     color: T.muted,
                     cursor: "pointer",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 4,
+                    gap: 5,
+                    transition: "all 0.15s ease",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = T.red;
@@ -3322,29 +5209,42 @@ const Summary = () => {
                     e.currentTarget.style.borderColor = T.border;
                     e.currentTarget.style.color = T.muted;
                   }}
+                  title="Reset filter values"
                 >
-                  <X size={13} /> Clear
+                  <X size={14} /> Clear
                 </button>
               </div>
             </div>
-            <div style={S.filterGrid2}>
-              <div style={S.fld}>
+
+            {/* Filter row 2: Search by Name, UHID, IP No */}
+            <div className="sum-filter-grid-2">
+              <div style={S.fld} className="sum-fg2-patient">
+                <span style={{ ...S.lbl, color: T.teal }}>Patient Name</span>
+                <input
+                  name="patient"
+                  value={filters.patient}
+                  onChange={handleFilterChange}
+                  placeholder="Filter by patient name…"
+                  style={fi}
+                />
+              </div>
+              <div style={S.fld} className="sum-fg2-uhid">
                 <span style={{ ...S.lbl, color: T.teal }}>UHID</span>
                 <input
                   name="uhid"
                   value={filters.uhid}
                   onChange={handleFilterChange}
-                  placeholder="Search UHID…"
+                  placeholder="Filter by UHID…"
                   style={fi}
                 />
               </div>
-              <div style={S.fld}>
-                <span style={{ ...S.lbl, color: T.teal }}>IP No</span>
+              <div style={S.fld} className="sum-fg2-ip">
+                <span style={{ ...S.lbl, color: T.teal }}>IP Number</span>
                 <input
                   name="ipNo"
                   value={filters.ipNo}
                   onChange={handleFilterChange}
-                  placeholder="Search IP No…"
+                  placeholder="Filter by IP No…"
                   style={fi}
                 />
               </div>
@@ -3353,26 +5253,14 @@ const Summary = () => {
 
           {/* Table */}
           {summaries.length === 0 ? (
-            <p
-              style={{
-                textAlign: "center",
-                padding: 40,
-                color: T.muted,
-                fontSize: 13,
-              }}
-            >
-              No summary reports found.
-            </p>
+            <div style={{ textAlign: "center", padding: "48px 20px", color: T.muted }}>
+              <FileText size={32} style={{ marginBottom: 10, opacity: 0.5 }} />
+              <p style={{ fontSize: 13.5, fontWeight: 500 }}>No summary reports found in database.</p>
+            </div>
           ) : filteredSummaries.length === 0 ? (
-            <p
-              style={{
-                textAlign: "center",
-                padding: 40,
-                color: T.muted,
-                fontSize: 13,
-              }}
-            >
-              No records match your filters.{" "}
+            <div style={{ textAlign: "center", padding: "48px 20px", color: T.muted }}>
+              <Search size={32} style={{ marginBottom: 10, opacity: 0.5 }} />
+              <p style={{ fontSize: 13.5, fontWeight: 500 }}>No records match your filter criteria.</p>
               <button
                 onClick={clearFilters}
                 style={{
@@ -3380,14 +5268,16 @@ const Summary = () => {
                   border: "none",
                   color: T.teal,
                   cursor: "pointer",
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  marginTop: 6,
                 }}
               >
-                Clear filters
+                Clear all filters
               </button>
-            </p>
+            </div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
+            <div style={{ overflowX: "auto" }} className="sum-custom-scroll">
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -3398,10 +5288,18 @@ const Summary = () => {
                       "Summary Type",
                       "UHID",
                       "IP No",
+                      "Prepared By",
+                      "Approved By",
                       "Approved On",
                       "Actions",
                     ].map((h) => (
-                      <th key={h} style={S.th}>
+                      <th
+                        key={h}
+                        style={{
+                          ...S.th,
+                          ...(h === "Actions" ? { textAlign: "center", width: 80 } : {}),
+                        }}
+                      >
                         {h}
                       </th>
                     ))}
@@ -3411,10 +5309,11 @@ const Summary = () => {
                   {filteredSummaries.map((s, i) => (
                     <tr
                       key={s.id || i}
-                      style={{ background: i % 2 === 0 ? T.white : T.bg }}
+                      className="sum-table-row"
+                      style={{ background: i % 2 === 0 ? T.white : "#f8fafc" }}
                     >
                       <td style={S.td}>{fmtDate(s.date)}</td>
-                      <td style={{ ...S.td, fontWeight: 600, color: T.teal }}>
+                      <td style={{ ...S.td, fontWeight: 700, color: "#0f766e" }}>
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <span>{s.patient}</span>
                           {s.is_high_risk && (
@@ -3428,66 +5327,32 @@ const Summary = () => {
                           {s.approve ? "Approved" : "Pending"}
                         </span>
                       </td>
-                      <td style={{ ...S.td, fontSize: 12.5 }}>{s.summaryType}</td>
-                      <td style={S.td}>{s.uhid}</td>
-                      <td style={{ ...S.td, fontWeight: 600 }}>{s.ipNo}</td>
-                      <td style={{ ...S.td, fontSize: 12.5 }}>
+                      <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600 }}>{s.summaryType}</td>
+                      <td style={{ ...S.td, color: "#475569" }}>{s.uhid}</td>
+                      <td style={{ ...S.td, fontWeight: 700, color: "#0f172a" }}>{s.ipNo}</td>
+                      <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600, color: "#334155" }}>
+                        {resolveEmpName(s.created_by, s.created_by_name) || "—"}
+                      </td>
+                      <td style={{ ...S.td, fontSize: 12.5, fontWeight: (s.approved_by_name || s.approved_by) ? 600 : 500, color: (s.approved_by_name || s.approved_by) ? "#0f766e" : "#64748b" }}>
+                        {resolveEmpName(s.approved_by, s.approved_by_name) || (s.approve ? "System" : "—")}
+                      </td>
+                      <td style={{ ...S.td, fontSize: 12, color: "#64748b" }}>
                         {fmtDateTime(s.approve_time)}
                       </td>
-                      <td style={S.td}>
-                        <div
-                          style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}
+                      <td style={{ ...S.td, textAlign: "center", width: 80 }}>
+                        <button
+                          className="sum-btn-hover"
+                          style={{
+                            ...S.actionBtn(T.teal),
+                            background: "rgba(13, 148, 136, 0.08)",
+                            border: "1.5px solid #99f6e4",
+                            color: "#0f766e",
+                          }}
+                          title="View Actions"
+                          onClick={() => setActionsModalSummary(s)}
                         >
-                          {canEdit && (
-                            <button
-                              style={{
-                                ...S.actionBtn(T.teal),
-                                opacity: s.approve ? 0.35 : 1,
-                                cursor: s.approve ? "not-allowed" : "pointer",
-                              }}
-                              title="Edit Summary"
-                              onClick={() => handleEdit(s.ipNo)}
-                              disabled={s.approve}
-                            >
-                              <Edit size={15} />
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              style={{
-                                ...S.actionBtn(T.red),
-                                opacity: s.approve ? 0.35 : 1,
-                                cursor: s.approve ? "not-allowed" : "pointer",
-                              }}
-                              title="Delete Summary"
-                              onClick={() => handleDelete(s.ipNo)}
-                              disabled={s.approve}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                          {canApprove && (
-                            <button
-                              style={{
-                                ...S.actionBtn(T.green),
-                                opacity: s.approve ? 0.35 : 1,
-                                cursor: s.approve ? "not-allowed" : "pointer",
-                              }}
-                              title="Approve Summary"
-                              onClick={() => handleApprove(s.ipNo)}
-                              disabled={s.approve}
-                            >
-                              <CheckCircle size={15} />
-                            </button>
-                          )}
-                          <button
-                            style={S.actionBtn(T.sky)}
-                            title="Print Summary"
-                            onClick={() => handlePrint(s.ipNo)}
-                          >
-                            <Printer size={15} />
-                          </button>
-                        </div>
+                          <Eye size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -3497,168 +5362,574 @@ const Summary = () => {
           )}
         </div>
 
-        {/* ── MANAGE SUMMARY TYPE MODAL ── */}
-        {showAddSummaryTypeModal && (
+        {/* ── ACTIONS MODAL (Eye Icon Click) ── */}
+        {actionsModalSummary && (
+          <div
+            style={S.overlay}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setActionsModalSummary(null);
+            }}
+          >
+            <div style={{ ...S.modalBox, width: "min(560px, 95vw)" }}>
+              {/* Header */}
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <Eye size={17} color="#2dd4bf" />
+                  <span>Summary Actions</span>
+                </span>
+                <button
+                  type="button"
+                  style={S.modalClose}
+                  onClick={() => setActionsModalSummary(null)}
+                  title="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div style={S.modalBody}>
+                {/* Patient & Summary Details Card */}
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    border: "1.5px solid #e2e8f0",
+                    borderRadius: 12,
+                    padding: "14px 18px",
+                    marginBottom: 20,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                        {actionsModalSummary.patient || "Patient"}
+                      </span>
+                      {actionsModalSummary.is_high_risk && (
+                        <HighRiskBadge reason={actionsModalSummary.high_risk_reason} size="sm" />
+                      )}
+                    </div>
+                    <span style={S.badge(actionsModalSummary.approve)}>
+                      <span style={S.dot(actionsModalSummary.approve)} />
+                      {actionsModalSummary.approve ? "Approved" : "Pending Approval"}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                      gap: "10px 14px",
+                      fontSize: 12,
+                    }}
+                  >
+                    <div>
+                      <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>IP Number</span>
+                      <strong style={{ color: "#0f172a", fontSize: 13 }}>{actionsModalSummary.ipNo}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>UHID</span>
+                      <strong style={{ color: "#334155" }}>{actionsModalSummary.uhid || "—"}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Summary Type</span>
+                      <strong style={{ color: "#0f766e" }}>{actionsModalSummary.summaryType}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Date</span>
+                      <strong style={{ color: "#334155" }}>{fmtDate(actionsModalSummary.date)}</strong>
+                    </div>
+                    {actionsModalSummary.created_by && (
+                      <div>
+                        <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Prepared By</span>
+                        <span style={{ color: "#334155", fontWeight: 600 }}>{resolveEmpName(actionsModalSummary.created_by, actionsModalSummary.created_by_name) || "—"}</span>
+                      </div>
+                    )}
+                    {actionsModalSummary.approve && (
+                      <div>
+                        <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Approved By</span>
+                        <span style={{ color: "#16a34a", fontWeight: 600 }}>{resolveEmpName(actionsModalSummary.approved_by, actionsModalSummary.approved_by_name) || "System"}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Available Actions */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>
+                    Available Actions
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                    {/* 1. Edit */}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        disabled={actionsModalSummary.approve}
+                        onClick={() => {
+                          const ip = actionsModalSummary.ipNo;
+                          setActionsModalSummary(null);
+                          handleEdit(ip);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "14px 16px",
+                          borderRadius: 10,
+                          border: `1.5px solid ${actionsModalSummary.approve ? "#e2e8f0" : "#99f6e4"}`,
+                          background: actionsModalSummary.approve ? "#f8fafc" : "#f0fdfa",
+                          color: actionsModalSummary.approve ? "#94a3b8" : "#0f766e",
+                          cursor: actionsModalSummary.approve ? "not-allowed" : "pointer",
+                          opacity: actionsModalSummary.approve ? 0.6 : 1,
+                          transition: "all 0.15s ease",
+                          textAlign: "left",
+                        }}
+                        title={actionsModalSummary.approve ? "Approved summaries cannot be edited" : "Edit Summary"}
+                      >
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 8,
+                            background: actionsModalSummary.approve ? "#e2e8f0" : "rgba(13, 148, 136, 0.15)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: actionsModalSummary.approve ? "#94a3b8" : "#0d9488",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Edit size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13.5 }}>Edit Summary</div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                            {actionsModalSummary.approve ? "Locked (Approved)" : "Modify headings & notes"}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* 2. Print */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const { ipNo, date } = actionsModalSummary;
+                        setActionsModalSummary(null);
+                        handlePrint(ipNo, date);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "14px 16px",
+                        borderRadius: 10,
+                        border: "1.5px solid #bae6fd",
+                        background: "#f0f9ff",
+                        color: "#0369a1",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        textAlign: "left",
+                      }}
+                      title="Print Summary"
+                    >
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 8,
+                          background: "rgba(2, 132, 199, 0.15)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#0284c7",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Printer size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5 }}>Print Summary</div>
+                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                          Print or export PDF
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* 3. Approve */}
+                    {canApprove && (
+                      <button
+                        type="button"
+                        disabled={actionsModalSummary.approve}
+                        onClick={() => {
+                          const ip = actionsModalSummary.ipNo;
+                          setActionsModalSummary(null);
+                          handleApprove(ip);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "14px 16px",
+                          borderRadius: 10,
+                          border: `1.5px solid ${actionsModalSummary.approve ? "#e2e8f0" : "#bbf7d0"}`,
+                          background: actionsModalSummary.approve ? "#f8fafc" : "#f0fdf4",
+                          color: actionsModalSummary.approve ? "#94a3b8" : "#15803d",
+                          cursor: actionsModalSummary.approve ? "not-allowed" : "pointer",
+                          opacity: actionsModalSummary.approve ? 0.6 : 1,
+                          transition: "all 0.15s ease",
+                          textAlign: "left",
+                        }}
+                        title={actionsModalSummary.approve ? "Already Approved" : "Approve Summary"}
+                      >
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 8,
+                            background: actionsModalSummary.approve ? "#e2e8f0" : "rgba(22, 163, 74, 0.15)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: actionsModalSummary.approve ? "#94a3b8" : "#16a34a",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <CheckCircle size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13.5 }}>
+                            {actionsModalSummary.approve ? "Already Approved" : "Approve Summary"}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                            {actionsModalSummary.approve ? "Summary is finalized" : "Finalize & sign off"}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* 4. Delete */}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        disabled={actionsModalSummary.approve}
+                        onClick={() => {
+                          const ip = actionsModalSummary.ipNo;
+                          setActionsModalSummary(null);
+                          handleDelete(ip);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "14px 16px",
+                          borderRadius: 10,
+                          border: `1.5px solid ${actionsModalSummary.approve ? "#e2e8f0" : "#fecaca"}`,
+                          background: actionsModalSummary.approve ? "#f8fafc" : "#fef2f2",
+                          color: actionsModalSummary.approve ? "#94a3b8" : "#b91c1c",
+                          cursor: actionsModalSummary.approve ? "not-allowed" : "pointer",
+                          opacity: actionsModalSummary.approve ? 0.6 : 1,
+                          transition: "all 0.15s ease",
+                          textAlign: "left",
+                        }}
+                        title={actionsModalSummary.approve ? "Approved summaries cannot be deleted" : "Delete Summary"}
+                      >
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 8,
+                            background: actionsModalSummary.approve ? "#e2e8f0" : "rgba(220, 38, 38, 0.15)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: actionsModalSummary.approve ? "#94a3b8" : "#dc2626",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Trash2 size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13.5 }}>Delete Summary</div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                            {actionsModalSummary.approve ? "Locked (Approved)" : "Permanently remove"}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={S.modalFoot}>
+                <button
+                  type="button"
+                  style={S.btn("secondary")}
+                  onClick={() => setActionsModalSummary(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MANAGE SUMMARY TYPES MODAL (Package.js UI Style) ── */}
+        {canApprove && showManageSummaryTypeModal && (
           <div
             style={S.overlay}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
-                setShowAddSummaryTypeModal(false);
-                setEditingSummaryType(null);
-                setNewSummaryTypeInput("");
+                setShowManageSummaryTypeModal(false);
+                setTypeSearchFilter("");
               }
             }}
           >
-            <div style={{ ...S.modalBox, width: "min(560px, 94vw)" }}>
+            <div style={{ ...S.modalBox, width: "min(960px, 96vw)", maxHeight: "90vh" }}>
               <div style={S.modalHead}>
                 <span style={S.modalTitle}>
-                  <Plus size={16} /> Manage Summary Types
-                </span>
-                <button
-                  style={S.modalClose}
-                  onClick={() => {
-                    setShowAddSummaryTypeModal(false);
-                    setEditingSummaryType(null);
-                    setNewSummaryTypeInput("");
-                  }}
-                >
-                  <X size={15} />
-                </button>
-              </div>
-
-              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-                {/* Input & Action Form */}
-                <form onSubmit={handleSaveSummaryType}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
-                      <span style={S.lbl}>
-                        {editingSummaryType ? "Edit Summary Type" : "New Summary Type"}
-                      </span>
-                      <CInp
-                        value={newSummaryTypeInput}
-                        onChange={(e) => setNewSummaryTypeInput(e.target.value)}
-                        placeholder="e.g. DAY CARE SUMMARY"
-                        autoFocus
-                      />
-                    </div>
-                    {editingSummaryType && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingSummaryType(null);
-                          setNewSummaryTypeInput("");
-                        }}
-                        style={{
-                          height: 38,
-                          padding: "0 12px",
-                          fontSize: 12,
-                          fontWeight: 600,
-                          border: `1px solid ${T.border}`,
-                          borderRadius: 7,
-                          background: "white",
-                          color: T.muted,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={savingSummaryType}
-                      style={{
-                        ...S.btn(editingSummaryType ? "primary" : "primary"),
-                        height: 38,
-                        padding: "0 16px",
-                        fontSize: 12.5,
-                        opacity: savingSummaryType ? 0.7 : 1,
-                        cursor: savingSummaryType ? "not-allowed" : "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {savingSummaryType
-                        ? "Saving..."
-                        : editingSummaryType
-                          ? "Update"
-                          : "Add Type"}
-                    </button>
-                  </div>
-                </form>
-
-                {/* Existing Types List */}
-                <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
-                  <span style={{ ...S.lbl, color: T.teal, marginBottom: 8, display: "block" }}>
-                    Existing Summary Types ({summaryTypeOptions.length})
-                  </span>
-
-                  <div
+                  <span
                     style={{
-                      maxHeight: 280,
-                      overflowY: "auto",
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
+                      display: "inline-block",
+                    }}
+                  />
+                  Summary Type Management
+                </span>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <button
+                    type="button"
+                    onClick={handleOpenHeadingModule}
+                    style={{
+                      ...pkgCss.btn("ghost"),
+                      background: "#ffffff",
+                      color: T.slate,
                       border: `1px solid ${T.border}`,
-                      borderRadius: 8,
-                      background: T.bg,
+                      fontSize: 12.5,
+                      padding: "7px 14px",
+                    }}
+                    title="Add, edit, or delete headings in Headings Master table"
+                  >
+                    <FileText size={15} color={T.teal} /> Manage Headings ({headingOptions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCreateType}
+                    style={pkgCss.btn("primary")}
+                  >
+                    <Plus size={16} /> Add Type
+                  </button>
+                  <button
+                    style={S.modalClose}
+                    onClick={() => {
+                      setShowManageSummaryTypeModal(false);
+                      setTypeSearchFilter("");
                     }}
                   >
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ padding: "16px 22px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flexGrow: 1 }}>
+                {/* Search / Filter bar */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    background: "#F8FAFC",
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 10,
+                    padding: "10px 14px",
+                  }}
+                >
+                  <Search size={16} color={T.muted} />
+                  <input
+                    type="text"
+                    value={typeSearchFilter}
+                    onChange={(e) => setTypeSearchFilter(e.target.value)}
+                    placeholder="Search by summary type or section heading..."
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      fontSize: 13,
+                      color: T.slate,
+                    }}
+                  />
+                  {typeSearchFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setTypeSearchFilter("")}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: T.muted,
+                        cursor: "pointer",
+                        fontSize: 12,
+                        padding: "2px 6px",
+                      }}
+                    >
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Summary Types Table */}
+                <div
+                  style={{
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 10,
+                    overflow: "hidden",
+                    background: T.white,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 18px",
+                      background: `linear-gradient(135deg, ${T.slate}, #334155)`,
+                      color: T.white,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>🏷️ Configured Summary Types</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.85 }}>
+                      {summaryTypeOptions.filter((t) => {
+                        if (!typeSearchFilter) return true;
+                        const q = typeSearchFilter.toLowerCase();
+                        const matchType = (t.summaryType || "").toLowerCase().includes(q);
+                        const matchHeadings = Array.isArray(t.headings) && t.headings.some((h) => (h.heading || "").toLowerCase().includes(q));
+                        return matchType || matchHeadings;
+                      }).length} record(s)
+                    </span>
+                  </div>
+
+                  <div style={{ overflowX: "auto", maxHeight: 380 }}>
                     {summaryTypeOptions.length === 0 ? (
-                      <p style={{ textAlign: "center", padding: 20, color: T.muted, fontSize: 13 }}>
-                        No summary types available.
+                      <p style={{ textAlign: "center", padding: 32, color: T.muted, fontSize: 13 }}>
+                        No summary types available. Click <strong>+ Add Type</strong> to create one.
                       </p>
                     ) : (
                       <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
                           <tr>
-                            <th style={{ ...S.th, width: 60 }}>#</th>
-                            <th style={S.th}>Summary Type</th>
-                            <th style={{ ...S.th, width: 90, textAlign: "center" }}>Actions</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 60 }}>#</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 220 }}>Summary Type</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 140 }}>Headings Count</th>
+                            <th style={pkgCss.itemsTh}>Configured Headings Preview</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 120, textAlign: "center" }}>Status</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 140, textAlign: "center" }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {summaryTypeOptions.map((t, i) => {
-                            const isCurrentEdit = editingSummaryType?.summaryNo === t.summaryNo;
-                            return (
-                              <tr
-                                key={t.summaryNo || i}
-                                style={{
-                                  background: isCurrentEdit
-                                    ? `${T.teal}15`
-                                    : i % 2 === 0
-                                      ? T.white
-                                      : T.bg,
-                                }}
-                              >
-                                <td style={{ ...S.td, fontSize: 12, fontWeight: 600, color: T.muted }}>
-                                  {t.summaryNo || i + 1}
-                                </td>
-                                <td style={{ ...S.td, fontSize: 12.5, fontWeight: 500 }}>
-                                  {t.summaryType}
-                                </td>
-                                <td style={{ ...S.td, textAlign: "center" }}>
-                                  <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingSummaryType(t);
-                                        setNewSummaryTypeInput(t.summaryType);
+                          {summaryTypeOptions
+                            .filter((t) => {
+                              if (!typeSearchFilter) return true;
+                              const q = typeSearchFilter.toLowerCase();
+                              const matchType = (t.summaryType || "").toLowerCase().includes(q);
+                              const matchHeadings = Array.isArray(t.headings) && t.headings.some((h) => (h.heading || "").toLowerCase().includes(q));
+                              return matchType || matchHeadings;
+                            })
+                            .map((t, i) => {
+                              const isActive = t.is_active !== false;
+                              const headingsArr = Array.isArray(t.headings) ? t.headings : [];
+                              const previewStr = headingsArr.length > 0
+                                ? headingsArr
+                                  .slice(0, 3)
+                                  .map((h, idx) => `${idx + 1}. ${h.heading || ""}`)
+                                  .join(", ") + (headingsArr.length > 3 ? ` ... (+${headingsArr.length - 3} more)` : "")
+                                : "— No headings configured —";
+
+                              return (
+                                <tr
+                                  key={t.summaryNo || i}
+                                  style={{
+                                    background: i % 2 === 0 ? T.white : "#F8FAFC",
+                                    borderBottom: `1px solid ${T.border}`,
+                                    opacity: isActive ? 1 : 0.7,
+                                  }}
+                                >
+                                  <td style={{ ...pkgCss.itemsTd, fontWeight: 700, color: T.muted }}>
+                                    {t.summaryNo || i + 1}
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, fontWeight: 700, color: isActive ? T.teal : "#64748b" }}>
+                                    {t.summaryType}
+                                    {!isActive && (
+                                      <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 500, color: "#94a3b8" }}>
+                                        (deactivated)
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={pkgCss.itemsTd}>
+                                    <span style={pkgCss.countBadge}>
+                                      {headingsArr.length} heading{headingsArr.length !== 1 ? "s" : ""}
+                                    </span>
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, fontSize: 12, color: headingsArr.length > 0 ? T.slate : T.muted }}>
+                                    {previewStr}
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                                    <div
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        justifyContent: "center",
                                       }}
-                                      title="Edit"
-                                      style={S.actionBtn(T.teal)}
                                     >
-                                      <Edit size={13} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteSummaryType(t.summaryNo, t.summaryType)}
-                                      title="Delete"
-                                      style={S.actionBtn(T.red)}
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                      {renderStatusToggle({
+                                        checked: isActive,
+                                        onChange: () => handleToggleSummaryTypeStatus(t),
+                                        title: isActive
+                                          ? "Click to Deactivate Summary Type"
+                                          : "Click to Activate Summary Type",
+                                      })}
+                                      <span
+                                        style={{
+                                          fontSize: 11.5,
+                                          fontWeight: 600,
+                                          color: isActive ? "#059669" : "#64748b",
+                                        }}
+                                      >
+                                        {isActive ? "Active" : "Inactive"}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                                    <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => setViewTypeObj(t)}
+                                        style={pkgCss.smallBtn("primary")}
+                                        title="View headings list"
+                                      >
+                                        <Eye size={12} /> View
+                                      </button>
+                                      <button
+                                        id={`edit-type-btn-${t.summaryNo}`}
+                                        type="button"
+                                        onClick={() => openEditType(t)}
+                                        style={pkgCss.smallBtn("ghost")}
+                                        title="Edit summary type & headings"
+                                      >
+                                        <Edit size={12} /> Edit
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                         </tbody>
                       </table>
                     )}
@@ -3670,9 +5941,8 @@ const Summary = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAddSummaryTypeModal(false);
-                    setEditingSummaryType(null);
-                    setNewSummaryTypeInput("");
+                    setShowManageSummaryTypeModal(false);
+                    setTypeSearchFilter("");
                   }}
                   style={{
                     padding: "8px 18px",
@@ -3692,168 +5962,898 @@ const Summary = () => {
           </div>
         )}
 
-        {/* ── MANAGE HEADING MODAL ── */}
-        {showAddHeadingModal && (
+        {/* ── CREATE / EDIT SUMMARY TYPE MODAL (Same UI like Package.js) ── */}
+        {showTypeFormModal && (
           <div
             style={S.overlay}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
-                setShowAddHeadingModal(false);
-                setEditingHeading(null);
-                setNewHeadingInput("");
+                if (window.confirm("Discard unsaved changes?")) {
+                  setShowTypeFormModal(false);
+                }
               }
             }}
           >
-            <div style={{ ...S.modalBox, width: "min(560px, 94vw)" }}>
+            <div style={{ ...S.modalBox, width: "min(880px, 95vw)", maxHeight: "90vh" }}>
               <div style={S.modalHead}>
                 <span style={S.modalTitle}>
-                  <Plus size={16} /> Manage Headings
+                  {isEditTypeMode
+                    ? `✏️ Edit Summary Type — #${editingTypeNo}`
+                    : "📑 New Summary Type"}
                 </span>
                 <button
                   style={S.modalClose}
                   onClick={() => {
-                    setShowAddHeadingModal(false);
-                    setEditingHeading(null);
-                    setNewHeadingInput("");
+                    if (window.confirm("Discard unsaved changes?")) {
+                      setShowTypeFormModal(false);
+                    }
                   }}
                 >
                   <X size={15} />
                 </button>
               </div>
 
-              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-                {/* Input & Action Form */}
-                <form onSubmit={handleSaveHeading}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
-                      <span style={S.lbl}>
-                        {editingHeading ? "Edit Heading" : "New Heading"}
-                      </span>
-                      <CInp
-                        value={newHeadingInput}
-                        onChange={(e) => setNewHeadingInput(e.target.value)}
-                        placeholder="e.g. CLINICAL SUMMARY"
-                        autoFocus
-                      />
+              <div style={{ padding: "20px 24px", overflowY: "auto", flexGrow: 1 }}>
+                {isEditTypeMode && (
+                  <div style={pkgCss.editBanner}>
+                    <div style={pkgCss.editBannerDot} />
+                    Editing Summary Type:{" "}
+                    <strong style={{ color: T.teal }}>
+                      {typeFormData.summaryType}
+                    </strong>
+                  </div>
+                )}
+
+                {/* Card 1: Type Details */}
+                <div style={pkgCss.card}>
+                  <div style={pkgCss.cardTitle}>
+                    <div style={pkgCss.sectionLine} /> Type Details
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: T.muted, display: "block", marginBottom: 6 }}>
+                      Summary Type Name *
+                    </span>
+                    <CInp
+                      value={typeFormData.summaryType}
+                      onChange={(e) =>
+                        setTypeFormData((prev) => ({
+                          ...prev,
+                          summaryType: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. Summary, DISCHARGE SUMMARY, DAY CARE SUMMARY"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                {/* Configured Headings Table with Order IDs */}
+                <div style={pkgCss.card}>
+                  <div style={{ ...pkgCss.cardTitle, justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={pkgCss.sectionLine} /> Configured Headings ({typeFormData.headings.length})
                     </div>
-                    {editingHeading && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: T.muted, textTransform: "none", letterSpacing: "normal" }}>
+                        Use ▲ / ▼ to reorder
+                      </span>
                       <button
                         type="button"
-                        onClick={() => {
-                          setEditingHeading(null);
-                          setNewHeadingInput("");
-                        }}
+                        onClick={handleOpenHeadingModule}
                         style={{
-                          height: 38,
-                          padding: "0 12px",
-                          fontSize: 12,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "6px 14px",
+                          fontSize: 12.5,
                           fontWeight: 600,
-                          border: `1px solid ${T.border}`,
+                          background: `linear-gradient(135deg, ${T.teal}, #0ea5e9)`,
+                          color: "white",
+                          border: "none",
                           borderRadius: 7,
-                          background: "white",
-                          color: T.muted,
                           cursor: "pointer",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
                         }}
+                        title="Add or select headings from Headings Master"
                       >
-                        Cancel
+                        <Plus size={14} /> Add & Manage Headings
                       </button>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={savingHeading}
-                      style={{
-                        ...S.btn(editingHeading ? "primary" : "primary"),
-                        height: 38,
-                        padding: "0 16px",
-                        fontSize: 12.5,
-                        opacity: savingHeading ? 0.7 : 1,
-                        cursor: savingHeading ? "not-allowed" : "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {savingHeading
-                        ? "Saving..."
-                        : editingHeading
-                          ? "Update"
-                          : "Add Heading"}
-                    </button>
+                    </div>
                   </div>
-                </form>
 
-                {/* Existing Headings List */}
-                <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
-                  <span style={{ ...S.lbl, color: T.teal, marginBottom: 8, display: "block" }}>
-                    Existing Headings ({headingOptions.length})
-                  </span>
+                  {typeFormData.headings.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "36px 20px" }}>
+                      <p style={{ color: T.muted, fontSize: 13, margin: 0 }}>
+                        No headings added to this type yet. Click <strong>+ Add & Manage Headings</strong> above to select or create headings.
+                      </p>
+                    </div>
+                  ) : (
+                    <table style={pkgCss.itemsTable}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...pkgCss.itemsTh, width: 75, textAlign: "center" }}>Order ID</th>
+                          <th style={pkgCss.itemsTh}>Heading / Section Name</th>
+                          <th style={{ ...pkgCss.itemsTh, width: 90 }}>Heading No</th>
+                          <th style={{ ...pkgCss.itemsTh, minWidth: 210 }}>Predefined Value</th>
+                          <th style={{ ...pkgCss.itemsTh, width: 85, textAlign: "center" }}>Reorder</th>
+                          <th style={{ ...pkgCss.itemsTh, width: 75, textAlign: "center" }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {typeFormData.headings.map((h, index) => (
+                          <tr
+                            key={index}
+                            style={{
+                              background: index % 2 === 0 ? T.white : "#F8FAFC",
+                            }}
+                          >
+                            <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: "50%",
+                                  background: "#e0f2fe",
+                                  color: "#0284c7",
+                                  fontWeight: 700,
+                                  fontSize: 12.5,
+                                }}
+                              >
+                                {index + 1}
+                              </span>
+                            </td>
+                            <td style={pkgCss.itemsTd}>
+                              <strong style={{ color: T.slate, fontSize: 13 }}>
+                                {h.heading}
+                              </strong>
+                            </td>
+                            <td style={{ ...pkgCss.itemsTd, color: T.muted, fontSize: 12 }}>
+                              {h.headingNo || "—"}
+                            </td>
+                            <td style={{ ...pkgCss.itemsTd, minWidth: 210 }}>
+                              {h.defaultValue && h.defaultValue.trim() ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      maxWidth: 140,
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      fontSize: 11.5,
+                                      background: "#ecfdf5",
+                                      color: "#065f46",
+                                      border: "1px solid #a7f3d0",
+                                      padding: "2px 7px",
+                                      borderRadius: 4,
+                                      fontFamily: "monospace",
+                                    }}
+                                    title={h.defaultValue}
+                                  >
+                                    {h.defaultValue.replace(/\n/g, " ↵ ")}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditHeadingDefault(index)}
+                                    style={{
+                                      ...pkgCss.smallBtn("outline"),
+                                      padding: "2px 6px",
+                                      fontSize: 11,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 3,
+                                    }}
+                                    title="Edit predefined default value"
+                                  >
+                                    <Edit size={10} /> Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTypeFormData((prev) => {
+                                        const next = [...prev.headings];
+                                        next[index] = { ...next[index], defaultValue: "" };
+                                        return { ...prev, headings: next };
+                                      });
+                                    }}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#ef4444",
+                                      cursor: "pointer",
+                                      padding: 2,
+                                    }}
+                                    title="Clear predefined value"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openEditHeadingDefault(index)}
+                                  style={{
+                                    background: "#f8fafc",
+                                    border: "1px dashed #cbd5e1",
+                                    color: "#64748b",
+                                    borderRadius: 6,
+                                    padding: "3px 8px",
+                                    fontSize: 11.5,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                  title="Set predefined template / default value for this heading"
+                                >
+                                  <Plus size={11} />
+                                  <span>Set Default</span>
+                                </button>
+                              )}
+                            </td>
+                            <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                              <div style={{ display: "inline-flex", gap: 4, justifyContent: "center" }}>
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => handleMoveHeadingOrder(index, "up")}
+                                  style={{
+                                    ...pkgCss.smallBtn("outline"),
+                                    padding: "3px 7px",
+                                    opacity: index === 0 ? 0.35 : 1,
+                                    cursor: index === 0 ? "not-allowed" : "pointer",
+                                  }}
+                                  title="Move Up"
+                                >
+                                  <ArrowUp size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === typeFormData.headings.length - 1}
+                                  onClick={() => handleMoveHeadingOrder(index, "down")}
+                                  style={{
+                                    ...pkgCss.smallBtn("outline"),
+                                    padding: "3px 7px",
+                                    opacity: index === typeFormData.headings.length - 1 ? 0.35 : 1,
+                                    cursor: index === typeFormData.headings.length - 1 ? "not-allowed" : "pointer",
+                                  }}
+                                  title="Move Down"
+                                >
+                                  <ArrowDown size={12} />
+                                </button>
+                              </div>
+                            </td>
+                            <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveHeadingFromType(index)}
+                                style={{
+                                  ...pkgCss.smallBtn("danger"),
+                                  padding: "4px 8px",
+                                }}
+                                title="Remove heading from this type"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
 
-                  <div
+              <div style={S.modalFoot}>
+                <button
+                  type="button"
+                  onClick={() => setShowTypeFormModal(false)}
+                  style={{
+                    padding: "8px 18px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 7,
+                    background: "white",
+                    color: T.muted,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTypeSubmit}
+                  disabled={savingType}
+                  style={{
+                    ...pkgCss.btn("primary"),
+                    opacity: savingType ? 0.7 : 1,
+                    cursor: savingType ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {savingType ? "Saving..." : isEditTypeMode ? "Update Summary Type" : "Save Summary Type"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── EDIT PREDEFINED HEADING VALUE MODAL ── */}
+        {editingHeadingDefaultIndex !== null && typeFormData.headings[editingHeadingDefaultIndex] && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(15, 23, 42, 0.65)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1150,
+              padding: 20,
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setEditingHeadingDefaultIndex(null);
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                borderRadius: 12,
+                width: "min(620px, 94vw)",
+                boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "16px 20px",
+                  borderBottom: "1px solid #e2e8f0",
+                  background: "#f8fafc",
+                }}
+              >
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b", display: "flex", alignItems: "center", gap: 8 }}>
+                    <FileText size={16} color="#0d9488" />
+                    <span>Predefined Default Value</span>
+                  </h4>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                    Section: <strong style={{ color: "#0f172a" }}>{typeFormData.headings[editingHeadingDefaultIndex].heading}</strong> &bull; Type: <span style={{ color: "#0d9488", fontWeight: 600 }}>{typeFormData.summaryType || "Summary Type"}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingHeadingDefaultIndex(null)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#94a3b8",
+                    padding: 4,
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ padding: "18px 20px" }}>
+                <p style={{ fontSize: 12.5, color: "#475569", margin: "0 0 10px 0" }}>
+                  Enter the default template / text for this heading in this summary type. When this summary type is selected on the discharge form, this section will automatically populate with this value.
+                </p>
+                <textarea
+                  rows={9}
+                  value={tempDefaultValue}
+                  onChange={(e) => setTempDefaultValue(e.target.value)}
+                  placeholder={"Enter predefined default value / template here...\n\ne.g. for VITALS:\nBP: 120/80 mm hg\nPR:65/min\nRR: 18/min\nT: 98.6'F\nGCS: 15/15"}
+                  style={{
+                    width: "100%",
+                    fontFamily: "monospace",
+                    fontSize: 13,
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1.5px solid #cbd5e1",
+                    outline: "none",
+                    boxSizing: "border-box",
+                    lineHeight: 1.5,
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = "#0d9488")}
+                  onBlur={(e) => (e.target.style.borderColor = "#cbd5e1")}
+                  autoFocus
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 20px",
+                  background: "#f8fafc",
+                  borderTop: "1px solid #e2e8f0",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setTempDefaultValue("")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#ef4444",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    padding: "4px 8px",
+                  }}
+                >
+                  Clear Text
+                </button>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingHeadingDefaultIndex(null)}
                     style={{
-                      maxHeight: 280,
-                      overflowY: "auto",
-                      border: `1px solid ${T.border}`,
-                      borderRadius: 8,
-                      background: T.bg,
+                      padding: "7px 14px",
+                      borderRadius: 6,
+                      border: "1px solid #cbd5e1",
+                      background: "white",
+                      color: "#475569",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
                     }}
                   >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveHeadingDefault}
+                    style={{
+                      padding: "7px 16px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: "#0d9488",
+                      color: "white",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      boxShadow: "0 2px 4px rgba(13, 148, 136, 0.2)",
+                    }}
+                  >
+                    Save Default Value
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MANAGE HEADINGS MODAL (Add, Edit, Delete Headings Master) ── */}
+        {showManageHeadingModal && (
+          <div
+            style={{ ...S.overlay, zIndex: 1100 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowManageHeadingModal(false);
+                setHeadingInput("");
+                setEditingHeading(null);
+                setHeadingSearchFilter("");
+              }
+            }}
+          >
+            <div
+              style={{
+                ...S.modalBox,
+                width: "min(740px, 95vw)",
+                maxHeight: "88vh",
+              }}
+            >
+              {/* Header */}
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <FileText size={18} /> Manage Headings Master
+                </span>
+                <button
+                  style={S.modalClose}
+                  onClick={() => {
+                    setShowManageHeadingModal(false);
+                    setHeadingInput("");
+                    setEditingHeading(null);
+                    setHeadingSearchFilter("");
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div
+                style={{
+                  padding: "18px 22px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                  overflowY: "auto",
+                  flexGrow: 1,
+                }}
+              >
+                {/* 1. Add / Edit Heading Form Card */}
+                <div
+                  style={{
+                    background: editingHeading ? "#fffbeb" : "#f8fafc",
+                    border: `1px solid ${editingHeading ? "#fde68a" : T.border}`,
+                    borderRadius: 10,
+                    padding: "16px 18px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: editingHeading ? "#b45309" : T.teal,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      {editingHeading ? (
+                        <>
+                          <Edit size={15} /> Edit Heading (No: {editingHeading.headingNo})
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={15} /> Add New Heading
+                        </>
+                      )}
+                    </div>
+
+                    {editingHeading && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: 12,
+                          background: "#fef3c7",
+                          color: "#92400e",
+                          border: "1px solid #fde68a",
+                        }}
+                      >
+                        Editing Mode
+                      </span>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleSaveHeading}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <div style={{ flex: 1 }}>
+                        <CInp
+                          value={headingInput}
+                          onChange={(e) => setHeadingInput(e.target.value)}
+                          placeholder="e.g. COURSE IN HOSPITAL, TREATMENT GIVEN, SURGICAL NOTES..."
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={savingHeading}
+                        style={{
+                          ...pkgCss.btn("primary"),
+                          padding: "8px 18px",
+                          fontSize: 13,
+                          whiteSpace: "nowrap",
+                          background: editingHeading
+                            ? "linear-gradient(135deg, #0d9488, #10b981)"
+                            : `linear-gradient(135deg, ${T.teal}, #0ea5e9)`,
+                          opacity: savingHeading ? 0.7 : 1,
+                          cursor: savingHeading ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {savingHeading
+                          ? "Saving..."
+                          : editingHeading
+                            ? "Save Update"
+                            : "+ Add Heading"}
+                      </button>
+                      {editingHeading && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditHeading}
+                          style={{
+                            ...pkgCss.btn("outline"),
+                            padding: "8px 14px",
+                            fontSize: 13,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+
+                {/* 2. Headings Search Bar */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    background: "#ffffff",
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                  }}
+                >
+                  <Search size={15} color={T.muted} />
+                  <input
+                    type="text"
+                    value={headingSearchFilter}
+                    onChange={(e) => setHeadingSearchFilter(e.target.value)}
+                    placeholder="Search headings by title or heading number..."
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      fontSize: 13,
+                      color: T.slate,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: T.muted,
+                      background: "#f1f5f9",
+                      padding: "2px 8px",
+                      borderRadius: 12,
+                    }}
+                  >
+                    {
+                      headingOptions.filter((h) => {
+                        if (!headingSearchFilter) return true;
+                        const q = headingSearchFilter.toLowerCase();
+                        return (
+                          (h.heading || "").toLowerCase().includes(q) ||
+                          String(h.headingNo || "").includes(q)
+                        );
+                      }).length
+                    }{" "}
+                    of {headingOptions.length}
+                  </span>
+                </div>
+
+                {/* 3. Master Headings Table */}
+                <div
+                  style={{
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 9,
+                    overflow: "hidden",
+                    background: T.white,
+                  }}
+                >
+                  <div style={{ overflowX: "auto", maxHeight: 320 }}>
                     {headingOptions.length === 0 ? (
-                      <p style={{ textAlign: "center", padding: 20, color: T.muted, fontSize: 13 }}>
-                        No headings available.
+                      <p style={{ textAlign: "center", padding: 28, color: T.muted, fontSize: 13 }}>
+                        No headings in master table. Use the form above to add one.
                       </p>
                     ) : (
                       <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
                           <tr>
-                            <th style={{ ...S.th, width: 60 }}>#</th>
-                            <th style={S.th}>Heading</th>
-                            <th style={{ ...S.th, width: 90, textAlign: "center" }}>Actions</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 70, textAlign: "center" }}>#</th>
+                            <th style={pkgCss.itemsTh}>Heading Title</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 125, textAlign: "center" }}>Status</th>
+                            <th style={{ ...pkgCss.itemsTh, width: 180, textAlign: "center" }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {headingOptions.map((h, i) => {
-                            const isCurrentEdit = editingHeading?.headingNo === h.headingNo;
-                            return (
-                              <tr
-                                key={h.headingNo || i}
-                                style={{
-                                  background: isCurrentEdit
-                                    ? `${T.teal}15`
-                                    : i % 2 === 0
-                                      ? T.white
-                                      : T.bg,
-                                }}
-                              >
-                                <td style={{ ...S.td, fontSize: 12, fontWeight: 600, color: T.muted }}>
-                                  {h.headingNo || i + 1}
-                                </td>
-                                <td style={{ ...S.td, fontSize: 12.5, fontWeight: 500 }}>
-                                  {h.heading}
-                                </td>
-                                <td style={{ ...S.td, textAlign: "center" }}>
-                                  <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingHeading(h);
-                                        setNewHeadingInput(h.heading);
+                          {headingOptions
+                            .filter((h) => {
+                              if (!headingSearchFilter) return true;
+                              const q = headingSearchFilter.toLowerCase();
+                              return (
+                                (h.heading || "").toLowerCase().includes(q) ||
+                                String(h.headingNo || "").includes(q)
+                              );
+                            })
+                            .map((h, i) => {
+                              const isActive = h.is_active !== false;
+                              const isBeingEdited =
+                                editingHeading &&
+                                String(editingHeading.headingNo) === String(h.headingNo);
+                              const alreadyInType =
+                                showTypeFormModal &&
+                                Array.isArray(typeFormData.headings) &&
+                                typeFormData.headings.some(
+                                  (item) =>
+                                    String(item.headingNo) === String(h.headingNo) ||
+                                    item.heading === h.heading
+                                );
+
+                              return (
+                                <tr
+                                  key={h.headingNo || i}
+                                  style={{
+                                    background: isBeingEdited
+                                      ? "#fef9c3"
+                                      : i % 2 === 0
+                                        ? T.white
+                                        : "#F8FAFC",
+                                    borderBottom: `1px solid ${T.border}`,
+                                    opacity: isActive ? 1 : 0.72,
+                                  }}
+                                >
+                                  <td
+                                    style={{
+                                      ...pkgCss.itemsTd,
+                                      textAlign: "center",
+                                      fontWeight: 600,
+                                      color: T.muted,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    {h.headingNo || i + 1}
+                                  </td>
+                                  <td style={pkgCss.itemsTd}>
+                                    <strong
+                                      style={{
+                                        color: isBeingEdited ? "#854d0e" : isActive ? T.slate : "#64748b",
+                                        fontSize: 13,
                                       }}
-                                      title="Edit"
-                                      style={S.actionBtn(T.teal)}
                                     >
-                                      <Edit size={13} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteHeading(h.headingNo, h.heading)}
-                                      title="Delete"
-                                      style={S.actionBtn(T.red)}
+                                      {h.heading}
+                                    </strong>
+                                    {!isActive && (
+                                      <span
+                                        style={{
+                                          marginLeft: 6,
+                                          fontSize: 11,
+                                          fontWeight: 500,
+                                          color: "#94a3b8",
+                                        }}
+                                      >
+                                        (deactivated)
+                                      </span>
+                                    )}
+                                    {isBeingEdited && (
+                                      <span
+                                        style={{
+                                          marginLeft: 8,
+                                          fontSize: 11,
+                                          color: "#b45309",
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        (editing)
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                                    <div
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        justifyContent: "center",
+                                      }}
                                     >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                      {renderStatusToggle({
+                                        checked: isActive,
+                                        onChange: () => handleToggleHeadingStatus(h),
+                                        title: isActive
+                                          ? "Click to Deactivate Heading"
+                                          : "Click to Activate Heading",
+                                      })}
+                                      <span
+                                        style={{
+                                          fontSize: 11.5,
+                                          fontWeight: 600,
+                                          color: isActive ? "#059669" : "#64748b",
+                                        }}
+                                      >
+                                        {isActive ? "Active" : "Inactive"}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td style={{ ...pkgCss.itemsTd, textAlign: "center" }}>
+                                    <div
+                                      style={{
+                                        display: "inline-flex",
+                                        gap: 6,
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                      }}
+                                    >
+                                      {showTypeFormModal && (
+                                        <button
+                                          type="button"
+                                          disabled={alreadyInType || !isActive}
+                                          onClick={() => {
+                                            if (!isActive) return;
+                                            handleAddHeadingToType(h.heading);
+                                          }}
+                                          style={{
+                                            ...pkgCss.smallBtn(
+                                              alreadyInType
+                                                ? "outline"
+                                                : !isActive
+                                                  ? "ghost"
+                                                  : "primary"
+                                            ),
+                                            padding: "3px 10px",
+                                            fontSize: 11.5,
+                                            background: alreadyInType
+                                              ? "#ecfdf5"
+                                              : !isActive
+                                                ? "#f1f5f9"
+                                                : "linear-gradient(135deg, #0d9488, #0ea5e9)",
+                                            color: alreadyInType
+                                              ? "#047857"
+                                              : !isActive
+                                                ? "#94a3b8"
+                                                : "#ffffff",
+                                            border: alreadyInType
+                                              ? "1px solid #a7f3d0"
+                                              : !isActive
+                                                ? "1px dashed #cbd5e1"
+                                                : "none",
+                                            cursor: alreadyInType
+                                              ? "default"
+                                              : !isActive
+                                                ? "not-allowed"
+                                                : "pointer",
+                                          }}
+                                          title={
+                                            alreadyInType
+                                              ? "Already added to this type"
+                                              : !isActive
+                                                ? "Deactivated heading cannot be added to a type"
+                                                : "Add to current summary type"
+                                          }
+                                        >
+                                          {alreadyInType
+                                            ? "✓ Added"
+                                            : "+ Add to Type"}
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEditHeadingClick(h)}
+                                        style={pkgCss.smallBtn("outline")}
+                                        title="Edit this heading"
+                                      >
+                                        <Edit size={12} color={T.teal} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                         </tbody>
                       </table>
                     )}
@@ -3861,14 +6861,170 @@ const Summary = () => {
                 </div>
               </div>
 
+              {/* Footer */}
+              <div
+                style={{
+                  ...S.modalFoot,
+                  justifyContent: "space-between",
+                  background: "#f8fafc",
+                }}
+              >
+                <div style={{ fontSize: 12, color: T.muted }}>
+                  {showTypeFormModal ? (
+                    <span>
+                      <strong style={{ color: T.teal }}>{typeFormData.headings.length}</strong> heading(s) currently configured for this type.
+                    </span>
+                  ) : (
+                    <span>Total {headingOptions.length} headings in master table</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManageHeadingModal(false);
+                    setHeadingInput("");
+                    setEditingHeading(null);
+                    setHeadingSearchFilter("");
+                  }}
+                  style={{
+                    padding: "7px 18px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 7,
+                    border: `1px solid ${T.border}`,
+                    background: "white",
+                    color: T.slate,
+                    cursor: "pointer",
+                  }}
+                >
+                  {showTypeFormModal ? "Done (Return to Type)" : "Done"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── VIEW SUMMARY TYPE MODAL ── */}
+        {viewTypeObj && (
+          <div
+            style={S.overlay}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setViewTypeObj(null);
+            }}
+          >
+            <div style={{ ...S.modalBox, width: "min(620px, 92vw)", maxHeight: "85vh" }}>
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <Eye size={16} /> Summary Type — {viewTypeObj.summaryType}
+                </span>
+                <button style={S.modalClose} onClick={() => setViewTypeObj(null)}>
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div style={{ padding: "20px 24px", overflowY: "auto", flexGrow: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, borderBottom: `1px solid ${T.border}`, paddingBottom: 10 }}>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase" }}>Type No: </span>
+                    <strong style={{ color: T.teal }}>#{viewTypeObj.summaryNo}</strong>
+                  </div>
+                  <div>
+                    <span style={pkgCss.countBadge}>
+                      {viewTypeObj.headings?.length || 0} Headings
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: T.muted, marginBottom: 10 }}>
+                  Ordered Headings / Sections
+                </div>
+
+                {!viewTypeObj.headings || viewTypeObj.headings.length === 0 ? (
+                  <p style={{ color: T.muted, textAlign: "center", padding: 24, fontSize: 13 }}>
+                    No headings configured for this Summary Type.
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {viewTypeObj.headings.map((h, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          background: "#F8FAFC",
+                          border: `1px solid ${T.border}`,
+                          fontSize: 13,
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
+                            background: "#e0f2fe",
+                            color: "#0284c7",
+                            fontWeight: 700,
+                            fontSize: 12,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {i + 1}
+                        </span>
+                        <span style={{ fontWeight: 600, color: T.slate, flex: 1 }}>
+                          {h.heading}
+                        </span>
+                        {h.defaultValue && h.defaultValue.trim() && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "#047857",
+                              background: "#ecfdf5",
+                              border: "1px solid #a7f3d0",
+                              borderRadius: 4,
+                              padding: "2px 8px",
+                              maxWidth: 180,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              fontFamily: "monospace",
+                            }}
+                            title={`Predefined Default:\n${h.defaultValue}`}
+                          >
+                            Default: {h.defaultValue.replace(/\n/g, " ↵ ")}
+                          </span>
+                        )}
+                        {h.headingNo && (
+                          <span style={{ fontSize: 11, color: T.muted }}>
+                            Code: {h.headingNo}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div style={S.modalFoot}>
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAddHeadingModal(false);
-                    setEditingHeading(null);
-                    setNewHeadingInput("");
+                    const toEdit = viewTypeObj;
+                    setViewTypeObj(null);
+                    openEditType(toEdit);
                   }}
+                  style={pkgCss.btn("primary")}
+                >
+                  <Edit size={13} /> Edit Headings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewTypeObj(null)}
                   style={{
                     padding: "8px 18px",
                     fontSize: 13,
@@ -3895,6 +7051,248 @@ const Summary = () => {
           initialQuery={patientSearchQuery}
           mode="ip"
         />
+
+        {/* ── CONSULTANT DOCTORS MODAL ── */}
+        {showDoctorModal && (
+          <div
+            style={S.overlay}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowDoctorModal(false);
+                setDoctorSearchQuery("");
+              }
+            }}
+          >
+            <div
+              style={{
+                ...S.modalBox,
+                width: "min(680px, 95vw)",
+                maxHeight: "85vh",
+              }}
+            >
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <Stethoscope size={17} color={T.teal} /> Select Doctors for Consultant Section
+                </span>
+                <button
+                  style={S.modalClose}
+                  onClick={() => {
+                    setShowDoctorModal(false);
+                    setDoctorSearchQuery("");
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div style={{ padding: "16px 22px", flexGrow: 1, overflowY: "auto" }}>
+                {/* Search & Help */}
+                <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <Search
+                      size={15}
+                      style={{
+                        position: "absolute",
+                        left: 10,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: T.muted,
+                      }}
+                    />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={doctorSearchQuery}
+                      onChange={(e) => setDoctorSearchQuery(e.target.value)}
+                      placeholder="Search Doctors..."
+                      style={{
+                        ...S.inp,
+                        paddingLeft: 34,
+                        width: "100%",
+                        fontSize: 13,
+                        borderColor: T.teal,
+                      }}
+                    />
+                  </div>
+                  {doctorSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setDoctorSearchQuery("")}
+                      style={{
+                        border: "none",
+                        background: "#f1f5f9",
+                        color: T.slate,
+                        padding: "6px 12px",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: T.muted,
+                    marginBottom: 12,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span>Click any doctor to include or remove from the Consultant section notes.</span>
+                  <span style={{ fontWeight: 600, color: T.teal }}>
+                    {doctors.length} doctors available
+                  </span>
+                </div>
+
+                {/* Primary doctor quick add if available */}
+                {formData.doctor && (
+                  <div
+                    style={{
+                      background: "#f0fdfa",
+                      border: "1.5px dashed #0d9488",
+                      borderRadius: 8,
+                      padding: "10px 14px",
+                      marginBottom: 14,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#0f766e", textTransform: "uppercase" }}>
+                        Primary Admitting Doctor
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#134e4a" }}>
+                        {formData.doctor.toUpperCase()}
+                      </div>
+                    </div>
+                    {isDoctorIncludedInNotes(formData.doctor) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDoctorInConsultant(formData.doctor)}
+                        style={{
+                          background: "#fee2e2",
+                          border: "1px solid #f87171",
+                          color: "#b91c1c",
+                          padding: "5px 12px",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ✓ Included (Click to Remove)
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDoctorInConsultant(formData.doctor)}
+                        style={{
+                          background: "#0d9488",
+                          border: "none",
+                          color: "#ffffff",
+                          padding: "6px 14px",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        + Include Primary Doctor
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Doctors Grid / List */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
+                  {filteredModalDoctors.map((doc, idx) => {
+                    const upperName = (doc.employeeName || "").toUpperCase();
+                    const included = isDoctorIncludedInNotes(upperName);
+                    return (
+                      <div
+                        key={doc.employeeId || idx}
+                        onClick={() => handleToggleDoctorInConsultant(upperName)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: included ? "1.5px solid #0d9488" : `1px solid ${T.border}`,
+                          background: included ? "#f0fdfa" : "#ffffff",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          boxShadow: included ? "0 2px 6px rgba(13, 148, 136, 0.15)" : "none",
+                        }}
+                      >
+                        <div style={{ flex: 1, paddingRight: 8 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: included ? "#0f766e" : T.slate }}>
+                            {upperName}
+                          </div>
+                          {doc.department && doc.department !== "N/A" && (
+                            <div style={{ fontSize: 11, color: T.muted }}>
+                              {doc.department}
+                            </div>
+                          )}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "3px 8px",
+                            borderRadius: 6,
+                            background: included ? "#0d9488" : "#f1f5f9",
+                            color: included ? "#ffffff" : "#64748b",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {included ? "✓ Included" : "+ Add"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {filteredModalDoctors.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "30px 20px", color: T.muted }}>
+                    No doctors found matching "{doctorSearchQuery}".
+                  </div>
+                )}
+              </div>
+
+              <div style={{ ...S.modalFoot, justifyContent: "space-between", background: "#f8fafc" }}>
+                <span style={{ fontSize: 12, color: T.muted }}>
+                  Current Notes: <strong>{formData.notes ? formData.notes.split("\n").filter(Boolean).length : 0} line(s)</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDoctorModal(false);
+                    setDoctorSearchQuery("");
+                  }}
+                  style={{
+                    background: T.teal,
+                    color: "white",
+                    border: "none",
+                    borderRadius: 7,
+                    padding: "7px 20px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── AI Summarize Review & Edit Modal ── */}
         {showAiModal && (

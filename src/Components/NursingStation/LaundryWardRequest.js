@@ -5,32 +5,104 @@ import { colors, Button as GlobalButton, Input, Select, Table, Th, Td, Tr, Secti
 import { FiTrash2 } from "react-icons/fi";
 
 const Body = styled.div`
-  padding: 24px;
-  display: flex; flex-direction: column; gap: 24px;
+  padding: 14px 20px;
+  display: flex; flex-direction: column; gap: 14px;
 `;
 
-const PatientCard = styled.div`
-  background: ${colors.surface};
-  border: 1px solid ${colors.border};
-  border-radius: 16px;
-  padding: 20px;
+const PatientPanel = styled.div`
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 4px;
+    background: #0d8a7a;
+  }
+
+  .patient-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .patient-divider {
+    width: 1px;
+    height: 30px;
+    background: #e2e8f0;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 12px;
+    .patient-divider { display: none; }
+  }
 `;
 
-const InfoGrid = styled.div`
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+const PatientAvatar = styled.div`
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e6f7f5;
+  color: #0d8a7a;
+  font-weight: 700;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #b2e5df;
+  flex-shrink: 0;
 `;
 
-const InfoItem = styled.div`
-  display: flex; flex-direction: column; gap: 4px;
+const PatientGrid = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  flex: 1;
+`;
+
+const PatientMeta = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  span.label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    line-height: 1.1;
+  }
+  span.val {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 `;
 
 const Label = styled.span`
-  font-size: 0.7rem; font-weight: 700; color: ${colors.textMuted};
-  text-transform: uppercase; letter-spacing: 0.5px;
-`;
-
-const Value = styled.span`
-  font-size: 0.95rem; font-weight: 600; color: ${colors.textMain};
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 `;
 
 const Footer = styled.div`
@@ -190,28 +262,34 @@ const LaundryWardRequest = ({ patient, onClose, onSaved }) => {
   return (
     <>
       <Body>
-        <PatientCard>
-          <div style={{ marginBottom: "16px", paddingBottom: "16px", borderBottom: `1px dashed ${colors.border}` }}>
-            <Label>Patient Information</Label>
-            <h2 style={{ margin: "4px 0 0 0", color: colors.primary, fontSize: "1.4rem", fontWeight: 800 }}>
-              {rp.name}
-            </h2>
+        <PatientPanel>
+          <div className="patient-left">
+            <PatientAvatar>
+              {rp.name.split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2) || "P"}
+            </PatientAvatar>
+            <div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
+                {rp.name}
+              </div>
+              <div style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
+                UHID: <span style={{ color: "#0d8a7a" }}>{rp.uhid}</span> · IP: <span style={{ color: "#0d8a7a" }}>{rp.ipNo}</span>
+              </div>
+            </div>
           </div>
-          <InfoGrid>
-            <InfoItem>
-              <Label>UHID</Label>
-              <Value>{rp.uhid}</Value>
-            </InfoItem>
-            <InfoItem>
-              <Label>IP Number</Label>
-              <Value>{rp.ipNo}</Value>
-            </InfoItem>
-            <InfoItem>
-              <Label>Location</Label>
-              <Value>{rp.ward} / {rp.room} / {rp.bed}</Value>
-            </InfoItem>
-          </InfoGrid>
-        </PatientCard>
+
+          <div className="patient-divider" />
+
+          <PatientGrid>
+            <PatientMeta>
+              <span className="label">Ward</span>
+              <span className="val">{rp.ward}</span>
+            </PatientMeta>
+            <PatientMeta>
+              <span className="label">Room · Bed</span>
+              <span className="val">Room {rp.room} · Bed {rp.bed}</span>
+            </PatientMeta>
+          </PatientGrid>
+        </PatientPanel>
 
         <section>
           <GlobalSectionHeader>
