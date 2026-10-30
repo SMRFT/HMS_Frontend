@@ -600,10 +600,15 @@ const calcTotals = (items, f) => {
   return { totalAmount, discAmt, totalDisc, netAmount, totalCharges };
 };
 
-const buildPayload = (items, f, totals, status, patient, editReason = "") => ({
+const buildPayload = (items, f, totals, status, patient, editReason = "", insurance = null) => ({
   status,
   uhid: patient?.uhid || null,
   ip_number: patient?.ip_number || null,
+  is_insurance_bill: Boolean(insurance?.isInsuranceBill),
+  claim_number: insurance?.claimNumber || "",
+  id_card_number: insurance?.idCardNumber || "",
+  insurance_bill_number: insurance?.insuranceBillNumber || "",
+  company_name: insurance?.companyName || patient?.company || "",
   items: items.map(({ _key, _fromInvest, _baseRate, _appliedWard, _rateCategory, ...r }) => ({
     ...r,
     nabh_code: r.nabh_code || "",
@@ -665,7 +670,7 @@ const investToRow = it => {
     additional_doctors: it.additional_doctors || null,
     bill_type: it.bill_type != null ? it.bill_type : "",
     billTypeNo: it.billTypeNo || "",
-    item_description: it.billTypeNo || it.source || "",
+    item_description: (it.item_description && it.item_description !== it.billTypeNo && it.item_description !== "DIS01" && !String(it.item_description).startsWith("DIS0")) ? it.item_description : "",
     package_name: it.package_name || "",
     invest_bill_no: it.invest_bill_no || "",
     bill_object_id: it.bill_object_id || "",
@@ -1511,7 +1516,9 @@ const ItemsSection = ({
               />
             </ITD>
             <ITD><TInput $align="right" value={newItem.doctor_fee} onChange={e => onNIChange("doctor_fee", e.target.value)} disabled={disabled} /></ITD>
-            <ITD><TInput value={newItem.item_description} onChange={e => onNIChange("item_description", e.target.value)} disabled={disabled} placeholder="Notes…" /></ITD>
+            <ITD>
+              <TInput value={newItem.item_description} onChange={e => onNIChange("item_description", e.target.value)} disabled={disabled} placeholder="Notes…" />
+            </ITD>
             <ITD $align="center"></ITD>
             <ITD $align="center">
               <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
@@ -1604,7 +1611,7 @@ const ItemsSection = ({
                 <ITD><TInput $align="right" value={item.doctor_fee || ""} onChange={e => onEdit(item._key, "doctor_fee", e.target.value)} /></ITD>
                 <ITD>
                   <TInput
-                    value={item.item_description || item.invest_bill_no || ""}
+                    value={(item.item_description && item.item_description !== item.billTypeNo && item.item_description !== "DIS01" && !String(item.item_description).startsWith("DIS0")) ? item.item_description : ""}
                     onChange={e => onEdit(item._key, "item_description", e.target.value)}
                     placeholder="Description…"
                   />
@@ -1700,6 +1707,51 @@ const DischargeBilling = () => {
   const [form, setFormRaw] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [editingEst, setEditingEst] = useState(null);
+
+  // Insurance Convert Modal & Fields
+  const [insuranceModalOpen, setInsuranceModalOpen] = useState(false);
+  const [insuranceData, setInsuranceData] = useState({
+    isInsuranceBill: false,
+    claimNumber: "",
+    idCardNumber: "",
+    insuranceBillNumber: "",
+    companyName: "",
+  });
+
+  const handleOpenInsuranceModal = () => {
+    if (!patient) { showToast("Search a patient first", true); return; }
+    if (!items.length) { showToast("Add at least one item", true); return; }
+    setInsuranceData(prev => ({
+      ...prev,
+      companyName: prev.companyName || patient.company || patient.company_code || "",
+    }));
+    setInsuranceModalOpen(true);
+  };
+
+  const handleConfirmInsuranceModal = () => {
+    if (!insuranceData.claimNumber.trim()) {
+      showToast("Please enter Claim Number", true);
+      return;
+    }
+    if (!insuranceData.idCardNumber.trim()) {
+      showToast("Please enter ID Card Number", true);
+      return;
+    }
+    if (!insuranceData.insuranceBillNumber.trim()) {
+      showToast("Please enter Insurance Bill Number", true);
+      return;
+    }
+    const updated = { ...insuranceData, isInsuranceBill: true };
+    setInsuranceData(updated);
+    setInsuranceModalOpen(false);
+
+    if (editingEst?.id && editingEst.status === "Billed") {
+      setEditReasonText("");
+      setEditReasonModal({ actionType: "insurance_bill", insurance: updated });
+    } else {
+      executeSave("insurance_bill", "", updated);
+    }
+  };
 
   const handleToggleSelect = useCallback((key) => {
     setSelectedKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
@@ -2032,6 +2084,10 @@ const DischargeBilling = () => {
       if (p) {
         const norm = { ...p, ip_number: p.ip_number || p.ipNumber || "" };
         setPatient(norm);
+        setInsuranceData(prev => ({
+          ...prev,
+          companyName: norm.company || norm.company_code || prev.companyName || "",
+        }));
         if (norm.uhid) setUhid(norm.uhid);
         if (norm.ip_number) setIpNumber(norm.ip_number);
         setPatientWard(norm.room_category || "SEMI-PRIVATE WARD");
@@ -2123,6 +2179,14 @@ const DischargeBilling = () => {
     setEditingEst(null);
     setPatientWard("SEMI-PRIVATE WARD");
     setRateCategory("NABH");
+    setInsuranceData({
+      isInsuranceBill: false,
+      claimNumber: "",
+      idCardNumber: "",
+      insuranceBillNumber: "",
+      companyName: "",
+    });
+    setInsuranceModalOpen(false);
   };
 
   // ── Edit / Convert from estimates list ─────────────────────────────────────
@@ -2157,6 +2221,13 @@ const DischargeBilling = () => {
     setNewItem(EMPTY_ITEM);
     setFormRaw(estToForm(est));
     setEditingEst({ id: est.id, estimate_number: est.estimate_number, bill_no: est.bill_no, status: est.status });
+    setInsuranceData({
+      isInsuranceBill: Boolean(est.is_insurance_bill),
+      claimNumber: est.claim_number || "",
+      idCardNumber: est.id_card_number || "",
+      insuranceBillNumber: est.insurance_bill_number || "",
+      companyName: est.company_name || pd.company || "",
+    });
     setTab("create");
     window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -2217,15 +2288,19 @@ const DischargeBilling = () => {
     }
   };
 
-  const executeSave = async (actionType, reason) => {
+  const executeSave = async (actionType, reason, customInsurance = null) => {
     setSaving(true);
     setEditReasonModal(null);
+    const activeInsurance = customInsurance || insuranceData;
+    const isIns = actionType === "insurance_bill" || Boolean(activeInsurance.isInsuranceBill);
+    const insPayload = { ...activeInsurance, isInsuranceBill: isIns };
+
     try {
       const t = calcTotals(items, form);
       if (actionType === "estimate") {
         const res = editingEst?.id
-          ? await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient, reason))
-          : await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Estimate", patient));
+          ? await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient, reason, insPayload))
+          : await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Estimate", patient, "", insPayload));
         const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
         if (d?.id) {
           showToast(`✓ Estimate saved — ${d.estimate_number || ""}`);
@@ -2233,25 +2308,33 @@ const DischargeBilling = () => {
         } else showToast(JSON.stringify(res?.error || res), true);
       } else {
         if (editingEst?.id && editingEst.status === "Billed") {
-          const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Billed", patient, reason));
+          const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Billed", patient, reason, insPayload));
           const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id || d?.bill_no) {
-            showToast(`✓ Bill updated — ${d.bill_no || ""}`);
+            showToast(isIns ? `✓ Insurance Bill updated — ${d.bill_no || ""}` : `✓ Bill updated — ${d.bill_no || ""}`);
             handleReset(); setBillRefresh(n => n + 1); setTab("bills");
           } else showToast(JSON.stringify(res?.error || res), true);
         } else if (editingEst?.id) {
-          await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient, reason));
+          await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient, reason, insPayload));
           const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/convert-to-bill/`, "POST", {});
           const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id || d?.bill_no) {
-            showToast(`✓ Converted to Bill — ${d.bill_no || ""}`);
+            if (isIns) {
+              await apiRequest(`${BASE}discharge-billing/${editingEst.id}/convert-to-insurance/`, "POST", {
+                claim_number: insPayload.claimNumber,
+                id_card_number: insPayload.idCardNumber,
+                insurance_bill_number: insPayload.insuranceBillNumber,
+                company_name: insPayload.companyName,
+              });
+            }
+            showToast(isIns ? `✓ Converted to Insurance Bill — ${d.bill_no || ""}` : `✓ Converted to Bill — ${d.bill_no || ""}`);
             handleReset(); setEstRefresh(n => n + 1); setBillRefresh(n => n + 1); setTab("bills");
           } else showToast(JSON.stringify(res?.error || res), true);
         } else {
-          const res = await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Billed", patient));
+          const res = await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Billed", patient, "", insPayload));
           const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id) {
-            showToast(`✓ Bill saved — ${d.bill_no || ""}`);
+            showToast(isIns ? `✓ Insurance Bill saved — ${d.bill_no || ""}` : `✓ Bill saved — ${d.bill_no || ""}`);
             handleReset(); setBillRefresh(n => n + 1); setTab("bills");
           } else showToast(JSON.stringify(res?.error || res), true);
         }
@@ -2403,6 +2486,24 @@ const DischargeBilling = () => {
                       </MetricBox>
                     </div>
                   </PatientMetrics2Col>
+                  {insuranceData.isInsuranceBill && (
+                    <div style={{
+                      marginTop: 10, padding: "8px 12px", background: "#ecfdf5",
+                      border: "1px solid #a7f3d0", borderRadius: 6, display: "flex",
+                      alignItems: "center", justifyContent: "space-between", flexWrap: "wrap",
+                      gap: 10, fontSize: "0.76rem", color: "#065f46"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
+                        <span>🛡️ Insurance Bill:</span>
+                        <span>{insuranceData.companyName || patient.company || "Insurance"}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 14 }}>
+                        <span><strong>Claim No:</strong> {insuranceData.claimNumber || "—"}</span>
+                        <span><strong>ID Card No:</strong> {insuranceData.idCardNumber || "—"}</span>
+                        <span><strong>Ins Bill No:</strong> {insuranceData.insuranceBillNumber || "—"}</span>
+                      </div>
+                    </div>
+                  )}
                 </PatientProfileCard>
               ) : (
                 <PatientEmptyState>
@@ -2520,6 +2621,18 @@ const DischargeBilling = () => {
               <Btn $amber onClick={handleSaveEstimate} disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing")}>
                 {saving ? <Spinner /> : "📋"} {editingEst ? " Update Estimate" : " Save as Estimate"}
               </Btn>
+              <Btn
+                $primary
+                onClick={handleOpenInsuranceModal}
+                disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing")}
+                style={{
+                  background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+                  boxShadow: "0 2px 6px rgba(15,118,110,0.3)"
+                }}
+                title="Convert bill for Insurance (Claim No, ID Card No, Insurance Bill No)"
+              >
+                {saving ? <Spinner /> : "🛡️"} {insuranceData.isInsuranceBill ? "Insurance Details" : "Convert Bill for Insurance"}
+              </Btn>
               {editingEst && editingEst.status !== "Billed" ? (
                 <Btn $purple onClick={handleSaveBill} disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing")}>
                   {saving ? <Spinner /> : "🧾"} Convert &amp; Save Bill
@@ -2584,13 +2697,120 @@ const DischargeBilling = () => {
             </div>
             <div style={{ padding: "12px 20px", background: "#f8fafc", borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <Btn $ghost onClick={() => setEditReasonModal(null)}>Cancel</Btn>
-              <Btn $amber onClick={() => executeSave(editReasonModal.actionType, editReasonText)} disabled={saving || !editReasonText.trim()}>
+              <Btn $amber onClick={() => executeSave(editReasonModal.actionType, editReasonText, editReasonModal.insurance || null)} disabled={saving || !editReasonText.trim()}>
                 {saving ? <Spinner /> : "✓ Confirm & Save"}
               </Btn>
             </div>
           </div>
         </div>
       )}
+
+      {/* ── Insurance Conversion Modal ── */}
+      {insuranceModalOpen && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.55)",
+          backdropFilter: "blur(2px)", zIndex: 10000, display: "flex",
+          alignItems: "center", justifyContent: "center", padding: 16
+        }}>
+          <div style={{
+            background: "#fff", borderRadius: 12, width: "100%", maxWidth: 500,
+            overflow: "hidden", boxShadow: "0 20px 40px rgba(0,0,0,0.22)"
+          }}>
+            <div style={{
+              background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+              color: "#fff", padding: "16px 20px", display: "flex",
+              alignItems: "center", justifyContent: "space-between"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: "1.2rem" }}>🛡️</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>Convert Bill for Insurance</h3>
+                  <div style={{ fontSize: "0.72rem", opacity: 0.85, marginTop: 2 }}>Enter claim &amp; ID card details to convert this bill</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setInsuranceModalOpen(false)}
+                style={{ background: "none", border: "none", color: "#fff", fontSize: "1.2rem", cursor: "pointer", lineHeight: 1 }}
+              >✕</button>
+            </div>
+
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* Patient details quick view */}
+              <div style={{ background: "#f0fdfa", border: "1px solid #ccfbf1", borderRadius: 8, padding: "10px 14px", fontSize: "0.78rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span><strong>Patient:</strong> {patient?.patient_name || "—"}</span>
+                  <span><strong>UHID:</strong> {patient?.uhid || "—"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
+                  <span><strong>IP Number:</strong> {patient?.ip_number || "—"}</span>
+                  <span><strong>Room:</strong> {patient?.room_no || "—"}</span>
+                </div>
+              </div>
+
+              {/* Company Name */}
+              <FG>
+                <FL>Company Name <span style={{ color: "#64748b", fontWeight: 400 }}>(Insurance / TPA)</span></FL>
+                <FInput
+                  value={insuranceData.companyName}
+                  onChange={e => setInsuranceData(prev => ({ ...prev, companyName: e.target.value }))}
+                  placeholder="e.g. Star Health / ICICI Lombard / TPA"
+                  style={{ fontWeight: 600, color: "#0f766e" }}
+                />
+              </FG>
+
+              {/* Claim Number */}
+              <FG>
+                <FL>Claim Number <Req>*</Req></FL>
+                <FInput
+                  value={insuranceData.claimNumber}
+                  onChange={e => setInsuranceData(prev => ({ ...prev, claimNumber: e.target.value }))}
+                  placeholder="Enter Claim Number (e.g. CLM-849204)"
+                  autoFocus
+                />
+              </FG>
+
+              {/* Id Card Number */}
+              <FG>
+                <FL>ID Card Number <Req>*</Req></FL>
+                <FInput
+                  value={insuranceData.idCardNumber}
+                  onChange={e => setInsuranceData(prev => ({ ...prev, idCardNumber: e.target.value }))}
+                  placeholder="Enter Insurance ID Card / Member Number"
+                />
+              </FG>
+
+              {/* Insurance Bill Number */}
+              <FG>
+                <FL>Insurance Bill Number <Req>*</Req></FL>
+                <FInput
+                  value={insuranceData.insuranceBillNumber}
+                  onChange={e => setInsuranceData(prev => ({ ...prev, insuranceBillNumber: e.target.value }))}
+                  placeholder="Enter Insurance Bill Number (e.g. INS-2026/001)"
+                />
+              </FG>
+            </div>
+
+            <div style={{
+              background: "#f8fafc", padding: "12px 20px", display: "flex",
+              justifyContent: "flex-end", gap: 10, borderTop: `1px solid ${T.border}`
+            }}>
+              <Btn $ghost onClick={() => setInsuranceModalOpen(false)}>Cancel</Btn>
+              <Btn
+                $primary
+                onClick={handleConfirmInsuranceModal}
+                disabled={saving}
+                style={{
+                  background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+                  color: "#fff"
+                }}
+              >
+                {saving ? <Spinner /> : "🛡️"} Convert &amp; Save as Insurance Bill
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Patient Search Modal ── */}
       <PatientSearchModal
         isOpen={showPatientModal}

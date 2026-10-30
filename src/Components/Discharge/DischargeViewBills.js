@@ -27,8 +27,17 @@ const T = {
   shadowMd:  "0 4px 16px rgba(0,0,0,0.10)",
 };
 
-const spin   = keyframes`to { transform: rotate(360deg); }`;
-const fadeUp = keyframes`from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); }`;
+const spin      = keyframes`to { transform: rotate(360deg); }`;
+const fadeUp    = keyframes`from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); }`;
+const slideDown = keyframes`from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); }`;
+
+const Toast = styled.div`
+  position: fixed; top: 14px; right: 16px; z-index: 99999;
+  padding: 10px 18px; border-radius: ${T.radius}; color: #fff;
+  font-weight: 600; font-size: 0.84rem; max-width: 380px;
+  background: ${p => p.$err ? T.danger : T.success};
+  box-shadow: ${T.shadowMd}; animation: ${slideDown} 0.2s ease;
+`;
 
 // ─── Styled components ──────────────────────────────────────────────────────────
 const Card = styled.div`
@@ -238,6 +247,71 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelBusy, setCancelBusy] = useState(false);
   const [auditBill,  setAuditBill]  = useState(null);
+
+  // Toast notification state
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, err = false) => {
+    setToast({ msg, err });
+    setTimeout(() => setToast(null), 3800);
+  };
+
+  // Insurance Convert Modal state
+  const [insuranceModalBill, setInsuranceModalBill] = useState(null);
+  const [insuranceForm, setInsuranceForm] = useState({
+    claim_number: "",
+    id_card_number: "",
+    insurance_bill_number: "",
+    company_name: "",
+  });
+  const [convertingInsurance, setConvertingInsurance] = useState(false);
+
+  const handleOpenInsuranceModal = (b) => {
+    const pd = b.patient_details || {};
+    setInsuranceModalBill(b);
+    setInsuranceForm({
+      claim_number: b.claim_number || "",
+      id_card_number: b.id_card_number || "",
+      insurance_bill_number: b.insurance_bill_number || "",
+      company_name: b.company_name || pd.company || pd.company_code || "",
+    });
+  };
+
+  const handleSaveInsuranceConvert = async () => {
+    if (!insuranceModalBill) return;
+    if (!insuranceForm.claim_number.trim()) {
+      showToast("Claim Number is required", true);
+      return;
+    }
+    if (!insuranceForm.id_card_number.trim()) {
+      showToast("ID Card Number is required", true);
+      return;
+    }
+    if (!insuranceForm.insurance_bill_number.trim()) {
+      showToast("Insurance Bill Number is required", true);
+      return;
+    }
+
+    setConvertingInsurance(true);
+    try {
+      const res = await apiRequest(
+        `${BASE}discharge-billing/${insuranceModalBill.id}/convert-to-insurance/`,
+        "POST",
+        insuranceForm
+      );
+      if (res && res.success) {
+        showToast("✓ Bill converted for Insurance successfully!");
+        const updated = res.data?.data || res.data || res;
+        setBills(prev => prev.map(x => x.id === insuranceModalBill.id ? { ...x, ...updated, is_insurance_bill: true, ...insuranceForm } : x));
+        setInsuranceModalBill(null);
+      } else {
+        showToast(res?.error || "Conversion failed", true);
+      }
+    } catch (err) {
+      showToast("Network error during insurance conversion", true);
+    } finally {
+      setConvertingInsurance(false);
+    }
+  };
 
   // 3-dots Menu State
   const [openMenu, setOpenMenu] = useState(null);
@@ -536,6 +610,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
 
   return (
     <Card>
+      {toast && <Toast $err={toast.err}>{toast.msg}</Toast>}
       {/* Header */}
       <CardHead>
         <CardTitle>
@@ -682,6 +757,22 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
                     <Mono style={{ color: isCanc ? T.textMuted : T.primary, fontWeight: 700 }}>
                       {b.bill_no}
                     </Mono>
+                    {b.is_insurance_bill && (
+                      <span style={{
+                        display: "inline-block",
+                        fontSize: "0.64rem",
+                        background: "#ecfdf5",
+                        color: "#065f46",
+                        border: "1px solid #a7f3d0",
+                        padding: "1px 5px",
+                        borderRadius: 3,
+                        fontWeight: 700,
+                        marginLeft: 4,
+                        verticalAlign: "middle"
+                      }} title={`Insurance: ${b.company_name || ""} | Claim: ${b.claim_number || ""}`}>
+                        🛡️ INS
+                      </span>
+                    )}
                   </LTD>
                   <LTD>
                     <Mono style={{ fontSize: "0.73rem", color: T.textMuted }}>
@@ -771,6 +862,11 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
             {!isCanc && onEditBill && (
               <DI onClick={() => { setOpenMenu(null); onEditBill(b); }}>
                 ✏️ Edit Bill
+              </DI>
+            )}
+            {!isCanc && (
+              <DI onClick={() => { setOpenMenu(null); handleOpenInsuranceModal(b); }}>
+                🛡️ {b.is_insurance_bill ? "Edit Insurance Details" : "Convert for Insurance"}
               </DI>
             )}
             <DI onClick={() => { setOpenMenu(null); handleOpenPrint(b); }}>
@@ -895,6 +991,106 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
           </ModalBox>
         </ModalOverlay>
       )}
+
+      {/* ── Convert for Insurance Modal ── */}
+      {insuranceModalBill && (
+        <ModalOverlay onClick={() => setInsuranceModalBill(null)}>
+          <ModalBox $w="500px" onClick={e => e.stopPropagation()}>
+            <ModalHead style={{ background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)", color: "#fff" }}>
+              <ModalTitle style={{ color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+                🛡️ Convert Bill for Insurance — #{insuranceModalBill.bill_no}
+              </ModalTitle>
+              <ModalClose style={{ color: "#fff" }} onClick={() => setInsuranceModalBill(null)}>✕</ModalClose>
+            </ModalHead>
+            <ModalBody>
+              <div style={{ background: "#f0fdfa", border: "1px solid #ccfbf1", borderRadius: 8, padding: "10px 14px", fontSize: "0.78rem", marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span><strong>Patient:</strong> {insuranceModalBill.patient_details?.patient_name || "—"}</span>
+                  <span><strong>UHID:</strong> {insuranceModalBill.uhid || "—"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
+                  <span><strong>IP Number:</strong> {insuranceModalBill.ip_number || "—"}</span>
+                  <span><strong>Bill No:</strong> {insuranceModalBill.bill_no || "—"}</span>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <FG>
+                  <FL>Company Name <span style={{ color: "#64748b", fontWeight: 400 }}>(Insurance / TPA)</span></FL>
+                  <input
+                    type="text"
+                    value={insuranceForm.company_name}
+                    onChange={e => setInsuranceForm(prev => ({ ...prev, company_name: e.target.value }))}
+                    placeholder="e.g. Star Health / ICICI Lombard / TPA"
+                    style={{
+                      width: "100%", padding: "8px 10px", fontSize: "0.83rem",
+                      borderRadius: 6, border: `1px solid ${T.border}`, outline: "none",
+                      fontWeight: 600, color: "#0f766e", boxSizing: "border-box"
+                    }}
+                  />
+                </FG>
+
+                <FG>
+                  <FL>Claim Number <span style={{ color: T.danger }}>*</span></FL>
+                  <input
+                    type="text"
+                    value={insuranceForm.claim_number}
+                    onChange={e => setInsuranceForm(prev => ({ ...prev, claim_number: e.target.value }))}
+                    placeholder="Enter Claim Number (e.g. CLM-849204)"
+                    autoFocus
+                    style={{
+                      width: "100%", padding: "8px 10px", fontSize: "0.83rem",
+                      borderRadius: 6, border: `1px solid ${T.border}`, outline: "none", boxSizing: "border-box"
+                    }}
+                  />
+                </FG>
+
+                <FG>
+                  <FL>ID Card Number <span style={{ color: T.danger }}>*</span></FL>
+                  <input
+                    type="text"
+                    value={insuranceForm.id_card_number}
+                    onChange={e => setInsuranceForm(prev => ({ ...prev, id_card_number: e.target.value }))}
+                    placeholder="Enter Insurance ID Card / Member Number"
+                    style={{
+                      width: "100%", padding: "8px 10px", fontSize: "0.83rem",
+                      borderRadius: 6, border: `1px solid ${T.border}`, outline: "none", boxSizing: "border-box"
+                    }}
+                  />
+                </FG>
+
+                <FG>
+                  <FL>Insurance Bill Number <span style={{ color: T.danger }}>*</span></FL>
+                  <input
+                    type="text"
+                    value={insuranceForm.insurance_bill_number}
+                    onChange={e => setInsuranceForm(prev => ({ ...prev, insurance_bill_number: e.target.value }))}
+                    placeholder="Enter Insurance Bill Number (e.g. INS-2026/001)"
+                    style={{
+                      width: "100%", padding: "8px 10px", fontSize: "0.83rem",
+                      borderRadius: 6, border: `1px solid ${T.border}`, outline: "none", boxSizing: "border-box"
+                    }}
+                  />
+                </FG>
+              </div>
+            </ModalBody>
+            <ModalFoot>
+              <Btn $ghost onClick={() => setInsuranceModalBill(null)}>Cancel</Btn>
+              <Btn
+                $primary
+                onClick={handleSaveInsuranceConvert}
+                disabled={convertingInsurance}
+                style={{
+                  background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+                  color: "#fff"
+                }}
+              >
+                {convertingInsurance ? <Spinner /> : "🛡️"} Convert & Save as Insurance Bill
+              </Btn>
+            </ModalFoot>
+          </ModalBox>
+        </ModalOverlay>
+      )}
     </Card>
   );
 };
@@ -958,18 +1154,36 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
       </div>
 
       {/* Title & Banner */}
-      <table style={{
-        width: "100%", borderCollapse: "collapse",
-        borderTop: "2px solid #000", borderBottom: "2px solid #000",
-        fontWeight: "bold", fontSize: "0.85rem", marginBottom: 10
-      }}>
-        <tbody>
-          <tr>
-            <td style={{ padding: "4px 8px", textAlign: "left" }}>DISCHARGE BILL &nbsp;-&nbsp; GST EXEMPT</td>
-            <td style={{ padding: "4px 8px", textAlign: "right" }}>CREDIT BILL</td>
-          </tr>
-        </tbody>
-      </table>
+      {(() => {
+        const isInsurance = Boolean(
+          bill?.is_insurance_bill ||
+          bill?.claim_number ||
+          bill?.insurance_bill_number ||
+          bill?.company_name ||
+          (pd?.patient_type && String(pd.patient_type).toLowerCase().includes("insurance")) ||
+          (pd?.patient_type && String(pd.patient_type).toLowerCase().includes("credit")) ||
+          (pd?.company && String(pd.company).trim())
+        );
+
+        return (
+          <table style={{
+            width: "100%", borderCollapse: "collapse",
+            borderTop: "2px solid #000", borderBottom: "2px solid #000",
+            fontWeight: "bold", fontSize: "0.85rem", marginBottom: 10
+          }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: "4px 8px", textAlign: "left" }}>
+                  DISCHARGE BILL &nbsp;-&nbsp; GST EXEMPT
+                </td>
+                <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                  {isInsurance ? "CREDIT BILL" : "CASH BILL"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        );
+      })()}
 
       {/* Patient & Bill Info Table */}
       <table style={{
@@ -1010,7 +1224,7 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
             </td>
           </tr>
           <tr>
-            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+            <td style={{ padding: "2px 4px", verticalAlign: "top", whiteSpace: "nowrap" }}>
               <strong>Doctor</strong> &nbsp;&nbsp;&nbsp;&nbsp;: {pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN"}
             </td>
             <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
@@ -1022,6 +1236,26 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
               <strong>Room Details</strong>: {pd.room_no || pd.roomNo || "GENERAL WARD"}
             </td>
           </tr>
+          {(bill.is_insurance_bill || bill.company_name || bill.claim_number || pd.company) && (
+            <>
+              <tr>
+                <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+                  <strong>Company</strong> &nbsp;&nbsp;&nbsp;: {bill.company_name || pd.company || "—"}
+                </td>
+                <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+                  <strong>Claim No</strong> &nbsp;&nbsp;: {bill.claim_number || "—"}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+                  <strong>ID Card No</strong> &nbsp;: {bill.id_card_number || "—"}
+                </td>
+                <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
+                  <strong>Ins. Bill No</strong> : {bill.insurance_bill_number || "—"}
+                </td>
+              </tr>
+            </>
+          )}
         </tbody>
       </table>
 
@@ -1030,11 +1264,12 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
         <thead>
           <tr style={{ borderBottom: "1.5px solid #000", borderTop: "1.5px solid #000" }}>
             <th style={{ textAlign: "left", padding: "6px 4px", width: "35px" }}>SlNo</th>
-            <th style={{ textAlign: "left", padding: "6px 4px", width: "110px" }}>NABH Code</th>
+            <th style={{ textAlign: "left", padding: "6px 4px", width: "95px" }}>NABH Code</th>
             <th style={{ textAlign: "left", padding: "6px 4px" }}>Description</th>
-            <th style={{ textAlign: "right", padding: "6px 4px", width: "60px" }}>Quantity</th>
-            <th style={{ textAlign: "right", padding: "6px 4px", width: "80px" }}>Rate</th>
-            <th style={{ textAlign: "right", padding: "6px 4px", width: "90px" }}>Amount</th>
+            <th style={{ textAlign: "left", padding: "6px 4px", whiteSpace: "nowrap" }}>Doctor</th>
+            <th style={{ textAlign: "right", padding: "6px 4px", width: "55px" }}>Quantity</th>
+            <th style={{ textAlign: "right", padding: "6px 4px", width: "75px" }}>Rate</th>
+            <th style={{ textAlign: "right", padding: "6px 4px", width: "85px" }}>Amount</th>
           </tr>
         </thead>
         <tbody>
@@ -1046,17 +1281,34 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
             }
             if (!nabhCode) nabhCode = "-";
 
+            // Clean description: do NOT display DIS01 or any bill type code
+            let desc = (it.item_description || "").trim();
+            const btn = (it.billTypeNo || "").trim();
+            if (
+              desc === btn ||
+              desc === "DIS01" ||
+              desc.toUpperCase().startsWith("DIS0") ||
+              desc.toUpperCase().startsWith("LAB0") ||
+              desc.toLowerCase() === "investbilling" ||
+              desc.includes("NABH:")
+            ) {
+              desc = "";
+            }
+
             return (
               <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
                 <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left" }}>{idx + 1}</td>
                 <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left", fontFamily: "'Courier New', Courier, monospace", fontSize: "0.74rem" }}>{nabhCode}</td>
                 <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left" }}>
                   <div style={{ fontWeight: 600 }}>{it.itemName}</div>
-                  {it.package_name && (
-                    <div style={{ fontSize: "0.68rem", color: "#475569" }}>
-                      Scheme: {it.package_name}
+                  {desc ? (
+                    <div style={{ fontSize: "0.72rem", color: "#334155", marginTop: 2 }}>
+                      {desc}
                     </div>
-                  )}
+                  ) : null}
+                </td>
+                <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left", fontSize: "0.76rem", color: "#0f766e", fontWeight: 600, whiteSpace: "nowrap" }}>
+                  {it.doctor ? (/^dr[.\s]/i.test(it.doctor) ? it.doctor : `Dr. ${it.doctor}`) : "—"}
                 </td>
                 <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{it.quantity || 1}</td>
                 <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{fmt(it.rate)}</td>
