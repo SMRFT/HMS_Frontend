@@ -106,6 +106,12 @@ const SUMMARY_CUSTOM_STYLES = `
   .sum-table-row:hover {
     background-color: #f1f5f9 !important;
   }
+  .sum-sidebar-item {
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .sum-sidebar-item:hover {
+    filter: brightness(0.97);
+  }
   @keyframes sumPulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.2); opacity: 0.75; }
@@ -113,11 +119,223 @@ const SUMMARY_CUSTOM_STYLES = `
   .sum-pulse-dot {
     animation: sumPulse 1.4s infinite ease-in-out;
   }
+  @media (max-width: 1200px) {
+    .sum-notes-layout {
+      grid-template-columns: 240px minmax(0, 1fr) !important;
+    }
+  }
+  @media (max-width: 900px) {
+    .sum-notes-layout {
+      grid-template-columns: 1fr !important;
+      gap: 16px !important;
+    }
+    .sum-sidebar {
+      position: static !important;
+      max-height: 250px !important;
+    }
+    .sum-sidebar-scroll {
+      max-height: 190px !important;
+    }
+    .sum-notes-card-responsive {
+      padding: 14px 12px !important;
+    }
+  }
+
+  /* Responsive TopBar */
+  @media (max-width: 640px) {
+    .sum-top-bar {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 12px !important;
+      padding: 12px 14px !important;
+    }
+    .sum-top-bar > div:first-child {
+      width: 100% !important;
+    }
+    .sum-top-bar > div:last-child {
+      width: 100% !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+    }
+    .sum-page-title {
+      font-size: 18px !important;
+    }
+    .sum-card-body-responsive {
+      padding: 14px 12px !important;
+    }
+    .sum-card-head-responsive {
+      padding: 10px 14px !important;
+      font-size: 11.5px !important;
+    }
+  }
+
+  /* Responsive Patient & Admission Grid */
+  .sum-patient-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 14px 16px;
+  }
+  .sum-col-ip { grid-column: span 3; }
+  .sum-col-uhid { grid-column: span 2; }
+  .sum-col-name { grid-column: span 4; }
+  .sum-col-age { grid-column: span 1; }
+  .sum-col-gender { grid-column: span 1; }
+  .sum-col-room { grid-column: span 1; }
+  .sum-col-date { grid-column: span 2; }
+  .sum-col-doa { grid-column: span 2; }
+  .sum-col-doatime { grid-column: span 1; }
+  .sum-col-dod { grid-column: span 2; }
+  .sum-col-dodtime { grid-column: span 1; }
+  .sum-col-surg { grid-column: span 2; }
+  .sum-col-review { grid-column: span 2; }
+  .sum-col-doc { grid-column: span 4; }
+  .sum-col-type { grid-column: span 4; }
+  .sum-col-heading { grid-column: span 2; }
+  .sum-col-address { grid-column: span 2; }
+
+  @media (max-width: 1024px) and (min-width: 641px) {
+    .sum-patient-grid {
+      grid-template-columns: repeat(6, 1fr) !important;
+      gap: 12px 14px !important;
+    }
+    .sum-col-ip { grid-column: span 3 !important; }
+    .sum-col-uhid { grid-column: span 3 !important; }
+    .sum-col-name { grid-column: span 4 !important; }
+    .sum-col-age { grid-column: span 1 !important; }
+    .sum-col-gender { grid-column: span 1 !important; }
+    .sum-col-room { grid-column: span 2 !important; }
+    .sum-col-date { grid-column: span 2 !important; }
+    .sum-col-doa { grid-column: span 2 !important; }
+    .sum-col-doatime { grid-column: span 1 !important; }
+    .sum-col-dod { grid-column: span 2 !important; }
+    .sum-col-dodtime { grid-column: span 1 !important; }
+    .sum-col-surg { grid-column: span 2 !important; }
+    .sum-col-review { grid-column: span 2 !important; }
+    .sum-col-doc { grid-column: span 3 !important; }
+    .sum-col-type { grid-column: span 3 !important; }
+    .sum-col-heading { grid-column: span 3 !important; }
+    .sum-col-address { grid-column: span 3 !important; }
+  }
+
+  @media (max-width: 640px) {
+    .sum-patient-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 12px 10px !important;
+    }
+    .sum-col-ip { grid-column: span 2 !important; }
+    .sum-col-uhid { grid-column: span 2 !important; }
+    .sum-col-name { grid-column: span 2 !important; }
+    .sum-col-age { grid-column: span 1 !important; }
+    .sum-col-gender { grid-column: span 1 !important; }
+    .sum-col-room { grid-column: span 1 !important; }
+    .sum-col-date { grid-column: span 1 !important; }
+    .sum-col-doa { grid-column: span 1 !important; }
+    .sum-col-doatime { grid-column: span 1 !important; }
+    .sum-col-dod { grid-column: span 1 !important; }
+    .sum-col-dodtime { grid-column: span 1 !important; }
+    .sum-col-surg { grid-column: span 1 !important; }
+    .sum-col-review { grid-column: span 1 !important; }
+    .sum-col-doc { grid-column: span 2 !important; }
+    .sum-col-type { grid-column: span 2 !important; }
+    .sum-col-heading { grid-column: span 2 !important; }
+    .sum-col-address { grid-column: span 2 !important; }
+  }
+
+  /* Responsive Actions & Buttons */
+  @media (max-width: 640px) {
+    .sum-submit-actions {
+      width: 100% !important;
+      display: flex !important;
+      gap: 8px !important;
+    }
+    .sum-submit-actions button {
+      flex: 1 !important;
+      justify-content: center !important;
+    }
+  }
+
+  /* Responsive Archive Filters */
+  .sum-filter-grid-1 {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .sum-filter-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px 14px;
+  }
+  .sum-fg1-from { grid-column: span 2; }
+  .sum-fg1-to { grid-column: span 2; }
+  .sum-fg1-type { grid-column: span 3; }
+  .sum-fg1-status { grid-column: span 2; }
+  .sum-fg1-actions { grid-column: span 3; display: flex; align-items: flex-end; gap: 8px; }
+
+  .sum-fg2-patient { grid-column: span 4; }
+  .sum-fg2-uhid { grid-column: span 4; }
+  .sum-fg2-ip { grid-column: span 4; }
+
+  @media (max-width: 1024px) and (min-width: 641px) {
+    .sum-filter-grid-1 {
+      grid-template-columns: repeat(6, 1fr) !important;
+    }
+    .sum-fg1-from { grid-column: span 3 !important; }
+    .sum-fg1-to { grid-column: span 3 !important; }
+    .sum-fg1-type { grid-column: span 3 !important; }
+    .sum-fg1-status { grid-column: span 3 !important; }
+    .sum-fg1-actions { grid-column: span 6 !important; }
+
+    .sum-filter-grid-2 {
+      grid-template-columns: repeat(6, 1fr) !important;
+    }
+    .sum-fg2-patient { grid-column: span 3 !important; }
+    .sum-fg2-uhid { grid-column: span 3 !important; }
+    .sum-fg2-ip { grid-column: span 6 !important; }
+  }
+
+  @media (max-width: 640px) {
+    .sum-filter-grid-1 {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+    .sum-fg1-from, .sum-fg1-to, .sum-fg1-type, .sum-fg1-status, .sum-fg1-actions {
+      grid-column: span 1 !important;
+      width: 100% !important;
+    }
+    .sum-fg1-actions {
+      display: flex !important;
+      flex-direction: row !important;
+      gap: 8px !important;
+    }
+    .sum-fg1-actions button {
+      flex: 1 !important;
+    }
+    .sum-filter-grid-2 {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+    .sum-fg2-patient, .sum-fg2-uhid, .sum-fg2-ip {
+      grid-column: span 1 !important;
+      width: 100% !important;
+    }
+  }
 `;
 
 /* ─── Utility styles ─────────────────────────────────────────────────────── */
 const S = {
-  inner: { maxWidth: 1440, margin: "0 auto", paddingBottom: 50, paddingLeft: 8, paddingRight: 8 },
+  inner: {
+    maxWidth: 1440,
+    width: "100%",
+    boxSizing: "border-box",
+    margin: "0 auto",
+    paddingBottom: 50,
+    paddingLeft: 8,
+    paddingRight: 8,
+  },
 
   /* Header */
   topBar: {
@@ -232,6 +450,8 @@ const S = {
     borderRadius: 8,
     outline: "none",
     width: "100%",
+    boxSizing: "border-box",
+    minWidth: 0,
     fontFamily: "inherit",
     transition: "all 0.18s ease",
   },
@@ -246,6 +466,8 @@ const S = {
     borderRadius: 8,
     outline: "none",
     width: "100%",
+    boxSizing: "border-box",
+    minWidth: 0,
     fontFamily: "inherit",
     cursor: "pointer",
     appearance: "none",
@@ -266,7 +488,7 @@ const S = {
     alignItems: "center",
     gap: 5,
   },
-  fld: { display: "flex", flexDirection: "column" },
+  fld: { display: "flex", flexDirection: "column", minWidth: 0 },
 
   /* Search button inside input block */
   searchMicroBtn: {
@@ -294,6 +516,8 @@ const S = {
     gap: 22,
     marginBottom: 24,
     alignItems: "start",
+    maxWidth: "100%",
+    boxSizing: "border-box",
   },
 
   /* Sidebar */
@@ -308,6 +532,7 @@ const S = {
     maxHeight: "calc(100vh - 40px)",
     display: "flex",
     flexDirection: "column",
+    boxSizing: "border-box",
   },
   sidebarHead: {
     padding: "14px 18px",
@@ -322,15 +547,21 @@ const S = {
     justifyContent: "space-between",
     boxShadow: "0 2px 6px rgba(13, 148, 136, 0.2)",
   },
-  sidebarItem: (active) => ({
+  sidebarItem: (active, isFilled = true) => ({
     padding: "10px 14px",
     cursor: "pointer",
     fontSize: 12,
     fontWeight: active ? 700 : 600,
     color: active ? "#0f766e" : "#334155",
-    background: active ? "linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(13, 148, 136, 0.04) 100%)" : "transparent",
+    background: active
+      ? isFilled
+        ? "linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(13, 148, 136, 0.04) 100%)"
+        : "linear-gradient(90deg, #fee2e2 0%, #fef2f2 100%)"
+      : !isFilled
+        ? "#fee2e2"
+        : "transparent",
     borderLeft: `4px solid ${active ? "#0d9488" : "transparent"}`,
-    borderBottom: "1px solid #f1f5f9",
+    borderBottom: `1px solid ${!isFilled ? "#fecaca" : "#f1f5f9"}`,
     transition: "all 0.15s ease",
     lineHeight: 1.4,
     display: "flex",
@@ -348,6 +579,9 @@ const S = {
     display: "flex",
     flexDirection: "column",
     gap: 16,
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
   notesActiveLabel: {
     fontSize: 15,
@@ -769,8 +1003,8 @@ const S = {
 };
 
 /* ─── Tiny helpers ───────────────────────────────────────────────────────── */
-const Fld = ({ label, children, style }) => (
-  <div style={{ ...S.fld, ...style }}>
+const Fld = ({ label, children, style, className }) => (
+  <div style={{ ...S.fld, ...style }} className={className || ""}>
     <span style={S.lbl}>{label}</span>
     {children}
   </div>
@@ -1141,6 +1375,22 @@ const Summary = () => {
   const [doctors, setDoctors] = useState([]);
   const [summaryTypeOptions, setSummaryTypeOptions] = useState([]);
   const [headingOptions, setHeadingOptions] = useState([]);
+  const [empNameMap, setEmpNameMap] = useState({});
+  const [actionsModalSummary, setActionsModalSummary] = useState(null);
+
+  const resolveEmpName = (id, serverName) => {
+    if (serverName && serverName !== id && serverName !== "Unknown") return serverName;
+    if (!id) return "";
+    const strId = String(id).trim();
+    if (!strId) return "";
+    const docMatch = doctors.find(
+      (d) =>
+        String(d.employeeId || "").trim() === strId ||
+        (d.employeeName && d.employeeName.trim().toUpperCase() === strId.toUpperCase())
+    );
+    if (docMatch && docMatch.employeeName) return docMatch.employeeName;
+    return empNameMap[strId] || strId;
+  };
 
   // Summary Type Management state (same UI like Package.js)
   const [showManageSummaryTypeModal, setShowManageSummaryTypeModal] = useState(false);
@@ -1176,9 +1426,14 @@ const Summary = () => {
   const [medicinesLoading, setMedicinesLoading] = useState(false);
   const [medicineModalType, setMedicineModalType] = useState("");
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-  const allowedActions = JSON.parse(
-    localStorage.getItem("allowedActions") || "[]"
-  );
+  let allowedActions = [];
+  try {
+    const rawActions = localStorage.getItem("allowedActions");
+    allowedActions = rawActions ? JSON.parse(rawActions) : [];
+    if (!Array.isArray(allowedActions)) allowedActions = [];
+  } catch (e) {
+    allowedActions = [];
+  }
   const canEdit = allowedActions.includes("HMS-P-SUME-RW");
   const canDelete = allowedActions.includes("HMS-P-SUMD-RW");
   const canApprove = allowedActions.includes("HMS-P-SUMA-RW");
@@ -1815,6 +2070,43 @@ const Summary = () => {
     }
   }, []);
 
+  // Dynamically resolve any missing employee names from Global.backend_diagnostics_profile
+  useEffect(() => {
+    if (!summaries || !summaries.length) return;
+    const unresolved = new Set();
+    summaries.forEach((s) => {
+      [s.created_by, s.approved_by].forEach((id) => {
+        if (!id) return;
+        const strId = String(id).trim();
+        const isServerResolved =
+          (s.created_by === id && s.created_by_name && s.created_by_name !== strId && s.created_by_name !== "Unknown") ||
+          (s.approved_by === id && s.approved_by_name && s.approved_by_name !== strId && s.approved_by_name !== "Unknown");
+        const inDoctors = doctors.some(
+          (d) =>
+            String(d.employeeId || "").trim() === strId ||
+            (d.employeeName && d.employeeName.trim().toUpperCase() === strId.toUpperCase())
+        );
+        if (!isServerResolved && !inDoctors && !empNameMap[strId]) {
+          unresolved.add(strId);
+        }
+      });
+    });
+
+    if (unresolved.size > 0) {
+      unresolved.forEach(async (id) => {
+        try {
+          const res = await apiRequest(`${HMSURL}get_employee_name/?employee_id=${encodeURIComponent(id)}`, "GET");
+          const resolvedName = res?.name || res?.data?.name;
+          if (res?.success && resolvedName && resolvedName !== "Unknown") {
+            setEmpNameMap((prev) => ({ ...prev, [id]: resolvedName }));
+          }
+        } catch (e) {
+          // ignore
+        }
+      });
+    }
+  }, [summaries, doctors, HMSURL]);
+
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
 
@@ -1846,7 +2138,13 @@ const Summary = () => {
   };
 
   const handlePatientSelect = async (item) => {
-    const selectedIp = item.ipNumber || item.ip_number || "";
+    const selectedIp =
+      item.ipNumber ||
+      item.ip_number ||
+      item.ip_no ||
+      item.ipNo ||
+      item.inpatient_number ||
+      "";
     if (selectedIp) {
       if (!isEditMode) {
         const exists = await checkSummaryExists(selectedIp);
@@ -1855,11 +2153,11 @@ const Summary = () => {
         }
       }
       setFormData((prev) => ({ ...prev, ipNo: selectedIp }));
-      fetchIpPatient(selectedIp);
+      fetchIpPatient(selectedIp, true);
     }
   };
 
-  const fetchIpPatient = async (overrideIp) => {
+  const fetchIpPatient = async (overrideIp, skipExistCheck = false) => {
     const ip = typeof overrideIp === "string" ? overrideIp : formData.ipNo;
     if (!ip?.trim()) {
       Swal.fire("Validation Error", "Please enter IP Number", "warning");
@@ -1867,7 +2165,7 @@ const Summary = () => {
     }
     const cleanIp = ip.trim();
 
-    if (!isEditMode) {
+    if (!isEditMode && !skipExistCheck) {
       const exists = await checkSummaryExists(cleanIp);
       if (exists) {
         setFormData((prev) => ({
@@ -2834,6 +3132,12 @@ const Summary = () => {
     );
     const payload = {
       ...formData,
+      surgeryDate: formData.surgeryDate || null,
+      nextReviewDate: formData.nextReviewDate || null,
+      doa: formData.doa || null,
+      dod: formData.dod || null,
+      doaTime: formData.doaTime || null,
+      dodTime: formData.dodTime || null,
       summaryType: undefined,
       heading: (formData.heading || "").trim(),
       headingNo: undefined,
@@ -2877,6 +3181,12 @@ const Summary = () => {
       "PATCH",
       {
         ...formData,
+        surgeryDate: formData.surgeryDate || null,
+        nextReviewDate: formData.nextReviewDate || null,
+        doa: formData.doa || null,
+        dod: formData.dod || null,
+        doaTime: formData.doaTime || null,
+        dodTime: formData.dodTime || null,
         summaryType: undefined,
         heading: (formData.heading || "").trim(),
         headingNo: undefined,
@@ -3189,7 +3499,13 @@ const Summary = () => {
   const visibleNoteFields = noteFields.filter((f) =>
     f.toLowerCase().includes((sidebarSearch || "").trim().toLowerCase())
   );
-  const filledFieldsCount = noteFields.filter((f) => Boolean(getFieldValue(formData.fieldsData, f)?.trim())).length;
+  const filledFieldsCount = noteFields.filter((f) => {
+    const val =
+      f === selectedField && formData.notes !== undefined && formData.notes !== null
+        ? formData.notes
+        : getFieldValue(formData.fieldsData, f);
+    return Boolean(val?.trim());
+  }).length;
 
   /* ─── Render ──────────────────────────────────────────────────────────── */
   return (
@@ -3197,13 +3513,13 @@ const Summary = () => {
       <style>{SUMMARY_CUSTOM_STYLES}</style>
       <div style={S.inner}>
         {/* Top bar */}
-        <div style={S.topBar}>
+        <div style={S.topBar} className="sum-top-bar">
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <span style={S.titleIcon}>
               <FileText size={22} />
             </span>
             <div>
-              <h1 style={S.pageTitle}>
+              <h1 style={S.pageTitle} className="sum-page-title">
                 {isEditMode ? "Edit Discharge Summary" : "Discharge Summary"}
               </h1>
               <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
@@ -3272,7 +3588,7 @@ const Summary = () => {
 
         {/* ── Patient Info Card (Clean 12-Column Balanced Grid) ── */}
         <div style={S.card} className="sum-card-lift">
-          <div style={S.cardHead}>
+          <div style={S.cardHead} className="sum-card-head-responsive">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={S.cardHeadBar} />
               <User size={16} />
@@ -3295,16 +3611,10 @@ const Summary = () => {
               </span>
             )}
           </div>
-          <div style={S.cardBody}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(12, 1fr)",
-                gap: "14px 16px",
-              }}
-            >
-              {/* Row 1: Identification (3 + 2 + 4 + 1 + 1 + 1 = 12 cols) */}
-              <Fld label="IP Number" style={{ gridColumn: "span 3" }}>
+          <div style={S.cardBody} className="sum-card-body-responsive">
+            <div className="sum-patient-grid">
+              {/* Row 1: Identification */}
+              <Fld label="IP Number" className="sum-col-ip">
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <CInp
                     name="ipNo"
@@ -3313,11 +3623,7 @@ const Summary = () => {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        if (formData.ipNo?.trim()) {
-                          fetchIpPatient(formData.ipNo.trim());
-                        } else {
-                          openIpSearchModal();
-                        }
+                        openIpSearchModal();
                       }
                     }}
                     readOnly={isEditMode}
@@ -3328,13 +3634,7 @@ const Summary = () => {
                     <button
                       type="button"
                       style={{ ...S.searchMicroBtn, height: 38, padding: "0 13px", flexShrink: 0 }}
-                      onClick={() => {
-                        if (formData.ipNo?.trim()) {
-                          fetchIpPatient(formData.ipNo.trim());
-                        } else {
-                          openIpSearchModal();
-                        }
-                      }}
+                      onClick={openIpSearchModal}
                       title="Search IP Number"
                     >
                       <Search size={13} /> Search
@@ -3343,7 +3643,7 @@ const Summary = () => {
                 </div>
               </Fld>
 
-              <Fld label="UHID" style={{ gridColumn: "span 2" }}>
+              <Fld label="UHID" className="sum-col-uhid">
                 <CInp
                   name="uhid"
                   value={formData.uhid}
@@ -3361,7 +3661,7 @@ const Summary = () => {
                     )}
                   </span>
                 }
-                style={{ gridColumn: "span 4" }}
+                className="sum-col-name"
               >
                 <CInp
                   name="patient"
@@ -3371,7 +3671,7 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="Age" style={{ gridColumn: "span 1" }}>
+              <Fld label="Age" className="sum-col-age">
                 <CInp
                   name="age"
                   value={formData.age}
@@ -3380,7 +3680,7 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="Gender" style={{ gridColumn: "span 1" }}>
+              <Fld label="Gender" className="sum-col-gender">
                 <CInp
                   name="gender"
                   value={formData.gender}
@@ -3389,7 +3689,7 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="Room No" style={{ gridColumn: "span 1" }}>
+              <Fld label="Room No" className="sum-col-room">
                 <CInp
                   name="roomNo"
                   value={formData.roomNo}
@@ -3398,8 +3698,8 @@ const Summary = () => {
                 />
               </Fld>
 
-              {/* Row 2: Timeline & Dates (2 + 2 + 1 + 2 + 1 + 2 + 2 = 12 cols) */}
-              <Fld label="Summary Date" style={{ gridColumn: "span 2" }}>
+              {/* Row 2: Timeline & Dates */}
+              <Fld label="Summary Date" className="sum-col-date">
                 <CInp
                   value={isEditMode ? fmtDate(formData.date) : currentDate}
                   readOnly
@@ -3407,7 +3707,7 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="D.O.A" style={{ gridColumn: "span 2" }}>
+              <Fld label="D.O.A" className="sum-col-doa">
                 <CInp
                   name="doa"
                   value={formData.doa}
@@ -3416,7 +3716,7 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="DOA Time" style={{ gridColumn: "span 1" }}>
+              <Fld label="DOA Time" className="sum-col-doatime">
                 <CInp
                   name="doaTime"
                   value={formData.doaTime}
@@ -3425,7 +3725,7 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="D.O.D" style={{ gridColumn: "span 2" }}>
+              <Fld label="D.O.D" className="sum-col-dod">
                 <CInp
                   type="date"
                   name="dod"
@@ -3434,7 +3734,7 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="DOD Time" style={{ gridColumn: "span 1" }}>
+              <Fld label="DOD Time" className="sum-col-dodtime">
                 <CInp
                   type="time"
                   name="dodTime"
@@ -3443,26 +3743,26 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="Surgery Date" style={{ gridColumn: "span 2" }}>
+              <Fld label="Surgery Date" className="sum-col-surg">
                 <CInp
                   type="date"
                   name="surgeryDate"
-                  value={formData.surgeryDate}
+                  value={formData.surgeryDate || ""}
                   onChange={handleChange}
                 />
               </Fld>
 
-              <Fld label="Next Review" style={{ gridColumn: "span 2" }}>
+              <Fld label="Next Review" className="sum-col-review">
                 <CInp
                   type="date"
                   name="nextReviewDate"
-                  value={formData.nextReviewDate}
+                  value={formData.nextReviewDate || ""}
                   onChange={handleChange}
                 />
               </Fld>
 
-              {/* Row 3: Assignment & Metadata (4 + 4 + 2 + 2 = 12 cols) */}
-              <Fld label="Consultant Doctor" style={{ gridColumn: "span 4" }}>
+              {/* Row 3: Assignment & Metadata */}
+              <Fld label="Consultant Doctor" className="sum-col-doc">
                 <select
                   name="doctor"
                   value={
@@ -3504,7 +3804,7 @@ const Summary = () => {
                 </select>
               </Fld>
 
-              <Fld label="Summary Type" style={{ gridColumn: "span 4" }}>
+              <Fld label="Summary Type" className="sum-col-type">
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <select
                     id="summaryTypeSelect"
@@ -3535,27 +3835,29 @@ const Summary = () => {
                         </option>
                       ))}
                   </select>
-                  <button
-                    id="manageSummaryTypesBtn"
-                    type="button"
-                    onClick={() => setShowManageSummaryTypeModal(true)}
-                    title="Manage Summary Types"
-                    style={{
-                      ...S.actionBtn(T.teal),
-                      flexShrink: 0,
-                      height: 38,
-                      width: 38,
-                      borderRadius: 8,
-                      border: `1.5px solid ${T.teal}`,
-                      background: `${T.teal}12`,
-                    }}
-                  >
-                    <Plus size={18} color={T.teal} />
-                  </button>
+                  {canApprove && (
+                    <button
+                      id="manageSummaryTypesBtn"
+                      type="button"
+                      onClick={() => setShowManageSummaryTypeModal(true)}
+                      title="Manage Summary Types"
+                      style={{
+                        ...S.actionBtn(T.teal),
+                        flexShrink: 0,
+                        height: 38,
+                        width: 38,
+                        borderRadius: 8,
+                        border: `1.5px solid ${T.teal}`,
+                        background: `${T.teal}12`,
+                      }}
+                    >
+                      <Plus size={18} color={T.teal} />
+                    </button>
+                  )}
                 </div>
               </Fld>
 
-              <Fld label="Heading / Subtitle" style={{ gridColumn: "span 2" }}>
+              <Fld label="Heading / Subtitle" className="sum-col-heading">
                 <CInp
                   name="heading"
                   value={formData.heading || ""}
@@ -3564,7 +3866,7 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="Patient Address" style={{ gridColumn: "span 2" }}>
+              <Fld label="Patient Address" className="sum-col-address">
                 <CInp
                   name="address"
                   value={formData.address}
@@ -3617,9 +3919,9 @@ const Summary = () => {
         </div>
 
         {/* ── Notes Layout ── */}
-        <div style={S.notesLayout}>
+        <div style={S.notesLayout} className="sum-notes-layout">
           {/* Sidebar */}
-          <div style={S.sidebar} className="sum-card-lift">
+          <div style={S.sidebar} className="sum-card-lift sum-sidebar">
             <div style={S.sidebarHead}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Activity size={14} />
@@ -3719,13 +4021,18 @@ const Summary = () => {
               ) : (
                 visibleNoteFields.map((field) => {
                   const originalIdx = noteFields.indexOf(field);
-                  const isFilled = Boolean(getFieldValue(formData.fieldsData, field)?.trim());
+                  const fieldValue =
+                    field === selectedField && formData.notes !== undefined && formData.notes !== null
+                      ? formData.notes
+                      : getFieldValue(formData.fieldsData, field);
+                  const isFilled = Boolean(fieldValue?.trim());
                   const isSelected = selectedField === field;
                   return (
                     <div
                       key={field}
                       id={`field-btn-${field.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`}
-                      style={S.sidebarItem(isSelected)}
+                      className={`sum-sidebar-item ${isFilled ? "sum-filled" : "sum-unfilled"}`}
+                      style={S.sidebarItem(isSelected, isFilled)}
                       onClick={() => handleButtonClick(field)}
                       title={field}
                     >
@@ -3762,7 +4069,7 @@ const Summary = () => {
           </div>
 
           {/* Notes area */}
-          <div style={S.notesCard} className="sum-card-lift">
+          <div style={S.notesCard} className="sum-card-lift sum-notes-card-responsive">
             {/* Notes Header with section title & Edit/Preview tab switcher */}
             <div
               style={{
@@ -4307,18 +4614,20 @@ const Summary = () => {
             {/* Discharge Sign-off & Explanation Details (Directly above Quick Insert & Save) */}
             <div
               style={{
+                width: "100%",
+                boxSizing: "border-box",
                 marginTop: 16,
                 marginBottom: 14,
-                padding: "12px 16px",
+                padding: "16px 20px",
                 background: "#f8fafc",
-                borderRadius: 10,
-                border: "1.5px solid #e2e8f0",
+                borderRadius: 12,
+                border: "1.5px solid #cbd5e1",
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                gap: "14px 18px",
+                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                gap: "16px 20px",
               }}
             >
-              <div>
+              <div style={{ minWidth: 0, width: "100%" }}>
                 <label
                   style={{
                     display: "flex",
@@ -4335,7 +4644,7 @@ const Summary = () => {
                   <Stethoscope size={14} color="#0d9488" />
                   Explained By (Doctor Name)
                 </label>
-                <div style={{ position: "relative" }}>
+                <div style={{ position: "relative", width: "100%" }}>
                   <input
                     type="text"
                     name="explainedBy"
@@ -4345,8 +4654,8 @@ const Summary = () => {
                     list="explained-by-doctors-list"
                     style={{
                       width: "100%",
-                      height: 38,
-                      padding: "0 12px",
+                      height: 40,
+                      padding: "0 14px",
                       fontSize: 13,
                       fontWeight: 600,
                       color: "#0f172a",
@@ -4355,6 +4664,7 @@ const Summary = () => {
                       borderRadius: 8,
                       outline: "none",
                       boxSizing: "border-box",
+                      minWidth: 0,
                       transition: "all 0.15s ease",
                     }}
                     onFocus={(e) => {
@@ -4376,7 +4686,7 @@ const Summary = () => {
                 </div>
               </div>
 
-              <div>
+              <div style={{ minWidth: 0, width: "100%" }}>
                 <label
                   style={{
                     display: "flex",
@@ -4401,8 +4711,8 @@ const Summary = () => {
                   placeholder="Patient or Attender Name (e.g. Patient Name or Attender Name / Relation)"
                   style={{
                     width: "100%",
-                    height: 38,
-                    padding: "0 12px",
+                    height: 40,
+                    padding: "0 14px",
                     fontSize: 13,
                     fontWeight: 600,
                     color: "#0f172a",
@@ -4411,6 +4721,7 @@ const Summary = () => {
                     borderRadius: 8,
                     outline: "none",
                     boxSizing: "border-box",
+                    minWidth: 0,
                     transition: "all 0.15s ease",
                   }}
                   onFocus={(e) => {
@@ -4428,6 +4739,8 @@ const Summary = () => {
             {/* Quick-add & Actions */}
             <div
               style={{
+                width: "100%",
+                boxSizing: "border-box",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -4466,26 +4779,29 @@ const Summary = () => {
               </div>
 
               {/* Submit Actions */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div className="sum-submit-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 {isEditMode && (
                   <button style={S.btn("danger")} onClick={handleCancelEdit}>
                     <X size={15} /> Cancel Edit
                   </button>
                 )}
-                <button
-                  style={S.btn("primary")}
-                  onClick={isEditMode ? handleUpdate : handleSubmit}
-                >
-                  {isEditMode ? (
-                    <>
+                {isEditMode ? (
+                  canEdit && (
+                    <button
+                      style={S.btn("primary")}
+                      onClick={handleUpdate}
+                    >
                       <Edit size={15} /> Update Summary
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={15} /> Save Summary
-                    </>
-                  )}
-                </button>
+                    </button>
+                  )
+                ) : (
+                  <button
+                    style={S.btn("primary")}
+                    onClick={handleSubmit}
+                  >
+                    <Plus size={15} /> Save Summary
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -4804,15 +5120,8 @@ const Summary = () => {
 
           {/* Filter bar */}
           <div style={S.filterBar}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(12, 1fr)",
-                gap: "12px 14px",
-                marginBottom: 12,
-              }}
-            >
-              <div style={{ ...S.fld, gridColumn: "span 2" }}>
+            <div className="sum-filter-grid-1">
+              <div style={S.fld} className="sum-fg1-from">
                 <span style={{ ...S.lbl, color: T.teal }}>From Date</span>
                 <input
                   type="date"
@@ -4822,7 +5131,7 @@ const Summary = () => {
                   style={fi}
                 />
               </div>
-              <div style={{ ...S.fld, gridColumn: "span 2" }}>
+              <div style={S.fld} className="sum-fg1-to">
                 <span style={{ ...S.lbl, color: T.teal }}>To Date</span>
                 <input
                   type="date"
@@ -4832,7 +5141,7 @@ const Summary = () => {
                   style={fi}
                 />
               </div>
-              <div style={{ ...S.fld, gridColumn: "span 3" }}>
+              <div style={S.fld} className="sum-fg1-type">
                 <span style={{ ...S.lbl, color: T.teal }}>Summary Type</span>
                 <select
                   name="summaryType"
@@ -4848,7 +5157,7 @@ const Summary = () => {
                   ))}
                 </select>
               </div>
-              <div style={{ ...S.fld, gridColumn: "span 2" }}>
+              <div style={S.fld} className="sum-fg1-status">
                 <span style={{ ...S.lbl, color: T.teal }}>Status</span>
                 <select
                   name="status"
@@ -4861,7 +5170,7 @@ const Summary = () => {
                   <option value="pending">Pending</option>
                 </select>
               </div>
-              <div style={{ gridColumn: "span 3", display: "flex", alignItems: "flex-end", gap: 8 }}>
+              <div className="sum-fg1-actions">
                 <button
                   onClick={applyServerFilters}
                   style={{
@@ -4908,14 +5217,8 @@ const Summary = () => {
             </div>
 
             {/* Filter row 2: Search by Name, UHID, IP No */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(12, 1fr)",
-                gap: "12px 14px",
-              }}
-            >
-              <div style={{ ...S.fld, gridColumn: "span 4" }}>
+            <div className="sum-filter-grid-2">
+              <div style={S.fld} className="sum-fg2-patient">
                 <span style={{ ...S.lbl, color: T.teal }}>Patient Name</span>
                 <input
                   name="patient"
@@ -4925,7 +5228,7 @@ const Summary = () => {
                   style={fi}
                 />
               </div>
-              <div style={{ ...S.fld, gridColumn: "span 4" }}>
+              <div style={S.fld} className="sum-fg2-uhid">
                 <span style={{ ...S.lbl, color: T.teal }}>UHID</span>
                 <input
                   name="uhid"
@@ -4935,7 +5238,7 @@ const Summary = () => {
                   style={fi}
                 />
               </div>
-              <div style={{ ...S.fld, gridColumn: "span 4" }}>
+              <div style={S.fld} className="sum-fg2-ip">
                 <span style={{ ...S.lbl, color: T.teal }}>IP Number</span>
                 <input
                   name="ipNo"
@@ -4985,10 +5288,18 @@ const Summary = () => {
                       "Summary Type",
                       "UHID",
                       "IP No",
+                      "Prepared By",
+                      "Approved By",
                       "Approved On",
                       "Actions",
                     ].map((h) => (
-                      <th key={h} style={S.th}>
+                      <th
+                        key={h}
+                        style={{
+                          ...S.th,
+                          ...(h === "Actions" ? { textAlign: "center", width: 80 } : {}),
+                        }}
+                      >
                         {h}
                       </th>
                     ))}
@@ -5019,67 +5330,29 @@ const Summary = () => {
                       <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600 }}>{s.summaryType}</td>
                       <td style={{ ...S.td, color: "#475569" }}>{s.uhid}</td>
                       <td style={{ ...S.td, fontWeight: 700, color: "#0f172a" }}>{s.ipNo}</td>
+                      <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600, color: "#334155" }}>
+                        {resolveEmpName(s.created_by, s.created_by_name) || "—"}
+                      </td>
+                      <td style={{ ...S.td, fontSize: 12.5, fontWeight: (s.approved_by_name || s.approved_by) ? 600 : 500, color: (s.approved_by_name || s.approved_by) ? "#0f766e" : "#64748b" }}>
+                        {resolveEmpName(s.approved_by, s.approved_by_name) || (s.approve ? "System" : "—")}
+                      </td>
                       <td style={{ ...S.td, fontSize: 12, color: "#64748b" }}>
                         {fmtDateTime(s.approve_time)}
                       </td>
-                      <td style={S.td}>
-                        <div
-                          style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}
+                      <td style={{ ...S.td, textAlign: "center", width: 80 }}>
+                        <button
+                          className="sum-btn-hover"
+                          style={{
+                            ...S.actionBtn(T.teal),
+                            background: "rgba(13, 148, 136, 0.08)",
+                            border: "1.5px solid #99f6e4",
+                            color: "#0f766e",
+                          }}
+                          title="View Actions"
+                          onClick={() => setActionsModalSummary(s)}
                         >
-                          {canEdit && (
-                            <button
-                              className="sum-btn-hover"
-                              style={{
-                                ...S.actionBtn(T.teal),
-                                opacity: s.approve ? 0.35 : 1,
-                                cursor: s.approve ? "not-allowed" : "pointer",
-                              }}
-                              title={s.approve ? "Approved summaries cannot be edited" : "Edit Summary"}
-                              onClick={() => handleEdit(s.ipNo)}
-                              disabled={s.approve}
-                            >
-                              <Edit size={15} />
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              className="sum-btn-hover"
-                              style={{
-                                ...S.actionBtn(T.red),
-                                opacity: s.approve ? 0.35 : 1,
-                                cursor: s.approve ? "not-allowed" : "pointer",
-                              }}
-                              title={s.approve ? "Approved summaries cannot be deleted" : "Delete Summary"}
-                              onClick={() => handleDelete(s.ipNo)}
-                              disabled={s.approve}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                          {canApprove && (
-                            <button
-                              className="sum-btn-hover"
-                              style={{
-                                ...S.actionBtn(T.green),
-                                opacity: s.approve ? 0.35 : 1,
-                                cursor: s.approve ? "not-allowed" : "pointer",
-                              }}
-                              title={s.approve ? "Already Approved" : "Approve Summary"}
-                              onClick={() => handleApprove(s.ipNo)}
-                              disabled={s.approve}
-                            >
-                              <CheckCircle size={15} />
-                            </button>
-                          )}
-                          <button
-                            className="sum-btn-hover"
-                            style={S.actionBtn(T.sky)}
-                            title="Print Summary"
-                            onClick={() => handlePrint(s.ipNo, s.date)}
-                          >
-                            <Printer size={15} />
-                          </button>
-                        </div>
+                          <Eye size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -5089,8 +5362,321 @@ const Summary = () => {
           )}
         </div>
 
+        {/* ── ACTIONS MODAL (Eye Icon Click) ── */}
+        {actionsModalSummary && (
+          <div
+            style={S.overlay}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setActionsModalSummary(null);
+            }}
+          >
+            <div style={{ ...S.modalBox, width: "min(560px, 95vw)" }}>
+              {/* Header */}
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <Eye size={17} color="#2dd4bf" />
+                  <span>Summary Actions</span>
+                </span>
+                <button
+                  type="button"
+                  style={S.modalClose}
+                  onClick={() => setActionsModalSummary(null)}
+                  title="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div style={S.modalBody}>
+                {/* Patient & Summary Details Card */}
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    border: "1.5px solid #e2e8f0",
+                    borderRadius: 12,
+                    padding: "14px 18px",
+                    marginBottom: 20,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                        {actionsModalSummary.patient || "Patient"}
+                      </span>
+                      {actionsModalSummary.is_high_risk && (
+                        <HighRiskBadge reason={actionsModalSummary.high_risk_reason} size="sm" />
+                      )}
+                    </div>
+                    <span style={S.badge(actionsModalSummary.approve)}>
+                      <span style={S.dot(actionsModalSummary.approve)} />
+                      {actionsModalSummary.approve ? "Approved" : "Pending Approval"}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                      gap: "10px 14px",
+                      fontSize: 12,
+                    }}
+                  >
+                    <div>
+                      <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>IP Number</span>
+                      <strong style={{ color: "#0f172a", fontSize: 13 }}>{actionsModalSummary.ipNo}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>UHID</span>
+                      <strong style={{ color: "#334155" }}>{actionsModalSummary.uhid || "—"}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Summary Type</span>
+                      <strong style={{ color: "#0f766e" }}>{actionsModalSummary.summaryType}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Date</span>
+                      <strong style={{ color: "#334155" }}>{fmtDate(actionsModalSummary.date)}</strong>
+                    </div>
+                    {actionsModalSummary.created_by && (
+                      <div>
+                        <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Prepared By</span>
+                        <span style={{ color: "#334155", fontWeight: 600 }}>{resolveEmpName(actionsModalSummary.created_by, actionsModalSummary.created_by_name) || "—"}</span>
+                      </div>
+                    )}
+                    {actionsModalSummary.approve && (
+                      <div>
+                        <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Approved By</span>
+                        <span style={{ color: "#16a34a", fontWeight: 600 }}>{resolveEmpName(actionsModalSummary.approved_by, actionsModalSummary.approved_by_name) || "System"}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Available Actions */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>
+                    Available Actions
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                    {/* 1. Edit */}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        disabled={actionsModalSummary.approve}
+                        onClick={() => {
+                          const ip = actionsModalSummary.ipNo;
+                          setActionsModalSummary(null);
+                          handleEdit(ip);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "14px 16px",
+                          borderRadius: 10,
+                          border: `1.5px solid ${actionsModalSummary.approve ? "#e2e8f0" : "#99f6e4"}`,
+                          background: actionsModalSummary.approve ? "#f8fafc" : "#f0fdfa",
+                          color: actionsModalSummary.approve ? "#94a3b8" : "#0f766e",
+                          cursor: actionsModalSummary.approve ? "not-allowed" : "pointer",
+                          opacity: actionsModalSummary.approve ? 0.6 : 1,
+                          transition: "all 0.15s ease",
+                          textAlign: "left",
+                        }}
+                        title={actionsModalSummary.approve ? "Approved summaries cannot be edited" : "Edit Summary"}
+                      >
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 8,
+                            background: actionsModalSummary.approve ? "#e2e8f0" : "rgba(13, 148, 136, 0.15)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: actionsModalSummary.approve ? "#94a3b8" : "#0d9488",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Edit size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13.5 }}>Edit Summary</div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                            {actionsModalSummary.approve ? "Locked (Approved)" : "Modify headings & notes"}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* 2. Print */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const { ipNo, date } = actionsModalSummary;
+                        setActionsModalSummary(null);
+                        handlePrint(ipNo, date);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "14px 16px",
+                        borderRadius: 10,
+                        border: "1.5px solid #bae6fd",
+                        background: "#f0f9ff",
+                        color: "#0369a1",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        textAlign: "left",
+                      }}
+                      title="Print Summary"
+                    >
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 8,
+                          background: "rgba(2, 132, 199, 0.15)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#0284c7",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Printer size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5 }}>Print Summary</div>
+                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                          Print or export PDF
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* 3. Approve */}
+                    {canApprove && (
+                      <button
+                        type="button"
+                        disabled={actionsModalSummary.approve}
+                        onClick={() => {
+                          const ip = actionsModalSummary.ipNo;
+                          setActionsModalSummary(null);
+                          handleApprove(ip);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "14px 16px",
+                          borderRadius: 10,
+                          border: `1.5px solid ${actionsModalSummary.approve ? "#e2e8f0" : "#bbf7d0"}`,
+                          background: actionsModalSummary.approve ? "#f8fafc" : "#f0fdf4",
+                          color: actionsModalSummary.approve ? "#94a3b8" : "#15803d",
+                          cursor: actionsModalSummary.approve ? "not-allowed" : "pointer",
+                          opacity: actionsModalSummary.approve ? 0.6 : 1,
+                          transition: "all 0.15s ease",
+                          textAlign: "left",
+                        }}
+                        title={actionsModalSummary.approve ? "Already Approved" : "Approve Summary"}
+                      >
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 8,
+                            background: actionsModalSummary.approve ? "#e2e8f0" : "rgba(22, 163, 74, 0.15)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: actionsModalSummary.approve ? "#94a3b8" : "#16a34a",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <CheckCircle size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13.5 }}>
+                            {actionsModalSummary.approve ? "Already Approved" : "Approve Summary"}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                            {actionsModalSummary.approve ? "Summary is finalized" : "Finalize & sign off"}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* 4. Delete */}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        disabled={actionsModalSummary.approve}
+                        onClick={() => {
+                          const ip = actionsModalSummary.ipNo;
+                          setActionsModalSummary(null);
+                          handleDelete(ip);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "14px 16px",
+                          borderRadius: 10,
+                          border: `1.5px solid ${actionsModalSummary.approve ? "#e2e8f0" : "#fecaca"}`,
+                          background: actionsModalSummary.approve ? "#f8fafc" : "#fef2f2",
+                          color: actionsModalSummary.approve ? "#94a3b8" : "#b91c1c",
+                          cursor: actionsModalSummary.approve ? "not-allowed" : "pointer",
+                          opacity: actionsModalSummary.approve ? 0.6 : 1,
+                          transition: "all 0.15s ease",
+                          textAlign: "left",
+                        }}
+                        title={actionsModalSummary.approve ? "Approved summaries cannot be deleted" : "Delete Summary"}
+                      >
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 8,
+                            background: actionsModalSummary.approve ? "#e2e8f0" : "rgba(220, 38, 38, 0.15)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: actionsModalSummary.approve ? "#94a3b8" : "#dc2626",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Trash2 size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13.5 }}>Delete Summary</div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                            {actionsModalSummary.approve ? "Locked (Approved)" : "Permanently remove"}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={S.modalFoot}>
+                <button
+                  type="button"
+                  style={S.btn("secondary")}
+                  onClick={() => setActionsModalSummary(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── MANAGE SUMMARY TYPES MODAL (Package.js UI Style) ── */}
-        {showManageSummaryTypeModal && (
+        {canApprove && showManageSummaryTypeModal && (
           <div
             style={S.overlay}
             onClick={(e) => {
