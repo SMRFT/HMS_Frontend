@@ -1151,189 +1151,349 @@ const StoresGRNReport = () => {
         const netAmt = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || (totalItemAmounts + taxOnFree + roundOff));
         const vendorName = getVendorName(grn.vendor_id);
 
-        const printContent = `
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <title>GRN - ${grn.grn_number}</title>
-                    <style>
-                        * { box-sizing: border-box; }
-                        @page { size: A4 landscape; margin: 8mm; }
-                        body { font-family: Arial, sans-serif; font-size: 10.5px; color: #000; margin: 0; padding: 6px; }
-                        table { border-collapse: collapse; }
-                        th { background: #dbeafe; color: #0c4a6e; border: 1px solid #7dd3fc; padding: 5px 5px; font-size: 9.5px; font-weight: 700; white-space: nowrap; text-align: center; }
-                        td { border: 1px solid #cbd5e1; padding: 5px 5px; font-size: 10px; white-space: nowrap; vertical-align: middle; }
-                        .text-right { text-align: right; }
-                        .text-center { text-align: center; }
-                        .text-left { text-align: left; }
-                        .total-cell { background: #dbeafe; color: #0c4a6e; font-weight: 700; text-align: right; }
-                        @media print {
-                            @page { margin: 6mm; }
-                            body { padding: 0; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div style="font-family: Arial, sans-serif; font-size: 9px; color: #000; border: 1.5px solid #0c4a6e; background: #ffffff;">
-                        <div style="text-align: center; padding: 8px 12px 6px; border-bottom: 1.5px solid #0c4a6e;">
-                            <div style="font-size: 18px; font-weight: 900; color: #0c4a6e; letter-spacing: 0.5px;">SHANMUGA HOSPITAL LIMITED</div>
-                            <div style="font-size: 9px; color: #334155; margin-top: 2px;">51/24.Saradha College Road, Salem - 636007,,</div>
-                            <div style="font-size: 9px; color: #334155;">Phone : 04272706666, info@smrft.org</div>
-                            <div style="font-size: 9px; font-weight: 700; color: #334155; margin-top: 2px;">GST Number : ${grn.hospital_gst || ''}</div>
-                            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 5px; color: #0c4a6e;">
-                                GOODS RECEIPT NOTE - ${grn.purchase_category ? grn.purchase_category.toUpperCase() : 'OPENING STOCK (DRUG)'}
-                            </div>
-                        </div>
+        const printContent = `<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>GRN_${grn.grn_number || 'Voucher'}</title>
+        <style>
+            @page {
+                size: landscape;
+                margin: 5mm 6mm;
+            }
+            * {
+                box-sizing: border-box;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            html, body {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                background: #ffffff;
+                font-family: Arial, sans-serif;
+                font-size: 10px;
+                color: #000;
+            }
+            @media print {
+                @page {
+                    size: landscape;
+                    margin: 5mm 6mm;
+                }
+                html, body {
+                    width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #ffffff !important;
+                }
+                * {
+                    overflow: visible !important;
+                    scrollbar-width: none !important;
+                }
+                ::-webkit-scrollbar {
+                    display: none !important;
+                }
+            }
+            .voucher-container {
+                width: 100%;
+                border: 1.5px solid #0c4a6e;
+                background: #ffffff;
+            }
+            .header-box {
+                text-align: center;
+                padding: 8px 12px 6px;
+                border-bottom: 1.5px solid #0c4a6e;
+                background: #ffffff;
+            }
+            .hospital-name {
+                font-size: 19px;
+                font-weight: 900;
+                color: #0c4a6e;
+                letter-spacing: 0.5px;
+            }
+            .sub-info {
+                font-size: 10px;
+                color: #334155;
+                margin-top: 1px;
+            }
+            .gst-info {
+                font-size: 10px;
+                font-weight: 700;
+                color: #334155;
+                margin-top: 1px;
+            }
+            .doc-tag {
+                font-size: 12.5px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-top: 4px;
+                color: #0c4a6e;
+            }
+            .meta-table {
+                width: 100%;
+                border-collapse: collapse;
+                border-bottom: 1.5px solid #0c4a6e;
+            }
+            .meta-table td {
+                vertical-align: top;
+                padding: 5px 8px;
+                font-size: 10.5px;
+                border: none;
+            }
+            .meta-subtable {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .meta-subtable td {
+                padding: 1.5px 2px;
+                font-size: 10.5px;
+                border: none;
+            }
+            .meta-lbl {
+                font-weight: 700;
+                white-space: nowrap;
+                width: 95px;
+            }
+            .items-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .items-table th {
+                background: #dbeafe !important;
+                color: #0c4a6e !important;
+                border: 1px solid #7dd3fc !important;
+                padding: 4px 3px;
+                font-size: 9.5px;
+                font-weight: 700;
+                white-space: nowrap;
+                text-align: center;
+                vertical-align: middle;
+            }
+            .items-table td {
+                border: 1px solid #cbd5e1 !important;
+                padding: 4px 3px;
+                font-size: 10px;
+                white-space: nowrap;
+                vertical-align: middle;
+            }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .text-left { text-align: left; }
+            .total-cell {
+                background: #dbeafe !important;
+                color: #0c4a6e !important;
+                font-weight: 700;
+                text-align: right;
+            }
+            .calculation-section {
+                display: flex;
+                width: 100%;
+                border-bottom: 1.5px solid #0c4a6e;
+                background: #ffffff;
+            }
+            .calc-left {
+                flex: 1;
+                padding: 6px 10px;
+                border-right: 1.5px solid #0c4a6e;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+            }
+            .summary-table {
+                width: 250px;
+                min-width: 250px;
+                border-collapse: collapse;
+                font-size: 10px;
+            }
+            .summary-table td {
+                padding: 3px 8px;
+                border-bottom: 1px solid #e2e8f0;
+                border-top: none;
+                border-right: none;
+                border-left: none;
+            }
+            .sig-strip {
+                display: flex;
+                justify-content: space-between;
+                padding: 7px 14px;
+                font-size: 10px;
+                background: #f8fafc;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="voucher-container">
+            <div class="header-box">
+                <div class="hospital-name">SHANMUGA HOSPITAL LIMITED</div>
+                <div class="sub-info">51/24.Saradha College Road, Salem - 636007,,</div>
+                <div class="sub-info">Phone : 04272706666, info@smrft.org</div>
+                <div class="gst-info">GST Number : ${grn.hospital_gst || ''}</div>
+                <div class="doc-tag">
+                    GOODS RECEIPT NOTE - ${grn.purchase_category ? grn.purchase_category.toUpperCase() : 'OPENING STOCK (DRUG)'}
+                </div>
+            </div>
 
-                        <table style="width: 100%; border-collapse: collapse; border-bottom: 1px solid #7dd3fc;">
-                            <tbody>
-                                <tr>
-                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 10.5px; border-right: 1px solid #7dd3fc; width: 33%;">
-                                        <table style="border-collapse: collapse; width: 100%;">
-                                            <tr><td style="border:none;font-weight:700;width:90px;">Invoice No</td><td style="border:none;">: ${grn.invoice_no || grn.invoice_number || '—'}</td></tr>
-                                            <tr><td style="border:none;font-weight:700;">Invoice Date</td><td style="border:none;">: ${fmtDate(grn.invoice_date)}</td></tr>
-                                            <tr><td style="border:none;font-weight:700;">Purchase No</td><td style="border:none;">: ${grn.grn_number || '—'}</td></tr>
-                                            <tr><td style="border:none;font-weight:700;">Purchase Date</td><td style="border:none;">: ${fmtDate(grn.date)}</td></tr>
-                                        </table>
-                                    </td>
-                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 10.5px; border-right: 1px solid #7dd3fc; width: 34%;">
-                                        <table style="border-collapse: collapse; width: 100%;">
-                                            <tr><td style="border:none;font-weight:700;width:95px;">Supplier Name</td><td style="border:none;font-weight:700;">: ${vendorName || grn.vendor_name || 'OPENING STOCK'}</td></tr>
-                                            <tr><td style="border:none;font-weight:700;">State</td><td style="border:none;">: ${grn.vendor_state || '—'}</td></tr>
-                                            <tr><td style="border:none;font-weight:700;">Phone</td><td style="border:none;">: ${grn.vendor_phone || '—'}</td></tr>
-                                            <tr><td style="border:none;font-weight:700;">GST Number</td><td style="border:none;">: ${grn.vendor_gstin || grn.gstin || '******'}</td></tr>
-                                        </table>
-                                    </td>
-                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 10.5px; width: 33%;">
-                                        <table style="border-collapse: collapse; width: 100%;">
-                                            <tr><td style="border:none;font-weight:700;width:95px;">Department</td><td style="border:none;font-weight:600;color:#0d9488;">: ${getDepartmentName(grn.department, grn)}</td></tr>
-                                            <tr><td style="border:none;font-weight:700;width:95px;">Order Number</td><td style="border:none;">: ${grn.order_number || grn.po_number || '—'}</td></tr>
-                                            <tr><td style="border:none;font-weight:700;">Payment Mode</td><td style="border:none;">: ${grn.payment_mode || 'CHEQUE'}</td></tr>
-                                            <tr><td style="border:none;font-weight:700;">Approved Date</td><td style="border:none;">: ${grn.is_approved ? fmtDate(grn.approved_date || grn.date) : '—'}</td></tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <div style="display: flex; border-bottom: 1px solid #0c4a6e;">
-                            <div style="flex: 1; overflow-x: auto;">
-                                <table style="width: 100%; border-collapse: collapse;">
-                                    <thead>
-                                        <tr>
-                                            <th rowspan="2" style="width: 22px;">Sl.</th>
-                                            <th rowspan="2" style="min-width: 95px; text-align: left;">Product</th>
-                                            <th rowspan="2">HSN</th>
-                                            <th rowspan="2">Batch</th>
-                                            <th rowspan="2">Expiry</th>
-                                            <th rowspan="2">Pack</th>
-                                            <th rowspan="2">QTY</th>
-                                            <th rowspan="2">Free</th>
-                                            <th rowspan="2">P Rate</th>
-                                            <th rowspan="2">P.cost</th>
-                                            <th rowspan="2">MRP</th>
-                                            <th rowspan="2">Discount</th>
-                                            <th rowspan="2">Taxable Amount</th>
-                                            <th colspan="2">CGST</th>
-                                            <th colspan="2">SGST</th>
-                                            <th colspan="2">IGST</th>
-                                            <th rowspan="2">Total Amount</th>
-                                        </tr>
-                                        <tr>
-                                            <th>Rate</th><th>Amt</th>
-                                            <th>Rate</th><th>Amt</th>
-                                            <th>Rate</th><th>Amt</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${normalizedItems.map((it) => `
-                                            <tr>
-                                                <td class="text-center">${it.sl}</td>
-                                                <td class="text-left" style="font-weight: 600; max-width: 120px; white-space: normal;">${it.product}</td>
-                                                <td class="text-center">${it.hsn}</td>
-                                                <td class="text-center">${it.batch}</td>
-                                                <td class="text-center">${it.expiry}</td>
-                                                <td class="text-center">${it.pack}</td>
-                                                <td class="text-center">${it.qty}</td>
-                                                <td class="text-center">${it.free}</td>
-                                                <td class="text-right">${fmt2(it.pRate)}</td>
-                                                <td class="text-right">${fmt2(it.pCost)}</td>
-                                                <td class="text-right">${fmt2(it.mrp)}</td>
-                                                <td class="text-right">${fmt2(it.disc)}</td>
-                                                <td class="text-right">${fmt2(it.taxable)}</td>
-                                                <td class="text-center">${it.cgstRate ? it.cgstRate + '%' : '—'}</td>
-                                                <td class="text-right">${fmt2(it.cgstAmt)}</td>
-                                                <td class="text-center">${it.sgstRate ? it.sgstRate + '%' : '—'}</td>
-                                                <td class="text-right">${fmt2(it.sgstAmt)}</td>
-                                                <td class="text-center">${it.igstRate ? it.igstRate + '%' : '—'}</td>
-                                                <td class="text-right">${fmt2(it.igstAmt)}</td>
-                                                <td class="text-right" style="font-weight: 700;">${fmt2(it.totalAmt)}</td>
-                                            </tr>
-                                        `).join('')}
-                                        <tr style="background: #dbeafe;">
-                                            <td colspan="12" class="total-cell" style="text-align: right;">Total</td>
-                                            <td class="total-cell">${fmt2(totalTaxable)}</td>
-                                            <td style="background: #dbeafe; border: 1px solid #cbd5e1;"></td>
-                                            <td class="total-cell">${fmt2(totalCgst)}</td>
-                                            <td style="background: #dbeafe; border: 1px solid #cbd5e1;"></td>
-                                            <td class="total-cell">${fmt2(totalSgst)}</td>
-                                            <td style="background: #dbeafe; border: 1px solid #cbd5e1;"></td>
-                                            <td class="total-cell">${fmt2(totalIgst)}</td>
-                                            <td class="total-cell">${fmt2(totalItemAmounts)}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <table style="border-left: 1px solid #7dd3fc; border-collapse: collapse; font-size: 8.5px; min-width: 140px; align-self: stretch;">
-                                <tbody>
-                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Total</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">${fmt2(totalTaxable)}</td></tr>
-                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Discount</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">${fmt2(totalDisc)}</td></tr>
-                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Tax On Free</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">${fmt2(taxOnFree)}</td></tr>
-                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Round off.</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">${fmt2(roundOff)}</td></tr>
-                                    <tr><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 800;">Total GST</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 800;">${fmt2(totalGst)}</td></tr>
-                                    <tr style="background: #e8f5e9;"><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-weight: 800; color: #0f766e;">Net Amount</td><td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 800; color: #0f766e;">${fmt2(netAmt)}</td></tr>
-                                </tbody>
+            <table class="meta-table">
+                <tbody>
+                    <tr>
+                        <td style="border-right: 1px solid #7dd3fc; width: 33%;">
+                            <table class="meta-subtable">
+                                <tr><td class="meta-lbl">Invoice No</td><td>: ${grn.invoice_no || grn.invoice_number || '—'}</td></tr>
+                                <tr><td class="meta-lbl">Invoice Date</td><td>: ${fmtDate(grn.invoice_date)}</td></tr>
+                                <tr><td class="meta-lbl">Purchase No</td><td>: ${grn.grn_number || '—'}</td></tr>
+                                <tr><td class="meta-lbl">Purchase Date</td><td>: ${fmtDate(grn.date)}</td></tr>
                             </table>
-                        </div>
+                        </td>
+                        <td style="border-right: 1px solid #7dd3fc; width: 34%;">
+                            <table class="meta-subtable">
+                                <tr><td class="meta-lbl">Supplier Name</td><td style="font-weight: 700;">: ${vendorName || grn.vendor_name || 'OPENING STOCK'}</td></tr>
+                                <tr><td class="meta-lbl">State</td><td>: ${grn.vendor_state || '—'}</td></tr>
+                                <tr><td class="meta-lbl">Phone</td><td>: ${grn.vendor_phone || '—'}</td></tr>
+                                <tr><td class="meta-lbl">GST Number</td><td>: ${grn.vendor_gstin || grn.gstin || '******'}</td></tr>
+                            </table>
+                        </td>
+                        <td style="width: 33%;">
+                            <table class="meta-subtable">
+                                <tr><td class="meta-lbl">Department</td><td style="font-weight: 600; color: #0d9488;">: ${getDepartmentName(grn.department, grn)}</td></tr>
+                                <tr><td class="meta-lbl">Order Number</td><td>: ${grn.order_number || grn.po_number || '—'}</td></tr>
+                                <tr><td class="meta-lbl">Payment Mode</td><td>: ${grn.payment_mode || 'CHEQUE'}</td></tr>
+                                <tr><td class="meta-lbl">Approved Date</td><td>: ${grn.is_approved ? fmtDate(grn.approved_date || grn.date) : '—'}</td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
 
-                        <table style="width: 100%; border-collapse: collapse; border-bottom: 1px solid #0c4a6e;">
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 4px 8px; font-size: 8px; border-right: 1px solid #7dd3fc; white-space: nowrap; width: 42%;">
-                                        <strong>GST Amount</strong>&nbsp;&nbsp;
-                                        CGST Amount : ${fmt2(totalCgst)}&nbsp;&nbsp;
-                                        SGST Amount : ${fmt2(totalSgst)}&nbsp;&nbsp;
-                                        IGST Amount : ${fmt2(totalIgst)}
-                                    </td>
-                                    <td style="padding: 4px 8px; font-size: 8px; border-right: 1px solid #7dd3fc;">
-                                        <strong>Amount In Words</strong>&nbsp;&nbsp;
-                                        Rupee(s) ${numberToWords(netAmt)}
-                                    </td>
-                                    <td style="padding: 4px 10px; font-size: 8.5px; text-align: right; white-space: nowrap; min-width: 110px;">
-                                        <strong>Net Amount</strong>&nbsp;
-                                        <span style="font-weight: 800; font-size: 11px; color: #0f766e;">${fmt2(netAmt)}</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+            <div style="width: 100%; border-bottom: 1.5px solid #0c4a6e; overflow: visible;">
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" style="width: 24px;">Sl.</th>
+                            <th rowspan="2" style="min-width: 110px; text-align: left;">Product</th>
+                            <th rowspan="2">HSN</th>
+                            <th rowspan="2">Batch</th>
+                            <th rowspan="2">Expiry</th>
+                            <th rowspan="2">Pack</th>
+                            <th rowspan="2">QTY</th>
+                            <th rowspan="2">Free</th>
+                            <th rowspan="2">P Rate</th>
+                            <th rowspan="2">P.cost</th>
+                            <th rowspan="2">MRP</th>
+                            <th rowspan="2">Discount</th>
+                            <th rowspan="2">Taxable Amount</th>
+                            <th colspan="2">CGST</th>
+                            <th colspan="2">SGST</th>
+                            <th colspan="2">IGST</th>
+                            <th rowspan="2">Total Amount</th>
+                        </tr>
+                        <tr>
+                            <th>Rate</th><th>Amt</th>
+                            <th>Rate</th><th>Amt</th>
+                            <th>Rate</th><th>Amt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${normalizedItems.map((it) => `
+                            <tr>
+                                <td class="text-center">${it.sl}</td>
+                                <td class="text-left" style="font-weight: 600; max-width: 160px; white-space: normal;">${it.product}</td>
+                                <td class="text-center">${it.hsn}</td>
+                                <td class="text-center">${it.batch}</td>
+                                <td class="text-center">${it.expiry}</td>
+                                <td class="text-center">${it.pack}</td>
+                                <td class="text-center">${it.qty}</td>
+                                <td class="text-center">${it.free}</td>
+                                <td class="text-right">${fmt2(it.pRate)}</td>
+                                <td class="text-right">${fmt2(it.pCost)}</td>
+                                <td class="text-right">${fmt2(it.mrp)}</td>
+                                <td class="text-right">${fmt2(it.disc)}</td>
+                                <td class="text-right">${fmt2(it.taxable)}</td>
+                                <td class="text-center">${it.cgstRate ? it.cgstRate + '%' : '—'}</td>
+                                <td class="text-right">${fmt2(it.cgstAmt)}</td>
+                                <td class="text-center">${it.sgstRate ? it.sgstRate + '%' : '—'}</td>
+                                <td class="text-right">${fmt2(it.sgstAmt)}</td>
+                                <td class="text-center">${it.igstRate ? it.igstRate + '%' : '—'}</td>
+                                <td class="text-right">${fmt2(it.igstAmt)}</td>
+                                <td class="text-right" style="font-weight: 700;">${fmt2(it.totalAmt)}</td>
+                            </tr>
+                        `).join('')}
+                        <tr style="background: #dbeafe;">
+                            <td colspan="12" class="total-cell" style="text-align: right;">Total</td>
+                            <td class="total-cell">${fmt2(totalTaxable)}</td>
+                            <td style="background: #dbeafe; border: 1px solid #cbd5e1;"></td>
+                            <td class="total-cell">${fmt2(totalCgst)}</td>
+                            <td style="background: #dbeafe; border: 1px solid #cbd5e1;"></td>
+                            <td class="total-cell">${fmt2(totalSgst)}</td>
+                            <td style="background: #dbeafe; border: 1px solid #cbd5e1;"></td>
+                            <td class="total-cell">${fmt2(totalIgst)}</td>
+                            <td class="total-cell">${fmt2(totalItemAmounts)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-                        <div style="display: flex; justify-content: space-between; padding: 5px 12px; font-size: 8.5px; background: #f8fafc;">
-                            <span><strong>Entered By :</strong> ${grn.entered_by || grn.created_by_name || grn.created_by || '—'}</span>
-                            <span><strong>Checked By :</strong> —</span>
-                            <span><strong>Verified By :</strong> ${grn.verified_by || (grn.is_approved ? 'APPROVED' : '—')}</span>
+            <div class="calculation-section">
+                <div class="calc-left">
+                    <div>
+                        <div style="font-weight: 700; color: #0c4a6e; font-size: 10px; margin-bottom: 2px;">GST TAX SUMMARY:</div>
+                        <div style="font-size: 9.5px; color: #334155;">
+                            CGST: <strong>₹${fmt2(totalCgst)}</strong> &nbsp;|&nbsp; 
+                            SGST: <strong>₹${fmt2(totalSgst)}</strong> &nbsp;|&nbsp; 
+                            IGST: <strong>₹${fmt2(totalIgst)}</strong> &nbsp;|&nbsp; 
+                            Total Tax: <strong>₹${fmt2(totalGst)}</strong>
                         </div>
                     </div>
-                </body>
-            </html>
-        `;
+                    <div style="padding-top: 4px; margin-top: 4px; border-top: 1px dashed #cbd5e1;">
+                        <strong style="color: #0c4a6e; font-size: 9.5px;">AMOUNT IN WORDS:</strong><br />
+                        <span style="font-weight: 700; color: #0f172a; font-size: 10px; font-style: italic;">Rupee(s) ${numberToWords(netAmt)}</span>
+                    </div>
+                </div>
 
-        const printWindow = window.open('', '_blank', 'width=1150,height=750');
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        setTimeout(() => printWindow.print(), 400);
+                <table class="summary-table">
+                    <tbody>
+                        <tr><td style="font-weight: 600;">Total Taxable</td><td class="text-right" style="font-weight: 700;">${fmt2(totalTaxable)}</td></tr>
+                        <tr><td style="font-weight: 600;">Discount</td><td class="text-right" style="font-weight: 700;">${fmt2(totalDisc)}</td></tr>
+                        <tr><td style="font-weight: 600;">Tax On Free</td><td class="text-right" style="font-weight: 700;">${fmt2(taxOnFree)}</td></tr>
+                        <tr><td style="font-weight: 600;">Round off</td><td class="text-right" style="font-weight: 700;">${fmt2(roundOff)}</td></tr>
+                        <tr><td style="font-weight: 800;">Total GST</td><td class="text-right" style="font-weight: 800;">${fmt2(totalGst)}</td></tr>
+                        <tr style="background: #e8f5e9;">
+                            <td style="font-weight: 800; font-size: 11px; color: #0f766e;">Net Amount</td>
+                            <td class="text-right" style="font-weight: 900; font-size: 13px; color: #0f766e;">₹${fmt2(netAmt)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sig-strip">
+                <span><strong>Entered By :</strong> ${grn.entered_by || grn.created_by_name || grn.created_by || '—'}</span>
+                <span><strong>Checked By :</strong> —</span>
+                <span><strong>Verified By :</strong> ${grn.verified_by || (grn.is_approved ? 'APPROVED' : '—')}</span>
+            </div>
+        </div>
+
+        <script>
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    window.focus();
+                    window.print();
+                }, 250);
+            });
+        </script>
+    </body>
+</html>`;
+
+        const blob = new Blob([printContent], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
+        const printWindow = window.open(blobUrl, '_blank', 'width=1200,height=800');
+        if (!printWindow) {
+            alert("Please allow popups to print the GRN Voucher.");
+            return;
+        }
+        setTimeout(() => {
+            URL.revokeObjectURL(blobUrl);
+        }, 60000);
     };
-
     const openPaymentModal = (grn) => {
         setSelectedGrn(grn);
         let paymentArray = grn.payment_status;
