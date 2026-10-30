@@ -21,6 +21,8 @@ import {
   ChevronRight,
   Search,
   LayoutDashboard,
+  AlertTriangle,
+
 } from "lucide-react";
 import { hasPagePermission } from "../Auth/FrontendPageMapping";
 import { fetchSidebarMapping } from "../Auth/apiRequest";
@@ -56,6 +58,8 @@ const iconMap = {
   Code,
   FiCode: Code,
   LayoutDashboard,
+  AlertTriangle,
+
 };
 
 // Use the same theme colors for consistency

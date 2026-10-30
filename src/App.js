@@ -167,6 +167,7 @@ import IPAdvance from "./Components/NursingStation/IPAdvance";
 import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
 import ChemicalComposition from "./Components/InventoryMaster/ChemicalComposition";
 import StockTransfer from "./Components/InventoryMaster/StockTransfer";
+import ExpiryMedicines from "./Components/InventoryMaster/ExpiryMedicines";
 import IPAdvanceReport from "./Components/Accounts/IPAdvanceReport";
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
@@ -460,6 +461,8 @@ function App() {
       "/GRNGeneration": "GRN Generation",
       "/Pharmacystock": "Pharmacy Stock",
       "/PharmacyExpiryReport": "Pharmacy Expiry Report",
+      "/ExpiryMedicines": "Expiry Medicines",
+      "/ExpiryMedicine": "Expiry Medicines",
       "/PharmacyStockDashboard": "Pharmacy Stock Dashboard",
       "/PharmacyBillAnalysis": "Pharmacy Bill Analysis",
       "/pharmacybillanalysis": "Pharmacy Bill Analysis",
@@ -1110,6 +1113,17 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/StockTransfer" element={<StockTransfer />} />}
+
+              {hasPagePermission(
+                "/ExpiryMedicines",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/ExpiryMedicines" element={<ExpiryMedicines />} />}
+              {hasPagePermission(
+                "/ExpiryMedicine",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/ExpiryMedicine" element={<ExpiryMedicines />} />}
 
               {hasPagePermission(
                 "/PurchaseReturn",
