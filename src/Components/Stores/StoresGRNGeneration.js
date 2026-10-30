@@ -1416,31 +1416,28 @@ const StoresGRNGeneration = () => {
     const currPackingPrice = currNoOfUnit > 0 ? currItemValue / currNoOfUnit : (currUnitPrice * currPacking);
 
     const baseAfterDiscount = currentItem.deductDiscountForTax ? Math.max(0, currItemValue - currDiscountAmt) : currItemValue;
-    let currTotalTax = 0;
-    if (currentItem.purchaseTaxInclusive) {
-        currTotalTax = currTaxPercent > 0 ? (baseAfterDiscount - (baseAfterDiscount / (1 + currTaxPercent / 100))) : 0;
-    } else {
-        currTotalTax = baseAfterDiscount * (currTaxPercent / 100);
-    }
+    const currTotalTax = baseAfterDiscount * (currTaxPercent / 100);
 
     const currCgstAmt = currTotalTax / 2;
     const currSgstAmt = currTotalTax / 2;
 
-    const currPurchaseCost = currentItem.purchaseTaxInclusive
-        ? Math.max(0, baseAfterDiscount)
-        : (baseAfterDiscount + currTotalTax);
+    const netBase = Math.max(0, currItemValue - currDiscountAmt);
+    const currPurchaseCost = netBase + currTotalTax;
     const currUnitCost = currQty ? currPurchaseCost / currQty : 0;
 
     const currMrp = parseFloat(currentItem.mrp) || 0;
     const currMaxPackingMrp = parseFloat(currentItem.maxPackingMrp) || (currMrp * currPacking);
     const currSellingTax = parseFloat(currentItem.sellingTax) || 0;
-    const currSellingCgst = (currMrp * (currSellingTax / 100)) / 2;
-    const currSellingSgst = (currMrp * (currSellingTax / 100)) / 2;
+    const baseSellingPrice = (currentItem.sellingTaxInclusive && currSellingTax > 0)
+        ? (currMrp / (1 + currSellingTax / 100))
+        : currMrp;
+    const currSellingCgst = currMrp > 0 ? ((currMrp - baseSellingPrice) / 2) : 0;
+    const currSellingSgst = currMrp > 0 ? ((currMrp - baseSellingPrice) / 2) : 0;
 
     const currSellingDisc = parseFloat(currentItem.sellingDiscountPercent) || 0;
-    const defaultSellingPrice = currMrp > 0 ? (currMrp * (1 - currSellingDisc / 100)) : 0;
-    const currSellingPrice = parseFloat(currentItem.price) || defaultSellingPrice;
-    const currIpPrice = parseFloat(currentItem.ipPrice) || currSellingPrice;
+    const defaultSellingPrice = baseSellingPrice > 0 ? (baseSellingPrice * (1 - currSellingDisc / 100)) : 0;
+    const currSellingPrice = currentItem.price !== '' && currentItem.price !== undefined ? parseFloat(currentItem.price) : defaultSellingPrice;
+    const currIpPrice = currentItem.ipPrice !== '' && currentItem.ipPrice !== undefined ? parseFloat(currentItem.ipPrice) : currSellingPrice;
 
     const currFreeQty = parseFloat(currentItem.free) || 0;
     const freeBase = currFreeQty * currUnitPrice;
@@ -1533,26 +1530,27 @@ const StoresGRNGeneration = () => {
         let taxOnFreeItems = 0;
 
         grnItems.forEach(item => {
-            const baseValue = item.itemValue || 0;
+            const baseValue = parseFloat(item.itemValue) || 0;
             const taxPercent = parseFloat(item.tax) || 0;
             const discount = parseFloat(item.discountedAmt) || 0;
-
-            const netValue = baseValue - discount;
+            const isInclusive = item.purchaseTaxInclusive !== false;
+            const itemCgst = parseFloat(item.cgstAmt) || 0;
+            const itemSgst = parseFloat(item.sgstAmt) || 0;
+            const itemTax = itemCgst + itemSgst;
 
             totalDiscount += discount;
 
+            const netVal = Math.max(0, baseValue - discount);
             if (taxPercent > 0) {
-                taxable += netValue;
-                cgst += item.cgstAmt;
-                sgst += item.sgstAmt;
+                taxable += netVal;
+                cgst += itemCgst;
+                sgst += itemSgst;
             } else {
-                nonTaxable += netValue;
+                nonTaxable += Math.max(0, baseValue - discount);
             }
 
-            const freeQty = parseFloat(item.free) || 0;
-            if (freeQty > 0 && taxPercent > 0) {
-                const freeBase = freeQty * (item.unitPrice || 0);
-                taxOnFreeItems += (freeBase * taxPercent) / 100;
+            if (item.calculateTaxOnFree) {
+                taxOnFreeItems += parseFloat(item.freeTaxAmt) || 0;
             }
         });
 
@@ -1561,12 +1559,10 @@ const StoresGRNGeneration = () => {
         const cst = parseFloat(formData.central_sales_tax) || 0;
         const transport = parseFloat(formData.courier_transport_charge) || 0;
 
-        // NEW: Calculate true signed amount based on dropdown type
         const rawRoundAmount = Math.abs(parseFloat(formData.round_amount) || 0);
         const signedRoundAmount = formData.round_type === 'subtract' ? -rawRoundAmount : rawRoundAmount;
 
-        let totalAmountObj = taxable + nonTaxable + cgst + sgst + igst + cess + cst + transport;
-
+        let totalAmountObj = taxable + nonTaxable + cgst + sgst + igst + cess + cst + transport + taxOnFreeItems;
         const netInvoiceAmount = Number((totalAmountObj + signedRoundAmount).toFixed(2));
 
         return {
@@ -1577,7 +1573,7 @@ const StoresGRNGeneration = () => {
             tax_on_free_items: Number(taxOnFreeItems.toFixed(2)),
             total_discount: Number(totalDiscount.toFixed(2)),
             total_amount: Number(totalAmountObj.toFixed(2)),
-            round_amount: signedRoundAmount, // Export the properly signed amount to backend payload
+            round_amount: signedRoundAmount,
             net_invoice_amount: netInvoiceAmount
         };
     }, [grnItems, formData.igst, formData.cess, formData.central_sales_tax, formData.courier_transport_charge, formData.round_amount, formData.round_type]);
@@ -1686,6 +1682,10 @@ const StoresGRNGeneration = () => {
         try {
             const payload = {
                 ...newItemMasterData,
+                unit_price: 0,
+                stockReorderLevel: String(newItemMasterData.stockReorderLevel || 0),
+                total_quantity: Number(newItemMasterData.total_quantity) || 0,
+                approved_quantity: Number(newItemMasterData.approved_quantity) || 0,
                 group: newItemMasterData.group,
                 group_code: newItemMasterData.group,
                 category: newItemMasterData.category,
@@ -1695,16 +1695,15 @@ const StoresGRNGeneration = () => {
             if (response.success) {
                 alert("New Item Master Added Successfully!");
                 setShowAddItemMasterModal(false);
-                // Refresh items list for selected department (or all items if empty)
                 fetchItemsByDepartment(formData.department);
-                // Optionally auto-select the new item
-                setCurrentItem(prev => ({
-                    ...prev,
-                    item_id: response.data.item_id,
-                    name: response.data.itemName,
-                    hsn: response.data.hsn || ''
-                }));
-                // Reset new item data
+                if (response.data) {
+                    setCurrentItem(prev => ({
+                        ...prev,
+                        item_id: response.data.item_id,
+                        name: response.data.itemName,
+                        hsn: response.data.hsn || ''
+                    }));
+                }
                 setNewItemMasterData({
                     itemName: '',
                     department: '',
@@ -1717,11 +1716,12 @@ const StoresGRNGeneration = () => {
                     approved_quantity: 0
                 });
             } else {
-                alert("Error adding item: " + JSON.stringify(response.error));
+                const errDetail = response.error || (response.data && typeof response.data === 'object' ? Object.entries(response.data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ') : 'Bad Request');
+                alert("Failed to add Item Master: " + errDetail);
             }
         } catch (error) {
             console.error("Error saving Item Master:", error);
-            alert("Error saving Item Master");
+            alert("Error saving Item Master: " + (error?.message || 'Network error'));
         } finally {
             setLoading(false);
         }
@@ -1828,29 +1828,10 @@ const StoresGRNGeneration = () => {
                             </SectionTitleCard>
 
                             <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                {/* Row 1: Purchase & Invoice Essentials */}
+                                {/* Row 1: 1. Department, 2. Category, 3. Vendor */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
-                                    <div style={{ gridColumn: 'span 3' }}>
-                                        <Label required>Category</Label>
-                                        <Select
-                                            options={purchaseCategories}
-                                            value={purchaseCategories.find(c => c.value === formData.purchase_category)}
-                                            onChange={(opt) => handleInputChange({ target: { name: 'purchase_category', value: opt ? opt.value : '' } })}
-                                            menuPortalTarget={document.body}
-                                            isDisabled={isVerified}
-                                            styles={{
-                                                menuPortal: base => ({ ...base, zIndex: 99999 }),
-                                                control: base => ({
-                                                    ...base,
-                                                    minHeight: '34px',
-                                                    height: '34px',
-                                                    borderRadius: '6px',
-                                                    borderColor: colors.border
-                                                })
-                                            }}
-                                        />
-                                    </div>
-                                    <div style={{ gridColumn: 'span 3' }}>
+                                    {/* 1. Department */}
+                                    <div style={{ gridColumn: 'span 4' }}>
                                         <Label required style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <span>Department</span>
                                             <span style={{ fontSize: '0.7rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>F10</span>
@@ -1943,46 +1924,31 @@ const StoresGRNGeneration = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div style={{ gridColumn: 'span 2' }}>
-                                        <Label required>GRN Date</Label>
-                                        <DatePicker
-                                            value={formData.date ? dayjs(formData.date) : null}
-                                            onChange={(d) => handleInputChange({ target: { name: 'date', value: d ? d.format('YYYY-MM-DD') : '' } })}
-                                            format="DD/MM/YYYY"
-                                            placeholder="Select Date"
-                                            allowClear={false}
-                                            disabled={isVerified}
-                                            style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
-                                        />
-                                    </div>
-                                    <div style={{ gridColumn: 'span 2' }}>
-                                        <Label required>Invoice No</Label>
-                                        <Input
-                                            placeholder="EX: INV-1001"
-                                            name="invoice_no"
-                                            value={formData.invoice_no}
-                                            onChange={handleInputChange}
-                                            disabled={isVerified}
-                                            style={{ height: '34px' }}
-                                        />
-                                    </div>
-                                    <div style={{ gridColumn: 'span 2' }}>
-                                        <Label required>Invoice Date</Label>
-                                        <DatePicker
-                                            value={formData.invoice_date ? dayjs(formData.invoice_date) : null}
-                                            onChange={(d) => handleInputChange({ target: { name: 'invoice_date', value: d ? d.format('YYYY-MM-DD') : '' } })}
-                                            format="DD/MM/YYYY"
-                                            placeholder="Select Date"
-                                            allowClear={false}
-                                            disabled={isVerified}
-                                            style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
-                                        />
-                                    </div>
-                                </div>
 
-                                {/* Row 2: Vendor, Credit, Payment Mode, Phone */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
-                                    <div style={{ gridColumn: 'span 6' }}>
+                                    {/* 2. Category */}
+                                    <div style={{ gridColumn: 'span 4' }}>
+                                        <Label required>Category</Label>
+                                        <Select
+                                            options={purchaseCategories}
+                                            value={purchaseCategories.find(c => c.value === formData.purchase_category)}
+                                            onChange={(opt) => handleInputChange({ target: { name: 'purchase_category', value: opt ? opt.value : '' } })}
+                                            menuPortalTarget={document.body}
+                                            isDisabled={isVerified}
+                                            styles={{
+                                                menuPortal: base => ({ ...base, zIndex: 99999 }),
+                                                control: base => ({
+                                                    ...base,
+                                                    minHeight: '34px',
+                                                    height: '34px',
+                                                    borderRadius: '6px',
+                                                    borderColor: colors.border
+                                                })
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* 3. Vendor */}
+                                    <div style={{ gridColumn: 'span 4' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                             <Label required style={{ margin: 0 }}>Vendor</Label>
                                             {!isVerified && (
@@ -2040,9 +2006,92 @@ const StoresGRNGeneration = () => {
                                             }}
                                         />
                                     </div>
+                                </div>
 
+                                {/* Row 2: 4. Phone Number, 5. Contact Person, 6. Office Address */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
+                                    {/* 4. Phone Number */}
+                                    <div style={{ gridColumn: 'span 3' }}>
+                                        <Label>Phone Number</Label>
+                                        <Input
+                                            value={formData.phone}
+                                            readOnly
+                                            style={{ backgroundColor: '#f8fafc', height: '34px' }}
+                                            placeholder="Vendor Phone"
+                                        />
+                                    </div>
 
+                                    {/* 5. Contact Person */}
+                                    <div style={{ gridColumn: 'span 3' }}>
+                                        <Label>Contact Person</Label>
+                                        <Input
+                                            value={formData.contact_person}
+                                            readOnly
+                                            style={{ backgroundColor: '#f8fafc', height: '34px' }}
+                                            placeholder="Contact Person"
+                                        />
+                                    </div>
 
+                                    {/* 6. Office Address */}
+                                    <div style={{ gridColumn: 'span 6' }}>
+                                        <Label>Office Address</Label>
+                                        <Input
+                                            value={(() => {
+                                                if (formData.supplier_address) return formData.supplier_address;
+                                                const v = vendors.find(item => item.vendor_id === formData.vendor_id);
+                                                return v ? getFullVendorAddress(v) : '';
+                                            })()}
+                                            readOnly
+                                            style={{ backgroundColor: '#f8fafc', height: '34px' }}
+                                            placeholder="Office / Vendor Address"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Row 3: 7. GRN Date, 8. Invoice No, 9. Invoice Date, 10. Credit (Days), 11. Payment Mode */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
+                                    {/* 7. GRN Date */}
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label required>GRN Date</Label>
+                                        <DatePicker
+                                            value={formData.date ? dayjs(formData.date) : null}
+                                            onChange={(d) => handleInputChange({ target: { name: 'date', value: d ? d.format('YYYY-MM-DD') : '' } })}
+                                            format="DD/MM/YYYY"
+                                            placeholder="Select Date"
+                                            allowClear={false}
+                                            disabled={isVerified}
+                                            style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
+                                        />
+                                    </div>
+
+                                    {/* 8. Invoice No */}
+                                    <div style={{ gridColumn: 'span 3' }}>
+                                        <Label required>Invoice No</Label>
+                                        <Input
+                                            placeholder="EX: INV-1001"
+                                            name="invoice_no"
+                                            value={formData.invoice_no}
+                                            onChange={handleInputChange}
+                                            disabled={isVerified}
+                                            style={{ height: '34px' }}
+                                        />
+                                    </div>
+
+                                    {/* 9. Invoice Date */}
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label required>Invoice Date</Label>
+                                        <DatePicker
+                                            value={formData.invoice_date ? dayjs(formData.invoice_date) : null}
+                                            onChange={(d) => handleInputChange({ target: { name: 'invoice_date', value: d ? d.format('YYYY-MM-DD') : '' } })}
+                                            format="DD/MM/YYYY"
+                                            placeholder="Select Date"
+                                            allowClear={false}
+                                            disabled={isVerified}
+                                            style={{ width: '100%', borderRadius: '6px', border: `1px solid ${colors.border}`, height: '34px' }}
+                                        />
+                                    </div>
+
+                                    {/* 10. Credit (Days) */}
                                     <div style={{ gridColumn: 'span 2' }}>
                                         <Label>Credit (Days)</Label>
                                         <Input
@@ -2051,10 +2100,12 @@ const StoresGRNGeneration = () => {
                                             onChange={handleInputChange}
                                             disabled={isVerified}
                                             style={{ height: '34px' }}
+                                            placeholder="0"
                                         />
                                     </div>
 
-                                    <div style={{ gridColumn: 'span 2' }}>
+                                    {/* 11. Payment Mode */}
+                                    <div style={{ gridColumn: 'span 3' }}>
                                         <Label>Payment Mode</Label>
                                         <Select
                                             options={paymentModes}
@@ -2072,39 +2123,6 @@ const StoresGRNGeneration = () => {
                                                     borderColor: colors.border
                                                 })
                                             }}
-                                        />
-                                    </div>
-
-                                    <div style={{ gridColumn: 'span 2' }}>
-                                        <Label>Phone Number</Label>
-                                        <Input
-                                            value={formData.phone}
-                                            readOnly
-                                            style={{ backgroundColor: '#f8fafc', height: '34px' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Row 3: Supplier Contact & Address */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
-                                    <div style={{ gridColumn: 'span 4' }}>
-                                        <Label>Contact Person</Label>
-                                        <Input
-                                            value={formData.contact_person}
-                                            readOnly
-                                            style={{ backgroundColor: '#f8fafc', height: '34px' }}
-                                        />
-                                    </div>
-                                    <div style={{ gridColumn: 'span 8' }}>
-                                        <Label>Office Address</Label>
-                                        <Input
-                                            value={(() => {
-                                                if (formData.supplier_address) return formData.supplier_address;
-                                                const v = vendors.find(item => item.vendor_id === formData.vendor_id);
-                                                return v ? getFullVendorAddress(v) : '';
-                                            })()}
-                                            readOnly
-                                            style={{ backgroundColor: '#f8fafc', height: '34px' }}
                                         />
                                     </div>
                                 </div>
@@ -2646,7 +2664,7 @@ const StoresGRNGeneration = () => {
                         <ModalContainerAnimated style={{ maxWidth: '1150px', width: '95vw', borderRadius: '12px', overflow: 'hidden' }}>
                             <ModalHeader style={{ background: '#1b7a70', color: 'white', padding: '14px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <ModalTitle style={{ color: 'white', fontSize: '1.15rem', fontWeight: '700', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {editingItemId ? '✏️ Edit Catalog Item' : 'Catalog Item Entry'}
+                                    {editingItemId ? '✏️ Edit Catalog Item' : 'GST Purchase'}
                                 </ModalTitle>
                                 <CloseButton style={{ color: 'white', fontSize: '1.2rem' }} onClick={handleCloseItemModal}>✕</CloseButton>
                             </ModalHeader>
@@ -3025,23 +3043,23 @@ const StoresGRNGeneration = () => {
                                                 <div>
                                                     <CompactLabel>Packing Price</CompactLabel>
                                                     <MoneyInput
-                                                        value={Number(currPackingPrice.toFixed(2))}
+                                                        value={currPackingPrice > 0 ? currPackingPrice.toFixed(4) : "0.0000"}
                                                         readOnly
-                                                        placeholder="0.00"
+                                                        placeholder="0.0000"
                                                     />
                                                 </div>
                                                 <div>
                                                     <CompactLabel>Unit Price</CompactLabel>
                                                     <MoneyInput
-                                                        value={Number(currUnitPrice.toFixed(2))}
+                                                        value={currUnitPrice > 0 ? currUnitPrice.toFixed(4) : "0.0000"}
                                                         readOnly
-                                                        placeholder="0.00"
+                                                        placeholder="0.0000"
                                                     />
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
-                                                <span style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700' }}>Last Purchase Free : {currentItem.lastPurchaseFree || 0}</span>
-                                                <span style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700' }}>Last Purchase Price : ₹{Number(currentItem.lastPurchasePrice || 0).toFixed(2)}</span>
+                                                <span style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700' }}>Last Purchase Free : {parseFloat(currentItem.lastPurchaseFree || 0).toFixed(4)}</span>
+                                                <span style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700' }}>Last Purchase Price : {parseFloat(currentItem.lastPurchasePrice || 0).toFixed(4)}</span>
                                             </div>
                                         </div>
 
@@ -3074,17 +3092,17 @@ const StoresGRNGeneration = () => {
                                                 <div>
                                                     <CompactLabel style={{ fontSize: '0.7rem' }}>CGST</CompactLabel>
                                                     <MoneyInput
-                                                        value={Number(currCgstAmt.toFixed(2))}
+                                                        value={currCgstAmt > 0 ? currCgstAmt.toFixed(4) : "0.0000"}
                                                         readOnly
-                                                        suffix="%"
+                                                        suffix={currTaxPercent > 0 ? `${(currTaxPercent / 2).toFixed(1).replace(/\.0$/, '')}%` : ''}
                                                     />
                                                 </div>
                                                 <div>
                                                     <CompactLabel style={{ fontSize: '0.7rem' }}>SGST</CompactLabel>
                                                     <MoneyInput
-                                                        value={Number(currSgstAmt.toFixed(2))}
+                                                        value={currSgstAmt > 0 ? currSgstAmt.toFixed(4) : "0.0000"}
                                                         readOnly
-                                                        suffix="%"
+                                                        suffix={currTaxPercent > 0 ? `${(currTaxPercent / 2).toFixed(1).replace(/\.0$/, '')}%` : ''}
                                                     />
                                                 </div>
                                             </div>
@@ -3142,12 +3160,12 @@ const StoresGRNGeneration = () => {
                                                 <div>
                                                     <CompactLabel>Purchase Cost</CompactLabel>
                                                     <MoneyInput
-                                                        value={Number(currPurchaseCost.toFixed(2))}
+                                                        value={currPurchaseCost > 0 ? currPurchaseCost.toFixed(4) : "0.0000"}
                                                         readOnly
                                                         style={{ fontWeight: '700' }}
                                                     />
                                                     <div style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700', marginTop: '3px', textAlign: 'right' }}>
-                                                        Last Purchase Cost : ₹{Number(currentItem.lastPurchaseCost || 0).toFixed(2)}
+                                                        Last Purchase Cost : {parseFloat(currentItem.lastPurchaseCost || 0).toFixed(4)}
                                                     </div>
                                                 </div>
                                             </div>
@@ -3179,7 +3197,7 @@ const StoresGRNGeneration = () => {
                                                 </div>
                                             </div>
                                             <div style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700', marginTop: '3px' }}>
-                                                Last MRP : ₹{Number(currentItem.lastMrp || 0).toFixed(2)}
+                                                Last MRP : {parseFloat(currentItem.lastMrp || 0).toFixed(4)}
                                             </div>
                                         </div>
 
@@ -3210,19 +3228,17 @@ const StoresGRNGeneration = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>CGST</CompactLabel>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>CGST ({currSellingTax / 2}%)</CompactLabel>
                                                     <MoneyInput
                                                         value={Number(currSellingCgst.toFixed(2))}
                                                         readOnly
-                                                        suffix="%"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>SGST</CompactLabel>
+                                                    <CompactLabel style={{ fontSize: '0.7rem' }}>SGST ({currSellingTax / 2}%)</CompactLabel>
                                                     <MoneyInput
                                                         value={Number(currSellingSgst.toFixed(2))}
                                                         readOnly
-                                                        suffix="%"
                                                     />
                                                 </div>
                                             </div>
@@ -3272,7 +3288,7 @@ const StoresGRNGeneration = () => {
                                                 </div>
                                             </div>
                                             <div style={{ color: '#2563eb', fontSize: '0.73rem', fontWeight: '700', marginTop: '3px' }}>
-                                                Last Selling Price : ₹{Number(currentItem.lastSellingPrice || 0).toFixed(2)}
+                                                Last Selling Price : {parseFloat(currentItem.lastSellingPrice || 0).toFixed(4)}
                                             </div>
                                         </div>
 
