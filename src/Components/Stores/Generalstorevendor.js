@@ -193,8 +193,8 @@ const PageSizeSelect = styled.select`
 // ─── Constants ────────────────────────────────────────────────────────────────
 const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-const SUPPLIER_TYPES = ["SUPPLIER", "MANUFACTURER", "BOTH"];
-const PAYMENT_TERMS = ["CHEQUE", "CASH", "DD", "NET BANKING", "CREDIT 30 DAYS"];
+const SUPPLIER_TYPES = ["BOTH", "MANUFACTURER", "SUPPLIER"];
+const PAYMENT_TERMS = ["CASH", "CHEQUE", "CREDIT 30 DAYS", "DD", "NET BANKING"];
 const COUNTRY = "India";
 
 const EMPTY_FORM = {
@@ -312,17 +312,19 @@ const Generalstorevendor = () => {
   const [loadingCities, setLoadingCities] = useState(false);
 
   // ── Filter first, then paginate ────────────────────────────────────────────
-  const filtered = vendors.filter((v) => {
-    const q = search.toLowerCase();
-    return (
-      v.name?.toLowerCase().includes(q) ||
-      v.vendor_type?.toLowerCase().includes(q) ||
-      v.gstin?.toLowerCase().includes(q) ||
-      v.contact_person?.toLowerCase().includes(q) ||
-      v.city?.toLowerCase().includes(q) ||
-      v.vendor_id?.toLowerCase().includes(q)
-    );
-  });
+  const filtered = vendors
+    .filter((v) => {
+      const q = search.toLowerCase();
+      return (
+        v.name?.toLowerCase().includes(q) ||
+        v.vendor_type?.toLowerCase().includes(q) ||
+        v.gstin?.toLowerCase().includes(q) ||
+        v.contact_person?.toLowerCase().includes(q) ||
+        v.city?.toLowerCase().includes(q) ||
+        v.vendor_id?.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
 
   const { currentPage, pageSize, totalPages, pageData, goTo, handlePageSizeChange, startIdx } =
     usePagination(filtered, 10);

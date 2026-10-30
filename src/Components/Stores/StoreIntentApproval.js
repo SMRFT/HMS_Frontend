@@ -688,6 +688,7 @@ const StoresApprovalManager = () => {
     };
 
     const openApprovalModal = (intent) => {
+        setShowViewIntentModal(false);
         setSelectedIntent(intent);
         setApprovalItems((intent.items || []).map(it => ({
             ...it,
@@ -1168,18 +1169,6 @@ const StoresApprovalManager = () => {
                         )}
                     </TabButton>
                     <TabButton
-                        active={activeTab === 'returns'}
-                        onClick={() => setActiveTab('returns')}
-                    >
-                        <RotateCcw size={18} />
-                        Indent Return Approvals
-                        {pendingReturnsCount > 0 && (
-                            <span className="counter" style={{ background: activeTab === 'returns' ? '#0d9488' : '#f59e0b' }}>
-                                {pendingReturnsCount}
-                            </span>
-                        )}
-                    </TabButton>
-                    <TabButton
                         active={activeTab === 'all'}
                         onClick={() => { setActiveTab('all'); intentPagination.goTo(1); }}
                     >
@@ -1194,7 +1183,6 @@ const StoresApprovalManager = () => {
                 {/* ========================================================= */}
                 {/* TAB 1: INTENT APPROVALS */}
                 {/* ========================================================= */}
-                {activeTab !== 'returns' && (
                     <>
                         {/* Quick Stats Grid */}
                         <StatsGrid>
@@ -1437,7 +1425,7 @@ const StoresApprovalManager = () => {
                                                                 status={getIntentStatus(popoverData)}
                                                                 anchorEl={anchorRefs.current[item.intent_id]}
                                                                 onClose={() => { setOpenPopover(null); setPopoverData(null); }}
-                                                                onView={() => { setOpenPopover(null); setSelectedIntentForView(popoverData); setShowViewIntentModal(true); }}
+                                                                onView={() => { setOpenPopover(null); setShowModal(false); setSelectedIntentForView(popoverData); setShowViewIntentModal(true); }}
                                                                 onApprove={() => { setOpenPopover(null); openApprovalModal(popoverData); }}
                                                                 onPrint={() => { setOpenPopover(null); handlePrintIntent(popoverData); }}
                                                                 onReject={() => { setOpenPopover(null); handleRejectIntent(popoverData); }}
@@ -1468,282 +1456,6 @@ const StoresApprovalManager = () => {
                             />
                         </S.TableWrapper>
                     </>
-                )}
-
-                {/* ========================================================= */}
-                {/* TAB 2: INDENT RETURN APPROVALS */}
-                {/* ========================================================= */}
-                {activeTab === 'returns' && (
-                    <>
-                        {/* Returns Stats Grid */}
-                        <StatsGrid>
-                            <StatsCard>
-                                <div className="label">Total Return Requests</div>
-                                <div className="value">{indentReturns.length}</div>
-                                <div className="sub-value">Current Period</div>
-                            </StatsCard>
-                            <StatsCard>
-                                <div className="label">Pending Verification</div>
-                                <div className="value" style={{ color: '#f59e0b' }}>
-                                    {pendingReturnsCount}
-                                </div>
-                                <div className="sub-value" style={{ color: '#b45309' }}>⏳ Needs Approval</div>
-                            </StatsCard>
-                            <StatsCard>
-                                <div className="label">Approved Returns</div>
-                                <div className="value" style={{ color: '#10b981' }}>
-                                    {indentReturns.filter(r => r.status === 'Approved').length}
-                                </div>
-                                <div className="sub-value" style={{ color: '#0d9488' }}>✅ Restored to Stock</div>
-                            </StatsCard>
-                            <StatsCard>
-                                <div className="label">Total Returned Value</div>
-                                <div className="value" style={{ color: '#0d9488' }}>
-                                    ₹{indentReturns.reduce((sum, r) => sum + Number(r.total_returned_value || 0), 0).toFixed(0)}
-                                </div>
-                                <div className="sub-value">Stock Credit Value</div>
-                            </StatsCard>
-                        </StatsGrid>
-
-                        {/* Return Filters */}
-                        <ConfigProvider
-                            theme={{
-                                token: {
-                                    colorPrimary: '#0d9488',
-                                    borderRadius: 12
-                                }
-                            }}
-                        >
-                            <div style={{
-                                background: 'white',
-                                margin: '20px 22px 0',
-                                padding: '24px',
-                                borderRadius: '16px',
-                                boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
-                                border: `1px solid ${S.colors.border}`
-                            }}>
-                                <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                        <S.Label style={{ margin: 0 }}>From</S.Label>
-                                        <DatePicker
-                                            value={returnFilter.from_date ? dayjs(returnFilter.from_date) : null}
-                                            onChange={(d) => setReturnFilter({ ...returnFilter, from_date: d ? d.format('YYYY-MM-DD') : '' })}
-                                            format="DD/MM/YYYY"
-                                            style={{ height: '38px', borderRadius: '8px' }}
-                                        />
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                        <S.Label style={{ margin: 0 }}>To</S.Label>
-                                        <DatePicker
-                                            value={returnFilter.to_date ? dayjs(returnFilter.to_date) : null}
-                                            onChange={(d) => setReturnFilter({ ...returnFilter, to_date: d ? d.format('YYYY-MM-DD') : '' })}
-                                            format="DD/MM/YYYY"
-                                            style={{ height: '38px', borderRadius: '8px' }}
-                                        />
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        <S.Label style={{ margin: 0 }}>Status</S.Label>
-                                        <Select
-                                            value={returnFilter.status}
-                                            onChange={(val) => setReturnFilter({ ...returnFilter, status: val })}
-                                            style={{ width: '130px', height: '38px' }}
-                                        >
-                                            <Option value="ALL">All Status</Option>
-                                            <Option value="Pending">Pending</Option>
-                                            <Option value="Approved">Approved</Option>
-                                            <Option value="Rejected">Rejected</Option>
-                                        </Select>
-                                    </div>
-                                    <div style={{ flex: '0 0 auto' }}>
-                                        <DepartmentFilterControl
-                                            departments={departments}
-                                            onDepartmentChange={(dept) => {
-                                                setSelectedDepartment(dept || '');
-                                                
-                                            }}
-                                        />
-                                    </div>
-                                    <div style={{ minWidth: '220px', flex: '1 1 200px' }}>
-                                        <Input
-                                            prefix={<Search size={16} style={{ color: '#94a3b8', marginRight: '6px' }} />}
-                                            placeholder="Search Return ID, Intent, Dept..."
-                                            value={returnFilter.search}
-                                            onChange={(e) => setReturnFilter({ ...returnFilter, search: e.target.value })}
-                                            style={{ height: '38px', borderRadius: '8px' }}
-                                        />
-                                    </div>
-                                    <S.Button onClick={() => loadIndentReturns()} style={{ background: '#0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>🔍 Filter</S.Button>
-                                    <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }} onClick={() => { setSelectedDepartment(''); setSelectedStoreDepartment(''); handleClearReturnFilter(); }}>✕ Clear</S.Button>
-                                    <S.Button secondary onClick={handleExportReturnExcel} style={{ background: '#f8fafc', color: '#0d9488', border: '1px solid #0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>
-                                        📥 Export Excel
-                                    </S.Button>
-                                </div>
-                            </div>
-                        </ConfigProvider>
-
-                        {/* Indent Returns Table */}
-                        <S.TableWrapper style={{ background: '#fff', borderRadius: '12px', border: `1px solid ${S.colors.border}`, margin: '20px 22px' }}>
-                            <S.Table>
-                                <thead>
-                                    <tr style={{ background: '#f8fafc' }}>
-                                        <S.Th style={{ padding: '15px' }}>Return Details</S.Th>
-                                        <S.Th>Original Intent & Dept</S.Th>
-                                        <S.Th>Returned Items Breakdown</S.Th>
-                                        <S.Th style={{ textAlign: 'right' }}>Total Value</S.Th>
-                                        <S.Th>Status</S.Th>
-                                        <S.Th style={{ textAlign: 'center' }}>Approval Actions</S.Th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredReturns.length === 0 ? (
-                                        <S.Tr>
-                                            <S.Td colSpan="6" style={{ textAlign: 'center', padding: '50px', color: '#94a3b8' }}>
-                                                <RotateCcw size={36} style={{ opacity: 0.3, marginBottom: '10px' }} />
-                                                <div>No indent return records found matching the filters</div>
-                                            </S.Td>
-                                        </S.Tr>
-                                    ) : (
-                                        returnPagination.pageData.map((ret) => (
-                                            <S.Tr key={ret.return_id}>
-                                                <S.Td style={{ padding: '15px' }}>
-                                                    <div style={{ color: '#0d9488', fontWeight: '800', fontSize: '0.95rem' }}>{ret.return_id}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                                                        {dayjs(ret.return_date).format('DD/MM/YYYY')}
-                                                    </div>
-                                                    <div style={{ fontSize: '0.72rem', color: '#0284c7', marginTop: '2px', fontWeight: '600' }}>
-                                                        Reason: {ret.return_reason || 'EXCESS'}
-                                                    </div>
-                                                </S.Td>
-                                                <S.Td>
-                                                    <div style={{ fontWeight: '700', color: '#1e293b' }}>{ret.department_name || ret.department}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '3px' }}>
-                                                        Intent: <strong style={{ color: S.colors.primary }}>{ret.intent_id}</strong>
-                                                    </div>
-                                                    {ret.remarks && (
-                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', fontStyle: 'italic' }}>
-                                                            "{ret.remarks}"
-                                                        </div>
-                                                    )}
-                                                </S.Td>
-                                                <S.Td>
-                                                    <div style={{ fontSize: '0.85rem' }}>
-                                                        {(ret.items || []).map((it, idx) => (
-                                                            <div key={idx} style={{
-                                                                padding: '4px 0',
-                                                                borderBottom: idx === ret.items.length - 1 ? 'none' : '1px solid #f1f5f9',
-                                                                display: 'flex',
-                                                                justifyContent: 'space-between',
-                                                                gap: '12px'
-                                                            }}>
-                                                                <div>
-                                                                    <span style={{ fontWeight: '600', color: '#334155' }}>{it.name || it.item_name}</span>
-                                                                    <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '6px' }}>
-                                                                        ({it.reason || 'EXCESS'})
-                                                                    </span>
-                                                                </div>
-                                                                <div style={{ fontWeight: '700', color: '#0d9488', whiteSpace: 'nowrap' }}>
-                                                                    {it.return_quantity || it.quantity} Units
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </S.Td>
-                                                <S.Td style={{ textAlign: 'right' }}>
-                                                    <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.95rem' }}>
-                                                        ₹{Number(ret.total_returned_value || 0).toFixed(2)}
-                                                    </div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                                        {ret.total_returned_qty || 0} Total Qty
-                                                    </div>
-                                                </S.Td>
-                                                <S.Td>
-                                                    <Badge
-                                                        type={
-                                                            ret.status === 'Approved' ? 'SUCCESS' :
-                                                                (ret.status === 'Rejected' ? 'DANGER' : 'WARNING')
-                                                        }
-                                                    >
-                                                        {ret.status}
-                                                    </Badge>
-                                                    {ret.approved_by && (
-                                                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
-                                                            By: {ret.approved_by}
-                                                        </div>
-                                                    )}
-                                                    {ret.rejection_reason && (
-                                                        <div style={{ fontSize: '0.7rem', color: '#e11d48', marginTop: '3px' }}>
-                                                            {ret.rejection_reason}
-                                                        </div>
-                                                    )}
-                                                </S.Td>
-                                                <S.Td style={{ textAlign: 'center', padding: '12px 10px' }}>
-                                                    <div className="return-action-popover-wrap" style={{ position: 'relative', display: 'inline-block' }}>
-                                                        <button
-                                                            ref={(el) => { returnAnchorRefs.current[ret.return_id] = el; }}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (openReturnPopover === ret.return_id) {
-                                                                    setOpenReturnPopover(null);
-                                                                    setReturnPopoverData(null);
-                                                                } else {
-                                                                    setOpenReturnPopover(ret.return_id);
-                                                                    setReturnPopoverData(ret);
-                                                                }
-                                                            }}
-                                                            style={{
-                                                                background: openReturnPopover === ret.return_id ? '#f0fdfa' : '#ffffff',
-                                                                border: openReturnPopover === ret.return_id ? '1.5px solid #0d9488' : '1px solid #cbd5e1',
-                                                                borderRadius: '8px',
-                                                                padding: '5px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '0.8rem',
-                                                                fontWeight: '600',
-                                                                color: openReturnPopover === ret.return_id ? '#0d9488' : '#334155',
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: '5px',
-                                                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                                                                transition: 'all 0.15s ease'
-                                                            }}
-                                                        >
-                                                            <span>Action</span>
-                                                            <MoreVertical size={13} style={{ opacity: 0.7 }} />
-                                                        </button>
-
-                                                        {openReturnPopover === ret.return_id && returnPopoverData && (
-                                                            <ReturnActionPopover
-                                                                ret={returnPopoverData}
-                                                                status={returnPopoverData.status}
-                                                                anchorEl={returnAnchorRefs.current[ret.return_id]}
-                                                                onClose={() => { setOpenReturnPopover(null); setReturnPopoverData(null); }}
-                                                                onView={() => { setOpenReturnPopover(null); setSelectedReturnForView(returnPopoverData); setShowViewReturnModal(true); }}
-                                                                onApprove={() => { setOpenReturnPopover(null); openReturnApprovalModal(returnPopoverData); }}
-                                                                onPrint={() => { setOpenReturnPopover(null); handlePrintReturn(returnPopoverData); }}
-                                                                onReject={() => { setOpenReturnPopover(null); handleOpenRejectModal(returnPopoverData.return_id); }}
-                                                                onDelete={() => { setOpenReturnPopover(null); handleDeleteReturn(returnPopoverData.return_id); }}
-                                                            />
-                                                        )}
-                                                    </div>
-                                                </S.Td>
-                                            </S.Tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </S.Table>
-                            <TablePagination
-                                currentPage={returnPagination.currentPage}
-                                totalPages={returnPagination.totalPages}
-                                pageSize={returnPagination.pageSize}
-                                totalItems={returnPagination.totalItems}
-                                startIdx={returnPagination.startIdx}
-                                goTo={returnPagination.goTo}
-                                onPageSizeChange={returnPagination.handlePageSizeChange}
-                                itemName="indent returns"
-                                themeColor="#0d9488"
-                            />
-                        </S.TableWrapper>
-                    </>
-                )}
 
                 {/* ========================================================= */}
                 {/* MODAL 1: INTENT APPROVAL */}

@@ -28,7 +28,8 @@ import {
 
 
 const DateInput = styled(Input)`
-    &[type="date"] {
+    &[type="date"],
+    &[type="month"] {
         cursor: pointer;
         &::-webkit-calendar-picker-indicator {
             cursor: pointer;
@@ -232,21 +233,43 @@ const CurrencyField = styled.input`
     }
 `;
 
-const MoneyInput = ({ value, onChange, name, readOnly, placeholder = "0.00", style, suffix }) => (
-    <CurrencyInputWrapper $readOnly={readOnly} style={style}>
-        <CurrencySymbol>₹</CurrencySymbol>
-        <CurrencyField
-            type="number"
-            step="any"
-            name={name}
-            value={value !== undefined && value !== null ? value : ''}
-            onChange={onChange}
-            readOnly={readOnly}
-            placeholder={placeholder}
-        />
-        {suffix && <SuffixSymbol>{suffix}</SuffixSymbol>}
-    </CurrencyInputWrapper>
-);
+const MoneyInput = ({ value, onChange, name, readOnly, placeholder = "0.00", style, suffix, ...rest }) => {
+    const handleNumericChange = (e) => {
+        let val = e.target.value;
+        // Strip accidental leading zero (e.g. typing 100 doesn't become 0100)
+        if (val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+            val = val.replace(/^0+/, '');
+            if (val === '') val = '0';
+            e.target.value = val;
+        }
+        // Verify numeric (allow empty, digits, single decimal point)
+        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+            if (onChange) onChange(e);
+        }
+    };
+
+    // If zero or null/undefined, display empty string instead of 0
+    const isZeroOrEmpty = value === undefined || value === null || value === '' || value === 0 || value === '0' || value === 0.0 || value === '0.00' || value === '0.0';
+    const dispVal = isZeroOrEmpty ? '' : value;
+
+    return (
+        <CurrencyInputWrapper $readOnly={readOnly} style={style}>
+            <CurrencySymbol>₹</CurrencySymbol>
+            <CurrencyField
+                type="text"
+                inputMode="decimal"
+                name={name}
+                value={dispVal}
+                onChange={handleNumericChange}
+                readOnly={readOnly}
+                placeholder={placeholder}
+                tabIndex={readOnly ? -1 : 0}
+                {...rest}
+            />
+            {suffix && <SuffixSymbol>{suffix}</SuffixSymbol>}
+        </CurrencyInputWrapper>
+    );
+};
 
 const CompactInput = styled(Input)`
     height: 30px !important;
@@ -256,6 +279,16 @@ const CompactInput = styled(Input)`
     border-radius: 4px !important;
     background: ${props => props.readOnly ? '#f8fafc' : 'white'} !important;
     box-sizing: border-box;
+
+    &[type="date"],
+    &[type="month"] {
+        cursor: pointer;
+        &::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            filter: invert(47%) sepia(82%) saturate(445%) hue-rotate(130deg) brightness(95%) contrast(92%);
+            &:hover { transform: scale(1.1); }
+        }
+    }
 `;
 
 const CompactLabel = styled.label`
@@ -266,338 +299,159 @@ const CompactLabel = styled.label`
     display: block;
 `;
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export const getFullVendorAddress = (vendor) => {
+    if (!vendor) return '';
+    if (typeof vendor === 'string') return vendor;
+    const parts = [
+        vendor.address_line1 || vendor.addressLine1 || vendor.address,
+        vendor.address_line2 || vendor.addressLine2,
+        vendor.city,
+        vendor.state,
+        vendor.pincode
+    ].filter(p => p && String(p).trim().length > 0);
+    return parts.join(', ');
+};
 
-const ExpiryDatePicker = ({ value, onChange, placeholder = "May 2027" }) => {
-    const containerRef = React.useRef(null);
-    const inputRef = React.useRef(null);
-    const [isOpen, setIsOpen] = React.useState(false);
-    const [inputText, setInputText] = React.useState('');
-    const [pickerYear, setPickerYear] = React.useState(() => dayjs().year());
-    const [error, setError] = React.useState(null);
+export const formatExpiryForMonthInput = (val) => {
+    if (!val) return '';
+    const s = String(val).trim();
+    // YYYY-MM
+    if (/^\d{4}-\d{2}$/.test(s)) return s;
+    // YYYY-MM-DD or ISO
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 7);
+    // MM/YYYY or MM-YYYY
+    const m = s.match(/^(\d{1,2})[/-](\d{4})$/);
+    if (m) {
+        return `${m[2]}-${String(m[1]).padStart(2, '0')}`;
+    }
+    const d = dayjs(s);
+    if (d.isValid()) return d.format('YYYY-MM');
+    return '';
+};
 
-    // Sync from incoming value
-    React.useEffect(() => {
-        if (value) {
-            const d = dayjs(value);
-            if (d.isValid()) {
-                setInputText(d.format('MMM YYYY'));
-                setPickerYear(d.year());
-                setError(null);
-                return;
+export const formatExpiryDisplay = (val, expMonth, expYear) => {
+    if (expMonth && expYear) return `${String(expMonth).padStart(2, '0')}/${expYear}`;
+    if (!val) return '-';
+    const s = String(val).trim();
+    const m = s.match(/^(\d{4})-(\d{2})/);
+    if (m) return `${m[2]}/${m[1]}`;
+    const d = dayjs(s);
+    if (d.isValid()) return d.format('MM/YYYY');
+    return s;
+};
+
+export const parseExpiryInput = (input) => {
+    if (!input || !String(input).trim()) return null;
+    const s = String(input).trim();
+
+    // 1. "MM/YYYY", "M/YYYY", "MM-YYYY"
+    let m = s.match(/^(\d{1,2})[\s/-](\d{4})$/);
+    if (m) {
+        const month = parseInt(m[1], 10);
+        const year = parseInt(m[2], 10);
+        if (month >= 1 && month <= 12 && year >= 2000 && year <= 2199) {
+            const mm = String(month).padStart(2, '0');
+            const lastDay = new Date(year, month, 0).getDate();
+            return {
+                formatted: `${mm}/${year}`,
+                expiry: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+                expMonth: mm,
+                expYear: String(year)
+            };
+        }
+    }
+
+    // 2. "MM/YY" or "M/YY"
+    m = s.match(/^(\d{1,2})[\s/-](\d{2})$/);
+    if (m) {
+        const month = parseInt(m[1], 10);
+        let year = parseInt(m[2], 10) + 2000;
+        if (month >= 1 && month <= 12) {
+            const mm = String(month).padStart(2, '0');
+            const lastDay = new Date(year, month, 0).getDate();
+            return {
+                formatted: `${mm}/${year}`,
+                expiry: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+                expMonth: mm,
+                expYear: String(year)
+            };
+        }
+    }
+
+    // 3. "YYYY-MM" or "YYYY/MM"
+    m = s.match(/^(\d{4})[\s/-](\d{1,2})$/);
+    if (m) {
+        const year = parseInt(m[1], 10);
+        const month = parseInt(m[2], 10);
+        if (month >= 1 && month <= 12 && year >= 2000 && year <= 2199) {
+            const mm = String(month).padStart(2, '0');
+            const lastDay = new Date(year, month, 0).getDate();
+            return {
+                formatted: `${mm}/${year}`,
+                expiry: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+                expMonth: mm,
+                expYear: String(year)
+            };
+        }
+    }
+
+    // 4. "YYYY-MM-DD"
+    m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+        const year = parseInt(m[1], 10);
+        const month = parseInt(m[2], 10);
+        if (month >= 1 && month <= 12) {
+            const mm = String(month).padStart(2, '0');
+            const lastDay = new Date(year, month, 0).getDate();
+            return {
+                formatted: `${mm}/${year}`,
+                expiry: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+                expMonth: mm,
+                expYear: String(year)
+            };
+        }
+    }
+
+    return null;
+};
+
+export const ExpiryInput = ({ value, onChange, disabled, style, placeholder, ...rest }) => {
+    // Format incoming value to YYYY-MM required by HTML <input type="month">
+    const monthVal = formatExpiryForMonthInput(value);
+
+    const handleChange = (e) => {
+        const val = e.target.value; // "YYYY-MM" or ""
+        if (val && /^\d{4}-\d{2}$/.test(val)) {
+            const [yearStr, monthStr] = val.split('-');
+            const year = parseInt(yearStr, 10);
+            const month = parseInt(monthStr, 10);
+            const lastDay = new Date(year, month, 0).getDate();
+            const formattedExpiry = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+            if (onChange) {
+                onChange({
+                    formatted: `${monthStr}/${yearStr}`,
+                    expiry: formattedExpiry,
+                    expMonth: monthStr,
+                    expYear: yearStr
+                });
             }
-        }
-        if (!value) {
-            setInputText('');
-            setError(null);
-        }
-    }, [value]);
-
-    const parseExpiryText = React.useCallback((input) => {
-        if (!input || !input.trim()) return null;
-        const s = input.trim();
-        // Format: "May 2026", "may 2026", "May2026"
-        const m1 = s.match(/^([a-zA-Z]{3,9})\s*(\d{2,4})$/);
-        if (m1) {
-            const monthStr = m1[1].slice(0, 3).toLowerCase();
-            const monthIdx = MONTH_NAMES.findIndex(m => m.toLowerCase() === monthStr);
-            let year = parseInt(m1[2], 10);
-            if (year < 100) year += 2000;
-            if (monthIdx !== -1 && year >= 2020 && year <= 2099) {
-                const monthNum = String(monthIdx + 1).padStart(2, '0');
-                const lastDay = new Date(year, monthIdx + 1, 0).getDate();
-                return {
-                    formatted: `${MONTH_NAMES[monthIdx]} ${year}`,
-                    expiry: `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`,
-                    expMonth: monthNum,
-                    expYear: String(year),
-                    monthIdx,
-                    year
-                };
-            }
-        }
-        // Format: "5 2026", "05/2026", "5/26", "5-2026"
-        const m2 = s.match(/^(\d{1,2})[\s/-]?(\d{2,4})$/);
-        if (m2) {
-            const month = parseInt(m2[1], 10);
-            let year = parseInt(m2[2], 10);
-            if (year < 100) year += 2000;
-            if (month >= 1 && month <= 12 && year >= 2020 && year <= 2099) {
-                const monthIdx = month - 1;
-                const monthNum = String(month).padStart(2, '0');
-                const lastDay = new Date(year, monthIdx + 1, 0).getDate();
-                return {
-                    formatted: `${MONTH_NAMES[monthIdx]} ${year}`,
-                    expiry: `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`,
-                    expMonth: monthNum,
-                    expYear: String(year),
-                    monthIdx,
-                    year
-                };
-            }
-        }
-        return null;
-    }, []);
-
-    const handleValidate = React.useCallback((text) => {
-        if (!text || !text.trim()) {
-            setError(null);
-            onChange(null);
-            return;
-        }
-        const parsed = parseExpiryText(text);
-        if (parsed) {
-            setInputText(parsed.formatted);
-            setPickerYear(parsed.year);
-            setError(null);
-            onChange(parsed);
         } else {
-            setError('Format: May 2026 (Month 1-12, Year 2020-2099)');
-        }
-    }, [onChange, parseExpiryText]);
-
-    // Close on click outside & validate
-    React.useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) {
-                setIsOpen(false);
-                handleValidate(inputText);
+            if (onChange) {
+                onChange(null);
             }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [inputText, handleValidate]);
-
-    const handleInputChange = (e) => {
-        let val = e.target.value;
-        
-        // Month typing intelligence:
-        // When typing single or double digits for month, auto-convert to Month name + space
-        if (val === '5') {
-            val = 'May ';
-        } else if (val === '2') {
-            val = 'Feb ';
-        } else if (val === '3') {
-            val = 'Mar ';
-        } else if (val === '4') {
-            val = 'Apr ';
-        } else if (val === '6') {
-            val = 'Jun ';
-        } else if (val === '7') {
-            val = 'Jul ';
-        } else if (val === '8') {
-            val = 'Aug ';
-        } else if (val === '9') {
-            val = 'Sep ';
-        } else if (val === '01') {
-            val = 'Jan ';
-        } else if (val === '02') {
-            val = 'Feb ';
-        } else if (val === '03') {
-            val = 'Mar ';
-        } else if (val === '04') {
-            val = 'Apr ';
-        } else if (val === '05') {
-            val = 'May ';
-        } else if (val === '06') {
-            val = 'Jun ';
-        } else if (val === '07') {
-            val = 'Jul ';
-        } else if (val === '08') {
-            val = 'Aug ';
-        } else if (val === '09') {
-            val = 'Sep ';
-        } else if (val === '10') {
-            val = 'Oct ';
-        } else if (val === '11') {
-            val = 'Nov ';
-        } else if (val === '12') {
-            val = 'Dec ';
-        }
-
-        setInputText(val);
-
-        // Check if full valid format is reached while typing (e.g. "May 2026")
-        const parsed = parseExpiryText(val);
-        if (parsed) {
-            setError(null);
-            setPickerYear(parsed.year);
-            onChange(parsed);
         }
     };
-
-    const handleSelectMonth = (monthIdx) => {
-        const year = pickerYear || dayjs().year();
-        const monthNum = String(monthIdx + 1).padStart(2, '0');
-        const lastDay = new Date(year, monthIdx + 1, 0).getDate();
-        const formatted = `${MONTH_NAMES[monthIdx]} ${year}`;
-        setInputText(formatted);
-        setError(null);
-        onChange({
-            formatted,
-            expiry: `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`,
-            expMonth: monthNum,
-            expYear: String(year),
-            monthIdx,
-            year
-        });
-        setIsOpen(false);
-    };
-
-    // Current parsed state for active button highlight in popup
-    const currentParsed = parseExpiryText(inputText);
-    const selectedMonthIdx = currentParsed ? currentParsed.monthIdx : null;
-    const selectedYear = currentParsed ? currentParsed.year : null;
 
     return (
-        <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
-                <input
-                    ref={inputRef}
-                    type="text"
-                    value={inputText}
-                    onChange={handleInputChange}
-                    onFocus={() => setIsOpen(true)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            handleValidate(inputText);
-                            setIsOpen(false);
-                        }
-                    }}
-                    placeholder={placeholder}
-                    style={{
-                        width: '100%',
-                        height: '30px',
-                        padding: '0 45px 0 8px',
-                        fontSize: '0.8rem',
-                        borderRadius: '4px',
-                        border: error ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
-                        outline: 'none',
-                        background: '#ffffff',
-                        color: '#1e293b',
-                        boxSizing: 'border-box'
-                    }}
-                />
-                <div style={{ position: 'absolute', right: '6px', display: 'flex', alignItems: 'center' }}>
-                    <span
-                        onClick={() => setIsOpen(!isOpen)}
-                        style={{ cursor: 'pointer', fontSize: '0.85rem', color: '#64748b' }}
-                        title="Open Month Picker"
-                    >
-                        📅
-                    </span>
-                </div>
-            </div>
-
-            {error && (
-                <div style={{ color: '#ef4444', fontSize: '0.68rem', marginTop: '2px', lineHeight: '1.1' }}>
-                    {error}
-                </div>
-            )}
-
-            {/* Month/Year Picker Dropdown matching attached UI */}
-            {isOpen && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        zIndex: 10005,
-                        marginTop: '4px',
-                        background: '#ffffff',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
-                        width: '280px',
-                        overflow: 'hidden',
-                        border: '1px solid #e2e8f0'
-                    }}
-                >
-                    {/* Header: << Year >> */}
-                    <div
-                        style={{
-                            background: '#1e3a8a',
-                            padding: '10px 14px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            color: 'white'
-                        }}
-                    >
-                        <button
-                            type="button"
-                            onClick={() => setPickerYear(y => y - 1)}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#93c5fd',
-                                fontSize: '1.1rem',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                padding: '2px 8px',
-                                borderRadius: '4px'
-                            }}
-                            title="Previous Year"
-                        >
-                            &laquo;
-                        </button>
-                        <span style={{ fontSize: '1rem', fontWeight: '700', color: '#ffffff', letterSpacing: '0.05em' }}>
-                            {pickerYear}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => setPickerYear(y => y + 1)}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#93c5fd',
-                                fontSize: '1.1rem',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                padding: '2px 8px',
-                                borderRadius: '4px'
-                            }}
-                            title="Next Year"
-                        >
-                            &raquo;
-                        </button>
-                    </div>
-
-                    {/* Month Grid */}
-                    <div style={{ padding: '14px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                        {MONTH_NAMES.map((mName, idx) => {
-                            const isSelected = selectedMonthIdx === idx && selectedYear === pickerYear;
-                            return (
-                                <button
-                                    key={mName}
-                                    type="button"
-                                    onClick={() => handleSelectMonth(idx)}
-                                    style={{
-                                        padding: '8px 0',
-                                        textAlign: 'center',
-                                        fontSize: '0.85rem',
-                                        fontWeight: isSelected ? '700' : '500',
-                                        color: isSelected ? '#ffffff' : '#1e293b',
-                                        background: isSelected ? '#1e3a8a' : 'transparent',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease'
-                                    }}
-                                    onMouseEnter={e => {
-                                        if (!isSelected) e.currentTarget.style.background = '#f1f5f9';
-                                    }}
-                                    onMouseLeave={e => {
-                                        if (!isSelected) e.currentTarget.style.background = 'transparent';
-                                    }}
-                                >
-                                    {mName}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-        </div>
+        <CompactInput
+            type="month"
+            name="expiry"
+            value={monthVal}
+            onChange={handleChange}
+            disabled={disabled}
+            style={{ width: '100%', ...style }}
+            {...rest}
+        />
     );
 };
 
@@ -680,6 +534,30 @@ const StoresGRNGeneration = () => {
     const [items, setItems] = useState([]);
     const [loadingItems, setLoadingItems] = useState(false);
     const [vendors, setVendors] = useState([]);
+    const [showAddVendorModal, setShowAddVendorModal] = useState(false);
+    const [newVendorData, setNewVendorData] = useState({
+        name: '',
+        vendor_type: 'SUPPLIER',
+        contact_person: '',
+        phone: '',
+        email: '',
+        gstin: '',
+        address_line1: '',
+        address_line2: '',
+        city: '',
+        state: '',
+        pincode: ''
+    });
+
+    const vendorOptions = useMemo(() => {
+        return (vendors || [])
+            .map(v => ({
+                value: v.vendor_id,
+                label: v.name || v.vendor_name || 'Unnamed Vendor',
+                vendor: v
+            }))
+            .sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
+    }, [vendors]);
     const [departments, setDepartments] = useState([]);
     const [groups, setGroups] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -759,23 +637,23 @@ const StoresGRNGeneration = () => {
         packing: 1,
         no_of_unit: 1,
         quantity: 1,
-        free: 0,
-        itemValue: 0,
-        packingPrice: 0,
-        unitPrice: 0,
+        free: '',
+        itemValue: '',
+        packingPrice: '',
+        unitPrice: '',
         tax: 5,
         purchaseTaxInclusive: true,
-        purchaseDiscountPercent: 0,
-        purchaseDiscountAmt: 0,
+        purchaseDiscountPercent: '',
+        purchaseDiscountAmt: '',
         deductDiscountForTax: false,
-        purchaseCost: 0,
-        mrp: 0,
-        maxPackingMrp: 0,
+        purchaseCost: '',
+        mrp: '',
+        maxPackingMrp: '',
         sellingTax: 5,
         sellingTaxInclusive: true,
-        sellingDiscountPercent: 0,
-        price: 0,
-        ipPrice: 0,
+        sellingDiscountPercent: '',
+        price: '',
+        ipPrice: '',
         calcTaxOnFree: false,
         isReplacement: false,
         totalStock: 0,
@@ -793,9 +671,40 @@ const StoresGRNGeneration = () => {
     const [showAddItemMasterModal, setShowAddItemMasterModal] = useState(false);
     const [showVendorListModal, setShowVendorListModal] = useState(false);
     const [vendorSearchQuery, setVendorSearchQuery] = useState('');
+    const [itemSearchText, setItemSearchText] = useState('');
     const [hsnSearchActive, setHsnSearchActive] = useState(false);
     const [hsnSuggestions, setHsnSuggestions] = useState([]);
     const [isHsnSearching, setIsHsnSearching] = useState(false);
+    const [savingHsn, setSavingHsn] = useState(false);
+
+    const handleSaveHsnToItemMaster = async () => {
+        if (!currentItem.item_id) {
+            alert('Please select an item first.');
+            return;
+        }
+        if (!currentItem.hsn || !currentItem.hsn.trim()) {
+            alert('Please enter an HSN code before saving.');
+            return;
+        }
+        const hsnVal = currentItem.hsn.trim();
+        try {
+            setSavingHsn(true);
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/${currentItem.item_id}/`, 'PATCH', {
+                hsn: hsnVal
+            });
+            if (res?.success) {
+                alert(`HSN code "${hsnVal}" saved to ${currentItem.name || 'item'} successfully!`);
+                setItems(prev => prev.map(it => it.item_id === currentItem.item_id ? { ...it, hsn: hsnVal } : it));
+            } else {
+                alert('Failed to save HSN: ' + (res?.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Error saving HSN to item master:', err);
+            alert('Error saving HSN to item master');
+        } finally {
+            setSavingHsn(false);
+        }
+    };
     const hsnDropdownRef = useRef(null);
 
     const [newItemMasterData, setNewItemMasterData] = useState({
@@ -839,7 +748,8 @@ const StoresGRNGeneration = () => {
             }));
     }, [categories, newItemMasterData.group]);
 
-    const itemSelectOptions = useMemo(() => {
+    // Memoize the mapped items for current department
+    const departmentItemsList = useMemo(() => {
         const filtered = items.filter(i => {
             if (!formData.department) return true;
             const targetDept = String(formData.department).toLowerCase().trim();
@@ -861,20 +771,74 @@ const StoresGRNGeneration = () => {
             }
             return false;
         });
+
         return filtered.map(i => ({
             value: i.item_id,
             label: i.itemName,
             hsn: i.hsn || '',
             stock: i.total_quantity || 0,
             deptStock: i.approved_quantity || 0
-        }));
+        })).sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
     }, [items, formData.department, departments]);
 
+    // Limit active visible search options to 100 to keep the DOM blazing fast with zero lag
+    const itemSelectOptions = useMemo(() => {
+        const q = (itemSearchText || '').trim().toLowerCase();
+        if (!q) {
+            return departmentItemsList.slice(0, 80);
+        }
+
+        // Search match ranking:
+        // Score 0: exact match
+        // Score 1: begins with query (e.g., 'PENCIL' for 'penc')
+        // Score 2: any word begins with query (e.g., 'WHITE PENCIL LAB' for 'penc')
+        // Score 3: contains query as substring (e.g., 'FUNCTION EXPENCES' for 'penc')
+        // Score 4: hsn or item_id matches query
+        const ranked = [];
+        for (let idx = 0; idx < departmentItemsList.length; idx++) {
+            const opt = departmentItemsList[idx];
+            const name = (opt.label || '').toLowerCase();
+            const hsn = (opt.hsn || '').toLowerCase();
+            const val = (opt.value || '').toLowerCase();
+
+            let score = 999;
+            if (name === q) {
+                score = 0;
+            } else if (name.startsWith(q)) {
+                score = 1;
+            } else {
+                const words = name.split(/\s+/);
+                if (words.some(w => w.startsWith(q))) {
+                    score = 2;
+                } else if (name.includes(q)) {
+                    score = 3;
+                } else if (hsn.includes(q) || val.includes(q)) {
+                    score = 4;
+                }
+            }
+
+            if (score < 999) {
+                ranked.push({ ...opt, _searchScore: score });
+            }
+        }
+
+        ranked.sort((a, b) => {
+            if (a._searchScore !== b._searchScore) {
+                return a._searchScore - b._searchScore;
+            }
+            return (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' });
+        });
+
+        return ranked.slice(0, 100);
+    }, [departmentItemsList, itemSearchText]);
+
     const departmentOptions = useMemo(() => {
-        return departments.map(d => ({
-            value: d.department_id || d.id || d.name,
-            label: d.department_name || d.name
-        }));
+        return (departments || [])
+            .map(d => ({
+                value: d.department_id || d.id || d.name,
+                label: d.department_name || d.name
+            }))
+            .sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
     }, [departments]);
 
     const [currentItem, setCurrentItem] = useState(initialCurrentItemState);
@@ -988,12 +952,17 @@ const StoresGRNGeneration = () => {
         }
     }, [editGrn, vendors]);
 
-    const isInitialDeptMount = useRef(true);
+    const lastFetchedDeptRef = useRef(null);
 
-    const fetchItemsByDepartment = async (deptId = '') => {
+    const fetchItemsByDepartment = async (deptId = '', force = false) => {
+        const cleanDept = String(deptId || '').trim();
+        if (!force && lastFetchedDeptRef.current === cleanDept) {
+            return;
+        }
+        lastFetchedDeptRef.current = cleanDept;
         setLoadingItems(true);
         try {
-            const query = deptId ? `?department=${encodeURIComponent(deptId)}` : '';
+            const query = cleanDept ? `?department=${encodeURIComponent(cleanDept)}` : '';
             const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/${query}`);
             if (res?.success && Array.isArray(res.data)) {
                 setItems(res.data);
@@ -1005,54 +974,129 @@ const StoresGRNGeneration = () => {
         }
     };
 
-    // Whenever formData.department changes, get items based on department, or all items if no department selected
+    // Whenever formData.department changes, get items based on department if not already fetched
     useEffect(() => {
-        if (isInitialDeptMount.current) {
-            isInitialDeptMount.current = false;
-            return;
+        if (formData.department && formData.department !== lastFetchedDeptRef.current) {
+            fetchItemsByDepartment(formData.department);
         }
-        fetchItemsByDepartment(formData.department);
     }, [formData.department]);
 
     const fetchMasters = async () => {
         try {
-            const deptQuery = formData.department ? `?department=${encodeURIComponent(formData.department)}` : '';
-            const [itemsRes, storeVendorsRes, deptsRes, groupsRes, catsRes, groupTypesRes] = await Promise.all([
-                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/${deptQuery}`),
-                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/general-store-vendors/`),
-                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`),
+            // Determine active department immediately
+            const activeDept = formData.department || getSelectedStoreDepartment() || '';
+            const deptQuery = activeDept ? `?department=${encodeURIComponent(activeDept)}` : '';
+            lastFetchedDeptRef.current = String(activeDept || '').trim();
+
+            // Priority 1: High-priority immediate calls to render the GRN form without waiting
+            setLoadingItems(true);
+            const pItems = apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/${deptQuery}`)
+                .then(itemsRes => {
+                    if (itemsRes?.success && Array.isArray(itemsRes.data)) {
+                        setItems(itemsRes.data);
+                    }
+                })
+                .catch(err => console.error("Error fetching items:", err))
+                .finally(() => setLoadingItems(false));
+
+            const pVendors = apiRequest(`${getBaseUrl.replace(/\/$/, '')}/general-store-vendors/`)
+                .then(storeVendorsRes => {
+                    if (storeVendorsRes?.success) {
+                        const list = Array.isArray(storeVendorsRes.data)
+                            ? storeVendorsRes.data
+                            : Array.isArray(storeVendorsRes.data?.data)
+                                ? storeVendorsRes.data.data
+                                : [];
+                        setVendors(list);
+                    }
+                })
+                .catch(err => console.error("Error fetching vendors:", err));
+
+            const pDepts = apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`)
+                .then(deptsRes => {
+                    if (deptsRes?.success && Array.isArray(deptsRes.data)) {
+                        setDepartments(deptsRes.data);
+                        if (activeDept && !formData.department) {
+                            setFormData(prev => ({ ...prev, department: activeDept }));
+                        }
+                    }
+                })
+                .catch(err => console.error("Error fetching departments:", err));
+
+            // Priority 2: Secondary masters loaded lazily only when modal is requested
+            await Promise.all([pItems, pVendors, pDepts]);
+        } catch (error) {
+            console.error("Error in fetchMasters:", error);
+        }
+    };
+
+    const hasLoadedSecondaryMasters = useRef(false);
+    const loadSecondaryMasters = async () => {
+        if (hasLoadedSecondaryMasters.current) return;
+        hasLoadedSecondaryMasters.current = true;
+        try {
+            const [groupsRes, catsRes, groupTypesRes] = await Promise.all([
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/category-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-type-master/`)
             ]);
-            if (itemsRes.success) setItems(itemsRes.data);
-            if (storeVendorsRes?.success) {
-                const list = Array.isArray(storeVendorsRes.data)
-                    ? storeVendorsRes.data
-                    : Array.isArray(storeVendorsRes.data?.data)
-                        ? storeVendorsRes.data.data
-                        : [];
-                setVendors(list);
-            }
-            if (deptsRes.success) {
-                setDepartments(deptsRes.data);
-                const activeDept = getSelectedStoreDepartment();
-                if (activeDept && !formData.department) {
-                    setFormData(prev => ({ ...prev, department: activeDept }));
-                    fetchItemsByDepartment(activeDept);
-                }
-            }
-            if (groupsRes.success) setGroups(groupsRes.data);
-            if (catsRes.success) setCategories(catsRes.data);
-            if (groupTypesRes.success) setGroupTypes(groupTypesRes.data);
-        } catch (error) {
-            console.error("Error fetching masters:", error);
+            if (groupsRes?.success) setGroups(groupsRes.data);
+            if (catsRes?.success) setCategories(catsRes.data);
+            if (groupTypesRes?.success) setGroupTypes(groupTypesRes.data);
+        } catch (err) {
+            console.error("Error fetching secondary masters:", err);
+            hasLoadedSecondaryMasters.current = false;
         }
     };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
+    };
+
+    const handleSaveNewVendor = async () => {
+        if (!newVendorData.name.trim()) {
+            alert('Please enter Vendor Name');
+            return;
+        }
+        try {
+            setLoading(true);
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/general-store-vendors/`, 'POST', newVendorData);
+            if (res?.success && res.data) {
+                const created = res.data;
+                setVendors(prev => [created, ...prev]);
+                const fullAddr = getFullVendorAddress(created);
+                setFormData(prev => ({
+                    ...prev,
+                    vendor_id: created.vendor_id,
+                    supplier_address: fullAddr,
+                    contact_person: created.contact_person || '',
+                    phone: created.phone || ''
+                }));
+                setShowAddVendorModal(false);
+                setNewVendorData({
+                    name: '',
+                    vendor_type: 'SUPPLIER',
+                    contact_person: '',
+                    phone: '',
+                    email: '',
+                    gstin: '',
+                    address_line1: '',
+                    address_line2: '',
+                    city: '',
+                    state: '',
+                    pincode: ''
+                });
+                alert('New Vendor added successfully!');
+            } else {
+                alert('Failed to save vendor: ' + (res?.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Error saving vendor:', err);
+            alert('Error saving vendor');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleClearVendor = (e) => {
@@ -1071,8 +1115,8 @@ const StoresGRNGeneration = () => {
         setFormData(prev => ({
             ...prev,
             vendor_id: vendor.vendor_id,
-            supplier_address: vendor.addressLine1 || vendor.address_line_1 || vendor.address || '',
-            contact_person: vendor.contactPerson || vendor.contact_person || '',
+            supplier_address: getFullVendorAddress(vendor),
+            contact_person: vendor.contact_person || vendor.contactPerson || '',
             phone: vendor.phone || ''
         }));
         setShowVendorListModal(false);
@@ -1093,19 +1137,55 @@ const StoresGRNGeneration = () => {
 
     const handleCurrentItemChange = (e) => {
         let { name, value, type, checked } = e.target;
-        const val = type === 'checkbox' ? checked : value;
+        let val = type === 'checkbox' ? checked : value;
 
         const newCurrentItem = { ...currentItem, [name]: val };
+        // Prevent leading zeros when typing (e.g. typing 100 doesn't become 0100)
+        if (name !== 'expiry' && typeof val === 'string' && val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+            val = val.replace(/^0+/, '');
+            newCurrentItem[name] = val;
+        }
+
+        if (name === 'expiry') {
+            if (val) {
+                const parts = val.split('-');
+                if (parts.length >= 2) {
+                    newCurrentItem.expYear = parts[0];
+                    newCurrentItem.expMonth = parts[1];
+                    const year = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10);
+                    if (!isNaN(year) && !isNaN(month)) {
+                        const lastDay = new Date(year, month, 0).getDate();
+                        newCurrentItem.expiry = `${parts[0]}-${parts[1]}-${String(lastDay).padStart(2, '0')}`;
+                    }
+                }
+            } else {
+                newCurrentItem.expYear = '';
+                newCurrentItem.expMonth = '';
+                newCurrentItem.expiry = '';
+            }
+        }
+
         if (name === 'packing' || name === 'no_of_unit') {
             const p = parseFloat(name === 'packing' ? val : newCurrentItem.packing) || 0;
             const n = parseFloat(name === 'no_of_unit' ? val : newCurrentItem.no_of_unit) || 0;
             newCurrentItem.quantity = p * n;
         }
 
-        if (name === 'mrp' || name === 'packing') {
-            const m = parseFloat(name === 'mrp' ? val : newCurrentItem.mrp) || 0;
-            const p = parseFloat(name === 'packing' ? val : newCurrentItem.packing) || 1;
-            newCurrentItem.maxPackingMrp = m * p;
+        // Calculate MRP and Packing MRP based on Quantity
+        const currQty = parseFloat(newCurrentItem.quantity) || 1;
+        if (name === 'mrp') {
+            const m = parseFloat(val) || 0;
+            newCurrentItem.maxPackingMrp = currQty > 0 ? Number((m * currQty).toFixed(2)) : m;
+        } else if (name === 'maxPackingMrp') {
+            const mp = parseFloat(val) || 0;
+            newCurrentItem.mrp = currQty > 0 ? Number((mp / currQty).toFixed(2)) : mp;
+        } else if (name === 'quantity' || name === 'packing' || name === 'no_of_unit') {
+            const q = parseFloat(newCurrentItem.quantity) || 0;
+            const m = parseFloat(newCurrentItem.mrp) || 0;
+            if (m > 0 && q > 0) {
+                newCurrentItem.maxPackingMrp = Number((m * q).toFixed(2));
+            }
         }
 
         if (name === 'itemValue' || name === 'purchaseDiscountPercent') {
@@ -1118,8 +1198,8 @@ const StoresGRNGeneration = () => {
             newCurrentItem.purchaseDiscountPercent = iv > 0 ? Number(((pda / iv) * 100).toFixed(2)) : 0;
         }
 
-        if (name === 'sellingDiscountPercent' || name === 'mrp') {
-            const m = parseFloat(name === 'mrp' ? val : newCurrentItem.mrp) || 0;
+        if (name === 'sellingDiscountPercent' || name === 'mrp' || name === 'maxPackingMrp') {
+            const m = parseFloat(newCurrentItem.mrp) || 0;
             const sd = parseFloat(name === 'sellingDiscountPercent' ? val : newCurrentItem.sellingDiscountPercent) || 0;
             const sp = m > 0 ? Number((m * (1 - sd / 100)).toFixed(2)) : 0;
             newCurrentItem.price = sp;
@@ -1169,7 +1249,7 @@ const StoresGRNGeneration = () => {
                     totalStock: stock,
                     deptStock: deptStock,
                     mrp: itemMrp,
-                    maxPackingMrp: itemMrp * (parseFloat(prev.packing) || 1),
+                    maxPackingMrp: itemMrp * (parseFloat(prev.quantity) || 1),
                     itemValue: itemRate,
                     unitPrice: (parseFloat(prev.quantity) || 1) > 0 ? itemRate / (parseFloat(prev.quantity) || 1) : itemRate,
                     tax: taxBracket,
@@ -1195,6 +1275,7 @@ const StoresGRNGeneration = () => {
             }));
         }
         setHsnSearchActive(false);
+        setItemSearchText('');
     };
 
     const handleHsnInputChange = (e) => {
@@ -1319,6 +1400,7 @@ const StoresGRNGeneration = () => {
         setShowAddItemModal(false);
         setEditingItemId(null);
         setHsnSearchActive(false);
+        setItemSearchText('');
         setCurrentItem(initialCurrentItemState);
     };
 
@@ -1409,6 +1491,21 @@ const StoresGRNGeneration = () => {
             calculateTaxOnFree: currentItem.calcTaxOnFree || false,
             freeTaxAmt: Number(currFreeTax.toFixed(2))
         };
+
+        // Auto-save HSN to item master if provided/updated
+        if (currentItem.item_id && currentItem.hsn && currentItem.hsn.trim()) {
+            const trimmedHsn = currentItem.hsn.trim();
+            const originalItem = items.find(i => i.item_id === currentItem.item_id);
+            if (originalItem && originalItem.hsn !== trimmedHsn) {
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/${currentItem.item_id}/`, 'PATCH', {
+                    hsn: trimmedHsn
+                }).then(res => {
+                    if (res?.success) {
+                        setItems(prev => prev.map(it => it.item_id === currentItem.item_id ? { ...it, hsn: trimmedHsn } : it));
+                    }
+                }).catch(() => {});
+            }
+        }
 
         if (editingItemId) {
             setGrnItems(grnItems.map(item => item.id === editingItemId ? newItem : item));
@@ -1663,15 +1760,38 @@ const StoresGRNGeneration = () => {
                             </p>
                         </div>
 
-                        {location.state?.fromAnalysis && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Button
-                                secondary
-                                style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(10px)', fontWeight: '600' }}
+                                type="button"
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.22)',
+                                    color: '#ffffff',
+                                    border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                                    backdropFilter: 'blur(10px)',
+                                    fontWeight: '700',
+                                    padding: '8px 18px',
+                                    borderRadius: '8px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+                                    cursor: 'pointer'
+                                }}
                                 onClick={() => navigate('/StoresGRNReport')}
+                                title="Open GRN Reports & Analysis Dashboard"
                             >
-                                ← Back to Report
+                                📊 GRN Reports & Analysis
                             </Button>
-                        )}
+                            {location.state?.fromAnalysis && (
+                                <Button
+                                    secondary
+                                    style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(10px)', fontWeight: '600' }}
+                                    onClick={() => navigate('/StoresGRNReport')}
+                                >
+                                    ← Back to Report
+                                </Button>
+                            )}
+                        </div>
                     </GlassHeader>
 
                     {/* 2. Main Form Content */}
@@ -1862,93 +1982,66 @@ const StoresGRNGeneration = () => {
 
                                 {/* Row 2: Vendor, Credit, Payment Mode, Phone */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
-                                    <div style={{ gridColumn: 'span 4' }}>
-                                        <Label required>Vendor</Label>
-                                        <div
-                                            onClick={() => {
-                                                if (!isVerified) {
-                                                    setVendorSearchQuery('');
-                                                    setShowVendorListModal(true);
+                                    <div style={{ gridColumn: 'span 6' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                            <Label required style={{ margin: 0 }}>Vendor</Label>
+                                            {!isVerified && (
+                                                <span
+                                                    onClick={() => setShowAddVendorModal(true)}
+                                                    style={{
+                                                        color: '#0d9488',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: '700',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        padding: '1px 6px',
+                                                        borderRadius: '4px',
+                                                        background: '#f0fdfa',
+                                                        border: '1px solid #99f6e4'
+                                                    }}
+                                                    title="Add new vendor"
+                                                >
+                                                    + Add New Vendor
+                                                </span>
+                                            )}
+                                        </div>
+                                        <Select
+                                            options={vendorOptions}
+                                            value={vendorOptions.find(o => o.value === formData.vendor_id) || null}
+                                            onChange={(opt) => {
+                                                if (opt && opt.vendor) {
+                                                    const v = opt.vendor;
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        vendor_id: v.vendor_id,
+                                                        supplier_address: getFullVendorAddress(v),
+                                                        contact_person: v.contact_person || v.contactPerson || '',
+                                                        phone: v.phone || ''
+                                                    }));
+                                                } else {
+                                                    handleClearVendor();
                                                 }
                                             }}
-                                            style={{
-                                                width: '100%',
-                                                height: '34px',
-                                                padding: '0 10px',
-                                                borderRadius: '6px',
-                                                border: `1px solid ${formData.vendor_id ? '#0d9488' : colors.border}`,
-                                                backgroundColor: isVerified ? '#f1f5f9' : (formData.vendor_id ? '#f0fdfa' : '#ffffff'),
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                cursor: isVerified ? 'not-allowed' : 'pointer',
-                                                transition: 'all 0.15s ease',
-                                                boxShadow: formData.vendor_id ? '0 0 0 1px rgba(13,148,136,0.1)' : 'none',
-                                                overflow: 'hidden',
-                                                boxSizing: 'border-box'
+                                            placeholder="Select Vendor..."
+                                            isClearable
+                                            isDisabled={isVerified}
+                                            menuPortalTarget={document.body}
+                                            styles={{
+                                                menuPortal: base => ({ ...base, zIndex: 99999 }),
+                                                control: base => ({
+                                                    ...base,
+                                                    minHeight: '34px',
+                                                    height: '34px',
+                                                    borderRadius: '6px',
+                                                    borderColor: colors.border
+                                                })
                                             }}
-                                            title={(() => {
-                                                if (isVerified) return 'Vendor locked';
-                                                const found = vendors.find(v => v.vendor_id === formData.vendor_id);
-                                                return found ? `${found.name || found.vendor_name} (Click to change vendor)` : 'Click to select vendor from modal';
-                                            })()}
-                                        >
-                                            <div style={{
-                                                flex: 1,
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                                fontSize: '0.85rem',
-                                                color: formData.vendor_id ? '#0f172a' : '#94a3b8',
-                                                fontWeight: formData.vendor_id ? '600' : 'normal',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px'
-                                            }}>
-                                                <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>🏢</span>
-                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {(() => {
-                                                        if (!formData.vendor_id) return 'Click to select vendor...';
-                                                        const found = vendors.find(v => v.vendor_id === formData.vendor_id);
-                                                        return found ? (found.name || found.vendor_name) : formData.vendor_id;
-                                                    })()}
-                                                </span>
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px', flexShrink: 0 }}>
-                                                {formData.vendor_id && !isVerified && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleClearVendor}
-                                                        title="Clear selected vendor"
-                                                        style={{
-                                                            background: 'transparent',
-                                                            border: 'none',
-                                                            color: '#94a3b8',
-                                                            cursor: 'pointer',
-                                                            padding: '2px 5px',
-                                                            fontSize: '12px',
-                                                            lineHeight: 1,
-                                                            borderRadius: '4px'
-                                                        }}
-                                                        onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                                                        onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ gridColumn: 'span 2' }}>
-                                        <Label>Vendor ID</Label>
-                                        <Input
-                                            value={formData.vendor_id}
-                                            readOnly
-                                            style={{ backgroundColor: '#f8fafc', fontWeight: '600', textAlign: 'center', height: '34px' }}
                                         />
                                     </div>
+
+
 
                                     <div style={{ gridColumn: 'span 2' }}>
                                         <Label>Credit (Days)</Label>
@@ -2005,7 +2098,11 @@ const StoresGRNGeneration = () => {
                                     <div style={{ gridColumn: 'span 8' }}>
                                         <Label>Office Address</Label>
                                         <Input
-                                            value={formData.supplier_address}
+                                            value={(() => {
+                                                if (formData.supplier_address) return formData.supplier_address;
+                                                const v = vendors.find(item => item.vendor_id === formData.vendor_id);
+                                                return v ? getFullVendorAddress(v) : '';
+                                            })()}
                                             readOnly
                                             style={{ backgroundColor: '#f8fafc', height: '34px' }}
                                         />
@@ -2056,21 +2153,14 @@ const StoresGRNGeneration = () => {
                                                 <Td style={{ textAlign: 'center', width: '50px' }}>{index + 1}</Td>
                                                 <Td style={{ fontWeight: '600', color: colors.primaryDark }}>
                                                     <div>{item.name || item.itemName}</div>
-                                                    {item.department && (
-                                                        <span style={{ fontSize: '0.72rem', color: '#0d9488', fontWeight: '500', background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '1px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '3px' }}>
-                                                            {(() => {
-                                                                const d = departments.find(dep => String(dep.department_id) === String(item.department) || String(dep.id) === String(item.department) || String(dep.department_name).toLowerCase() === String(item.department).toLowerCase() || String(dep.name).toLowerCase() === String(item.department).toLowerCase());
-                                                                return d ? (d.department_name || d.name) : item.department;
-                                                            })()}
-                                                        </span>
-                                                    )}
+                                                    
                                                 </Td>
                                                 <Td style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: '0.8rem', color: '#475569' }}>{item.hsn || '-'}</Td>
                                                 <Td>{item.batch || '-'}</Td>
                                                 <Td>{item.packing}</Td>
                                                 <Td style={{ textAlign: 'center', fontWeight: '500' }}>{item.quantity}</Td>
                                                 <Td style={{ textAlign: 'center' }}>{item.free}</Td>
-                                                <Td>{item.expiry || '-'}</Td>
+                                                <Td>{formatExpiryDisplay(item.expiry, item.expMonth, item.expYear)}</Td>
                                                 <Td style={{ textAlign: 'right', color: '#64748b' }}>₹{parseFloat(item.mrp || 0).toFixed(2)}</Td>
                                                 <Td style={{ textAlign: 'right', fontWeight: '500' }}>₹{parseFloat(item.unitPrice || 0).toFixed(2)}</Td>
                                                 <Td style={{ textAlign: 'center' }}>{item.cgstPercent}%</Td>
@@ -2321,16 +2411,34 @@ const StoresGRNGeneration = () => {
 
                 {showVendorListModal && (() => {
                     const q = (vendorSearchQuery || '').toLowerCase().trim();
-                    const filteredVendors = vendors.filter(v => {
-                        if (!q) return true;
-                        const name = (v.name || v.vendor_name || '').toLowerCase();
-                        const code = (v.vendor_id || '').toLowerCase();
-                        const contact = (v.contactPerson || v.contact_person || '').toLowerCase();
-                        const phone = (v.phone || '').toLowerCase();
-                        const gstin = (v.gstin || '').toLowerCase();
-                        const city = (v.city || '').toLowerCase();
-                        return name.includes(q) || code.includes(q) || contact.includes(q) || phone.includes(q) || gstin.includes(q) || city.includes(q);
-                    });
+                    const filteredVendors = vendors
+                        .filter(v => {
+                            if (!q) return true;
+                            const name = (v.name || v.vendor_name || '').toLowerCase();
+                            const code = (v.vendor_id || '').toLowerCase();
+                            const contact = (v.contactPerson || v.contact_person || '').toLowerCase();
+                            const phone = (v.phone || '').toLowerCase();
+                            const gstin = (v.gstin || '').toLowerCase();
+                            const city = (v.city || '').toLowerCase();
+                            return name.includes(q) || code.includes(q) || contact.includes(q) || phone.includes(q) || gstin.includes(q) || city.includes(q);
+                        })
+                        .map(v => {
+                            if (!q) return { ...v, _score: 0 };
+                            const name = (v.name || v.vendor_name || '').toLowerCase();
+                            let score = 99;
+                            if (name === q) score = 0;
+                            else if (name.startsWith(q)) score = 1;
+                            else if (name.split(/\s+/).some(w => w.startsWith(q))) score = 2;
+                            else if (name.includes(q)) score = 3;
+                            else score = 4;
+                            return { ...v, _score: score };
+                        })
+                        .sort((a, b) => {
+                            if (q && a._score !== b._score) return a._score - b._score;
+                            const nameA = a.name || a.vendor_name || '';
+                            const nameB = b.name || b.vendor_name || '';
+                            return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+                        });
 
                     return (
                         <ModalOverlay onClick={e => e.target === e.currentTarget && setShowVendorListModal(false)} style={{ zIndex: 10000 }}>
@@ -2517,7 +2625,7 @@ const StoresGRNGeneration = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
                                         <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
                                             {formData.vendor_id ? (
-                                                <span>Current Selection: <strong style={{ color: '#0d9488' }}>{vendors.find(v => v.vendor_id === formData.vendor_id)?.name || formData.vendor_id}</strong> ({formData.vendor_id})</span>
+                                                <span>Current Selection: <strong style={{ color: '#0d9488' }}>{vendors.find(v => v.vendor_id === formData.vendor_id)?.name || formData.vendor_id}</strong> </span>
                                             ) : (
                                                 <span>No vendor selected yet</span>
                                             )}
@@ -2553,22 +2661,35 @@ const StoresGRNGeneration = () => {
                                                     <CompactLabel required style={{ margin: 0 }}>Item Name</CompactLabel>
                                                     {formData.department ? (
                                                         <span style={{ fontSize: '0.72rem', color: '#0d9488', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>
-                                                            Dept: {departments.find(d => String(d.department_id) === String(formData.department) || String(d.id) === String(formData.department) || String(d.department_name).toLowerCase() === String(formData.department).toLowerCase())?.department_name || formData.department} ({itemSelectOptions.length} items)
+                                                            Dept: {departments.find(d => String(d.department_id) === String(formData.department) || String(d.id) === String(formData.department) || String(d.department_name).toLowerCase() === String(formData.department).toLowerCase())?.department_name || formData.department} ({departmentItemsList.length} items)
                                                         </span>
                                                     ) : (
                                                         <span style={{ fontSize: '0.72rem', color: '#64748b', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: '4px', fontWeight: '500' }}>
-                                                            All Departments ({itemSelectOptions.length} items)
+                                                            All Departments ({departmentItemsList.length} items)
                                                         </span>
                                                     )}
                                                 </div>
-                                                <span
+                                                <button
+                                                    type="button"
                                                     onClick={() => {
+                                                        loadSecondaryMasters();
                                                         const activeDept = formData.department || getSelectedStoreDepartment();
                                                         if (activeDept) {
                                                             setNewItemMasterData(prev => ({ ...prev, department: activeDept }));
                                                         }
                                                         setShowAddItemMasterModal(true);
                                                     }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            const activeDept = formData.department || getSelectedStoreDepartment();
+                                                            if (activeDept) {
+                                                                setNewItemMasterData(prev => ({ ...prev, department: activeDept }));
+                                                            }
+                                                            setShowAddItemMasterModal(true);
+                                                        }
+                                                    }}
+                                                    tabIndex={0}
                                                     style={{
                                                         color: '#0d9488',
                                                         fontSize: '0.78rem',
@@ -2584,7 +2705,7 @@ const StoresGRNGeneration = () => {
                                                     }}
                                                 >
                                                     ➕ Add New Item
-                                                </span>
+                                                </button>
                                             </div>
                                             <Select
                                                 isLoading={loadingItems}
@@ -2594,16 +2715,19 @@ const StoresGRNGeneration = () => {
                                                     label: currentItem.name,
                                                     hsn: currentItem.hsn
                                                 } : null}
-                                                onChange={handleItemSelect}
-                                                placeholder={loadingItems ? "Loading department items..." : (formData.department ? "Search items in selected department..." : "Type item name or HSN code to search (All Departments)...")}
-                                                filterOption={(candidate, input) => {
-                                                    if (!input) return true;
-                                                    const q = input.toLowerCase().trim();
-                                                    const name = (candidate.data.label || '').toLowerCase();
-                                                    const hsn = (candidate.data.hsn || '').toLowerCase();
-                                                    const id = (candidate.data.value || '').toLowerCase();
-                                                    return name.includes(q) || hsn.includes(q) || id.includes(q);
+                                                onChange={(opt) => {
+                                                    setItemSearchText('');
+                                                    handleItemSelect(opt);
                                                 }}
+                                                onInputChange={(val, { action }) => {
+                                                    if (action === 'input-change') {
+                                                        setItemSearchText(val);
+                                                    } else if (action === 'menu-close' || action === 'set-value') {
+                                                        setItemSearchText('');
+                                                    }
+                                                }}
+                                                placeholder={loadingItems ? "Loading department items..." : (formData.department ? "Search items in selected department..." : "Type item name or HSN code to search (All Departments)...")}
+                                                filterOption={() => true}
                                                 formatOptionLabel={(option) => (
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                                                         <span style={{ fontWeight: 500, color: '#1e293b' }}>{option.label}</span>
@@ -2648,10 +2772,42 @@ const StoresGRNGeneration = () => {
                                         {/* 2. HSN Code, Batch, Expiry */}
                                         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '10px' }}>
                                             <div style={{ position: 'relative' }} ref={hsnDropdownRef}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <CompactLabel>HSN Code</CompactLabel>
-                                                    {isHsnSearching && (
-                                                        <span style={{ fontSize: '0.68rem', color: '#0d9488', fontWeight: 600 }}>Searching...</span>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <CompactLabel style={{ margin: 0 }}>HSN Code</CompactLabel>
+                                                        {isHsnSearching && (
+                                                            <span style={{ fontSize: '0.68rem', color: '#0d9488', fontWeight: 600 }}>Searching...</span>
+                                                        )}
+                                                    </div>
+                                                    {currentItem.item_id && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleSaveHsnToItemMaster}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                                    e.preventDefault();
+                                                                    handleSaveHsnToItemMaster();
+                                                                }
+                                                            }}
+                                                            tabIndex={0}
+                                                            style={{
+                                                                fontSize: '0.7rem',
+                                                                color: currentItem.hsn ? '#0d9488' : '#94a3b8',
+                                                                fontWeight: '700',
+                                                                cursor: currentItem.hsn ? 'pointer' : 'default',
+                                                                background: currentItem.hsn ? '#f0fdfa' : '#f8fafc',
+                                                                border: `1px solid ${currentItem.hsn ? '#99f6e4' : '#e2e8f0'}`,
+                                                                padding: '1px 6px',
+                                                                borderRadius: '4px',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '3px',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                            title={currentItem.hsn ? "Click or press Enter to save this HSN code directly to the Item Master database" : "Enter HSN code to save to item"}
+                                                        >
+                                                            {savingHsn ? 'Saving...' : '💾 Save HSN to Item'}
+                                                        </button>
                                                     )}
                                                 </div>
                                                 <div style={{ position: 'relative' }}>
@@ -2789,8 +2945,8 @@ const StoresGRNGeneration = () => {
                                             </div>
                                             <div>
                                                 <CompactLabel>Expiry</CompactLabel>
-                                                <ExpiryDatePicker
-                                                    value={currentItem.expiry}
+                                                <ExpiryInput
+                                                    value={currentItem.expiry || (currentItem.expYear && currentItem.expMonth ? `${currentItem.expYear}-${String(currentItem.expMonth).padStart(2, '0')}` : '')}
                                                     onChange={(parsed) => {
                                                         if (parsed) {
                                                             setCurrentItem(prev => ({
@@ -2808,7 +2964,7 @@ const StoresGRNGeneration = () => {
                                                             }));
                                                         }
                                                     }}
-                                                    placeholder="May 2027"
+                                                    placeholder="MM/YYYY"
                                                 />
                                             </div>
                                         </div>
@@ -2848,7 +3004,7 @@ const StoresGRNGeneration = () => {
                                                 <CompactInput
                                                     type="number"
                                                     name="free"
-                                                    value={currentItem.free}
+                                                    value={currentItem.free || ''}
                                                     onChange={handleCurrentItemChange}
                                                 />
                                             </div>
@@ -2963,7 +3119,7 @@ const StoresGRNGeneration = () => {
                                                         <CompactInput
                                                             type="number"
                                                             name="purchaseDiscountPercent"
-                                                            value={currentItem.purchaseDiscountPercent}
+                                                            value={currentItem.purchaseDiscountPercent || ''}
                                                             onChange={handleCurrentItemChange}
                                                             placeholder="0"
                                                         />
@@ -3016,7 +3172,7 @@ const StoresGRNGeneration = () => {
                                                     <CompactLabel>Max Packing MRP</CompactLabel>
                                                     <MoneyInput
                                                         name="maxPackingMrp"
-                                                        value={Number(currMaxPackingMrp.toFixed(2))}
+                                                        value={currentItem.maxPackingMrp !== undefined ? currentItem.maxPackingMrp : ''}
                                                         onChange={handleCurrentItemChange}
                                                         placeholder="0.00"
                                                     />
@@ -3091,7 +3247,7 @@ const StoresGRNGeneration = () => {
                                                     <CompactInput
                                                         type="number"
                                                         name="sellingDiscountPercent"
-                                                        value={currentItem.sellingDiscountPercent}
+                                                        value={currentItem.sellingDiscountPercent || ''}
                                                         onChange={handleCurrentItemChange}
                                                         placeholder="0"
                                                     />
@@ -3345,6 +3501,140 @@ const StoresGRNGeneration = () => {
                         </ModalContainerAnimated>
                     </ModalOverlay>
                 )}
+                {/* Add New Vendor Modal */}
+                {showAddVendorModal && (
+                    <ModalOverlay onClick={() => setShowAddVendorModal(false)}>
+                        <ModalContainerAnimated onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '92%' }}>
+                            <ModalHeader>
+                                <ModalTitle>🏢 Add New General Store Vendor</ModalTitle>
+                                <CloseButton onClick={() => setShowAddVendorModal(false)}>&times;</CloseButton>
+                            </ModalHeader>
+                            <ModalBody style={{ padding: '24px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label required>Vendor / Company Name</Label>
+                                        <Input
+                                            placeholder="Enter vendor or supplier name"
+                                            value={newVendorData.name}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, name: e.target.value })}
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label required>Vendor Type</Label>
+                                        <Select
+                                            options={[
+                                                { value: 'SUPPLIER', label: 'Supplier' },
+                                                { value: 'MANUFACTURER', label: 'Manufacturer' },
+                                                { value: 'BOTH', label: 'Both' }
+                                            ]}
+                                            value={{
+                                                value: newVendorData.vendor_type,
+                                                label: newVendorData.vendor_type === 'BOTH' ? 'Both' : (newVendorData.vendor_type === 'MANUFACTURER' ? 'Manufacturer' : 'Supplier')
+                                            }}
+                                            onChange={(opt) => setNewVendorData({ ...newVendorData, vendor_type: opt ? opt.value : 'SUPPLIER' })}
+                                            menuPortalTarget={document.body}
+                                            styles={{ menuPortal: base => ({ ...base, zIndex: 100001 }) }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>GSTIN</Label>
+                                        <Input
+                                            placeholder="GSTIN Number"
+                                            value={newVendorData.gstin}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, gstin: e.target.value.toUpperCase() })}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>Contact Person</Label>
+                                        <Input
+                                            placeholder="Contact person name"
+                                            value={newVendorData.contact_person}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, contact_person: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>Phone Number</Label>
+                                        <Input
+                                            placeholder="Phone number"
+                                            value={newVendorData.phone}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, phone: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label>Email</Label>
+                                        <Input
+                                            type="email"
+                                            placeholder="Email address"
+                                            value={newVendorData.email}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, email: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label>Address Line 1</Label>
+                                        <Input
+                                            placeholder="Building, street, door no."
+                                            value={newVendorData.address_line1}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, address_line1: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label>Address Line 2</Label>
+                                        <Input
+                                            placeholder="Area, landmark"
+                                            value={newVendorData.address_line2}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, address_line2: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>City</Label>
+                                        <Input
+                                            placeholder="City"
+                                            value={newVendorData.city}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, city: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>State</Label>
+                                        <Input
+                                            placeholder="State"
+                                            value={newVendorData.state}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, state: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label>Pincode</Label>
+                                        <Input
+                                            placeholder="Pincode"
+                                            value={newVendorData.pincode}
+                                            onChange={(e) => setNewVendorData({ ...newVendorData, pincode: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginTop: '24px' }}>
+                                    <Button onClick={handleSaveNewVendor} disabled={loading} style={{ background: colors.primary, color: 'white', padding: '10px 30px', minWidth: '130px' }}>
+                                        {loading ? 'Saving...' : 'Save Vendor'}
+                                    </Button>
+                                    <Button secondary onClick={() => setShowAddVendorModal(false)} style={{ background: '#64748b', color: 'white', padding: '10px 30px', minWidth: '110px' }}>
+                                        Cancel
+                                    </Button>
+                                </div>
+                            </ModalBody>
+                        </ModalContainerAnimated>
+                    </ModalOverlay>
+                )}
+
             </PageWrapper>
         </ConfigProvider>
     );

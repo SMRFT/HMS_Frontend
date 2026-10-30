@@ -645,6 +645,11 @@ const Items = () => {
             }
 
             return matchesSearch && matchesDept && matchesCat && matchesGroup && matchesLowStock;
+        }).sort((a, b) => {
+            const nameField = getNameField();
+            const nameA = String(a[nameField] || '').toLowerCase();
+            const nameB = String(b[nameField] || '').toLowerCase();
+            return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
         });
     }, [items, activeTab.id, searchTerm, filterDepartment, filterCategory, filterGroup, filterLowStock, allDepartments]);
 
@@ -894,7 +899,7 @@ const Items = () => {
                             name="supplier"
                             value={suppliers.find(s => s.vendor_id === formData.supplier) ? { value: formData.supplier, label: suppliers.find(s => s.vendor_id === formData.supplier).name } : (formData.supplier ? { value: formData.supplier, label: formData.supplier } : null)}
                             onChange={(option) => handleSelectChange('supplier', option)}
-                            options={suppliers.map(s => ({ value: s.vendor_id, label: s.name }))}
+                            options={[...suppliers].sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })).map(s => ({ value: s.vendor_id, label: s.name }))}
                             placeholder="Select Supplier"
                             isClearable
                             styles={formSelectStyles}
@@ -907,7 +912,7 @@ const Items = () => {
                             name="manufacturer"
                             value={manufacturers.find(m => m.vendor_id === formData.manufacturer) ? { value: formData.manufacturer, label: manufacturers.find(m => m.vendor_id === formData.manufacturer).name } : (formData.manufacturer ? { value: formData.manufacturer, label: formData.manufacturer } : null)}
                             onChange={(option) => handleSelectChange('manufacturer', option)}
-                            options={manufacturers.map(m => ({ value: m.vendor_id, label: m.name }))}
+                            options={[...manufacturers].sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })).map(m => ({ value: m.vendor_id, label: m.name }))}
                             placeholder="Select Manufacturer"
                             isClearable
                             styles={formSelectStyles}

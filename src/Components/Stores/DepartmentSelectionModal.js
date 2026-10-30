@@ -334,8 +334,11 @@ export const DepartmentSelectionModal = ({
                         placeholder="Search by department name or code"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        autoComplete="off"
+                        type="search"
+                        name="search_dept_filter_unique"
+                        autoComplete="one-time-code"
                         autoCorrect="off"
+                        autoCapitalize="off"
                         spellCheck={false}
                     />
                 </SearchWrapper>
