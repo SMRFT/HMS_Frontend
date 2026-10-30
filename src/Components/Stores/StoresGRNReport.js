@@ -8,7 +8,8 @@ import ReactSelect from 'react-select';
 import dayjs from 'dayjs';
 import { 
     Pencil, CheckCheck, CreditCard, Printer, Trash2, 
-    MoreVertical, Eye, AlertTriangle, AlertCircle
+    MoreVertical, Eye, AlertTriangle, AlertCircle,
+    ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
@@ -377,33 +378,33 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
         background: "#dbeafe",
         color: "#0c4a6e",
         border: "1px solid #7dd3fc",
-        padding: "3px 4px",
-        fontSize: "7.5px",
+        padding: "7px 6px",
+        fontSize: "11px",
         fontWeight: 700,
         whiteSpace: "nowrap",
         textAlign: "center",
         verticalAlign: "middle",
         ...extra
     });
-    const td = (extra = {}) => ({ border: "1px solid #cbd5e1", padding: "3px 4px", fontSize: "8px", whiteSpace: "nowrap", verticalAlign: "middle", ...extra });
+    const td = (extra = {}) => ({ border: "1px solid #cbd5e1", padding: "7px 6px", fontSize: "11.5px", whiteSpace: "nowrap", verticalAlign: "middle", ...extra });
     const tdr = (extra = {}) => td({ textAlign: "right", ...extra });
     const tdc = (extra = {}) => td({ textAlign: "center", ...extra });
 
     return (
-        <div id="stores-grn-print-slip" style={{ fontFamily: "Arial, sans-serif", fontSize: "9px", color: "#000", border: "1.5px solid #0c4a6e", background: "#ffffff" }}>
+        <div id="stores-grn-print-slip" style={{ fontFamily: "Arial, sans-serif", fontSize: "11.5px", color: "#000", border: "1.5px solid #0c4a6e", background: "#ffffff" }}>
             {/* Header */}
-            <div style={{ textAlign: "center", padding: "10px 12px 6px", borderBottom: "1.5px solid #0c4a6e", background: "#ffffff" }}>
-                <div style={{ fontSize: "16px", fontWeight: 900, color: "#0c4a6e", letterSpacing: "0.5px" }}>SHANMUGA HOSPITAL LIMITED</div>
-                <div style={{ fontSize: "9.5px", color: "#334155", marginTop: "2px" }}>51/24.Saradha College Road, Salem - 636007,,</div>
-                <div style={{ fontSize: "9.5px", color: "#334155" }}>Phone : 04272706666,info@smrft.org</div>
-                <div style={{ fontSize: "9.5px", fontWeight: 700, color: "#334155", marginTop: "2px" }}>GST Number : {grn.hospital_gst || ""}</div>
+            <div style={{ textAlign: "center", padding: "12px 14px 8px", borderBottom: "1.5px solid #0c4a6e", background: "#ffffff" }}>
+                <div style={{ fontSize: "19px", fontWeight: 900, color: "#0c4a6e", letterSpacing: "0.5px" }}>SHANMUGA HOSPITAL LIMITED</div>
+                <div style={{ fontSize: "11.5px", color: "#334155", marginTop: "3px" }}>51/24.Saradha College Road, Salem - 636007,,</div>
+                <div style={{ fontSize: "11.5px", color: "#334155" }}>Phone : 04272706666, info@smrft.org</div>
+                <div style={{ fontSize: "11.5px", fontWeight: 700, color: "#334155", marginTop: "3px" }}>GST Number : {grn.hospital_gst || ""}</div>
                 <div
                     style={{
-                        fontSize: "11px",
+                        fontSize: "13.5px",
                         fontWeight: 800,
                         textTransform: "uppercase",
-                        letterSpacing: "0.4px",
-                        marginTop: "6px",
+                        letterSpacing: "0.5px",
+                        marginTop: "7px",
                         color: "#0c4a6e"
                     }}
                 >
@@ -436,7 +437,7 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
             <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #7dd3fc" }}>
                 <tbody>
                     <tr>
-                        <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: "8.5px", borderRight: "1px solid #7dd3fc", width: "33%" }}>
+                        <td style={{ verticalAlign: "top", padding: "7px 10px", fontSize: "11.5px", borderRight: "1px solid #7dd3fc", width: "33%" }}>
                             <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                                 {[
                                     ["Invoice No", grn.invoice_no || grn.invoice_number],
@@ -445,18 +446,18 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
                                     ["Purchase Date", fmtDate(grn.date)],
                                 ].map(([k, val]) => (
                                     <tr key={k}>
-                                        <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: "8.5px", verticalAlign: "top", minWidth: 86 }}>{k}</td>
-                                        <td style={{ fontSize: "8.5px", verticalAlign: "top" }}>: {val || "—"}</td>
+                                        <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 6, fontSize: "11.5px", verticalAlign: "top", minWidth: 98 }}>{k}</td>
+                                        <td style={{ fontSize: "11.5px", verticalAlign: "top" }}>: {val || "—"}</td>
                                     </tr>
                                 ))}
                             </tbody></table>
                         </td>
 
-                        <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: "8.5px", borderRight: "1px solid #7dd3fc", width: "34%" }}>
+                        <td style={{ verticalAlign: "top", padding: "7px 10px", fontSize: "11.5px", borderRight: "1px solid #7dd3fc", width: "34%" }}>
                             <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                                 <tr>
-                                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: "8.5px", verticalAlign: "top", minWidth: 86 }}>Supplier Name</td>
-                                    <td style={{ fontSize: "8.5px", fontWeight: 700, verticalAlign: "top" }}>: {vendorName || grn.vendor_name || "OPENING STOCK"}</td>
+                                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 6, fontSize: "11.5px", verticalAlign: "top", minWidth: 98 }}>Supplier Name</td>
+                                    <td style={{ fontSize: "11.5px", fontWeight: 700, verticalAlign: "top" }}>: {vendorName || grn.vendor_name || "OPENING STOCK"}</td>
                                 </tr>
                                 {[
                                     ["State", grn.vendor_state || ""],
@@ -464,14 +465,14 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
                                     ["GST Number", grn.vendor_gstin || grn.gstin || "******"],
                                 ].map(([k, val]) => (
                                     <tr key={k}>
-                                        <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: "8.5px", verticalAlign: "top", minWidth: 86 }}>{k}</td>
-                                        <td style={{ fontSize: "8.5px", verticalAlign: "top" }}>: {val || "—"}</td>
+                                        <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 6, fontSize: "11.5px", verticalAlign: "top", minWidth: 98 }}>{k}</td>
+                                        <td style={{ fontSize: "11.5px", verticalAlign: "top" }}>: {val || "—"}</td>
                                     </tr>
                                 ))}
                             </tbody></table>
                         </td>
 
-                        <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: "8.5px", width: "33%" }}>
+                        <td style={{ verticalAlign: "top", padding: "7px 10px", fontSize: "11.5px", width: "33%" }}>
                             <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                                 {[
                                     ["Department", getDeptNameProp ? getDeptNameProp(grn.department, grn) : (grn.department_name || grn.department || "—")],
@@ -480,8 +481,8 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
                                     ["Approved Date", grn.is_approved ? fmtDate(grn.approved_date || grn.date) : (grn.approved_date ? fmtDate(grn.approved_date) : "—")],
                                 ].map(([k, val]) => (
                                     <tr key={k}>
-                                        <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: "8.5px", verticalAlign: "top", minWidth: 86 }}>{k}</td>
-                                        <td style={{ fontSize: "8.5px", verticalAlign: "top" }}>: {val || "—"}</td>
+                                        <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 6, fontSize: "11.5px", verticalAlign: "top", minWidth: 98 }}>{k}</td>
+                                        <td style={{ fontSize: "11.5px", verticalAlign: "top" }}>: {val || "—"}</td>
                                     </tr>
                                 ))}
                             </tbody></table>
@@ -493,7 +494,7 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
             {/* Items Table + Right Summary */}
             <div style={{ display: "flex", borderBottom: "1px solid #7dd3fc" }}>
                 <div style={{ flex: 1, overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8px" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
                         <thead>
                             <tr>
                                 <th rowSpan={2} style={th({ width: 22 })}>Sl.</th>
@@ -562,7 +563,7 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
                 </div>
 
                 {/* Right totals panel */}
-                <table style={{ borderLeft: "1px solid #7dd3fc", borderCollapse: "collapse", fontSize: "8.5px", minWidth: 140, alignSelf: "stretch" }}>
+                <table style={{ borderLeft: "1px solid #7dd3fc", borderCollapse: "collapse", fontSize: "11px", minWidth: 160, alignSelf: "stretch" }}>
                     <tbody>
                         {[
                             ["Total", fmt2(totalTaxable), false],
@@ -573,8 +574,8 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
                             ["Net Amount", fmt2(netAmt), true, "#e8f5e9", "#0f766e"],
                         ].map(([lbl, val, bold, bg, col]) => (
                             <tr key={lbl} style={{ background: bg || "transparent" }}>
-                                <td style={{ padding: "3px 6px", borderBottom: "1px solid #e2e8f0", fontWeight: bold ? 800 : 600, color: col || "#334155", whiteSpace: "nowrap" }}>{lbl}</td>
-                                <td style={{ padding: "3px 6px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: bold ? 800 : 700, color: col || "#0f172a", whiteSpace: "nowrap" }}>{val}</td>
+                                <td style={{ padding: "5px 8px", borderBottom: "1px solid #e2e8f0", fontWeight: bold ? 800 : 600, color: col || "#334155", whiteSpace: "nowrap" }}>{lbl}</td>
+                                <td style={{ padding: "5px 8px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: bold ? 800 : 700, color: col || "#0f172a", whiteSpace: "nowrap" }}>{val}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -585,26 +586,26 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
             <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #0c4a6e" }}>
                 <tbody>
                     <tr>
-                        <td style={{ padding: "4px 8px", fontSize: "8px", borderRight: "1px solid #7dd3fc", whiteSpace: "nowrap", width: "42%" }}>
+                        <td style={{ padding: "6px 10px", fontSize: "11px", borderRight: "1px solid #7dd3fc", whiteSpace: "nowrap", width: "42%" }}>
                             <strong>GST Amount</strong>&nbsp;&nbsp;
                             CGST Amount : {fmt2(totalCgst)}&nbsp;&nbsp;
                             SGST Amount : {fmt2(totalSgst)}&nbsp;&nbsp;
                             IGST Amount : {fmt2(totalIgst)}
                         </td>
-                        <td style={{ padding: "4px 8px", fontSize: "8px", borderRight: "1px solid #7dd3fc" }}>
+                        <td style={{ padding: "6px 10px", fontSize: "11px", borderRight: "1px solid #7dd3fc" }}>
                             <strong>Amount In Words</strong>&nbsp;&nbsp;
                             Rupee(s) {numberToWords(netAmt)}
                         </td>
-                        <td style={{ padding: "4px 10px", fontSize: "8.5px", textAlign: "right", whiteSpace: "nowrap", minWidth: 110 }}>
+                        <td style={{ padding: "6px 12px", fontSize: "11.5px", textAlign: "right", whiteSpace: "nowrap", minWidth: 125 }}>
                             <strong>Net Amount</strong>&nbsp;
-                            <span style={{ fontWeight: 800, fontSize: "0.85rem", color: "#0f766e" }}>{fmt2(netAmt)}</span>
+                            <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "#0f766e" }}>{fmt2(netAmt)}</span>
                         </td>
                     </tr>
                 </tbody>
             </table>
 
             {/* Signature strip */}
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 12px", fontSize: "8.5px", background: "#f8fafc" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 14px", fontSize: "11.5px", background: "#f8fafc" }}>
                 <span><strong>Entered By :</strong> {grn.entered_by || grn.created_by_name || grn.created_by || "—"}</span>
                 <span><strong>Checked By :</strong> —</span>
                 <span><strong>Verified By :</strong> {grn.verified_by || (grn.is_approved ? "APPROVED" : "—")}</span>
@@ -730,6 +731,8 @@ const StoresGRNReport = () => {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showApproveModal, setShowApproveModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
+    const [viewZoom, setViewZoom] = useState(1);
+    const [isViewMaximized, setIsViewMaximized] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [selectedGrn, setSelectedGrn] = useState(null);
     const [selectedGrnForApproval, setSelectedGrnForApproval] = useState(null);
@@ -1156,10 +1159,10 @@ const StoresGRNReport = () => {
                     <style>
                         * { box-sizing: border-box; }
                         @page { size: A4 landscape; margin: 8mm; }
-                        body { font-family: Arial, sans-serif; font-size: 8.5px; color: #000; margin: 0; padding: 6px; }
+                        body { font-family: Arial, sans-serif; font-size: 10.5px; color: #000; margin: 0; padding: 6px; }
                         table { border-collapse: collapse; }
-                        th { background: #dbeafe; color: #0c4a6e; border: 1px solid #7dd3fc; padding: 3px 4px; font-size: 7.5px; font-weight: 700; white-space: nowrap; text-align: center; }
-                        td { border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 8px; white-space: nowrap; vertical-align: middle; }
+                        th { background: #dbeafe; color: #0c4a6e; border: 1px solid #7dd3fc; padding: 5px 5px; font-size: 9.5px; font-weight: 700; white-space: nowrap; text-align: center; }
+                        td { border: 1px solid #cbd5e1; padding: 5px 5px; font-size: 10px; white-space: nowrap; vertical-align: middle; }
                         .text-right { text-align: right; }
                         .text-center { text-align: center; }
                         .text-left { text-align: left; }
@@ -1173,7 +1176,7 @@ const StoresGRNReport = () => {
                 <body>
                     <div style="font-family: Arial, sans-serif; font-size: 9px; color: #000; border: 1.5px solid #0c4a6e; background: #ffffff;">
                         <div style="text-align: center; padding: 8px 12px 6px; border-bottom: 1.5px solid #0c4a6e;">
-                            <div style="font-size: 15px; font-weight: 900; color: #0c4a6e; letter-spacing: 0.5px;">SHANMUGA HOSPITAL LIMITED</div>
+                            <div style="font-size: 18px; font-weight: 900; color: #0c4a6e; letter-spacing: 0.5px;">SHANMUGA HOSPITAL LIMITED</div>
                             <div style="font-size: 9px; color: #334155; margin-top: 2px;">51/24.Saradha College Road, Salem - 636007,,</div>
                             <div style="font-size: 9px; color: #334155;">Phone : 04272706666, info@smrft.org</div>
                             <div style="font-size: 9px; font-weight: 700; color: #334155; margin-top: 2px;">GST Number : ${grn.hospital_gst || ''}</div>
@@ -1185,7 +1188,7 @@ const StoresGRNReport = () => {
                         <table style="width: 100%; border-collapse: collapse; border-bottom: 1px solid #7dd3fc;">
                             <tbody>
                                 <tr>
-                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 8.5px; border-right: 1px solid #7dd3fc; width: 33%;">
+                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 10.5px; border-right: 1px solid #7dd3fc; width: 33%;">
                                         <table style="border-collapse: collapse; width: 100%;">
                                             <tr><td style="border:none;font-weight:700;width:90px;">Invoice No</td><td style="border:none;">: ${grn.invoice_no || grn.invoice_number || '—'}</td></tr>
                                             <tr><td style="border:none;font-weight:700;">Invoice Date</td><td style="border:none;">: ${fmtDate(grn.invoice_date)}</td></tr>
@@ -1193,7 +1196,7 @@ const StoresGRNReport = () => {
                                             <tr><td style="border:none;font-weight:700;">Purchase Date</td><td style="border:none;">: ${fmtDate(grn.date)}</td></tr>
                                         </table>
                                     </td>
-                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 8.5px; border-right: 1px solid #7dd3fc; width: 34%;">
+                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 10.5px; border-right: 1px solid #7dd3fc; width: 34%;">
                                         <table style="border-collapse: collapse; width: 100%;">
                                             <tr><td style="border:none;font-weight:700;width:95px;">Supplier Name</td><td style="border:none;font-weight:700;">: ${vendorName || grn.vendor_name || 'OPENING STOCK'}</td></tr>
                                             <tr><td style="border:none;font-weight:700;">State</td><td style="border:none;">: ${grn.vendor_state || '—'}</td></tr>
@@ -1201,7 +1204,7 @@ const StoresGRNReport = () => {
                                             <tr><td style="border:none;font-weight:700;">GST Number</td><td style="border:none;">: ${grn.vendor_gstin || grn.gstin || '******'}</td></tr>
                                         </table>
                                     </td>
-                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 8.5px; width: 33%;">
+                                    <td style="vertical-align: top; padding: 5px 8px; font-size: 10.5px; width: 33%;">
                                         <table style="border-collapse: collapse; width: 100%;">
                                             <tr><td style="border:none;font-weight:700;width:95px;">Department</td><td style="border:none;font-weight:600;color:#0d9488;">: ${getDepartmentName(grn.department, grn)}</td></tr>
                                             <tr><td style="border:none;font-weight:700;width:95px;">Order Number</td><td style="border:none;">: ${grn.order_number || grn.po_number || '—'}</td></tr>
@@ -2094,11 +2097,19 @@ const StoresGRNReport = () => {
                 </ModalOverlay>
             )}
 
-            {/* View GRN Modal */}
-            {/* View GRN Modal */}
+            {/* View GRN Modal with Zoom & Fullscreen Controls */}
             {showViewModal && selectedGrnForView && (
-                <ModalOverlay onClick={e => e.target === e.currentTarget && setShowViewModal(false)}>
-                    <ModalContainer style={{ maxWidth: '1200px', width: '96%', maxHeight: '92vh', overflowY: 'auto' }}>
+                <ModalOverlay onClick={e => { if (e.target === e.currentTarget) { setShowViewModal(false); setViewZoom(1); setIsViewMaximized(false); } }}>
+                    <ModalContainer style={{ 
+                        maxWidth: isViewMaximized ? '98vw' : '1240px', 
+                        width: isViewMaximized ? '98vw' : '96%', 
+                        height: isViewMaximized ? '96vh' : 'auto',
+                        maxHeight: isViewMaximized ? '96vh' : '92vh', 
+                        display: 'flex',
+                        flexDirection: 'column',
+                        transition: 'all 0.2s ease-in-out',
+                        overflow: 'hidden'
+                    }}>
                         <ModalHeader style={{ borderBottom: `1px solid ${colors.border}`, padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                                 <ModalTitle style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2118,7 +2129,49 @@ const StoresGRNReport = () => {
                                     {selectedGrnForView.is_approved ? 'APPROVED' : 'PENDING APPROVAL'}
                                 </span>
                             </div>
+
+                            {/* Center/Right Toolbar: Zoom Controls & Action Buttons */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                {/* Zoom Controls */}
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '3px 8px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#64748b', marginRight: '2px' }}>ZOOM:</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewZoom(prev => Math.max(0.6, Number((prev - 0.15).toFixed(2))))}
+                                        title="Zoom Out"
+                                        style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '4px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#1e293b' }}
+                                    >
+                                        <ZoomOut size={14} />
+                                    </button>
+                                    <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0f766e', minWidth: '42px', textAlign: 'center' }}>
+                                        {Math.round(viewZoom * 100)}%
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewZoom(prev => Math.min(2.5, Number((prev + 0.15).toFixed(2))))}
+                                        title="Zoom In"
+                                        style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '4px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#1e293b' }}
+                                    >
+                                        <ZoomIn size={14} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewZoom(1)}
+                                        title="Reset Zoom to 100%"
+                                        style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 6px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.72rem', fontWeight: '700', color: '#475569' }}
+                                    >
+                                        <RotateCcw size={12} style={{ marginRight: '3px' }} /> 100%
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsViewMaximized(prev => !prev)}
+                                        title={isViewMaximized ? "Restore window size" : "Maximize / Fullscreen"}
+                                        style={{ background: isViewMaximized ? '#0d9488' : 'white', color: isViewMaximized ? 'white' : '#1e293b', border: '1px solid #cbd5e1', borderRadius: '4px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                    >
+                                        {isViewMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                                    </button>
+                                </div>
+
                                 <Button 
                                     disabled={selectedGrnForView.is_approved}
                                     onClick={() => {
@@ -2202,21 +2255,38 @@ const StoresGRNReport = () => {
                                     <Trash2 size={14} />
                                     <span>Cancel GRN</span>
                                 </Button>
-                                <CloseButton onClick={() => setShowViewModal(false)}>✕</CloseButton>
+                                <CloseButton onClick={() => { setShowViewModal(false); setViewZoom(1); setIsViewMaximized(false); }}>✕</CloseButton>
                             </div>
                         </ModalHeader>
 
-                        <ModalBody style={{ padding: '16px' }}>
-                            <StoresGRNDocument 
-                                grn={selectedGrnForView}
-                                vendorName={getVendorName(selectedGrnForView.vendor_id)}
-                                items={selectedGrnForView.items}
-                                getDepartmentName={getDepartmentName}
-                            />
+                        <ModalBody style={{ padding: '16px', flex: 1, overflow: 'auto', background: '#f8fafc' }}>
+                            <div style={{
+                                width: '100%',
+                                overflow: 'auto',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                padding: '4px 0'
+                            }}>
+                                <div style={{
+                                    transform: `scale(${viewZoom})`,
+                                    transformOrigin: 'top center',
+                                    transition: 'transform 0.12s ease-out',
+                                    width: viewZoom > 1 ? `${Math.round(100 / viewZoom)}%` : '100%',
+                                    minWidth: viewZoom > 1 ? `${Math.round(100 * viewZoom)}%` : 'auto',
+                                    marginBottom: viewZoom > 1 ? `${Math.round((viewZoom - 1) * 650)}px` : '0px'
+                                }}>
+                                    <StoresGRNDocument 
+                                        grn={selectedGrnForView}
+                                        vendorName={getVendorName(selectedGrnForView.vendor_id)}
+                                        items={selectedGrnForView.items}
+                                        getDepartmentName={getDepartmentName}
+                                    />
+                                </div>
+                            </div>
                             
                             {/* Modal Footer Actions */}
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px', marginTop: '16px', flexWrap: 'wrap' }}>
-                                <Button secondary onClick={() => setShowViewModal(false)} style={{ padding: '8px 22px' }}>
+                                <Button secondary onClick={() => { setShowViewModal(false); setViewZoom(1); setIsViewMaximized(false); }} style={{ padding: '8px 22px' }}>
                                     Close
                                 </Button>
                                 <Button 

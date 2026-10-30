@@ -478,8 +478,9 @@ const Items = () => {
     const fetchPriceHistory = async (item, nameField, idField) => {
         const targetItem = item || selectedItemForPrice;
         if (!targetItem) return;
-        const itemId = targetItem[idField || getIdField()];
-        setSelectedItemName(targetItem[nameField || getNameField()]);
+        const resolvedIdField = idField || getIdField();
+        const itemId = targetItem[resolvedIdField] || targetItem.item_id || targetItem.id || targetItem._id;
+        setSelectedItemName(targetItem[nameField || getNameField()] || targetItem.itemName || targetItem.name || 'Item');
         setSelectedItemForPrice(targetItem);
         setLoadingPrices(true);
         setShowPriceModal(true);
