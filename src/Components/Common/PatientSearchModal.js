@@ -350,7 +350,7 @@ export default function PatientSearchModal({
       const qName = (overrideName !== undefined ? overrideName : namePhoneInput).trim();
       const qAdmitted = overrideAdmitted !== undefined ? overrideAdmitted : isAdmittedFilter;
 
-      if (!qPrimary && !qName) {
+      if (!qPrimary && !qName && !isIpMode && !qAdmitted) {
         setResults([]);
         setLoading(false);
         return;
@@ -436,7 +436,7 @@ export default function PatientSearchModal({
     const timer = setTimeout(() => {
       const qP = primaryInput.trim();
       const qN = namePhoneInput.trim();
-      if (qP || qN) {
+      if (qP || qN || isIpMode) {
         executeSearch(qP, qN, isAdmittedFilter);
       } else {
         setResults([]);
@@ -444,7 +444,7 @@ export default function PatientSearchModal({
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [primaryInput, namePhoneInput, isAdmittedFilter, isOpen]); // eslint-disable-line
+  }, [primaryInput, namePhoneInput, isAdmittedFilter, isOpen, isIpMode]); // eslint-disable-line
 
   useEffect(() => {
     if (isOpen) {
@@ -456,9 +456,11 @@ export default function PatientSearchModal({
 
       if (initialQuery && initialQuery.trim()) {
         executeSearch(initialQuery.trim(), "", false);
+      } else if (isIpMode) {
+        executeSearch("", "", false);
       }
     }
-  }, [isOpen, initialQuery]); // eslint-disable-line
+  }, [isOpen, initialQuery, isIpMode]); // eslint-disable-line
 
   // Close on ESC
   useEffect(() => {

@@ -13,16 +13,64 @@ const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .sp-shell { min-height: 100vh; background: #d6dce5; font-family: 'Source Sans 3', Arial, sans-serif; }
+  .sp-shell { min-height: 100vh; background: #d6dce5; font-family: 'Source Sans 3', Arial, sans-serif; overflow-x: hidden; }
 
   .sp-bar {
     position: sticky; top: 0; z-index: 999; background: #fff;
-    border-bottom: 2px solid #2563a8; padding: 10px 28px;
+    border-bottom: 2px solid #2563a8; padding: 10px 24px;
     display: flex; align-items: center; justify-content: space-between;
     box-shadow: 0 2px 12px rgba(0,0,0,0.12);
   }
+  .sp-bar-left { display: flex; align-items: center; gap: 14px; }
   .sp-bar-title { font-size: 20px; font-weight: 700; color: #1a3a6e; }
-  .sp-bar-sub   { font-size: 15px; color: #6b7a99; margin-top: 2px; }
+  .sp-bar-sub   { font-size: 14px; color: #6b7a99; margin-top: 2px; }
+  .sp-bar-actions { display: flex; align-items: center; gap: 10px; }
+
+  .sp-zoom-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1.5px solid #cbd5e1;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    margin: 14px auto 6px;
+    position: sticky;
+    top: 68px;
+    z-index: 990;
+    width: fit-content;
+  }
+  .sp-zoom-btn {
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #1e293b;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all .15s ease;
+    font-family: inherit;
+  }
+  .sp-zoom-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+  .sp-zoom-btn.active {
+    background: #2563a8;
+    color: #ffffff;
+    border-color: #2563a8;
+  }
+  .sp-zoom-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    min-width: 44px;
+    text-align: center;
+    user-select: none;
+  }
+
   .sp-btn {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 9px 22px; border: none; border-radius: 5px;
@@ -46,11 +94,69 @@ const GLOBAL_CSS = `
   }
   @keyframes sp-spin { to { transform: rotate(360deg); } }
 
-  .sp-pages { padding: 28px; display: flex; flex-direction: column; align-items: center; }
+  .sp-pages {
+    padding: 16px 8px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sp-page-scaler {
+    position: relative;
+    overflow: visible;
+    flex-shrink: 0;
+    transition: width 0.15s ease, height 0.15s ease;
+  }
 
   .preview-page {
     width: 794px; background: #fff;
     box-shadow: 0 4px 28px rgba(0,0,0,.20); border-radius: 2px;
+  }
+
+  @media (max-width: 768px) {
+    .sp-bar {
+      padding: 10px 14px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+    .sp-bar-left {
+      width: 100%;
+      gap: 10px;
+    }
+    .sp-bar-title {
+      font-size: 16px;
+    }
+    .sp-bar-sub {
+      font-size: 12px;
+    }
+    .sp-bar-actions {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+    .sp-bar-actions .sp-btn {
+      flex: 1;
+      justify-content: center;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .sp-bar-actions .sp-dropdown-container {
+      flex: 1;
+    }
+    .sp-bar-actions .sp-dropdown-container > .sp-btn {
+      width: 100%;
+      justify-content: center;
+    }
+    .sp-zoom-toolbar {
+      top: 106px;
+      margin: 8px auto 4px;
+      padding: 4px 10px;
+    }
   }
   .sp-outer-border {
     margin: 19px; border: 1px solid #aab4c6; display: flex; flex-direction: column;
@@ -515,11 +621,57 @@ const SummaryPrint = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const bodyRef = useRef(null);
+  const pageRef = useRef(null);
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const [previewTotalPages, setPreviewTotalPages] = useState(1);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [isAutoFit, setIsAutoFit] = useState(true);
+  const [pageHeight, setPageHeight] = useState(1123);
+  const previewScaleRef = useRef(1);
+  previewScaleRef.current = zoomScale;
+
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  const computeFitScale = () => {
+    if (typeof window === "undefined") return 1;
+    const screenW = window.innerWidth;
+    if (screenW >= 840) return 1;
+    const availW = Math.max(280, screenW - 16);
+    return Math.min(1, Math.max(0.3, +(availW / 794).toFixed(3)));
+  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (isAutoFit) {
+        setZoomScale(computeFitScale());
+      }
+    };
+    setZoomScale(computeFitScale());
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isAutoFit]);
+
+  useEffect(() => {
+    if (!pageRef.current) return;
+    const updateH = () => {
+      if (pageRef.current) {
+        setPageHeight(pageRef.current.offsetHeight || pageRef.current.scrollHeight || 1123);
+      }
+    };
+    updateH();
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => updateH());
+      ro.observe(pageRef.current);
+    }
+    const t = setTimeout(updateH, 500);
+    return () => {
+      clearTimeout(t);
+      if (ro) ro.disconnect();
+    };
+  }, [summaryData]);
 
   const getFilterDate = (val) => {
     if (!val) return "";
@@ -570,6 +722,7 @@ const SummaryPrint = () => {
     const calculatePages = () => {
       if (!bodyRef.current) return;
       const bodyRect = bodyRef.current.getBoundingClientRect();
+      const curScale = previewScaleRef.current || 1;
       const allBlocks = Array.from(
         bodyRef.current.querySelectorAll("[data-block-top]")
       );
@@ -577,7 +730,7 @@ const SummaryPrint = () => {
       for (const el of [...allBlocks, ...Array.from(bodyRef.current.children)]) {
         const r = el.getBoundingClientRect();
         if (r.height > 0) {
-          const bot = r.bottom - bodyRect.top;
+          const bot = (r.bottom - bodyRect.top) / curScale;
           if (bot > contentH) contentH = bot;
         }
       }
@@ -701,6 +854,10 @@ const SummaryPrint = () => {
 
       /* ── STEP B: collect repeatable thead metadata ── */
       const bodyRect = bodyRef.current.getBoundingClientRect();
+      const curScale = previewScaleRef.current || 1;
+      const getRelTop = (r) => ((r.top - bodyRect.top) / curScale) * SCALE;
+      const getRelBot = (r) => ((r.bottom - bodyRect.top) / curScale) * SCALE;
+
       const theadNodes = bodyRef.current.querySelectorAll(
         "thead[data-thead-id]",
       );
@@ -713,14 +870,14 @@ const SummaryPrint = () => {
         const thRect = thead.getBoundingClientRect();
         const tbRect = tbl.getBoundingClientRect();
 
-        const theadTop = (thRect.top - bodyRect.top) * SCALE;
-        const theadBot = (thRect.bottom - bodyRect.top) * SCALE;
-        const tableBottom = (tbRect.bottom - bodyRect.top) * SCALE;
+        const theadTop = getRelTop(thRect);
+        const theadBot = getRelBot(thRect);
+        const tableBottom = getRelBot(tbRect);
         const theadH = Math.round(theadBot - theadTop);
 
         const blockEl = tbl.closest("[data-block-top]");
         const blockTop = blockEl
-          ? (blockEl.getBoundingClientRect().top - bodyRect.top) * SCALE
+          ? getRelTop(blockEl.getBoundingClientRect())
           : theadTop;
 
         // Crop thead strip directly from bodyCanvas
@@ -754,24 +911,22 @@ const SummaryPrint = () => {
       const allTables = Array.from(bodyRef.current.querySelectorAll("table"));
       const tableBoundaries = allTables.map((tbl) => {
         const tbRect = tbl.getBoundingClientRect();
-        const tableTop = (tbRect.top - bodyRect.top) * SCALE;
-        const tableBottom = (tbRect.bottom - bodyRect.top) * SCALE;
+        const tableTop = getRelTop(tbRect);
+        const tableBottom = getRelBot(tbRect);
 
         const theadEl = tbl.querySelector("thead");
         const theadBot = theadEl
-          ? (theadEl.getBoundingClientRect().bottom - bodyRect.top) * SCALE
+          ? getRelBot(theadEl.getBoundingClientRect())
           : tableTop;
 
         const blockEl = tbl.closest("[data-block-top]");
         const blockTop = blockEl
-          ? (blockEl.getBoundingClientRect().top - bodyRect.top) * SCALE
+          ? getRelTop(blockEl.getBoundingClientRect())
           : tableTop;
 
         const tbodyRows = Array.from(tbl.querySelectorAll("tbody tr"));
         const rowBounds = tbodyRows
-          .map(
-            (tr) => (tr.getBoundingClientRect().bottom - bodyRect.top) * SCALE,
-          )
+          .map((tr) => getRelBot(tr.getBoundingClientRect()))
           .filter((b) => b > theadBot && b <= tableBottom + 1);
 
         return { blockTop, tableTop, theadBot, tableBottom, rowBounds };
@@ -785,8 +940,8 @@ const SummaryPrint = () => {
         .map((el) => {
           const r = el.getBoundingClientRect();
           return {
-            elTop: (r.top - bodyRect.top) * SCALE,
-            elBot: (r.bottom - bodyRect.top) * SCALE,
+            elTop: getRelTop(r),
+            elBot: getRelBot(r),
           };
         });
 
@@ -798,7 +953,7 @@ const SummaryPrint = () => {
       for (const el of [...allBlocks, ...Array.from(bodyRef.current.children)]) {
         const r = el.getBoundingClientRect();
         if (r.height > 0) {
-          const bot = Math.round((r.bottom - bodyRect.top) * SCALE);
+          const bot = Math.round(getRelBot(r));
           if (bot > contentBottom) contentBottom = bot;
         }
       }
@@ -1625,7 +1780,7 @@ const SummaryPrint = () => {
       <div className="sp-shell">
         {/* ── Action bar ── */}
         <div className="sp-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div className="sp-bar-left">
             <button
               className="sp-btn sp-btn-back"
               onClick={handleBack}
@@ -1653,7 +1808,7 @@ const SummaryPrint = () => {
             </div>
           </div>
           {isApproved ? (
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div className="sp-bar-actions">
               <button
                 className="sp-btn sp-btn-primary"
                 onClick={() => handlePrint(false)}
@@ -1777,8 +1932,71 @@ const SummaryPrint = () => {
           )}
         </div>
 
+        {/* ── Zoom Controls for Mobile & Desktop ── */}
+        <div className="sp-zoom-toolbar">
+          <button
+            type="button"
+            className="sp-zoom-btn"
+            onClick={() => {
+              setIsAutoFit(false);
+              setZoomScale((s) => Math.max(0.3, +(s - 0.1).toFixed(2)));
+            }}
+            title="Zoom out"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className={`sp-zoom-btn ${isAutoFit ? "active" : ""}`}
+            onClick={() => {
+              setIsAutoFit(true);
+              setZoomScale(computeFitScale());
+            }}
+            title="Fit to Screen width"
+          >
+            Fit Screen
+          </button>
+          <span className="sp-zoom-text">{Math.round(zoomScale * 100)}%</span>
+          <button
+            type="button"
+            className={`sp-zoom-btn ${zoomScale === 1 && !isAutoFit ? "active" : ""}`}
+            onClick={() => {
+              setIsAutoFit(false);
+              setZoomScale(1);
+            }}
+            title="Actual 100% size"
+          >
+            100%
+          </button>
+          <button
+            type="button"
+            className="sp-zoom-btn"
+            onClick={() => {
+              setIsAutoFit(false);
+              setZoomScale((s) => Math.min(2.0, +(s + 0.1).toFixed(2)));
+            }}
+            title="Zoom in"
+          >
+            +
+          </button>
+        </div>
+
         <div className="sp-pages">
-          <div className="preview-page">
+          <div
+            className="sp-page-scaler"
+            style={{
+              width: Math.round(794 * zoomScale),
+              height: pageHeight ? Math.round(pageHeight * zoomScale) : "auto",
+            }}
+          >
+            <div
+              ref={pageRef}
+              className="preview-page"
+              style={{
+                transform: `scale(${zoomScale})`,
+                transformOrigin: "top left",
+              }}
+            >
             <div className="sp-outer-border">
               <img src={SummaryHead} alt="Header" className="sp-header-img" />
               <div className="sp-doc-title">
@@ -1966,6 +2184,7 @@ const SummaryPrint = () => {
             </div>
           </div>
         </div>
+      </div>
 
         {/* ══ HIDDEN STRIPS — PDF capture only ══ */}
 
