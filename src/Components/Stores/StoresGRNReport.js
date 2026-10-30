@@ -155,10 +155,10 @@ const GRNActionPopover = ({
     const items = [
         {
             icon: <Eye size={18} strokeWidth={1.8} />,
-            label: "View",
-            color: "#0284c7",
+            label: "Analysis",
+            color: "#0d9488",
             disabled: false,
-            title: "View GRN Details",
+            title: "View GRN Analysis & Details",
             onClick: onView,
         },
         {
@@ -1750,18 +1750,28 @@ const StoresGRNReport = () => {
                                                     {serialNo}
                                                 </Td>
                                                 <Td style={{ padding: '12px 10px' }}>
-                                                    <span style={{ 
-                                                        background: '#dcfce7', 
-                                                        color: '#15803d', 
-                                                        fontWeight: '700', 
-                                                        fontSize: '0.78rem', 
-                                                        padding: '3px 10px', 
-                                                        borderRadius: '16px', 
-                                                        display: 'inline-block', 
-                                                        letterSpacing: '0.02em',
-                                                        border: '1px solid #bbf7d0'
-                                                    }}>
-                                                        {grn.grn_number}
+                                                    <span 
+                                                        onClick={() => { setSelectedGrnForView(grn); setShowViewModal(true); }}
+                                                        style={{ 
+                                                            background: '#dcfce7', 
+                                                            color: '#15803d', 
+                                                            fontWeight: '700', 
+                                                            fontSize: '0.78rem', 
+                                                            padding: '3px 10px', 
+                                                            borderRadius: '16px', 
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            letterSpacing: '0.02em',
+                                                            border: '1px solid #bbf7d0',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                        title="Click to view detailed GRN Analysis & Items"
+                                                        onMouseEnter={e => { e.currentTarget.style.background = '#bbf7d0'; e.currentTarget.style.transform = 'scale(1.04)'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.transform = 'scale(1)'; }}
+                                                    >
+                                                        📊 {grn.grn_number}
                                                     </span>
                                                 </Td>
                                                 <Td style={{ color: '#334155', fontSize: '0.82rem', whiteSpace: 'nowrap', padding: '12px 10px' }}>
@@ -1821,7 +1831,36 @@ const StoresGRNReport = () => {
                                                     <span style={{ fontWeight: '600' }}>{grn.entered_by || grn.created_by_name || grn.created_by || '—'}</span>
                                                 </Td>
                                                 <Td style={{ textAlign: 'center', padding: '12px 10px' }}>
-                                                    <div className="grn-action-popover-wrap" style={{ position: 'relative', display: 'inline-block' }}>
+                                                    <div className="grn-action-popover-wrap" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedGrnForView(grn);
+                                                                setShowViewModal(true);
+                                                            }}
+                                                            style={{
+                                                                background: '#0d9488',
+                                                                color: '#ffffff',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                padding: '5px 10px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.78rem',
+                                                                fontWeight: '700',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                boxShadow: '0 2px 4px rgba(13, 148, 136, 0.25)',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                            title="Open detailed GRN Analysis"
+                                                            onMouseEnter={e => e.currentTarget.style.background = '#0f766e'}
+                                                            onMouseLeave={e => e.currentTarget.style.background = '#0d9488'}
+                                                        >
+                                                            <Eye size={12} />
+                                                            <span>Analysis</span>
+                                                        </button>
                                                         <button
                                                             ref={(el) => { anchorRefs.current[grn.grn_number] = el; }}
                                                             onClick={(e) => {

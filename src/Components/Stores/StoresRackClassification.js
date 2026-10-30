@@ -140,11 +140,13 @@ const StoresRackClassification = () => {
     const [masterLoading, setMasterLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ASSIGNED' | 'UNASSIGNED'
 
-    const filteredItemsList = itemsList.filter(it => {
-        if (statusFilter === 'ASSIGNED') return !!it.rack_no;
-        if (statusFilter === 'UNASSIGNED') return !it.rack_no;
-        return true;
-    });
+    const filteredItemsList = itemsList
+        .filter(it => {
+            if (statusFilter === 'ASSIGNED') return !!it.rack_no;
+            if (statusFilter === 'UNASSIGNED') return !it.rack_no;
+            return true;
+        })
+        .sort((a, b) => (a.itemName || '').localeCompare(b.itemName || '', undefined, { sensitivity: 'base' }));
 
     const {
         currentPage,
@@ -480,11 +482,11 @@ const StoresRackClassification = () => {
                             <ReactSelect
                                 options={[
                                     { value: '', label: 'All Racks' },
-                                    ...racks.map(r => ({ value: r, label: `Rack ${r}` }))
+                                    ...[...racks].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(r => ({ value: r, label: `Rack ${r}` }))
                                 ]}
                                 value={[
                                     { value: '', label: 'All Racks' },
-                                    ...racks.map(r => ({ value: r, label: `Rack ${r}` }))
+                                    ...[...racks].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(r => ({ value: r, label: `Rack ${r}` }))
                                 ].find(opt => opt.value === selectedRack) || { value: '', label: 'All Racks' }}
                                 onChange={opt => setSelectedRack(opt ? opt.value : '')}
                                 styles={customSelectStyles}
@@ -498,11 +500,11 @@ const StoresRackClassification = () => {
                             <ReactSelect
                                 options={[
                                     { value: '', label: 'All Shelves' },
-                                    ...shelves.map(s => ({ value: s, label: `Shelf ${s}` }))
+                                    ...[...shelves].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(s => ({ value: s, label: `Shelf ${s}` }))
                                 ]}
                                 value={[
                                     { value: '', label: 'All Shelves' },
-                                    ...shelves.map(s => ({ value: s, label: `Shelf ${s}` }))
+                                    ...[...shelves].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(s => ({ value: s, label: `Shelf ${s}` }))
                                 ].find(opt => opt.value === selectedShelf) || { value: '', label: 'All Shelves' }}
                                 onChange={opt => setSelectedShelf(opt ? opt.value : '')}
                                 styles={customSelectStyles}
@@ -646,19 +648,19 @@ const StoresRackClassification = () => {
                                     </div>
 
                                     <datalist id="existing-racks">
-                                        {rackMasters.map((r, i) => (
+                                        {[...rackMasters].sort((a, b) => (a.rack_name || '').localeCompare(b.rack_name || '', undefined, { numeric: true })).map((r, i) => (
                                             <option key={i} value={r.rack_name}>{r.rack_id ? `[${r.rack_id}] ${r.rack_name}` : r.rack_name}</option>
                                         ))}
-                                        {racks.filter(r => !rackMasters.some(rm => rm.rack_name === r)).map((r, i) => (
+                                        {[...racks].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).filter(r => !rackMasters.some(rm => rm.rack_name === r)).map((r, i) => (
                                             <option key={`extra-r-${i}`} value={r} />
                                         ))}
                                     </datalist>
 
                                     <datalist id="existing-shelves">
-                                        {shelfMasters.map((s, i) => (
+                                        {[...shelfMasters].sort((a, b) => (a.shelf_name || '').localeCompare(b.shelf_name || '', undefined, { numeric: true })).map((s, i) => (
                                             <option key={i} value={s.shelf_name}>{s.shelf_id ? `[${s.shelf_id}] ${s.shelf_name}` : s.shelf_name}</option>
                                         ))}
-                                        {shelves.filter(s => !shelfMasters.some(sm => sm.shelf_name === s)).map((s, i) => (
+                                        {[...shelves].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).filter(s => !shelfMasters.some(sm => sm.shelf_name === s)).map((s, i) => (
                                             <option key={`extra-s-${i}`} value={s} />
                                         ))}
                                     </datalist>
@@ -924,7 +926,7 @@ const StoresRackClassification = () => {
                                                         style={{ width: '100%', background: '#fff' }}
                                                     >
                                                         <option value="">-- Any / Global Rack --</option>
-                                                        {rackMasters.map(r => (
+                                                        {[...rackMasters].sort((a, b) => (a.rack_name || '').localeCompare(b.rack_name || '', undefined, { numeric: true })).map(r => (
                                                             <option key={r.rack_id} value={r.rack_id}>[{r.rack_id}] {r.rack_name}</option>
                                                         ))}
                                                     </Select>
