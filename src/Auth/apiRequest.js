@@ -195,4 +195,41 @@ export const fetchOutlets = async () => {
   return [];
 };
 
+/**
+ * Fetches the insurance & credit billing report.
+ * @param {Object} params Filter parameters (start_date, end_date, company_code, care_status, search)
+ * @returns {Promise<Object>} Formatted report response { success, data, summary, companies, status }
+ */
+export const fetchInsuranceCreditReport = async (params = {}) => {
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      queryParams.append(key, value);
+    }
+  });
+  const url = `${Hmsbaseurl}insurance-credit-report/?${queryParams.toString()}`;
+  const response = await apiRequest(url, 'GET');
+
+  if (response.success && response.data) {
+    const actualData = response.data.data || (Array.isArray(response.data) ? response.data : []);
+    const actualSummary = response.data.summary || {};
+    const actualCompanies = response.data.companies || [];
+    return {
+      success: true,
+      data: actualData,
+      summary: actualSummary,
+      companies: actualCompanies,
+      status: response.status,
+    };
+  }
+  return {
+    success: false,
+    error: response.error || 'Failed to fetch insurance credit report',
+    data: [],
+    summary: {},
+    companies: [],
+    status: response.status,
+  };
+};
+
 export default apiRequest;
