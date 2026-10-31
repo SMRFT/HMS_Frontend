@@ -301,21 +301,6 @@ const FormLabel = styled.label`
   display: block;
 `;
 
-const FormSelect = styled.select`
-  width: 100%;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 0.88rem;
-  background: white;
-  color: #0f172a;
-  outline: none;
-  transition: border-color 0.15s;
-
-  &:focus {
-    border-color: #0d8a7a;
-  }
-`;
 
 const FormInput = styled.input`
   width: 100%;
@@ -476,30 +461,46 @@ const DropdownList = styled.ul`
   left: 0;
   right: 0;
   background: white;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-  max-height: 200px;
+  border: 1.5px solid #0d8a7a;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  max-height: 280px;
   overflow-y: auto;
   z-index: 1000;
   margin: 0;
   padding: 4px 0;
   list-style: none;
+
+  /* Custom scrollbar */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
 `;
 
 const DropdownItem = styled.li`
-  padding: 9px 14px;
-  font-size: 0.85rem;
+  padding: 8px 12px;
+  font-size: 0.84rem;
   cursor: pointer;
   border-bottom: 1px solid #f1f5f9;
-  color: #1e293b;
-  &:hover {
-    background: #f0fdf9;
-    color: #0d8a7a;
-    font-weight: 600;
-  }
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all 0.15s ease;
   &:last-child {
     border-bottom: none;
+  }
+  &:hover {
+    background: #f0fdfa;
+    color: #0d8a7a;
   }
 `;
 
@@ -508,29 +509,54 @@ const DropdownItem = styled.li`
 const SearchableDropdown = ({ value, onChange, options, placeholder = "Select...", displayKey = "name", valueKey = "id", disabled = false }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setIsTyping(false);
+        setHighlightedIndex(-1);
+        if (value) {
+          const selected = options.find(opt => (typeof opt === 'string' ? opt === value : String(opt[valueKey]) === String(value)));
+          if (selected) setSearchTerm(typeof selected === 'string' ? selected : selected[displayKey]);
+        }
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [value, options, displayKey, valueKey]);
 
   useEffect(() => {
     if (value) {
-      const selected = options.find(opt => (typeof opt === 'string' ? opt === value : opt[valueKey] === value));
+      const selected = options.find(opt => (typeof opt === 'string' ? opt === value : String(opt[valueKey]) === String(value)));
       if (selected) setSearchTerm(typeof selected === 'string' ? selected : selected[displayKey]);
     } else {
       setSearchTerm("");
     }
   }, [value, options, displayKey, valueKey]);
 
-  const filtered = options.filter(opt => {
-    const txt = typeof opt === 'string' ? opt : opt[displayKey];
-    return txt.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filtered = isTyping && searchTerm.trim() !== ""
+    ? options.filter(opt => {
+      const q = searchTerm.toLowerCase();
+      if (typeof opt === 'string') return opt.toLowerCase().includes(q);
+      const name = (opt[displayKey] || "").toLowerCase();
+      const badge = (opt.badge || "").toLowerCase();
+      return name.includes(q) || badge.includes(q);
+    })
+    : options;
+
+  useEffect(() => {
+    if (isOpen && listRef.current && highlightedIndex >= 0) {
+      const itemEl = listRef.current.children[highlightedIndex];
+      if (itemEl && typeof itemEl.scrollIntoView === "function") {
+        itemEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedIndex, isOpen]);
 
   return (
     <SearchWrapper ref={wrapperRef}>
@@ -538,19 +564,87 @@ const SearchableDropdown = ({ value, onChange, options, placeholder = "Select...
         <FormInput
           type="text"
           value={searchTerm}
-          onChange={(e) => { setSearchTerm(e.target.value); setIsOpen(true); }}
-          onFocus={() => setIsOpen(true)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setIsTyping(true);
+            setIsOpen(true);
+            setHighlightedIndex(0);
+          }}
+          onClick={() => {
+            if (!disabled) {
+              setIsOpen(prev => !prev);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+            }
+          }}
+          onBlur={(e) => {
+            if (!wrapperRef.current || !wrapperRef.current.contains(e.relatedTarget)) {
+              setIsOpen(false);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+              if (value) {
+                const selected = options.find(opt => (typeof opt === 'string' ? opt === value : String(opt[valueKey]) === String(value)));
+                if (selected) setSearchTerm(typeof selected === 'string' ? selected : selected[displayKey]);
+              }
+            }
+          }}
+          onKeyDown={(e) => {
+            if (!isOpen) {
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                setIsOpen(true);
+                setIsTyping(false);
+                setHighlightedIndex(0);
+                return;
+              }
+            }
+
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              if (filtered.length === 0) return;
+              setHighlightedIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              if (filtered.length === 0) return;
+              setHighlightedIndex((prev) => (prev <= 0 ? filtered.length - 1 : prev - 1));
+            } else if (e.key === "Enter") {
+              if (isOpen && filtered.length > 0) {
+                e.preventDefault();
+                const opt = (highlightedIndex >= 0 && highlightedIndex < filtered.length)
+                  ? filtered[highlightedIndex]
+                  : filtered[0];
+                const val = typeof opt === 'string' ? opt : opt[valueKey];
+                const txt = typeof opt === 'string' ? opt : opt[displayKey];
+                onChange(val);
+                setSearchTerm(txt);
+                setIsTyping(false);
+                setIsOpen(false);
+                setHighlightedIndex(-1);
+              }
+            } else if (e.key === "Escape") {
+              setIsOpen(false);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+            }
+          }}
           placeholder={placeholder}
           disabled={disabled}
-          style={{ paddingRight: "30px", cursor: "pointer" }}
+          style={{ paddingRight: "30px", cursor: disabled ? "not-allowed" : "pointer" }}
         />
         <span
+          onClick={() => {
+            if (!disabled) {
+              setIsOpen(prev => !prev);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+            }
+          }}
           style={{
             position: "absolute",
             right: "12px",
             top: "50%",
             transform: "translateY(-50%)",
-            pointerEvents: "none",
+            cursor: disabled ? "default" : "pointer",
             color: "#64748b",
             fontSize: "10px"
           }}
@@ -558,19 +652,60 @@ const SearchableDropdown = ({ value, onChange, options, placeholder = "Select...
           ▼
         </span>
       </div>
-      {isOpen && filtered.length > 0 && (
-        <DropdownList>
-          {filtered.map((opt, idx) => (
-            <DropdownItem key={idx} onClick={() => {
-              const val = typeof opt === 'string' ? opt : opt[valueKey];
+      {isOpen && (
+        <DropdownList ref={listRef}>
+          {filtered.length > 0 ? (
+            filtered.map((opt, idx) => {
+              const isSelected = typeof opt === 'string' ? opt === value : String(opt[valueKey]) === String(value);
+              const isHighlighted = idx === highlightedIndex;
               const txt = typeof opt === 'string' ? opt : opt[displayKey];
-              onChange(val);
-              setSearchTerm(txt);
-              setIsOpen(false);
-            }}>
-              {typeof opt === 'string' ? opt : opt[displayKey]}
+              const badge = typeof opt === 'object' ? opt.badge : null;
+              return (
+                <DropdownItem
+                  key={idx}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    const val = typeof opt === 'string' ? opt : opt[valueKey];
+                    onChange(val);
+                    setSearchTerm(txt);
+                    setIsTyping(false);
+                    setIsOpen(false);
+                    setHighlightedIndex(-1);
+                  }}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
+                  style={{
+                    background: isHighlighted ? "#e6f9f3" : (isSelected ? "#f0fdf4" : "transparent"),
+                    color: isHighlighted || isSelected ? "#0d8a7a" : "#1e293b",
+                    outline: isHighlighted ? "1px solid #0d8a7a" : "none",
+                  }}
+                >
+                  <span style={{ fontWeight: isHighlighted || isSelected ? 700 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {txt}
+                  </span>
+                  {badge && (
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        fontWeight: 700,
+                        padding: "2px 7px",
+                        borderRadius: "10px",
+                        background: isHighlighted || isSelected ? "#dcfce7" : "#e2e8f0",
+                        color: isHighlighted || isSelected ? "#15803d" : "#475569",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0
+                      }}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </DropdownItem>
+              );
+            })
+          ) : (
+            <DropdownItem style={{ color: "#9ca3af", cursor: "default", justifyContent: "center" }}>
+              No matching options
             </DropdownItem>
-          ))}
+          )}
         </DropdownList>
       )}
     </SearchWrapper>
@@ -590,22 +725,6 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   const [selectedTests, setSelectedTests] = useState([]);
   const [expandedRow, setExpandedRow] = useState(null);
 
-  const testDropdownRef = useRef(null);
-  const packageDropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (testDropdownRef.current && !testDropdownRef.current.contains(event.target)) {
-        setShowItemDropdown(false);
-      }
-      if (packageDropdownRef.current && !packageDropdownRef.current.contains(event.target)) {
-        setShowPackageDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   // Form states
   const [doctor, setDoctor] = useState("");
   const [selectedBillType, setSelectedBillType] = useState("");
@@ -615,6 +734,47 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   const [showPackageDropdown, setShowPackageDropdown] = useState(false);
   const [search, setSearch] = useState("");
   const [showUpTo, setShowUpTo] = useState(10);
+
+  const [highlightedTestIndex, setHighlightedTestIndex] = useState(-1);
+  const [highlightedPackageIndex, setHighlightedPackageIndex] = useState(-1);
+  const radTestListRef = useRef(null);
+  const radPackageListRef = useRef(null);
+
+  const testDropdownRef = useRef(null);
+  const packageDropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (showItemDropdown && radTestListRef.current && highlightedTestIndex >= 0) {
+      const el = radTestListRef.current.children[highlightedTestIndex];
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedTestIndex, showItemDropdown]);
+
+  useEffect(() => {
+    if (showPackageDropdown && radPackageListRef.current && highlightedPackageIndex >= 0) {
+      const el = radPackageListRef.current.children[highlightedPackageIndex];
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedPackageIndex, showPackageDropdown]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (testDropdownRef.current && !testDropdownRef.current.contains(event.target)) {
+        setShowItemDropdown(false);
+        setHighlightedTestIndex(-1);
+      }
+      if (packageDropdownRef.current && !packageDropdownRef.current.contains(event.target)) {
+        setShowPackageDropdown(false);
+        setHighlightedPackageIndex(-1);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const formatAdmitDate = (dt) => {
     if (!dt) return "-";
@@ -664,8 +824,48 @@ export default function RadiologyWardRequest({ patient, onClose }) {
 
   const fetchBillTypes = async () => {
     try {
-      const res = await apiRequest(`${HmsBaseUrl}bill-types/`, "GET");
-      if (res.success) setBillTypes(res.data?.billTypes || []);
+      const outletMap = {
+        OLET001: "IP PHARMACY",
+        OLET002: "OP PHARMACY",
+        OLET003: "MAIN BLOCK",
+        OLET004: "CANCER BLOCK",
+        OLET005: "VELAVAN",
+      };
+      const res = await apiRequest(`${HmsBaseUrl}bill-types/?ignore_outlet=true`, "GET");
+      if (res.success) {
+        const list = res.data?.billTypes || [];
+        const enriched = list.map((b) => {
+          const oc = b.outlet_code || "";
+          const on = outletMap[oc] || (oc ? oc : "General");
+          return {
+            ...b,
+            outlet_name: on,
+            outlet_badge: oc ? `${on} • ${oc}` : "General",
+          };
+        });
+        const radCodes = ["CT01", "MRI01", "USG01", "XRAY01", "PET01"];
+        const isRad = (b) => {
+          const no = (b.billTypeNo || "").toUpperCase();
+          const name = (b.bill_name || "").toUpperCase();
+          return (
+            radCodes.includes(no) ||
+            name.includes("SCAN") ||
+            name.includes("X-RAY") ||
+            name.includes("X - RAY") ||
+            name.includes("MRI") ||
+            name.includes("CT ") ||
+            name.includes("USG")
+          );
+        };
+        const radList = enriched.filter(isRad).sort((a, b) => (a.bill_name || "").localeCompare(b.bill_name || ""));
+        const otherList = enriched.filter((b) => !isRad(b)).sort((a, b) => {
+          const outCmp = (a.outlet_name || "").localeCompare(b.outlet_name || "");
+          if (outCmp !== 0) return outCmp;
+          return (a.bill_name || "").localeCompare(b.bill_name || "");
+        });
+        const allBillTypes = [...radList, ...otherList];
+        setBillTypes(allBillTypes);
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -696,8 +896,8 @@ export default function RadiologyWardRequest({ patient, onClose }) {
     if (val === "PACK") {
       const res = await apiRequest(`${HmsBaseUrl}packages_crud/`, "GET");
       const list = res.success && Array.isArray(res.data) ? res.data : [];
-      const radPkgs = list.filter(p => 
-        p.is_active !== false && 
+      const radPkgs = list.filter(p =>
+        p.is_active !== false &&
         (p.outlet_code === "OLET004" || (p.items || []).some(it => it.billTypeNo !== "LAB01"))
       );
       setPackages(radPkgs);
@@ -857,11 +1057,17 @@ export default function RadiologyWardRequest({ patient, onClose }) {
             <FormRow>
               <div>
                 <FormLabel>Bill Type</FormLabel>
-                <FormSelect value={selectedBillType} onChange={(e) => handleBillTypeChange(e.target.value)}>
-                  <option value="">Select Bill Type</option>
-                  <option value="PACK">Packages</option>
-                  {billTypes.map((o, idx) => <option key={`${o.bill_type}_${idx}`} value={o.bill_type}>{o.bill_name}</option>)}
-                </FormSelect>
+                <SearchableDropdown
+                  value={selectedBillType}
+                  onChange={(val) => handleBillTypeChange(val)}
+                  options={[
+                    { id: "PACK", name: "Packages", badge: "Package" },
+                    ...billTypes.map((o) => ({ id: o.bill_type, name: o.bill_name, badge: o.outlet_badge }))
+                  ]}
+                  placeholder="Select Bill Type"
+                  displayKey="name"
+                  valueKey="id"
+                />
               </div>
               <div>
                 <FormLabel>Doctor</FormLabel>
@@ -882,38 +1088,142 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                   <SearchWrapper ref={testDropdownRef}>
                     <FormInput
-                      placeholder="Investigations (CT, MRI...)"
+                      placeholder="Investigations (CT, MRI...) [use ↑/↓ to navigate]"
                       value={testSearch}
-                      onChange={(e) => { setTestSearch(e.target.value); setShowItemDropdown(true); }}
-                      onFocus={() => setShowItemDropdown(true)}
+                      onChange={(e) => {
+                        setTestSearch(e.target.value);
+                        setShowItemDropdown(true);
+                        setHighlightedTestIndex(0);
+                      }}
+                      onFocus={() => {
+                        setShowItemDropdown(true);
+                        setHighlightedTestIndex(0);
+                      }}
+                      onKeyDown={(e) => {
+                        const list = Array.isArray(investigationItems) ? investigationItems.filter(i => i.itemName.toLowerCase().includes(testSearch.toLowerCase())) : [];
+                        if (!showItemDropdown) {
+                          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setShowItemDropdown(true);
+                            setHighlightedTestIndex(0);
+                            return;
+                          }
+                        }
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          if (list.length > 0) setHighlightedTestIndex(prev => prev < list.length - 1 ? prev + 1 : 0);
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          if (list.length > 0) setHighlightedTestIndex(prev => prev <= 0 ? list.length - 1 : prev - 1);
+                        } else if (e.key === "Enter") {
+                          if (showItemDropdown && list.length > 0) {
+                            e.preventDefault();
+                            const target = highlightedTestIndex >= 0 && list[highlightedTestIndex] ? list[highlightedTestIndex] : list[0];
+                            addTestToList(target);
+                            setShowItemDropdown(false);
+                            setHighlightedTestIndex(-1);
+                          }
+                        } else if (e.key === "Escape") {
+                          setShowItemDropdown(false);
+                          setHighlightedTestIndex(-1);
+                        }
+                      }}
                       disabled={!selectedBillType || selectedBillType === "PACK"}
                     />
                     {showItemDropdown && (
-                      <DropdownList>
-                        {Array.isArray(investigationItems) && investigationItems.filter(i => i.itemName.toLowerCase().includes(testSearch.toLowerCase())).map((item, idx) => (
-                          <DropdownItem key={idx} onClick={() => addTestToList(item)}>
-                            {item.itemName} - <span style={{ color: colors.primary }}>₹{item.price}</span>
-                          </DropdownItem>
-                        ))}
+                      <DropdownList ref={radTestListRef}>
+                        {Array.isArray(investigationItems) && investigationItems.filter(i => i.itemName.toLowerCase().includes(testSearch.toLowerCase())).map((item, idx) => {
+                          const isHighlighted = idx === highlightedTestIndex;
+                          return (
+                            <DropdownItem
+                              key={idx}
+                              onClick={() => {
+                                addTestToList(item);
+                                setShowItemDropdown(false);
+                                setHighlightedTestIndex(-1);
+                              }}
+                              onMouseEnter={() => setHighlightedTestIndex(idx)}
+                              style={{
+                                background: isHighlighted ? "#e6f9f3" : "transparent",
+                                color: isHighlighted ? "#0d8a7a" : "inherit",
+                                outline: isHighlighted ? "1px solid #0d8a7a" : "none",
+                              }}
+                            >
+                              {item.itemName} - <span style={{ color: colors.primary, fontWeight: 700 }}>₹{item.price}</span>
+                            </DropdownItem>
+                          );
+                        })}
                       </DropdownList>
                     )}
                   </SearchWrapper>
 
                   <SearchWrapper ref={packageDropdownRef}>
                     <FormInput
-                      placeholder="Health Packages..."
+                      placeholder="Health Packages... [use ↑/↓ to navigate]"
                       value={packageSearch}
-                      onChange={(e) => { setPackageSearch(e.target.value); setShowPackageDropdown(true); }}
-                      onFocus={() => setShowPackageDropdown(true)}
+                      onChange={(e) => {
+                        setPackageSearch(e.target.value);
+                        setShowPackageDropdown(true);
+                        setHighlightedPackageIndex(0);
+                      }}
+                      onFocus={() => {
+                        setShowPackageDropdown(true);
+                        setHighlightedPackageIndex(0);
+                      }}
+                      onKeyDown={(e) => {
+                        const list = Array.isArray(packages) ? packages.filter(p => p.packageName.toLowerCase().includes(packageSearch.toLowerCase())) : [];
+                        if (!showPackageDropdown) {
+                          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setShowPackageDropdown(true);
+                            setHighlightedPackageIndex(0);
+                            return;
+                          }
+                        }
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          if (list.length > 0) setHighlightedPackageIndex(prev => prev < list.length - 1 ? prev + 1 : 0);
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          if (list.length > 0) setHighlightedPackageIndex(prev => prev <= 0 ? list.length - 1 : prev - 1);
+                        } else if (e.key === "Enter") {
+                          if (showPackageDropdown && list.length > 0) {
+                            e.preventDefault();
+                            const target = highlightedPackageIndex >= 0 && list[highlightedPackageIndex] ? list[highlightedPackageIndex] : list[0];
+                            addPackageToList(target);
+                            setShowPackageDropdown(false);
+                            setHighlightedPackageIndex(-1);
+                          }
+                        } else if (e.key === "Escape") {
+                          setShowPackageDropdown(false);
+                          setHighlightedPackageIndex(-1);
+                        }
+                      }}
                       disabled={selectedBillType !== "PACK"}
                     />
                     {showPackageDropdown && (
-                      <DropdownList>
-                        {Array.isArray(packages) && packages.filter(p => p.packageName.toLowerCase().includes(packageSearch.toLowerCase())).map((pkg, idx) => (
-                          <DropdownItem key={idx} onClick={() => addPackageToList(pkg)}>
-                            {pkg.packageName}
-                          </DropdownItem>
-                        ))}
+                      <DropdownList ref={radPackageListRef}>
+                        {Array.isArray(packages) && packages.filter(p => p.packageName.toLowerCase().includes(packageSearch.toLowerCase())).map((pkg, idx) => {
+                          const isHighlighted = idx === highlightedPackageIndex;
+                          return (
+                            <DropdownItem
+                              key={idx}
+                              onClick={() => {
+                                addPackageToList(pkg);
+                                setShowPackageDropdown(false);
+                                setHighlightedPackageIndex(-1);
+                              }}
+                              onMouseEnter={() => setHighlightedPackageIndex(idx)}
+                              style={{
+                                background: isHighlighted ? "#e6f9f3" : "transparent",
+                                color: isHighlighted ? "#0d8a7a" : "inherit",
+                                outline: isHighlighted ? "1px solid #0d8a7a" : "none",
+                              }}
+                            >
+                              {pkg.packageName}
+                            </DropdownItem>
+                          );
+                        })}
                       </DropdownList>
                     )}
                   </SearchWrapper>

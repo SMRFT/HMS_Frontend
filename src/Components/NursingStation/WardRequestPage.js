@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
-import { Search, Plus, X } from "lucide-react";
+import { Search, Plus, X, ChevronDown } from "lucide-react";
 
 // --- Color Palette matching the screenshot ---
 // ─── Color palette (mirrors Radiology/Lab pattern) ──────────────────────
@@ -534,31 +534,59 @@ const StyledTable = styled.table`
   }
 `;
 
-const LegendContainer = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 15px;
-  margin-top: 25px;
-  padding: 20px;
-  background: white;
-  border-radius: 12px;
-  border: 1px solid ${colors.border};
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+const SubTableWrapper = styled.div`
+  padding: 12px 18px 16px 18px;
+  background: #f8fafc;
 `;
 
-const LegendItemWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 8px;
-  background: #fdfdfd;
-  border: 1px solid #f0f0f0;
-  transition: all 0.2s;
-  &:hover {
-    background: #f8fafb;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+const SubTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  th {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 1px solid #cbd5e1;
   }
+
+  td {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover {
+    background: #f8fafc;
+  }
+`;
+
+const LegendContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid ${colors.border};
+  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
 `;
 
 const LegendItem = styled.div`
@@ -567,18 +595,12 @@ const LegendItem = styled.div`
   justify-content: center;
   font-size: 0.75rem;
   font-weight: 700;
-  padding: 4px 12px;
+  padding: 5px 12px;
   border-radius: 20px;
   background: ${(props) => props.color};
   color: white;
   width: fit-content;
-  box-shadow: 0 2px 6px ${(props) => props.color}40;
-`;
-
-const LegendDescription = styled.div`
-  font-size: 0.75rem;
-  color: ${colors.textMuted};
-  line-height: 1.3;
+  box-shadow: 0 2px 4px ${(props) => props.color}35;
 `;
 
 // ─── Searchable Dropdown Helper ───────────────────────────────────────────────
@@ -590,30 +612,53 @@ const SearchWrapper = styled.div`
 
 const DropdownList = styled.ul`
   position: absolute;
-  top: 100%;
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
   background: white;
-  border: 1px solid ${colors.primary};
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  max-height: 200px;
+  border: 1.5px solid #0d8a7a;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  max-height: 280px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 9999;
   margin: 0;
-  padding: 0;
+  padding: 4px 0;
   list-style: none;
-  border-radius: 0 0 4px 4px;
+  border-radius: 8px;
+
+  /* Custom scrollbar */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
 `;
 
 const DropdownItem = styled.li`
-  padding: 10px 15px;
-  font-size: 0.88rem;
+  padding: 8px 12px;
+  font-size: 0.84rem;
   cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all 0.15s ease;
+  &:last-child {
+    border-bottom: none;
+  }
   &:hover {
-    background: ${colors.background};
-    color: ${colors.primaryDark};
-    font-weight: 600;
+    background: #f0fdfa;
+    color: #0d8a7a;
   }
 `;
 
@@ -627,64 +672,217 @@ const SearchableDropdown = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target))
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
         setIsOpen(false);
+        setIsTyping(false);
+        setHighlightedIndex(-1);
+        if (value) {
+          const selected = options.find((opt) =>
+            typeof opt === "string" ? opt === value : String(opt[valueKey]) === String(value)
+          );
+          if (selected) {
+            setSearchTerm(typeof selected === "string" ? selected : selected[displayKey]);
+          }
+        }
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [value, options, displayKey, valueKey]);
 
   useEffect(() => {
     if (value) {
       const selected = options.find((opt) =>
-        typeof opt === "string" ? opt === value : opt[valueKey] === value,
+        typeof opt === "string" ? opt === value : String(opt[valueKey]) === String(value)
       );
-      if (selected)
+      if (selected) {
         setSearchTerm(
-          typeof selected === "string" ? selected : selected[displayKey],
+          typeof selected === "string" ? selected : selected[displayKey]
         );
+      }
     } else {
       setSearchTerm("");
     }
   }, [value, options, displayKey, valueKey]);
 
-  const filtered = options.filter((opt) => {
-    const txt = typeof opt === "string" ? opt : opt[displayKey];
-    return txt.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // When user is typing, search across displayKey, badge, outlet_code, outlet_name
+  const filtered = isTyping && searchTerm.trim() !== ""
+    ? options.filter((opt) => {
+        const q = searchTerm.toLowerCase();
+        if (typeof opt === "string") return opt.toLowerCase().includes(q);
+        const name = (opt[displayKey] || "").toLowerCase();
+        const badge = (opt.badge || "").toLowerCase();
+        const oc = (opt.outlet_code || "").toLowerCase();
+        const on = (opt.outlet_name || "").toLowerCase();
+        return name.includes(q) || badge.includes(q) || oc.includes(q) || on.includes(q);
+      })
+    : options;
+
+  // Auto-scroll highlighted item into view
+  useEffect(() => {
+    if (isOpen && listRef.current && highlightedIndex >= 0) {
+      const itemEl = listRef.current.children[highlightedIndex];
+      if (itemEl && typeof itemEl.scrollIntoView === "function") {
+        itemEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedIndex, isOpen]);
 
   return (
     <SearchWrapper ref={wrapperRef}>
-      <StyledInput
-        type="text"
-        value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          setIsOpen(true);
-        }}
-        onFocus={() => setIsOpen(true)}
-        placeholder={placeholder}
-      />
-      {isOpen && filtered.length > 0 && (
-        <DropdownList>
-          {filtered.map((opt, idx) => (
-            <DropdownItem
-              key={idx}
-              onClick={() => {
+      <div style={{ position: "relative", width: "100%" }}>
+        <StyledInput
+          type="text"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setIsTyping(true);
+            setIsOpen(true);
+            setHighlightedIndex(0);
+          }}
+          onClick={() => {
+            setIsOpen((prev) => !prev);
+            setIsTyping(false);
+            setHighlightedIndex(-1);
+          }}
+          onBlur={(e) => {
+            if (!wrapperRef.current || !wrapperRef.current.contains(e.relatedTarget)) {
+              setIsOpen(false);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+              if (value) {
+                const selected = options.find((opt) =>
+                  typeof opt === "string" ? opt === value : String(opt[valueKey]) === String(value)
+                );
+                if (selected) {
+                  setSearchTerm(typeof selected === "string" ? selected : selected[displayKey]);
+                }
+              }
+            }
+          }}
+          onKeyDown={(e) => {
+            if (!isOpen) {
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                setIsOpen(true);
+                setIsTyping(false);
+                setHighlightedIndex(0);
+                return;
+              }
+            }
+
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              if (filtered.length === 0) return;
+              setHighlightedIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              if (filtered.length === 0) return;
+              setHighlightedIndex((prev) => (prev <= 0 ? filtered.length - 1 : prev - 1));
+            } else if (e.key === "Enter") {
+              if (isOpen && filtered.length > 0) {
+                e.preventDefault();
+                const opt = (highlightedIndex >= 0 && highlightedIndex < filtered.length)
+                  ? filtered[highlightedIndex]
+                  : filtered[0];
                 const val = typeof opt === "string" ? opt : opt[valueKey];
                 const txt = typeof opt === "string" ? opt : opt[displayKey];
                 onChange(val);
                 setSearchTerm(txt);
+                setIsTyping(false);
                 setIsOpen(false);
-              }}
-            >
-              {typeof opt === "string" ? opt : opt[displayKey]}
+                setHighlightedIndex(-1);
+              }
+            } else if (e.key === "Escape") {
+              setIsOpen(false);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+            }
+          }}
+          placeholder={placeholder}
+          style={{ paddingRight: "30px", cursor: "pointer" }}
+        />
+        <div
+          onClick={() => {
+            setIsOpen((prev) => !prev);
+            setIsTyping(false);
+            setHighlightedIndex(-1);
+          }}
+          style={{
+            position: "absolute",
+            right: "10px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            cursor: "pointer",
+            color: "#6b7280",
+            display: "flex",
+            alignItems: "center"
+          }}
+        >
+          <ChevronDown size={16} />
+        </div>
+      </div>
+      {isOpen && (
+        <DropdownList ref={listRef}>
+          {filtered.length > 0 ? (
+            filtered.map((opt, idx) => {
+              const isSelected = typeof opt === "string" ? opt === value : String(opt[valueKey]) === String(value);
+              const isHighlighted = idx === highlightedIndex;
+              const txt = typeof opt === "string" ? opt : opt[displayKey];
+              const badge = typeof opt === "object" ? opt.badge : null;
+              return (
+                <DropdownItem
+                  key={idx}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Prevent blur before select
+                    const val = typeof opt === "string" ? opt : opt[valueKey];
+                    onChange(val);
+                    setSearchTerm(txt);
+                    setIsTyping(false);
+                    setIsOpen(false);
+                    setHighlightedIndex(-1);
+                  }}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
+                  style={{
+                    background: isHighlighted ? "#e6f9f3" : (isSelected ? "#f0fdf4" : "transparent"),
+                    color: isHighlighted || isSelected ? "#0d8a7a" : "#1e293b",
+                    outline: isHighlighted ? "1px solid #0d8a7a" : "none",
+                  }}
+                >
+                  <span style={{ fontWeight: isHighlighted || isSelected ? 700 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {txt}
+                  </span>
+                  {badge && (
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        fontWeight: 700,
+                        padding: "2px 7px",
+                        borderRadius: "10px",
+                        background: isHighlighted || isSelected ? "#dcfce7" : "#e2e8f0",
+                        color: isHighlighted || isSelected ? "#15803d" : "#475569",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0
+                      }}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </DropdownItem>
+              );
+            })
+          ) : (
+            <DropdownItem style={{ color: "#9ca3af", cursor: "default", justifyContent: "center" }}>
+              No options found
             </DropdownItem>
-          ))}
+          )}
         </DropdownList>
       )}
     </SearchWrapper>
@@ -738,6 +936,8 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [doctors, setDoctors] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [highlightedMedicineIndex, setHighlightedMedicineIndex] = useState(-1);
+  const medicineTableBodyRef = useRef(null);
   const [billTypeOptions, setBillTypeOptions] = useState([]);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -746,12 +946,21 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [expandedRow, setExpandedRow] = useState(null);
+  const toggleRow = (id) => setExpandedRow((prev) => (prev === id ? null : id));
 
   // Form Fields
   const [pharmacyDept, setPharmacyDept] = useState("OLET001");
-  const [billTypeNo, setBillTypeNo] = useState("42");
-  const [billtype, setBilltype] = useState("42");
-  const [billTypeName, setBillTypeName] = useState("PHARMACY OP BILL (SH)");
+  const [outletMap, setOutletMap] = useState({
+    OLET001: "IP PHARMACY",
+    OLET002: "OP PHARMACY",
+    OLET003: "MAIN BLOCK",
+    OLET004: "CANCER BLOCK",
+    OLET005: "VELAVAN",
+  });
+  const [billTypeNo, setBillTypeNo] = useState("PH01");
+  const [billtype, setBilltype] = useState(18);
+  const [billTypeName, setBillTypeName] = useState("PHARMACY IP BILL");
   const [drugType, setDrugType] = useState("Drug");
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [doctor, setDoctor] = useState(""); // Stores employeeId
@@ -839,22 +1048,116 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     }
   };
 
+  const handleBillTypeChange = (val) => {
+    const opt = billTypeOptions.find(
+      (o) => String(o.bill_type) === String(val),
+    );
+    if (opt) {
+      setBillTypeNo(opt.billTypeNo);
+      setBilltype(val);
+      setBillTypeName(opt.bill_name);
+      const newOutlet = opt.outlet_code || "OLET001";
+      setPharmacyDept(newOutlet);
+      setSearchResults([]);
+      setSelectedDrug(null);
+      setSearchQuery("");
+      if (isSearchModalOpen) {
+        handleMedicineSearch("", newOutlet);
+      }
+    }
+  };
+
   const fetchBillTypes = async () => {
     try {
-      const res = await apiRequest(`${HmsBaseUrl}bill-types/`, "GET");
+      let currentOutletMap = {
+        OLET001: "IP PHARMACY",
+        OLET002: "OP PHARMACY",
+        OLET003: "MAIN BLOCK",
+        OLET004: "CANCER BLOCK",
+        OLET005: "VELAVAN",
+      };
+      try {
+        const outletRes = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
+        const outletList = Array.isArray(outletRes)
+          ? outletRes
+          : (Array.isArray(outletRes?.data) ? outletRes.data : []);
+        if (outletList && outletList.length > 0) {
+          const map = { ...currentOutletMap };
+          outletList.forEach((o) => {
+            if (o.outlet_code) {
+              map[o.outlet_code] = o.outlet_name || o.outlet_code;
+            }
+          });
+          currentOutletMap = map;
+          setOutletMap(map);
+        }
+      } catch (oe) {
+        console.warn("Using fallback outlet map:", oe);
+      }
+
+      const res = await apiRequest(`${HmsBaseUrl}bill-types/?ignore_outlet=true`, "GET");
       if (res.success || res.records) {
         const list =
           res.records ||
           res.data?.billTypes ||
           (Array.isArray(res.data) ? res.data : []);
-        setBillTypeOptions(list);
-        if (list.length > 0) {
-          const opt = list[0];
-          setBillTypeNo(opt.billTypeNo);
-          setBilltype(opt.bill_type);
-          setBillTypeName(opt.bill_name);
-          if (opt.outlet_code && opt.outlet_code !== pharmacyDept) {
-            setPharmacyDept(opt.outlet_code);
+
+        const enriched = list.map((b) => {
+          const oc = b.outlet_code || "";
+          const on = currentOutletMap[oc] || (oc ? oc : "General");
+          return {
+            ...b,
+            outlet_name: on,
+            outlet_badge: oc ? `${on} • ${oc}` : "General",
+          };
+        });
+
+        const isPharmacy = (b) => {
+          const name = (b.bill_name || "").toUpperCase();
+          const billNo = (b.billTypeNo || "").toUpperCase();
+          const outlet = (b.outlet_code || "").toUpperCase();
+          return (
+            billNo === "PH01" ||
+            name.includes("PHARMACY") ||
+            name.includes("MEDICINE") ||
+            outlet === "OLET001" ||
+            outlet === "OLET002"
+          );
+        };
+
+        const pharmList = enriched
+          .filter(isPharmacy)
+          .sort((a, b) => {
+            if (a.bill_name?.includes("IP")) return -1;
+            if (b.bill_name?.includes("IP")) return 1;
+            return (a.bill_name || "").localeCompare(b.bill_name || "");
+          });
+        const otherList = enriched
+          .filter((b) => !isPharmacy(b))
+          .sort((a, b) => {
+            const outCmp = (a.outlet_name || "").localeCompare(b.outlet_name || "");
+            if (outCmp !== 0) return outCmp;
+            return (a.bill_name || "").localeCompare(b.bill_name || "");
+          });
+
+        const allBillTypes = [...pharmList, ...otherList];
+        setBillTypeOptions(allBillTypes);
+
+        if (allBillTypes.length > 0) {
+          const defaultOpt =
+            allBillTypes.find(
+              (b) =>
+                b.bill_name?.toUpperCase().includes("PHARMACY IP") ||
+                (b.outlet_code === "OLET001" && b.billTypeNo === "PH01") ||
+                b.outlet_code === "OLET001"
+            ) || allBillTypes[0];
+
+          if (defaultOpt) {
+            setBillTypeNo(defaultOpt.billTypeNo);
+            setBilltype(defaultOpt.bill_type);
+            setBillTypeName(defaultOpt.bill_name);
+            const outlet = defaultOpt.outlet_code || "OLET001";
+            setPharmacyDept(outlet);
           }
         }
       }
@@ -894,43 +1197,57 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     }
   };
 
-  const handleMedicineSearch = async (val) => {
-    if (val && val.trim().length > 1) {
-      setSearchLoading(true);
-      try {
-        const queryTerm = encodeURIComponent(val.trim());
-        const res = await apiRequest(
-          `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${pharmacyDept}&search=${queryTerm}`,
-          "GET",
-        );
-        const list = res.success
-          ? Array.isArray(res.data?.data)
-            ? res.data.data
-            : Array.isArray(res.data)
-              ? res.data
-              : []
-          : [];
+  const handleMedicineSearch = async (val = "", outletOverride) => {
+    const targetOutlet = outletOverride || pharmacyDept || "OLET001";
+    setSearchLoading(true);
+    try {
+      const queryTerm = (val || "").trim();
+      const url = queryTerm
+        ? `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${targetOutlet}&search=${encodeURIComponent(queryTerm)}`
+        : `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${targetOutlet}`;
+      const res = await apiRequest(url, "GET");
+      const list = res.success
+        ? Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+            ? res.data
+            : []
+        : [];
 
-        const filtered = list.map((item) => ({
-          id: item.item_id + "_" + item.batch_number,
-          item_id: item.item_id,
-          batch_number: item.batch_number,
-          name: item.item_name,
-          price: item.mrp || item.Selling_Price || item.price || 0,
-          total_stock: item.available_stock != null ? item.available_stock : (item.total_stock || 0),
-          expiry_date: item.expiry_date || "-",
-        }));
-        setSearchResults(filtered);
-      } catch (e) {
-        console.error("Search error", e);
-        setSearchResults([]);
-      } finally {
-        setSearchLoading(false);
-      }
-    } else {
+      const filtered = list.map((item) => ({
+        id: item.item_id + "_" + item.batch_number,
+        item_id: item.item_id,
+        batch_number: item.batch_number,
+        name: item.item_name,
+        price: item.mrp || item.Selling_Price || item.price || 0,
+        total_stock: item.available_stock != null ? item.available_stock : (item.total_stock || 0),
+        expiry_date: item.expiry_date || "-",
+      }));
+      setSearchResults(filtered);
+    } catch (e) {
+      console.error("Search error", e);
       setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (searchResults && searchResults.length > 0) {
+      setHighlightedMedicineIndex(0);
+    } else {
+      setHighlightedMedicineIndex(-1);
+    }
+  }, [searchResults]);
+
+  useEffect(() => {
+    if (isSearchModalOpen && medicineTableBodyRef.current && highlightedMedicineIndex >= 0) {
+      const rowEl = medicineTableBodyRef.current.children[highlightedMedicineIndex];
+      if (rowEl && typeof rowEl.scrollIntoView === "function") {
+        rowEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedMedicineIndex, isSearchModalOpen]);
 
   // Auto-calculate quantity based on dosage & days
   useEffect(() => {
@@ -1176,11 +1493,18 @@ const MedicineWardRequest = ({ patient, onClose }) => {
 
     setReturnSaving(true);
     try {
+      const empId =
+        localStorage.getItem("employeeId") ||
+        localStorage.getItem("userId") ||
+        localStorage.getItem("user_id") ||
+        localStorage.getItem("name") ||
+        "system";
+
       const payload = {
         Bill_id: selectedReturnReq.Bill_id,
-        patient_name: selectedReturnReq.patient_name || selectedReturnReq.patientName || selectedReturnReq.patient || "",
         medicine_particulars: itemsToReturn,
-        "auth-user-id": localStorage.getItem("employee_id") || "Unknown"
+        "auth-user-id": empId,
+        requested_by: empId,
       };
 
       const res = await apiRequest(`${HmsBaseUrl}return_medicine_ward_request/`, "POST", payload);
@@ -1290,6 +1614,44 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     }
   };
 
+  const handleCancelRequest = async (billId) => {
+    if (!window.confirm("Are you sure you want to cancel this medicine ward request?")) return;
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}cancel_medicine_ward_request/`, "POST", { id: billId });
+      if (res.success) {
+        alert("Medicine ward request cancelled successfully!");
+        fetchRequests();
+      } else {
+        alert("Failed to cancel: " + (res.data?.error || res.error || res.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Cancel medicine error:", err);
+      alert("An error occurred while cancelling.");
+    }
+  };
+
+  const handleRemoveIndividualMedicine = async (billId, med) => {
+    if (!window.confirm(`Are you sure you want to remove "${med.item_name || med.name}" from this request?`)) return;
+    try {
+      const payload = {
+        id: billId,
+        item_id: med.item_id,
+        item_name: med.item_name || med.name,
+        batch_number: med.batch_number || ""
+      };
+      const res = await apiRequest(`${HmsBaseUrl}remove_individual_medicine/`, "POST", payload);
+      if (res.success) {
+        alert("Medicine removed successfully!");
+        fetchRequests();
+      } else {
+        alert("Failed to remove medicine: " + (res.data?.error || res.error || res.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Remove medicine error:", err);
+      alert("An error occurred while removing medicine.");
+    }
+  };
+
   const getStatusColor = (status, isDischarge) => {
     if (isDischarge) return colors.legDischarge;
     if (status === "Pending") return colors.legPending;
@@ -1354,33 +1716,77 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         {showForm && (
           <RequestFormWrapper>
             <FormPanel>
-              {/* Row 1: Bill Type | Medicine Name & Actions | Doctor */}
-              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 2fr 1.3fr", gap: "10px", marginBottom: "8px" }}>
+              {/* Row 1: Bill Type (with Active Outlet badge) & Doctor */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1.2fr 1fr",
+                  gap: "14px",
+                  marginBottom: "12px",
+                  background: "#f8fafc",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid #e2e8f0",
+                }}
+              >
                 <FormItem>
-                  <FormLabel>Medicine Bill Type</FormLabel>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "3px",
+                    }}
+                  >
+                    <FormLabel style={{ margin: 0 }}>Medicine Bill Type</FormLabel>
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        fontWeight: 700,
+                        color: "#0d8a7a",
+                        background: "#e6f9f3",
+                        padding: "1px 8px",
+                        borderRadius: "10px",
+                        letterSpacing: "0.2px",
+                      }}
+                    >
+                      Outlet: {pharmacyDept} {outletMap[pharmacyDept] ? `• ${outletMap[pharmacyDept]}` : ""}
+                    </span>
+                  </div>
                   <SearchableDropdown
                     value={billtype}
-                    onChange={(val) => {
-                      const opt = billTypeOptions.find(
-                        (o) => String(o.bill_type) === String(val),
-                      );
-                      if (opt) {
-                        setBillTypeNo(opt.billTypeNo);
-                        setBilltype(val);
-                        setBillTypeName(opt.bill_name);
-                        setPharmacyDept(opt.outlet_code || "");
-                        setSearchResults([]);
-                        setSelectedDrug(null);
-                        setSearchQuery("");
-                      }
-                    }}
+                    onChange={handleBillTypeChange}
                     options={billTypeOptions.map((o) => ({
                       id: o.bill_type,
                       name: o.bill_name,
+                      badge: o.outlet_badge,
+                      outlet_code: o.outlet_code,
+                      outlet_name: o.outlet_name,
                     }))}
+                    placeholder="Search bill type or outlet..."
                   />
                 </FormItem>
 
+                <FormItem>
+                  <FormLabel>Doctor</FormLabel>
+                  <SearchableDropdown
+                    value={doctor}
+                    onChange={(val) => {
+                      setDoctor(val);
+                      const docObj = doctors.find((d) => d.employeeId === val);
+                      if (docObj) setDoctorName(docObj.employeeName);
+                    }}
+                    options={doctors.map((d) => ({
+                      id: d.employeeId,
+                      name: d.employeeName,
+                    }))}
+                    placeholder="Search doctor..."
+                  />
+                </FormItem>
+              </div>
+
+              {/* Row 2: Medicine Name with Search & Package */}
+              <div style={{ marginBottom: "10px" }}>
                 <FormItem>
                   <FormLabel>Medicine Name</FormLabel>
                   <div style={{ display: "flex", gap: "6px" }}>
@@ -1395,29 +1801,21 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          if (searchQuery.length > 2) {
-                            setIsSearchModalOpen(true);
-                            handleMedicineSearch(searchQuery);
-                          } else {
-                            alert("Please enter at least 3 characters.");
-                          }
+                          setIsSearchModalOpen(true);
+                          handleMedicineSearch(searchQuery);
                         }
                       }}
                     />
                     <button
                       type="button"
                       onClick={() => {
-                        if (searchQuery.length > 2) {
-                          setIsSearchModalOpen(true);
-                          handleMedicineSearch(searchQuery);
-                        } else {
-                          alert("Please enter at least 3 characters.");
-                        }
+                        setIsSearchModalOpen(true);
+                        handleMedicineSearch(searchQuery);
                       }}
                       style={{
                         background: colors.primary,
                         color: "white",
-                        padding: "0 12px",
+                        padding: "0 14px",
                         borderRadius: "6px",
                         border: "none",
                         cursor: "pointer",
@@ -1438,7 +1836,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       style={{
                         background: colors.secondary || "#f59e0b",
                         color: "white",
-                        padding: "0 12px",
+                        padding: "0 14px",
                         borderRadius: "6px",
                         border: "none",
                         cursor: "pointer",
@@ -1454,22 +1852,6 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       🎁 Package
                     </button>
                   </div>
-                </FormItem>
-
-                <FormItem>
-                  <FormLabel>Doctor</FormLabel>
-                  <SearchableDropdown
-                    value={doctor}
-                    onChange={(val) => {
-                      setDoctor(val);
-                      const docObj = doctors.find((d) => d.employeeId === val);
-                      if (docObj) setDoctorName(docObj.employeeName);
-                    }}
-                    options={doctors.map((d) => ({
-                      id: d.employeeId,
-                      name: d.employeeName,
-                    }))}
-                  />
                 </FormItem>
               </div>
 
@@ -1725,28 +2107,26 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           <Tab active={true}>💊 Medicine Request History</Tab>
         </TabsBar>
 
-        {/* ── Medicine History Table ── */}
+        {/* ── Medicine History Table (Collapsible Accordion Design) ── */}
         <div style={{ overflowX: "auto", borderRadius: "8px", border: `1px solid ${colors.border}` }}>
           <StyledTable>
             <thead>
               <tr>
+                <th style={{ width: "35px", textAlign: "center" }}></th>
                 <th>Req Date & Time</th>
-                <th>Medicine Name</th>
-                <th>Dosage</th>
-                <th>No Of Days</th>
-                <th>Qty.</th>
-                <th>Route</th>
+                <th>Req / Bill No</th>
                 <th>Doctor</th>
-                <th>Bill Name</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>Bill Type</th>
+                <th style={{ textAlign: "center" }}>Medicines</th>
+                <th style={{ textAlign: "center" }}>Status</th>
+                <th style={{ textAlign: "center" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {requests.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="10"
+                    colSpan="8"
                     style={{
                       textAlign: "center",
                       padding: "30px",
@@ -1757,108 +2137,98 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   </td>
                 </tr>
               ) : (
-                Array.isArray(requests) && requests.map((req, i) => (
-                  <tr key={i}>
-                    <td>
-                      {req.reqDate} {req.reqTime}
-                    </td>
-                    <td>
-                      {req.medicines
-                        ?.filter((m) => !m.is_deleted)
-                        .map((m, idx, arr) => (
-                          <div
-                            key={idx}
+                Array.isArray(requests) && requests.map((req, i) => {
+                  const rowId = req.Bill_id || req.id || req.reqId || i;
+                  const isExpanded = expandedRow === rowId;
+                  const activeMeds = (req.medicines || []).filter((m) => !m.is_deleted);
+                  const hasPendingReturn = Array.isArray(req.pending_returns) && req.pending_returns.some((pr) => pr.status === "Pending");
+                  const canReturn = ["Billed", "Paid"].includes(req.status) && !hasPendingReturn;
+                  const canCancel = (req.status === "Pending" || !req.status);
+
+                  return (
+                    <React.Fragment key={rowId}>
+                      <tr
+                        style={{
+                          cursor: "pointer",
+                          background: isExpanded ? "#f0fdfa" : "transparent",
+                          transition: "background 0.15s ease",
+                        }}
+                        onClick={() => toggleRow(rowId)}
+                      >
+                        <td style={{ textAlign: "center" }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleRow(rowId);
+                            }}
                             style={{
-                              borderBottom:
-                                idx < arr.length - 1
-                                  ? "1px solid #eee"
-                                  : "none",
-                              padding: "4px 0",
+                              background: isExpanded ? colors.primary : "#e2e8f0",
+                              color: isExpanded ? "white" : "#475569",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              width: "24px",
+                              height: "24px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                            }}
+                            title={isExpanded ? "Collapse items" : "Expand items"}
+                          >
+                            {isExpanded ? "▲" : "▼"}
+                          </button>
+                        </td>
+                        <td style={{ fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
+                          {req.reqDate} {req.reqTime}
+                        </td>
+                        <td style={{ fontWeight: 600, color: "#0d8a7a" }}>
+                          {req.bill_no || req.Bill_id || req.reqId || "-"}
+                        </td>
+                        <td style={{ color: "#334155" }}>
+                          {req.doctorName || req.doctor || "-"}
+                        </td>
+                        <td>
+                          <span style={{
+                            padding: "3px 8px",
+                            borderRadius: "4px",
+                            background: "#e0f2fe",
+                            color: "#0369a1",
+                            fontSize: "0.78rem",
+                            fontWeight: 600
+                          }}>
+                            {req.billName || "PHARMACY IP BILL"}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <span
+                            style={{
+                              background: isExpanded ? colors.primary : "#f1f5f9",
+                              color: isExpanded ? "white" : "#334155",
+                              padding: "4px 10px",
+                              borderRadius: "12px",
+                              fontSize: "0.78rem",
+                              fontWeight: 700,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              border: "1px solid #cbd5e1"
                             }}
                           >
-                            {m.item_name || m.name || `(ID: ${m.item_id})`}
-                          </div>
-                        ))}
-                    </td>
-                    <td>
-                      {req.medicines?.map((m, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            borderBottom:
-                              idx < req.medicines.length - 1
-                                ? "1px solid #eee"
-                                : "none",
-                            padding: "4px 0",
-                          }}
-                        >
-                          {m.dosage}
-                        </div>
-                      ))}
-                    </td>
-                    <td>
-                      {req.medicines?.map((m, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            borderBottom:
-                              idx < req.medicines.length - 1
-                                ? "1px solid #eee"
-                                : "none",
-                            padding: "4px 0",
-                          }}
-                        >
-                          {m.noOfDays}
-                        </div>
-                      ))}
-                    </td>
-                    <td>
-                      {req.medicines?.map((m, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            borderBottom:
-                              idx < req.medicines.length - 1
-                                ? "1px solid #eee"
-                                : "none",
-                            padding: "4px 0",
-                          }}
-                        >
-                          {m.quantity}
-                        </div>
-                      ))}
-                    </td>
-                    <td>
-                      {req.medicines?.map((m, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            borderBottom:
-                              idx < req.medicines.length - 1
-                                ? "1px solid #eee"
-                                : "none",
-                            padding: "4px 0",
-                          }}
-                        >
-                          {m.route}
-                        </div>
-                      ))}
-                    </td>
-                    <td>{req.doctorName || req.doctor}</td>
-                    <td>{req.billName}</td>
-                    <td>
-                      <LegendItem
-                        color={getStatusColor(req.status || "Pending", req.isDischarge)}
-                      >
-                        {req.isDischarge ? "Discharge Medicine" : (req.status || "Pending")}
-                      </LegendItem>
-                    </td>
-                    <td>
-                      {(() => {
-                        const hasPendingReturn = Array.isArray(req.pending_returns) && req.pending_returns.some(pr => pr.status === "Pending");
-                        const canReturn = ["Billed", "Paid"].includes(req.status) && !hasPendingReturn;
-                        return (
-                          <>
+                            💊 {activeMeds.length} Items {isExpanded ? "▲" : "▼"}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <LegendItem
+                            color={getStatusColor(req.status || "Pending", req.isDischarge)}
+                          >
+                            {req.isDischarge ? "Discharge Medicine" : (req.status || "Pending")}
+                          </LegendItem>
+                        </td>
+                        <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
                             <button
                               onClick={() => handleOpenEdit(req)}
                               disabled={req.status === "Billed" || req.status === "Cancelled"}
@@ -1867,11 +2237,15 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                                 color: "white",
                                 border: "none",
                                 borderRadius: "5px",
-                                padding: "5px 12px",
+                                padding: "5px 10px",
                                 cursor: req.status === "Billed" || req.status === "Cancelled" ? "not-allowed" : "pointer",
-                                fontSize: "0.8rem",
+                                fontSize: "0.78rem",
                                 fontWeight: "600",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "3px",
                               }}
+                              title="Edit Request"
                             >
                               ✎ Edit
                             </button>
@@ -1883,62 +2257,156 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                                 color: "white",
                                 border: "none",
                                 borderRadius: "5px",
-                                padding: "5px 12px",
+                                padding: "5px 10px",
                                 cursor: !canReturn ? "not-allowed" : "pointer",
-                                fontSize: "0.8rem",
+                                fontSize: "0.78rem",
                                 fontWeight: "600",
-                                marginLeft: "8px"
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "3px",
                               }}
+                              title="Return Medicines"
                             >
                               {hasPendingReturn ? "⌛ Return Pending" : "↺ Return"}
                             </button>
-                          </>
-                        );
-                      })()}
-                    </td>
-                  </tr>
-                ))
+                            {canCancel && (
+                              <button
+                                onClick={() => handleCancelRequest(req.Bill_id || req.id)}
+                                style={{
+                                  background: "#fee2e2",
+                                  color: "#dc2626",
+                                  border: "none",
+                                  borderRadius: "5px",
+                                  padding: "5px 10px",
+                                  cursor: "pointer",
+                                  fontSize: "0.78rem",
+                                  fontWeight: "600",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                }}
+                                title="Cancel Request"
+                              >
+                                ✕ Cancel
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expandable Accordion Subtable */}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan="8" style={{ padding: 0, background: "#f8fafc", borderBottom: `2px solid ${colors.primary}` }}>
+                            <SubTableWrapper>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                                <div style={{ fontSize: "0.82rem", fontWeight: 700, color: colors.primary, display: "flex", alignItems: "center", gap: "8px" }}>
+                                  <span>📋 Medicine Particulars ({activeMeds.length} items)</span>
+                                  {req.total_amount > 0 && (
+                                    <span style={{ color: "#64748b", fontWeight: 500 }}>
+                                      · Total: ₹{Number(req.total_amount).toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRow(rowId)}
+                                  style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    color: "#64748b",
+                                    cursor: "pointer",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  ▲ Collapse
+                                </button>
+                              </div>
+
+                              <SubTable>
+                                <thead>
+                                  <tr>
+                                    <th style={{ width: "35px", textAlign: "center" }}>#</th>
+                                    <th>Medicine Name</th>
+                                    <th>Dosage</th>
+                                    <th style={{ textAlign: "center" }}>Days</th>
+                                    <th style={{ textAlign: "center" }}>Qty</th>
+                                    <th>Route</th>
+                                    <th>Batch No</th>
+                                    {canCancel && <th style={{ textAlign: "center", width: "70px" }}>Action</th>}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {activeMeds.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={canCancel ? 8 : 7} style={{ textAlign: "center", color: "#94a3b8", padding: "16px" }}>
+                                        No medicines found in this request.
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    activeMeds.map((m, mIdx) => (
+                                      <tr key={mIdx}>
+                                        <td style={{ textAlign: "center", color: "#94a3b8", fontSize: "0.78rem" }}>
+                                          {mIdx + 1}
+                                        </td>
+                                        <td style={{ fontWeight: 600, color: "#0f172a" }}>
+                                          {m.item_name || m.name || `Item ${m.item_id}`}
+                                        </td>
+                                        <td style={{ color: "#475569" }}>{m.dosage || "-"}</td>
+                                        <td style={{ textAlign: "center", color: "#475569" }}>{m.noOfDays || "-"}</td>
+                                        <td style={{ textAlign: "center", fontWeight: 700, color: "#0d8a7a" }}>
+                                          {m.quantity || m.qty || 0}
+                                        </td>
+                                        <td style={{ color: "#475569" }}>{m.route || "-"}</td>
+                                        <td style={{ color: "#64748b", fontSize: "0.8rem" }}>{m.batch_number || "-"}</td>
+                                        {canCancel && (
+                                          <td style={{ textAlign: "center" }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveIndividualMedicine(req.Bill_id || req.id, m)}
+                                              style={{
+                                                background: "#fee2e2",
+                                                border: "none",
+                                                color: "#dc2626",
+                                                cursor: "pointer",
+                                                borderRadius: "4px",
+                                                padding: "2px 8px",
+                                                fontSize: "0.75rem",
+                                                fontWeight: 600,
+                                              }}
+                                              title="Remove this medicine"
+                                            >
+                                              ✕ Remove
+                                            </button>
+                                          </td>
+                                        )}
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </SubTable>
+                            </SubTableWrapper>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </StyledTable>
         </div>
         <LegendContainer>
-          <LegendItemWrapper>
-            <LegendItem color={colors.legPending}>Pending</LegendItem>
-            <LegendDescription>Request is placed but not yet processed or billed.</LegendDescription>
-          </LegendItemWrapper>
-          <LegendItemWrapper>
-            <LegendItem color={colors.legSubstituted}>Substituted</LegendItem>
-            <LegendDescription>Requested medicine was replaced with an alternative.</LegendDescription>
-          </LegendItemWrapper>
-          <LegendItemWrapper>
-            <LegendItem color={colors.legBilled}>Billed</LegendItem>
-            <LegendDescription>Medicine has been billed and issued to the patient.</LegendDescription>
-          </LegendItemWrapper>
-          <LegendItemWrapper>
-            <LegendItem color={colors.legCancelled}>Cancelled</LegendItem>
-            <LegendDescription>The request was cancelled before processing.</LegendDescription>
-          </LegendItemWrapper>
-          <LegendItemWrapper>
-            <LegendItem color={colors.legStopped}>Stopped</LegendItem>
-            <LegendDescription>Medication has been stopped by the doctor.</LegendDescription>
-          </LegendItemWrapper>
-          <LegendItemWrapper>
-            <LegendItem color={colors.legEmergency}>Emergency</LegendItem>
-            <LegendDescription>High priority urgent medicine request.</LegendDescription>
-          </LegendItemWrapper>
-          <LegendItemWrapper>
-            <LegendItem color={colors.legInsurance}>Insurance Item</LegendItem>
-            <LegendDescription>Medicine covered under patient's insurance plan.</LegendDescription>
-          </LegendItemWrapper>
-          <LegendItemWrapper>
-            <LegendItem color={colors.legDischarge}>Discharge Med</LegendItem>
-            <LegendDescription>Medicines prescribed for patient at the time of discharge.</LegendDescription>
-          </LegendItemWrapper>
-          <LegendItemWrapper>
-            <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
-            <LegendDescription>Standard ongoing medicines for the admitted patient.</LegendDescription>
-          </LegendItemWrapper>
+          <LegendItem color={colors.legPending}>Pending</LegendItem>
+          <LegendItem color={colors.legSubstituted}>Substituted</LegendItem>
+          <LegendItem color={colors.legBilled}>Billed</LegendItem>
+          <LegendItem color={colors.legCancelled}>Cancelled</LegendItem>
+          <LegendItem color={colors.legStopped}>Stopped</LegendItem>
+          <LegendItem color={colors.legEmergency}>Emergency</LegendItem>
+          <LegendItem color={colors.legInsurance}>Insurance Item</LegendItem>
+          <LegendItem color={colors.legDischarge}>Discharge Med</LegendItem>
+          <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
         </LegendContainer>
       </div>
 
@@ -1952,7 +2420,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <Header>
-              <Title>Select Medicine ({pharmacyDept})</Title>
+              <Title>Select Medicine ({billTypeName || pharmacyDept})</Title>
               <button onClick={() => setIsSearchModalOpen(false)}>×</button>
             </Header>
             <ContentBody>
@@ -1961,19 +2429,36 @@ const MedicineWardRequest = ({ patient, onClose }) => {
               >
                 <StyledInput
                   style={{ flex: 1 }}
-                  placeholder="Search again..."
+                  placeholder="Search medicine name (use ↑/↓ to navigate, Enter to select)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && searchQuery.length > 2) {
-                      handleMedicineSearch(searchQuery);
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      if (searchResults.length > 0) {
+                        setHighlightedMedicineIndex((prev) => (prev < searchResults.length - 1 ? prev + 1 : 0));
+                      }
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      if (searchResults.length > 0) {
+                        setHighlightedMedicineIndex((prev) => (prev <= 0 ? searchResults.length - 1 : prev - 1));
+                      }
+                    } else if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (searchResults.length > 0 && highlightedMedicineIndex >= 0 && searchResults[highlightedMedicineIndex]) {
+                        setSelectedDrug(searchResults[highlightedMedicineIndex]);
+                        setIsSearchModalOpen(false);
+                      } else {
+                        handleMedicineSearch(searchQuery);
+                      }
+                    } else if (e.key === "Escape") {
+                      setIsSearchModalOpen(false);
                     }
                   }}
                 />
                 <button
                   onClick={() => {
-                    if (searchQuery.length > 2)
-                      handleMedicineSearch(searchQuery);
+                    handleMedicineSearch(searchQuery);
                   }}
                   style={{
                     background: colors.primary,
@@ -2002,7 +2487,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   }}
                 >
                   <span style={{ display: "inline-block", animation: "spin 1s linear infinite", marginRight: "8px" }}>⏳</span>
-                  Searching medicines in {pharmacyDept}...
+                  Searching medicines in {billTypeName || pharmacyDept}...
                 </div>
               ) : searchResults.length > 0 ? (
                 <div
@@ -2043,13 +2528,25 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                         </th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody ref={medicineTableBodyRef}>
                       {Array.isArray(searchResults) && searchResults.map((item, idx) => (
                         <tr
                           key={idx}
-                          style={{ borderBottom: `1px solid ${colors.border}` }}
+                          style={{
+                            borderBottom: `1px solid ${colors.border}`,
+                            background: idx === highlightedMedicineIndex ? "#e6f9f3" : "transparent",
+                            cursor: "pointer",
+                            transition: "background 0.15s ease",
+                          }}
+                          onMouseEnter={() => setHighlightedMedicineIndex(idx)}
+                          onClick={() => {
+                            setSelectedDrug(item);
+                            setIsSearchModalOpen(false);
+                          }}
                         >
-                          <td style={{ padding: "10px" }}>{item.name}</td>
+                          <td style={{ padding: "10px", fontWeight: idx === highlightedMedicineIndex ? 700 : 500, color: idx === highlightedMedicineIndex ? "#0d8a7a" : "inherit" }}>
+                            {item.name}
+                          </td>
                           <td style={{ padding: "10px" }}>
                             {item.batch_number}
                           </td>
@@ -2067,14 +2564,16 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                           <td style={{ padding: "10px", textAlign: "center" }}>
                             <button
                               style={{
-                                background: colors.primary,
+                                background: idx === highlightedMedicineIndex ? "#0d8a7a" : colors.primary,
                                 color: "white",
                                 border: "none",
-                                padding: "6px 12px",
+                                padding: "6px 14px",
                                 borderRadius: "4px",
                                 cursor: "pointer",
+                                fontWeight: 700,
                               }}
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setSelectedDrug(item);
                                 setIsSearchModalOpen(false);
                               }}
@@ -2095,7 +2594,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     color: colors.textMuted,
                   }}
                 >
-                  No stock found matching your search in {pharmacyDept}.
+                  No stock found matching your search in {billTypeName || pharmacyDept}.
                 </div>
               )}
             </ContentBody>
