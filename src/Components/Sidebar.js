@@ -560,7 +560,8 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
             // Use globally configured integer ID array for permission-based rendering
             const storedHmsPages = (() => {
               try {
-                return JSON.parse(localStorage.getItem("hms_pages") || "[]");
+                const raw = JSON.parse(localStorage.getItem("hms_pages") || "[]");
+                return Array.isArray(raw) ? raw.map(Number) : [];
               } catch {
                 return [];
               }
@@ -579,7 +580,7 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
               if (
                 hasDefinedPermissions &&
                 page.page_id != null &&
-                !storedHmsPages.includes(page.page_id)
+                !storedHmsPages.includes(Number(page.page_id))
               ) {
                 return false;
               }

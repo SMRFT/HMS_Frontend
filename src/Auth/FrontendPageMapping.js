@@ -3,6 +3,7 @@ export const PAGE_PERMISSIONS = {
     "/FrontOfficeReports": "HMS-P-FOR",
     "/RoomOccupencyReport": "HMS-P-ROR",
     "/PreDayRoomOccupancyReport": "HMS-P-ROR",
+    "/InsuranceCreditReport": "HMS-P-FOR",
 };
 
 /**
