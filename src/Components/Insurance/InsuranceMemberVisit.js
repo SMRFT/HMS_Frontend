@@ -626,15 +626,16 @@ const InsuranceMemberVisit = () => {
     try {
       const res = await apiRequest(`${HMS_URL}insurance-search-patient/?uhid=${encodeURIComponent(formData.uhid.trim())}`, "GET");
       if (res.success && res.data) {
-        const p = res.data;
+        const p = res.data?.data || res.data;
+        const patientName = p.patient_name || p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "";
         setFormData(prev => ({
           ...prev,
-          uhid: p.uhid,
-          patient_name: `${p.firstName || ""} ${p.lastName || ""}`.trim(),
-          age: p.age || prev.age,
+          uhid: p.uhid || prev.uhid,
+          patient_name: patientName,
+          age: (p.age !== undefined && p.age !== null && p.age !== "") ? p.age : prev.age,
           gender: (p.gender || "MALE").toUpperCase()
         }));
-        toast.success(`Patient ${p.firstName} loaded!`);
+        toast.success(`Patient ${patientName || p.uhid} loaded!`);
       } else {
         toast.error(res.error || "Patient not found");
       }
@@ -823,6 +824,12 @@ const InsuranceMemberVisit = () => {
                       placeholder="e.g. S026/002194"
                       value={formData.uhid}
                       onChange={(e) => setFormData({ ...formData, uhid: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSearchUHID();
+                        }
+                      }}
                     />
                     <SearchBtnIcon type="button" onClick={handleSearchUHID}>
                       <Search size={14} />
