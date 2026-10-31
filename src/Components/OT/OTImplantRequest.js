@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Trash2, Printer } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
+import OTPrintModal from "./OTPrintModal";
+import {
+  generateImplantOverallPrintHtml,
+  generateImplantSingleSlipHtml,
+} from "./otPrintUtils";
 
 // ─── Color palette (mirrors OTMedicineBilling) ───────────────────────────────
 const colors = {
@@ -601,7 +606,7 @@ const ImplantSearchField = ({
 };
 
 // ─── View Items Modal ─────────────────────────────────────────────────────────
-const ViewItemsModal = ({ request, onClose }) => {
+const ViewItemsModal = ({ request, onClose, onPrint }) => {
   if (!request) return null;
   const items = request.items || [];
 
@@ -609,13 +614,43 @@ const ViewItemsModal = ({ request, onClose }) => {
     <ModalOverlay style={{ zIndex: 2100 }}>
       <ModalContainer onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Eye size={18} />
-            <span style={{ fontWeight: 700, fontSize: "1rem" }}>
-              Implant Items — {request.reqDate} {request.reqTime}
-            </span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <Eye size={20} style={{ color: colors.primary, marginTop: 2 }} />
+            <div>
+              <span style={{ fontWeight: 700, fontSize: "1rem", display: "block" }}>
+                Implant Items — {request.reqDate} {request.reqTime}
+              </span>
+              <span style={{ fontSize: "0.78rem", color: colors.textMuted, marginTop: 2, display: "block" }}>
+                Requested By (OT Staff): <strong style={{ color: colors.primary }}>{request.created_by_name || request.created_by || "—"}</strong>
+                {request.surgeryRef ? ` | Ref: ${request.surgeryRef}` : ""}
+              </span>
+            </div>
           </div>
-          <button onClick={onClose}>×</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => onPrint && onPrint(request)}
+              style={{
+                background: colors.orange,
+                color: "white",
+                border: "none",
+                borderRadius: "5px",
+                padding: "5px 12px",
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+              title="Print requisition slip"
+            >
+              <Printer size={14} /> Print Slip
+            </button>
+            <button onClick={onClose} style={{ fontSize: "1.5rem", lineHeight: 1 }}>
+              ×
+            </button>
+          </div>
         </ModalHeader>
         <ModalBody>
           {items.length > 0 ? (
@@ -730,6 +765,8 @@ const OTImplantRequest = () => {
   const [editMode, setEditMode] = useState(false);
   const [editingRequestId, setEditingRequestId] = useState(null);
   const [viewingRequest, setViewingRequest] = useState(null);
+  const [overallPrintOpen, setOverallPrintOpen] = useState(false);
+  const [printSingleRequest, setPrintSingleRequest] = useState(null);
 
   // ── Init ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1114,15 +1151,56 @@ const OTImplantRequest = () => {
         )}
 
         {/* ── Request History ── */}
-        <TabsBar>
-          <Tab active={true}>Request History</Tab>
-        </TabsBar>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            margin: "30px 0 15px 0",
+            borderBottom: `2px solid ${colors.border}`,
+            paddingBottom: "4px",
+            flexWrap: "wrap",
+            gap: "10px",
+          }}
+        >
+          <TabsBar style={{ margin: 0, borderBottom: "none" }}>
+            <Tab active={true}>📋 Request History ({requests.length})</Tab>
+          </TabsBar>
+
+          <button
+            type="button"
+            disabled={requests.length === 0}
+            onClick={() => setOverallPrintOpen(true)}
+            style={{
+              background: requests.length === 0 ? "#cbd5e1" : colors.primary,
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              padding: "7px 16px",
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              cursor: requests.length === 0 ? "not-allowed" : "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow:
+                requests.length === 0
+                  ? "none"
+                  : "0 2px 6px rgba(19, 106, 99, 0.25)",
+              transition: "all 0.15s",
+            }}
+            title="Print consolidated statement of all implant requests"
+          >
+            <Printer size={15} /> 🖨️ Overall Print
+          </button>
+        </div>
 
         <StyledTable>
           <thead>
             <tr>
               <th>Request ID</th>
               <th>Request Date &amp; Time</th>
+              <th>Requested By</th>
               <th>Items</th>
               <th>Surgery Ref</th>
               <th>Status</th>
@@ -1133,7 +1211,7 @@ const OTImplantRequest = () => {
             {requests.length === 0 ? (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="7"
                   style={{
                     textAlign: "center",
                     padding: "30px",
@@ -1151,6 +1229,9 @@ const OTImplantRequest = () => {
                   </td>
                   <td>
                     {req.reqDate} {req.reqTime}
+                  </td>
+                  <td style={{ fontWeight: 600, color: "#1e293b" }}>
+                    {req.created_by_name || req.created_by || "—"}
                   </td>
                   <td>
                     <button
@@ -1181,6 +1262,28 @@ const OTImplantRequest = () => {
                   </td>
                   <td>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        title="Print requisition slip"
+                        onClick={() => setPrintSingleRequest(req)}
+                        style={{
+                          background: "#f0fdfa",
+                          color: colors.primary,
+                          border: `1px solid ${colors.primary}`,
+                          borderRadius: 5,
+                          padding: "5px 10px",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        <Printer size={13} /> Print
+                      </button>
+
                       <button
                         disabled={(req.status || "Pending") !== "Pending"}
                         onClick={() => openEditModal(req)}
@@ -1243,6 +1346,33 @@ const OTImplantRequest = () => {
         <ViewItemsModal
           request={viewingRequest}
           onClose={() => setViewingRequest(null)}
+          onPrint={(req) => setPrintSingleRequest(req)}
+        />
+      )}
+
+      {/* ── Overall Consolidated Print Modal ── */}
+      {overallPrintOpen && (
+        <OTPrintModal
+          title={`OT Implant Requisition Statement - ${resolvedPatient.ipNo || "IP"}`}
+          htmlGenerator={generateImplantOverallPrintHtml}
+          data={{
+            patient: resolvedPatient,
+            requests: requests,
+          }}
+          onClose={() => setOverallPrintOpen(false)}
+        />
+      )}
+
+      {/* ── Single Request Slip Print Modal ── */}
+      {printSingleRequest && (
+        <OTPrintModal
+          title={`OT Implant Requisition Slip - ${printSingleRequest.request_id || "Req"}`}
+          htmlGenerator={generateImplantSingleSlipHtml}
+          data={{
+            patient: resolvedPatient,
+            request: printSingleRequest,
+          }}
+          onClose={() => setPrintSingleRequest(null)}
         />
       )}
     </PageWrapper>
