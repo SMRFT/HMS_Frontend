@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
+  CreditCard,
   X,
   Globe,
   Share2,
@@ -371,6 +372,10 @@ const PatientRegistrationForm = () => {
   const [includeRegFee, setIncludeRegFee] = useState(false)
   const [includeConsFee, setIncludeConsFee] = useState(true)
   const [isDoctorDropdownOpen, setIsDoctorDropdownOpen] = useState(false)
+
+  // Payment timing & method states
+  const [paymentTiming, setPaymentTiming] = useState("pay_now") // "pay_now" | "pay_later"
+  const [paymentMethod, setPaymentMethod] = useState("Cash") // "Cash" | "UPI" | "Card" | "Insurance Credit" | "Pay Later"
   const doctorDropdownListRef = useRef(null)
 
   // Auto-scroll dropdown list so highlighted doctor is visible during Up/Down arrow navigation
@@ -727,7 +732,10 @@ const PatientRegistrationForm = () => {
             <div class="sub-header">51/24. Saradha College Road, Salem - 636007</div>
             <div class="sub-header"><u>CIN: L85110TZ2020PLC033974</u></div>
             <div class="sub-header"><u>GST No : 33ABDCS8326A1ZP</u></div>
-            <div class="bill-type">*${visit.paymentMethod} Bill*</div>
+            <div class="bill-type">*${visit.paymentMethod || 'Cash'} Bill*</div>
+            <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: ${visit.paymentStatus === 'Paid' ? '#16a34a' : '#d97706'}">
+              STATUS: ${visit.paymentStatus === 'Paid' ? 'PAID' : 'PAY LATER (PENDING)'}
+            </div>
           </div>
           <table class="info-table">
             <tr><td>Bill Number</td><td>: ${visit.billNumber || visit.bill_number || visit.bill_no || 'N/A'}</td></tr>
@@ -735,6 +743,7 @@ const PatientRegistrationForm = () => {
             <tr><td>Bill Date</td><td>: ${visit.date}</td></tr>
             <tr><td>Name</td><td>: ${visit.patientName}</td></tr>
             <tr><td>Doctor</td><td>: ${formatDoctorDisplayName(visit.doctorName || visit.doctor)}</td></tr>
+            ${visit.company_name ? `<tr><td>Company/TPA</td><td>: ${visit.company_name}</td></tr>` : ''}
           </table>
           <table class="items-table">
             <thead>
@@ -947,6 +956,13 @@ const PatientRegistrationForm = () => {
           <p><b>DOB:</b> ${patient.dob || "N/A"}</p>
           <p><b>Consulting Doctor:</b> ${patient.doctorName || "N/A"}</p>
           <p><b>Total Fees:</b> ₹${totalFees}</p>
+          <p><b>Payment Option:</b> ${
+            paymentTiming === "pay_now"
+              ? `Pay Now (${paymentMethod})`
+              : ((patient.customerType || "").toLowerCase() === "insurance"
+                  ? `Pay Later (Insurance Cashless Claim)`
+                  : `Pay Later (Deferred / Counter Pending)`)
+          }</p>
           <p><b>Emergency Contact:</b> ${patient.emergencyContact || "N/A"}</p>
         </div>
       `,
@@ -1003,6 +1019,11 @@ const PatientRegistrationForm = () => {
         }
       })
 
+      // Append Payment Timing & Method
+      formData.append("payment_timing", paymentTiming);
+      formData.append("payment_method", paymentMethod);
+      formData.append("payment_status", paymentTiming === "pay_now" ? "Paid" : "Pending");
+
       const result = await apiRequest(`${Hmsbaseurl}patients/register/`, "POST", formData);
 
       if (result.success) {
@@ -1024,7 +1045,9 @@ const PatientRegistrationForm = () => {
           billAmount: totalFees,
           date: new Date().toLocaleDateString('en-GB'),
           dateTime: new Date().toLocaleString('en-GB'),
-          paymentMethod: "Cash"
+          company_name: patient.insuranceProviderCode || patient.company_name || "",
+          paymentMethod: paymentMethod,
+          paymentStatus: paymentTiming === "pay_now" ? "Paid" : "Pending"
         };
 
         // Automatically generate and print the barcode label (Vikas format)
@@ -1250,6 +1273,14 @@ const PatientRegistrationForm = () => {
     setPatient(mappedPatient)
     if (mappedPatient.emergencyContact && cleanMobileNumber(mappedPatient.emergencyContact).length === 10) {
       setValidationErrors(prev => ({ ...prev, emergencyContact: false }))
+    }
+    const selectedCustType = (mappedPatient.customerType || "").toLowerCase();
+    if (selectedCustType === "insurance") {
+      setPaymentTiming("pay_later");
+      setPaymentMethod("Insurance Credit");
+    } else {
+      setPaymentTiming("pay_now");
+      setPaymentMethod("Cash");
     }
     if (selectedPatient.uhid) setUhid(selectedPatient.uhid)
     if (selectedPatient.ip_number) setIpNumber(selectedPatient.ip_number)
@@ -1576,6 +1607,8 @@ const PatientRegistrationForm = () => {
     setRegistrationFee(0)
     setConsultingFee(0)
     setTotalFees(0)
+    setPaymentTiming("pay_now")
+    setPaymentMethod("Cash")
     if (clearName) {
       setDoctorSearchQuery("")
       setIsDoctorSearching(false)
@@ -1679,6 +1712,8 @@ const PatientRegistrationForm = () => {
     setUhid("");
     setIpNumber("");
     setMobile("");
+    setPaymentTiming("pay_now");
+    setPaymentMethod("Cash");;
     setRefDoctorSearchQuery("");
     setIsRefDoctorDropdownOpen(false);
     setIsMlc(false);
@@ -1818,6 +1853,16 @@ const PatientRegistrationForm = () => {
 
                     const total = fee + newConsFee;
                     setTotalFees(total);
+
+                    // Auto-toggle payment timing when customer type changes
+                    if (selectedValue.toLowerCase() === "insurance") {
+                      setPaymentTiming("pay_later");
+                      setPaymentMethod("Insurance Credit");
+                    } else if (paymentTiming === "pay_later" && paymentMethod === "Insurance Credit") {
+                      setPaymentTiming("pay_now");
+                      setPaymentMethod("Cash");
+                    }
+
                     setPatient(prev => ({
                       ...prev,
                       customerType: selectedValue,
@@ -2781,6 +2826,87 @@ const PatientRegistrationForm = () => {
               <span className="label">Total fees</span>
               <span className="amount">₹{totalFees}</span>
             </TotalFeeDisplayRow>
+
+            {/* PAYMENT TIMING SECTION */}
+            <PaymentTimingSection>
+              <PaymentTimingHeader>
+                <span>PAYMENT OPTION</span>
+                {paymentTiming === "pay_now" ? (
+                  <PaymentStatusPill $variant="paid">Collect Now</PaymentStatusPill>
+                ) : (
+                  <PaymentStatusPill $variant="pending">Deferred / Claim</PaymentStatusPill>
+                )}
+              </PaymentTimingHeader>
+
+              <PaymentTimingButtonGroup>
+                <TimingButton
+                  type="button"
+                  $isActive={paymentTiming === "pay_now"}
+                  $variant="payNow"
+                  onClick={() => {
+                    setPaymentTiming("pay_now");
+                    if (paymentMethod === "Insurance Credit" || paymentMethod === "Pay Later") {
+                      setPaymentMethod("Cash");
+                    }
+                  }}
+                  title="Collect payment now at counter"
+                >
+                  <CreditCard size={13} />
+                  <span>Pay Now</span>
+                </TimingButton>
+
+                <TimingButton
+                  type="button"
+                  $isActive={paymentTiming === "pay_later"}
+                  $variant="payLater"
+                  onClick={() => {
+                    setPaymentTiming("pay_later");
+                    setPaymentMethod(
+                      (patient.customerType || "").toLowerCase() === "insurance"
+                        ? "Insurance Credit"
+                        : "Pay Later"
+                    );
+                  }}
+                  title="Defer payment / Insurance claim"
+                >
+                  <Clock size={13} />
+                  <span>Pay Later</span>
+                </TimingButton>
+              </PaymentTimingButtonGroup>
+
+              {/* PAYMENT MODE SELECTOR (WHEN PAY NOW IS ACTIVE) */}
+              {paymentTiming === "pay_now" && (
+                <PaymentModeSelector>
+                  {["Cash", "UPI", "Card"].map((mode) => (
+                    <PaymentModePill
+                      key={mode}
+                      type="button"
+                      $isSelected={paymentMethod === mode}
+                      onClick={() => setPaymentMethod(mode)}
+                    >
+                      {mode}
+                    </PaymentModePill>
+                  ))}
+                </PaymentModeSelector>
+              )}
+
+              {/* DYNAMIC HELPER NOTICE */}
+              <PaymentStatusNotice $isPayLater={paymentTiming === "pay_later"}>
+                {(patient.customerType || "").toLowerCase() === "insurance" ? (
+                  paymentTiming === "pay_later" ? (
+                    <span>🛡️ <b>Insurance Cashless:</b> ₹{totalFees} will be billed to TPA / Insurance company.</span>
+                  ) : (
+                    <span>💳 <b>Insurance Co-Pay:</b> Collect ₹{totalFees} ({paymentMethod}) now; TPA claim linked.</span>
+                  )
+                ) : (
+                  paymentTiming === "pay_later" ? (
+                    <span>⏳ <b>Pay Later:</b> ₹{totalFees} pending collection at Cash Counter / Discharge.</span>
+                  ) : (
+                    <span>✓ <b>Pay Now:</b> Collect ₹{totalFees} in {paymentMethod} at counter.</span>
+                  )
+                )}
+              </PaymentStatusNotice>
+            </PaymentTimingSection>
           </DarkFeeCard>
 
           {/* CHECKLIST CARD */}
@@ -3929,6 +4055,129 @@ const TotalFeeDisplayRow = styled.div`
     font-size: 24px;
     font-weight: 800;
     color: #ffffff;
+  }
+`
+
+const PaymentTimingSection = styled.div`
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #374151;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const PaymentTimingHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+`
+
+const PaymentStatusPill = styled.span`
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-weight: 600;
+  background: ${props => props.$variant === 'paid' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(245, 158, 11, 0.15)'};
+  color: ${props => props.$variant === 'paid' ? '#34d399' : '#fbbf24'};
+  border: 1px solid ${props => props.$variant === 'paid' ? 'rgba(52, 211, 153, 0.3)' : 'rgba(245, 158, 11, 0.3)'};
+`
+
+const PaymentTimingButtonGroup = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+`
+
+const TimingButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid;
+
+  ${props => {
+    if (props.$isActive) {
+      if (props.$variant === 'payNow') {
+        return `
+          background: #064e3b;
+          color: #34d399;
+          border-color: #059669;
+          box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+        `;
+      } else {
+        return `
+          background: #78350f;
+          color: #fcd34d;
+          border-color: #d97706;
+          box-shadow: 0 0 8px rgba(217, 119, 6, 0.25);
+        `;
+      }
+    }
+    return `
+      background: #1f2937;
+      color: #9ca3af;
+      border-color: #374151;
+      &:hover {
+        background: #374151;
+        color: #e5e7eb;
+      }
+    `;
+  }}
+`
+
+const PaymentModeSelector = styled.div`
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+`
+
+const PaymentModePill = styled.button`
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.15s ease;
+
+  ${props => props.$isSelected ? `
+    background: #047857;
+    color: #ffffff;
+    border-color: #10b981;
+  ` : `
+    background: #111827;
+    color: #9ca3af;
+    border-color: #374151;
+    &:hover {
+      background: #1f2937;
+      color: #e5e7eb;
+    }
+  `}
+`
+
+const PaymentStatusNotice = styled.div`
+  font-size: 10.5px;
+  line-height: 1.35;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: ${props => props.$isPayLater ? 'rgba(217, 119, 6, 0.12)' : 'rgba(16, 185, 129, 0.1)'};
+  color: ${props => props.$isPayLater ? '#fbbf24' : '#6ee7b7'};
+  border: 1px solid ${props => props.$isPayLater ? 'rgba(217, 119, 6, 0.25)' : 'rgba(16, 185, 129, 0.2)'};
+
+  b {
+    font-weight: 700;
   }
 `
 

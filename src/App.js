@@ -209,6 +209,7 @@ import Medicinechart from "./Components/Pharmacy/Medicinechart";
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
+import InsuranceCreditReport from "./Components/Reports/InsuranceCreditReport";
 import SalesReturnReport from "./Components/Reports/SalesReturnReport";
 import IPPatientAnalysis from "./Components/INPatientcare/IPPatientAnalysis";
 
@@ -1929,6 +1930,16 @@ function App() {
                   <Route
                     path="/PreDayRoomOccupancyReport"
                     element={<PreDayRoomOccupancyReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/InsuranceCreditReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/InsuranceCreditReport"
+                    element={<InsuranceCreditReport />}
                   />
                 )}
 

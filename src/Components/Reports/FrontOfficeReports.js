@@ -22,7 +22,8 @@ import {
     X,
     Filter,
     BedDouble,
-    History
+    History,
+    ShieldCheck
 } from "lucide-react";
 import {
     colors,
@@ -736,6 +737,11 @@ const FrontOfficeReports = () => {
             id: "pre_day_room_occupancy", title: "Previous Day Room Occupancy",
             description: "Room occupancy as it stood at end-of-day for any past date",
             icon: <History size={24} />, path: "/PreDayRoomOccupancyReport", color: '#2563eb'
+        },
+        {
+            id: "insurance_credit_report", title: "Insurance & Credit Billing Report",
+            description: "Comprehensive tracking of insurance credit bills, active admissions, room occupancy & lab investigations",
+            icon: <ShieldCheck size={24} />, path: "/InsuranceCreditReport", color: '#0d9488'
         },
     ];
 

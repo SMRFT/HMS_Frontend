@@ -481,7 +481,6 @@ const StoresApprovalManager = () => {
         from_date: dayjs().subtract(1, 'month').format('YYYY-MM-DD'),
         to_date: dayjs().format('YYYY-MM-DD')
     });
-    const [showModal, setShowModal] = useState(false);
     const [selectedIntent, setSelectedIntent] = useState(null);
     const [approvalItems, setApprovalItems] = useState([]);
 
@@ -493,7 +492,6 @@ const StoresApprovalManager = () => {
         status: 'ALL',
         search: ''
     });
-    const [showReturnApproveModal, setShowReturnApproveModal] = useState(false);
     const [selectedReturn, setSelectedReturn] = useState(null);
     const [returnApprovalItems, setReturnApprovalItems] = useState([]);
     const [showRejectModal, setShowRejectModal] = useState(false);
@@ -779,7 +777,6 @@ const StoresApprovalManager = () => {
 
         if (res.success) {
             toast.success(`Intent ${targetIntent.intent_id} approved successfully!`);
-            setShowModal(false);
             setShowViewIntentModal(false);
             loadPendingIntents();
         } else {
@@ -895,7 +892,6 @@ const StoresApprovalManager = () => {
 
         if (res && res.success) {
             toast.success(res.message || `Indent Return ${retToApprove.return_id} approved and stock restored!`);
-            setShowReturnApproveModal(false);
             setShowViewReturnModal(false);
             loadIndentReturns();
             loadPendingIntents();
@@ -1913,246 +1909,6 @@ const StoresApprovalManager = () => {
                             />
                         </S.TableWrapper>
                     </>
-                )}
-
-                {/* ========================================================= */}
-                {/* MODAL 1: INTENT APPROVAL */}
-                {/* ========================================================= */}
-                {showModal && (
-                    <S.ModalOverlay>
-                        <S.ModalContainer style={{ maxWidth: '800px' }}>
-                            <S.ModalHeader style={{ background: S.colors.primary, color: '#fff' }}>
-                                <S.ModalTitle style={{ color: '#fff' }}>Approve Intent: {selectedIntent?.intent_id}</S.ModalTitle>
-                                <S.CloseButton style={{ color: '#fff' }} onClick={() => setShowModal(false)}>&times;</S.CloseButton>
-                            </S.ModalHeader>
-                            <S.ModalBody>
-                                <S.TableWrapper>
-                                    <S.Table>
-                                        <thead>
-                                            <tr>
-                                                <S.Th width="50">
-                                                    <Checkbox
-                                                        onChange={(e) => {
-                                                            const checked = e.target.checked;
-                                                            const copy = approvalItems.map(it => {
-                                                                const isFullyApproved = Number(it.original_approved_qty) >= Number(it.quantity);
-                                                                if (isFullyApproved) return it;
-                                                                return {
-                                                                    ...it,
-                                                                    new_approval_qty: checked ? (Number(it.quantity) - Number(it.original_approved_qty)) : 0
-                                                                };
-                                                            });
-                                                            setApprovalItems(copy);
-                                                        }}
-                                                        checked={
-                                                            approvalItems.length > 0 &&
-                                                            approvalItems.filter(it => Number(it.original_approved_qty) < Number(it.quantity))
-                                                                .every(it => it.new_approval_qty === (Number(it.quantity) - Number(it.original_approved_qty)))
-                                                        }
-                                                    />
-                                                </S.Th>
-                                                <S.Th>Available Qty</S.Th>
-                                                <S.Th>Item</S.Th>
-                                                <S.Th>Request</S.Th>
-                                                <S.Th>Already Apprv</S.Th>
-                                                <S.Th>Currently Apprv</S.Th>
-                                                <S.Th>Total Apprv</S.Th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {approvalItems.map((it, idx) => (
-                                                <S.Tr key={idx}>
-                                                    <S.Td>
-                                                        <Checkbox
-                                                            disabled={Number(it.original_approved_qty) >= Number(it.quantity)}
-                                                            checked={
-                                                                Number(it.original_approved_qty) >= Number(it.quantity) ||
-                                                                it.new_approval_qty === (Number(it.quantity) - Number(it.original_approved_qty))
-                                                            }
-                                                            onChange={(e) => {
-                                                                const checked = e.target.checked;
-                                                                const copy = [...approvalItems];
-                                                                copy[idx].new_approval_qty = checked ? (Number(it.quantity) - Number(it.original_approved_qty)) : 0;
-                                                                setApprovalItems(copy);
-                                                            }}
-                                                        />
-                                                    </S.Td>
-                                                    <S.Td>{it.available_stock}</S.Td>
-                                                    <S.Td style={{ fontWeight: '700' }}>{it.name}</S.Td>
-                                                    <S.Td>{it.quantity}</S.Td>
-                                                    <S.Td style={{ color: '#64748b' }}>{it.original_approved_qty}</S.Td>
-                                                    <S.Td>
-                                                        <S.Input
-                                                            disabled={Number(it.original_approved_qty) >= Number(it.quantity)}
-                                                            value={it.new_approval_qty}
-                                                            onChange={(e) => {
-                                                                const val = Number(e.target.value);
-                                                                const remaining = Number(it.quantity) - Number(it.original_approved_qty);
-                                                                if (val > remaining) {
-                                                                    toast.warning(`Cannot exceed remaining quantity (${remaining})`);
-                                                                    return;
-                                                                }
-                                                                if (val < 0) return;
-                                                                const copy = [...approvalItems];
-                                                                copy[idx].new_approval_qty = val;
-                                                                setApprovalItems(copy);
-                                                            }}
-                                                        />
-                                                    </S.Td>
-                                                    <S.Td style={{ fontWeight: '800', color: S.colors.primary }}>
-                                                        {Number(it.original_approved_qty) + Number(it.new_approval_qty)}
-                                                    </S.Td>
-                                                </S.Tr>
-                                            ))}
-                                        </tbody>
-                                    </S.Table>
-                                </S.TableWrapper>
-                                <S.ButtonContainer>
-                                    <S.Button onClick={submitFinalApproval} style={{ width: '100%', padding: '12px', fontSize: '1rem' }}>Verify & Approve Intent</S.Button>
-                                </S.ButtonContainer>
-                            </S.ModalBody>
-                        </S.ModalContainer>
-                    </S.ModalOverlay>
-                )}
-
-                {/* ========================================================= */}
-                {/* MODAL 2: INDENT RETURN APPROVAL MODAL */}
-                {/* ========================================================= */}
-                {showReturnApproveModal && selectedReturn && (
-                    <S.ModalOverlay>
-                        <S.ModalContainer style={{ maxWidth: '850px' }}>
-                            <S.ModalHeader style={{ background: '#0d9488', color: '#fff' }}>
-                                <S.ModalTitle style={{ color: '#fff' }}>
-                                    Approve Indent Return: {selectedReturn.return_id}
-                                </S.ModalTitle>
-                                <S.CloseButton style={{ color: '#fff' }} onClick={() => setShowReturnApproveModal(false)}>&times;</S.CloseButton>
-                            </S.ModalHeader>
-                            <S.ModalBody style={{ padding: '24px' }}>
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                                    gap: '16px',
-                                    background: '#f8fafc',
-                                    padding: '16px',
-                                    borderRadius: '8px',
-                                    marginBottom: '20px',
-                                    border: '1px solid #e2e8f0'
-                                }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Department</div>
-                                        <div style={{ fontWeight: '700', color: '#1e293b' }}>{selectedReturn.department_name || selectedReturn.department}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Original Intent ID</div>
-                                        <div style={{ fontWeight: '700', color: '#0d9488' }}>{selectedReturn.intent_id}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Return Date</div>
-                                        <div style={{ fontWeight: '700', color: '#1e293b' }}>{dayjs(selectedReturn.return_date).format('DD/MM/YYYY')}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Return Reason</div>
-                                        <div style={{ fontWeight: '700', color: '#0284c7' }}>{selectedReturn.return_reason || 'EXCESS'}</div>
-                                    </div>
-                                </div>
-
-                                <div style={{ marginBottom: '12px', fontSize: '0.9rem', color: '#334155', fontWeight: '600' }}>
-                                    Review Returned Items to Credit Back to Central Stores Inventory:
-                                </div>
-
-                                <S.TableWrapper>
-                                    <S.Table>
-                                        <thead>
-                                            <tr style={{ background: '#f1f5f9' }}>
-                                                <S.Th>Item Name</S.Th>
-                                                <S.Th>Reason</S.Th>
-                                                <S.Th style={{ textAlign: 'right' }}>Req Return Qty</S.Th>
-                                                <S.Th style={{ width: '130px', textAlign: 'center' }}>Approve Ret Qty</S.Th>
-                                                <S.Th style={{ textAlign: 'right' }}>Unit Price</S.Th>
-                                                <S.Th style={{ textAlign: 'right' }}>Credit Amount</S.Th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {returnApprovalItems.map((it, idx) => {
-                                                const price = Number(it.unit_price || 0);
-                                                const apprvQty = Number(it.approved_return_qty || 0);
-                                                const creditAmount = apprvQty * price;
-
-                                                return (
-                                                    <S.Tr key={idx}>
-                                                        <S.Td style={{ fontWeight: '700', color: '#334155' }}>
-                                                            {it.name || it.item_name}
-                                                        </S.Td>
-                                                        <S.Td style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                                                            {it.reason || selectedReturn.return_reason || 'EXCESS'}
-                                                        </S.Td>
-                                                        <S.Td style={{ textAlign: 'right', fontWeight: '600' }}>
-                                                            {it.return_quantity || it.quantity}
-                                                        </S.Td>
-                                                        <S.Td style={{ textAlign: 'center' }}>
-                                                            <Input
-                                                                value={it.approved_return_qty}
-                                                                onChange={(e) => {
-                                                                    const val = Math.max(0, Number(e.target.value));
-                                                                    const copy = [...returnApprovalItems];
-                                                                    copy[idx].approved_return_qty = val;
-                                                                    setReturnApprovalItems(copy);
-                                                                }}
-                                                                style={{ textAlign: 'center', fontWeight: '700', color: '#0d9488' }}
-                                                            />
-                                                        </S.Td>
-                                                        <S.Td style={{ textAlign: 'right', color: '#64748b' }}>
-                                                            ₹{price.toFixed(2)}
-                                                        </S.Td>
-                                                        <S.Td style={{ textAlign: 'right', fontWeight: '800', color: '#0d9488' }}>
-                                                            ₹{creditAmount.toFixed(2)}
-                                                        </S.Td>
-                                                    </S.Tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </S.Table>
-                                </S.TableWrapper>
-
-                                <div style={{
-                                    marginTop: '20px',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '16px',
-                                    background: '#f0fdf4',
-                                    borderRadius: '8px',
-                                    border: '1px solid #bbf7d0'
-                                }}>
-                                    <div style={{ fontSize: '0.85rem', color: '#166534' }}>
-                                        🛡️ <strong>Note:</strong> Approving this return will automatically restore the returned items into central stores available stock and deduct from department inventory.
-                                    </div>
-                                    <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                        <div style={{ fontSize: '0.75rem', color: '#166534' }}>Total Value to Credit</div>
-                                        <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#16a34a' }}>
-                                            ₹{returnApprovalItems.reduce((acc, it) => acc + (Number(it.approved_return_qty || 0) * Number(it.unit_price || 0)), 0).toFixed(2)}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                                    <S.Button
-                                        secondary
-                                        onClick={() => setShowReturnApproveModal(false)}
-                                        style={{ flex: 1, padding: '12px', background: '#e2e8f0', color: '#475569' }}
-                                    >
-                                        Cancel
-                                    </S.Button>
-                                    <S.Button
-                                        onClick={submitReturnApproval}
-                                        style={{ flex: 2, padding: '12px', background: '#0d9488', fontSize: '1rem', fontWeight: '700' }}
-                                    >
-                                        ✔ Confirm & Approve Return
-                                    </S.Button>
-                                </div>
-                            </S.ModalBody>
-                        </S.ModalContainer>
-                    </S.ModalOverlay>
                 )}
 
                 {/* ========================================================= */}
