@@ -1,8 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { Plus, X, Package as PackageIcon, Eye } from "lucide-react";
+import { Plus, X, Package as PackageIcon, Eye, Printer, Search } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
+import OTPrintModal from "./OTPrintModal";
+import {
+  generateMedicineOverallPrintHtml,
+  generateMedicineSingleSlipHtml,
+} from "./otPrintUtils";
 
 import {
   colors as globalColors,
@@ -842,7 +847,7 @@ const MedicineNameField = ({
 };
 
 // ─── View Medicines Modal ─────────────────────────────────────────────────────
-const ViewMedicinesModal = ({ request, onClose }) => {
+const ViewMedicinesModal = ({ request, onClose, onPrint }) => {
   if (!request) return null;
   const medicines = request.medicines || [];
 
@@ -874,7 +879,31 @@ const ViewMedicinesModal = ({ request, onClose }) => {
               </span>
             )}
           </HeaderTitle>
-          <button onClick={onClose}>×</button>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button
+              type="button"
+              onClick={() => onPrint && onPrint(request)}
+              style={{
+                background: colors.orange,
+                color: "white",
+                border: "none",
+                borderRadius: "5px",
+                padding: "5px 12px",
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+              title="Print requisition slip"
+            >
+              <Printer size={14} /> Print Slip
+            </button>
+            <button onClick={onClose} style={{ fontSize: "1.5rem", lineHeight: 1 }}>
+              ×
+            </button>
+          </div>
         </Header>
         <ContentBody>
           <div
@@ -1015,12 +1044,15 @@ const OTMedicineBilling = () => {
   const [editingRequestId, setEditingRequestId] = useState(null);
 
   const [packages, setPackages] = useState([]);
+  const [packageSearch, setPackageSearch] = useState("");
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState(null);
   const [selectedPackageName, setSelectedPackageName] = useState("");
   const [packageLoading, setPackageLoading] = useState(false);
 
   const [viewingRequest, setViewingRequest] = useState(null);
+  const [overallPrintOpen, setOverallPrintOpen] = useState(false);
+  const [printSingleRequest, setPrintSingleRequest] = useState(null);
 
   const pharmacyDept = "OLET001";
 
@@ -1044,6 +1076,7 @@ const OTMedicineBilling = () => {
     fetchRequests();
     fetchDoctors();
     fetchDosages();
+    fetchPackages();
   }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -1140,8 +1173,19 @@ const OTMedicineBilling = () => {
 
   const handleOpenPackageList = () => {
     setIsPackageModalOpen(true);
+    setPackageSearch("");
     fetchPackages();
   };
+
+  const filteredPackages = useMemo(() => {
+    if (!packageSearch.trim()) return packages;
+    const q = packageSearch.toLowerCase().trim();
+    return packages.filter(
+      (p) =>
+        (p.medPackage_name || "").toLowerCase().includes(q) ||
+        String(p.medPackage_id || "").toLowerCase().includes(q)
+    );
+  }, [packages, packageSearch]);
 
   const lookupItemPrice = async (itemId, itemName) => {
     try {
@@ -1499,6 +1543,7 @@ const OTMedicineBilling = () => {
                     />
                   </FormItem>
 
+
                   {/* ── Medicine Name — inline dropdown, no modal ── */}
                   <FormItem style={{ gridColumn: "span 2" }}>
                     <FormLabel>
@@ -1776,9 +1821,49 @@ const OTMedicineBilling = () => {
         )}
 
         {/* Request History */}
-        <TabsBar>
-          <Tab active={true}>Request History</Tab>
-        </TabsBar>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            margin: "30px 0 15px 0",
+            borderBottom: `2px solid ${colors.border}`,
+            paddingBottom: "4px",
+            flexWrap: "wrap",
+            gap: "10px",
+          }}
+        >
+          <TabsBar style={{ margin: 0, borderBottom: "none" }}>
+            <Tab active={true}>📋 Request History ({requests.length})</Tab>
+          </TabsBar>
+
+          <button
+            type="button"
+            disabled={requests.length === 0}
+            onClick={() => setOverallPrintOpen(true)}
+            style={{
+              background: requests.length === 0 ? "#cbd5e1" : colors.primary,
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              padding: "7px 16px",
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              cursor: requests.length === 0 ? "not-allowed" : "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow:
+                requests.length === 0
+                  ? "none"
+                  : "0 2px 6px rgba(19, 106, 99, 0.25)",
+              transition: "all 0.15s",
+            }}
+            title="Print consolidated statement of all medicine requests"
+          >
+            <Printer size={15} /> 🖨️ Overall Print
+          </button>
+        </div>
 
         <StyledTable>
           <thead>
@@ -1854,6 +1939,28 @@ const OTMedicineBilling = () => {
                         flexWrap: "wrap",
                       }}
                     >
+                      <button
+                        type="button"
+                        title="Print requisition slip"
+                        onClick={() => setPrintSingleRequest(req)}
+                        style={{
+                          background: "#f0fdfa",
+                          color: colors.primary,
+                          border: `1px solid ${colors.primary}`,
+                          borderRadius: "5px",
+                          padding: "5px 10px",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        <Printer size={13} /> Print
+                      </button>
+
                       <button
                         disabled={
                           (req.billingStatus || "Pending") !== "Pending"
@@ -1974,84 +2081,374 @@ const OTMedicineBilling = () => {
       </div>
 
       {/* Package Selection Modal */}
+      {/* ── Upgraded Select Medicine Package Modal ── */}
       {isPackageModalOpen && (
-        <ModalOverlay style={{ zIndex: 2000 }}>
+        <ModalOverlay
+          style={{ zIndex: 2000 }}
+          onClick={() => setIsPackageModalOpen(false)}
+        >
           <ModalContainer
-            style={{ width: "60%", height: "75%", maxWidth: "700px" }}
+            style={{
+              width: "75%",
+              height: "82%",
+              maxWidth: "850px",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: "12px",
+              overflow: "hidden",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <Header>
-              <HeaderTitle>
-                <PackageIcon
-                  size={20}
-                  style={{ verticalAlign: "middle", marginRight: "8px" }}
-                />
-                Select Medicine Package ({pharmacyDept})
-              </HeaderTitle>
-              <button onClick={() => setIsPackageModalOpen(false)}>×</button>
+            <Header
+              style={{
+                background: "linear-gradient(135deg, #136A63 0%, #0d504b 100%)",
+                padding: "16px 24px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <HeaderTitle
+                  style={{
+                    fontSize: "1.05rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    color: "#ffffff",
+                    margin: 0,
+                  }}
+                >
+                  <PackageIcon size={20} />
+                  Select OT Medicine Package ({pharmacyDept})
+                </HeaderTitle>
+                <div
+                  style={{
+                    fontSize: "0.78rem",
+                    color: "rgba(255,255,255,0.82)",
+                    marginTop: "3px",
+                  }}
+                >
+                  Pre-configured surgery kits with standard drug quantities &amp; live prices
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPackageModalOpen(false)}
+                style={{
+                  background: "rgba(255,255,255,0.18)",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: "30px",
+                  height: "30px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.2rem",
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.18)";
+                }}
+              >
+                ×
+              </button>
             </Header>
-            <ContentBody style={{ padding: 0 }}>
-              {packages.length > 0 ? (
-                <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                  {packages.map((pkg, idx) => (
-                    <li
-                      key={pkg.medPackage_id}
-                      onClick={() => handleSelectPackage(pkg)}
-                      style={{
-                        padding: "14px 25px",
-                        cursor: "pointer",
-                        borderBottom:
-                          idx < packages.length - 1
-                            ? `1px solid ${colors.border}`
-                            : "none",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        background: "white",
-                        transition: "background 0.15s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = colors.background;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "white";
-                      }}
-                    >
+
+            {/* Search Bar & Stats */}
+            <div
+              style={{
+                padding: "12px 24px",
+                background: "#f8fafc",
+                borderBottom: `1px solid ${colors.border}`,
+                display: "flex",
+                alignItems: "center",
+                gap: "14px",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <Search
+                  size={15}
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    color: colors.textMuted,
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Search packages by kit name or ID..."
+                  value={packageSearch}
+                  onChange={(e) => setPackageSearch(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px 8px 36px",
+                    borderRadius: "6px",
+                    border: `1px solid ${colors.border}`,
+                    fontSize: "0.86rem",
+                    outline: "none",
+                  }}
+                  autoFocus
+                />
+                {packageSearch && (
+                  <button
+                    onClick={() => setPackageSearch("")}
+                    style={{
+                      position: "absolute",
+                      right: "10px",
+                      background: "none",
+                      border: "none",
+                      color: colors.textMuted,
+                      cursor: "pointer",
+                      fontSize: "0.95rem",
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <span
+                style={{
+                  fontSize: "0.8rem",
+                  color: colors.textMuted,
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {filteredPackages.length} package{filteredPackages.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            {/* Package Cards List */}
+            <ContentBody
+              style={{
+                padding: "18px 24px",
+                overflowY: "auto",
+                flex: 1,
+                background: "#f1f5f9",
+              }}
+            >
+              {packageLoading ? (
+                <div
+                  style={{
+                    padding: "60px 20px",
+                    textAlign: "center",
+                    color: colors.primary,
+                    fontWeight: 600,
+                  }}
+                >
+                  ⏳ Loading package items &amp; calculating pharmacy stock prices...
+                </div>
+              ) : filteredPackages.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {filteredPackages.map((pkg) => {
+                    const isSelected =
+                      String(selectedPackageId) === String(pkg.medPackage_id);
+                    const items = pkg.items || [];
+                    return (
                       <div
+                        key={pkg.medPackage_id}
                         style={{
+                          background: "#ffffff",
+                          border: isSelected
+                            ? `2px solid ${colors.primary}`
+                            : "1px solid #e2e8f0",
+                          borderRadius: "10px",
+                          padding: "16px 20px",
+                          boxShadow: isSelected
+                            ? "0 4px 14px rgba(19, 106, 99, 0.16)"
+                            : "0 2px 4px rgba(0,0,0,0.03)",
                           display: "flex",
+                          justifyContent: "space-between",
                           alignItems: "center",
-                          gap: "10px",
+                          gap: "18px",
+                          transition: "all 0.15s ease",
                         }}
                       >
-                        <PackageIcon size={16} color={colors.primary} />
-                        <span
-                          style={{
-                            fontWeight: 700,
-                            fontSize: "0.92rem",
-                            color: colors.primary,
-                          }}
-                        >
-                          {pkg.medPackage_name}
-                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              marginBottom: "6px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "0.98rem",
+                                fontWeight: 700,
+                                color: colors.primary,
+                              }}
+                            >
+                              {pkg.medPackage_name}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "0.72rem",
+                                fontWeight: 700,
+                                background: "#f1f5f9",
+                                color: "#475569",
+                                padding: "2px 8px",
+                                borderRadius: "10px",
+                              }}
+                            >
+                              #{pkg.medPackage_id}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "0.72rem",
+                                fontWeight: 700,
+                                background: "#e0f2fe",
+                                color: "#0369a1",
+                                padding: "2px 8px",
+                                borderRadius: "10px",
+                              }}
+                            >
+                              {items.length} item{items.length !== 1 ? "s" : ""}
+                            </span>
+                            {isSelected && (
+                              <span
+                                style={{
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  background: "#dcfce7",
+                                  color: "#15803d",
+                                  padding: "2px 8px",
+                                  borderRadius: "10px",
+                                }}
+                              >
+                                ✓ Active Selection
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Medicine pills preview */}
+                          {items.length > 0 ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "6px",
+                                marginTop: "8px",
+                              }}
+                            >
+                              {items.slice(0, 8).map((it, idx) => (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    fontSize: "0.73rem",
+                                    background: "#f8fafc",
+                                    border: "1px solid #e2e8f0",
+                                    color: "#334155",
+                                    borderRadius: "5px",
+                                    padding: "2px 8px",
+                                  }}
+                                >
+                                  {it.item_name}{" "}
+                                  <strong style={{ color: colors.primary }}>
+                                    ×{it.qty}
+                                  </strong>
+                                </span>
+                              ))}
+                              {items.length > 8 && (
+                                <span
+                                  style={{
+                                    fontSize: "0.73rem",
+                                    color: colors.textMuted,
+                                    padding: "2px 6px",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  +{items.length - 8} more
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                color: colors.textMuted,
+                                fontStyle: "italic",
+                              }}
+                            >
+                              No items in this package kit
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div>
+                          {isSelected ? (
+                            <button
+                              type="button"
+                              onClick={handleClearPackage}
+                              style={{
+                                background: "#fee2e2",
+                                color: "#dc2626",
+                                border: "1px solid #fca5a5",
+                                borderRadius: "6px",
+                                padding: "8px 16px",
+                                fontSize: "0.82rem",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              ✕ Remove
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSelectPackage(pkg)}
+                              style={{
+                                background: colors.primary,
+                                color: "white",
+                                border: "none",
+                                borderRadius: "6px",
+                                padding: "8px 18px",
+                                fontSize: "0.82rem",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                boxShadow: "0 2px 4px rgba(19,106,99,0.2)",
+                                transition: "all 0.15s ease",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              ✓ Select Package
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <span
-                        style={{ fontSize: "0.78rem", color: colors.textMuted }}
-                      >
-                        {(pkg.items || []).length} items
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                    );
+                  })}
+                </div>
               ) : (
                 <div
                   style={{
-                    padding: "40px",
+                    padding: "60px 20px",
                     textAlign: "center",
                     color: colors.textMuted,
                   }}
                 >
-                  No medicine packages found for {pharmacyDept}.
+                  {packageSearch
+                    ? `No packages match "${packageSearch}".`
+                    : `No medicine packages found for outlet ${pharmacyDept}.`}
                 </div>
               )}
             </ContentBody>
@@ -2064,6 +2461,33 @@ const OTMedicineBilling = () => {
         <ViewMedicinesModal
           request={viewingRequest}
           onClose={() => setViewingRequest(null)}
+          onPrint={(req) => setPrintSingleRequest(req)}
+        />
+      )}
+
+      {/* Overall Consolidated Print Modal */}
+      {overallPrintOpen && (
+        <OTPrintModal
+          title={`OT Medicine Requisition Statement - ${resolvedPatient.ipNo || "IP"}`}
+          htmlGenerator={generateMedicineOverallPrintHtml}
+          data={{
+            patient: resolvedPatient,
+            requests: requests,
+          }}
+          onClose={() => setOverallPrintOpen(false)}
+        />
+      )}
+
+      {/* Single Request Slip Print Modal */}
+      {printSingleRequest && (
+        <OTPrintModal
+          title={`OT Medicine Requisition Slip - ${printSingleRequest.bill_id || printSingleRequest.Bill_id || "Req"}`}
+          htmlGenerator={generateMedicineSingleSlipHtml}
+          data={{
+            patient: resolvedPatient,
+            request: printSingleRequest,
+          }}
+          onClose={() => setPrintSingleRequest(null)}
         />
       )}
 
