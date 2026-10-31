@@ -7,6 +7,7 @@ import DischargeViewBills from "./DischargeViewBills";
 import DischargeViewEstimates from "./DischargeViewEstimates";
 import PatientSearchModal from "../Common/PatientSearchModal";
 import DischargeBillPrintModal from "./DischargeBillPrintModal";
+import SearchSelect from "../Common/SearchSelect";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -45,7 +46,6 @@ const AppBar = styled.header`
   box-shadow: 0 2px 10px rgba(15, 118, 110, 0.2);
 `;
 const AppTitle = styled.div`color: #fff; font-weight: 700; font-size: 0.94rem; display: flex; align-items: center; gap: 8px;`;
-const Crumb = styled.div`color: rgba(255, 255, 255, 0.8); font-size: 0.76rem; font-weight: 500;`;
 const Content = styled.div`
   width: 100%;
   max-width: 100%;
@@ -726,8 +726,12 @@ const normaliseItems = (list) =>
 const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], itemsLoading = false, billTypeName = "", rateCategory = "NABH" }) => {
   const [showSug, setShowSug] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 280 });
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef(null);
   const dropRef = useRef(null);
+  const itemRefs = useRef([]);
+  const isKeyboardNav = useRef(false);
+  const lastMousePos = useRef({ x: -1, y: -1 });
 
   const filtered = useMemo(() => {
     if (!value.trim()) return allItems;
@@ -740,6 +744,35 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
       return name.includes(q) || nabh.includes(q) || cat.includes(q) || dept.includes(q);
     });
   }, [allItems, value]);
+
+  useEffect(() => {
+    itemRefs.current = [];
+    if (showSug && filtered.length > 0) {
+      setHighlightedIndex(0);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [filtered, showSug]);
+
+  // Precise scrolling on highlight change for Up and Down arrows
+  useEffect(() => {
+    if (showSug && highlightedIndex >= 0 && dropRef.current && itemRefs.current[highlightedIndex]) {
+      const container = dropRef.current;
+      const el = itemRefs.current[highlightedIndex];
+      try {
+        el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+      } catch (e) {}
+      const elTop = el.offsetTop;
+      const elBottom = elTop + el.offsetHeight;
+      const cTop = container.scrollTop;
+      const cBottom = cTop + container.clientHeight;
+      if (elTop < cTop) {
+        container.scrollTop = elTop;
+      } else if (elBottom > cBottom) {
+        container.scrollTop = elBottom - container.clientHeight;
+      }
+    }
+  }, [highlightedIndex, showSug]);
 
   useEffect(() => {
     const onMouseDown = e => {
@@ -783,6 +816,48 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
     setShowSug(false);
   };
 
+  const handleKeyDown = e => {
+    if (!showSug && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      e.preventDefault();
+      setShowSug(true);
+      measure();
+      setHighlightedIndex(0);
+      return;
+    }
+
+    if (showSug) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (filtered.length === 0) return;
+        isKeyboardNav.current = true;
+        setHighlightedIndex(p => (p < 0 ? 0 : Math.min(filtered.length - 1, p + 1)));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (filtered.length === 0) return;
+        isKeyboardNav.current = true;
+        setHighlightedIndex(p => (p <= 0 ? 0 : p - 1));
+      } else if (e.key === "Enter") {
+        if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
+          e.preventDefault();
+          handleSelect(filtered[highlightedIndex]);
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSug(false);
+      }
+    }
+  };
+
+  const handleItemMouseMove = (idx, e) => {
+    const dx = Math.abs(e.clientX - lastMousePos.current.x);
+    const dy = Math.abs(e.clientY - lastMousePos.current.y);
+    if (dx > 3 || dy > 3) {
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+      isKeyboardNav.current = false;
+      setHighlightedIndex(idx);
+    }
+  };
+
   const placeholder = itemsLoading ? "Loading items…" : allItems.length > 0 ? `Search ${allItems.length} items…` : "No items";
 
   return (
@@ -792,6 +867,7 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
         value={value}
         onChange={handleChange}
         onFocus={handleFocus}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         autoComplete="off"
       />
@@ -804,9 +880,9 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
             left: dropPos.left,
             width: Math.max(dropPos.width, 440),
             background: "#fff",
-            border: `1px solid ${T.border}`,
+            border: `1.5px solid #0d9488`,
             borderRadius: "6px",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.14)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
             zIndex: 99999,
             maxHeight: "340px",
             overflowY: "auto",
@@ -816,7 +892,7 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
             <div style={{
               padding: "6px 12px", fontSize: "0.68rem", fontWeight: 700,
               color: T.surface, background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
-              borderRadius: "6px 6px 0 0",
+              borderRadius: "5px 5px 0 0",
               display: "flex", alignItems: "center", justifyContent: "space-between",
             }}>
               <span>📋 {billTypeName || "Items"} · Active Rate: {rateCategory === "NON_NABH" ? "🔹 Non-NABH" : "⭐ NABH"}</span>
@@ -837,13 +913,14 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
             <>
               {value.trim() && filtered.length < allItems.length && (
                 <div style={{ padding: "4px 12px", fontSize: "0.66rem", fontWeight: 600, color: T.textMuted, background: "#f8fafc", borderBottom: `1px solid ${T.border}` }}>
-                  Showing top {filtered.length} of {allItems.length} items
+                  Showing top {filtered.length} of {allItems.length} items (Use ↑ / ↓ to navigate, Enter to choose)
                 </div>
               )}
               {filtered.map((s, i) => {
                 const sName = s.itemName || s.name || "";
                 const hasNabh = s.nabh_rate != null && !isNaN(Number(s.nabh_rate)) && Number(s.nabh_rate) > 0;
                 const hasNonNabh = s.non_nabh_rate != null && !isNaN(Number(s.non_nabh_rate)) && Number(s.non_nabh_rate) > 0;
+                const isHigh = i === highlightedIndex;
 
                 let sRate = s.price;
                 if (rateCategory === "NON_NABH" && hasNonNabh) {
@@ -859,16 +936,24 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
                 return (
                   <SuggestionItem
                     key={`${sName}-${s.nabh_code || ""}-${i}`}
+                    ref={el => { itemRefs.current[i] = el; }}
                     onMouseDown={e => { e.preventDefault(); handleSelect(s); }}
-                    style={{ padding: "8px 12px" }}
+                    onMouseMove={e => handleItemMouseMove(i, e)}
+                    style={{
+                      padding: "8px 12px",
+                      background: isHigh ? "#0d9488" : "transparent",
+                      color: isHigh ? "#ffffff" : T.textMain,
+                      cursor: "pointer",
+                      transition: "background .05s ease"
+                    }}
                   >
                     <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 0, paddingRight: 8 }}>
-                      <SugName style={{ fontSize: "0.82rem", lineHeight: 1.3 }}>{sName}</SugName>
+                      <SugName style={{ fontSize: "0.82rem", lineHeight: 1.3, color: isHigh ? "#ffffff" : T.textMain, fontWeight: isHigh ? 700 : 600 }}>{sName}</SugName>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
                         {s.nabh_code && (
                           <span style={{
                             fontSize: "0.64rem", fontWeight: 700, padding: "1px 6px",
-                            background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0",
+                            background: isHigh ? "#0f766e" : "#ecfdf5", color: isHigh ? "#ccfbf1" : "#065f46", border: `1px solid ${isHigh ? "#14b8a6" : "#a7f3d0"}`,
                             borderRadius: "4px", fontFamily: "monospace"
                           }}>
                             NABH: {s.nabh_code}
@@ -877,8 +962,8 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
                         {hasNabh && (
                           <span style={{
                             fontSize: "0.64rem", fontWeight: rateCategory === "NABH" ? 800 : 500, padding: "1px 6px",
-                            background: rateCategory === "NABH" ? "#ccfbf1" : "#f0fdfa",
-                            color: "#0f766e", border: `1px solid ${rateCategory === "NABH" ? "#0f766e" : "#99f6e4"}`,
+                            background: isHigh ? "rgba(255,255,255,0.2)" : (rateCategory === "NABH" ? "#ccfbf1" : "#f0fdfa"),
+                            color: isHigh ? "#ffffff" : "#0f766e", border: `1px solid ${isHigh ? "#ffffff" : (rateCategory === "NABH" ? "#0f766e" : "#99f6e4")}`,
                             borderRadius: "4px"
                           }}>
                             ⭐ NABH: ₹{parseFloat(s.nabh_rate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -887,8 +972,8 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
                         {hasNonNabh && (
                           <span style={{
                             fontSize: "0.64rem", fontWeight: rateCategory === "NON_NABH" ? 800 : 500, padding: "1px 6px",
-                            background: rateCategory === "NON_NABH" ? "#dbeafe" : "#eff6ff",
-                            color: "#1d4ed8", border: `1px solid ${rateCategory === "NON_NABH" ? "#2563eb" : "#bfdbfe"}`,
+                            background: isHigh ? "rgba(255,255,255,0.2)" : (rateCategory === "NON_NABH" ? "#dbeafe" : "#eff6ff"),
+                            color: isHigh ? "#ffffff" : "#1d4ed8", border: `1px solid ${isHigh ? "#ffffff" : (rateCategory === "NON_NABH" ? "#2563eb" : "#bfdbfe")}`,
                             borderRadius: "4px"
                           }}>
                             🔹 Non-NABH: ₹{parseFloat(s.non_nabh_rate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -897,21 +982,26 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
                         {s.category && (
                           <span style={{
                             fontSize: "0.64rem", fontWeight: 600, padding: "1px 6px",
-                            background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0",
+                            background: isHigh ? "rgba(255,255,255,0.15)" : "#f1f5f9", color: isHigh ? "#e2e8f0" : "#475569", border: `1px solid ${isHigh ? "transparent" : "#e2e8f0"}`,
                             borderRadius: "4px"
                           }}>
                             {s.category}
                           </span>
                         )}
                         {s.package_name && (
-                          <span style={{ fontSize: "0.64rem", color: T.primary, fontWeight: 700 }}>
+                          <span style={{ fontSize: "0.64rem", color: isHigh ? "#ccfbf1" : T.primary, fontWeight: 700 }}>
                             {s.package_name}
+                          </span>
+                        )}
+                        {isHigh && (
+                          <span style={{ fontSize: "0.62rem", color: "#ccfbf1", fontWeight: 700, textTransform: "uppercase" }}>
+                            ↵ Enter
                           </span>
                         )}
                       </div>
                     </div>
                     {sRate != null && String(sRate) !== "0" && String(sRate) !== "" && (
-                      <SugPrice style={{ marginLeft: 10, fontSize: "0.82rem", flexShrink: 0 }}>
+                      <SugPrice style={{ marginLeft: 10, fontSize: "0.82rem", flexShrink: 0, color: isHigh ? "#ffffff" : T.primary, fontWeight: 700 }}>
                         ₹{parseFloat(sRate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </SugPrice>
                     )}
@@ -1108,200 +1198,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
   );
 };
 
-// ─── Searchable Select Component ─────────────────────────────────────────────
-const SearchSelect = ({
-  options = [],
-  value = "",
-  onChange,
-  placeholder = "— Select —",
-  disabled = false,
-  height = "32px",
-  style = {},
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 200 });
-  const wrapRef = useRef(null);
-  const dropRef = useRef(null);
-
-  const normOptions = useMemo(() => {
-    return options.map(opt => {
-      if (typeof opt === "string") return { value: opt, label: opt, sub: "" };
-      const val = opt.value ?? opt.id ?? opt.bill_type ?? "";
-      const lbl = opt.label ?? opt.name ?? opt.bill_name ?? String(val);
-      const sub = opt.subLabel ?? opt.billTypeNo ?? "";
-      return { value: String(val), label: String(lbl), sub: sub ? String(sub) : "" };
-    });
-  }, [options]);
-
-  const selectedOpt = useMemo(() => {
-    return normOptions.find(o => String(o.value) === String(value));
-  }, [normOptions, value]);
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return normOptions;
-    const q = query.toLowerCase();
-    return normOptions.filter(o =>
-      o.label.toLowerCase().includes(q) ||
-      (o.sub && o.sub.toLowerCase().includes(q))
-    );
-  }, [normOptions, query]);
-
-  useEffect(() => {
-    const onMouseDown = (e) => {
-      const inWrap = wrapRef.current?.contains(e.target);
-      const inDrop = dropRef.current?.contains(e.target);
-      if (!inWrap && !inDrop) {
-        setIsOpen(false);
-        setQuery("");
-      }
-    };
-    const onScroll = () => {
-      if (wrapRef.current) {
-        const r = wrapRef.current.getBoundingClientRect();
-        setDropPos({ top: r.bottom + 3, left: r.left, width: Math.max(r.width, 220) });
-      }
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("scroll", onScroll, true);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("scroll", onScroll, true);
-    };
-  }, []);
-
-  const handleOpen = () => {
-    if (disabled) return;
-    if (wrapRef.current) {
-      const r = wrapRef.current.getBoundingClientRect();
-      setDropPos({ top: r.bottom + 3, left: r.left, width: Math.max(r.width, 220) });
-    }
-    setIsOpen(!isOpen);
-    setQuery("");
-  };
-
-  const handleSelect = (opt) => {
-    onChange && onChange({ target: { value: opt.value } });
-    setIsOpen(false);
-    setQuery("");
-  };
-
-  const handleClear = (e) => {
-    e.stopPropagation();
-    onChange && onChange({ target: { value: "" } });
-    setQuery("");
-  };
-
-  return (
-    <div ref={wrapRef} style={{ position: "relative", width: "100%", ...style }}>
-      <div
-        onClick={handleOpen}
-        style={{
-          height,
-          boxSizing: "border-box",
-          padding: "0 8px",
-          fontSize: "0.8rem",
-          border: `1px solid ${T.border}`,
-          borderRadius: "6px",
-          background: disabled ? "#f8fafc" : "#fff",
-          color: disabled ? T.textMuted : selectedOpt ? T.textMain : T.textMuted,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          cursor: disabled ? "not-allowed" : "pointer",
-          userSelect: "none",
-        }}
-      >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, fontWeight: selectedOpt ? 600 : 400 }}>
-          {selectedOpt ? (selectedOpt.sub ? `${selectedOpt.label} (${selectedOpt.sub})` : selectedOpt.label) : placeholder}
-        </span>
-        <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 4 }}>
-          {selectedOpt && !disabled && (
-            <span
-              onClick={handleClear}
-              title="Clear"
-              style={{ fontSize: "0.72rem", color: T.textMuted, cursor: "pointer", padding: "0 2px" }}
-            >
-              ✕
-            </span>
-          )}
-          <span style={{ fontSize: "0.65rem", color: T.textMuted }}>{isOpen ? "▲" : "▼"}</span>
-        </div>
-      </div>
-
-      {isOpen && (
-        <div
-          ref={dropRef}
-          style={{
-            position: "fixed",
-            top: dropPos.top,
-            left: dropPos.left,
-            width: dropPos.width,
-            background: "#fff",
-            border: `1px solid ${T.border}`,
-            borderRadius: "6px",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-            zIndex: 99999,
-            maxHeight: "240px",
-            overflowY: "auto",
-          }}
-        >
-          <div style={{ padding: "6px", borderBottom: `1px solid ${T.border}`, background: "#f8fafc", position: "sticky", top: 0, zIndex: 1 }}>
-            <input
-              type="text"
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Type to search…"
-              style={{
-                width: "100%",
-                height: "26px",
-                padding: "0 8px",
-                boxSizing: "border-box",
-                fontSize: "0.76rem",
-                border: `1px solid ${T.border}`,
-                borderRadius: "4px",
-                outline: "none",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          {filtered.length === 0 ? (
-            <div style={{ padding: "10px", fontSize: "0.76rem", color: T.textMuted, textAlign: "center" }}>
-              No matches found
-            </div>
-          ) : (
-            filtered.map((opt) => (
-              <div
-                key={opt.value}
-                onClick={() => handleSelect(opt)}
-                style={{
-                  padding: "7px 10px",
-                  fontSize: "0.78rem",
-                  cursor: "pointer",
-                  background: String(opt.value) === String(value) ? "#f0fdf4" : "transparent",
-                  color: String(opt.value) === String(value) ? T.primary : T.textMain,
-                  fontWeight: String(opt.value) === String(value) ? 700 : 400,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  borderBottom: "1px solid #f8fafc",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "#e6f7f5"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = String(opt.value) === String(value) ? "#f0fdf4" : "transparent"; }}
-              >
-                <span>{opt.label}</span>
-                {opt.sub && <span style={{ fontSize: "0.68rem", color: T.textMuted, fontWeight: 600 }}>{opt.sub}</span>}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ═════════════════════════════════════════════════════════════════════════════
 // ItemsSection
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -2345,14 +2241,13 @@ const DischargeBilling = () => {
 
       <AppBar>
         <AppTitle>🏥 HMS — Discharge Billing</AppTitle>
-        <Crumb>Home / Discharge / Billing</Crumb>
       </AppBar>
 
       <Content>
         <TabBar>
-          <Tab $active={tab === "create"} onClick={() => setTab("create")}>🧾 Create Bill</Tab>
-          <Tab $active={tab === "estimates"} onClick={() => setTab("estimates")}>📋 Estimates</Tab>
-          <Tab $active={tab === "bills"} onClick={() => setTab("bills")}>✅ Bills</Tab>
+          <Tab $active={tab === "create"} onClick={() => setTab("create")}>CREATE BILL</Tab>
+          <Tab $active={tab === "estimates"} onClick={() => setTab("estimates")}>VIEW ESTIMATE</Tab>
+          <Tab $active={tab === "bills"} onClick={() => setTab("bills")}>VIEW BILLS</Tab>
         </TabBar>
 
         {/* ═══ CREATE / EDIT TAB ═══ */}
