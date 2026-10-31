@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
@@ -1009,6 +1009,118 @@ const Enquiry = () => {
   const [activeTab,      setActiveTab]      = useState("admission");
   const [filterText,     setFilterText]     = useState("");
 
+  const [showSug, setShowSug] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const searchInputRef = useRef(null);
+  const sugDropRef = useRef(null);
+  const sugItemRefs = useRef([]);
+  const isKeyboardNav = useRef(false);
+  const lastMousePos = useRef({ x: -1, y: -1 });
+
+  const patientSuggestions = useMemo(() => {
+    const q = (searchParam || "").trim().toLowerCase();
+    if (!q) return [];
+    const pool = [
+      ...(summaryData?.recent_registered || []),
+      ...(summaryData?.registered || []),
+      ...(summaryData?.admissions || []),
+      ...(summaryData?.discharges || [])
+    ];
+    const seen = new Set();
+    const matches = [];
+    for (const p of pool) {
+      const uhid = (p.uhid || "").toLowerCase();
+      const name = (p.name || p.patient_name || "").toLowerCase();
+      const mob = (p.mobile || p.phone || "").toLowerCase();
+      const ip = (p.ipNumber || p.ip_number || "").toLowerCase();
+      const key = `${uhid}_${ip}_${mob}`;
+      if (seen.has(key)) continue;
+
+      if (uhid.includes(q) || name.includes(q) || mob.includes(q) || ip.includes(q)) {
+        seen.add(key);
+        matches.push({
+          uhid: p.uhid || "",
+          name: p.name || p.patient_name || "Patient",
+          mobile: p.mobile || p.phone || "",
+          ipNumber: p.ipNumber || p.ip_number || "",
+        });
+        if (matches.length >= 10) break;
+      }
+    }
+    return matches;
+  }, [searchParam, summaryData]);
+
+  useEffect(() => {
+    sugItemRefs.current = [];
+    if (showSug && patientSuggestions.length > 0) {
+      setHighlightedIndex(0);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [patientSuggestions, showSug]);
+
+  useEffect(() => {
+    if (showSug && highlightedIndex >= 0 && sugDropRef.current && sugItemRefs.current[highlightedIndex]) {
+      const container = sugDropRef.current;
+      const el = sugItemRefs.current[highlightedIndex];
+      try {
+        el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+      } catch (e) {}
+      const elTop = el.offsetTop;
+      const elBottom = elTop + el.offsetHeight;
+      const cTop = container.scrollTop;
+      const cBottom = cTop + container.clientHeight;
+      if (elTop < cTop) {
+        container.scrollTop = elTop;
+      } else if (elBottom > cBottom) {
+        container.scrollTop = elBottom - container.clientHeight;
+      }
+    }
+  }, [highlightedIndex, showSug]);
+
+  useEffect(() => {
+    const onMouseDown = e => {
+      const inInput = searchInputRef.current?.contains(e.target);
+      const inDrop = sugDropRef.current?.contains(e.target);
+      if (!inInput && !inDrop) setShowSug(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
+  const handleSearchKeyDown = (e) => {
+    if (!showSug && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      if (patientSuggestions.length > 0) {
+        e.preventDefault();
+        setShowSug(true);
+        setHighlightedIndex(0);
+        return;
+      }
+    }
+    if (showSug && patientSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        isKeyboardNav.current = true;
+        setHighlightedIndex(p => (p < 0 ? 0 : Math.min(patientSuggestions.length - 1, p + 1)));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        isKeyboardNav.current = true;
+        setHighlightedIndex(p => (p <= 0 ? 0 : p - 1));
+      } else if (e.key === "Enter") {
+        if (highlightedIndex >= 0 && highlightedIndex < patientSuggestions.length) {
+          e.preventDefault();
+          const chosen = patientSuggestions[highlightedIndex];
+          const queryVal = chosen.uhid || chosen.ipNumber || chosen.mobile;
+          setShowSug(false);
+          handleSelectPatient(queryVal);
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSug(false);
+      }
+    }
+  };
+
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   /* ── 1. Fetch Today's / Date Range Summary ── */
@@ -1331,9 +1443,10 @@ const Enquiry = () => {
           </SearchTypeToggle>
 
           <SearchForm onSubmit={(e) => { e.preventDefault(); handleSearch(); }}>
-            <FieldCol $flex="2 1 280px">
+            <FieldCol $flex="2 1 280px" style={{ position: "relative" }}>
               <FieldLabel>Search Parameter (UHID / IP Number / Mobile)</FieldLabel>
               <SearchInput
+                ref={searchInputRef}
                 type="text"
                 placeholder={
                   searchMode === "UHID"   ? "e.g. S026/00548" :
@@ -1342,8 +1455,85 @@ const Enquiry = () => {
                   "Enter UHID (e.g. S026/00548) or IP Number (e.g. S026/500017) or Mobile..."
                 }
                 value={searchParam}
-                onChange={(e) => setSearchParam(e.target.value)}
+                onChange={(e) => {
+                  setSearchParam(e.target.value);
+                  setShowSug(true);
+                }}
+                onFocus={() => setShowSug(true)}
+                onKeyDown={handleSearchKeyDown}
+                autoComplete="off"
               />
+              {showSug && patientSuggestions.length > 0 && (
+                <div
+                  ref={sugDropRef}
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 4px)",
+                    left: 0,
+                    right: 0,
+                    background: "#ffffff",
+                    border: "1.5px solid #0d9488",
+                    borderRadius: "6px",
+                    boxShadow: "0 10px 25px -5px rgba(0,0,0,0.25)",
+                    zIndex: 99999,
+                    maxHeight: "240px",
+                    overflowY: "auto",
+                  }}
+                >
+                  <div style={{ padding: "5px 10px", background: "#f8fafc", fontSize: "0.68rem", fontWeight: 700, color: "#64748b", borderBottom: "1px solid #e2e8f0" }}>
+                    🔍 Matching Patients ({patientSuggestions.length}) · Use ↑ / ↓ to navigate, Enter to choose
+                  </div>
+                  {patientSuggestions.map((item, idx) => {
+                    const isHigh = idx === highlightedIndex;
+                    return (
+                      <div
+                        key={`${item.uhid}-${idx}`}
+                        ref={el => { sugItemRefs.current[idx] = el; }}
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          setShowSug(false);
+                          handleSelectPatient(item.uhid || item.ipNumber || item.mobile);
+                        }}
+                        onMouseMove={e => {
+                          const dx = Math.abs(e.clientX - lastMousePos.current.x);
+                          const dy = Math.abs(e.clientY - lastMousePos.current.y);
+                          if (dx > 3 || dy > 3) {
+                            lastMousePos.current = { x: e.clientX, y: e.clientY };
+                            isKeyboardNav.current = false;
+                            setHighlightedIndex(idx);
+                          }
+                        }}
+                        style={{
+                          padding: "8px 12px",
+                          fontSize: "0.76rem",
+                          cursor: "pointer",
+                          background: isHigh ? "#0d9488" : "transparent",
+                          color: isHigh ? "#ffffff" : "#0f172a",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          borderBottom: "1px solid #f1f5f9",
+                          transition: "background .05s ease",
+                        }}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <span style={{ fontWeight: 700, color: isHigh ? "#ffffff" : "#0f172a" }}>
+                            {item.name}
+                          </span>
+                          <span style={{ fontSize: "0.68rem", color: isHigh ? "#ccfbf1" : "#64748b" }}>
+                            UHID: <strong>{item.uhid || "-"}</strong> {item.ipNumber ? `· IP: ${item.ipNumber}` : ""} {item.mobile ? `· 📱 ${item.mobile}` : ""}
+                          </span>
+                        </div>
+                        {isHigh && (
+                          <span style={{ fontSize: "0.62rem", color: "#ccfbf1", fontWeight: 700, textTransform: "uppercase" }}>
+                            ↵ Enter
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </FieldCol>
 
             <SearchButton type="submit" disabled={loading || !searchParam.trim()}>

@@ -437,46 +437,35 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
                   </tr>
                 </thead>
                 <tbody>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ padding: "8px 6px", fontWeight: 600 }}>
-                      Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY
-                    </td>
-                    <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: 700 }}>
-                      ₹{fmt(groupTotals["Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY"])}
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ padding: "8px 6px", fontWeight: 600 }}>
-                      CONSULTATION  CHRGES OPD/INDOOR
-                    </td>
-                    <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: 700 }}>
-                      ₹{fmt(groupTotals["CONSULTATION  CHRGES OPD/INDOOR"])}
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ padding: "8px 6px", fontWeight: 600 }}>
-                      INVESTIGATIONS
-                    </td>
-                    <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: 700 }}>
-                      ₹{fmt(groupTotals["INVESTIGATIONS"])}
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ padding: "8px 6px", fontWeight: 600 }}>
-                      MEDICINE CHARGES
-                    </td>
-                    <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: 700 }}>
-                      ₹{fmt(groupTotals["MEDICINE CHARGES"])}
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ padding: "8px 6px", fontWeight: 600 }}>
-                      SPECIALIZED SERVICES.
-                    </td>
-                    <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: 700 }}>
-                      ₹{fmt(groupTotals["SPECIALIZED SERVICES."])}
-                    </td>
-                  </tr>
+                  {[
+                    "Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY",
+                    "CONSULTATION  CHRGES OPD/INDOOR",
+                    "INVESTIGATIONS",
+                    "MEDICINE CHARGES",
+                    "SPECIALIZED SERVICES."
+                  ].filter(cat => (parseFloat(groupTotals[cat]) || 0) > 0).map((cat, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid #ddd" }}>
+                      <td style={{ padding: "8px 6px", fontWeight: 600 }}>
+                        {cat}
+                      </td>
+                      <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: 700 }}>
+                        ₹{fmt(groupTotals[cat])}
+                      </td>
+                    </tr>
+                  ))}
+                  {![
+                    "Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY",
+                    "CONSULTATION  CHRGES OPD/INDOOR",
+                    "INVESTIGATIONS",
+                    "MEDICINE CHARGES",
+                    "SPECIALIZED SERVICES."
+                  ].some(cat => (parseFloat(groupTotals[cat]) || 0) > 0) && (
+                    <tr style={{ borderBottom: "1px solid #ddd" }}>
+                      <td colSpan={2} style={{ padding: "10px 6px", textAlign: "center", color: "#64748b" }}>
+                        No charges available
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
 
@@ -534,6 +523,7 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
             {Object.keys(groups).map((groupTitle, gIdx) => {
               const gItems = groups[groupTitle];
               if (!gItems || gItems.length === 0) return null;
+              if (!(parseFloat(groupTotals[groupTitle]) > 0)) return null;
 
               return (
                 <div key={gIdx} style={{ marginTop: 12, marginBottom: 14 }}>

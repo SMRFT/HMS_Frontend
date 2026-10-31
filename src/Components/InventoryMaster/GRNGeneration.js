@@ -1081,9 +1081,12 @@ const GRNGeneration = () => {
     setGrnData(p=>({...p,[name]:value}))
   }
 
-  const filteredMeds = medicines.filter(m =>
-    `${m.item_name} ${m.item_last_name||""}`.toLowerCase().includes(medSearch.toLowerCase())
-  )
+  const filteredMeds = medicines.filter(m => {
+    const q = medSearch.trim().toLowerCase()
+    if (!q) return true
+    const name = String(m.item_name || "").toLowerCase()
+    return name.startsWith(q)
+  })
 
   const selectMedicine = (med) => {
     if(isVerified) return
