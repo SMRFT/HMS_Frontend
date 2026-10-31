@@ -82,7 +82,7 @@ const SidebarContainer = styled.div`
   position: fixed;
   left: 0;
   top: 0;
-  background: ${colors.surface};
+  background: #f1f5f9;
   border-right: 1px solid ${colors.border};
   display: flex;
   flex-direction: column;
@@ -131,7 +131,7 @@ const CloseMobileBtn = styled.button`
   right: 16px;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(4px);
-  border: 1px solid ${colors.border};
+  border: 1px solid #cbd5e1;
   color: ${colors.textMuted};
   cursor: pointer;
   padding: 8px;
@@ -153,44 +153,45 @@ const CloseMobileBtn = styled.button`
 `;
 
 const BrandSection = styled.div`
-  padding: 0 24px;
+  padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 62px;
+  background: #ffffff;
   border-bottom: 1px solid ${colors.border};
   flex-shrink: 0;
 
   @media (max-width: 1024px) {
-    padding: 0 10px;
+    padding: 0 14px;
     justify-content: space-between;
   }
 
   @media (max-width: 768px) {
-    padding: 0 20px;
+    padding: 0 16px;
     justify-content: space-between;
   }
 `;
 
 const BrandLogo = styled.img`
-  height: 60px;
+  height: 44px;
   width: auto;
   object-fit: contain;
 
   @media (max-width: 1024px) {
-    height: 60px;
+    height: 40px;
   }
   @media (max-width: 768px) {
-    height: 40px;
+    height: 36px;
   }
 `;
 
 const SearchContainer = styled.div`
-  padding: 16px 20px 8px 20px;
+  padding: 12px 14px 6px 14px;
   flex-shrink: 0;
 
   @media (max-width: 1024px) {
-    padding: 16px 12px 8px 12px;
+    padding: 10px 10px 4px 10px;
   }
 `;
 
@@ -201,11 +202,11 @@ const SearchInputWrapper = styled.div`
 
 const SearchInput = styled.input`
   width: 100%;
-  padding: 10px 14px 10px 38px;
+  padding: 8px 12px 8px 34px;
   border-radius: 8px;
-  border: 1px solid ${colors.border};
-  background-color: ${colors.background};
-  font-size: 0.85rem;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  font-size: 0.86rem;
   color: ${colors.textMain};
   outline: none;
   transition: all 0.2s ease;
@@ -223,7 +224,7 @@ const SearchInput = styled.input`
 
 const SearchIcon = styled(Search)`
   position: absolute;
-  left: 12px;
+  left: 10px;
   top: 50%;
   transform: translateY(-50%);
   color: #94a3b8;
@@ -233,24 +234,24 @@ const SearchIcon = styled(Search)`
 
 const NavMenu = styled.nav`
   flex: 1;
-  padding: 10px 14px;
-  padding-top: 10px;
+  padding: 8px 12px;
+  padding-top: 6px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   overflow-y: auto;
   overflow-x: hidden;
 
   &::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
   }
   &::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
+    background: #cbd5e1;
     border-radius: 4px;
   }
 
   @media (max-width: 1024px) {
-    padding: 20px 8px;
+    padding: 8px 8px;
   }
   @media (max-width: 768px) {
     width: 100%;
@@ -261,34 +262,45 @@ const NavGroupHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 16px 8px;
+  padding: 10px 10px 5px 10px;
+  margin-top: 4px;
   cursor: pointer;
   user-select: none;
+  border-radius: 6px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background-color: #e2e8f0;
+  }
 
   span {
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     font-weight: 700;
     white-space: nowrap;
-    color: ${colors.primary};
+    color: #64748b;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     display: block;
+    transition: color 0.15s ease;
   }
 
   svg {
-    color: ${colors.primary};
-    transition: transform 0.2s;
+    color: #94a3b8;
+    transition: transform 0.2s ease, color 0.15s ease;
     display: block;
   }
 
-  &:hover span,
+  &:hover span {
+    color: ${colors.primaryDark};
+  }
+
   &:hover svg {
     color: ${colors.primaryDark};
   }
 
   @media (max-width: 768px) {
     justify-content: space-between;
-    padding: 18px 16px 8px;
+    padding: 10px 10px 5px 10px;
     span,
     svg {
       display: block;
@@ -313,23 +325,23 @@ const NavGroupContent = styled.div`
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   overflow: hidden;
   opacity: ${({ $isOpen }) => ($isOpen ? "1" : "0")};
   transition:
-    opacity 0.3s ease-in-out,
-    padding 0.3s ease-in-out;
-  padding-bottom: ${({ $isOpen }) => ($isOpen ? "8px" : "0")};
+    opacity 0.25s ease-in-out,
+    padding 0.25s ease-in-out;
+  padding-bottom: ${({ $isOpen }) => ($isOpen ? "4px" : "0")};
 
   @media (max-width: 1024px) {
     opacity: 1;
     overflow: visible;
-    padding-bottom: 8px;
+    padding-bottom: 4px;
   }
   @media (max-width: 768px) {
     opacity: ${({ $isOpen }) => ($isOpen ? "1" : "0")};
     overflow: hidden;
-    padding-bottom: ${({ $isOpen }) => ($isOpen ? "8px" : "0")};
+    padding-bottom: ${({ $isOpen }) => ($isOpen ? "4px" : "0")};
   }
 `;
 
@@ -337,20 +349,22 @@ const StyledNavLink = styled(NavLink)`
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 11px;
+  padding: 9px 12px;
   text-decoration: none;
   white-space: nowrap;
-  color: ${colors.textMuted};
-  font-size: 0.9rem;
+  color: #475569;
+  font-size: 0.88rem;
   font-weight: 500;
-  border-radius: 10px;
-  transition: all 0.2s ease;
+  border-radius: 7px;
+  transition: all 0.15s ease;
 
   svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
+    color: #64748b;
+    transition: color 0.15s ease;
   }
 
   span {
@@ -361,20 +375,30 @@ const StyledNavLink = styled(NavLink)`
   }
 
   &:hover {
-    background-color: #f8fafc;
+    background-color: #e2e8f0;
     color: ${colors.primary};
+
+    svg {
+      color: ${colors.primary};
+    }
   }
 
   &.active {
-    background-color: ${colors.primaryLight};
-    color: ${colors.primary};
+    background-color: #ffffff;
+    color: #047857;
     font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    border-left: 3px solid #059669;
+
+    svg {
+      color: #059669;
+    }
   }
 
   @media (max-width: 768px) {
     justify-content: flex-start;
-    padding: 12px 16px;
-    gap: 12px;
+    padding: 9px 12px;
+    gap: 10px;
   }
 `;
 
@@ -474,25 +498,18 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
   const location = useLocation();
   const [sidebarData, setSidebarData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [openGroups, setOpenGroups] = useState({});
+  // Accordion state: single active open group index (null = all collapsed by default)
+  const [openGroupIndex, setOpenGroupIndex] = useState(null);
 
   useEffect(() => {
     const loadSidebarData = async () => {
-      // Fetch entire raw menu structure instead of relying on backend logic to filter
       const data = await fetchSidebarMapping();
       setSidebarData(data);
-
-      // Initialize all groups to be OPEN (true) by default
-      const initialOpen = {};
-      data.forEach((_, index) => {
-        initialOpen[index] = true;
-      });
-      setOpenGroups(initialOpen);
     };
     loadSidebarData();
   }, []);
 
-  // Ensures if a user navigates to a route that is currently closed, it will open automatically
+  // Ensures default state is collapsed except for active route, and navigations auto-open active group
   useEffect(() => {
     if (sidebarData.length > 0) {
       const activeGroupIndex = sidebarData.findIndex((group) =>
@@ -500,18 +517,13 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
           location.pathname.startsWith(page.route),
         ),
       );
-      if (activeGroupIndex !== -1 && openGroups[activeGroupIndex] === false) {
-        setOpenGroups((prev) => ({ ...prev, [activeGroupIndex]: true }));
-      }
+      setOpenGroupIndex(activeGroupIndex !== -1 ? activeGroupIndex : null);
     }
   }, [sidebarData, location.pathname]);
 
+  // Accordion toggle: opening one collapses all others; clicking the open one collapses it
   const toggleGroup = (index) => {
-    setOpenGroups((prev) => {
-      // Fallback to true if it hasn't been defined yet, so a click will explicitly close it
-      const isCurrentlyOpen = prev[index] ?? true;
-      return { ...prev, [index]: !isCurrentlyOpen };
-    });
+    setOpenGroupIndex((prev) => (prev === index ? null : index));
   };
 
   const closeMobileSidebar = () => {
@@ -598,8 +610,8 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
 
             if (pagesToShow.length === 0) return null;
 
-            // Open if searching, else use defined state, fallback to true
-            const isOpen = searchTerm ? true : (openGroups[groupIndex] ?? true);
+            // Open if searching, else only open the single active group index (accordion)
+            const isOpen = searchTerm ? true : openGroupIndex === groupIndex;
 
             return (
               <React.Fragment key={groupIndex}>

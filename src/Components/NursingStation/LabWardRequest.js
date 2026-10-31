@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import styled from "styled-components";
 import {
@@ -497,6 +497,267 @@ const CancelBtn = styled.button`
   }
 `;
 
+// ─── Searchable Dropdown Helper ───────────────────────────────────────────────
+const SearchWrapper = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const DropdownList = styled.ul`
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1.5px solid #0d8a7a;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border-radius: 6px;
+
+  /* Custom scrollbar */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+`;
+
+const DropdownItem = styled.li`
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all 0.15s ease;
+  &:last-child {
+    border-bottom: none;
+  }
+  &:hover {
+    background: #f0fdfa;
+    color: #0d8a7a;
+  }
+`;
+
+const SearchableDropdown = ({ value, onChange, options, placeholder = "Select...", displayKey = "name", valueKey = "id", disabled = false }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const wrapperRef = useRef(null);
+  const listRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setIsTyping(false);
+        setHighlightedIndex(-1);
+        if (value) {
+          const selected = options.find(opt => (typeof opt === 'string' ? opt === value : String(opt[valueKey]) === String(value)));
+          if (selected) setSearchTerm(typeof selected === 'string' ? selected : selected[displayKey]);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [value, options, displayKey, valueKey]);
+
+  useEffect(() => {
+    if (value) {
+      const selected = options.find(opt => (typeof opt === 'string' ? opt === value : String(opt[valueKey]) === String(value)));
+      if (selected) setSearchTerm(typeof selected === 'string' ? selected : selected[displayKey]);
+    } else {
+      setSearchTerm("");
+    }
+  }, [value, options, displayKey, valueKey]);
+
+  const filtered = isTyping && searchTerm.trim() !== ""
+    ? options.filter(opt => {
+      const q = searchTerm.toLowerCase();
+      if (typeof opt === 'string') return opt.toLowerCase().includes(q);
+      const name = (opt[displayKey] || "").toLowerCase();
+      const badge = (opt.badge || "").toLowerCase();
+      return name.includes(q) || badge.includes(q);
+    })
+    : options;
+
+  useEffect(() => {
+    if (isOpen && listRef.current && highlightedIndex >= 0) {
+      const itemEl = listRef.current.children[highlightedIndex];
+      if (itemEl && typeof itemEl.scrollIntoView === "function") {
+        itemEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedIndex, isOpen]);
+
+  return (
+    <SearchWrapper ref={wrapperRef}>
+      <div style={{ position: "relative" }}>
+        <FormInput
+          type="text"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setIsTyping(true);
+            setIsOpen(true);
+            setHighlightedIndex(0);
+          }}
+          onClick={() => {
+            if (!disabled) {
+              setIsOpen(prev => !prev);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+            }
+          }}
+          onBlur={(e) => {
+            if (!wrapperRef.current || !wrapperRef.current.contains(e.relatedTarget)) {
+              setIsOpen(false);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+              if (value) {
+                const selected = options.find(opt => (typeof opt === 'string' ? opt === value : String(opt[valueKey]) === String(value)));
+                if (selected) setSearchTerm(typeof selected === 'string' ? selected : selected[displayKey]);
+              }
+            }
+          }}
+          onKeyDown={(e) => {
+            if (!isOpen) {
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                setIsOpen(true);
+                setIsTyping(false);
+                setHighlightedIndex(0);
+                return;
+              }
+            }
+
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              if (filtered.length === 0) return;
+              setHighlightedIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              if (filtered.length === 0) return;
+              setHighlightedIndex((prev) => (prev <= 0 ? filtered.length - 1 : prev - 1));
+            } else if (e.key === "Enter") {
+              if (isOpen && filtered.length > 0) {
+                e.preventDefault();
+                const opt = (highlightedIndex >= 0 && highlightedIndex < filtered.length)
+                  ? filtered[highlightedIndex]
+                  : filtered[0];
+                const val = typeof opt === 'string' ? opt : opt[valueKey];
+                const txt = typeof opt === 'string' ? opt : opt[displayKey];
+                onChange(val);
+                setSearchTerm(txt);
+                setIsTyping(false);
+                setIsOpen(false);
+                setHighlightedIndex(-1);
+              }
+            } else if (e.key === "Escape") {
+              setIsOpen(false);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+            }
+          }}
+          placeholder={placeholder}
+          disabled={disabled}
+          style={{ paddingRight: "30px", cursor: disabled ? "not-allowed" : "pointer" }}
+        />
+        <span
+          onClick={() => {
+            if (!disabled) {
+              setIsOpen(prev => !prev);
+              setIsTyping(false);
+              setHighlightedIndex(-1);
+            }
+          }}
+          style={{
+            position: "absolute",
+            right: "12px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            cursor: disabled ? "default" : "pointer",
+            color: "#64748b",
+            fontSize: "10px"
+          }}
+        >
+          ▼
+        </span>
+      </div>
+      {isOpen && (
+        <DropdownList ref={listRef}>
+          {filtered.length > 0 ? (
+            filtered.map((opt, idx) => {
+              const isSelected = typeof opt === 'string' ? opt === value : String(opt[valueKey]) === String(value);
+              const isHighlighted = idx === highlightedIndex;
+              const txt = typeof opt === 'string' ? opt : opt[displayKey];
+              const badge = typeof opt === 'object' ? opt.badge : null;
+              return (
+                <DropdownItem
+                  key={idx}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    const val = typeof opt === 'string' ? opt : opt[valueKey];
+                    onChange(val);
+                    setSearchTerm(txt);
+                    setIsTyping(false);
+                    setIsOpen(false);
+                    setHighlightedIndex(-1);
+                  }}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
+                  style={{
+                    background: isHighlighted ? "#e6f9f3" : (isSelected ? "#f0fdf4" : "transparent"),
+                    color: isHighlighted || isSelected ? "#0d8a7a" : "#1e293b",
+                    outline: isHighlighted ? "1px solid #0d8a7a" : "none",
+                  }}
+                >
+                  <span style={{ fontWeight: isHighlighted || isSelected ? 700 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {txt}
+                  </span>
+                  {badge && (
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        fontWeight: 700,
+                        padding: "2px 7px",
+                        borderRadius: "10px",
+                        background: isHighlighted || isSelected ? "#dcfce7" : "#e2e8f0",
+                        color: isHighlighted || isSelected ? "#15803d" : "#475569",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0
+                      }}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </DropdownItem>
+              );
+            })
+          ) : (
+            <DropdownItem style={{ color: "#9ca3af", cursor: "default", justifyContent: "center" }}>
+              No matching options
+            </DropdownItem>
+          )}
+        </DropdownList>
+      )}
+    </SearchWrapper>
+  );
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function LabWardRequest({ patient: patientProp, onClose }) {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -544,12 +805,31 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
   const [pkg, setPkg] = useState("ALL");
 
   const [investigationItems, setInvestigationItems] = useState([]);
+  const [highlightedTestIndex, setHighlightedTestIndex] = useState(-1);
+  const testListRef = useRef(null);
   const [selectedTests, setSelectedTests] = useState([]);
   const [billTypeOptions, setBillTypeOptions] = useState([]);
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
   const [packages, setPackages] = useState([]);
   const [packageLoading, setPackageLoading] = useState(false);
   const [packageSearch, setPackageSearch] = useState("");
+
+  useEffect(() => {
+    if (investigationItems && investigationItems.length > 0) {
+      setHighlightedTestIndex(0);
+    } else {
+      setHighlightedTestIndex(-1);
+    }
+  }, [investigationItems]);
+
+  useEffect(() => {
+    if (testListRef.current && highlightedTestIndex >= 0) {
+      const el = testListRef.current.children[highlightedTestIndex];
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedTestIndex]);
 
   useEffect(() => {
     if (patientProp?.admittingDoctor) {
@@ -567,23 +847,49 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
 
   const fetchBillTypes = async () => {
     try {
-      console.log("Fetching lab bill types...");
-      const res = await apiRequest(`${HmsBaseUrl}get_LabBillType_list/`, "GET");
-      console.log("Lab bill types response:", res);
-      if (res.success) {
-        // Backend returns { success: true, data: [...] }
-        const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
-        setBillTypeOptions(list);
+      const outletMap = {
+        OLET001: "IP PHARMACY",
+        OLET002: "OP PHARMACY",
+        OLET003: "MAIN BLOCK",
+        OLET004: "CANCER BLOCK",
+        OLET005: "VELAVAN",
+      };
+      let res = await apiRequest(`${HmsBaseUrl}bill-types/?ignore_outlet=true`, "GET");
+      let list = res.records || res.data?.billTypes || (Array.isArray(res.data) ? res.data : []);
+      if (!list || list.length === 0) {
+        res = await apiRequest(`${HmsBaseUrl}get_LabBillType_list/`, "GET");
+        list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      }
+      if (Array.isArray(list) && list.length > 0) {
+        const enriched = list.map((b) => {
+          const oc = b.outlet_code || "";
+          const on = outletMap[oc] || (oc ? oc : "General");
+          return {
+            ...b,
+            outlet_name: on,
+            outlet_badge: oc ? `${on} • ${oc}` : "General",
+          };
+        });
+        const isLab = (b) => {
+          const name = (b.bill_name || "").toUpperCase();
+          const billNo = (b.billTypeNo || "").toUpperCase();
+          return billNo.startsWith("LAB") || name.includes("LAB") || b.ward_request === true;
+        };
+        const labList = enriched.filter(isLab).sort((a, b) => (a.bill_name || "").localeCompare(b.bill_name || ""));
+        const otherList = enriched.filter((b) => !isLab(b)).sort((a, b) => {
+          const outCmp = (a.outlet_name || "").localeCompare(b.outlet_name || "");
+          if (outCmp !== 0) return outCmp;
+          return (a.bill_name || "").localeCompare(b.bill_name || "");
+        });
+        const allBillTypes = [...labList, ...otherList];
+        setBillTypeOptions(allBillTypes);
 
-        // Auto-select if exactly one option
-        if (list.length === 1) {
-          const opt = list[0];
-          setBillTypeNo(opt.billTypeNo);
-          setBilltype(opt.bill_type);
-          setBillTypeName(opt.bill_name);
+        const defaultOpt = allBillTypes.find(b => b.billTypeNo === "LAB01") || allBillTypes[0];
+        if (defaultOpt) {
+          setBillTypeNo(defaultOpt.billTypeNo);
+          setBilltype(defaultOpt.bill_type);
+          setBillTypeName(defaultOpt.bill_name);
         }
-      } else {
-        console.error("Failed to fetch bill types:", res.error);
       }
     } catch (error) {
       console.error("Error fetching bill types:", error);
@@ -898,25 +1204,23 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                   <FormLabel>
                     Doctor<span className="required">*</span>
                   </FormLabel>
-                  <FormSelect value={doctor} onChange={(e) => setDoctor(e.target.value)}>
-                    <option value="">Select Doctor</option>
-                    {doctors.map((dr, idx) => (
-                      <option key={idx} value={dr.employeeName}>
-                        {dr.employeeName}
-                      </option>
-                    ))}
-                  </FormSelect>
+                  <SearchableDropdown
+                    value={doctor}
+                    onChange={(val) => setDoctor(val)}
+                    options={doctors.map((dr) => ({ id: dr.employeeName, name: dr.employeeName }))}
+                    placeholder="Search or Select Doctor"
+                    displayKey="name"
+                    valueKey="id"
+                  />
                 </div>
                 <div>
                   <FormLabel>
                     Billtype<span className="required">*</span>
                   </FormLabel>
                   <div>
-
-                    <FormSelect
+                    <SearchableDropdown
                       value={billTypeNo && billtype ? `${billTypeNo}|${billtype}` : ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
+                      onChange={(val) => {
                         if (!val) {
                           setBillTypeNo("");
                           setBilltype("");
@@ -928,15 +1232,15 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                         setBilltype(type);
                         setBillTypeName(billTypeOptions.find(opt => opt.billTypeNo === no && String(opt.bill_type) === type)?.bill_name || "");
                       }}
-                    >
-                      <option value="">Select Bill Type</option>
-                      {billTypeOptions.map((opt) => (
-                        <option key={opt.billTypeNo} value={`${opt.billTypeNo}|${opt.bill_type}`}>
-                          {opt.bill_name}
-                        </option>
-                      ))}
-                    </FormSelect>
-
+                      options={billTypeOptions.map((opt) => ({
+                        id: `${opt.billTypeNo}|${opt.bill_type}`,
+                        name: opt.bill_name,
+                        badge: opt.outlet_badge,
+                      }))}
+                      placeholder="Search or Select Bill Type"
+                      displayKey="name"
+                      valueKey="id"
+                    />
                   </div>
                 </div>
               </FormRow>
@@ -949,67 +1253,105 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                       value={testName}
                       onChange={(e) => setTestName(e.target.value)}
                       onKeyDown={(e) => {
+                        if (investigationItems.length > 0) {
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setHighlightedTestIndex((prev) => (prev < investigationItems.length - 1 ? prev + 1 : 0));
+                            return;
+                          }
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setHighlightedTestIndex((prev) => (prev <= 0 ? investigationItems.length - 1 : prev - 1));
+                            return;
+                          }
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (highlightedTestIndex >= 0 && investigationItems[highlightedTestIndex]) {
+                              addTest(investigationItems[highlightedTestIndex]);
+                              setInvestigationItems([]);
+                            } else {
+                              fetchInvestigationItems();
+                            }
+                            return;
+                          }
+                          if (e.key === "Escape") {
+                            setInvestigationItems([]);
+                            return;
+                          }
+                        }
                         if (e.key === "Enter") {
                           e.preventDefault();
                           fetchInvestigationItems();
                         }
                       }}
-                      placeholder="Search for a test..."
+                      placeholder="Search for a test (use ↑/↓ to navigate, Enter to select)..."
                     />
-                     <SearchIconBtn type="button" onClick={fetchInvestigationItems}>
-                       🔍
-                     </SearchIconBtn>
-                     <button
-                       type="button"
-                       onClick={handleOpenPackageList}
-                       style={{
-                         background: colors.secondary || "#f59e0b",
-                         color: "white",
-                         padding: "0 12px",
-                         marginLeft: "6px",
-                         borderRadius: "4px",
-                         border: "none",
-                         cursor: "pointer",
-                         display: "flex",
-                         alignItems: "center",
-                         justifyContent: "center",
-                         fontSize: "14px",
-                         fontWeight: "600",
-                       }}
-                     >
-                       🎁 Package
-                     </button>
-                   </div>
+                    <SearchIconBtn type="button" onClick={fetchInvestigationItems}>
+                      🔍
+                    </SearchIconBtn>
+                    <button
+                      type="button"
+                      onClick={handleOpenPackageList}
+                      style={{
+                        background: colors.secondary || "#f59e0b",
+                        color: "white",
+                        padding: "0 12px",
+                        marginLeft: "6px",
+                        borderRadius: "4px",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                      }}
+                    >
+                      🎁 Package
+                    </button>
+                  </div>
                   {investigationItems.length > 0 && (
                     <div
+                      ref={testListRef}
                       style={{
                         position: "absolute",
                         top: "100%",
                         left: 0,
                         right: 0,
                         zIndex: 10,
-                        border: "1px solid #CFD8DC",
-                        borderRadius: 4,
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                        maxHeight: 200,
+                        border: "1.5px solid #0d8a7a",
+                        borderRadius: 6,
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+                        maxHeight: 220,
                         overflowY: "auto",
                         background: "#fff",
                       }}
                     >
-                      {Array.isArray(investigationItems) && investigationItems.map((item, index) => (
-                        <div
-                          key={index}
-                          onClick={() => addTest(item)}
-                          style={{
-                            padding: "8px 12px",
-                            cursor: "pointer",
-                            borderBottom: "1px solid #eee",
-                            fontSize: "0.85rem",
-                          }}
-                        >
-                          {item.itemName} — ₹{item.price}
-                        </div>
-                      ))}
+                      {Array.isArray(investigationItems) && investigationItems.map((item, index) => {
+                        const isHighlighted = index === highlightedTestIndex;
+                        return (
+                          <div
+                            key={index}
+                            onClick={() => {
+                              addTest(item);
+                              setInvestigationItems([]);
+                            }}
+                            onMouseEnter={() => setHighlightedTestIndex(index)}
+                            style={{
+                              padding: "9px 12px",
+                              cursor: "pointer",
+                              borderBottom: "1px solid #eee",
+                              fontSize: "0.85rem",
+                              background: isHighlighted ? "#e6f9f3" : "#fff",
+                              color: isHighlighted ? "#0d8a7a" : "#1e293b",
+                              fontWeight: isHighlighted ? 700 : 500,
+                              outline: isHighlighted ? "1px solid #0d8a7a" : "none",
+                            }}
+                          >
+                            {item.itemName} — ₹{item.price}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

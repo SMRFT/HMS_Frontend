@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import styled from "styled-components"
+import JsBarcode from "jsbarcode"
 import apiRequest from "../../Auth/apiRequest"
 import { useNavigate } from "react-router-dom"
 import {
@@ -370,6 +371,18 @@ const PatientRegistrationForm = () => {
   const [includeRegFee, setIncludeRegFee] = useState(false)
   const [includeConsFee, setIncludeConsFee] = useState(true)
   const [isDoctorDropdownOpen, setIsDoctorDropdownOpen] = useState(false)
+  const doctorDropdownListRef = useRef(null)
+
+  // Auto-scroll dropdown list so highlighted doctor is visible during Up/Down arrow navigation
+  useEffect(() => {
+    if (isDoctorDropdownOpen && doctorDropdownListRef.current && highlightedDoctorIndex >= 0) {
+      const listEl = doctorDropdownListRef.current;
+      const itemEl = listEl.children[highlightedDoctorIndex];
+      if (itemEl && typeof itemEl.scrollIntoView === "function") {
+        itemEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedDoctorIndex, isDoctorDropdownOpen]);
 
   // Dynamic Required Fields Calculation
   const getRequiredCounts = () => {
@@ -527,6 +540,8 @@ const PatientRegistrationForm = () => {
   };
 
   const handlePrintSticker = (visit) => {
+    if (!visit || !visit.uhid) return;
+
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
@@ -536,51 +551,127 @@ const PatientRegistrationForm = () => {
     iframe.style.border = '0';
     document.body.appendChild(iframe);
 
+    // Generate Code128 Barcode via local JsBarcode synchronously (no CDN required)
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    try {
+      JsBarcode(svg, String(visit.uhid || ""), {
+        format: "CODE128",
+        displayValue: false,
+        height: 30,
+        width: 1.6,
+        margin: 0
+      });
+    } catch (bcErr) {
+      console.error("Barcode generation error:", bcErr);
+    }
+    const barcodeSvgHtml = new XMLSerializer().serializeToString(svg);
+    const hospName = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL";
+
     const printDocument = iframe.contentWindow.document;
     printDocument.open();
     printDocument.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Print Sticker</title>
+          <title>Barcode Sticker - ${visit.uhid}</title>
           <style>
-            @page { size: auto; margin: 0mm; }
-            body { font-family: 'Arial', sans-serif; margin: 0; padding: 10px; background-color: white; }
-            .sticker-content { max-width: 380px; }
-            .header-row { display: flex; align-items: center; margin-bottom: 15px; }
-            .uhid-text { font-size: 18px; font-weight: 500; margin-left: 15px; font-family: monospace; }
-            .patient-name-row { font-size: 15px; font-weight: 600; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px; }
-            .spouse-row { font-size: 14px; text-transform: uppercase; margin-bottom: 5px; }
-            .address-row { font-size: 14px; text-transform: uppercase; margin-bottom: 5px; line-height: 1.4; }
-            .phone-row { font-size: 14px; margin-bottom: 5px; }
-            .doctor-row { font-size: 15px; font-weight: 600; text-transform: uppercase; }
-            svg { display: block; }
+            @page { size: auto; margin: 0; }
+            @media print {
+              html, body { margin: 0; padding: 0; }
+            }
+            body {
+              font-family: Arial, Helvetica, sans-serif;
+              margin: 0;
+              padding: 4px 6px;
+              width: 55mm;
+              max-width: 100%;
+              box-sizing: border-box;
+              color: #000;
+              background-color: #fff;
+            }
+            .sticker-content {
+              width: 100%;
+              overflow: hidden;
+            }
+            .hosp-title {
+              font-size: 10px;
+              font-weight: 900;
+              text-align: center;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 2px;
+              line-height: 1.1;
+            }
+            .barcode-box {
+              text-align: center;
+              margin: 2px 0 1px 0;
+            }
+            .barcode-box svg {
+              max-width: 100%;
+              height: 28px;
+              display: block;
+              margin: 0 auto;
+            }
+            .uhid-txt {
+              font-size: 11px;
+              font-weight: 800;
+              letter-spacing: 0.5px;
+              text-align: center;
+              font-family: monospace;
+              margin-top: 1px;
+            }
+            .info-line {
+              font-size: 9px;
+              line-height: 1.25;
+              display: flex;
+              justify-content: space-between;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .info-line.bold {
+              font-weight: 700;
+            }
+            .patient-name {
+              font-weight: 800;
+              font-size: 9.5px;
+              text-transform: uppercase;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
           </style>
-          <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
         </head>
         <body>
           <div class="sticker-content">
-            <div class="header-row">
-              <svg id="barcode"></svg>
-              <span class="uhid-text">UHID : ${visit.uhid}</span>
+            <div class="hosp-title">${hospName}</div>
+            <div class="barcode-box">
+              ${barcodeSvgHtml}
+              <div class="uhid-txt">UHID : ${visit.uhid}</div>
             </div>
-            <div class="patient-name-row">
-              ${visit.patientName} &nbsp;&nbsp;/ ${visit.age} ${visit.age <= 1 ? "YEAR" : "YEARS"}/${visit.gender}
+            <div class="info-line bold">
+              <span class="patient-name">${visit.patientName || ''}</span>
+              <span>${visit.age !== undefined && visit.age !== null && visit.age !== '' ? `${visit.age}Y` : ''}/${visit.gender ? (String(visit.gender).toUpperCase().startsWith('M') ? 'M' : (String(visit.gender).toUpperCase().startsWith('F') ? 'F' : visit.gender)) : ''}</span>
             </div>
-            ${(visit.guardianName || visit.spouseName) ? `<div class="spouse-row">${visit.guardianType || 'W/o'} ${visit.guardianName || visit.spouseName}</div>` : ''}
-            <div class="address-row">${visit.address || ''}</div>
-            <div class="phone-row">Ph.+91${visit.mobile}</div>
-            <div class="doctor-row">Dr. ${(visit.doctorName || visit.doctor || '').replace(/^(dr\b\.?|doctor\b\.?)\s*/gi, '')}</div>
+            ${(visit.guardianName || visit.spouseName) ? `
+            <div class="info-line">
+              <span>${visit.guardianType || 'W/o'}: ${(visit.guardianName || visit.spouseName || '').toUpperCase()}</span>
+            </div>` : ''}
+            <div class="info-line">
+              <span>Dr. ${(visit.doctorName || visit.doctor || '').replace(/^(dr\\b\\.?|doctor\\b\\.?)\\s*/gi, '')}</span>
+            </div>
+            <div class="info-line">
+              <span>Ph: +91${visit.mobile || ''}</span>
+              <span>${visit.date || ''}</span>
+            </div>
           </div>
           <script>
             window.onload = function() {
-              JsBarcode("#barcode", "${visit.uhid}", { format: "CODE128", displayValue: false, height: 50, width: 2, margin: 0 });
+              window.focus();
+              window.print();
               setTimeout(function() {
-                window.focus();
-                window.print();
-                setTimeout(function() { if(window.frameElement) window.frameElement.remove(); }, 1000);
-              }, 500);
-            }
+                if (window.frameElement) window.frameElement.remove();
+              }, 1200);
+            };
           </script>
         </body>
       </html>
@@ -729,6 +820,27 @@ const PatientRegistrationForm = () => {
 
     if (validationErrors[name]) {
       setValidationErrors(prev => ({ ...prev, [name]: false }))
+    }
+
+    if (name === "salutation") {
+      let autoGender = undefined;
+      const s = String(value).trim().toLowerCase();
+      if (s === "mr." || s === "mr") autoGender = "Male";
+      else if (s === "mrs." || s === "mrs") autoGender = "Female";
+      else if (s === "miss." || s === "miss") autoGender = "Female";
+      else if (s === "ms." || s === "ms") autoGender = "Female";
+      else if (s === "master") autoGender = "Male";
+
+      setPatient(prev => ({
+        ...prev,
+        salutation: value,
+        ...(autoGender ? { gender: autoGender } : {})
+      }));
+
+      if (autoGender && validationErrors.gender) {
+        setValidationErrors(prev => ({ ...prev, gender: false }));
+      }
+      return;
     }
 
     if (name === "firstName" || name === "lastName") {
@@ -894,40 +1006,46 @@ const PatientRegistrationForm = () => {
       const result = await apiRequest(`${Hmsbaseurl}patients/register/`, "POST", formData);
 
       if (result.success) {
+        const formattedAddress = [patient.permanentAddress, patient.area, patient.city, patient.district, patient.state, patient.zipcode].filter(Boolean).join(", ");
+        const visitObj = {
+          uhid: result.data.uhid,
+          billNumber: result.data.bill_number,
+          patientName: `${patient.salutation} ${patient.firstName} ${patient.lastName}`.trim(),
+          age: patient.age,
+          gender: patient.gender,
+          guardianType: patient.guardianType || "W/o",
+          guardianName: patient.guardianName || patient.spouseName || "",
+          spouseName: patient.guardianName || patient.spouseName || "",
+          address: formattedAddress || patient.permanentAddress,
+          mobile: patient.mobilePhone,
+          doctorName: patient.doctorName,
+          consultingFee: consultingFee,
+          registrationFee: registrationFee,
+          billAmount: totalFees,
+          date: new Date().toLocaleDateString('en-GB'),
+          dateTime: new Date().toLocaleString('en-GB'),
+          paymentMethod: "Cash"
+        };
+
+        // Automatically generate and print the barcode label (Vikas format)
+        handlePrintSticker(visitObj);
+
+        // Prompt if staff also wants to print the registration bill
         const resultConfirm = await Swal.fire({
           title: 'Registration Successful!',
-          html: `Patient registered with UHID: <strong>${result.data.uhid}</strong><br/><br/>Do you want to print the bill/sticker?`,
+          html: `Patient registered with UHID: <strong>${result.data.uhid}</strong><br/><br/>Barcode label sent to printer.<br/>Do you also want to print the OP Bill receipt?`,
           icon: 'success',
           showCancelButton: true,
           confirmButtonColor: '#004d40',
           cancelButtonColor: '#64748b',
-          confirmButtonText: 'Yes, print bill!',
+          confirmButtonText: 'Yes, print bill receipt',
           cancelButtonText: 'No, thanks'
         });
 
         if (resultConfirm.isConfirmed) {
-          const formattedAddress = [patient.permanentAddress, patient.area, patient.city, patient.district, patient.state, patient.zipcode].filter(Boolean).join(", ");
-          const visitObj = {
-            uhid: result.data.uhid,
-            billNumber: result.data.bill_number,
-            patientName: `${patient.salutation} ${patient.firstName} ${patient.lastName}`.trim(),
-            age: patient.age,
-            gender: patient.gender,
-            guardianType: patient.guardianType || "W/o",
-            guardianName: patient.guardianName || patient.spouseName || "",
-            spouseName: patient.guardianName || patient.spouseName || "",
-            address: formattedAddress || patient.permanentAddress,
-            mobile: patient.mobilePhone,
-            doctorName: patient.doctorName,
-            consultingFee: consultingFee,
-            registrationFee: registrationFee,
-            billAmount: totalFees,
-            date: new Date().toLocaleDateString(),
-            paymentMethod: "Cash"
-          };
           handlePrintBill(visitObj);
         } else {
-          toast.success("Registration successful!");
+          toast.success("Registration completed!");
         }
 
         // Reset form
@@ -1172,12 +1290,8 @@ const PatientRegistrationForm = () => {
           };
         });
 
-        // Sort: Today's scheduled doctors first, then alphabetical by name
-        doctorsData.sort((a, b) => {
-          if (a.isScheduledToday && !b.isScheduledToday) return -1;
-          if (!a.isScheduledToday && b.isScheduledToday) return 1;
-          return a.name.localeCompare(b.name);
-        });
+        // Sort all doctors strictly in alphabetical order by name (A-Z)
+        doctorsData.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
         setDoctors(doctorsData);
       }
@@ -1312,8 +1426,6 @@ const PatientRegistrationForm = () => {
 
     scored.sort((a, b) => {
       if (a.score !== b.score) return a.score - b.score;
-      if (a.doc.isScheduledToday && !b.doc.isScheduledToday) return -1;
-      if (!a.doc.isScheduledToday && b.doc.isScheduledToday) return 1;
       return a.doc.name.localeCompare(b.doc.name);
     });
 
@@ -1333,10 +1445,10 @@ const PatientRegistrationForm = () => {
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightedDoctorIndex((prev) => (prev < filteredDoctors.length - 1 ? prev + 1 : 0));
+      setHighlightedDoctorIndex((prev) => (prev < 0 ? 0 : (prev < filteredDoctors.length - 1 ? prev + 1 : 0)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightedDoctorIndex((prev) => (prev > 0 ? prev - 1 : filteredDoctors.length - 1));
+      setHighlightedDoctorIndex((prev) => (prev <= 0 ? filteredDoctors.length - 1 : prev - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (highlightedDoctorIndex >= 0 && highlightedDoctorIndex < filteredDoctors.length) {
@@ -1359,7 +1471,7 @@ const PatientRegistrationForm = () => {
     setIsDoctorDropdownOpen(true);
     setHighlightedDoctorIndex(0);
 
-    const selected = doctors.find((doctor) => 
+    const selected = doctors.find((doctor) =>
       doctor.name.toLowerCase() === doctorName.toLowerCase() ||
       (doctor.rawName && doctor.rawName.toLowerCase() === doctorName.toLowerCase())
     );
@@ -1758,9 +1870,9 @@ const PatientRegistrationForm = () => {
                   $hasError={Boolean(validationErrors.salutation)}
                   value={
                     patient.salutation
-                      ? (["Mr.", "Mrs.", "Ms.", "Dr.", "Master", "Baby"].find(
-                          s => s.toLowerCase() === String(patient.salutation).toLowerCase()
-                        ) || patient.salutation)
+                      ? (["Mr.", "Mrs.", "Miss", "Ms.", "Dr.", "Master", "Baby"].find(
+                        s => s.toLowerCase() === String(patient.salutation).toLowerCase()
+                      ) || patient.salutation)
                       : ""
                   }
                   onChange={handleChange}
@@ -1769,9 +1881,10 @@ const PatientRegistrationForm = () => {
                   <option value="">Select</option>
                   <option value="Mr.">Mr.</option>
                   <option value="Mrs.">Mrs.</option>
+                  <option value="Miss">Miss</option>
                   <option value="Ms.">Ms.</option>
-                  <option value="Dr.">Dr.</option>
                   <option value="Master">Master</option>
+                  <option value="Dr.">Dr.</option>
                   <option value="Baby">Baby</option>
                 </FormSelect>
               </FormGroup>
@@ -1840,12 +1953,12 @@ const PatientRegistrationForm = () => {
                   value={
                     patient.gender
                       ? (String(patient.gender).toLowerCase() === "male"
-                          ? "Male"
-                          : String(patient.gender).toLowerCase() === "female"
+                        ? "Male"
+                        : String(patient.gender).toLowerCase() === "female"
                           ? "Female"
                           : String(patient.gender).toLowerCase() === "other"
-                          ? "Other"
-                          : patient.gender)
+                            ? "Other"
+                            : patient.gender)
                       : ""
                   }
                   onChange={handleChange}
@@ -2315,10 +2428,10 @@ const PatientRegistrationForm = () => {
                             const clinic = (doc.clinic_name || "").toLowerCase();
                             return name.includes(query) || qual.includes(query) || area.includes(query) || clinic.includes(query);
                           }).length === 0 && (
-                            <div style={{ padding: '10px 12px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
-                              No matching doctor. Type freely or click + to add.
-                            </div>
-                          )}
+                              <div style={{ padding: '10px 12px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
+                                No matching doctor. Type freely or click + to add.
+                              </div>
+                            )}
                         </LightDropdownList>
                       )}
                     </SearchableSelectWrapper>
@@ -2568,11 +2681,17 @@ const PatientRegistrationForm = () => {
                   onFocus={(e) => {
                     setIsDoctorSearching(false);
                     setIsDoctorDropdownOpen(true);
+                    if (highlightedDoctorIndex < 0 && filteredDoctors.length > 0) {
+                      setHighlightedDoctorIndex(0);
+                    }
                     e.target.select();
                   }}
                   onClick={(e) => {
                     setIsDoctorSearching(false);
                     setIsDoctorDropdownOpen(true);
+                    if (highlightedDoctorIndex < 0 && filteredDoctors.length > 0) {
+                      setHighlightedDoctorIndex(0);
+                    }
                     e.target.select();
                   }}
                   onBlur={() => {
@@ -2590,7 +2709,7 @@ const PatientRegistrationForm = () => {
                   </ClearDoctorBtn>
                 )}
                 {isDoctorDropdownOpen && (
-                  <DarkDropdownList>
+                  <DarkDropdownList ref={doctorDropdownListRef}>
                     {filteredDoctors.map((doctor, index) => (
                       <DarkDropdownItem
                         key={doctor.id || index}

@@ -445,9 +445,21 @@ const MobileRegistration = () => {
     if (name === "emergencyContact" || name === "mobilePhone") {
       finalValue = value.replace(/\D/g, "").slice(0, 10);
     }
+
+    let extra = {};
+    if (name === "salutation") {
+      const s = String(value).trim().toLowerCase();
+      if (s === "mr." || s === "mr") extra.gender = "Male";
+      else if (s === "mrs." || s === "mrs") extra.gender = "Female";
+      else if (s === "miss." || s === "miss") extra.gender = "Female";
+      else if (s === "ms." || s === "ms") extra.gender = "Female";
+      else if (s === "master") extra.gender = "Male";
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: finalValue
+      [name]: finalValue,
+      ...extra
     }));
   };
 
@@ -606,9 +618,10 @@ const MobileRegistration = () => {
                 <option value="">Select Salutation</option>
                 <option value="Mr.">Mr.</option>
                 <option value="Mrs.">Mrs.</option>
+                <option value="Miss">Miss</option>
                 <option value="Ms.">Ms.</option>
-                <option value="Baby">Baby</option>
                 <option value="Master">Master</option>
+                <option value="Baby">Baby</option>
               </Select>
             </SelectWrapper>
           </FormGroup>
