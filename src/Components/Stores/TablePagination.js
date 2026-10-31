@@ -145,6 +145,7 @@ export const usePagination = (data = [], defaultPageSize = 15) => {
     pageSize,
     totalPages,
     pageData,
+    paginatedItems: pageData,
     goTo,
     handlePageSizeChange,
     startIdx,

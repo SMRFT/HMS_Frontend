@@ -636,8 +636,9 @@ const StoresApprovalManager = () => {
                 <td>${index + 1}</td>
                 <td>${item.name}</td>
                 <td>${item.hsn || '-'}</td>
-                <td>${item.quantity}</td>
-                <td>${item.approved_quantity || '0'}</td>
+                <td>${item.quantity || 0}</td>
+                <td>${item.approved_quantity || 0}</td>
+                <td style="color: #d97706; font-weight: bold;">${Math.max(0, Number(item.quantity || 0) - Number(item.approved_quantity || 0))}</td>
                 <td>${item.status}</td>
             </tr>
         `).join('');
@@ -671,7 +672,7 @@ const StoresApprovalManager = () => {
                     </div>
                     <table>
                         <thead>
-                            <tr><th>SL</th><th>Product Name</th><th>HSN</th><th>Req Qty</th><th>Apprv Qty</th><th>Status</th></tr>
+                            <tr><th>SL</th><th>Product Name</th><th>HSN</th><th>Req Qty</th><th>Apprv Qty</th><th>Pending Qty</th><th>Status</th></tr>
                         </thead>
                         <tbody>${itemsHtml}</tbody>
                     </table>
@@ -687,63 +688,99 @@ const StoresApprovalManager = () => {
         printWindow.print();
     };
 
-    const openApprovalModal = (intent) => {
-        setShowViewIntentModal(false);
+    const openViewIntentModal = (intent) => {
+        setSelectedIntentForView(intent);
         setSelectedIntent(intent);
-        setApprovalItems((intent.items || []).map(it => ({
-            ...it,
-            original_approved_qty: Number(it.approved_quantity || 0),
-            new_approval_qty: 0
-        })));
-        setShowModal(true);
+        setApprovalItems((intent.items || []).map(it => {
+            const reqQty = Number(it.quantity || 0);
+            const origApprv = Number(it.approved_quantity || 0);
+            const remaining = Math.max(0, reqQty - origApprv);
+            return {
+                ...it,
+                original_approved_qty: origApprv,
+                new_approval_qty: remaining,
+                selected: remaining > 0
+            };
+        }));
+        setShowViewIntentModal(true);
+    };
+
+    const openApprovalModal = (intent) => {
+        openViewIntentModal(intent);
     };
 
     const submitFinalApproval = async () => {
+        const targetIntent = selectedIntentForView || selectedIntent;
+        if (!targetIntent) return;
+
+        const sourceItems = (approvalItems && approvalItems.length > 0)
+            ? approvalItems
+            : (targetIntent.items || []).map(it => {
+                const reqQty = Number(it.quantity || 0);
+                const origApprv = Number(it.approved_quantity || 0);
+                const remaining = Math.max(0, reqQty - origApprv);
+                return {
+                    ...it,
+                    original_approved_qty: origApprv,
+                    new_approval_qty: remaining,
+                    selected: remaining > 0
+                };
+            });
+
+        const anyToApprove = sourceItems.some(it => Number(it.new_approval_qty || 0) > 0);
+        if (!anyToApprove && !sourceItems.every(it => Number(it.original_approved_qty || 0) >= Number(it.quantity || 0))) {
+            toast.warning("Please specify an approval quantity greater than 0");
+            return;
+        }
+
         setLoading(true);
 
-        const finalItems = approvalItems.map(it => {
-            if (Number(it.new_approval_qty) === 0) return it;
+        const finalItems = sourceItems.map(it => {
+            const addQty = Number(it.new_approval_qty || 0);
+            const totalApproved = Number(it.original_approved_qty || 0) + addQty;
+            const currentApprovals = [...(it.approval?.approvals || [])];
 
-            const totalApproved = Number(it.original_approved_qty) + Number(it.new_approval_qty);
-            const currentApprovals = it.approval?.approvals || [];
-
-            if (it.approval?.approved_at && currentApprovals.length === 0) {
+            if (it.approval?.approved_at && currentApprovals.length === 0 && Number(it.original_approved_qty || 0) > 0) {
                 currentApprovals.push({
                     approved_at: it.approval.approved_at,
                     approved_by: it.approval.approved_by || 'System',
-                    quantity: it.original_approved_qty
+                    quantity: Number(it.original_approved_qty || 0)
                 });
             }
 
-            const newHistoryEntry = {
-                approved_at: new Date(),
-                approved_by: 'Admin',
-                quantity: Number(it.new_approval_qty)
-            };
+            if (addQty > 0) {
+                currentApprovals.push({
+                    approved_at: new Date().toISOString(),
+                    approved_by: sessionStorage.getItem('employeeId') || localStorage.getItem('employeeId') || 'Admin',
+                    quantity: addQty
+                });
+            }
 
+            const reqQty = Number(it.quantity || 0);
             return {
                 ...it,
                 approved_quantity: totalApproved,
-                status: 'Approved',
+                status: totalApproved >= reqQty ? 'Approved' : (totalApproved > 0 ? 'Partially Approved' : (it.status || 'Pending')),
                 approval: {
-                    approved: true,
-                    approvals: [...currentApprovals, newHistoryEntry]
+                    approved: totalApproved > 0,
+                    approvals: currentApprovals
                 }
             };
         });
 
-        const allApproved = finalItems.every(it => Number(it.approved_quantity) === Number(it.quantity));
+        const allApproved = finalItems.every(it => Number(it.approved_quantity || 0) >= Number(it.quantity || 0));
 
         const payload = {
             items: finalItems,
             is_approved: allApproved
         };
 
-        const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/stores-intent/update/${selectedIntent.intent_id}/`, "PATCH", payload);
+        const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/stores-intent/update/${targetIntent.intent_id}/`, "PATCH", payload);
 
         if (res.success) {
-            toast.success("Intent processed successfully");
+            toast.success(`Intent ${targetIntent.intent_id} approved successfully!`);
             setShowModal(false);
+            setShowViewIntentModal(false);
             loadPendingIntents();
         } else {
             toast.error(res.error || "Failed to process intent. Check console.");
@@ -763,8 +800,9 @@ const StoresApprovalManager = () => {
                     'Intent ID': intent.intent_id,
                     'Department': intent.department_name,
                     'Item Name': item.name,
-                    'Requested Qty': item.quantity,
-                    'Approved Qty': item.approved_quantity,
+                    'Requested Qty': Number(item.quantity || 0),
+                    'Approved Qty': Number(item.approved_quantity || 0),
+                    'Pending Qty': Math.max(0, Number(item.quantity || 0) - Number(item.approved_quantity || 0)),
                     'Status': item.status
                 });
             });
@@ -822,18 +860,24 @@ const StoresApprovalManager = () => {
         loadIndentReturns(defaultFilter);
     };
 
-    const openReturnApprovalModal = (ret) => {
+    const openViewReturnModal = (ret) => {
+        setSelectedReturnForView(ret);
         setSelectedReturn(ret);
         const items = (ret.items || []).map(it => ({
             ...it,
             approved_return_qty: Number(it.return_quantity || it.quantity || 0)
         }));
         setReturnApprovalItems(items);
-        setShowReturnApproveModal(true);
+        setShowViewReturnModal(true);
+    };
+
+    const openReturnApprovalModal = (ret) => {
+        openViewReturnModal(ret);
     };
 
     const submitReturnApproval = async () => {
-        if (!selectedReturn) return;
+        const retToApprove = selectedReturnForView || selectedReturn;
+        if (!retToApprove) return;
         setLoading(true);
 
         const payload = {
@@ -844,14 +888,15 @@ const StoresApprovalManager = () => {
         };
 
         const res = await apiRequest(
-            `${Hmsbaseurl.replace(/\/$/, '')}/stores-indent-returns/approve/${selectedReturn.return_id}/`,
+            `${Hmsbaseurl.replace(/\/$/, '')}/stores-indent-returns/approve/${retToApprove.return_id}/`,
             "POST",
             payload
         );
 
         if (res && res.success) {
-            toast.success(res.message || `Indent Return ${selectedReturn.return_id} approved and stock restored!`);
+            toast.success(res.message || `Indent Return ${retToApprove.return_id} approved and stock restored!`);
             setShowReturnApproveModal(false);
+            setShowViewReturnModal(false);
             loadIndentReturns();
             loadPendingIntents();
         } else {
@@ -883,6 +928,7 @@ const StoresApprovalManager = () => {
         if (res && res.success) {
             toast.success(`Indent Return ${rejectingReturnId} rejected.`);
             setShowRejectModal(false);
+            setShowViewReturnModal(false);
             loadIndentReturns();
         } else {
             toast.error(res?.error || "Failed to reject indent return");
@@ -1052,12 +1098,16 @@ const StoresApprovalManager = () => {
         return id.includes(q) || dept.includes(q) || itemNames.includes(q);
     });
 
-    // Filtered returns based on text search and department
+    // Filtered returns based on text search, status, and department
     const filteredReturns = safeIndentReturns.filter(item => {
         if (selectedDepartment) {
             const dept = (item.department_name || item.department || '').toLowerCase().trim();
             const target = selectedDepartment.toLowerCase().trim();
             if (dept !== target && !dept.includes(target)) return false;
+        }
+
+        if (returnFilter.status && returnFilter.status !== 'ALL') {
+            if ((item.status || '').toLowerCase() !== returnFilter.status.toLowerCase()) return false;
         }
 
         if (!returnFilter.search) return true;
@@ -1178,11 +1228,24 @@ const StoresApprovalManager = () => {
                             {safeIntents.length}
                         </span>
                     </TabButton>
+                    <TabButton
+                        active={activeTab === 'returns'}
+                        onClick={() => { setActiveTab('returns'); returnPagination.goTo(1); }}
+                    >
+                        <RotateCcw size={18} />
+                        Stores Returns
+                        {safeIndentReturns.length > 0 && (
+                            <span className="counter" style={{ background: activeTab === 'returns' ? '#0d9488' : (pendingReturnsCount > 0 ? '#f59e0b' : '#64748b') }}>
+                                {pendingReturnsCount > 0 ? `${pendingReturnsCount} Pending` : safeIndentReturns.length}
+                            </span>
+                        )}
+                    </TabButton>
                 </TabBar>
 
                 {/* ========================================================= */}
-                {/* TAB 1: INTENT APPROVALS */}
+                {/* TAB 1: INTENT APPROVALS vs TAB 2: RETURN APPROVALS */}
                 {/* ========================================================= */}
+                {activeTab !== 'returns' ? (
                     <>
                         {/* Quick Stats Grid */}
                         <StatsGrid>
@@ -1358,12 +1421,12 @@ const StoresApprovalManager = () => {
                                                         {(item.items || []).map((it, idx) => (
                                                             <div key={idx} style={{
                                                                 padding: '4px 0',
-                                                                borderBottom: idx === item.items.length - 1 ? 'none' : '1px solid #f1f5f9',
+                                                                borderBottom: idx === (Array.isArray(item.items) ? item.items.length : 0) - 1 ? 'none' : '1px solid #f1f5f9',
                                                                 color: '#334155'
                                                             }}>
                                                                 <span style={{ fontWeight: '600' }}>{it.name}</span>
                                                                 <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '8px' }}>
-                                                                    ({it.quantity} Req {it.approved_quantity > 0 ? `| ${it.approved_quantity} Apprv` : ''} {it.returned_quantity > 0 ? `| ↩ ${it.returned_quantity} Ret` : ''})
+                                                                    ({it.quantity} Req {it.approved_quantity > 0 ? `| ${it.approved_quantity} Apprv` : ''} {Math.max(0, Number(it.quantity || 0) - Number(it.approved_quantity || 0)) > 0 ? `| ${Math.max(0, Number(it.quantity || 0) - Number(it.approved_quantity || 0))} Pending` : ''} {it.returned_quantity > 0 ? `| ↩ ${it.returned_quantity} Ret` : ''})
                                                                 </span>
                                                             </div>
                                                         ))}
@@ -1425,7 +1488,7 @@ const StoresApprovalManager = () => {
                                                                 status={getIntentStatus(popoverData)}
                                                                 anchorEl={anchorRefs.current[item.intent_id]}
                                                                 onClose={() => { setOpenPopover(null); setPopoverData(null); }}
-                                                                onView={() => { setOpenPopover(null); setShowModal(false); setSelectedIntentForView(popoverData); setShowViewIntentModal(true); }}
+                                                                onView={() => { setOpenPopover(null); openViewIntentModal(popoverData); }}
                                                                 onApprove={() => { setOpenPopover(null); openApprovalModal(popoverData); }}
                                                                 onPrint={() => { setOpenPopover(null); handlePrintIntent(popoverData); }}
                                                                 onReject={() => { setOpenPopover(null); handleRejectIntent(popoverData); }}
@@ -1456,6 +1519,401 @@ const StoresApprovalManager = () => {
                             />
                         </S.TableWrapper>
                     </>
+                ) : (
+                    <>
+                        {/* Returns Quick Stats Grid */}
+                        <StatsGrid>
+                            <StatsCard
+                                style={{
+                                    cursor: 'pointer',
+                                    border: (returnFilter.status === 'ALL' || !returnFilter.status) ? `2px solid ${S.colors.primary}` : `1px solid ${S.colors.border}`,
+                                    background: (returnFilter.status === 'ALL' || !returnFilter.status) ? '#f0fdfa' : '#ffffff'
+                                }}
+                                onClick={() => { setReturnFilter({ ...returnFilter, status: 'ALL' }); returnPagination.goTo(1); }}
+                                title="Click to view all returns"
+                            >
+                                <div className="label">Total Returns</div>
+                                <div className="value">{safeIndentReturns.length}</div>
+                                <div className="sub-value">Current Period</div>
+                            </StatsCard>
+                            <StatsCard
+                                style={{
+                                    cursor: 'pointer',
+                                    border: returnFilter.status === 'Pending' ? `2px solid #f59e0b` : `1px solid ${S.colors.border}`,
+                                    background: returnFilter.status === 'Pending' ? '#fffbeb' : '#ffffff'
+                                }}
+                                onClick={() => { setReturnFilter({ ...returnFilter, status: 'Pending' }); returnPagination.goTo(1); }}
+                                title="Click to view pending return review"
+                            >
+                                <div className="label">Pending Review</div>
+                                <div className="value" style={{ color: '#f59e0b' }}>
+                                    {pendingReturnsCount}
+                                </div>
+                                <div className="sub-value">Needs Stock Verification</div>
+                            </StatsCard>
+                            <StatsCard
+                                style={{
+                                    cursor: 'pointer',
+                                    border: returnFilter.status === 'Approved' ? `2px solid #10b981` : `1px solid ${S.colors.border}`,
+                                    background: returnFilter.status === 'Approved' ? '#f0fdf4' : '#ffffff'
+                                }}
+                                onClick={() => { setReturnFilter({ ...returnFilter, status: 'Approved' }); returnPagination.goTo(1); }}
+                                title="Click to view approved returns"
+                            >
+                                <div className="label">Approved Returns</div>
+                                <div className="value" style={{ color: '#10b981' }}>
+                                    {safeIndentReturns.filter(r => r.status === 'Approved').length}
+                                </div>
+                                <div className="sub-value" style={{ color: '#0d9488' }}>🛡️ Stock Restored</div>
+                            </StatsCard>
+                            <StatsCard
+                                style={{
+                                    cursor: 'pointer',
+                                    border: returnFilter.status === 'Rejected' ? `2px solid #ef4444` : `1px solid ${S.colors.border}`,
+                                    background: returnFilter.status === 'Rejected' ? '#fef2f2' : '#ffffff'
+                                }}
+                                onClick={() => { setReturnFilter({ ...returnFilter, status: 'Rejected' }); returnPagination.goTo(1); }}
+                                title="Click to view rejected returns"
+                            >
+                                <div className="label">Rejected Returns</div>
+                                <div className="value" style={{ color: '#ef4444' }}>
+                                    {safeIndentReturns.filter(r => r.status === 'Rejected').length}
+                                </div>
+                                <div className="sub-value">Actioned / Declined</div>
+                            </StatsCard>
+                        </StatsGrid>
+
+                        {/* Returns Filter Section */}
+                        <ConfigProvider
+                            theme={{
+                                token: {
+                                    colorPrimary: '#0d9488',
+                                    borderRadius: 12,
+                                    colorLink: '#0d9488',
+                                    colorLinkHover: '#0f766e',
+                                },
+                                components: {
+                                    DatePicker: {
+                                        headerBg: '#0d9488',
+                                        headerColor: '#ffffff',
+                                        colorIcon: '#ffffff',
+                                        colorTextHeading: '#ffffff',
+                                        colorPrimary: '#0d9488',
+                                    }
+                                }
+                            }}
+                        >
+                            <div style={{
+                                background: 'white',
+                                margin: '20px 22px 0',
+                                padding: '24px',
+                                borderRadius: '16px',
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
+                                border: `1px solid ${S.colors.border}`
+                            }}>
+                                <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                        <S.Label style={{ margin: 0 }}>From</S.Label>
+                                        <DatePicker
+                                            value={returnFilter.from_date ? dayjs(returnFilter.from_date) : null}
+                                            onChange={(d) => setReturnFilter({ ...returnFilter, from_date: d ? d.format('YYYY-MM-DD') : '' })}
+                                            format="DD/MM/YYYY"
+                                            style={{ height: '38px', borderRadius: '8px' }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                        <S.Label style={{ margin: 0 }}>To</S.Label>
+                                        <DatePicker
+                                            value={returnFilter.to_date ? dayjs(returnFilter.to_date) : null}
+                                            onChange={(d) => setReturnFilter({ ...returnFilter, to_date: d ? d.format('YYYY-MM-DD') : '' })}
+                                            format="DD/MM/YYYY"
+                                            style={{ height: '38px', borderRadius: '8px' }}
+                                        />
+                                    </div>
+                                    <div style={{ minWidth: '150px' }}>
+                                        <Select
+                                            value={returnFilter.status || 'ALL'}
+                                            onChange={(val) => { setReturnFilter({ ...returnFilter, status: val }); returnPagination.goTo(1); }}
+                                            style={{ width: '100%', height: '38px' }}
+                                        >
+                                            <Option value="ALL">All Statuses</Option>
+                                            <Option value="Pending">Pending</Option>
+                                            <Option value="Approved">Approved</Option>
+                                            <Option value="Rejected">Rejected</Option>
+                                        </Select>
+                                    </div>
+                                    <div style={{ flex: '0 0 auto' }}>
+                                        <DepartmentFilterControl
+                                            departments={departments}
+                                            onDepartmentChange={(dept) => {
+                                                setSelectedDepartment(dept || '');
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ minWidth: '220px', flex: '1 1 200px' }}>
+                                        <Input
+                                            prefix={<Search size={16} style={{ color: '#94a3b8', marginRight: '6px' }} />}
+                                            placeholder="Search Return ID, Intent ID, Dept, Item..."
+                                            value={returnFilter.search}
+                                            onChange={(e) => setReturnFilter({ ...returnFilter, search: e.target.value })}
+                                            style={{ height: '38px', borderRadius: '8px' }}
+                                        />
+                                    </div>
+                                    <S.Button onClick={() => loadIndentReturns()} style={{ background: '#0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                                        🔍 Search
+                                    </S.Button>
+                                    <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }} onClick={() => { setSelectedDepartment(''); setSelectedStoreDepartment(''); handleClearReturnFilter(); }}>
+                                        ✕ Clear
+                                    </S.Button>
+                                    <S.Button secondary onClick={handleExportReturnExcel} style={{ background: '#f8fafc', color: '#0d9488', border: '1px solid #0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                                        📥 Export Excel
+                                    </S.Button>
+                                </div>
+                            </div>
+                        </ConfigProvider>
+
+                        {/* Returns Table Section */}
+                        <S.TableWrapper style={{ background: '#fff', borderRadius: '12px', border: `1px solid ${S.colors.border}`, margin: '20px 22px' }}>
+                            <S.Table>
+                                <thead>
+                                    <tr style={{ background: '#f8fafc' }}>
+                                        <S.Th style={{ width: '50px', textAlign: 'center' }}>#</S.Th>
+                                        <S.Th>Return Details</S.Th>
+                                        <S.Th>Intent Reference</S.Th>
+                                        <S.Th>Department</S.Th>
+                                        <S.Th>Returned Items</S.Th>
+                                        <S.Th style={{ textAlign: 'center' }}>Total Qty</S.Th>
+                                        <S.Th>Reason</S.Th>
+                                        <S.Th>Status</S.Th>
+                                        <S.Th style={{ textAlign: 'center' }}>Actions</S.Th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(returnPagination.pageData || returnPagination.paginatedItems || []).length === 0 ? (
+                                        <tr>
+                                            <td colSpan="9" style={{ textAlign: 'center', padding: '60px 20px', color: S.colors.textMuted }}>
+                                                <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '8px' }}>No returns found</div>
+                                                <div style={{ fontSize: '0.85rem' }}>No return records match your filter criteria.</div>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        (returnPagination.pageData || returnPagination.paginatedItems || []).map((item, idx) => {
+                                            const rowNum = returnPagination.startIdx + idx + 1;
+                                            const items = Array.isArray(item.items) 
+    ? item.items 
+    : (typeof item.items === 'string' 
+        ? (() => { try { return JSON.parse(item.items); } catch(e) { return []; } })() 
+        : []);
+                                            const totalQty = item.total_returned_qty || items.reduce((acc, it) => acc + Number(it.return_quantity || it.quantity || 0), 0);
+                                            const isPending = item.status === 'Pending';
+                                            const isApproved = item.status === 'Approved';
+                                            const isRejected = item.status === 'Rejected';
+
+                                            return (
+                                                <S.Tr key={item.return_id || idx} style={{ transition: 'background 0.15s ease' }}>
+                                                    <S.Td style={{ textAlign: 'center', fontWeight: '600', color: S.colors.textMuted }}>
+                                                        {rowNum}
+                                                    </S.Td>
+                                                    <S.Td>
+                                                        <div style={{ fontWeight: '700', color: S.colors.primary, fontSize: '0.92rem' }}>
+                                                            {item.return_id}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.78rem', color: S.colors.textMuted, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                                            <Clock size={12} />
+                                                            {item.return_date ? dayjs(item.return_date).format('DD MMM, YYYY') : '-'}
+                                                        </div>
+                                                    </S.Td>
+                                                    <S.Td>
+                                                        <span style={{
+                                                            display: 'inline-block',
+                                                            background: '#f1f5f9',
+                                                            color: '#0f172a',
+                                                            padding: '3px 8px',
+                                                            borderRadius: '6px',
+                                                            fontWeight: '700',
+                                                            fontSize: '0.82rem',
+                                                            fontFamily: 'monospace'
+                                                        }}>
+                                                            {item.intent_id || '-'}
+                                                        </span>
+                                                    </S.Td>
+                                                    <S.Td>
+                                                        <div style={{ fontWeight: '600', color: S.colors.textMain }}>
+                                                            {item.department_name || item.department || '-'}
+                                                        </div>
+                                                    </S.Td>
+                                                    <S.Td>
+                                                        <div style={{ fontWeight: '600', fontSize: '0.85rem' }}>
+                                                            {items.length} {items.length === 1 ? 'item' : 'items'}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.75rem', color: S.colors.textMuted, maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {items.map(it => it.name || it.item_name).filter(Boolean).join(', ') || '-'}
+                                                        </div>
+                                                    </S.Td>
+                                                    <S.Td style={{ textAlign: 'center' }}>
+                                                        <span style={{
+                                                            display: 'inline-block',
+                                                            padding: '3px 10px',
+                                                            borderRadius: '12px',
+                                                            fontWeight: '700',
+                                                            fontSize: '0.82rem',
+                                                            background: '#ecfdf5',
+                                                            color: '#059669'
+                                                        }}>
+                                                            {totalQty}
+                                                        </span>
+                                                    </S.Td>
+                                                    <S.Td>
+                                                        <span style={{
+                                                            display: 'inline-block',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: '600',
+                                                            background: '#f8fafc',
+                                                            border: '1px solid #e2e8f0',
+                                                            color: '#475569'
+                                                        }}>
+                                                            {item.return_reason || 'EXCESS'}
+                                                        </span>
+                                                    </S.Td>
+                                                    <S.Td>
+                                                        <Badge type={isApproved ? 'SUCCESS' : isPending ? 'WARNING' : 'DANGER'}>
+                                                            {item.status || 'Pending'}
+                                                        </Badge>
+                                                    </S.Td>
+                                                    <S.Td style={{ textAlign: 'center' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openViewReturnModal(item)}
+                                                                title="View Return Details & Confirm"
+                                                                style={{
+                                                                    border: '1px solid #c7d2fe',
+                                                                    background: '#eef2ff',
+                                                                    color: '#4f46e5',
+                                                                    borderRadius: '6px',
+                                                                    padding: '5px 8px',
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px',
+                                                                    fontSize: '0.78rem',
+                                                                    fontWeight: '600'
+                                                                }}
+                                                            >
+                                                                <Eye size={13} /> View
+                                                            </button>
+
+                                                            {isPending && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => openReturnApprovalModal(item)}
+                                                                    title="Confirm & Approve Return"
+                                                                    style={{
+                                                                        border: '1px solid #a7f3d0',
+                                                                        background: '#ecfdf5',
+                                                                        color: '#059669',
+                                                                        borderRadius: '6px',
+                                                                        padding: '5px 8px',
+                                                                        cursor: 'pointer',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: '600'
+                                                                    }}
+                                                                >
+                                                                    <CheckCheck size={13} /> Approve
+                                                                </button>
+                                                            )}
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handlePrintReturn(item)}
+                                                                title="Print Return Voucher"
+                                                                style={{
+                                                                    border: '1px solid #e9d5ff',
+                                                                    background: '#faf5ff',
+                                                                    color: '#7c3aed',
+                                                                    borderRadius: '6px',
+                                                                    padding: '5px 8px',
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px',
+                                                                    fontSize: '0.78rem',
+                                                                    fontWeight: '600'
+                                                                }}
+                                                            >
+                                                                <Printer size={13} />
+                                                            </button>
+
+                                                            <button
+                                                                ref={(el) => {
+                                                                    if (el) returnAnchorRefs.current[item.return_id] = el;
+                                                                }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (openReturnPopover === item.return_id) {
+                                                                        setOpenReturnPopover(null);
+                                                                        setReturnPopoverData(null);
+                                                                    } else {
+                                                                        setOpenReturnPopover(item.return_id);
+                                                                        setReturnPopoverData(item);
+                                                                    }
+                                                                }}
+                                                                className="return-action-popover-wrap"
+                                                                style={{
+                                                                    background: openReturnPopover === item.return_id ? '#e6fffa' : '#ffffff',
+                                                                    border: `1.5px solid ${openReturnPopover === item.return_id ? '#0d9488' : '#cbd5e1'}`,
+                                                                    borderRadius: '6px',
+                                                                    padding: '5px 8px',
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    color: '#334155'
+                                                                }}
+                                                                title="More Actions"
+                                                            >
+                                                                <MoreVertical size={13} />
+                                                            </button>
+
+                                                            {openReturnPopover === item.return_id && returnPopoverData && (
+                                                                <ReturnActionPopover
+                                                                    ret={returnPopoverData}
+                                                                    status={returnPopoverData.status}
+                                                                    anchorEl={returnAnchorRefs.current[item.return_id]}
+                                                                    onClose={() => { setOpenReturnPopover(null); setReturnPopoverData(null); }}
+                                                                    onView={() => { setOpenReturnPopover(null); openViewReturnModal(returnPopoverData); }}
+                                                                    onApprove={() => { setOpenReturnPopover(null); openReturnApprovalModal(returnPopoverData); }}
+                                                                    onPrint={() => { setOpenReturnPopover(null); handlePrintReturn(returnPopoverData); }}
+                                                                    onReject={() => { setOpenReturnPopover(null); handleOpenRejectModal(returnPopoverData.return_id); }}
+                                                                    onDelete={() => { setOpenReturnPopover(null); handleDeleteReturn(returnPopoverData.return_id); }}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    </S.Td>
+                                                </S.Tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </S.Table>
+                            <TablePagination
+                                currentPage={returnPagination.currentPage}
+                                totalPages={returnPagination.totalPages}
+                                pageSize={returnPagination.pageSize}
+                                totalItems={returnPagination.totalItems}
+                                startIdx={returnPagination.startIdx}
+                                goTo={returnPagination.goTo}
+                                onPageSizeChange={returnPagination.handlePageSizeChange}
+                                itemName="return"
+                                themeColor="#0d9488"
+                            />
+                        </S.TableWrapper>
+                    </>
+                )}
 
                 {/* ========================================================= */}
                 {/* MODAL 1: INTENT APPROVAL */}
@@ -1701,7 +2159,7 @@ const StoresApprovalManager = () => {
                 {/* MODAL 3: REJECT INDENT RETURN MODAL */}
                 {/* ========================================================= */}
                 {showRejectModal && (
-                    <S.ModalOverlay>
+                    <S.ModalOverlay style={{ zIndex: 1250 }}>
                         <S.ModalContainer style={{ maxWidth: '500px' }}>
                             <S.ModalHeader style={{ background: '#ef4444', color: '#fff' }}>
                                 <S.ModalTitle style={{ color: '#fff' }}>
@@ -1749,17 +2207,27 @@ const StoresApprovalManager = () => {
                 )}
 
                 {/* ========================================================= */}
-                {/* MODAL 4: VIEW INTENT DETAILS MODAL */}
+                {/* MODAL 4: VIEW INTENT DETAILS MODAL (DIRECT CONFIRM & APPROVAL) */}
                 {/* ========================================================= */}
                 {showViewIntentModal && selectedIntentForView && (() => {
-                    const itemsList = Array.isArray(selectedIntentForView.items) ? selectedIntentForView.items : [];
                     const status = getIntentStatus(selectedIntentForView);
+                    const isPendingOrPartial = status !== 'Approved' && status !== 'Rejected';
+                    const itemsList = (approvalItems && approvalItems.length > 0) ? approvalItems : (Array.isArray(selectedIntentForView.items) ? selectedIntentForView.items : []);
                     const totalReq = itemsList.reduce((acc, it) => acc + (parseFloat(it.quantity) || 0), 0);
-                    const totalApprv = itemsList.reduce((acc, it) => acc + (parseFloat(it.approved_quantity) || 0), 0);
+                    const totalApprv = itemsList.reduce((acc, it) => {
+                        const orig = parseFloat(it.original_approved_qty !== undefined ? it.original_approved_qty : (it.approved_quantity || 0)) || 0;
+                        const added = isPendingOrPartial ? (parseFloat(it.new_approval_qty) || 0) : 0;
+                        return acc + orig + added;
+                    }, 0);
+                    const totalPending = itemsList.reduce((acc, it) => {
+                        const req = parseFloat(it.quantity) || 0;
+                        const orig = parseFloat(it.original_approved_qty !== undefined ? it.original_approved_qty : (it.approved_quantity || 0)) || 0;
+                        return acc + Math.max(0, req - orig);
+                    }, 0);
 
                     return (
                         <S.ModalOverlay onClick={e => e.target === e.currentTarget && setShowViewIntentModal(false)}>
-                            <S.ModalContainer style={{ maxWidth: '900px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <S.ModalContainer style={{ maxWidth: '950px', width: '96%', maxHeight: '90vh', overflowY: 'auto' }}>
                                 <S.ModalHeader style={{ borderBottom: `1px solid ${S.colors.border}`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <S.ModalTitle style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1778,11 +2246,8 @@ const StoresApprovalManager = () => {
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                         <S.Button
-                                            disabled={status === 'Approved' || status === 'Rejected'}
-                                            onClick={() => {
-                                                setShowViewIntentModal(false);
-                                                openApprovalModal(selectedIntentForView);
-                                            }}
+                                            disabled={!isPendingOrPartial || loading}
+                                            onClick={submitFinalApproval}
                                             style={{
                                                 padding: '6px 14px',
                                                 fontSize: '0.8rem',
@@ -1791,13 +2256,13 @@ const StoresApprovalManager = () => {
                                                 gap: '5px',
                                                 background: status === 'Approved' ? '#ecfdf5' : '#10b981',
                                                 color: status === 'Approved' ? '#059669' : '#ffffff',
-                                                cursor: (status === 'Approved' || status === 'Rejected') ? 'not-allowed' : 'pointer',
+                                                cursor: (!isPendingOrPartial || loading) ? 'not-allowed' : 'pointer',
                                                 fontWeight: '600'
                                             }}
-                                            title={status === 'Approved' ? 'Already fully approved' : status === 'Rejected' ? 'Cannot approve rejected intent' : 'Confirm / Approve Intent'}
+                                            title={status === 'Approved' ? 'Already fully approved' : status === 'Rejected' ? 'Cannot approve rejected intent' : 'Confirm & Approve Intent'}
                                         >
                                             <CheckCheck size={14} />
-                                            <span>{status === 'Approved' ? 'Verified' : 'Confirm'}</span>
+                                            <span>{loading ? 'Approving...' : (status === 'Approved' ? 'Verified' : 'Confirm')}</span>
                                         </S.Button>
                                         <S.Button
                                             onClick={() => handlePrintIntent(selectedIntentForView)}
@@ -1855,7 +2320,7 @@ const StoresApprovalManager = () => {
                                     {/* Stats Highlights */}
                                     <div style={{
                                         display: 'grid',
-                                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
                                         gap: '12px',
                                         marginBottom: '20px'
                                     }}>
@@ -1871,6 +2336,10 @@ const StoresApprovalManager = () => {
                                             <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Total Approved Qty</div>
                                             <div style={{ fontSize: '1.3rem', fontWeight: '800', color: S.colors.primary, marginTop: '4px' }}>{totalApprv}</div>
                                         </div>
+                                        <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', padding: '14px', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: '700', textTransform: 'uppercase' }}>Total Pending Qty</div>
+                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>{totalPending}</div>
+                                        </div>
                                     </div>
 
                                     {/* Items Table */}
@@ -1882,44 +2351,157 @@ const StoresApprovalManager = () => {
                                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                                                 <thead>
                                                     <tr style={{ background: '#f0fdfa', color: '#1e293b', borderBottom: `1px solid ${S.colors.border}` }}>
+                                                        {isPendingOrPartial && (
+                                                            <th style={{ padding: '10px 8px', textAlign: 'center', width: '40px' }}>
+                                                                <Checkbox
+                                                                    onChange={(e) => {
+                                                                        const checked = e.target.checked;
+                                                                        const copy = approvalItems.map(it => {
+                                                                            const rem = Math.max(0, Number(it.quantity) - Number(it.original_approved_qty || 0));
+                                                                            if (rem <= 0) return it;
+                                                                            return {
+                                                                                ...it,
+                                                                                selected: checked,
+                                                                                new_approval_qty: checked ? rem : 0
+                                                                            };
+                                                                        });
+                                                                        setApprovalItems(copy);
+                                                                    }}
+                                                                    checked={
+                                                                        approvalItems.length > 0 &&
+                                                                        approvalItems
+                                                                            .filter(it => Number(it.quantity) > Number(it.original_approved_qty || 0))
+                                                                            .every(it => Number(it.new_approval_qty) > 0 && it.selected)
+                                                                    }
+                                                                />
+                                                            </th>
+                                                        )}
                                                         <th style={{ padding: '10px 8px', textAlign: 'center' }}>#</th>
                                                         <th style={{ padding: '10px 10px', textAlign: 'left' }}>Item Name</th>
                                                         <th style={{ padding: '10px 8px', textAlign: 'center' }}>HSN</th>
                                                         <th style={{ padding: '10px 8px', textAlign: 'center' }}>Available Stock</th>
                                                         <th style={{ padding: '10px 8px', textAlign: 'center' }}>Req Qty</th>
-                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Apprv Qty</th>
-                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Returned Qty</th>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>{isPendingOrPartial ? 'Already Apprv' : 'Apprv Qty'}</th>
+                                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Pending Qty</th>
+                                                        {isPendingOrPartial && (
+                                                            <th style={{ padding: '10px 8px', textAlign: 'center', width: '120px' }}>Approve Qty</th>
+                                                        )}
+                                                        {isPendingOrPartial ? (
+                                                            <th style={{ padding: '10px 8px', textAlign: 'center' }}>Total Apprv</th>
+                                                        ) : (
+                                                            <th style={{ padding: '10px 8px', textAlign: 'center' }}>Returned Qty</th>
+                                                        )}
                                                         <th style={{ padding: '10px 10px', textAlign: 'center' }}>Status</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {itemsList.length === 0 ? (
                                                         <tr>
-                                                            <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: S.colors.textMuted }}>No items data available</td>
+                                                            <td colSpan={isPendingOrPartial ? 11 : 9} style={{ textAlign: 'center', padding: '30px', color: S.colors.textMuted }}>No items data available</td>
                                                         </tr>
-                                                    ) : itemsList.map((it, idx) => (
-                                                        <tr key={idx} style={{ borderBottom: `1px solid #f1f5f9`, background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{idx + 1}</td>
-                                                            <td style={{ padding: '10px 10px', fontWeight: '600', color: '#0d9488' }}>
-                                                                {it.name || it.item_name}
-                                                            </td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{it.hsn || '-'}</td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{it.available_stock !== undefined ? it.available_stock : '-'}</td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '700', color: S.colors.textMain }}>{it.quantity}</td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '700', color: '#16a34a' }}>{it.approved_quantity || 0}</td>
-                                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: it.returned_quantity > 0 ? '#f59e0b' : S.colors.textMuted }}>{it.returned_quantity || 0}</td>
-                                                            <td style={{ padding: '10px 10px', textAlign: 'center' }}>
-                                                                <Badge
-                                                                    type={
-                                                                        it.status === 'Approved' ? 'SUCCESS' :
-                                                                            (it.status === 'Rejected' ? 'DANGER' : 'WARNING')
-                                                                    }
-                                                                >
-                                                                    {it.status || 'Pending'}
-                                                                </Badge>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                    ) : itemsList.map((it, idx) => {
+                                                        const reqQty = Number(it.quantity || 0);
+                                                        const origApprv = Number(it.original_approved_qty !== undefined ? it.original_approved_qty : (it.approved_quantity || 0));
+                                                        const rem = Math.max(0, reqQty - origApprv);
+                                                        const isFullyApproved = rem <= 0;
+                                                        const currentNew = Number(it.new_approval_qty !== undefined ? it.new_approval_qty : rem);
+                                                        const totalApprvForItem = origApprv + (isPendingOrPartial ? currentNew : 0);
+
+                                                        return (
+                                                            <tr key={idx} style={{ borderBottom: `1px solid #f1f5f9`, background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                                                                {isPendingOrPartial && (
+                                                                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                                                        <Checkbox
+                                                                            disabled={isFullyApproved}
+                                                                            checked={!isFullyApproved && it.selected !== false && currentNew > 0}
+                                                                            onChange={(e) => {
+                                                                                const checked = e.target.checked;
+                                                                                const copy = [...approvalItems];
+                                                                                copy[idx].selected = checked;
+                                                                                copy[idx].new_approval_qty = checked ? rem : 0;
+                                                                                setApprovalItems(copy);
+                                                                            }}
+                                                                        />
+                                                                    </td>
+                                                                )}
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{idx + 1}</td>
+                                                                <td style={{ padding: '10px 10px', fontWeight: '600', color: '#0d9488' }}>
+                                                                    {it.name || it.item_name}
+                                                                </td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{it.hsn || '-'}</td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center', color: S.colors.textMuted }}>{it.available_stock !== undefined ? it.available_stock : '-'}</td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '700', color: S.colors.textMain }}>{reqQty}</td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center', color: '#64748b' }}>{origApprv}</td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                                                    <span style={{
+                                                                        fontWeight: '700',
+                                                                        color: rem > 0 ? '#d97706' : '#16a34a',
+                                                                        background: rem > 0 ? '#fffbeb' : '#f0fdf4',
+                                                                        padding: '2px 8px',
+                                                                        borderRadius: '6px',
+                                                                        border: rem > 0 ? '1px solid #fef3c7' : '1px solid #dcfce7',
+                                                                        display: 'inline-block'
+                                                                    }}>
+                                                                        {rem}
+                                                                    </span>
+                                                                </td>
+                                                                {isPendingOrPartial && (
+                                                                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                                                        {isFullyApproved ? (
+                                                                            <span style={{ color: '#16a34a', fontWeight: '700' }}>✓ Complete</span>
+                                                                        ) : (
+                                                                            <input
+                                                                                type="number"
+                                                                                min="0"
+                                                                                max={rem}
+                                                                                value={it.new_approval_qty !== undefined ? it.new_approval_qty : rem}
+                                                                                onChange={(e) => {
+                                                                                    let val = parseInt(e.target.value, 10);
+                                                                                    if (isNaN(val) || val < 0) val = 0;
+                                                                                    if (val > rem) {
+                                                                                        toast.warning(`Cannot exceed remaining quantity (${rem})`);
+                                                                                        val = rem;
+                                                                                    }
+                                                                                    const copy = [...approvalItems];
+                                                                                    copy[idx].new_approval_qty = val;
+                                                                                    copy[idx].selected = val > 0;
+                                                                                    setApprovalItems(copy);
+                                                                                }}
+                                                                                style={{
+                                                                                    width: '75px',
+                                                                                    padding: '4px 8px',
+                                                                                    textAlign: 'center',
+                                                                                    borderRadius: '6px',
+                                                                                    border: '1.5px solid #0d9488',
+                                                                                    fontWeight: '700',
+                                                                                    fontSize: '0.88rem',
+                                                                                    outline: 'none',
+                                                                                    background: '#ffffff'
+                                                                                }}
+                                                                            />
+                                                                        )}
+                                                                    </td>
+                                                                )}
+                                                                {isPendingOrPartial ? (
+                                                                    <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: '800', color: '#0d9488' }}>
+                                                                        {totalApprvForItem}
+                                                                    </td>
+                                                                ) : (
+                                                                    <td style={{ padding: '10px 8px', textAlign: 'center', color: it.returned_quantity > 0 ? '#f59e0b' : S.colors.textMuted }}>{it.returned_quantity || 0}</td>
+                                                                )}
+                                                                <td style={{ padding: '10px 10px', textAlign: 'center' }}>
+                                                                    <Badge
+                                                                        type={
+                                                                            totalApprvForItem >= reqQty ? 'SUCCESS' :
+                                                                                totalApprvForItem > 0 ? 'WARNING' : 'DANGER'
+                                                                        }
+                                                                    >
+                                                                        {totalApprvForItem >= reqQty ? 'Approved' : totalApprvForItem > 0 ? 'Partial' : 'Pending'}
+                                                                    </Badge>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -1931,11 +2513,8 @@ const StoresApprovalManager = () => {
                                             Close
                                         </S.Button>
                                         <S.Button 
-                                            disabled={status === 'Approved' || status === 'Rejected'}
-                                            onClick={() => {
-                                                setShowViewIntentModal(false);
-                                                openApprovalModal(selectedIntentForView);
-                                            }}
+                                            disabled={!isPendingOrPartial || loading}
+                                            onClick={submitFinalApproval}
                                             style={{
                                                 padding: '8px 22px',
                                                 display: 'inline-flex',
@@ -1943,13 +2522,13 @@ const StoresApprovalManager = () => {
                                                 gap: '6px',
                                                 background: status === 'Approved' ? '#ecfdf5' : '#10b981',
                                                 color: status === 'Approved' ? '#059669' : '#ffffff',
-                                                cursor: (status === 'Approved' || status === 'Rejected') ? 'not-allowed' : 'pointer',
+                                                cursor: (!isPendingOrPartial || loading) ? 'not-allowed' : 'pointer',
                                                 fontWeight: '600'
                                             }}
-                                            title={status === 'Approved' ? 'Already fully approved' : status === 'Rejected' ? 'Cannot approve rejected intent' : 'Confirm / Approve Intent'}
+                                            title={status === 'Approved' ? 'Already fully approved' : status === 'Rejected' ? 'Cannot approve rejected intent' : 'Confirm & Approve Intent'}
                                         >
                                             <CheckCheck size={16} />
-                                            <span>{status === 'Approved' ? 'Verified' : 'Confirm'}</span>
+                                            <span>{loading ? 'Approving...' : (status === 'Approved' ? 'Verified' : 'Confirm')}</span>
                                         </S.Button>
                                         <S.Button 
                                             onClick={() => {
@@ -1996,11 +2575,27 @@ const StoresApprovalManager = () => {
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                         <S.Button
-                                            disabled={selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected'}
-                                            onClick={() => {
-                                                setShowViewReturnModal(false);
-                                                openReturnApprovalModal(selectedReturnForView);
+                                            disabled={selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected' || loading}
+                                            onClick={() => handleOpenRejectModal(selectedReturnForView.return_id)}
+                                            style={{
+                                                padding: '6px 14px',
+                                                fontSize: '0.8rem',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
+                                                background: selectedReturnForView.status === 'Rejected' ? '#fef2f2' : '#ef4444',
+                                                color: selectedReturnForView.status === 'Rejected' ? '#dc2626' : '#ffffff',
+                                                cursor: (selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected' || loading) ? 'not-allowed' : 'pointer',
+                                                fontWeight: '600'
                                             }}
+                                            title={selectedReturnForView.status === 'Approved' ? 'Cannot reject approved return' : selectedReturnForView.status === 'Rejected' ? 'Already Rejected' : 'Reject Indent Return'}
+                                        >
+                                            <Ban size={14} />
+                                            <span>{selectedReturnForView.status === 'Rejected' ? 'Rejected' : 'Reject'}</span>
+                                        </S.Button>
+                                        <S.Button
+                                            disabled={selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected' || loading}
+                                            onClick={submitReturnApproval}
                                             style={{
                                                 padding: '6px 14px',
                                                 fontSize: '0.8rem',
@@ -2009,13 +2604,13 @@ const StoresApprovalManager = () => {
                                                 gap: '5px',
                                                 background: selectedReturnForView.status === 'Approved' ? '#ecfdf5' : '#10b981',
                                                 color: selectedReturnForView.status === 'Approved' ? '#059669' : '#ffffff',
-                                                cursor: (selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected') ? 'not-allowed' : 'pointer',
+                                                cursor: (selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected' || loading) ? 'not-allowed' : 'pointer',
                                                 fontWeight: '600'
                                             }}
-                                            title={selectedReturnForView.status === 'Approved' ? 'Already Approved' : selectedReturnForView.status === 'Rejected' ? 'Cannot approve rejected return' : 'Confirm / Approve Return'}
+                                            title={selectedReturnForView.status === 'Approved' ? 'Already Approved' : selectedReturnForView.status === 'Rejected' ? 'Cannot approve rejected return' : 'Confirm & Approve Return'}
                                         >
                                             <CheckCheck size={14} />
-                                            <span>{selectedReturnForView.status === 'Approved' ? 'Approved' : 'Confirm'}</span>
+                                            <span>{loading ? 'Approving...' : (selectedReturnForView.status === 'Approved' ? 'Approved' : 'Confirm')}</span>
                                         </S.Button>
                                         <S.Button
                                             onClick={() => handlePrintReturn(selectedReturnForView)}
@@ -2155,12 +2750,27 @@ const StoresApprovalManager = () => {
                                         <S.Button secondary onClick={() => setShowViewReturnModal(false)} style={{ padding: '8px 22px' }}>
                                             Close
                                         </S.Button>
-                                        <S.Button 
-                                            disabled={selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected'}
-                                            onClick={() => {
-                                                setShowViewReturnModal(false);
-                                                openReturnApprovalModal(selectedReturnForView);
+                                        <S.Button
+                                            disabled={selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected' || loading}
+                                            onClick={() => handleOpenRejectModal(selectedReturnForView.return_id)}
+                                            style={{
+                                                padding: '8px 22px',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                background: selectedReturnForView.status === 'Rejected' ? '#fef2f2' : '#ef4444',
+                                                color: selectedReturnForView.status === 'Rejected' ? '#dc2626' : '#ffffff',
+                                                cursor: (selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected' || loading) ? 'not-allowed' : 'pointer',
+                                                fontWeight: '600'
                                             }}
+                                            title={selectedReturnForView.status === 'Approved' ? 'Cannot reject approved return' : selectedReturnForView.status === 'Rejected' ? 'Already Rejected' : 'Reject Indent Return'}
+                                        >
+                                            <Ban size={16} />
+                                            <span>{selectedReturnForView.status === 'Rejected' ? 'Rejected' : 'Reject'}</span>
+                                        </S.Button>
+                                        <S.Button 
+                                            disabled={selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected' || loading}
+                                            onClick={submitReturnApproval}
                                             style={{
                                                 padding: '8px 22px',
                                                 display: 'inline-flex',
@@ -2168,13 +2778,13 @@ const StoresApprovalManager = () => {
                                                 gap: '6px',
                                                 background: selectedReturnForView.status === 'Approved' ? '#ecfdf5' : '#10b981',
                                                 color: selectedReturnForView.status === 'Approved' ? '#059669' : '#ffffff',
-                                                cursor: (selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected') ? 'not-allowed' : 'pointer',
+                                                cursor: (selectedReturnForView.status === 'Approved' || selectedReturnForView.status === 'Rejected' || loading) ? 'not-allowed' : 'pointer',
                                                 fontWeight: '600'
                                             }}
-                                            title={selectedReturnForView.status === 'Approved' ? 'Already Approved' : selectedReturnForView.status === 'Rejected' ? 'Cannot approve rejected return' : 'Confirm / Approve Return'}
+                                            title={selectedReturnForView.status === 'Approved' ? 'Already Approved' : selectedReturnForView.status === 'Rejected' ? 'Cannot approve rejected return' : 'Confirm & Approve Return'}
                                         >
                                             <CheckCheck size={16} />
-                                            <span>{selectedReturnForView.status === 'Approved' ? 'Approved' : 'Confirm'}</span>
+                                            <span>{loading ? 'Approving...' : (selectedReturnForView.status === 'Approved' ? 'Approved' : 'Confirm')}</span>
                                         </S.Button>
                                         <S.Button 
                                             onClick={() => {
