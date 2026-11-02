@@ -50,9 +50,12 @@ const Content = styled.div`
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
-  padding: 16px 22px;
+  padding: 14px 18px 48px;
   box-sizing: border-box;
-  @media (max-width: 768px) { padding: 10px; }
+  @media (max-width: 1366px) {
+    padding: 10px 12px 36px;
+  }
+  @media (max-width: 768px) { padding: 8px; }
 `;
 
 const TabBar = styled.div`
@@ -349,23 +352,33 @@ const WardWarningPill = styled.div`
 // ─── Items table ──────────────────────────────────────────────────────────────
 const TScrollWrap = styled.div`
   overflow-x: auto; overflow-y: visible; width: 100%; box-sizing: border-box;
-  &::-webkit-scrollbar { height: 6px; }
+  &::-webkit-scrollbar { height: 5px; }
   &::-webkit-scrollbar-track { background: #f1f5f9; }
   &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
   &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 `;
-const ITable = styled.table`width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 980px; table-layout: fixed;`;
+const ITable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  table-layout: fixed;
+  box-sizing: border-box;
+`;
 const ITHead = styled.thead`background: #f8fafc;`;
 const ITH = styled.th`
-  padding: 9px 8px; text-align: ${p => p.$align || "left"}; font-size: 0.7rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.4px; color: ${T.textMid};
+  padding: 8px 4px; text-align: ${p => p.$align || "left"}; font-size: 0.67rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.3px; color: ${T.textMid};
   border-bottom: 2px solid ${T.border}; white-space: nowrap; box-sizing: border-box;
+  overflow: hidden; text-overflow: ellipsis;
 `;
 const ITR = styled.tr`border-bottom: 1px solid ${T.border}; &:hover { background: #f8fafc; }`;
 const AddRow = styled.tr`background: #fffdf5; border-bottom: 2px solid ${T.amber};`;
-const ITD = styled.td`padding: 7px 8px; color: ${T.textMain}; vertical-align: middle; overflow: visible; position: relative; text-align: ${p => p.$align || "left"}; box-sizing: border-box;`;
+const ITD = styled.td`
+  padding: 5px 3px; color: ${T.textMain}; vertical-align: middle; overflow: visible; position: relative;
+  text-align: ${p => p.$align || "left"}; box-sizing: border-box;
+`;
 const TInput = styled.input`
-  width: 100%; box-sizing: border-box; height: 32px; padding: 4px 6px; font-size: 0.82rem;
+  width: 100%; min-width: 0; box-sizing: border-box; height: 29px; padding: 3px 5px; font-size: 0.78rem;
   border: 1px solid ${T.border}; border-radius: 5px; outline: none;
   background: ${p => p.$ro ? "#f8fafc" : "#fff"}; color: ${p => p.$ro ? T.textMuted : T.textMain};
   text-align: ${p => p.$align || "left"}; transition: border 0.12s;
@@ -1364,18 +1377,18 @@ const ItemsSection = ({
       <ITable>
         <ITHead>
           <tr>
-            <ITH style={{ width: "36px" }} $align="center"></ITH>
-            <ITH style={{ width: "36px" }} $align="center">#</ITH>
-            <ITH style={{ width: "230px" }}>Item Name</ITH>
-            <ITH style={{ width: "65px" }} $align="right">Qty</ITH>
-            <ITH style={{ width: "90px" }} $align="right">Rate</ITH>
-            <ITH style={{ width: "75px" }} $align="right">Disc</ITH>
-            <ITH style={{ width: "100px" }} $align="right">Amount</ITH>
-            <ITH style={{ width: "140px" }}>Doctor</ITH>
-            <ITH style={{ width: "80px" }} $align="right">Dr.Fee</ITH>
-            <ITH style={{ width: "130px" }}>Description</ITH>
-            <ITH style={{ width: "95px" }} $align="center">Source</ITH>
-            <ITH style={{ width: "55px" }} $align="center">Action</ITH>
+            <ITH style={{ width: "28px" }} $align="center"></ITH>
+            <ITH style={{ width: "26px" }} $align="center">#</ITH>
+            <ITH style={{ width: "22%" }}>Item Name</ITH>
+            <ITH style={{ width: "5%" }} $align="right">Qty</ITH>
+            <ITH style={{ width: "7.5%" }} $align="right">Rate</ITH>
+            <ITH style={{ width: "5.5%" }} $align="right">Disc</ITH>
+            <ITH style={{ width: "8.5%" }} $align="right">Amount</ITH>
+            <ITH style={{ width: "14%" }}>Doctor</ITH>
+            <ITH style={{ width: "6.5%" }} $align="right">Dr.Fee</ITH>
+            <ITH style={{ width: "14%" }}>Description</ITH>
+            <ITH style={{ width: "7%" }} $align="center">Source</ITH>
+            <ITH style={{ width: "48px" }} $align="center">Action</ITH>
           </tr>
         </ITHead>
         <tbody>
@@ -1408,8 +1421,8 @@ const ItemsSection = ({
                 onChange={e => onNIChange("doctor", e.target.value)}
                 placeholder="— Doctor —"
                 disabled={disabled}
-                height="32px"
-                style={{ minWidth: "130px" }}
+                height="29px"
+                style={{ width: "100%", minWidth: 0 }}
               />
             </ITD>
             <ITD><TInput $align="right" value={newItem.doctor_fee} onChange={e => onNIChange("doctor_fee", e.target.value)} disabled={disabled} /></ITD>
@@ -1418,11 +1431,13 @@ const ItemsSection = ({
             </ITD>
             <ITD $align="center"></ITD>
             <ITD $align="center">
-              <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+              <div style={{ display: "flex", gap: 3, justifyContent: "center" }}>
                 <button onClick={onAdd} disabled={disabled}
-                  style={{ width: 28, height: 28, borderRadius: 6, background: disabled ? "#94a3b8" : T.primary, border: "none", color: "#fff", fontWeight: 700, fontSize: "1rem", cursor: disabled ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                  title="Add item"
+                  style={{ width: 20, height: 26, borderRadius: 4, background: disabled ? "#94a3b8" : T.primary, border: "none", color: "#fff", fontWeight: 700, fontSize: "0.85rem", cursor: disabled ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                 <button onClick={onClear}
-                  style={{ width: 28, height: 28, borderRadius: 6, background: "#f1f5f9", border: `1px solid ${T.border}`, cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>↺</button>
+                  title="Reset item"
+                  style={{ width: 20, height: 26, borderRadius: 4, background: "#f1f5f9", border: `1px solid ${T.border}`, cursor: "pointer", fontSize: "0.75rem", display: "flex", alignItems: "center", justifyContent: "center" }}>↺</button>
               </div>
             </ITD>
           </AddRow>
@@ -1438,60 +1453,21 @@ const ItemsSection = ({
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => onToggleSelect(item._key)}
-                    style={{ cursor: "pointer", accentColor: T.primary, width: 15, height: 15 }}
+                    style={{ cursor: "pointer", accentColor: T.primary, width: 14, height: 14 }}
                   />
                 </ITD>
-                <ITD $align="center" style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.76rem" }}>{idx + 1}</ITD>
+                <ITD $align="center" style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.74rem" }}>{idx + 1}</ITD>
                 <ITD style={{ fontWeight: 600 }}>
                   <TInput
                     value={item.itemName}
                     onChange={e => onEdit(item._key, "itemName", e.target.value)}
                     style={{ fontWeight: 600 }}
                   />
-                  {(item.package_name || item.nabh_code || item.code || item._appliedWard || item._rateCategory || item.rate_category) && (
-                    <div style={{ display: "flex", gap: 4, marginTop: 3, alignItems: "center", flexWrap: "wrap" }}>
-                      {item.nabh_code && (
-                        <span style={{ fontSize: "0.64rem", color: "#065f46", fontWeight: 700, background: "#ecfdf5", padding: "1px 6px", borderRadius: 3, border: "1px solid #a7f3d0", fontFamily: "monospace" }}>
-                          NABH: {item.nabh_code}
-                        </span>
-                      )}
-                      {(item._rateCategory === "NON_NABH" || item.rate_category === "NON_NABH") && (
-                        <span style={{ fontSize: "0.64rem", color: "#1d4ed8", fontWeight: 700, background: "#eff6ff", padding: "1px 5px", borderRadius: 3, border: "1px solid #bfdbfe" }}>
-                          🔹 Non-NABH Rate
-                        </span>
-                      )}
-                      {(item._rateCategory === "NABH" || item.rate_category === "NABH" || (!item._rateCategory && (item.nabh_rate != null || item.nabh_code))) && (
-                        <span style={{ fontSize: "0.64rem", color: "#0f766e", fontWeight: 700, background: "#f0fdfa", padding: "1px 5px", borderRadius: 3, border: "1px solid #99f6e4" }}>
-                          ⭐ NABH Rate
-                        </span>
-                      )}
-                      {item._appliedWard === "PRIVATE WARD" && (
-                        <span style={{ fontSize: "0.64rem", color: "#15803d", fontWeight: 700, background: "#dcfce7", padding: "1px 5px", borderRadius: 3, border: "1px solid #86efac" }}>
-                          +5% Ward
-                        </span>
-                      )}
-                      {item._appliedWard === "GENERAL WARD" && (
-                        <span style={{ fontSize: "0.64rem", color: "#b45309", fontWeight: 700, background: "#fef3c7", padding: "1px 5px", borderRadius: 3, border: "1px solid #fde68a" }}>
-                          -5% Ward
-                        </span>
-                      )}
-                      {item.code && (
-                        <span style={{ fontSize: "0.64rem", color: "#1e40af", fontWeight: 700, background: "#eff6ff", padding: "1px 5px", borderRadius: 3, border: "1px solid #bfdbfe", fontFamily: "monospace" }}>
-                          CODE: {item.code}
-                        </span>
-                      )}
-                      {item.package_name && (
-                        <span style={{ fontSize: "0.65rem", color: T.primary, fontWeight: 700, background: "#f0fdfa", padding: "1px 5px", borderRadius: 3, border: "1px solid #99f6e4" }}>
-                          {item.package_name}
-                        </span>
-                      )}
-                    </div>
-                  )}
                 </ITD>
                 <ITD><TInput $align="right" value={item.quantity} onChange={e => onEdit(item._key, "quantity", e.target.value)} /></ITD>
                 <ITD><TInput $align="right" value={item.rate} onChange={e => onEdit(item._key, "rate", e.target.value)} /></ITD>
                 <ITD><TInput $align="right" value={item.discount} onChange={e => onEdit(item._key, "discount", e.target.value)} /></ITD>
-                <ITD $align="right" style={{ fontWeight: 700, fontSize: "0.82rem" }}>₹{fmt(item.amount)}</ITD>
+                <ITD $align="right" style={{ fontWeight: 700, fontSize: "0.8rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>₹{fmt(item.amount)}</ITD>
                 <ITD>
                   <SearchSelect
                     options={doctors.map(d => {
@@ -1501,8 +1477,8 @@ const ItemsSection = ({
                     value={item.doctor || ""}
                     onChange={e => onEdit(item._key, "doctor", e.target.value)}
                     placeholder="— Doctor —"
-                    height="32px"
-                    style={{ minWidth: "130px" }}
+                    height="29px"
+                    style={{ width: "100%", minWidth: 0 }}
                   />
                 </ITD>
                 <ITD><TInput $align="right" value={item.doctor_fee || ""} onChange={e => onEdit(item._key, "doctor_fee", e.target.value)} /></ITD>
@@ -1520,7 +1496,8 @@ const ItemsSection = ({
                 </ITD>
                 <ITD $align="center">
                   <button onClick={() => onRemove(item._key)}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: T.danger, fontSize: "0.95rem", padding: "4px", borderRadius: 4 }}>🗑</button>
+                    title="Remove item"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: T.danger, fontSize: "0.88rem", padding: "2px", borderRadius: 4, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>🗑</button>
                 </ITD>
               </ITR>
             );
@@ -1615,8 +1592,26 @@ const DischargeBilling = () => {
     companyName: "",
   });
 
+  const isInsurancePatient = Boolean(
+    patient && (
+      (patient.patient_type && String(patient.patient_type).trim().toUpperCase().includes("INSURANCE")) ||
+      (patient.customer_type && String(patient.customer_type).trim().toUpperCase().includes("INSURANCE")) ||
+      (patient.company && String(patient.company).trim()) ||
+      (patient.company_code && String(patient.company_code).trim()) ||
+      (patient.insurance_company && String(patient.insurance_company).trim()) ||
+      (patient.claim_number && String(patient.claim_number).trim()) ||
+      Boolean(insuranceData?.isInsuranceBill) ||
+      Boolean(editingEst?.is_insurance_bill) ||
+      Boolean(editingEst?.insurance_bill_number)
+    )
+  );
+
   const handleConvertToInsuranceBill = () => {
     if (!patient) { showToast("Search a patient first", true); return; }
+    if (!isInsurancePatient) {
+      showToast("Convert to Insurance Bill is only available for Insurance patients", true);
+      return;
+    }
     if (!items.length) { showToast("Add at least one item", true); return; }
 
     const updated = {
@@ -1907,7 +1902,7 @@ const DischargeBilling = () => {
     }
   }, [selectedKeys, items.length, patientWard, getWardMultiplier, showToast]);
 
-  const investToRow = useCallback((inv, idx) => {
+  const investToRow = useCallback((inv, idx, ward = "SEMI-PRIVATE WARD") => {
     let baseRate = 0;
     if (rateCategory === "NON_NABH" && inv.non_nabh_rate != null && !isNaN(Number(inv.non_nabh_rate)) && Number(inv.non_nabh_rate) > 0) {
       baseRate = parseFloat(inv.non_nabh_rate);
@@ -1918,12 +1913,15 @@ const DischargeBilling = () => {
     }
     const qty = parseFloat(inv.quantity) || 1;
     const disc = parseFloat(inv.discount) || 0;
-    const mult = getWardMultiplier(patientWard);
+    const effectiveWard = ward || patientWard || "SEMI-PRIVATE WARD";
+    const mult = getWardMultiplier(effectiveWard);
     const adjRate = parseFloat((baseRate * mult).toFixed(2));
     const adjAmount = Math.max(0, parseFloat((adjRate * qty - disc).toFixed(2)));
+    const cleanPkg = (inv.package_name && !String(inv.package_name).toLowerCase().startsWith("room") && !String(inv.package_name).toLowerCase().includes("general ward") && !String(inv.package_name).toLowerCase().includes("private ward")) ? inv.package_name : "";
     return {
       ...EMPTY_ITEM,
       ...inv,
+      package_name: cleanPkg,
       code: inv.code || inv.item_code || (inv.test_id != null ? String(inv.test_id) : "") || (inv.sl_no != null ? String(inv.sl_no) : "") || "",
       nabh_code: inv.nabh_code || inv.nabhCode || "",
       nabh_rate: inv.nabh_rate != null ? inv.nabh_rate : null,
@@ -1931,7 +1929,7 @@ const DischargeBilling = () => {
       rate_category: rateCategory,
       _rateCategory: rateCategory,
       _baseRate: baseRate,
-      _appliedWard: patientWard,
+      _appliedWard: effectiveWard,
       rate: adjRate,
       amount: adjAmount,
       _key: `inv_${idx}_${Date.now()}`,
@@ -1967,15 +1965,24 @@ const DischargeBilling = () => {
       if (p) {
         const norm = { ...p, ip_number: p.ip_number || p.ipNumber || "" };
         setPatient(norm);
+        const isIns = Boolean(
+          (norm.customer_type && String(norm.customer_type).trim().toUpperCase().includes("INSURANCE")) ||
+          (norm.patient_type && String(norm.patient_type).trim().toUpperCase().includes("INSURANCE")) ||
+          (norm.company && String(norm.company).trim()) ||
+          (norm.company_code && String(norm.company_code).trim()) ||
+          (norm.insurance_company && String(norm.insurance_company).trim()) ||
+          (norm.claim_number && String(norm.claim_number).trim())
+        );
         setInsuranceData(prev => ({
           ...prev,
-          companyName: norm.company || norm.company_code || prev.companyName || "",
+          isInsuranceBill: isIns,
+          companyName: norm.company || norm.company_code || norm.insurance_company || prev.companyName || "",
           claimNumber: norm.claim_number || norm.referral_number || prev.claimNumber || "",
           idCardNumber: norm.id_card_number || norm.card_no || prev.idCardNumber || "",
         }));
         if (norm.uhid) setUhid(norm.uhid);
         if (norm.ip_number) setIpNumber(norm.ip_number);
-        setPatientWard(norm.room_category || "SEMI-PRIVATE WARD");
+        setPatientWard("SEMI-PRIVATE WARD");
         if (norm.advance_amount != null && norm.advance_amount !== "") {
           setForm("advance_amount", String(norm.advance_amount));
         }
@@ -1986,7 +1993,7 @@ const DischargeBilling = () => {
           setForm("medicines", String(norm.medicines_amount));
         }
         if (Array.isArray(res.invest_items) && res.invest_items.length)
-          setItems(res.invest_items.map(investToRow));
+          setItems(res.invest_items.map((it, idx) => investToRow(it, idx, "SEMI-PRIVATE WARD")));
       } else {
         setSearchErr("Not Admitted");
       }
@@ -2060,6 +2067,7 @@ const DischargeBilling = () => {
   const handleReset = () => {
     setPatient(null); setItems([]); setNewItem(EMPTY_ITEM);
     setSelectedKeys([]);
+    setPatientWard("SEMI-PRIVATE WARD");
     setUhid(""); setIpNumber(""); setSearchErr(""); setFormRaw(EMPTY_FORM);
     setEditingEst(null);
     setPatientWard("SEMI-PRIVATE WARD");
@@ -2096,6 +2104,7 @@ const DischargeBilling = () => {
     setUhid(est.uhid || "");
     setIpNumber(est.ip_number || "");
     setSelectedKeys([]);
+    setPatientWard("SEMI-PRIVATE WARD");
     setItems(parseItems(est.items).map((it, idx) => ({
       ...EMPTY_ITEM, ...it,
       _baseRate: parseFloat(it.rate) || 0,
@@ -2163,6 +2172,10 @@ const DischargeBilling = () => {
   // ── Save as Final Bill / Update Bill / Convert Estimate ────────────────────
   const handleSaveBill = () => {
     if (!patient) { showToast("Search a patient first", true); return; }
+    if (isInsurancePatient) {
+      showToast("Save as Final Bill is only available for Non-Insurance patients", true);
+      return;
+    }
     if (!items.length) { showToast("Add at least one item", true); return; }
     if (editingEst?.id && editingEst.status === "Billed") {
       setEditReasonText("");
@@ -2507,27 +2520,82 @@ const DischargeBilling = () => {
             <FinancialGrid f={form} onChange={setForm} totals={totals} />
             <FinActions>
               <Btn $ghost onClick={handleReset}>✕ Reset</Btn>
-              <Btn $amber onClick={handleSaveEstimate} disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing")}>
+              <Btn
+                $amber
+                onClick={handleSaveEstimate}
+                disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing")}
+                title={!patient ? "Search a patient first" : patient.ward_status !== "Sent for billing" ? "Ward status is not Sent for billing" : (editingEst ? "Update Estimate" : "Save as Estimate")}
+              >
                 {saving ? <Spinner /> : "📋"} {editingEst ? " Update Estimate" : " Save as Estimate"}
               </Btn>
               <Btn
                 $primary
                 onClick={handleConvertToInsuranceBill}
-                disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing")}
+                disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing") || !isInsurancePatient}
                 style={{
-                  background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
-                  boxShadow: "0 2px 6px rgba(15,118,110,0.3)"
+                  background: !isInsurancePatient
+                    ? "#94a3b8"
+                    : "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+                  boxShadow: !isInsurancePatient ? "none" : "0 2px 6px rgba(15,118,110,0.3)",
+                  cursor: !isInsurancePatient || !patient || patient.ward_status !== "Sent for billing" ? "not-allowed" : "pointer",
+                  opacity: !isInsurancePatient ? 0.55 : 1
                 }}
-                title="Directly convert and save as Insurance Bill"
+                title={
+                  !patient
+                    ? "Search a patient first"
+                    : !isInsurancePatient
+                    ? "Only available for Insurance patients"
+                    : patient.ward_status !== "Sent for billing"
+                    ? "Patient ward status is not Sent for billing"
+                    : "Directly convert and save as Insurance Bill"
+                }
               >
                 {saving ? <Spinner /> : "🛡️"} Convert to Insurance Bill
               </Btn>
               {editingEst && editingEst.status !== "Billed" ? (
-                <Btn $purple onClick={handleSaveBill} disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing")}>
+                <Btn
+                  $purple
+                  onClick={handleSaveBill}
+                  disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing") || isInsurancePatient}
+                  style={{
+                    background: isInsurancePatient ? "#94a3b8" : undefined,
+                    boxShadow: isInsurancePatient ? "none" : undefined,
+                    cursor: isInsurancePatient || !patient || patient.ward_status !== "Sent for billing" ? "not-allowed" : "pointer",
+                    opacity: isInsurancePatient ? 0.55 : 1
+                  }}
+                  title={
+                    !patient
+                      ? "Search a patient first"
+                      : isInsurancePatient
+                      ? "Only available for Non-Insurance patients"
+                      : patient.ward_status !== "Sent for billing"
+                      ? "Patient ward status is not Sent for billing"
+                      : "Convert & Save Bill"
+                  }
+                >
                   {saving ? <Spinner /> : "🧾"} Convert &amp; Save Bill
                 </Btn>
               ) : (
-                <Btn $primary onClick={handleSaveBill} disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing")}>
+                <Btn
+                  $primary
+                  onClick={handleSaveBill}
+                  disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing") || isInsurancePatient}
+                  style={{
+                    background: isInsurancePatient ? "#94a3b8" : undefined,
+                    boxShadow: isInsurancePatient ? "none" : undefined,
+                    cursor: isInsurancePatient || !patient || patient.ward_status !== "Sent for billing" ? "not-allowed" : "pointer",
+                    opacity: isInsurancePatient ? 0.55 : 1
+                  }}
+                  title={
+                    !patient
+                      ? "Search a patient first"
+                      : isInsurancePatient
+                      ? "Only available for Non-Insurance patients"
+                      : patient.ward_status !== "Sent for billing"
+                      ? "Patient ward status is not Sent for billing"
+                      : "Save as Final Bill"
+                  }
+                >
                   {saving ? <Spinner /> : "🧾"} Save as Final Bill
                 </Btn>
               )}

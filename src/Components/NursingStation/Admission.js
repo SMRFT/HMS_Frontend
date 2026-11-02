@@ -528,7 +528,7 @@ function BarcodeSVG({ value = "", width = 240, height = 64, showText = true }) {
 // ══════════════════════════════════════════════════════════════════════════════
 const EMPTY = {
   uhid: "", ipNumber: "", admittingDoctor: "", consultingDoctor: "",
-  roomNo: "", bedNo: "", is_day_care: false, reasonForAdmission: "",
+  roomNo: "", bedNo: "", reasonForAdmission: "",
   packageNo: "", packageName: "",
   mlc_type: "", mlc_doc: null, mlc_remarks: "",
   attender_name: "", attender_relationship: "", attender_phone: "",
@@ -2559,7 +2559,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       customerType: adm.customerType || adm.customer_type || "General",
       insuranceCompanyName: adm.insuranceCompanyName || adm.insurance_company || "",
       company_code: adm.company_code || "",
-      is_day_care: Boolean(adm.is_day_care),
       is_high_risk: !!adm.is_high_risk,
       high_risk_reason: adm.high_risk_reason || "",
       high_risk_date: adm.high_risk_date ? String(adm.high_risk_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
