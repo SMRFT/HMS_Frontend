@@ -1487,7 +1487,7 @@ const getUnitPrice = (item) => {
 };
 
 // --------- MAIN COMPONENT ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-const MedicineChart = ({ onConvertToBill, onCountChange }) => {
+const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeTab }) => {
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
   const yesterdayStr = useMemo(() => {
     const d = new Date();
@@ -1680,9 +1680,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
 
   // --------- Fetch main chart data ------------------------------------------------------------------------------------------------------------------------------------------------
   // --------- Fetch main chart data (instantly loaded from pre-enriched backend API) ---
-  const fetchMedicineChart = useCallback(async () => {
+  const fetchMedicineChart = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
 
       const payload = {};
@@ -1696,7 +1696,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
       );
 
       if (!response.success) {
-        setError(response.error || "Failed to load data.");
+        if (!silent) setError(response.error || "Failed to load data.");
         return;
       }
 
@@ -1707,15 +1707,82 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
       }
     } catch (err) {
       console.error("Error fetching medicine chart:", err);
-      setError("Failed to load data. Please try again.");
+      if (!silent) setError("Failed to load data. Please try again.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [Hmsbaseurl, fromDate, toDate, onCountChange]);
 
+  // Initial load
   useEffect(() => {
     fetchMedicineChart();
   }, [fetchMedicineChart]);
+
+  // Auto re-fetch whenever user switches to the Medicine Chart tab or a refreshTrigger fires
+  useEffect(() => {
+    if (activeTab === "medichart" || activeTab === undefined) {
+      fetchMedicineChart(true);
+    }
+  }, [activeTab, refreshTrigger, fetchMedicineChart]);
+
+  // Real-time synchronization via BroadcastChannel & localStorage when billing completes
+  useEffect(() => {
+    let bc;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        bc = new BroadcastChannel("hms_billing_channel");
+        bc.onmessage = (event) => {
+          if (event?.data?.type === "BILL_SAVED") {
+            const billedId = event.data?.billId;
+            if (billedId) {
+              // 0ms instant removal of billed item from view
+              setMedicineData((prev) =>
+                prev.filter((p) => String(p.Bill_id ?? p.bill_id) !== String(billedId))
+              );
+            }
+            fetchMedicineChart(true);
+          }
+        };
+      }
+    } catch (e) {}
+
+    const handleStorage = (e) => {
+      if (e.key === "hms_last_billing_update" || e.key === "hms_last_medichart_update") {
+        fetchMedicineChart(true);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [fetchMedicineChart]);
+
+  // Sync on window focus / tab visibility return
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!document.hidden && (activeTab === "medichart" || activeTab === undefined)) {
+        fetchMedicineChart(true);
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+    };
+  }, [activeTab, fetchMedicineChart]);
+
+  // Periodic silent auto-sync every 10 seconds when tab is active
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!document.hidden && (activeTab === "medichart" || activeTab === undefined)) {
+        fetchMedicineChart(true);
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [activeTab, fetchMedicineChart]);
 
   // --------- Fast search-as-you-type stock lookup for substitute modal (>= 2 chars) ------
   const fetchMedicines = useCallback(async (query) => {
