@@ -111,6 +111,7 @@ import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
 import ABDMSettings from "./Components/Admin/ABDMSettings";
+import EmployeeMaster from "./Components/Admin/EmployeeMaster";
 import LabWardRequest from "./Components/NursingStation/LabWardRequest";
 import Wardrequest from "./Components/NursingStation/wardrequest";
 import LaundryAdmin from "./Components/NursingStation/LaundryAdmin";
@@ -838,6 +839,10 @@ function App() {
                     element={<ABDMSettings />}
                   />
                 )}
+
+              {/* Employee Master */}
+              <Route path="/EmployeeMaster" element={<EmployeeMaster />} />
+              <Route path="/employeemaster" element={<EmployeeMaster />} />
 
               {/* InPatient Feedback Form */}
               <Route

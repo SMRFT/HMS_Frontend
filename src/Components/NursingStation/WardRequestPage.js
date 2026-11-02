@@ -712,16 +712,14 @@ const SearchableDropdown = ({
     }
   }, [value, options, displayKey, valueKey]);
 
-  // When user is typing, search across displayKey, badge, outlet_code, outlet_name
+  // When user is typing, search across displayKey and badge (if present)
   const filtered = isTyping && searchTerm.trim() !== ""
     ? options.filter((opt) => {
         const q = searchTerm.toLowerCase();
         if (typeof opt === "string") return opt.toLowerCase().includes(q);
         const name = (opt[displayKey] || "").toLowerCase();
         const badge = (opt.badge || "").toLowerCase();
-        const oc = (opt.outlet_code || "").toLowerCase();
-        const on = (opt.outlet_name || "").toLowerCase();
-        return name.includes(q) || badge.includes(q) || oc.includes(q) || on.includes(q);
+        return name.includes(q) || badge.includes(q);
       })
     : options;
 
@@ -951,13 +949,6 @@ const MedicineWardRequest = ({ patient, onClose }) => {
 
   // Form Fields
   const [pharmacyDept, setPharmacyDept] = useState("OLET001");
-  const [outletMap, setOutletMap] = useState({
-    OLET001: "IP PHARMACY",
-    OLET002: "OP PHARMACY",
-    OLET003: "MAIN BLOCK",
-    OLET004: "CANCER BLOCK",
-    OLET005: "VELAVAN",
-  });
   const [billTypeNo, setBillTypeNo] = useState("PH01");
   const [billtype, setBilltype] = useState(18);
   const [billTypeName, setBillTypeName] = useState("PHARMACY IP BILL");
@@ -1089,16 +1080,14 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             }
           });
           currentOutletMap = map;
-          setOutletMap(map);
         }
       } catch (oe) {
         console.warn("Using fallback outlet map:", oe);
       }
 
-      const res = await apiRequest(`${HmsBaseUrl}bill-types/?ignore_outlet=true`, "GET");
-      if (res.success || res.records) {
+      const res = await apiRequest(`${HmsBaseUrl}ward-bill-types/?module=medicine`, "GET");
+      if (res && res.success) {
         const list =
-          res.records ||
           res.data?.billTypes ||
           (Array.isArray(res.data) ? res.data : []);
 
@@ -1125,22 +1114,20 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           );
         };
 
-        const pharmList = enriched
-          .filter(isPharmacy)
+        // Filter bill types configured for Medicine Ward Request (ward_medicine === true)
+        const configuredMedTypes = enriched
+          .filter((b) => {
+            if (b.ward_medicine === true) return true;
+            // Fallback if ward_medicine is not explicitly set
+            return b.ward_request === true && b.outlet_code === "OLET001" && isPharmacy(b);
+          })
           .sort((a, b) => {
             if (a.bill_name?.includes("IP")) return -1;
             if (b.bill_name?.includes("IP")) return 1;
             return (a.bill_name || "").localeCompare(b.bill_name || "");
           });
-        const otherList = enriched
-          .filter((b) => !isPharmacy(b))
-          .sort((a, b) => {
-            const outCmp = (a.outlet_name || "").localeCompare(b.outlet_name || "");
-            if (outCmp !== 0) return outCmp;
-            return (a.bill_name || "").localeCompare(b.bill_name || "");
-          });
 
-        const allBillTypes = [...pharmList, ...otherList];
+        const allBillTypes = configuredMedTypes.length > 0 ? configuredMedTypes : enriched.filter(isPharmacy);
         setBillTypeOptions(allBillTypes);
 
         if (allBillTypes.length > 0) {
@@ -1730,40 +1717,15 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                 }}
               >
                 <FormItem>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "3px",
-                    }}
-                  >
-                    <FormLabel style={{ margin: 0 }}>Medicine Bill Type</FormLabel>
-                    <span
-                      style={{
-                        fontSize: "0.68rem",
-                        fontWeight: 700,
-                        color: "#0d8a7a",
-                        background: "#e6f9f3",
-                        padding: "1px 8px",
-                        borderRadius: "10px",
-                        letterSpacing: "0.2px",
-                      }}
-                    >
-                      Outlet: {pharmacyDept} {outletMap[pharmacyDept] ? `• ${outletMap[pharmacyDept]}` : ""}
-                    </span>
-                  </div>
+                  <FormLabel>Medicine Bill Type</FormLabel>
                   <SearchableDropdown
                     value={billtype}
                     onChange={handleBillTypeChange}
                     options={billTypeOptions.map((o) => ({
                       id: o.bill_type,
                       name: o.bill_name,
-                      badge: o.outlet_badge,
-                      outlet_code: o.outlet_code,
-                      outlet_name: o.outlet_name,
                     }))}
-                    placeholder="Search bill type or outlet..."
+                    placeholder="Search bill type..."
                   />
                 </FormItem>
 
@@ -2420,7 +2382,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <Header>
-              <Title>Select Medicine ({billTypeName || pharmacyDept})</Title>
+              <Title>Select Medicine ({billTypeName || "Pharmacy"})</Title>
               <button onClick={() => setIsSearchModalOpen(false)}>×</button>
             </Header>
             <ContentBody>
@@ -2487,7 +2449,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   }}
                 >
                   <span style={{ display: "inline-block", animation: "spin 1s linear infinite", marginRight: "8px" }}>⏳</span>
-                  Searching medicines in {billTypeName || pharmacyDept}...
+                  Searching medicines in {billTypeName || "Pharmacy"}...
                 </div>
               ) : searchResults.length > 0 ? (
                 <div
@@ -2594,7 +2556,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     color: colors.textMuted,
                   }}
                 >
-                  No stock found matching your search in {billTypeName || pharmacyDept}.
+                  No stock found matching your search in {billTypeName || "Pharmacy"}.
                 </div>
               )}
             </ContentBody>

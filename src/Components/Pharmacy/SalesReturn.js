@@ -1143,8 +1143,8 @@ const SalesReturn = () => {
     const medicine_particulars = billItems
       .filter(item => Number(item.returnQty) > 0)
       .map(item => {
-        const returnableQty   = parseFloat(item.qty ?? 0);               // remaining qty (for price calc)
-        const originalBilledQty = parseFloat(item.billed_qty ?? item.qty ?? 1); // ✅ original bill qty
+        const returnableQty   = parseFloat(item.qty ?? item.quantity ?? 0);               // remaining qty (for price calc)
+        const originalBilledQty = parseFloat(item.billed_qty ?? item.qty ?? item.quantity ?? 1); // ✅ original bill qty
         const calculatedPrice = parseFloat(item.calculated_price ?? 0);  // pro-rated to remaining qty
         const perUnitPrice    = returnableQty > 0 ? calculatedPrice / returnableQty : 0;
         const returnQty       = Number(item.returnQty);
@@ -1595,8 +1595,8 @@ const SalesReturn = () => {
                           let totalRetAmt = 0;
                           const rows = billItems.map((item, index) => {
                             const retQty         = parseFloat(item.returnQty || 0);
-                            const returnableQty  = parseFloat(item.qty || 0);          // remaining qty from API
-                            const billedQty      = parseFloat(item.billed_qty ?? item.qty ?? 0);
+                            const returnableQty  = parseFloat(item.qty ?? item.quantity ?? 0);          // remaining qty from API
+                            const billedQty      = parseFloat(item.billed_qty ?? item.qty ?? item.quantity ?? 0);
                             const alreadyRet     = parseFloat(item.already_returned || 0);
                             const calcPrice      = parseFloat(item.calculated_price ?? 0); // already pro-rated
                             const perUnitPrice   = returnableQty > 0 ? calcPrice / returnableQty : 0;
@@ -1615,7 +1615,7 @@ const SalesReturn = () => {
                                 </BillItemsTd>
                                 <BillItemsTd>{item.batch_number || "—"}</BillItemsTd>
                                 {/* Original billed qty */}
-                                <BillItemsTd>{billedQty || "—"}</BillItemsTd>
+                                <BillItemsTd>{billedQty > 0 ? billedQty : (item.quantity ? parseFloat(item.quantity) : "—")}</BillItemsTd>
                                 {/* How many already returned */}
                                 <BillItemsTd>
                                   {alreadyRet > 0
