@@ -41,23 +41,74 @@ const parseItems = (raw) => {
   }
 };
 
+// ── Number to Words in Indian Currency format ─────────────────────────────────
+const numberToWords = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return "Zero";
+  const amount = Number(num);
+  const n = Math.floor(Math.abs(amount));
+  if (n === 0) return "Zero";
+
+  const a = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+    "Seventeen", "Eighteen", "Nineteen"
+  ];
+  const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  const inWords = (val) => {
+    let str = "";
+    if (val > 9999999) {
+      str += inWords(Math.floor(val / 10000000)) + " Crore ";
+      val %= 10000000;
+    }
+    if (val > 99999) {
+      str += inWords(Math.floor(val / 100000)) + " Lakh ";
+      val %= 100000;
+    }
+    if (val > 999) {
+      str += inWords(Math.floor(val / 1000)) + " Thousand ";
+      val %= 1000;
+    }
+    if (val > 99) {
+      str += inWords(Math.floor(val / 100)) + " Hundred ";
+      val %= 100;
+    }
+    if (val > 0) {
+      if (str !== "") str += " ";
+      if (val < 20) str += a[val];
+      else str += b[Math.floor(val / 10)] + (val % 10 !== 0 ? " " + a[val % 10] : "");
+    }
+    return str.trim();
+  };
+
+  const words = inWords(n);
+  const paise = Math.round((Math.abs(amount) - n) * 100);
+  if (paise > 0) {
+    return `${words} and ${inWords(paise)} Paise`;
+  }
+  return words;
+};
+
 // Item categorization for IP patient format
 const categorizeItem = (it) => {
   const text = `${it.itemName || ""} ${it.category || ""} ${it.department || ""} ${it.item_description || ""} ${it.package_name || ""}`.toLowerCase();
 
   if (/room|ward|nursing|maintenance|accommodation|bed|icu|ccu|day care|stay|admission fee/i.test(text)) {
-    return "Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY";
+    return "ACCOMMODATION- TYPE OF WARD PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY";
   }
   if (/consult|doctor visit|physician|round|specialist|opd|indoor/i.test(text)) {
-    return "CONSULTATION  CHRGES OPD/INDOOR";
+    return "CONSULTATION CHARGES OPD/INDOOR";
   }
-  if (/invest|lab|patholog|radiolog|scan|x-ray|xray|ecg|echo|blood|biochem|microbio|urine|test|profile|panel/i.test(text)) {
+  if (/radiolog|x-ray|xray|ct scan|mri|ultrasound|usg|mammogra/i.test(text)) {
+    return "RADIOLOGY";
+  }
+  if (/invest|lab|patholog|scan|ecg|echo|blood|biochem|microbio|urine|test|profile|panel/i.test(text)) {
     return "INVESTIGATIONS";
   }
   if (/medicine|pharmacy|drug|inject|consumable|iv fluid|tablet|capsule|syrup|suture/i.test(text)) {
     return "MEDICINE CHARGES";
   }
-  return "SPECIALIZED SERVICES.";
+  return "SPECIALISED SERVICES";
 };
 
 // ── Styled Modal Components ──────────────────────────────────────────────────
@@ -142,12 +193,22 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
   };
 
   // Group items for IP format
+  const IP_CATEGORIES = [
+    "ACCOMMODATION- TYPE OF WARD PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY",
+    "CONSULTATION CHARGES OPD/INDOOR",
+    "RADIOLOGY",
+    "INVESTIGATIONS",
+    "MEDICINE CHARGES",
+    "SPECIALISED SERVICES"
+  ];
+
   const groups = {
-    "Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY": [],
-    "CONSULTATION  CHRGES OPD/INDOOR": [],
+    "ACCOMMODATION- TYPE OF WARD PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY": [],
+    "CONSULTATION CHARGES OPD/INDOOR": [],
+    "RADIOLOGY": [],
     "INVESTIGATIONS": [],
     "MEDICINE CHARGES": [],
-    "SPECIALIZED SERVICES.": []
+    "SPECIALISED SERVICES": []
   };
 
   rawItems.forEach(it => {
@@ -155,7 +216,7 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
     if (groups[cat]) {
       groups[cat].push(it);
     } else {
-      groups["SPECIALIZED SERVICES."].push(it);
+      groups["SPECIALISED SERVICES"].push(it);
     }
   });
 
@@ -171,13 +232,10 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
     });
   }
 
-  const groupTotals = {
-    "Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY": groups["Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY"].reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0),
-    "CONSULTATION  CHRGES OPD/INDOOR": groups["CONSULTATION  CHRGES OPD/INDOOR"].reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0),
-    "INVESTIGATIONS": groups["INVESTIGATIONS"].reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0),
-    "MEDICINE CHARGES": groups["MEDICINE CHARGES"].reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0),
-    "SPECIALIZED SERVICES.": groups["SPECIALIZED SERVICES."].reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0),
-  };
+  const groupTotals = {};
+  IP_CATEGORIES.forEach(cat => {
+    groupTotals[cat] = (groups[cat] || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+  });
 
   // ── Header Details Table (Exact Required Order & Aligned Grid) ───────────
   const renderHeaderDetails = () => {
@@ -188,45 +246,45 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
       const rows = [
         {
           lLabel: "Insurance Bill No",
-          lVal: <span style={{ fontWeight: 700, color: "#000" }}>{bill.insurance_bill_number || "—"}</span>,
+          lVal: <span style={{ fontWeight: 700, color: "#000" }}>{String(bill.insurance_bill_number || "—").toUpperCase()}</span>,
           rLabel: "Bill Date",
           rVal: fmtDateStr(bill.bill_date)
         },
         {
           lLabel: "Name Of Patient",
-          lVal: <span style={{ fontWeight: 600 }}>{(pd.patient_name || bill.patient_name || "—").toUpperCase()}{pd.age ? `, ${pd.age} Y` : ""}{pd.gender ? `, ${pd.gender}` : ""}</span>,
+          lVal: <span style={{ fontWeight: 600 }}>{(pd.patient_name || bill.patient_name || "—").toUpperCase()}{pd.age ? `, ${pd.age} Y` : ""}{pd.gender ? `, ${String(pd.gender).toUpperCase()}` : ""}</span>,
           rLabel: "IP No",
-          rVal: bill.ip_number || pd.ip_number || "—"
+          rVal: String(bill.ip_number || pd.ip_number || "—").toUpperCase()
         },
         {
           lLabel: "UHID",
-          lVal: bill.uhid || pd.uhid || "—",
+          lVal: String(bill.uhid || pd.uhid || "—").toUpperCase(),
           rLabel: "Room",
-          rVal: pd.room_no || pd.roomNo || "GENERAL WARD"
+          rVal: String(pd.room_no || pd.roomNo || "GENERAL WARD").toUpperCase()
         },
         {
           lLabel: "Address",
-          lVal: pd.address || pd.permanent_address || "—",
+          lVal: String(pd.address || pd.permanent_address || "—").toUpperCase(),
           rLabel: "Date Of Admin",
           rVal: fmtDateStr(pd.admission_date || pd.admissionDateTime)
         },
         {
           lLabel: "ID Card No",
-          lVal: bill.id_card_number || pd.id_card_number || pd.card_no || "—",
+          lVal: String(bill.id_card_number || pd.id_card_number || pd.card_no || "—").toUpperCase(),
           rLabel: "Date Of Discharge",
           rVal: fmtDateStr(bill.bill_date || pd.discharge_date)
         },
         {
           lLabel: "Referral No",
-          lVal: bill.claim_number || pd.claim_number || pd.referral_number || "—",
+          lVal: String(bill.claim_number || pd.claim_number || pd.referral_number || "—").toUpperCase(),
           rLabel: "Bill No",
-          rVal: bill.bill_no || bill.estimate_number || "—"
+          rVal: String(bill.bill_no || bill.estimate_number || "—").toUpperCase()
         },
         {
           lLabel: "Doctor Name",
-          lVal: pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN",
+          lVal: String(pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN").toUpperCase(),
           rLabel: "Company Name",
-          rVal: bill.company_name || pd.company || "—"
+          rVal: String(bill.company_name || pd.company || "—").toUpperCase()
         }
       ];
 
@@ -238,12 +296,12 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
           <tbody>
             {rows.map((r, i) => (
               <tr key={i}>
-                <td style={{ width: "135px", padding: "2px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.lLabel}</td>
-                <td style={{ width: "12px", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
-                <td style={{ width: "calc(50% - 147px)", padding: "2px 6px 2px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{r.lVal}</td>
-                <td style={{ width: "130px", padding: "2px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.rLabel}</td>
-                <td style={{ width: "12px", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
-                <td style={{ width: "calc(50% - 142px)", padding: "2px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{r.rVal}</td>
+                <td style={{ width: "18%", padding: "2px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.lLabel}</td>
+                <td style={{ width: "2%", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
+                <td style={{ width: "30%", padding: "2px 6px 2px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{r.lVal}</td>
+                <td style={{ width: "18%", padding: "2px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.rLabel}</td>
+                <td style={{ width: "2%", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
+                <td style={{ width: "30%", padding: "2px 2px", verticalAlign: "top", wordBreak: "break-word", textTransform: "uppercase", fontWeight: 600 }}>{r.rVal}</td>
               </tr>
             ))}
           </tbody>
@@ -257,31 +315,31 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
     const genRows = [
       {
         lLabel: "Bill No",
-        lVal: <span style={{ fontWeight: 700 }}>{bill.bill_no || bill.estimate_number || "—"}</span>,
+        lVal: <span style={{ fontWeight: 700 }}>{String(bill.bill_no || bill.estimate_number || "—").toUpperCase()}</span>,
         rLabel: "Bill Date",
         rVal: fmtDateStr(bill.bill_date)
       },
       {
         lLabel: "Name Of Patient",
-        lVal: <span style={{ fontWeight: 600 }}>{(pd.patient_name || bill.patient_name || "—").toUpperCase()}{pd.age ? `, ${pd.age} Y` : ""}{pd.gender ? `, ${pd.gender}` : ""}</span>,
+        lVal: <span style={{ fontWeight: 600 }}>{(pd.patient_name || bill.patient_name || "—").toUpperCase()}{pd.age ? `, ${pd.age} Y` : ""}{pd.gender ? `, ${String(pd.gender).toUpperCase()}` : ""}</span>,
         rLabel: "IP No",
-        rVal: bill.ip_number || pd.ip_number || "—"
+        rVal: String(bill.ip_number || pd.ip_number || "—").toUpperCase()
       },
       {
         lLabel: "UHID",
-        lVal: bill.uhid || pd.uhid || "—",
+        lVal: String(bill.uhid || pd.uhid || "—").toUpperCase(),
         rLabel: "Room",
-        rVal: pd.room_no || pd.roomNo || "GENERAL WARD"
+        rVal: String(pd.room_no || pd.roomNo || "GENERAL WARD").toUpperCase()
       },
       {
         lLabel: "Address",
-        lVal: pd.address || pd.permanent_address || "—",
+        lVal: String(pd.address || pd.permanent_address || "—").toUpperCase(),
         rLabel: "Date Of Admin",
         rVal: fmtDateStr(pd.admission_date || pd.admissionDateTime)
       },
       {
         lLabel: "Doctor Name",
-        lVal: pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN",
+        lVal: String(pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN").toUpperCase(),
         rLabel: "Date Of Discharge",
         rVal: fmtDateStr(bill.bill_date || pd.discharge_date)
       }
@@ -295,12 +353,12 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
         <tbody>
           {genRows.map((r, i) => (
             <tr key={i}>
-              <td style={{ width: "135px", padding: "2px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.lLabel}</td>
-              <td style={{ width: "12px", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
-              <td style={{ width: "calc(50% - 147px)", padding: "2px 6px 2px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{r.lVal}</td>
-              <td style={{ width: "130px", padding: "2px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.rLabel}</td>
-              <td style={{ width: "12px", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
-              <td style={{ width: "calc(50% - 142px)", padding: "2px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{r.rVal}</td>
+              <td style={{ width: "18%", padding: "2px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.lLabel}</td>
+              <td style={{ width: "2%", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
+              <td style={{ width: "30%", padding: "2px 6px 2px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{r.lVal}</td>
+              <td style={{ width: "18%", padding: "2px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.rLabel}</td>
+              <td style={{ width: "2%", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
+              <td style={{ width: "30%", padding: "2px 2px", verticalAlign: "top", wordBreak: "break-word", textTransform: "uppercase", fontWeight: 600 }}>{r.rVal}</td>
             </tr>
           ))}
         </tbody>
@@ -315,6 +373,16 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
     }}>
       <style>{`
         @media print {
+          @page {
+            size: portrait;
+            margin: 8mm 10mm;
+            @bottom-right {
+              content: "Page " counter(page) " of " counter(pages);
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 8pt;
+              font-weight: bold;
+            }
+          }
           body * { visibility: hidden; }
           .print-area, .print-area * { visibility: visible; }
           .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 12px; margin: 0; }
@@ -332,14 +400,22 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
           </div>
 
           {/* Title Banner */}
-          <div style={{
+          <table style={{
+            width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
             borderTop: "2px solid #000", borderBottom: "2px solid #000",
-            padding: "4px 8px", display: "flex", justifyContent: "space-between",
-            fontWeight: "bold", fontSize: "0.85rem", marginBottom: 10
+            marginBottom: 10, marginTop: 4
           }}>
-            <span>DISCHARGE BILL - GST EXEMPT</span>
-            <span>CREDIT BILL (INSURANCE)</span>
-          </div>
+            <tbody>
+              <tr>
+                <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.85rem", padding: "4px 2px" }}>
+                  DISCHARGE BILL - GST EXEMPT
+                </td>
+                <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.85rem", padding: "4px 2px" }}>
+                  CREDIT BILL (INSURANCE)
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
           {/* Header Details (Only on First Page) */}
           {renderHeaderDetails()}
@@ -353,9 +429,9 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
                   fontWeight: "bold"
                 }}>
                   <th style={{ width: "120px", textAlign: "left", padding: "6px 4px" }}>REF</th>
-                  <th style={{ textAlign: "left", padding: "6px 4px" }}>Description</th>
-                  <th style={{ width: "180px", textAlign: "left", padding: "6px 4px" }}>Doctor</th>
-                  <th style={{ width: "110px", textAlign: "right", padding: "6px 4px" }}>Amount</th>
+                  <th style={{ textAlign: "left", padding: "6px 4px" }}>ITEM DESCRIPTION</th>
+                  <th style={{ width: "180px", textAlign: "left", padding: "6px 4px" }}>DOCTOR</th>
+                  <th style={{ width: "110px", textAlign: "right", padding: "6px 4px" }}>AMOUNT</th>
                 </tr>
               </thead>
               <tbody>
@@ -365,12 +441,12 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
                   const doc = it.doctor ? (/^dr[.\s]/i.test(it.doctor) ? it.doctor : `Dr. ${it.doctor}`) : "—";
                   return (
                     <tr key={idx} style={{ borderBottom: "1px dashed #e2e8f0" }}>
-                      <td style={{ padding: "5px 4px", verticalAlign: "top", fontWeight: 600 }}>{nabh}</td>
+                      <td style={{ padding: "5px 4px", verticalAlign: "top", fontWeight: 600, textTransform: "uppercase" }}>{String(nabh).toUpperCase()}</td>
                       <td style={{ padding: "5px 4px", verticalAlign: "top" }}>
-                        <div style={{ fontWeight: 600 }}>{it.itemName || it.name || "Service Item"}</div>
-                        {desc ? <div style={{ fontSize: "0.72rem", color: "#475569" }}>{desc}</div> : null}
+                        <div style={{ fontWeight: 600, textTransform: "uppercase" }}>{String(it.itemName || it.name || "SERVICE ITEM").toUpperCase()}</div>
+                        {desc ? <div style={{ fontSize: "0.72rem", color: "#475569", textTransform: "uppercase" }}>{String(desc).toUpperCase()}</div> : null}
                       </td>
-                      <td style={{ padding: "5px 4px", verticalAlign: "top", color: "#0f766e" }}>{doc}</td>
+                      <td style={{ padding: "5px 4px", verticalAlign: "top", color: "#0f766e", textTransform: "uppercase" }}>{String(doc).toUpperCase()}</td>
                       <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "right", fontWeight: "bold" }}>₹{fmt(it.amount)}</td>
                     </tr>
                   );
@@ -379,25 +455,67 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
             </table>
 
             {/* Total Amount Continuous */}
-            <div style={{
+            <table style={{
+              width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
               borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000",
-              padding: "8px 4px", marginTop: 14, display: "flex", justifyContent: "space-between",
-              fontWeight: "bold", fontSize: "0.90rem"
+              marginTop: 14, marginBottom: 10
             }}>
-              <span>TOTAL AMOUNT</span>
-              <span style={{ color: "#15803d" }}>₹{fmt(bill.net_amount || bill.total_amount)}</span>
+              <tbody>
+                <tr>
+                  <td style={{ textAlign: "left", fontWeight: "bold", fontSize: "0.90rem", padding: "8px 4px", textTransform: "uppercase" }}>
+                    TOTAL AMOUNT
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: "bold", fontSize: "0.90rem", padding: "8px 4px", color: "#15803d" }}>
+                    ₹{fmt(bill.net_amount || bill.total_amount)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Amount in words under the bill */}
+            <div style={{
+              marginTop: 10, marginBottom: 14, padding: "6px 8px",
+              background: "#f8fafc", border: "1px dashed #000",
+              fontSize: "0.80rem", fontWeight: "bold"
+            }}>
+              Rupee(s) {numberToWords(bill.net_amount || bill.total_amount)} Only /-
             </div>
           </div>
 
           {/* Signatures */}
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 40, fontSize: "0.82rem" }}>
-            <div><strong>Prepared By :</strong> {bill.created_by_name || bill.created_by || "CASHIER"}</div>
-            <div><strong>Signature</strong></div>
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginTop: 36, fontSize: "0.80rem", textTransform: "uppercase" }}>
+            <tbody>
+              <tr>
+                <td style={{ width: "50%", textAlign: "left", verticalAlign: "bottom" }}>
+                  <div style={{ fontWeight: "bold" }}>{(bill.created_by_name || bill.created_by || "SHANTHI G").toUpperCase()}</div>
+                  <div style={{ fontSize: "0.72rem", color: "#475569" }}>ASST. MANAGER / INSURANCE EXECUTIVE</div>
+                </td>
+                <td style={{ width: "50%", textAlign: "right", verticalAlign: "bottom" }}>
+                  <div style={{ fontWeight: "bold" }}>DR. M.KAUSALYA</div>
+                  <div style={{ fontSize: "0.72rem", color: "#475569" }}>GENERAL MANAGER - INSURANCE</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Page Number (Center of page before line and after signature) */}
+          <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "0.82rem", marginTop: 24, marginBottom: 8, textTransform: "uppercase" }}>
+            PAGE : 1 OF 1
           </div>
 
-          <div style={{ textAlign: "center", fontSize: "0.68rem", fontStyle: "italic", marginTop: 24, borderTop: "1px solid #ccc", paddingTop: 6 }}>
-            Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate).
-          </div>
+          {/* Bottom Footer Line & Exemption */}
+          <table style={{
+            width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
+            borderTop: "1px solid #ccc", fontSize: "0.74rem"
+          }}>
+            <tbody>
+              <tr>
+                <td style={{ textAlign: "left", fontStyle: "italic", fontSize: "0.68rem", padding: "6px 2px 0", verticalAlign: "middle" }}>
+                  Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate).
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -412,40 +530,42 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
             </div>
 
             {/* Title Banner */}
-            <div style={{
+            <table style={{
+              width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
               borderTop: "2px solid #000", borderBottom: "2px solid #000",
-              padding: "4px 8px", display: "flex", justifyContent: "space-between",
-              fontWeight: "bold", fontSize: "0.85rem", marginBottom: 10
+              marginBottom: 10, marginTop: 4
             }}>
-              <span>DISCHARGE BILL - GST EXEMPT</span>
-              <span>CREDIT BILL (INSURANCE)</span>
-            </div>
+              <tbody>
+                <tr>
+                  <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.85rem", padding: "4px 2px" }}>
+                    DISCHARGE BILL - GST EXEMPT
+                  </td>
+                  <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.85rem", padding: "4px 2px" }}>
+                    CREDIT BILL (INSURANCE)
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
             {/* Header & Patient Details (ONLY on First Page) */}
             {renderHeaderDetails()}
 
             {/* Page 1: Overall Category Summary Table */}
             <div style={{ marginTop: 14, marginBottom: 18 }}>
-              <div style={{ fontWeight: "bold", fontSize: "0.84rem", marginBottom: 6, textTransform: "uppercase" }}>
-                Overall Charges Summary
+              <div style={{ fontWeight: "bold", fontSize: "0.82rem", marginBottom: 6, textTransform: "uppercase" }}>
+                HOSPITAL CHARGES (WHERE PACKAGE DEAL RATES ARE NOT SPECIFIED)
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                 <thead>
                   <tr style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000" }}>
-                    <th style={{ textAlign: "left", padding: "7px 6px" }}>Item description</th>
-                    <th style={{ textAlign: "right", padding: "7px 6px", width: "130px" }}>Amount</th>
+                    <th style={{ textAlign: "left", padding: "7px 6px" }}>ITEM DESCRIPTION</th>
+                    <th style={{ textAlign: "right", padding: "7px 6px", width: "130px" }}>AMOUNT</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    "Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY",
-                    "CONSULTATION  CHRGES OPD/INDOOR",
-                    "INVESTIGATIONS",
-                    "MEDICINE CHARGES",
-                    "SPECIALIZED SERVICES."
-                  ].filter(cat => (parseFloat(groupTotals[cat]) || 0) > 0).map((cat, i) => (
+                  {IP_CATEGORIES.filter(cat => (parseFloat(groupTotals[cat]) || 0) > 0).map((cat, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid #ddd" }}>
-                      <td style={{ padding: "8px 6px", fontWeight: 600 }}>
+                      <td style={{ padding: "8px 6px", fontWeight: 600, textTransform: "uppercase" }}>
                         {cat}
                       </td>
                       <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: 700 }}>
@@ -453,16 +573,10 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
                       </td>
                     </tr>
                   ))}
-                  {![
-                    "Accommodation-Type of Ward PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY",
-                    "CONSULTATION  CHRGES OPD/INDOOR",
-                    "INVESTIGATIONS",
-                    "MEDICINE CHARGES",
-                    "SPECIALIZED SERVICES."
-                  ].some(cat => (parseFloat(groupTotals[cat]) || 0) > 0) && (
+                  {!IP_CATEGORIES.some(cat => (parseFloat(groupTotals[cat]) || 0) > 0) && (
                     <tr style={{ borderBottom: "1px solid #ddd" }}>
                       <td colSpan={2} style={{ padding: "10px 6px", textAlign: "center", color: "#64748b" }}>
-                        No charges available
+                        NO CHARGES AVAILABLE
                       </td>
                     </tr>
                   )}
@@ -474,53 +588,115 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
                   <tbody>
                     <tr>
-                      <td style={{ textAlign: "right", padding: "2px 8px" }}>Total Items Amount :</td>
-                      <td style={{ width: "130px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.total_amount)}</td>
+                      <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: 600 }}>TOTAL :</td>
+                      <td style={{ width: "130px", textAlign: "right", padding: "2px 4px", fontWeight: 700 }}>₹{fmt(bill.total_amount)}</td>
                     </tr>
                     {parseFloat(bill.advance_amount) > 0 && (
                       <tr style={{ color: "#b91c1c" }}>
-                        <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Advance Paid :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.advance_amount)}</td>
+                        <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: 600 }}>LESS: ADVANCE PAID :</td>
+                        <td style={{ width: "130px", textAlign: "right", padding: "2px 4px", fontWeight: 700 }}>-₹{fmt(bill.advance_amount)}</td>
                       </tr>
                     )}
                     {parseFloat(bill.discount_amount) > 0 && (
                       <tr style={{ color: "#b91c1c" }}>
-                        <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Discount :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.discount_amount)}</td>
+                        <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: 600 }}>LESS: DISCOUNT :</td>
+                        <td style={{ width: "130px", textAlign: "right", padding: "2px 4px", fontWeight: 700 }}>-₹{fmt(bill.discount_amount)}</td>
                       </tr>
                     )}
                     <tr>
                       <td style={{ textAlign: "right", padding: "6px 8px 2px", fontWeight: "bold", fontSize: "0.92rem", borderTop: "1px dashed #666" }}>
-                        Net Amount Payable :
+                        GRAND TOTAL :
                       </td>
                       <td style={{
                         width: "130px", textAlign: "right", padding: "6px 4px 2px", fontWeight: "bold", fontSize: "0.92rem",
                         borderTop: "1px dashed #666", color: "#15803d"
                       }}>
-                        ₹{fmt(bill.net_amount)}
+                        ₹{fmt(bill.net_amount || bill.total_amount)}
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+
+              {/* Amount in words under the bill */}
+              <div style={{
+                marginTop: 10, marginBottom: 14, padding: "6px 8px",
+                background: "#f8fafc", border: "1px dashed #000",
+                fontSize: "0.80rem", fontWeight: "bold"
+              }}>
+                Rupee(s) {numberToWords(bill.net_amount || bill.total_amount)} Only /-
+              </div>
             </div>
+
+            {/* Page 1 Signatures */}
+            <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginTop: 36, fontSize: "0.80rem", textTransform: "uppercase" }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: "50%", textAlign: "left", verticalAlign: "bottom" }}>
+                    <div style={{ fontWeight: "bold" }}>{(bill.created_by_name || bill.created_by || "SHANTHI G").toUpperCase()}</div>
+                    <div style={{ fontSize: "0.72rem", color: "#475569" }}>ASST. MANAGER / INSURANCE EXECUTIVE</div>
+                  </td>
+                  <td style={{ width: "50%", textAlign: "right", verticalAlign: "bottom" }}>
+                    <div style={{ fontWeight: "bold" }}>DR. M.KAUSALYA</div>
+                    <div style={{ fontSize: "0.72rem", color: "#475569" }}>GENERAL MANAGER - INSURANCE</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Page Number (Center of page before line and after signature) */}
+            <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "0.82rem", marginTop: 24, marginBottom: 8, textTransform: "uppercase" }}>
+              PAGE : 1 OF 2
+            </div>
+
+            {/* Bottom Footer Line & Exemption */}
+            <table style={{
+              width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
+              borderTop: "1px solid #ccc", fontSize: "0.74rem"
+            }}>
+              <tbody>
+                <tr>
+                  <td style={{ textAlign: "left", fontStyle: "italic", fontSize: "0.68rem", padding: "6px 2px 0", verticalAlign: "middle" }}>
+                    Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate).
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
-          {/* ═════════ PAGE 2: NEXT PAGE (NO HEADER OR PATIENT DETAILS) ═════════ */}
-          <div className="page-break" style={{ paddingTop: 20 }}>
+          {/* ═════════ PAGE 2: NEXT PAGE (DETAILED BREAKDOWN) ═════════ */}
+          <div className="page-break" style={{ paddingTop: 16 }}>
+            {/* Header on Page 2 */}
+            <table style={{
+              width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
+              borderTop: "2px solid #000", borderBottom: "2px solid #000",
+              marginBottom: 10, marginTop: 4
+            }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.85rem", padding: "4px 2px" }}>
+                    DISCHARGE BILL - DETAILED BREAKDOWN
+                  </td>
+                  <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.85rem", padding: "4px 2px" }}>
+                    {(bill.insurance_bill_number || bill.bill_no || "").toUpperCase()}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
             {/* Column Headers directly at top of Page 2 */}
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.80rem", marginBottom: 8 }}>
               <thead>
                 <tr style={{ borderTop: "2px solid #000", borderBottom: "2px solid #000", background: "#f8fafc" }}>
                   <th style={{ width: "130px", textAlign: "left", padding: "7px 6px" }}>REF</th>
-                  <th style={{ textAlign: "left", padding: "7px 6px" }}>DESCRIPTION</th>
+                  <th style={{ textAlign: "left", padding: "7px 6px" }}>ITEM DESCRIPTION</th>
                   <th style={{ width: "120px", textAlign: "right", padding: "7px 6px" }}>AMOUNT</th>
                 </tr>
               </thead>
             </table>
 
-            {/* Grouped Breakdown: Heading Separately Each Item */}
-            {Object.keys(groups).map((groupTitle, gIdx) => {
+            {/* Grouped Breakdown */}
+            {IP_CATEGORIES.map((groupTitle, gIdx) => {
               const gItems = groups[groupTitle];
               if (!gItems || gItems.length === 0) return null;
               if (!(parseFloat(groupTotals[groupTitle]) > 0)) return null;
@@ -545,13 +721,13 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
                         const doc = it.doctor ? ` — ${it.doctor}` : "";
                         return (
                           <tr key={idx} style={{ borderBottom: "1px dashed #e2e8f0" }}>
-                            <td style={{ width: "130px", padding: "4px 6px", verticalAlign: "top", fontWeight: 600, color: "#334155" }}>
-                              {nabh}
+                            <td style={{ width: "130px", padding: "4px 6px", verticalAlign: "top", fontWeight: 600, color: "#334155", textTransform: "uppercase" }}>
+                              {String(nabh).toUpperCase()}
                             </td>
                             <td style={{ padding: "4px 6px", verticalAlign: "top" }}>
-                              <span style={{ fontWeight: 600 }}>{it.itemName || it.name || "Item"}</span>
-                              {doc ? <span style={{ fontSize: "0.74rem", color: "#0f766e" }}>{doc}</span> : null}
-                              {desc ? <div style={{ fontSize: "0.71rem", color: "#64748b" }}>{desc}</div> : null}
+                              <span style={{ fontWeight: 600, textTransform: "uppercase" }}>{String(it.itemName || it.name || "ITEM").toUpperCase()}</span>
+                              {doc ? <span style={{ fontSize: "0.74rem", color: "#0f766e", textTransform: "uppercase" }}>{String(doc).toUpperCase()}</span> : null}
+                              {desc ? <div style={{ fontSize: "0.71rem", color: "#64748b", textTransform: "uppercase" }}>{String(desc).toUpperCase()}</div> : null}
                             </td>
                             <td style={{ width: "120px", padding: "4px 6px", textAlign: "right", verticalAlign: "top", fontWeight: "bold" }}>
                               ₹{fmt(it.amount)}
@@ -566,9 +742,9 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
                   <div style={{
                     display: "flex", justifyContent: "flex-end", gap: 14,
                     padding: "4px 8px", fontSize: "0.76rem", fontWeight: 700,
-                    color: "#475569", background: "#f8fafc"
+                    color: "#475569", background: "#f8fafc", textTransform: "uppercase"
                   }}>
-                    <span>Category Subtotal:</span>
+                    <span>CATEGORY SUBTOTAL:</span>
                     <span>₹{fmt(groupTotals[groupTitle])}</span>
                   </div>
                 </div>
@@ -579,21 +755,55 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
             <div style={{
               borderTop: "2px solid #000", borderBottom: "2px solid #000",
               padding: "8px 6px", marginTop: 16, display: "flex", justifyContent: "space-between",
-              fontWeight: "bold", fontSize: "0.92rem"
+              fontWeight: "bold", fontSize: "0.92rem", textTransform: "uppercase"
             }}>
               <span>TOTAL ITEMS AMOUNT</span>
               <span style={{ color: "#15803d" }}>₹{fmt(bill.total_amount)}</span>
             </div>
 
-            {/* Signatures at the end of the bill */}
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 40, fontSize: "0.82rem" }}>
-              <div><strong>Prepared By :</strong> {bill.created_by_name || bill.created_by || "CASHIER"}</div>
-              <div><strong>Signature</strong></div>
+            {/* Amount in words under Page 2 */}
+            <div style={{
+              marginTop: 10, marginBottom: 14, padding: "6px 8px",
+              background: "#f8fafc", border: "1px dashed #000",
+              fontSize: "0.80rem", fontWeight: "bold"
+            }}>
+              Rupee(s) {numberToWords(bill.total_amount || bill.net_amount)} Only /-
             </div>
 
-            <div style={{ textAlign: "center", fontSize: "0.68rem", fontStyle: "italic", marginTop: 24, borderTop: "1px solid #ccc", paddingTop: 6 }}>
-              Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate).
+            {/* Page 2 Signatures */}
+            <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginTop: 36, fontSize: "0.80rem", textTransform: "uppercase" }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: "50%", textAlign: "left", verticalAlign: "bottom" }}>
+                    <div style={{ fontWeight: "bold" }}>{(bill.created_by_name || bill.created_by || "SHANTHI G").toUpperCase()}</div>
+                    <div style={{ fontSize: "0.72rem", color: "#475569" }}>ASST. MANAGER / INSURANCE EXECUTIVE</div>
+                  </td>
+                  <td style={{ width: "50%", textAlign: "right", verticalAlign: "bottom" }}>
+                    <div style={{ fontWeight: "bold" }}>DR. M.KAUSALYA</div>
+                    <div style={{ fontSize: "0.72rem", color: "#475569" }}>GENERAL MANAGER - INSURANCE</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Page Number (Center of page before line and after signature) */}
+            <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "0.82rem", marginTop: 24, marginBottom: 8, textTransform: "uppercase" }}>
+              PAGE : 2 OF 2
             </div>
+
+            {/* Bottom Footer Line & Exemption */}
+            <table style={{
+              width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
+              borderTop: "1px solid #ccc", fontSize: "0.74rem"
+            }}>
+              <tbody>
+                <tr>
+                  <td style={{ textAlign: "left", fontStyle: "italic", fontSize: "0.68rem", padding: "6px 2px 0", verticalAlign: "middle" }}>
+                    Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate).
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -607,29 +817,37 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
           </div>
 
           {/* Title Banner */}
-          <div style={{
+          <table style={{
+            width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
             borderTop: "2px solid #000", borderBottom: "2px solid #000",
-            padding: "4px 8px", display: "flex", justifyContent: "space-between",
-            fontWeight: "bold", fontSize: "0.85rem", marginBottom: 10
+            marginBottom: 10, marginTop: 4
           }}>
-            <span>DISCHARGE BILL - GST EXEMPT</span>
-            <span>CASH BILL</span>
-          </div>
+            <tbody>
+              <tr>
+                <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.85rem", padding: "4px 2px" }}>
+                  DISCHARGE BILL - GST EXEMPT
+                </td>
+                <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.85rem", padding: "4px 2px" }}>
+                  CASH BILL
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
           {/* Header Details (Only on First Page) */}
           {renderHeaderDetails()}
 
           {/* Items Table */}
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem", marginBottom: 12 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: "0.78rem", marginBottom: 12 }}>
             <thead>
               <tr style={{ borderBottom: "1.5px solid #000", borderTop: "1.5px solid #000" }}>
-                <th style={{ textAlign: "left", padding: "6px 4px", width: "35px" }}>SlNo</th>
-                <th style={{ textAlign: "left", padding: "6px 4px", width: "95px" }}>NABH Code</th>
-                <th style={{ textAlign: "left", padding: "6px 4px" }}>Description</th>
-                <th style={{ textAlign: "left", padding: "6px 4px", whiteSpace: "nowrap" }}>Doctor</th>
-                <th style={{ textAlign: "right", padding: "6px 4px", width: "55px" }}>Quantity</th>
-                <th style={{ textAlign: "right", padding: "6px 4px", width: "75px" }}>Rate</th>
-                <th style={{ textAlign: "right", padding: "6px 4px", width: "85px" }}>Amount</th>
+                <th style={{ textAlign: "left", padding: "6px 2px", width: "5%" }}>SLNO</th>
+                <th style={{ textAlign: "left", padding: "6px 2px", width: "13%" }}>NABH CODE</th>
+                <th style={{ textAlign: "left", padding: "6px 2px", width: "33%" }}>ITEM DESCRIPTION</th>
+                <th style={{ textAlign: "left", padding: "6px 2px", width: "21%" }}>DOCTOR</th>
+                <th style={{ textAlign: "right", padding: "6px 2px", width: "8%" }}>QTY</th>
+                <th style={{ textAlign: "right", padding: "6px 2px", width: "10%" }}>RATE</th>
+                <th style={{ textAlign: "right", padding: "6px 2px", width: "10%" }}>AMOUNT</th>
               </tr>
             </thead>
             <tbody>
@@ -638,18 +856,18 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
                 const desc = cleanDesc(it);
                 return (
                   <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: "5px 4px", verticalAlign: "top" }}>{idx + 1}</td>
-                    <td style={{ padding: "5px 4px", verticalAlign: "top", fontFamily: "'Courier New', Courier, monospace" }}>{nabh}</td>
-                    <td style={{ padding: "5px 4px", verticalAlign: "top" }}>
-                      <div style={{ fontWeight: 600 }}>{it.itemName || it.name}</div>
-                      {desc ? <div style={{ fontSize: "0.72rem", color: "#334155", marginTop: 2 }}>{desc}</div> : null}
+                    <td style={{ padding: "5px 2px", verticalAlign: "top" }}>{idx + 1}</td>
+                    <td style={{ padding: "5px 2px", verticalAlign: "top", fontFamily: "'Courier New', Courier, monospace", textTransform: "uppercase" }}>{String(nabh).toUpperCase()}</td>
+                    <td style={{ padding: "5px 2px", verticalAlign: "top", wordBreak: "break-word" }}>
+                      <div style={{ fontWeight: 600, textTransform: "uppercase" }}>{String(it.itemName || it.name).toUpperCase()}</div>
+                      {desc ? <div style={{ fontSize: "0.72rem", color: "#334155", marginTop: 2, textTransform: "uppercase" }}>{String(desc).toUpperCase()}</div> : null}
                     </td>
-                    <td style={{ padding: "5px 4px", verticalAlign: "top", color: "#0f766e", fontWeight: 600, whiteSpace: "nowrap" }}>
-                      {it.doctor ? (/^dr[.\s]/i.test(it.doctor) ? it.doctor : `Dr. ${it.doctor}`) : "—"}
+                    <td style={{ padding: "5px 2px", verticalAlign: "top", color: "#0f766e", fontWeight: 600, textTransform: "uppercase", wordBreak: "break-word" }}>
+                      {String(it.doctor ? (/^dr[.\s]/i.test(it.doctor) ? it.doctor : `Dr. ${it.doctor}`) : "—").toUpperCase()}
                     </td>
-                    <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{it.quantity || 1}</td>
-                    <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{fmt(it.rate)}</td>
-                    <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top", fontWeight: "bold" }}>{fmt(it.amount)}</td>
+                    <td style={{ padding: "5px 2px", textAlign: "right", verticalAlign: "top" }}>{it.quantity || 1}</td>
+                    <td style={{ padding: "5px 2px", textAlign: "right", verticalAlign: "top" }}>{fmt(it.rate)}</td>
+                    <td style={{ padding: "5px 2px", textAlign: "right", verticalAlign: "top", fontWeight: "bold" }}>{fmt(it.amount)}</td>
                   </tr>
                 );
               })}
@@ -657,46 +875,46 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
           </table>
 
           {/* Summary Totals */}
-          <div style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", paddingTop: 8, paddingBottom: 8, marginBottom: 20 }}>
+          <div style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", paddingTop: 8, paddingBottom: 8, marginBottom: 14 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
               <tbody>
                 <tr>
-                  <td style={{ textAlign: "right", padding: "2px 8px" }}>Total Items Amount :</td>
-                  <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.total_amount)}</td>
+                  <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: 600 }}>TOTAL ITEMS AMOUNT :</td>
+                  <td style={{ width: "120px", textAlign: "right", padding: "2px 4px", fontWeight: 700 }}>₹{fmt(bill.total_amount)}</td>
                 </tr>
                 {parseFloat(bill.medicines_amount) > 0 && (
                   <tr>
-                    <td style={{ textAlign: "right", padding: "2px 8px" }}>Medicines :</td>
-                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.medicines_amount)}</td>
+                    <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: 600 }}>MEDICINES :</td>
+                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px", fontWeight: 700 }}>₹{fmt(bill.medicines_amount)}</td>
                   </tr>
                 )}
                 {parseFloat(bill.gst_amount) > 0 && (
                   <tr>
-                    <td style={{ textAlign: "right", padding: "2px 8px" }}>GST :</td>
-                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.gst_amount)}</td>
+                    <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: 600 }}>GST :</td>
+                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px", fontWeight: 700 }}>₹{fmt(bill.gst_amount)}</td>
                   </tr>
                 )}
                 {parseFloat(bill.advance_amount) > 0 && (
                   <tr style={{ color: "#b91c1c" }}>
-                    <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Advance Paid :</td>
-                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.advance_amount)}</td>
+                    <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: 600 }}>LESS: ADVANCE PAID :</td>
+                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px", fontWeight: 700 }}>-₹{fmt(bill.advance_amount)}</td>
                   </tr>
                 )}
                 {parseFloat(bill.sales_return) > 0 && (
                   <tr style={{ color: "#b91c1c" }}>
-                    <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Sales Return :</td>
-                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.sales_return)}</td>
+                    <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: 600 }}>LESS: SALES RETURN :</td>
+                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px", fontWeight: 700 }}>-₹{fmt(bill.sales_return)}</td>
                   </tr>
                 )}
                 {parseFloat(bill.discount_amount) > 0 && (
                   <tr style={{ color: "#b91c1c" }}>
-                    <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Discount :</td>
-                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.discount_amount)}</td>
+                    <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: 600 }}>LESS: DISCOUNT :</td>
+                    <td style={{ width: "120px", textAlign: "right", padding: "2px 4px", fontWeight: 700 }}>-₹{fmt(bill.discount_amount)}</td>
                   </tr>
                 )}
                 <tr>
                   <td style={{ textAlign: "right", padding: "6px 8px 2px", fontWeight: "bold", fontSize: "0.92rem", borderTop: "1px dashed #666" }}>
-                    {parseFloat(bill.net_amount) < 0 ? "Net Amount (Refund) :" : "Net Amount :"}
+                    {parseFloat(bill.net_amount) < 0 ? "NET AMOUNT (REFUND) :" : "NET AMOUNT :"}
                   </td>
                   <td style={{
                     width: "120px", textAlign: "right", padding: "6px 4px 2px", fontWeight: "bold", fontSize: "0.92rem",
@@ -710,23 +928,47 @@ export const PrintSheet = React.forwardRef(({ bill, insuranceFormat = "IP" }, re
             </table>
           </div>
 
+          {/* Amount in words under the bill */}
+          <div style={{
+            marginTop: 10, marginBottom: 14, padding: "6px 8px",
+            background: "#f8fafc", border: "1px dashed #000",
+            fontSize: "0.80rem", fontWeight: "bold"
+          }}>
+            Rupee(s) {numberToWords(bill.net_amount || bill.total_amount)} Only /-
+          </div>
+
           {/* Footer Signatures */}
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 30, fontSize: "0.82rem" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 32, fontSize: "0.80rem", textTransform: "uppercase" }}>
             <tbody>
               <tr>
                 <td style={{ textAlign: "left", verticalAlign: "bottom" }}>
-                  <strong>Prepared By :</strong> {bill.created_by_name || bill.created_by || "CASHIER"}
+                  <strong>PREPARED BY :</strong> {(bill.created_by_name || bill.created_by || "CASHIER").toUpperCase()}
                 </td>
                 <td style={{ textAlign: "right", verticalAlign: "bottom" }}>
-                  <strong>Signature</strong>
+                  <strong>SIGNATURE</strong>
                 </td>
               </tr>
             </tbody>
           </table>
 
-          <div style={{ textAlign: "center", fontSize: "0.68rem", fontStyle: "italic", marginTop: 24, borderTop: "1px solid #ccc", paddingTop: 6 }}>
-            Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST Exempt Invoice.
+          {/* Page Number (Center of page before line and after signature) */}
+          <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "0.82rem", marginTop: 24, marginBottom: 8, textTransform: "uppercase" }}>
+            PAGE : 1 OF 1
           </div>
+
+          {/* Bottom Footer Line & Exemption */}
+          <table style={{
+            width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
+            borderTop: "1px solid #ccc", fontSize: "0.74rem"
+          }}>
+            <tbody>
+              <tr>
+                <td style={{ textAlign: "left", fontStyle: "italic", fontSize: "0.68rem", padding: "6px 2px 0", verticalAlign: "middle" }}>
+                  Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST Exempt Invoice.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -764,22 +1006,35 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose }) => {
     if (!printRef.current) return;
     let bodyHtml = printRef.current.innerHTML;
 
-    const imgEl = printRef.current.querySelector("img");
-    if (imgEl && imgEl.src) {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = imgEl.naturalWidth || imgEl.width || 750;
-        canvas.height = imgEl.naturalHeight || imgEl.height || 85;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/png");
-        bodyHtml = bodyHtml.replace(/src="[^"]+"/, `src="${dataUrl}"`);
-      } catch {
-        if (imgEl.src.startsWith("/")) {
-          bodyHtml = bodyHtml.replace(/src="\/([^"]+)"/, `src="${window.location.origin}/$1"`);
+    // Convert images to base64 canvas and constrain width to 580px (fits standard A4 Word page)
+    const imgEls = printRef.current.querySelectorAll("img");
+    imgEls.forEach(imgEl => {
+      if (imgEl && imgEl.src) {
+        try {
+          const canvas = document.createElement("canvas");
+          const origW = imgEl.naturalWidth || imgEl.width || 580;
+          const origH = imgEl.naturalHeight || imgEl.height || 75;
+          const targetW = 580;
+          const targetH = Math.max(30, Math.round((origH / origW) * targetW));
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(imgEl, 0, 0, targetW, targetH);
+          const dataUrl = canvas.toDataURL("image/png");
+          bodyHtml = bodyHtml.replace(
+            imgEl.outerHTML,
+            `<img src="${dataUrl}" width="${targetW}" height="${targetH}" style="width:${targetW}px;height:${targetH}px;display:block;margin:0 auto;" />`
+          );
+        } catch {
+          if (imgEl.src.startsWith("/")) {
+            bodyHtml = bodyHtml.replace(imgEl.src, `${window.location.origin}${imgEl.src}`);
+          }
         }
       }
-    }
+    });
+
+    // Remove outer container's padding/maxWidth so Word doesn't double-pad
+    bodyHtml = bodyHtml.replace(/class="print-area"[^>]*style="[^"]*"/i, 'class="print-area" style="width:100%;margin:0;padding:0;"');
 
     const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head>
@@ -795,15 +1050,55 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose }) => {
   </xml>
   <![endif]-->
   <style>
-    body { font-family: 'Courier New', Courier, monospace; font-size: 11pt; color: #000; }
-    table { width: 100%; border-collapse: collapse; }
-    td, th { padding: 4px; font-size: 10pt; }
-    .no-print { display: none; }
-    .page-break { page-break-before: always; }
+    @page Section1 {
+      size: 595.35pt 841.95pt; /* A4 Portrait */
+      margin: 28.35pt 28.35pt 28.35pt 28.35pt; /* 1.0cm narrow margins */
+      mso-header-margin: 20pt;
+      mso-footer-margin: 20pt;
+      mso-paper-source: 0;
+    }
+    div.Section1 {
+      page: Section1;
+    }
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 8.5pt;
+      color: #000;
+      margin: 0;
+      padding: 0;
+    }
+    table {
+      width: 100% !important;
+      max-width: 100% !important;
+      border-collapse: collapse;
+      table-layout: fixed;
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+    td, th {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 8pt;
+      padding: 2px 2px;
+      word-wrap: break-word;
+      word-break: break-all;
+    }
+    img {
+      max-width: 100%;
+    }
+    .no-print {
+      display: none;
+    }
+    .page-break {
+      page-break-before: always;
+      mso-break-type: page-break;
+    }
   </style>
 </head>
-<body>`;
-    const footer = `</body></html>`;
+<body>
+  <div class="Section1">`;
+    const footer = `  </div>
+</body>
+</html>`;
     const fullHtml = header + bodyHtml + footer;
 
     const blob = new Blob(["\ufeff", fullHtml], { type: "application/msword" });
