@@ -48,14 +48,14 @@ const RefreshIcon = styled(RefreshCw)`
 `;
 
 const ModernContainer = styled(PageWrapper)`
-  background: #f8fafc;
-  padding: 16px 20px;
-  height: calc(100vh - 125px);
+  background: ${props => props.$isModalView ? '#fff' : '#f8fafc'};
+  padding: ${props => props.$isModalView ? '8px 12px' : '16px 20px'};
+  height: ${props => props.$isModalView ? 'auto' : 'calc(100vh - 125px)'};
   min-height: unset;
-  max-height: calc(100vh - 125px);
+  max-height: ${props => props.$isModalView ? 'none' : 'calc(100vh - 125px)'};
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: ${props => props.$isModalView ? 'visible' : 'hidden'};
   animation: ${fadeIn} 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: 'Inter', -apple-system, sans-serif;
 
@@ -399,17 +399,43 @@ const PaginationButton = styled.button`
   }
 `;
 
-const PharmacyExpiryReport = () => {
+const PharmacyExpiryReport = ({
+    isModalView = false,
+    startDate,
+    endDate,
+    initialOutlet,
+    outlet
+}) => {
     const HMS_BASE_URL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const navigate = useNavigate();
 
     // Filters and Search States
     const [outlets, setOutlets] = useState([]);
+    const propOutlet = outlet || initialOutlet;
     const [selectedOutlet, setSelectedOutlet] = useState(() => {
+        if (propOutlet && propOutlet !== "all" && propOutlet !== "All") return propOutlet;
         return localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
     });
-    const [filterType, setFilterType] = useState("all_time"); // default to all_time, then users can filter via dropdown
-    const [dateRange, setDateRange] = useState([null, null]);
+    const [filterType, setFilterType] = useState(() => {
+        return startDate && endDate ? "custom" : "all_time";
+    });
+    const [dateRange, setDateRange] = useState(() => {
+        if (startDate && endDate) {
+            return [dayjs(startDate), dayjs(endDate)];
+        }
+        return [null, null];
+    });
+
+    useEffect(() => {
+        if (startDate && endDate) {
+            setDateRange([dayjs(startDate), dayjs(endDate)]);
+            setFilterType("custom");
+        }
+        const o = outlet || initialOutlet;
+        if (o) {
+            setSelectedOutlet(o === "all" || o === "All" ? "" : o);
+        }
+    }, [startDate, endDate, outlet, initialOutlet]);
     const [searchQuery, setSearchQuery] = useState("");
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
@@ -437,7 +463,8 @@ const PharmacyExpiryReport = () => {
     // Sync with localStorage when component mounts or gains focus
     useEffect(() => {
         const syncOutlet = () => {
-            const activeOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+            const rawOutlet = (outlet || initialOutlet || selectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim();
+            const activeOutlet = (rawOutlet === "all" || rawOutlet === "All") ? "" : rawOutlet;
             setSelectedOutlet(activeOutlet);
         };
         syncOutlet();
@@ -647,7 +674,8 @@ const PharmacyExpiryReport = () => {
     };
 
     return (
-        <ModernContainer>
+        <ModernContainer $isModalView={isModalView}>
+            {!isModalView && (
             <HeaderSection>
                 <div className="title-area">
                     <h1>
@@ -691,6 +719,7 @@ const PharmacyExpiryReport = () => {
                     </Button>
                 </div>
             </HeaderSection>
+            )}
 
             {/* Metrics cards */}
             <StatsGrid>

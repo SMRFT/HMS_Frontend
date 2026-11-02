@@ -10,7 +10,7 @@ import apiRequest from '../../Auth/apiRequest';
 import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
 import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import * as S from '../GlobalStyles';
-import { RotateCcw, CheckCircle, Clock, X, Download, RefreshCw, Search, ShieldCheck, FileText, AlertCircle, MoreVertical, Eye, CheckCheck, Printer, Trash2, Ban } from 'lucide-react';
+import { RotateCcw, CheckCircle, Clock, X, Download, RefreshCw, Search, ShieldCheck, FileText, AlertCircle, MoreVertical, Eye, CheckCheck, Printer, Trash2, Ban, User } from 'lucide-react';
 import TablePagination, { usePagination } from './TablePagination';
 
 const { Option } = Select;
@@ -675,7 +675,7 @@ const StoresApprovalManager = () => {
                         <tbody>${itemsHtml}</tbody>
                     </table>
                     <div class="footer">
-                        <div>Prepared By</div>
+                        <div>Prepared By: <strong>${intent.created_by_name ? `${intent.created_by_name} (${intent.created_by})` : (intent.created_by || 'Department User')}</strong></div>
                         <div>Verified By</div>
                         <div>Authorized Signatory</div>
                     </div>
@@ -1410,6 +1410,10 @@ const StoresApprovalManager = () => {
                                                 <S.Td style={{ padding: '15px' }}>
                                                     <div style={{ color: S.colors.primary, fontWeight: '800', fontSize: '0.95rem' }}>{item.intent_id}</div>
                                                     <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>{new Date(item.date).toLocaleDateString()}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#0f766e', fontWeight: '600', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <User size={12} />
+                                                        <span>Created By: <strong>{item.created_by_name || item.created_by || 'Department User'}</strong></span>
+                                                    </div>
                                                 </S.Td>
                                                 <S.Td style={{ fontWeight: '700', color: '#334155' }}>{item.department_name}</S.Td>
                                                 <S.Td>
@@ -1717,6 +1721,10 @@ const StoresApprovalManager = () => {
                                                         <div style={{ fontSize: '0.78rem', color: S.colors.textMuted, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                                                             <Clock size={12} />
                                                             {item.return_date ? dayjs(item.return_date).format('DD MMM, YYYY') : '-'}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.75rem', color: '#0f766e', fontWeight: '600', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <User size={12} />
+                                                            <span>Created By: <strong>{item.created_by_name || item.created_by || '-'}</strong></span>
                                                         </div>
                                                     </S.Td>
                                                     <S.Td>
@@ -2068,7 +2076,8 @@ const StoresApprovalManager = () => {
                                         <div>
                                             <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Created By</div>
                                             <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px' }}>
-                                                {selectedIntentForView.created_by || selectedIntentForView.user || 'Department User'}
+                                                <User size={13} color="#0d9488" style={{ marginRight: '4px' }} />
+                                                {selectedIntentForView.created_by_name ? `${selectedIntentForView.created_by_name} (${selectedIntentForView.created_by})` : (selectedIntentForView.created_by || selectedIntentForView.user || 'Department User')}
                                             </div>
                                         </div>
                                     </div>
@@ -2423,6 +2432,13 @@ const StoresApprovalManager = () => {
                                             <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Return Reason</div>
                                             <div style={{ fontSize: '0.92rem', fontWeight: '700', color: '#0284c7', marginTop: '2px' }}>
                                                 {selectedReturnForView.return_reason || 'EXCESS'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Created By</div>
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                                                <User size={13} color="#0d9488" style={{ marginRight: '4px' }} />
+                                                <span>{selectedReturnForView.created_by_name ? `${selectedReturnForView.created_by_name} (${selectedReturnForView.created_by})` : (selectedReturnForView.created_by || selectedReturnForView.user || '-')}</span>
                                             </div>
                                         </div>
                                     </div>

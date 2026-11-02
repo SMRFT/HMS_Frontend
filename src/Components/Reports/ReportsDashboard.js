@@ -54,6 +54,8 @@ const DaywiseSalesTaxRegister = lazy(() => import("../Accounts/DaywiseSalesTaxRe
 const StockReportIpOp = lazy(() => import("../Accounts/StockReportIpOp"));
 const DepartmentWiseReport = lazy(() => import("../Accounts/DepartmentWiseReport"));
 const DiscountBillsReport = lazy(() => import("../Accounts/DiscountBillsReport"));
+const PharmacyExpiryReport = lazy(() => import("./PharmacyExpiryReport"));
+const SalesReturnReport = lazy(() => import("./SalesReturnReport"));
 
 const Container = styled(PageWrapper)`
 
@@ -794,7 +796,7 @@ const ReportsDashboard = () => {
             title: "Pharmacy Expiry Report",
             description: "Analyze stock expiry dates, track upcoming batch expiries, and export sheets",
             icon: <ClipboardList size={24} />,
-            path: "/PharmacyExpiryReport",
+            component: PharmacyExpiryReport,
             color: colors.primary
         },
         {
@@ -802,7 +804,7 @@ const ReportsDashboard = () => {
             title: "Sales Return Report",
             description: "IP and OP pharmacy sales returns with patient, doctor, and item details",
             icon: <RotateCcw size={24} />,
-            path: "/SalesReturnReport",
+            component: SalesReturnReport,
             color: colors.primary
         },
         {
@@ -1066,11 +1068,12 @@ const ReportsDashboard = () => {
                         </FormRow>
                     )}
 
-                    {["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_reg", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "misc_payment"].includes(selectedReport?.id) && (
+                    {["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "misc_payment", "sales_return"].includes(selectedReport?.id) && (
                         <FormRow style={{ marginTop: '16px' }}>
                             <InputWrapper style={{ width: '100%' }}>
                                 <Label>
-                                    {selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax" ? "Patient Type" :
+                                    {selectedReport?.id === "sales_tax_register" || selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax_register" || selectedReport?.id === "daywise_sales_tax" ? "Patient Type" :
+                                     selectedReport?.id === "sales_return" ? "Return Type" :
                                      selectedReport?.id === "discharge_bills" ? "Payment Mode" :
                                      selectedReport?.id === "misc_payment" ? "Receipt Type" :
                                      "Bill Type / Category"}
@@ -1080,11 +1083,17 @@ const ReportsDashboard = () => {
                                     onChange={(e) => setBillType(e.target.value)}
                                     style={{ width: '100%', borderRadius: '8px', height: '42px' }}
                                 >
-                                    {selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax" ? (
+                                    {selectedReport?.id === "sales_tax_register" || selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax_register" || selectedReport?.id === "daywise_sales_tax" ? (
                                         <>
                                             <option value="all">All Patients (OP & IP)</option>
                                             <option value="op">Out-Patient (OP)</option>
                                             <option value="ip">In-Patient (IP)</option>
+                                        </>
+                                    ) : selectedReport?.id === "sales_return" ? (
+                                        <>
+                                            <option value="all">All Returns (OP & IP)</option>
+                                            <option value="op">OP Returns</option>
+                                            <option value="ip">IP Returns</option>
                                         </>
                                     ) : selectedReport?.id === "bill_cancel" ? (
                                         <>
