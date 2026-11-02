@@ -137,7 +137,7 @@ const PrintSignatures = styled.div`
     }
 `;
 
-const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
+const StockReportIpOp = ({ isModalView = false, startDate, endDate, initialOutlet = "all", outlet }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
     const [reportData, setReportData] = useState([]);
@@ -149,20 +149,29 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
     const branch_name = localStorage.getItem("branch_name") || "Main Branch";
     const user_id = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || "Staff";
 
+    const [selectedOutlet, setSelectedOutlet] = useState(outlet || initialOutlet || "all");
+
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        const o = outlet || initialOutlet;
+        if (o) setSelectedOutlet(o);
+    }, [startDate, endDate, outlet, initialOutlet]);
 
     useEffect(() => {
         if (fromDate && toDate) fetchReport();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fromDate, toDate]);
+    }, [fromDate, toDate, selectedOutlet, outlet, initialOutlet]);
 
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const response = await apiRequest(`${HmsBaseUrl}stock-report-ip-op/?from_date=${fromDate}&to_date=${toDate}`, "GET");
+            const activeOutlet = outlet || initialOutlet || selectedOutlet;
+            let url = `${HmsBaseUrl}stock-report-ip-op/?from_date=${fromDate}&to_date=${toDate}`;
+            if (activeOutlet && activeOutlet !== "all" && activeOutlet !== "All") {
+                url += `&outlet=${activeOutlet}&outlet_code=${activeOutlet}`;
+            }
+            const response = await apiRequest(url, "GET");
             if (response.success && response.data) {
                 setReportData(response.data.data || []);
                 setSummary(response.data.summary || { total_ip_qty: 0, total_ip_amount: 0, total_op_qty: 0, total_op_amount: 0 });

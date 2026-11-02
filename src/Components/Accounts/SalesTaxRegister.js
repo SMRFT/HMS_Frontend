@@ -212,7 +212,7 @@ const SalesTaxRegister = ({
     useEffect(() => {
         if (fromDate && toDate) fetchReport();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fromDate, toDate, patientType]);
+    }, [fromDate, toDate, patientType, outlet, initialOutlet]);
 
     const fetchReport = async () => {
         setLoading(true);
@@ -223,6 +223,10 @@ const SalesTaxRegister = ({
                 report_type: "all"
             });
             if (patientType !== "all") params.set("patient_type", patientType);
+            const selectedOutlet = outlet || initialOutlet;
+            if (selectedOutlet && selectedOutlet !== "all" && selectedOutlet !== "All") {
+                params.set("outlet_code", selectedOutlet);
+            }
             const response = await apiRequest(`${HmsBaseUrl}sales-tax-register/?${params.toString()}`, "GET");
             if (response.success && response.data) {
                 const sData = response.data.sales_data || [];

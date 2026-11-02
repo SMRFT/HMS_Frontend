@@ -357,6 +357,30 @@ const MiscellaneousPaymentReport = ({
                             </Tr>
                         )}
                     </tbody>
+                    {reportData.length > 0 && (
+                        <tfoot>
+                            {receiptType === 'all' && (
+                                <>
+                                    <Tr style={{ fontWeight: "700", background: "#f8fafc", borderTop: `2px solid ${colors.border}` }}>
+                                        <Td colSpan="7" style={{ textAlign: "right", color: colors.success }}>Total Receipts:</Td>
+                                        <Td style={{ textAlign: "right", color: colors.success }}>₹{(summary.total_receipts || 0).toFixed(2)}</Td>
+                                    </Tr>
+                                    <Tr style={{ fontWeight: "700", background: "#f8fafc" }}>
+                                        <Td colSpan="7" style={{ textAlign: "right", color: colors.danger }}>Total Payments:</Td>
+                                        <Td style={{ textAlign: "right", color: colors.danger }}>-₹{(summary.total_payments || 0).toFixed(2)}</Td>
+                                    </Tr>
+                                </>
+                            )}
+                            <Tr style={{ fontWeight: "800", background: "#f1f5f9", borderTop: `2px solid ${colors.border}` }}>
+                                <Td colSpan="7" style={{ textAlign: "right", fontSize: "0.95rem" }}>
+                                    {receiptType === 'Receipt' ? 'Total Receipts:' : receiptType === 'Payment' ? 'Total Payments:' : 'Net Total:'}
+                                </Td>
+                                <Td style={{ textAlign: "right", fontSize: "0.95rem", color: summary.net < 0 ? colors.danger : colors.textMain }}>
+                                    ₹{(receiptType === 'Receipt' ? summary.total_receipts : receiptType === 'Payment' ? summary.total_payments : summary.net || 0).toFixed(2)}
+                                </Td>
+                            </Tr>
+                        </tfoot>
+                    )}
                 </Table>
             </TableWrapper>
 
@@ -426,11 +450,31 @@ const MiscellaneousPaymentReport = ({
                                 </td>
                             </tr>
                         ))}
-                        <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
-                            <td colSpan="7" style={{ textAlign: "right" }}>NET BALANCE:</td>
-                            <td style={{ textAlign: "right" }}>₹{(summary.net || 0).toFixed(2)}</td>
-                        </tr>
                     </tbody>
+                    {reportData.length > 0 && (
+                        <tfoot>
+                            {receiptType === 'all' && (
+                                <>
+                                    <tr style={{ fontWeight: "bold", background: "#f8fafc" }}>
+                                        <td colSpan="7" style={{ textAlign: "right" }}>Total Receipts:</td>
+                                        <td style={{ textAlign: "right" }}>₹{(summary.total_receipts || 0).toFixed(2)}</td>
+                                    </tr>
+                                    <tr style={{ fontWeight: "bold", background: "#f8fafc" }}>
+                                        <td colSpan="7" style={{ textAlign: "right" }}>Total Payments:</td>
+                                        <td style={{ textAlign: "right" }}>-₹{(summary.total_payments || 0).toFixed(2)}</td>
+                                    </tr>
+                                </>
+                            )}
+                            <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
+                                <td colSpan="7" style={{ textAlign: "right" }}>
+                                    {receiptType === 'Receipt' ? 'TOTAL RECEIPTS:' : receiptType === 'Payment' ? 'TOTAL PAYMENTS:' : 'NET BALANCE:'}
+                                </td>
+                                <td style={{ textAlign: "right" }}>
+                                    ₹{(receiptType === 'Receipt' ? summary.total_receipts : receiptType === 'Payment' ? summary.total_payments : summary.net || 0).toFixed(2)}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    )}
                 </PrintTable>
 
                 <PrintSignatures>
