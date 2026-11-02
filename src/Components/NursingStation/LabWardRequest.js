@@ -958,7 +958,9 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
           test_id: it.test_id || it.item_id || "",
           itemName: it.itemName,
           price: it.price || "0.00",
-          bill_type: billtype,
+          bill_type: it.bill_type || billtype,
+          billTypeNo: it.billTypeNo || billTypeNo || "LAB01",
+          nabh_code: it.nabh_code || "",
         });
       }
     });
@@ -1034,7 +1036,15 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
       return;
     }
 
-    setSelectedTests((prev) => [...prev, test]);
+    setSelectedTests((prev) => [
+      ...prev,
+      {
+        ...test,
+        bill_type: test.bill_type || billtype,
+        billTypeNo: test.billTypeNo || billTypeNo || "LAB01",
+        nabh_code: test.nabh_code || ""
+      }
+    ]);
     setTestName("");
     setInvestigationItems([]);
     setRate(test.price || "0.00");
@@ -1061,7 +1071,9 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
       test_id: t.test_id || "",
       itemName: t.itemName,
       price: t.price,
-      bill_type: billtype,
+      bill_type: t.bill_type || billtype,
+      billTypeNo: t.billTypeNo || billTypeNo || "LAB01",
+      nabh_code: t.nabh_code || "",
       is_emergency: emergency
     }));
 
@@ -1070,6 +1082,8 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
       ipNumber: resolvedPatient.ipNo,
       doctor: doctor,
       wardName: resolvedPatient.roomBed.split("|")[0].trim() || "SUITE",
+      bill_type: billtype,
+      billTypeNo: billTypeNo || "LAB01",
       item: mappedTests,
       total_amount: selectedTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0),
     };

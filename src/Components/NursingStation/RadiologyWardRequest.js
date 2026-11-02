@@ -916,14 +916,29 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   const addTestToList = (item) => {
     if (!item) return;
     if (selectedTests.find(t => (item.item_id && t.item_id === item.item_id) || (item.test_id && t.test_id === item.test_id) || t.itemName === item.itemName)) return;
-    setSelectedTests(prev => [...prev, { ...item, type: "individual" }]);
+    const selectedBT = billTypes.find(bt => String(bt.bill_type) === String(selectedBillType));
+    setSelectedTests(prev => [...prev, {
+      ...item,
+      type: "individual",
+      billTypeNo: item.billTypeNo || selectedBT?.billTypeNo || "RAD",
+      bill_type: item.bill_type || item.billtype || selectedBT?.bill_type,
+      nabh_code: item.nabh_code || ""
+    }]);
   };
 
   const addPackageToList = async (pkg) => {
     try {
       const res = await apiRequest(`${HmsBaseUrl}package-items/?packageNo=${pkg.packageNo}`, "GET");
       if (res.success) {
-        const pkgItems = (res.data?.items || []).map(i => ({ ...i, type: "package", packageName: pkg.packageName }));
+        const selectedBT = billTypes.find(bt => String(bt.bill_type) === String(selectedBillType));
+        const pkgItems = (res.data?.items || []).map(i => ({
+          ...i,
+          type: "package",
+          packageName: pkg.packageName,
+          billTypeNo: i.billTypeNo || selectedBT?.billTypeNo || "RAD",
+          bill_type: i.bill_type || i.billtype || selectedBT?.bill_type,
+          nabh_code: i.nabh_code || ""
+        }));
         const newTests = [...selectedTests];
         pkgItems.forEach(item => {
           if (!newTests.find(t => (item.item_id && t.item_id === item.item_id) || (item.test_id && t.test_id === item.test_id) || t.itemName === item.itemName)) {
@@ -941,23 +956,26 @@ export default function RadiologyWardRequest({ patient, onClose }) {
       return;
     }
     const selectedBT = billTypes.find(bt => String(bt.bill_type) === String(selectedBillType));
+    const mappedTests = selectedTests.map(t => ({
+      itemName: t.itemName,
+      price: t.price,
+      item_id: t.item_id || t.test_id || "",
+      test_id: t.test_id || t.item_id || "",
+      billTypeNo: t.billTypeNo || selectedBT?.billTypeNo || "RAD",
+      bill_type: t.bill_type || t.billtype || selectedBT?.bill_type,
+      nabh_code: t.nabh_code || "",
+      packageName: t.packageName || null,
+      type: t.type || "individual"
+    }));
+
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
       patientName: resolvedPatient.name,
       doctor: doctor,
-      billtype: selectedBT?.bill_type,
-      billTypeNo: selectedBT?.billTypeNo,
-      billTypeName: selectedBT?.bill_name,
-      selectedTests: selectedTests.map(t => ({
-        itemName: t.itemName,
-        price: t.price,
-        item_id: t.item_id,
-        // billTypeNo: billTypeNo,
-        billtype: selectedBT?.bill_type,
-        packageName: t.packageName || null,
-        type: t.type || "individual"
-      })),
+      bill_type: selectedBT?.bill_type,
+      billTypeNo: selectedBT?.billTypeNo || "RAD",
+      item: mappedTests,
       wardName: resolvedPatient.wardName,
       total_amount: selectedTests.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0)
     };

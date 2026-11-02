@@ -562,8 +562,8 @@ const PatientRegistrationForm = () => {
       JsBarcode(svg, String(visit.uhid || "").trim(), {
         format: "CODE128",
         displayValue: false,
-        height: 20,
-        width: 1,
+        height: 25,
+        width: 1.5,
         margin: 0
       });
       svg.setAttribute("preserveAspectRatio", "none");
@@ -634,25 +634,25 @@ const PatientRegistrationForm = () => {
           <title>Barcode Sticker - ${visit.uhid}</title>
           <style>
             @page {
-              size: 50mm 30mm;
+              size: 97.5mm 51mm;
               margin: 0 !important;
             }
             @media print {
               @page {
-                size: 50mm 30mm;
+                size: 97.5mm 51mm;
                 margin: 0 !important;
               }
               html, body {
-                width: 100% !important;
-                height: 100% !important;
+                width: 97.5mm !important;
+                height: 51mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 overflow: hidden !important;
               }
             }
             html, body {
-              width: 100%;
-              height: 100%;
+              width: 97.5mm;
+              height: 51mm;
               margin: 0;
               padding: 0;
               box-sizing: border-box;
@@ -663,9 +663,9 @@ const PatientRegistrationForm = () => {
             }
             .sticker-content {
               width: 100%;
-              max-width: 100%;
+              max-width: 97.5mm;
               box-sizing: border-box;
-              padding: 1mm 1.5mm 0.5mm 1.5mm;
+              padding: 2.5mm 4mm 2mm 4mm;
               overflow: hidden;
             }
             .top-row {
@@ -673,12 +673,12 @@ const PatientRegistrationForm = () => {
               justify-content: space-between;
               align-items: center;
               width: 100%;
-              margin-bottom: 1.5px;
-              gap: 4px;
+              margin-bottom: 3px;
+              gap: 8px;
             }
             .barcode-svg-wrap {
-              width: 54px;
-              height: 15px;
+              width: 140px;
+              height: 25px;
               flex-shrink: 0;
               display: flex;
               align-items: center;
@@ -690,31 +690,32 @@ const PatientRegistrationForm = () => {
               height: 100% !important;
             }
             .uhid-txt {
-              font-size: 8.5px;
-              font-weight: 800;
-              letter-spacing: -0.2px;
+              font-size: 13px;
+              font-weight: 900;
+              letter-spacing: 0.3px;
               white-space: nowrap;
               text-align: right;
               flex-shrink: 0;
             }
             .sticker-line {
-              font-size: 8.5px;
-              line-height: 1.3;
+              font-size: 11.5px;
+              line-height: 1.4;
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
-              font-weight: 700;
-              letter-spacing: 0px;
+              font-weight: 800;
+              letter-spacing: 0.1px;
             }
             .patient-line {
-              font-size: 9px;
-              font-weight: 800;
-              margin-bottom: 0.5px;
+              font-size: 12.5px;
+              font-weight: 900;
+              margin-bottom: 1.5px;
+              letter-spacing: 0.15px;
             }
             .doc-line {
-              font-size: 8.5px;
-              font-weight: 800;
-              margin-top: 0.5px;
+              font-size: 11.5px;
+              font-weight: 900;
+              margin-top: 1.5px;
             }
           </style>
         </head>
