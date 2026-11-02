@@ -67,6 +67,7 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 
 import InsuranceMemberMaster from "./Components/Insurance/InsuranceMemberMaster";
 import InsuranceMemberVisit from "./Components/Insurance/InsuranceMemberVisit";
+import InsurancePackages from "./Components/Insurance/InsurancePackages";
 
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
@@ -110,6 +111,7 @@ import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
 import ABDMSettings from "./Components/Admin/ABDMSettings";
+import EmployeeMaster from "./Components/Admin/EmployeeMaster";
 import LabWardRequest from "./Components/NursingStation/LabWardRequest";
 import Wardrequest from "./Components/NursingStation/wardrequest";
 import LaundryAdmin from "./Components/NursingStation/LaundryAdmin";
@@ -507,6 +509,7 @@ function App() {
       "/DischargeBillsDetailed": "Discharge Bills Detailed",
       "/CashierWiseReport": "Cashier Wise Report",
       "/CashierWiseDetailedReport": "Cashier Wise Detailed Report",
+      "/InsurancePackages": "Insurance Packages Master",
       "/AdvanceRegistrationInsurence": "Advance Registration (Insurance)",
       "/AdvanceRegistration": "Advance Registration",
 
@@ -837,6 +840,10 @@ function App() {
                   />
                 )}
 
+              {/* Employee Master */}
+              <Route path="/EmployeeMaster" element={<EmployeeMaster />} />
+              <Route path="/employeemaster" element={<EmployeeMaster />} />
+
               {/* InPatient Feedback Form */}
               <Route
                 path="/InPatientFeedbackForm"
@@ -942,6 +949,16 @@ function App() {
                 )}
 
               {/* Insurance */}
+              {hasPagePermission(
+                "/InsurancePackages",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/InsurancePackages"
+                    element={<InsurancePackages />}
+                  />
+                )}
               {hasPagePermission(
                 "/InsuranceProvider",
                 allowedActions,
@@ -2062,6 +2079,10 @@ function App() {
               <Route path="/insuranceclaim" element={<InsuranceClaim />} />
               <Route path="/InsuranceProvider" element={<InsuranceProvider />} />
               <Route path="/insuranceprovider" element={<InsuranceProvider />} />
+              <Route path="/InsurancePackages" element={<InsurancePackages />} />
+              <Route path="/insurancepackages" element={<InsurancePackages />} />
+              <Route path="/InsurancePackagesMaster" element={<InsurancePackages />} />
+              <Route path="/insurancepackagesmaster" element={<InsurancePackages />} />
             </Routes>
 
 

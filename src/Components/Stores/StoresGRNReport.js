@@ -605,10 +605,20 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
             </table>
 
             {/* Signature strip */}
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 14px", fontSize: "11.5px", background: "#f8fafc" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 16px", fontSize: "11.5px", background: "#f8fafc" }}>
                 <span><strong>Entered By :</strong> {grn.entered_by || grn.created_by_name || grn.created_by || "—"}</span>
-                <span><strong>Checked By :</strong> —</span>
-                <span><strong>Verified By :</strong> {grn.verified_by || (grn.is_approved ? "APPROVED" : "—")}</span>
+                <span>
+                    <strong>Verified By :</strong>{" "}
+                    {grn.is_approved ? (
+                        <span style={{ color: "#059669", fontWeight: 700 }}>
+                            {grn.verified_by_name || grn.verified_by || "APPROVED"}
+                        </span>
+                    ) : (
+                        <span style={{ color: "#d97706", fontWeight: 700 }}>
+                            Pending Verification
+                        </span>
+                    )}
+                </span>
             </div>
         </div>
     );
@@ -992,7 +1002,6 @@ const StoresGRNReport = () => {
                 "Date": grn.date ? new Date(grn.date).toLocaleDateString('en-IN') : '-',
                 "Vendor": getVendorName(grn.vendor_id),
                 "Category": grn.purchase_category,
-                "Department": getDepartmentName(grn.department, grn),
                 "Invoice No": grn.invoice_no,
                 "Net Amount": netAmt.toFixed(2),
                 "Total Paid": totalPaid.toFixed(2),
@@ -1031,7 +1040,6 @@ const StoresGRNReport = () => {
                                 <th>Date</th>
                                 <th>Vendor</th>
                                 <th>Category</th>
-                                <th>Department</th>
                                 <th>Invoice No</th>
                                 <th>Net Amt</th>
                                 <th>Paid</th>
@@ -1049,8 +1057,7 @@ const StoresGRNReport = () => {
                                         <td>${grn.grn_number}</td>
                                         <td>${grn.date ? new Date(grn.date).toLocaleDateString('en-IN') : '-'}</td>
                                         <td>${getVendorName(grn.vendor_id)}</td>
-                                        <td>${grn.purchase_category}</td>
-                                        <td>${getDepartmentName(grn.department, grn)}</td>
+                                        <td>${grn.purchase_category || '-'}</td>
                                         <td>${grn.invoice_no}</td>
                                         <td>₹${netAmt.toFixed(2)}</td>
                                         <td>₹${totalPaid.toFixed(2)}</td>
@@ -1465,10 +1472,15 @@ const StoresGRNReport = () => {
                 </table>
             </div>
 
-            <div class="sig-strip">
+            <div class="sig-strip" style="display: flex; justify-content: space-between; align-items: center; padding: 7px 16px; font-size: 10px; background: #f8fafc;">
                 <span><strong>Entered By :</strong> ${grn.entered_by || grn.created_by_name || grn.created_by || '—'}</span>
-                <span><strong>Checked By :</strong> —</span>
-                <span><strong>Verified By :</strong> ${grn.verified_by || (grn.is_approved ? 'APPROVED' : '—')}</span>
+                <span>
+                    <strong>Verified By :</strong>
+                    ${grn.is_approved
+                        ? `<span style="color: #059669; font-weight: 700;">${grn.verified_by_name || grn.verified_by || 'APPROVED'}</span>`
+                        : `<span style="color: #d97706; font-weight: 700;">Pending Verification</span>`
+                    }
+                </span>
             </div>
         </div>
 
@@ -1829,7 +1841,7 @@ const StoresGRNReport = () => {
                                 />
                                 <input
                                     type="text"
-                                    placeholder="Search GRN, Vendor, Invoice, Department..."
+                                    placeholder="Search GRN, Vendor, Invoice..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     style={{
@@ -1881,7 +1893,7 @@ const StoresGRNReport = () => {
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>GRN NO</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>DATE</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>VENDOR</Th>
-                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>CATEGORY / DEPT</Th>
+                                        <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>CATEGORY</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>INVOICE NO</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>INVOICE DATE</Th>
                                         <Th style={{ background: '#e6f4f1', color: '#1e293b', fontWeight: '800', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '14px 12px' }}>PAYMENT</Th>
@@ -1944,25 +1956,7 @@ const StoresGRNReport = () => {
                                                     {getVendorName(grn.vendor_id)}
                                                 </Td>
                                                 <Td style={{ color: '#475569', fontSize: '0.78rem', fontWeight: '600', textTransform: 'uppercase', padding: '12px 10px' }}>
-                                                    <div>{grn.purchase_category || '-'}</div>
-                                                    {(grn.department_name || grn.department) && (
-                                                        <span style={{ 
-                                                            color: '#0d9488', 
-                                                            background: '#f0fdfa', 
-                                                            border: '1px solid #ccfbf1', 
-                                                            fontSize: '0.7rem', 
-                                                            fontWeight: '600', 
-                                                            textTransform: 'none', 
-                                                            padding: '1px 6px', 
-                                                            borderRadius: '4px', 
-                                                            display: 'inline-block', 
-                                                            marginTop: '3px' 
-                                                        }}
-                                                        title={`Code: ${grn.department_code || grn.department || '-'}`}
-                                                        >
-                                                            {getDepartmentName(grn.department, grn)}
-                                                        </span>
-                                                    )}
+                                                    {grn.purchase_category || '-'}
                                                 </Td>
                                                 <Td style={{ color: '#334155', fontSize: '0.82rem', fontWeight: '500', padding: '12px 10px' }}>
                                                     {grn.invoice_no || grn.invoice_number || '-'}

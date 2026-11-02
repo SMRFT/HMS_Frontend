@@ -607,63 +607,59 @@ const ActionPopover = ({
   const lockReschedule = (!isConfirmed && !isPostponed && !isRescheduled) || isCancelled || isCompleted;
   const lockConfirm = isCancelled || isCompleted;
   const lockCssd = s.is_pack_request_CSSD && s.is_pack_return_CSSD;
-  // Admission / discharge gating for request icons (Lab / Medicine / Implant)
-  const admissionCancelled = !s.is_admitted && !s.is_discharged;
-  const discharged = !s.is_admitted && s.is_discharged;
-  const requestLockReason = admissionCancelled
-    ? "Admission cancelled"
-    : discharged
-      ? "Discharged"
-      : "";
-  const requestsDisabled = !isConfirmed || admissionCancelled || discharged;
+  // Requisitions (Lab, Medicine, Implant) - active for all active surgeries (not cancelled)
+  const requestsDisabled = isCancelled;
+  const requestLockReason = isCancelled ? "Cancelled" : "";
 
-  const [pos, setPos] = React.useState({ top: 0, left: 0 });
-
+  // Close on Escape key press
   useEffect(() => {
-    if (anchorEl) {
-      const rect = anchorEl.getBoundingClientRect();
-      setPos({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.right + window.scrollX,
-      });
-    }
-  }, [anchorEl]);
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const groups = [
     {
-      title: "Schedule actions",
+      title: "Schedule Management",
       items: [
         canEdit && {
-          icon: <Pencil size={15} />,
+          icon: <Pencil size={18} />,
           label: "Edit",
+          subtext: "Modify Schedule",
           color: "#0d9488",
           disabled: lockEdit,
           onClick: onEdit,
         },
         canDelete && {
-          icon: <X size={15} />,
+          icon: <X size={18} />,
           label: "Cancel",
+          subtext: "Cancel Surgery",
           color: "#dc2626",
           disabled: lockCancel,
           onClick: onCancel,
         },
         canSchedule && {
-          icon: <CalendarClock size={15} />,
+          icon: <CalendarClock size={18} />,
           label: "Postpone",
+          subtext: "Delay Timing",
           color: "#7c3aed",
           disabled: lockPostpone,
           onClick: onPostpone,
         },
         canSchedule && {
-          icon: <RotateCcw size={15} />,
+          icon: <RotateCcw size={18} />,
           label: "Reschedule",
+          subtext: "New Date/Slot",
           color: "#0284c7",
           disabled: lockReschedule,
           onClick: onReschedule,
         },
         canApprove && {
-          icon: <CheckCheck size={15} />,
+          icon: <CheckCheck size={18} />,
           label: "Confirm",
+          subtext: "Approve Slot",
           color: "#ea580c",
           disabled: lockConfirm,
           onClick: onConfirm,
@@ -671,44 +667,49 @@ const ActionPopover = ({
       ].filter(Boolean),
     },
     {
-      title: "CSSD",
+      title: "CSSD Packs",
       items: [
         {
-          icon: <PackageCheck size={15} />,
-          label: "Pack request",
-          color: s.is_pack_request_CSSD ? "#16a34a" : "#94a3b8",
+          icon: <PackageCheck size={18} />,
+          label: "Pack Request",
+          subtext: s.is_pack_request_CSSD ? "✓ Requested" : "Request sterile pack",
+          color: s.is_pack_request_CSSD ? "#16a34a" : "#64748b",
           disabled: lockCssd,
           onClick: onCssdReq,
         },
         {
-          icon: <PackageOpen size={15} />,
-          label: "Pack return",
-          color: s.is_pack_return_CSSD ? "#16a34a" : "#94a3b8",
+          icon: <PackageOpen size={18} />,
+          label: "Pack Return",
+          subtext: s.is_pack_return_CSSD ? "✓ Returned" : "Return to CSSD",
+          color: s.is_pack_return_CSSD ? "#16a34a" : "#64748b",
           disabled: lockCssd,
           onClick: onCssdReturn,
         },
       ],
     },
     {
-      title: "Requests",
+      title: "Clinical Requisitions",
       items: [
         canLab && {
-          icon: <FlaskConical size={15} />,
-          label: requestLockReason || "Lab request",
+          icon: <FlaskConical size={18} />,
+          label: "Lab Request",
+          subtext: requestsDisabled ? "Cancelled" : "Order investigations",
           color: "#0891b2",
           disabled: requestsDisabled,
           onClick: onLab,
         },
         canMedicine && {
-          icon: <Pill size={15} />,
-          label: requestLockReason || "Medicine",
+          icon: <Pill size={18} />,
+          label: "Medicine Request",
+          subtext: requestsDisabled ? "Cancelled" : "Order drugs & kit",
           color: "#7c3aed",
           disabled: requestsDisabled,
           onClick: onMedicine,
         },
         canImplant && {
-          icon: <Hammer size={15} />,
-          label: requestLockReason || "Implant",
+          icon: <Hammer size={18} />,
+          label: "Implant Request",
+          subtext: requestsDisabled ? "Cancelled" : "Request implants",
           color: "#b45309",
           disabled: requestsDisabled,
           onClick: onImplant,
@@ -717,106 +718,389 @@ const ActionPopover = ({
     },
   ];
 
-  const popover = (
+  const modal = (
     <div
-      className="ot-action-popover"
+      className="ot-action-modal-overlay ot-action-popover"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
       style={{
-        position: "absolute",
-        top: pos.top,
-        left: pos.left,
-        transform: "translateX(-100%)",
-        background: "#fff",
-        border: "1px solid #e2e8f0",
-        borderRadius: 10,
-        padding: "10px 12px",
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(15, 23, 42, 0.62)",
+        backdropFilter: "blur(5px)",
+        WebkitBackdropFilter: "blur(5px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         zIndex: 99999,
-        minWidth: 230,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+        padding: "16px",
       }}
     >
-      {groups.map((group, gi) => (
-        <div key={gi}>
-          {gi > 0 && (
-            <div style={{ borderTop: "1px solid #f1f5f9", margin: "8px 0" }} />
-          )}
-          <div
-            style={{
-              fontSize: "0.68rem",
-              fontWeight: 700,
-              color: "#94a3b8",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              marginBottom: 6,
-            }}
-          >
-            {group.title}
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${group.items.length <= 2 ? group.items.length : 4}, 1fr)`,
-              gap: 4,
-            }}
-          >
-            {group.items.map((item, ii) => (
-              <button
-                key={ii}
-                disabled={item.disabled}
-                title={item.label}
-                onMouseDown={(e) => {
-                  {
-                    /* ← CHANGE onClick → onMouseDown */
-                  }
-                  e.stopPropagation();
-                  if (!item.disabled) {
-                    item.onClick();
-                  }
-                }}
+      <style>{`
+        @keyframes otModalFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes otModalZoomIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
+      <div
+        className="ot-action-modal-card ot-action-popover"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#ffffff",
+          borderRadius: 16,
+          width: "100%",
+          maxWidth: 620,
+          boxShadow:
+            "0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.06)",
+          overflow: "hidden",
+          animation: "otModalZoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, #136A63 0%, #0b4c47 100%)",
+            color: "#ffffff",
+            padding: "16px 22px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: "1.08rem",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span>⚡ Surgery Action Panel</span>
+              <span
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 4,
-                  padding: "8px 6px",
-                  border: "1px solid transparent",
-                  borderRadius: 8,
-                  background: "none",
-                  cursor: item.disabled ? "not-allowed" : "pointer",
-                  opacity: item.disabled ? 0.38 : 1,
-                  transition: "background 0.12s, border-color 0.12s",
-                  color: item.color,
-                }}
-                onMouseEnter={(e) => {
-                  if (!item.disabled) {
-                    e.currentTarget.style.background = "#f8fafc";
-                    e.currentTarget.style.borderColor = "#e2e8f0";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "none";
-                  e.currentTarget.style.borderColor = "transparent";
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  background: "rgba(255, 255, 255, 0.2)",
+                  padding: "2px 8px",
+                  borderRadius: 12,
+                  letterSpacing: "0.04em",
                 }}
               >
-                {item.icon}
+                Ref #{s.reference_no}
+              </span>
+            </div>
+
+            {/* Patient Meta Strip */}
+            <div
+              style={{
+                fontSize: "0.82rem",
+                color: "rgba(255, 255, 255, 0.92)",
+                marginTop: 6,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+              }}
+            >
+              <span>
+                Patient: <strong>{s.patient_name || "—"}</strong>
+              </span>
+              <span>•</span>
+              <span>
+                IP: <strong>{s.ip_number || "—"}</strong>
+              </span>
+              <span>•</span>
+              <span>
+                OT: <strong>{s.ot_name || "—"}</strong>
+              </span>
+              <span>•</span>
+              <span
+                style={{
+                  background: isConfirmed
+                    ? "rgba(34, 197, 94, 0.3)"
+                    : isCompleted
+                      ? "rgba(59, 130, 246, 0.3)"
+                      : isCancelled
+                        ? "rgba(239, 68, 68, 0.3)"
+                        : "rgba(245, 158, 11, 0.3)",
+                  padding: "2px 8px",
+                  borderRadius: 10,
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                }}
+              >
+                {s.status}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            style={{
+              background: "rgba(255, 255, 255, 0.16)",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "50%",
+              width: 32,
+              height: 32,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.25rem",
+              cursor: "pointer",
+              transition: "background 0.15s",
+              lineHeight: 1,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.3)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.16)";
+            }}
+            title="Close (Esc)"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div
+          style={{
+            padding: "20px 24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            maxHeight: "75vh",
+            overflowY: "auto",
+            background: "#f8fafc",
+          }}
+        >
+          {groups.map((group, gi) => (
+            <div
+              key={gi}
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 12,
+                padding: "14px 16px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginBottom: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span>{group.title}</span>
                 <span
                   style={{
                     fontSize: "0.68rem",
-                    color: "#64748b",
-                    lineHeight: 1.2,
-                    textAlign: "center",
+                    fontWeight: 600,
+                    color: "#94a3b8",
                   }}
                 >
-                  {item.label}
+                  {group.items.length} action
+                  {group.items.length !== 1 ? "s" : ""}
                 </span>
-              </button>
-            ))}
-          </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    group.items.length <= 2
+                      ? `repeat(${group.items.length}, 1fr)`
+                      : group.items.length === 3
+                        ? "repeat(3, 1fr)"
+                        : "repeat(auto-fit, minmax(105px, 1fr))",
+                  gap: 10,
+                }}
+              >
+                {group.items.map((item, ii) => (
+                  <button
+                    key={ii}
+                    type="button"
+                    disabled={item.disabled}
+                    title={item.subtext || item.label}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!item.disabled && typeof item.onClick === "function") {
+                        try {
+                          item.onClick();
+                        } catch (err) {
+                          console.error("Action handler error:", err);
+                        }
+                      }
+                    }}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      padding: "12px 10px",
+                      background: item.disabled ? "#f8fafc" : "#ffffff",
+                      border: item.disabled
+                        ? "1px solid #e2e8f0"
+                        : "1px solid #cbd5e1",
+                      borderRadius: 10,
+                      cursor: item.disabled ? "not-allowed" : "pointer",
+                      opacity: item.disabled ? 0.45 : 1,
+                      transition: "all 0.16s ease",
+                      boxShadow: item.disabled
+                        ? "none"
+                        : "0 1px 3px rgba(0,0,0,0.04)",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!item.disabled) {
+                        e.currentTarget.style.transform = "translateY(-2px)";
+                        e.currentTarget.style.boxShadow = `0 6px 14px ${item.color}25`;
+                        e.currentTarget.style.borderColor = item.color;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!item.disabled) {
+                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.boxShadow =
+                          "0 1px 3px rgba(0,0,0,0.04)";
+                        e.currentTarget.style.borderColor = "#cbd5e1";
+                      }
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: "50%",
+                        background: item.disabled
+                          ? "#e2e8f0"
+                          : `${item.color}15`,
+                        color: item.disabled ? "#94a3b8" : item.color,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "transform 0.15s ease",
+                      }}
+                    >
+                      {item.icon}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        color: item.disabled ? "#94a3b8" : "#1e293b",
+                        lineHeight: 1.2,
+                        textAlign: "center",
+                      }}
+                    >
+                      {item.label}
+                    </span>
+                    {item.subtext && (
+                      <span
+                        style={{
+                          fontSize: "0.68rem",
+                          color: item.disabled ? "#cbd5e1" : "#64748b",
+                          textAlign: "center",
+                          maxWidth: "100%",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {item.subtext}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+
+        {/* Modal Footer */}
+        <div
+          style={{
+            padding: "12px 24px",
+            background: "#ffffff",
+            borderTop: "1px solid #e2e8f0",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span style={{ fontSize: "0.74rem", color: "#94a3b8" }}>
+            Press{" "}
+            <kbd
+              style={{
+                background: "#f1f5f9",
+                border: "1px solid #cbd5e1",
+                padding: "1px 5px",
+                borderRadius: 4,
+                fontSize: "0.7rem",
+              }}
+            >
+              Esc
+            </kbd>{" "}
+            or click outside to close
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "#f1f5f9",
+              border: "1px solid #cbd5e1",
+              borderRadius: 6,
+              padding: "6px 16px",
+              fontSize: "0.82rem",
+              fontWeight: 600,
+              color: "#475569",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#e2e8f0";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#f1f5f9";
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 
-  return createPortal(popover, document.body);
+  return createPortal(modal, document.body);
 };
 // ─────────────────────────────────────────────────────────────────────────────
 const SurgerySchedule = () => {
@@ -825,30 +1109,29 @@ const SurgerySchedule = () => {
 
   // ── Raise Lab Request → navigate to InvestigationBilling ─────────────────
   const raiseLabRequest = (s) => {
+    if (!s) return;
+    const ip = s.ip_number || s.ipNumber || s.inpatient_number || "";
+    const uhid = s.uhid || s.uhid_no || s.UHID || "";
+    const patientName = s.patient_name || s.patientName || s.firstName || "";
     navigate("/OTLabBilling", {
       state: {
         patientData: {
-          // Patient info — s comes from _enrich() so uses enriched field names
-          uhid: s.uhid || "",
-          ipNumber: s.ip_number || "",
-          patient_name: s.patient_name || "", // full resolved name from _enrich
-          firstName: s.patient_name || "",
-          lastName: "",
-          salutation: "",
+          uhid: uhid,
+          ipNumber: ip,
+          patient_name: patientName,
+          firstName: patientName,
+          lastName: s.lastName || "",
+          salutation: s.salutation || "",
           age: String(s.age || ""),
-          age_type: String(s.age_type || ""),
+          age_type: String(s.age_type || s.ageType || ""),
           gender: s.gender || "",
-          ot_name: s.ot_name || "",
-          // Company / insurance
-          customer_type: s.customer_type || "",
-          company_name: s.company_name || "",
+          ot_name: s.ot_name || s.ot_id || "",
+          customer_type: s.customer_type || s.customerType || "",
+          company_name: s.company_name || s.companyName || "",
           company_code: s.company_code || "",
-          // Emergency flag
           is_emergency: !!s.is_emergency,
-          // Pre-set doctor from surgeon
-          doctor: s.surgeon_name || s.surgeon_id || "",
-          // Source reference
-          surgeryRef: s.reference_no || "",
+          doctor: s.surgeon_name || s.surgeonName || s.surgeon_id || s.surgeonId || "",
+          surgeryRef: s.reference_no || s.surgeryRef || "",
         },
       },
     });
@@ -856,33 +1139,34 @@ const SurgerySchedule = () => {
 
   // ── Raise Medicine Request → navigate to OTMedicineBilling ──────────────
   const raiseMedicineRequest = (s) => {
+    if (!s) return;
+    const ip = s.ip_number || s.ipNumber || s.inpatient_number || "";
+    const uhid = s.uhid || s.uhid_no || s.UHID || "";
+    const patientName = s.patient_name || s.patientName || s.firstName || "";
     navigate("/OTMedicineBilling", {
       state: {
         patientData: {
-          // ── Patient info (same fields as raiseLabRequest) ──────────────
-          uhid: s.uhid || "",
-          ipNumber: s.ip_number || "",
-          patient_name: s.patient_name || "",
-          firstName: s.patient_name || "",
-          lastName: "",
-          salutation: "",
+          uhid: uhid,
+          ipNumber: ip,
+          patient_name: patientName,
+          firstName: patientName,
+          lastName: s.lastName || "",
+          salutation: s.salutation || "",
           age: String(s.age || ""),
-          age_type: String(s.age_type || ""),
+          age_type: String(s.age_type || s.ageType || ""),
           gender: s.gender || "",
-          // ── Company / insurance ────────────────────────────────────────
-          customer_type: s.customer_type || "",
-          customerType: s.customer_type || "", // MedicineWardRequest uses camelCase
-          company_name: s.company_name || "",
-          companyName: s.company_name || "", // MedicineWardRequest uses camelCase
+          customer_type: s.customer_type || s.customerType || "",
+          customerType: s.customer_type || s.customerType || "",
+          company_name: s.company_name || s.companyName || "",
+          companyName: s.company_name || s.companyName || "",
           company_code: s.company_code || "",
-          // ── Emergency flag ─────────────────────────────────────────────
           is_emergency: !!s.is_emergency,
-          // ── Doctor / OT (ward request specific fields) ─────────────────
-          admittingDoctor: s.surgeon_name || s.surgeon_id || "",
+          admittingDoctor: s.surgeon_name || s.surgeonName || s.surgeon_id || s.surgeonId || "",
+          surgeonName: s.surgeon_name || s.surgeonName || "",
+          surgeonId: s.surgeon_id || s.surgeonId || "",
           roomNo: s.ot_name || s.ot_id || "",
-          bedNo: "",
-          // ── Source reference ───────────────────────────────────────────
-          surgeryRef: s.reference_no || "",
+          bedNo: s.bedNo || "",
+          surgeryRef: s.reference_no || s.surgeryRef || "",
         },
       },
     });
@@ -890,29 +1174,33 @@ const SurgerySchedule = () => {
 
   // ── Raise Implant Request → navigate to OTImplantRequest ────────────────
   const raiseImplantRequest = (s) => {
+    if (!s) return;
+    const ip = s.ip_number || s.ipNumber || s.inpatient_number || "";
+    const uhid = s.uhid || s.uhid_no || s.UHID || "";
+    const patientName = s.patient_name || s.patientName || s.firstName || "";
     navigate("/OTImplantRequest", {
       state: {
         patientData: {
-          uhid: s.uhid || "",
-          ipNumber: s.ip_number || "",
-          patient_name: s.patient_name || "",
-          firstName: s.patient_name || "",
-          lastName: "",
-          salutation: "",
+          uhid: uhid,
+          ipNumber: ip,
+          patient_name: patientName,
+          firstName: patientName,
+          lastName: s.lastName || "",
+          salutation: s.salutation || "",
           age: String(s.age || ""),
-          age_type: String(s.age_type || ""),
+          age_type: String(s.age_type || s.ageType || ""),
           gender: s.gender || "",
-          customer_type: s.customer_type || "",
-          customerType: s.customer_type || "",
-          company_name: s.company_name || "",
-          companyName: s.company_name || "",
+          customer_type: s.customer_type || s.customerType || "",
+          customerType: s.customer_type || s.customerType || "",
+          company_name: s.company_name || s.companyName || "",
+          companyName: s.company_name || s.companyName || "",
           company_code: s.company_code || "",
           is_emergency: !!s.is_emergency,
-          surgeonName: s.surgeon_name || "",
-          surgeonId: s.surgeon_id || "",
+          surgeonName: s.surgeon_name || s.surgeonName || "",
+          surgeonId: s.surgeon_id || s.surgeonId || "",
           roomNo: s.ot_name || s.ot_id || "",
-          bedNo: "",
-          surgeryRef: s.reference_no || "",
+          bedNo: s.bedNo || "",
+          surgeryRef: s.reference_no || s.surgeryRef || "",
         },
       },
     });
@@ -1307,10 +1595,13 @@ const SurgerySchedule = () => {
 
   useEffect(() => {
     const handler = (e) => {
-      // Allow clicks inside the popover portal (rendered in body)
+      // Allow clicks inside popovers, modal portal, or action wrap
       if (e.target.closest(".action-popover-wrap")) return;
       if (e.target.closest(".ot-action-popover")) return;
+      if (e.target.closest(".ot-action-modal-card")) return;
+      if (e.target.closest(".ot-action-modal-overlay")) return;
       setOpenPopover(null);
+      setPopoverData(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -2217,6 +2508,185 @@ const SurgerySchedule = () => {
         {/* ── Form Panel ──────────────────────────────────────────────────── */}
         {showForm && (
           <FormPanel>
+            {/* Form Top Header & Quick Requisitions */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 12,
+                paddingBottom: 14,
+                marginBottom: 16,
+                borderBottom: "1px solid #e2e8f0",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span
+                  style={{
+                    fontSize: "0.98rem",
+                    fontWeight: 700,
+                    color: colors.primaryDark,
+                  }}
+                >
+                  {editItem
+                    ? `✏️ Edit Surgery Schedule (#${editItem.reference_no})`
+                    : "＋ New Surgery Schedule"}
+                </span>
+                {formData.patient_name && (
+                  <span
+                    style={{
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      background: "#f0fdfa",
+                      color: colors.primary,
+                      border: "1px solid #ccfbf1",
+                      borderRadius: 16,
+                      padding: "2px 10px",
+                    }}
+                  >
+                    👤 {formData.patient_name} (IP: {formData.ip_number || "—"})
+                  </span>
+                )}
+              </div>
+
+              {/* Quick Navigation to Requisition Pages */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    color: "#64748b",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    marginRight: 4,
+                  }}
+                >
+                  Quick Requisitions:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetIp = formData.ip_number || editItem?.ip_number;
+                    if (!targetIp) {
+                      toast.warning(
+                        "Please select or enter patient IP Number first"
+                      );
+                      return;
+                    }
+                    raiseLabRequest({
+                      ...editItem,
+                      ...formData,
+                      ip_number: targetIp,
+                      reference_no:
+                        editItem?.reference_no || formData.surgeryRef || "",
+                    });
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "#0891b2",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "6px 12px",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    boxShadow: "0 1px 3px rgba(8, 145, 178, 0.2)",
+                    transition: "all 0.15s",
+                  }}
+                  title="Navigate to Lab Billing / Request page"
+                >
+                  <FlaskConical size={14} /> Lab Request
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetIp = formData.ip_number || editItem?.ip_number;
+                    if (!targetIp) {
+                      toast.warning(
+                        "Please select or enter patient IP Number first"
+                      );
+                      return;
+                    }
+                    raiseMedicineRequest({
+                      ...editItem,
+                      ...formData,
+                      ip_number: targetIp,
+                      reference_no:
+                        editItem?.reference_no || formData.surgeryRef || "",
+                    });
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "#7c3aed",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "6px 12px",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    boxShadow: "0 1px 3px rgba(124, 58, 237, 0.2)",
+                    transition: "all 0.15s",
+                  }}
+                  title="Navigate to OT Medicine Request page"
+                >
+                  <Pill size={14} /> Medicine Request
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetIp = formData.ip_number || editItem?.ip_number;
+                    if (!targetIp) {
+                      toast.warning(
+                        "Please select or enter patient IP Number first"
+                      );
+                      return;
+                    }
+                    raiseImplantRequest({
+                      ...editItem,
+                      ...formData,
+                      ip_number: targetIp,
+                      reference_no:
+                        editItem?.reference_no || formData.surgeryRef || "",
+                    });
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "#b45309",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "6px 12px",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    boxShadow: "0 1px 3px rgba(180, 83, 9, 0.2)",
+                    transition: "all 0.15s",
+                  }}
+                  title="Navigate to OT Implant Request page"
+                >
+                  <Hammer size={14} /> Implant Request
+                </button>
+              </div>
+            </div>
+
             <FormGrid>
               {/* UHID */}
               {/* UHID No */}
@@ -3167,53 +3637,63 @@ const SurgerySchedule = () => {
                               canMedicine={canMedicine}
                               canImplant={canImplant}
                               onEdit={() => {
-                                openEdit(popoverData);
+                                const target = popoverData || s;
+                                openEdit(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
                               onCancel={() => {
-                                handleCancel(popoverData);
+                                const target = popoverData || s;
+                                handleCancel(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
                               onPostpone={() => {
-                                openPostpone(popoverData);
+                                const target = popoverData || s;
+                                openPostpone(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
                               onReschedule={() => {
-                                openReschedule(popoverData);
+                                const target = popoverData || s;
+                                openReschedule(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
                               onCssdReq={() => {
-                                toggleCssdRequest(popoverData);
+                                const target = popoverData || s;
+                                toggleCssdRequest(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
                               onCssdReturn={() => {
-                                toggleCssdReturn(popoverData);
+                                const target = popoverData || s;
+                                toggleCssdReturn(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
                               onConfirm={() => {
-                                openConfirmModal(popoverData);
+                                const target = popoverData || s;
+                                openConfirmModal(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
 
                               onLab={() => {
-                                raiseLabRequest(popoverData);
+                                const target = popoverData || s;
+                                raiseLabRequest(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
                               onMedicine={() => {
-                                raiseMedicineRequest(popoverData);
+                                const target = popoverData || s;
+                                raiseMedicineRequest(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
                               onImplant={() => {
-                                raiseImplantRequest(popoverData);
+                                const target = popoverData || s;
+                                raiseImplantRequest(target);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}

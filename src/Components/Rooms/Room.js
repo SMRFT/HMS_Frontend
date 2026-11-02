@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
+import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
   PageWrapper,
@@ -13,7 +14,6 @@ import {
   Th,
   Td,
   Tr,
-  Select,
   colors,
 } from "../GlobalStyles";
 import styled, { keyframes } from "styled-components";
@@ -285,27 +285,13 @@ const SearchIconWrap = styled.span`
   align-items: center;
 `;
 
-const FilterSelect = styled.select`
-  width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  border: 1.5px solid #d1d5db;
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #1e293b;
-  outline: none;
-  cursor: pointer;
-  box-sizing: border-box;
-  transition: all 0.15s ease;
+const Select = ({ style, ...props }) => (
+  <SearchSelect height={style?.height ? `${style.height}px` : "34px"} style={style} {...props} />
+);
 
-  &:focus {
-    background: #ffffff;
-    border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
-  }
-`;
+const FilterSelect = ({ style, ...props }) => (
+  <SearchSelect height={style?.height ? `${style.height}px` : "36px"} style={style} {...props} />
+);
 
 const ClearFilterBtn = styled.button`
   height: 36px;

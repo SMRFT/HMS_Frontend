@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import styled, { keyframes } from "styled-components";
-import headerImg from "../Images/Header.png";
+import DischargeBillPrintModal from "./DischargeBillPrintModal";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -217,17 +217,12 @@ const fmt  = v => (parseFloat(v) || 0).toFixed(2);
 const fmtCurrency = v => `₹${Number(parseFloat(v) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().split("T")[0];
 
-const parseItems = raw => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  try { return JSON.parse(raw); } catch { return []; }
-};
 
 // ═════════════════════════════════════════════════════════════════════════════
 // ViewBills Component
 // ═════════════════════════════════════════════════════════════════════════════
 
-const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
+const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   const [bills,    setBills]    = useState([]);
   const [listBusy, setListBusy] = useState(false);
   const [listErr,  setListErr]  = useState("");
@@ -255,61 +250,42 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
     setTimeout(() => setToast(null), 3800);
   };
 
-  // Insurance Convert Modal state
-  const [insuranceModalBill, setInsuranceModalBill] = useState(null);
-  const [insuranceForm, setInsuranceForm] = useState({
-    claim_number: "",
-    id_card_number: "",
-    insurance_bill_number: "",
-    company_name: "",
-  });
-  const [convertingInsurance, setConvertingInsurance] = useState(false);
-
-  const handleOpenInsuranceModal = (b) => {
+  // Insurance Conversion
+  const handleDirectConvertToInsurance = async (b) => {
+    setOpenMenu(null);
     const pd = b.patient_details || {};
-    setInsuranceModalBill(b);
-    setInsuranceForm({
-      claim_number: b.claim_number || "",
-      id_card_number: b.id_card_number || "",
+    const payload = {
+      claim_number: b.claim_number || pd.claim_number || pd.referral_number || "",
+      id_card_number: b.id_card_number || pd.id_card_number || pd.card_no || "",
       insurance_bill_number: b.insurance_bill_number || "",
-      company_name: b.company_name || pd.company || pd.company_code || "",
-    });
-  };
+      company_name: b.company_name || pd.company || pd.company_code || pd.insurance_company || "",
+    };
 
-  const handleSaveInsuranceConvert = async () => {
-    if (!insuranceModalBill) return;
-    if (!insuranceForm.claim_number.trim()) {
-      showToast("Claim Number is required", true);
-      return;
-    }
-    if (!insuranceForm.id_card_number.trim()) {
-      showToast("ID Card Number is required", true);
-      return;
-    }
-    if (!insuranceForm.insurance_bill_number.trim()) {
-      showToast("Insurance Bill Number is required", true);
-      return;
-    }
-
-    setConvertingInsurance(true);
     try {
       const res = await apiRequest(
-        `${BASE}discharge-billing/${insuranceModalBill.id}/convert-to-insurance/`,
+        `${BASE}discharge-billing/${b.id}/convert-to-insurance/`,
         "POST",
-        insuranceForm
+        payload
       );
       if (res && res.success) {
-        showToast("✓ Bill converted for Insurance successfully!");
+        showToast("✓ Bill converted to Insurance Bill successfully!");
         const updated = res.data?.data || res.data || res;
-        setBills(prev => prev.map(x => x.id === insuranceModalBill.id ? { ...x, ...updated, is_insurance_bill: true, ...insuranceForm } : x));
-        setInsuranceModalBill(null);
+        const finalBill = {
+          ...b,
+          ...updated,
+          is_insurance_bill: true,
+          claim_number: updated.claim_number || payload.claim_number,
+          id_card_number: updated.id_card_number || payload.id_card_number,
+          insurance_bill_number: updated.insurance_bill_number || b.insurance_bill_number,
+          company_name: updated.company_name || payload.company_name,
+        };
+        setBills(prev => prev.map(x => x.id === b.id ? finalBill : x));
+        handleOpenPrint(finalBill);
       } else {
         showToast(res?.error || "Conversion failed", true);
       }
-    } catch (err) {
+    } catch {
       showToast("Network error during insurance conversion", true);
-    } finally {
-      setConvertingInsurance(false);
     }
   };
 
@@ -317,7 +293,6 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
   const [openMenu, setOpenMenu] = useState(null);
   const [menuPos, setMenuPos]   = useState({ top: 0, bottom: 0, left: 0, placement: "bottom", maxHeight: 280 });
   const menuRef = useRef(null);
-  const printRef = useRef(null);
 
   const fetchBills = useCallback(async (fromDate = inputFrom, toDate = inputTo, searchQuery = inputQ) => {
     setListBusy(true);
@@ -370,115 +345,16 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
     setPrintBill(updatedBill);
   };
 
-  const handleDownloadWord = () => {
-    if (!printRef.current || !printBill) return;
-
-    let bodyHtml = printRef.current.innerHTML;
-
-    // Convert img src to base64 or absolute URL so Word displays the logo offline
-    const imgEl = printRef.current.querySelector("img");
-    if (imgEl && imgEl.src) {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = imgEl.naturalWidth || imgEl.width || 750;
-        canvas.height = imgEl.naturalHeight || imgEl.height || 85;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/png");
-        bodyHtml = bodyHtml.replace(/src="[^"]+"/, `src="${dataUrl}"`);
-      } catch (e) {
-        if (imgEl.src.startsWith("/")) {
-          bodyHtml = bodyHtml.replace(/src="\/([^"]+)"/, `src="${window.location.origin}/$1"`);
-        }
-      }
-    }
-
-    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head>
-  <meta charset='utf-8'>
-  <title>Discharge Bill - ${printBill.bill_no || printBill.estimate_number || "Bill"}</title>
-  <!--[if gte mso 9]>
-  <xml>
-    <w:WordDocument>
-      <w:View>Print</w:View>
-      <w:Zoom>100</w:Zoom>
-      <w:DoNotOptimizeForBrowser/>
-    </w:WordDocument>
-  </xml>
-  <![endif]-->
-  <style>
-    @page Section1 {
-      size: 8.5in 11.0in;
-      margin: 0.4in 0.4in 0.4in 0.4in;
-      mso-header-margin: 0.3in;
-      mso-footer-margin: 0.3in;
-      mso-paper-source: 0;
-    }
-    div.Section1 { page: Section1; }
-    body {
-      font-family: 'Courier New', Courier, monospace, sans-serif;
-      font-size: 9.5pt;
-      color: #000000;
-      background: #ffffff;
-      margin: 0;
-      padding: 0;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      mso-table-lspace: 0pt;
-      mso-table-rspace: 0pt;
-    }
-    td, th {
-      font-family: 'Courier New', Courier, monospace, sans-serif;
-      font-size: 9.5pt;
-    }
-  </style>
-</head>
-<body>
-<div class="Section1">`;
-    const footer = `</div></body></html>`;
-    const html = header + bodyHtml + footer;
-    const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Discharge_Bill_${(printBill.bill_no || printBill.estimate_number || "Bill").replace(/\//g, "_")}.doc`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleDownloadPDF = () => {
-    if (!printRef.current || !printBill) return;
-    const element = printRef.current;
-    const opt = {
-      margin:       [0.25, 0.25, 0.25, 0.25],
-      filename:     `Discharge_Bill_${(printBill.bill_no || printBill.estimate_number || "Bill").replace(/\//g, "_")}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, logging: false },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    if (window.html2pdf) {
-      window.html2pdf().set(opt).from(element).save();
-    } else {
-      const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-      script.onload = () => {
-        if (window.html2pdf) {
-          window.html2pdf().set(opt).from(element).save();
-        } else {
-          window.print();
-        }
-      };
-      document.body.appendChild(script);
-    }
-  };
 
   useEffect(() => { 
     fetchBills(inputFrom, inputTo, inputQ); 
   }, [onRefreshTrigger]);
+
+  useEffect(() => {
+    if (autoPrintBill) {
+      handleOpenPrint(autoPrintBill);
+    }
+  }, [autoPrintBill]);
 
   const handleSearch = () => {
     fetchBills(inputFrom, inputTo, inputQ);
@@ -603,10 +479,6 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
     }
   };
 
-  // ── Print Trigger ──────────────────────────────────────────────────────────
-  const triggerPrint = () => {
-    window.print();
-  };
 
   return (
     <Card>
@@ -754,24 +626,32 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
                     {pageStart + i + 1}
                   </LTD>
                   <LTD>
-                    <Mono style={{ color: isCanc ? T.textMuted : T.primary, fontWeight: 700 }}>
-                      {b.bill_no}
-                    </Mono>
-                    {b.is_insurance_bill && (
-                      <span style={{
-                        display: "inline-block",
-                        fontSize: "0.64rem",
-                        background: "#ecfdf5",
-                        color: "#065f46",
-                        border: "1px solid #a7f3d0",
-                        padding: "1px 5px",
-                        borderRadius: 3,
-                        fontWeight: 700,
-                        marginLeft: 4,
-                        verticalAlign: "middle"
-                      }} title={`Insurance: ${b.company_name || ""} | Claim: ${b.claim_number || ""}`}>
-                        🛡️ INS
-                      </span>
+                    {b.is_insurance_bill ? (
+                      <div>
+                        <Mono style={{ color: "#065f46", fontWeight: 700, fontSize: "0.82rem" }}>
+                          {b.insurance_bill_number || b.bill_no}
+                        </Mono>
+                        <div style={{ fontSize: "0.68rem", color: T.textMuted }}>
+                          SH-Bill: {b.bill_no}
+                        </div>
+                        <span style={{
+                          display: "inline-block",
+                          fontSize: "0.64rem",
+                          background: "#ecfdf5",
+                          color: "#065f46",
+                          border: "1px solid #a7f3d0",
+                          padding: "1px 5px",
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          marginTop: 2
+                        }} title={`Insurance: ${b.company_name || ""} | Claim: ${b.claim_number || ""}`}>
+                          🛡️ {b.company_name || "INS"}
+                        </span>
+                      </div>
+                    ) : (
+                      <Mono style={{ color: isCanc ? T.textMuted : T.primary, fontWeight: 700 }}>
+                        {b.bill_no}
+                      </Mono>
                     )}
                   </LTD>
                   <LTD>
@@ -864,9 +744,9 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
                 ✏️ Edit Bill
               </DI>
             )}
-            {!isCanc && (
-              <DI onClick={() => { setOpenMenu(null); handleOpenInsuranceModal(b); }}>
-                🛡️ {b.is_insurance_bill ? "Edit Insurance Details" : "Convert for Insurance"}
+            {!isCanc && !b.is_insurance_bill && (
+              <DI onClick={() => handleDirectConvertToInsurance(b)}>
+                🛡️ Convert to Insurance Bill
               </DI>
             )}
             <DI onClick={() => { setOpenMenu(null); handleOpenPrint(b); }}>
@@ -973,425 +853,14 @@ const ViewBills = ({ onEditBill, onRefreshTrigger }) => {
       )}
 
       {/* ── Discharge Bill Print Modal ── */}
-      {printBill && (
-        <ModalOverlay onClick={() => setPrintBill(null)}>
-          <ModalBox $w="860px" onClick={e => e.stopPropagation()}>
-            <ModalHead className="no-print">
-              <ModalTitle>🖨️ Discharge Bill Print Preview</ModalTitle>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <Btn $outline $sm onClick={handleDownloadWord}>📄 Download Word</Btn>
-                <Btn $amber $sm onClick={handleDownloadPDF}>📑 Download PDF</Btn>
-                <Btn $primary $sm onClick={triggerPrint}>🖨️ Print</Btn>
-                <ModalClose onClick={() => setPrintBill(null)}>✕</ModalClose>
-              </div>
-            </ModalHead>
-            <ModalBody style={{ padding: 0 }}>
-              <PrintSheet ref={printRef} bill={printBill} />
-            </ModalBody>
-          </ModalBox>
-        </ModalOverlay>
-      )}
+      <DischargeBillPrintModal
+        isOpen={Boolean(printBill)}
+        bill={printBill}
+        onClose={() => setPrintBill(null)}
+      />
 
-      {/* ── Convert for Insurance Modal ── */}
-      {insuranceModalBill && (
-        <ModalOverlay onClick={() => setInsuranceModalBill(null)}>
-          <ModalBox $w="500px" onClick={e => e.stopPropagation()}>
-            <ModalHead style={{ background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)", color: "#fff" }}>
-              <ModalTitle style={{ color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-                🛡️ Convert Bill for Insurance — #{insuranceModalBill.bill_no}
-              </ModalTitle>
-              <ModalClose style={{ color: "#fff" }} onClick={() => setInsuranceModalBill(null)}>✕</ModalClose>
-            </ModalHead>
-            <ModalBody>
-              <div style={{ background: "#f0fdfa", border: "1px solid #ccfbf1", borderRadius: 8, padding: "10px 14px", fontSize: "0.78rem", marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span><strong>Patient:</strong> {insuranceModalBill.patient_details?.patient_name || "—"}</span>
-                  <span><strong>UHID:</strong> {insuranceModalBill.uhid || "—"}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
-                  <span><strong>IP Number:</strong> {insuranceModalBill.ip_number || "—"}</span>
-                  <span><strong>Bill No:</strong> {insuranceModalBill.bill_no || "—"}</span>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <FG>
-                  <FL>Company Name <span style={{ color: "#64748b", fontWeight: 400 }}>(Insurance / TPA)</span></FL>
-                  <input
-                    type="text"
-                    value={insuranceForm.company_name}
-                    onChange={e => setInsuranceForm(prev => ({ ...prev, company_name: e.target.value }))}
-                    placeholder="e.g. Star Health / ICICI Lombard / TPA"
-                    style={{
-                      width: "100%", padding: "8px 10px", fontSize: "0.83rem",
-                      borderRadius: 6, border: `1px solid ${T.border}`, outline: "none",
-                      fontWeight: 600, color: "#0f766e", boxSizing: "border-box"
-                    }}
-                  />
-                </FG>
-
-                <FG>
-                  <FL>Claim Number <span style={{ color: T.danger }}>*</span></FL>
-                  <input
-                    type="text"
-                    value={insuranceForm.claim_number}
-                    onChange={e => setInsuranceForm(prev => ({ ...prev, claim_number: e.target.value }))}
-                    placeholder="Enter Claim Number (e.g. CLM-849204)"
-                    autoFocus
-                    style={{
-                      width: "100%", padding: "8px 10px", fontSize: "0.83rem",
-                      borderRadius: 6, border: `1px solid ${T.border}`, outline: "none", boxSizing: "border-box"
-                    }}
-                  />
-                </FG>
-
-                <FG>
-                  <FL>ID Card Number <span style={{ color: T.danger }}>*</span></FL>
-                  <input
-                    type="text"
-                    value={insuranceForm.id_card_number}
-                    onChange={e => setInsuranceForm(prev => ({ ...prev, id_card_number: e.target.value }))}
-                    placeholder="Enter Insurance ID Card / Member Number"
-                    style={{
-                      width: "100%", padding: "8px 10px", fontSize: "0.83rem",
-                      borderRadius: 6, border: `1px solid ${T.border}`, outline: "none", boxSizing: "border-box"
-                    }}
-                  />
-                </FG>
-
-                <FG>
-                  <FL>Insurance Bill Number <span style={{ color: T.danger }}>*</span></FL>
-                  <input
-                    type="text"
-                    value={insuranceForm.insurance_bill_number}
-                    onChange={e => setInsuranceForm(prev => ({ ...prev, insurance_bill_number: e.target.value }))}
-                    placeholder="Enter Insurance Bill Number (e.g. INS-2026/001)"
-                    style={{
-                      width: "100%", padding: "8px 10px", fontSize: "0.83rem",
-                      borderRadius: 6, border: `1px solid ${T.border}`, outline: "none", boxSizing: "border-box"
-                    }}
-                  />
-                </FG>
-              </div>
-            </ModalBody>
-            <ModalFoot>
-              <Btn $ghost onClick={() => setInsuranceModalBill(null)}>Cancel</Btn>
-              <Btn
-                $primary
-                onClick={handleSaveInsuranceConvert}
-                disabled={convertingInsurance}
-                style={{
-                  background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
-                  color: "#fff"
-                }}
-              >
-                {convertingInsurance ? <Spinner /> : "🛡️"} Convert & Save as Insurance Bill
-              </Btn>
-            </ModalFoot>
-          </ModalBox>
-        </ModalOverlay>
-      )}
     </Card>
   );
 };
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Printable Discharge Bill Component
-// ═════════════════════════════════════════════════════════════════════════════
-
-const PrintSheet = React.forwardRef(({ bill }, ref) => {
-  const pd = bill?.patient_details || {};
-  const items = parseItems(bill?.items);
-
-  const fmtDateStr = (str) => {
-    if (!str) return "—";
-    if (typeof str === "string" && str.trim()) {
-      const s = str.trim();
-      const ddmmyyyy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-      if (ddmmyyyy) {
-        const day = ddmmyyyy[1].padStart(2, "0");
-        const month = ddmmyyyy[2].padStart(2, "0");
-        const year = ddmmyyyy[3];
-        return `${day}/${month}/${year}`;
-      }
-      const yyyymmdd = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-      if (yyyymmdd) {
-        const year = yyyymmdd[1];
-        const month = yyyymmdd[2].padStart(2, "0");
-        const day = yyyymmdd[3].padStart(2, "0");
-        return `${day}/${month}/${year}`;
-      }
-    }
-    try {
-      const d = new Date(str);
-      if (isNaN(d.getTime())) return "—";
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      return `${day}/${month}/${year}`;
-    } catch {
-      return "—";
-    }
-  };
-
-  return (
-    <div ref={ref} className="print-area" style={{
-      width: "100%", maxWidth: "780px", margin: "0 auto", background: "#fff", color: "#000",
-      fontFamily: "'Courier New', Courier, monospace, sans-serif", padding: "20px 24px", boxSizing: "border-box"
-    }}>
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          .print-area, .print-area * { visibility: visible; }
-          .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 10px; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
-
-      {/* Header Image */}
-      <div style={{ textAlign: "center", marginBottom: 8 }}>
-        <img src={headerImg} alt="Hospital Header" style={{ maxWidth: "100%", height: "auto", maxHeight: "85px" }} />
-      </div>
-
-      {/* Title & Banner */}
-      {(() => {
-        const isInsurance = Boolean(
-          bill?.is_insurance_bill ||
-          bill?.claim_number ||
-          bill?.insurance_bill_number ||
-          bill?.company_name ||
-          (pd?.patient_type && String(pd.patient_type).toLowerCase().includes("insurance")) ||
-          (pd?.patient_type && String(pd.patient_type).toLowerCase().includes("credit")) ||
-          (pd?.company && String(pd.company).trim())
-        );
-
-        return (
-          <table style={{
-            width: "100%", borderCollapse: "collapse",
-            borderTop: "2px solid #000", borderBottom: "2px solid #000",
-            fontWeight: "bold", fontSize: "0.85rem", marginBottom: 10
-          }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: "4px 8px", textAlign: "left" }}>
-                  DISCHARGE BILL &nbsp;-&nbsp; GST EXEMPT
-                </td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>
-                  {isInsurance ? "CREDIT BILL" : "CASH BILL"}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        );
-      })()}
-
-      {/* Patient & Bill Info Table */}
-      <table style={{
-        width: "100%", borderCollapse: "collapse",
-        fontSize: "0.78rem", lineHeight: "1.5", borderBottom: "1.5px solid #000", paddingBottom: 6, marginBottom: 10
-      }}>
-        <tbody>
-          <tr>
-            <td style={{ width: "55%", padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>OP Number</strong> &nbsp;&nbsp;: {bill.uhid || pd.uhid || "—"}
-            </td>
-            <td style={{ width: "45%", padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>SH-Bill No</strong> &nbsp;: {bill.bill_no || bill.estimate_number || "—"}
-            </td>
-          </tr>
-          <tr>
-            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>Name</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {(pd.patient_name || "—").toUpperCase()}, {pd.gender || ""}, {pd.age ? `${pd.age} YEARS` : ""}
-            </td>
-            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>IP Number</strong> &nbsp;&nbsp;: {bill.ip_number || pd.ip_number || "—"}
-            </td>
-          </tr>
-          <tr>
-            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>Phone</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {pd.mobile || pd.mobilePhone || pd.phone || "—"}
-            </td>
-            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>Bill Date</strong> &nbsp;&nbsp;: {fmtDateStr(bill.bill_date)}
-            </td>
-          </tr>
-          <tr>
-            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>Address</strong> &nbsp;&nbsp;&nbsp;: {pd.address || pd.permanent_address || "—"}
-            </td>
-            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>DOA</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {fmtDateStr(pd.admission_date || pd.admissionDateTime)}
-            </td>
-          </tr>
-          <tr>
-            <td style={{ padding: "2px 4px", verticalAlign: "top", whiteSpace: "nowrap" }}>
-              <strong>Doctor</strong> &nbsp;&nbsp;&nbsp;&nbsp;: {pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN"}
-            </td>
-            <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>DOD</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {fmtDateStr(bill.bill_date)}
-            </td>
-          </tr>
-          <tr>
-            <td colSpan={2} style={{ padding: "2px 4px", verticalAlign: "top" }}>
-              <strong>Room Details</strong>: {pd.room_no || pd.roomNo || "GENERAL WARD"}
-            </td>
-          </tr>
-          {(bill.is_insurance_bill || bill.company_name || bill.claim_number || pd.company) && (
-            <>
-              <tr>
-                <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-                  <strong>Company</strong> &nbsp;&nbsp;&nbsp;: {bill.company_name || pd.company || "—"}
-                </td>
-                <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-                  <strong>Claim No</strong> &nbsp;&nbsp;: {bill.claim_number || "—"}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-                  <strong>ID Card No</strong> &nbsp;: {bill.id_card_number || "—"}
-                </td>
-                <td style={{ padding: "2px 4px", verticalAlign: "top" }}>
-                  <strong>Ins. Bill No</strong> : {bill.insurance_bill_number || "—"}
-                </td>
-              </tr>
-            </>
-          )}
-        </tbody>
-      </table>
-
-      {/* Items Table */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem", marginBottom: 12 }}>
-        <thead>
-          <tr style={{ borderBottom: "1.5px solid #000", borderTop: "1.5px solid #000" }}>
-            <th style={{ textAlign: "left", padding: "6px 4px", width: "35px" }}>SlNo</th>
-            <th style={{ textAlign: "left", padding: "6px 4px", width: "95px" }}>NABH Code</th>
-            <th style={{ textAlign: "left", padding: "6px 4px" }}>Description</th>
-            <th style={{ textAlign: "left", padding: "6px 4px", whiteSpace: "nowrap" }}>Doctor</th>
-            <th style={{ textAlign: "right", padding: "6px 4px", width: "55px" }}>Quantity</th>
-            <th style={{ textAlign: "right", padding: "6px 4px", width: "75px" }}>Rate</th>
-            <th style={{ textAlign: "right", padding: "6px 4px", width: "85px" }}>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((it, idx) => {
-            let nabhCode = it.nabh_code || it.nabhCode || it.nabh || "";
-            if (!nabhCode && it.item_description && it.item_description.includes("NABH:")) {
-              const match = it.item_description.match(/NABH:\s*([^\s·,]+)/i);
-              if (match) nabhCode = match[1];
-            }
-            if (!nabhCode) nabhCode = "-";
-
-            // Clean description: do NOT display DIS01 or any bill type code
-            let desc = (it.item_description || "").trim();
-            const btn = (it.billTypeNo || "").trim();
-            if (
-              desc === btn ||
-              desc === "DIS01" ||
-              desc.toUpperCase().startsWith("DIS0") ||
-              desc.toUpperCase().startsWith("LAB0") ||
-              desc.toLowerCase() === "investbilling" ||
-              desc.includes("NABH:")
-            ) {
-              desc = "";
-            }
-
-            return (
-              <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
-                <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left" }}>{idx + 1}</td>
-                <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left", fontFamily: "'Courier New', Courier, monospace", fontSize: "0.74rem" }}>{nabhCode}</td>
-                <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left" }}>
-                  <div style={{ fontWeight: 600 }}>{it.itemName}</div>
-                  {desc ? (
-                    <div style={{ fontSize: "0.72rem", color: "#334155", marginTop: 2 }}>
-                      {desc}
-                    </div>
-                  ) : null}
-                </td>
-                <td style={{ padding: "5px 4px", verticalAlign: "top", textAlign: "left", fontSize: "0.76rem", color: "#0f766e", fontWeight: 600, whiteSpace: "nowrap" }}>
-                  {it.doctor ? (/^dr[.\s]/i.test(it.doctor) ? it.doctor : `Dr. ${it.doctor}`) : "—"}
-                </td>
-                <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{it.quantity || 1}</td>
-                <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top" }}>{fmt(it.rate)}</td>
-                <td style={{ padding: "5px 4px", textAlign: "right", verticalAlign: "top", fontWeight: "bold" }}>{fmt(it.amount)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      {/* Summary Totals */}
-      <div style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", paddingTop: 8, paddingBottom: 8, marginBottom: 20 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
-          <tbody>
-            <tr>
-              <td style={{ textAlign: "right", padding: "2px 8px" }}>Total Items Amount :</td>
-              <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.total_amount)}</td>
-            </tr>
-            {parseFloat(bill.medicines_amount) > 0 && (
-              <tr>
-                <td style={{ textAlign: "right", padding: "2px 8px" }}>Medicines :</td>
-                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.medicines_amount)}</td>
-              </tr>
-            )}
-            {parseFloat(bill.gst_amount) > 0 && (
-              <tr>
-                <td style={{ textAlign: "right", padding: "2px 8px" }}>GST :</td>
-                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>₹{fmt(bill.gst_amount)}</td>
-              </tr>
-            )}
-            {parseFloat(bill.advance_amount) > 0 && (
-              <tr style={{ color: "#b91c1c" }}>
-                <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Advance Paid :</td>
-                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.advance_amount)}</td>
-              </tr>
-            )}
-            {parseFloat(bill.sales_return) > 0 && (
-              <tr style={{ color: "#b91c1c" }}>
-                <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Sales Return :</td>
-                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.sales_return)}</td>
-              </tr>
-            )}
-            {parseFloat(bill.discount_amount) > 0 && (
-              <tr style={{ color: "#b91c1c" }}>
-                <td style={{ textAlign: "right", padding: "2px 8px" }}>Less: Discount :</td>
-                <td style={{ width: "120px", textAlign: "right", padding: "2px 4px" }}>-₹{fmt(bill.discount_amount)}</td>
-              </tr>
-            )}
-            <tr>
-              <td style={{ textAlign: "right", padding: "6px 8px 2px", fontWeight: "bold", fontSize: "0.92rem", borderTop: "1px dashed #666" }}>
-                {parseFloat(bill.net_amount) < 0 ? "Net Amount (Refund) :" : "Net Amount :"}
-              </td>
-              <td style={{
-                width: "120px", textAlign: "right", padding: "6px 4px 2px", fontWeight: "bold", fontSize: "0.92rem",
-                borderTop: "1px dashed #666",
-                color: parseFloat(bill.net_amount) < 0 ? "#b91c1c" : "#15803d"
-              }}>
-                ₹{fmt(bill.net_amount)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Footer Signatures */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 30, fontSize: "0.82rem" }}>
-        <tbody>
-          <tr>
-            <td style={{ textAlign: "left", verticalAlign: "bottom" }}>
-              <strong>Prepared By :</strong> {bill.created_by_name || bill.created_by || "CASHIER"}
-            </td>
-            <td style={{ textAlign: "right", verticalAlign: "bottom" }}>
-              <strong>Signature</strong>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div style={{ textAlign: "center", fontSize: "0.68rem", fontStyle: "italic", marginTop: 24, borderTop: "1px solid #ccc", paddingTop: 6 }}>
-        Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST Exempt Invoice.
-      </div>
-    </div>
-  );
-});
 
 export default ViewBills;

@@ -409,10 +409,14 @@ export default function PurchaseOrder() {
       return
     }
     try {
-      const r    = await apiRequest(`${BASE}pharmacy_items/?q=${encodeURIComponent(query)}`, "GET")
+      const cleanQ = query.trim().toUpperCase()
+      const r    = await apiRequest(`${BASE}pharmacy_items/?q=${encodeURIComponent(query.trim())}`, "GET")
       const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
-      setMedResults(p => ({ ...p, [lineId]: Array.isArray(rows) ? rows : [] }))
-      setShowDrop(p   => ({ ...p, [lineId]: rows.length > 0 }))
+      const filtered = (Array.isArray(rows) ? rows : []).filter(m =>
+        String(m.item_name || "").toUpperCase().startsWith(cleanQ)
+      )
+      setMedResults(p => ({ ...p, [lineId]: filtered }))
+      setShowDrop(p   => ({ ...p, [lineId]: filtered.length > 0 }))
     } catch { setMedResults(p => ({ ...p, [lineId]: [] })) }
   }, [])
 

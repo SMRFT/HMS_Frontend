@@ -476,6 +476,7 @@ const StoresIntentManager = () => {
                         'HSN': item.hsn || '-',
                         'Requested Qty': item.quantity,
                         'Approved Qty': item.approved_quantity || 0,
+                        'Pending Qty': Math.max(0, Number(item.quantity || 0) - Number(item.approved_quantity || 0)),
                         'Returned Qty': item.returned_quantity || 0,
                         'Status': item.status || getIntentStatus(intent)
                     });
@@ -972,7 +973,7 @@ const StoresIntentManager = () => {
                                                                     }}>
                                                                         <span style={{ fontWeight: '600' }}>{it.name}</span>
                                                                         <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '8px' }}>
-                                                                            ({it.quantity} Req {it.approved_quantity > 0 ? `| ${it.approved_quantity} Apprv` : ''}{it.returned_quantity > 0 ? ` | ↩ ${it.returned_quantity} Ret` : ''})
+                                                                            ({it.quantity} Req {it.approved_quantity > 0 ? `| ${it.approved_quantity} Apprv` : ''} {Math.max(0, Number(it.quantity || 0) - Number(it.approved_quantity || 0)) > 0 ? `| ${Math.max(0, Number(it.quantity || 0) - Number(it.approved_quantity || 0))} Pending` : ''}{it.returned_quantity > 0 ? ` | ↩ ${it.returned_quantity} Ret` : ''})
                                                                         </span>
                                                                     </div>
                                                                 ))}

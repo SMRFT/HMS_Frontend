@@ -3,6 +3,7 @@ import styled, { keyframes, css } from "styled-components";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import { PageWrapper } from "../GlobalStyles";
+import SearchSelect from "../Common/SearchSelect";
 
 /* ─────────────────────────────────────────────────────────────
    DESIGN TOKENS — Vivid & Clean Hospital Palette
@@ -270,23 +271,9 @@ const SearchIcon = styled.span`
   pointer-events: none;
 `;
 
-const FilterSelect = styled.select`
-  width: 100%;
-  box-sizing: border-box;
-  height: 34px;
-  padding: 0 10px;
-  font-size: clamp(0.75rem, 0.85vw, 0.82rem);
-  font-weight: 600;
-  font-family: ${T.font};
-  border: 1.5px solid ${T.border};
-  border-radius: 6px;
-  background: ${T.bg};
-  color: ${T.textMain};
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s;
-  &:focus { border-color: ${T.primary}; }
-`;
+const FilterSelect = ({ style, ...props }) => (
+  <SearchSelect height={style?.height ? `${style.height}px` : "34px"} style={{ minWidth: 160, ...style }} {...props} />
+);
 
 /* ── 2. Color Coding Legend & Filter Strip ── */
 const ColorLegendStrip = styled.div`

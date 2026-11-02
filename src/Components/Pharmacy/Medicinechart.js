@@ -31,12 +31,12 @@ import {
 
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-// ─── Global Font ──────────────────────────────────────────────────────────────
+// --------- Global Font ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const GlobalStyle = createGlobalStyle`
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
 `;
 
-// ─── Keyframe Animations ──────────────────────────────────────────────────────
+// --------- Keyframe Animations ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -125,7 +125,7 @@ const HeaderBlinkBadge = styled.div`
   line-height: 1;
 `;
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
+// --------- Design Tokens ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const T = {
   primary:     "#0f766e",
   primaryHover:"#115e59",
@@ -143,7 +143,7 @@ const T = {
   bg:          "#f4f7fa",
 };
 
-// ─── Outer Layout ─────────────────────────────────────────────────────────────
+// --------- Outer Layout ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const PageContainer = styled.div`
   min-height: 100vh;
   background: ${T.bg};
@@ -156,7 +156,7 @@ const PageContainer = styled.div`
   }
 `;
 
-// ─── Hero Header ──────────────────────────────────────────────────────────────
+// --------- Hero Header ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const HeaderContainer = styled.div`
   display: flex;
   justify-content: space-between;
@@ -220,7 +220,7 @@ const HeaderSubtitle = styled.p`
   font-weight: 500;
 `;
 
-// ─── Search & Segment Filter Bar (matching Screenshot 2) ──────────────────────
+// --------- Search & Segment Filter Bar (matching Screenshot 2) ------------------------------------------------------------------
 const FilterBarCard = styled.div`
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -313,7 +313,7 @@ const PrescriptionMetaRow = styled.div`
   font-weight: 500;
 `;
 
-// ─── Prescription Cards List (matching Screenshot 2) ──────────────────────────
+// --------- Prescription Cards List (matching Screenshot 2) ------------------------------------------------------------------------------
 const PrescriptionCardsList = styled.div`
   display: flex;
   flex-direction: column;
@@ -458,7 +458,7 @@ const CardViewBtn = styled.button`
 
 const CardConvertBtn = CardViewBtn;
 
-// ─── Bottom Legend ────────────────────────────────────────────────────────────
+// --------- Bottom Legend ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const BottomLegendWrap = styled.div`
   display: flex;
   align-items: center;
@@ -482,7 +482,7 @@ const LegendEntry = styled.div`
   }
 `;
 
-// ─── Detail Modal (matching Screenshot 1) ─────────────────────────────────────
+// --------- Detail Modal (matching Screenshot 1) ---------------------------------------------------------------------------------------------------------------
 const DetailModalBox = styled.div`
   background: #ffffff;
   border-radius: 16px;
@@ -612,7 +612,7 @@ const DetailModalFooter = styled.div`
 
 
 
-// ─── Filter & Search Bar ──────────────────────────────────────────────────────
+// --------- Filter & Search Bar ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const FilterToolbar = styled.div`
   background: ${T.surface};
   border-radius: 16px;
@@ -837,7 +837,7 @@ const PillCount = styled.span`
   font-family: 'JetBrains Mono', monospace;
 `;
 
-// ─── Table Card Container ─────────────────────────────────────────────────────
+// --------- Table Card Container ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 const TableCard = styled.div`
   background: ${T.surface};
   border-radius: 18px;
@@ -1067,7 +1067,7 @@ const PrintBtnIcon = styled.button`
   }
 `;
 
-// ─── Expandable Medicine Detail Drawer ────────────────────────────────────────
+// --------- Expandable Medicine Detail Drawer ------------------------------------------------------------------------------------------------------------------------
 const DetailDrawerRow = styled.tr`
   background: #f8fafc;
 `;
@@ -1303,7 +1303,7 @@ const SubstituteActionBtn = styled.button`
   }
 `;
 
-// ─── Modals (Substitute & Print) ─────────────────────────────────────────────
+// --------- Modals (Substitute & Print) ---------------------------------------------------------------------------------------------------------------------------------------
 const ModalOverlay = styled.div`
   position: fixed;
   inset: 0;
@@ -1441,7 +1441,7 @@ const DropdownItem = styled.li`
   }
 `;
 
-// ─── Utility Helpers ──────────────────────────────────────────────────────────
+// --------- Utility Helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const getBillKey = (patient) =>
   `bill-${patient?.Bill_id ?? patient?.bill_id ?? patient?.uhid}`;
 
@@ -1486,8 +1486,8 @@ const getUnitPrice = (item) => {
   return 0;
 };
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-const MedicineChart = ({ onConvertToBill, onCountChange }) => {
+// --------- MAIN COMPONENT ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeTab }) => {
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
   const yesterdayStr = useMemo(() => {
     const d = new Date();
@@ -1512,7 +1512,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
   const [printPatient, setPrintPatient]       = useState(null);
   const [selectedPatientModal, setSelectedPatientModal] = useState(null);
 
-  // ── Format & Calculation Helpers (matching screenshots) ──
+  // ------ Format & Calculation Helpers (matching screenshots) ------
   const formatDateTime = (dateVal) => {
     if (!dateVal) return "—";
     try {
@@ -1527,7 +1527,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
       hours = hours % 12;
       hours = hours ? hours : 12;
       const strHours = String(hours).padStart(2, "0");
-      return `${day}/${month}/${year} · ${strHours}:${minutes} ${ampm}`;
+      return `${day}/${month}/${year} • ${strHours}:${minutes} ${ampm}`;
     } catch {
       return String(dateVal);
     }
@@ -1593,7 +1593,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
 
   const HmsBaseUrl = Hmsbaseurl;
 
-  // ─── Patient details fetcher ──────────────────────────────────────────────
+  // --------- Patient details fetcher ------------------------------------------------------------------------------------------------------------------------------------------
   const fetchPatientDetails = async (uhid) => {
     try {
       const res = await apiRequest(
@@ -1609,7 +1609,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     } catch { return null; }
   };
 
-  // ─── Admission details fetcher ────────────────────────────────────────────
+  // --------- Admission details fetcher ------------------------------------------------------------------------------------------------------------------------------------
   const fetchAdmissionDetails = async (uhid) => {
     try {
       const res = await apiRequest(
@@ -1678,11 +1678,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     return `${years}Y ${months}M ${days}D`;
   };
 
-  // ─── Fetch main chart data ────────────────────────────────────────────────
-  // ─── Fetch main chart data (instantly loaded from pre-enriched backend API) ─
-  const fetchMedicineChart = useCallback(async () => {
+  // --------- Fetch main chart data ------------------------------------------------------------------------------------------------------------------------------------------------
+  // --------- Fetch main chart data (instantly loaded from pre-enriched backend API) ---
+  const fetchMedicineChart = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
 
       const payload = {};
@@ -1696,7 +1696,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
       );
 
       if (!response.success) {
-        setError(response.error || "Failed to load data.");
+        if (!silent) setError(response.error || "Failed to load data.");
         return;
       }
 
@@ -1707,17 +1707,84 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
       }
     } catch (err) {
       console.error("Error fetching medicine chart:", err);
-      setError("Failed to load data. Please try again.");
+      if (!silent) setError("Failed to load data. Please try again.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [Hmsbaseurl, fromDate, toDate, onCountChange]);
 
+  // Initial load
   useEffect(() => {
     fetchMedicineChart();
   }, [fetchMedicineChart]);
 
-  // ─── Fast search-as-you-type stock lookup for substitute modal (>= 2 chars) ──
+  // Auto re-fetch whenever user switches to the Medicine Chart tab or a refreshTrigger fires
+  useEffect(() => {
+    if (activeTab === "medichart" || activeTab === undefined) {
+      fetchMedicineChart(true);
+    }
+  }, [activeTab, refreshTrigger, fetchMedicineChart]);
+
+  // Real-time synchronization via BroadcastChannel & localStorage when billing completes
+  useEffect(() => {
+    let bc;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        bc = new BroadcastChannel("hms_billing_channel");
+        bc.onmessage = (event) => {
+          if (event?.data?.type === "BILL_SAVED") {
+            const billedId = event.data?.billId;
+            if (billedId) {
+              // 0ms instant removal of billed item from view
+              setMedicineData((prev) =>
+                prev.filter((p) => String(p.Bill_id ?? p.bill_id) !== String(billedId))
+              );
+            }
+            fetchMedicineChart(true);
+          }
+        };
+      }
+    } catch (e) {}
+
+    const handleStorage = (e) => {
+      if (e.key === "hms_last_billing_update" || e.key === "hms_last_medichart_update") {
+        fetchMedicineChart(true);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [fetchMedicineChart]);
+
+  // Sync on window focus / tab visibility return
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!document.hidden && (activeTab === "medichart" || activeTab === undefined)) {
+        fetchMedicineChart(true);
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+    };
+  }, [activeTab, fetchMedicineChart]);
+
+  // Periodic silent auto-sync every 10 seconds when tab is active
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!document.hidden && (activeTab === "medichart" || activeTab === undefined)) {
+        fetchMedicineChart(true);
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [activeTab, fetchMedicineChart]);
+
+  // --------- Fast search-as-you-type stock lookup for substitute modal (>= 2 chars) ------
   const fetchMedicines = useCallback(async (query) => {
     const q = (query || "").trim();
     if (!HmsBaseUrl || q.length < 2) {
@@ -1773,7 +1840,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     }
   }, [substSearch, fetchMedicines]);
 
-  // ─── Filter based strictly on ward_request_date ───────────────────────────
+  // --------- Filter based strictly on ward_request_date ---------------------------------------------------------------------------------
   const dateFilteredData = useMemo(() => {
     return medicineData.filter((patient) => {
       if (!fromDate && !toDate) return true;
@@ -1785,7 +1852,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     });
   }, [medicineData, fromDate, toDate]);
 
-  // ─── Computed Statistics for KPI cards (reflecting active date range) ──────
+  // --------- Computed Statistics for KPI cards (reflecting active date range) ------------------
   const stats = useMemo(() => {
     const total = dateFilteredData.length;
     let pending = 0;
@@ -1803,7 +1870,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     return { total, pending, processing, insuranceCount, totalAdvance };
   }, [dateFilteredData]);
 
-  // ─── Filtered Data (by status tabs and search query) ──────────────────────
+  // --------- Filtered Data (by status tabs and search query) ------------------------------------------------------------------
   const filteredData = useMemo(() => {
     return dateFilteredData.filter((patient) => {
       // 1. Active Tab Filter
@@ -1859,7 +1926,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     setExpandedKey(prev => (prev === key ? null : key));
   };
 
-  // ─── Convert to Bill action ────────────────────────────────────────────────
+  // --------- Convert to Bill action ------------------------------------------------------------------------------------------------------------------------------------------------
   const handleConvertToBillSafe = useCallback(async (patient, e) => {
     if (e) e.stopPropagation();
     if (typeof onConvertToBill !== "function") return;
@@ -1909,7 +1976,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     onConvertToBill({ ...patient, medicine_items: normalizedItems });
   }, [onConvertToBill, HmsBaseUrl]);
 
-  // ─── Substitute Medicine Modal Handlers ────────────────────────────────────
+  // --------- Substitute Medicine Modal Handlers ------------------------------------------------------------------------------------------------------------
   const openSubstituteModal = (patient, item, e) => {
     if (e) e.stopPropagation();
     setSubstituteModal({
@@ -2008,7 +2075,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
     <>
       <GlobalStyle />
       <PageContainer>
-        {/* ── Top Header (matching Screenshot 2) ── */}
+        {/* ------ Top Header (matching Screenshot 2) ------ */}
         <HeaderContainer>
           <HeaderLeft>
             <HeaderTitleGroup>
@@ -2097,7 +2164,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
           </ControlsRight>
         </HeaderContainer>
 
-        {/* ── Search & Segment Filter Bar (matching Screenshot 2) ── */}
+        {/* ------ Search & Segment Filter Bar (matching Screenshot 2) ------ */}
         <FilterBarCard>
           <SearchInputWrap>
             <Search size={16} color="#94a3b8" />
@@ -2139,13 +2206,13 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
           </SegmentPillsWrap>
         </FilterBarCard>
 
-        {/* ── Prescription Meta Row ── */}
+        {/* ------ Prescription Meta Row ------ */}
         <PrescriptionMetaRow>
           <span>Showing {filteredData.length} of {medicineData.length} prescriptions</span>
           <span>Click a patient to see medicines</span>
         </PrescriptionMetaRow>
 
-        {/* ── Error Banner ── */}
+        {/* ------ Error Banner ------ */}
         {error && (
           <div style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 12, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, fontSize: "0.85rem" }}>
             <AlertTriangle size={18} />
@@ -2153,12 +2220,12 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
           </div>
         )}
 
-                {/* ── Prescription Cards List (matching Screenshot 2) ── */}
+                {/* ------ Prescription Cards List (matching Screenshot 2) ------ */}
         <PrescriptionCardsList>
           {loading ? (
             <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "48px 20px", textAlign: "center", color: "#0f766e" }}>
               <SpinIcon size={24} />
-              <div style={{ marginTop: 8, fontWeight: 600, fontSize: "0.85rem" }}>Loading medicine charts…</div>
+              <div style={{ marginTop: 8, fontWeight: 600, fontSize: "0.85rem" }}>Loading medicine charts...</div>
             </div>
           ) : filteredData.length === 0 ? (
             <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "48px 20px", textAlign: "center", color: "#64748b" }}>
@@ -2187,6 +2254,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
               const custType = isInsurance
                 ? (insCompany ? `Insurance (${insCompany})` : "Insurance")
                 : (patient.customer_type || "General");
+              const roomCat = patient.room_category || patient.patient_details?.room_category || patient.room_details?.room_category || "";
+              const block = patient.block || patient.patient_details?.block || patient.room_details?.block || "";
+              const nursingStation = patient.nursing_station || patient.patient_details?.nursing_station || patient.room_details?.nursing_station || "";
 
               return (
                 <PrescriptionCard
@@ -2200,17 +2270,36 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                     </CardPatientSubtext>
                   </div>
 
-                  <div style={{ minWidth: 150 }}>
+                  <div style={{ minWidth: 170 }}>
                     <CardRoomTitle>Room {ward}</CardRoomTitle>
-                    <CardDateSubtext>{dateFormatted}</CardDateSubtext>
+                    {(roomCat || block || nursingStation) && (
+                      <div style={{ fontSize: "0.68rem", color: "#0f766e", marginTop: 2, display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", lineHeight: 1.2 }}>
+                        {roomCat && (
+                          <span style={{ background: "#ccfbf1", color: "#0f766e", padding: "1px 5px", borderRadius: 4, fontWeight: 700, fontSize: "0.65rem", textTransform: "uppercase" }}>
+                            {roomCat}
+                          </span>
+                        )}
+                        {block && (
+                          <span style={{ color: "#475569", fontWeight: 600 }}>
+                            {block}
+                          </span>
+                        )}
+                        {nursingStation && (
+                          <span style={{ color: "#64748b" }}>
+                            • {nursingStation}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <CardDateSubtext style={{ marginTop: 2 }}>{dateFormatted}</CardDateSubtext>
                   </div>
 
                   <div style={{ minWidth: 140 }}>
                     <CardItemsTitle>
-                      {itemsCount} {itemsCount === 1 ? "item" : "items"} · ₹{formatCurrency(prescriptionTotal)}
+                      {itemsCount} {itemsCount === 1 ? "item" : "items"} • ₹{formatCurrency(prescriptionTotal)}
                     </CardItemsTitle>
                     <CardAdvanceSubtext>
-                      {custType} · Adv ₹{formatCurrency(advance)}
+                      {custType} • Adv ₹{formatCurrency(advance)}
                     </CardAdvanceSubtext>
                   </div>
 
@@ -2251,7 +2340,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
           )}
         </PrescriptionCardsList>
 
-        {/* ── Bottom Legend (matching Screenshot 2) ── */}
+        {/* ------ Bottom Legend (matching Screenshot 2) ------ */}
         <BottomLegendWrap>
           <LegendEntry>
             <span className="dot" style={{ background: "#6b7280" }} /> Regular
@@ -2272,7 +2361,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
       </PageContainer>
 
       
-      {/* ── Patient Detail Modal (matching Screenshot 1) ── */}
+      {/* ------ Patient Detail Modal (matching Screenshot 1) ------ */}
       {selectedPatientModal && createPortal(
         <ModalOverlay onClick={() => setSelectedPatientModal(null)}>
           <DetailModalBox onClick={e => e.stopPropagation()}>
@@ -2296,6 +2385,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                 patient.insurance_company
               );
               const modalInsCompany = patient.insurance_company || patient.patient_details?.insurance_company || "";
+              const modalRoomCat = patient.room_category || patient.patient_details?.room_category || patient.room_details?.room_category || "";
+              const modalBlock = patient.block || patient.patient_details?.block || patient.room_details?.block || "";
+              const modalNursingStation = patient.nursing_station || patient.patient_details?.nursing_station || patient.room_details?.nursing_station || "";
 
               return (
                 <>
@@ -2310,14 +2402,29 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                           {patient.billing_status || "Pending"}
                         </StatusPill>
                       </div>
-                      <div style={{ fontSize: "0.73rem", color: "#64748b", marginTop: 4, display: "flex", gap: 14, flexWrap: "wrap", letterSpacing: "0.01em" }}>
+                      <div style={{ fontSize: "0.73rem", color: "#64748b", marginTop: 4, display: "flex", gap: 12, flexWrap: "wrap", letterSpacing: "0.01em", alignItems: "center" }}>
                         <span>UHID {uhid}</span>
                         <span>IP {ipNo}</span>
                         <span>Room {ward}</span>
+                        {modalRoomCat && (
+                          <span style={{ background: "#ccfbf1", color: "#0f766e", padding: "1px 6px", borderRadius: 4, fontWeight: 700, fontSize: "0.68rem", textTransform: "uppercase" }}>
+                            {modalRoomCat}
+                          </span>
+                        )}
+                        {modalBlock && (
+                          <span style={{ color: "#334155", fontWeight: 600 }}>
+                            Block: {modalBlock}
+                          </span>
+                        )}
+                        {modalNursingStation && (
+                          <span style={{ color: "#334155", fontWeight: 600 }}>
+                            NS: {modalNursingStation}
+                          </span>
+                        )}
                         <span>{dateFormatted}</span>
                         {isModalInsurance && modalInsCompany && (
                           <span style={{ color: "#047857", fontWeight: 700 }}>
-                            🛡️ {modalInsCompany}
+                            Insurance: {modalInsCompany}
                           </span>
                         )}
                       </div>
@@ -2459,7 +2566,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
 
                   <DetailModalFooter>
                     <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#0f172a" }}>
-                      {itemsCount} {itemsCount === 1 ? "item" : "items"} · Total ₹{formatCurrency(prescriptionTotal)}
+                      {itemsCount} {itemsCount === 1 ? "item" : "items"} • Total ₹{formatCurrency(prescriptionTotal)}
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
                       <button
@@ -2510,7 +2617,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
         document.body
       )}
 
-      {/* ── Substitute Medicine Modal ── */}
+      {/* ------ Substitute Medicine Modal ------ */}
       {substituteModal && createPortal(
         <ModalOverlay onClick={() => setSubstituteModal(null)}>
           <ModalBox onClick={e => e.stopPropagation()}>
@@ -2519,7 +2626,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                 <Repeat size={18} />
                 Substitute Medicine
               </ModalTitle>
-              <ModalCloseBtn onClick={() => setSubstituteModal(null)}>✕</ModalCloseBtn>
+              <ModalCloseBtn onClick={() => setSubstituteModal(null)}>X</ModalCloseBtn>
             </ModalHeader>
             <ModalBody>
               <div style={{ background: "#f8fafc", border: `1.5px solid ${T.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 18, fontSize: "0.83rem", color: T.slateMid }}>
@@ -2543,7 +2650,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
                 <SearchInput
                   type="text"
                   autoComplete="off"
-                  placeholder="Type at least 2 letters to search pharmacy stock…"
+                  placeholder="Type at least 2 letters to search pharmacy stock..."
                   value={substSearch}
                   onChange={e => {
                     const val = e.target.value;
@@ -2615,7 +2722,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
         document.body
       )}
 
-      {/* ── Print Prescription Modal ── */}
+      {/* ------ Print Prescription Modal ------ */}
       {printPatient && (() => {
         const p = printPatient;
         const items = Array.isArray(p?.medicine_items) ? p.medicine_items : [];
@@ -2633,6 +2740,12 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
         const custTypeLabel = isInsurance
           ? `INSURANCE${p.insurance_company ? ` - ${p.insurance_company}` : ""}`
           : "GENERAL";
+
+        const printRoomCat = p.room_category || p.patient_details?.room_category || p.room_details?.room_category || "";
+        const printBlock = p.block || p.patient_details?.block || p.room_details?.block || "";
+        const printNS = p.nursing_station || p.patient_details?.nursing_station || p.room_details?.nursing_station || "";
+        const roomExtra = [printRoomCat, printBlock, printNS].filter(Boolean).join(" • ");
+        const fullRoomLabel = (p.ward_name || p.room_no || "—") + (roomExtra ? ` (${roomExtra})` : "");
 
         const totalPrescriptionAmount = items.reduce((acc, it) => {
           const q = Number(it.qty ?? it.quantity ?? 0);
@@ -2664,129 +2777,150 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
           : Math.max(0, totalPrescriptionAmount - availableIpAdvance);
 
         const handlePrint = () => {
-          const printWindow = window.open("", "_blank", "width=850,height=700");
-          const html = `
-            <html><head><title>Ward Prescription</title>
+          const printWindow = window.open("", "_blank", "width=900,height=640");
+          const html = `<html><head><title>Ward Prescription</title>
             <style>
-              body { font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; padding: 24px; }
-              .hosp-header { display: flex; align-items: flex-start; gap: 14px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 10px; }
-              .hosp-name { font-size: 18px; font-weight: 800; color: #0f766e; }
-              .hosp-sub { font-size: 12px; color: #666; }
-              .section-title { background: #e5e7eb; text-align: right; padding: 4px 10px; font-weight: 700; font-size: 12px; margin-bottom: 10px; border-radius: 4px; }
-              .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin-bottom: 10px; }
-              .meta-row { display: flex; gap: 6px; font-size: 12px; }
-              .meta-key { color: #666; min-width: 90px; }
+              @page { size: A5 landscape; margin: 4mm 6mm; }
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body { font-family: Arial, sans-serif; font-size: 9.5px; color: #111; width: 210mm; max-width: 210mm; padding: 4mm 6mm; }
+              .hosp-header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 1.5px solid #111; padding-bottom: 4px; margin-bottom: 4px; }
+              .hosp-left { display: flex; align-items: center; gap: 8px; }
+              .hosp-name { font-size: 13px; font-weight: 800; color: #111; letter-spacing: 0.5px; }
+              .hosp-addr { font-size: 8.5px; color: #333; }
+              .bill-title { text-align: center; font-size: 11px; font-weight: 800; letter-spacing: 1px; margin: 3px 0; }
+              .sub-header { display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 4px; }
+              .meta-block { display: flex; justify-content: space-between; gap: 10px; font-size: 9px; margin-bottom: 3px; }
+              .meta-col { flex: 1; }
+              .meta-row { display: flex; gap: 0; margin-bottom: 1.5px; }
+              .meta-key { min-width: 88px; color: #444; }
               .meta-val { font-weight: 600; }
-              .bold { font-weight: 700; margin-bottom: 4px; }
-              .doctor { font-weight: 700; color: #0f766e; margin-bottom: 14px; }
-              table { width: 100%; border-collapse: collapse; font-size: 12px; }
-              th { border: 1px solid #ccc; padding: 6px 8px; background: #f3f4f6; text-align: left; }
-              td { border: 1px solid #e5e7eb; padding: 6px 8px; }
-              .badge-payable { background: #fef3c7; color: #b45309; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; border: 1px solid #fde68a; display: inline-block; }
-              .badge-covered { background: #ecfdf5; color: #047857; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; border: 1px solid #a7f3d0; display: inline-block; }
+              table { width: 100%; border-collapse: collapse; font-size: 9px; margin: 3px 0; }
+              thead tr:first-child { border-top: 1px solid #111; }
+              thead tr:last-child { border-bottom: 1px solid #111; }
+              th { padding: 2px 3px; font-weight: 700; color: #111; font-size: 8.5px; }
+              td { padding: 2px 3px; }
+              .col-particulars { text-align: left; }
+              .col-dosage { text-align: center; width: 52px; }
+              .col-batch { text-align: center; width: 60px; }
+              .col-qty { text-align: center; width: 28px; }
+              .col-rate { text-align: right; width: 46px; }
+              .col-tax { text-align: center; width: 26px; }
+              .col-taxamt { text-align: right; width: 38px; }
+              .col-amount { text-align: right; width: 58px; }
+              .totals-row { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 3px; }
+              .totals-table { border-collapse: collapse; margin-left: auto; font-size: 9.5px; }
+              .totals-table td { padding: 1px 0; }
+              .totals-label { text-align: right; padding-right: 10px; white-space: nowrap; }
+              .totals-val { text-align: right; min-width: 60px; font-weight: 600; }
+              .divider { border-top: 1px solid #111; margin: 3px 0 2px; }
+              .footer-row { display: flex; justify-content: space-between; align-items: flex-end; font-size: 8.5px; }
+              .footer-center { text-align: center; flex: 1; }
+              .footer-italic { font-style: italic; color: #333; }
+              @media print { body { padding: 0; } }
             </style></head><body>
             <div class="hosp-header">
-              <div>
-                <div class="hosp-name">SHANMUGA HOSPITAL LIMITED</div>
-                <div class="hosp-sub">51/24, Saradha College Road, Salem - 636007</div>
-                <div class="hosp-sub">Ph: 04272706666</div>
+              <div class="hosp-left">
+                <div>
+                  <div class="hosp-name">SHANMUGA HOSPITAL LIMITED</div>
+                  <div class="hosp-addr">51/24, Saradha College Road, Salem - 636007</div>
+                  <div class="hosp-addr">Ph No: 04272706666</div>
+                </div>
               </div>
             </div>
-            <div class="section-title">** Ward Prescription Details</div>
-            <div class="meta-grid">
-              <div class="meta-row"><span class="meta-key">UHID</span><span>:</span><span class="meta-val">${p.uhid || "—"}</span></div>
-              <div class="meta-row"><span class="meta-key">Age/Gender</span><span>:</span><span class="meta-val">${p.age || "—"} / ${p.gender || "—"}</span></div>
-              <div class="meta-row"><span class="meta-key">Name</span><span>:</span><span class="meta-val">${p.patient_details?.patient_name || p.patient_name || "—"}</span></div>
-              <div class="meta-row"><span class="meta-key">Req Ref</span><span>:</span><span class="meta-val">${p.Bill_id || p.bill_no || "—"}</span></div>
-              <div class="meta-row"><span class="meta-key">Address</span><span>:</span><span class="meta-val">${p.patient_details?.address || p.address || "—"}</span></div>
-              <div class="meta-row"><span class="meta-key">Ward Name</span><span>:</span><span class="meta-val">${p.ward_name || p.room_no || "—"}</span></div>
-              <div class="meta-row"><span class="meta-key">Customer Type</span><span>:</span><span class="meta-val" style="color: ${isInsurance ? '#047857' : '#1e293b'}">${custTypeLabel}</span></div>
-              <div class="meta-row"><span class="meta-key">IP Advance</span><span>:</span><span class="meta-val">₹${availableIpAdvance.toFixed(2)}</span></div>
+            <div class="bill-title">WARD PRESCRIPTION</div>
+            <div class="sub-header">
+              <div>
+                <div>IP No : ${p.inpatient_number || p.ip_number || "—"}</div>
+                <div>Req Ref : ${p.Bill_id || p.bill_no || "—"}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:700;">PHARMACY IP WARD REQUEST</div>
+                <div>Date : ${wardDateStr} &nbsp; ${wardTimeStr}</div>
+              </div>
             </div>
-            <div class="bold">Ward Request Date: ${wardDateStr} &nbsp; ${wardTimeStr}</div>
-            <div class="doctor">Dr. ${p.doctor_name || "—"}</div>
+            <div class="meta-block">
+              <div class="meta-col">
+                <div class="meta-row"><span class="meta-key">Patient</span><span>: </span><span class="meta-val">${p.patient_details?.patient_name || p.patient_name || "—"}</span></div>
+                <div class="meta-row"><span class="meta-key">UHID No</span><span>: </span><span class="meta-val">${p.uhid || "—"}</span></div>
+                <div class="meta-row"><span class="meta-key">Ward / Room</span><span>: </span><span class="meta-val">${fullRoomLabel}</span></div>
+                <div class="meta-row"><span class="meta-key">Doctor</span><span>: </span><span class="meta-val">${p.doctor_name || "—"}</span></div>
+              </div>
+              <div class="meta-col" style="text-align:right; font-size:9px; padding-right:2px;">
+                <div>Customer Type : <strong>${custTypeLabel}</strong></div>
+                <div>Age : ${p.age || "—"}</div>
+                <div>Billing Mode : ${p.billing_mode || "WARD REQUEST"}</div>
+              </div>
+            </div>
             <table>
               <thead>
                 <tr>
-                  <th>Sl</th>
-                  <th>Brand / Item Name</th>
-                  <th>Category / Payable</th>
-                  <th>Dosage</th>
-                  <th>Qty</th>
-                  <th>Unit Price</th>
-                  <th>Amount</th>
-                  <th>Remarks</th>
+                  <th class="col-particulars" rowspan="2">Particulars</th>
+                  <th class="col-dosage" rowspan="2">Dosage</th>
+                  <th class="col-batch" rowspan="2">Batch</th>
+                  <th class="col-qty" rowspan="2">Qty</th>
+                  <th class="col-rate" rowspan="2">Unit Price</th>
+                  <th colspan="2" style="text-align:center; border-bottom: 1px solid #888; font-size:8.5px;">CGST</th>
+                  <th colspan="2" style="text-align:center; border-bottom: 1px solid #888; font-size:8.5px;">SGST</th>
+                  <th class="col-amount" rowspan="2">Amount</th>
+                </tr>
+                <tr>
+                  <th class="col-tax">%</th>
+                  <th class="col-taxamt">Amt</th>
+                  <th class="col-tax">%</th>
+                  <th class="col-taxamt">Amt</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody style="border-bottom: 1px solid #111;">
                 ${items.map((item, i) => {
-                  const isConsumable = Boolean(item.is_consumable_items);
                   const q = Number(item.qty ?? item.quantity ?? 0);
                   const unitPrice = getUnitPrice(item);
-                  const lineAmt = (q * unitPrice).toFixed(2);
-                  let badgeHtml = "";
-                  if (isConsumable) {
-                    badgeHtml = `<span class="badge-payable">PAYABLE (Consumable)</span>`;
-                  } else if (isInsurance) {
-                    badgeHtml = `<span class="badge-covered">Covered (Insurance)</span>`;
-                  } else {
-                    badgeHtml = `<span style="color: #64748b;">Regular</span>`;
-                  }
-
+                  const lineAmt = q * unitPrice;
+                  const cgstPct = parseFloat(item.CGST_Percentage ?? item.cgst_percentage ?? 2.5);
+                  const sgstPct = parseFloat(item.SGST_Percentage ?? item.sgst_percentage ?? 2.5);
+                  const cgstAmt = parseFloat(item.CGST_Amt ?? item.cgst_amount ?? (lineAmt * cgstPct / 100));
+                  const sgstAmt = parseFloat(item.SGST_Amt ?? item.sgst_amount ?? (lineAmt * sgstPct / 100));
                   return `
                     <tr>
-                      <td>${i + 1}</td>
-                      <td>${item.item_name || item.medicine_name || "—"}${item.is_substitute || item.substituted ? " (Substituted)" : ""}</td>
-                      <td>${badgeHtml}</td>
-                      <td>${item.dosage || item.dose || "—"}</td>
-                      <td>${q}</td>
-                      <td>₹${unitPrice.toFixed(2)}</td>
-                      <td style="font-weight: 600;">₹${lineAmt}</td>
-                      <td>${item.remark || ""}</td>
-                    </tr>
-                  `;
+                      <td class="col-particulars">${item.item_name || item.medicine_name || "—"}</td>
+                      <td class="col-dosage" style="text-align:center;">${item.dosage || item.dose || "—"}</td>
+                      <td class="col-batch" style="text-align:center;">${item.batch_number || item.batch || "—"}</td>
+                      <td class="col-qty" style="text-align:center; font-weight:700;">${q}</td>
+                      <td class="col-rate">${unitPrice.toFixed(2)}</td>
+                      <td class="col-tax">${cgstPct}</td>
+                      <td class="col-taxamt">${cgstAmt.toFixed(2)}</td>
+                      <td class="col-tax">${sgstPct}</td>
+                      <td class="col-taxamt">${sgstAmt.toFixed(2)}</td>
+                      <td class="col-amount" style="font-weight:700;">${lineAmt.toFixed(2)}</td>
+                    </tr>`;
                 }).join("")}
               </tbody>
             </table>
-
-            <div style="margin-top: 16px; border: 1.5px solid #0d9488; border-radius: 6px; padding: 12px 16px; background: #f0fdfa;">
-              <div style="font-weight: 700; font-size: 12px; color: #0f766e; margin-bottom: 8px; border-bottom: 1px dashed #99f6e4; padding-bottom: 4px;">
-                ${isInsurance ? "INSURANCE & IP ADVANCE BILLING BREAKDOWN" : "IP ADVANCE BILLING SUMMARY"}
+            <div class="totals-row">
+              <div style="font-size:9px; padding-top:2px;">
+                <div><strong>Billing Mode :</strong> ${p.billing_mode || "WARD REQUEST"}</div>
+                <div><strong>Status :</strong> ${p.billing_status || "—"}</div>
               </div>
-              <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
-                <tr>
-                  <td style="border: none; padding: 3px 0; color: #334155;">Total Prescription Amount:</td>
-                  <td style="border: none; padding: 3px 0; text-align: right; font-weight: 700;">₹${totalPrescriptionAmount.toFixed(2)}</td>
-                </tr>
-                ${isInsurance ? `
-                <tr>
-                  <td style="border: none; padding: 3px 0; color: #047857;">Insurance Covered Amount (Non-Payable):</td>
-                  <td style="border: none; padding: 3px 0; text-align: right; font-weight: 600; color: #047857;">₹${insuranceCoveredAmount.toFixed(2)}</td>
-                </tr>
-                <tr style="font-weight: 700; color: #b45309;">
-                  <td style="border: none; padding: 3px 0;">Patient Payable Amount (Consumable Items):</td>
-                  <td style="border: none; padding: 3px 0; text-align: right;">₹${consumablePayableAmount.toFixed(2)}</td>
-                </tr>
-                ` : ""}
-                <tr style="border-top: 1px solid #cbd5e1;">
-                  <td style="border: none; padding: 3px 0; color: #334155;">Available IP Advance:</td>
-                  <td style="border: none; padding: 3px 0; text-align: right; font-weight: 600;">₹${availableIpAdvance.toFixed(2)}</td>
-                </tr>
-                <tr style="color: #0284c7; font-weight: 700;">
-                  <td style="border: none; padding: 3px 0;">${isInsurance ? "Deducted for Consumable Items:" : "Deducted from IP Advance:"}</td>
-                  <td style="border: none; padding: 3px 0; text-align: right;">- ₹${amountDeductedFromAdvance.toFixed(2)}</td>
-                </tr>
-                <tr style="border-top: 1.5px solid #0f766e; font-weight: 700; font-size: 13px;">
-                  <td style="border: none; padding: 5px 0; color: #0f766e;">Remaining IP Advance Balance:</td>
-                  <td style="border: none; padding: 5px 0; text-align: right; color: #0f766e;">₹${remainingIpAdvance.toFixed(2)}</td>
-                </tr>
-                ${patientExcessToPay > 0 ? `
-                <tr style="color: #dc2626; font-weight: 700;">
-                  <td style="border: none; padding: 3px 0;">Excess Payable by Patient (Advance Exceeded):</td>
-                  <td style="border: none; padding: 3px 0; text-align: right;">₹${patientExcessToPay.toFixed(2)}</td>
-                </tr>
-                ` : ""}
+              <table class="totals-table">
+                <tbody>
+                  <tr>
+                    <td class="totals-label">Total :</td>
+                    <td class="totals-val">&#8377;${totalPrescriptionAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td class="totals-label" style="font-weight:800;">Net Amount (Payable) :</td>
+                    <td class="totals-val" style="font-weight:800;">&#8377;${(p.net_amount != null ? Number(p.net_amount) : totalPrescriptionAmount).toFixed(2)}</td>
+                  </tr>
+                </tbody>
               </table>
+            </div>
+            <div class="divider"></div>
+            <div class="footer-row">
+              <div style="font-weight:700;">E &amp; OE</div>
+              <div class="footer-center">
+                <div>Prepared by : ${p.prepared_by || p.created_by_name || p.created_by || "—"}</div>
+                <div class="footer-italic">"Goods once sold will not taken back"</div>
+              </div>
+              <div style="text-align:right;">(Sign-pharmacist)</div>
             </div>
           </body></html>`;
           printWindow.document.write(html);
@@ -2797,102 +2931,151 @@ const MedicineChart = ({ onConvertToBill, onCountChange }) => {
 
         return createPortal(
           <ModalOverlay onClick={() => setPrintPatient(null)}>
-            <ModalBox style={{ width: 720 }} onClick={e => e.stopPropagation()}>
+            <ModalBox style={{ width: 780 }} onClick={e => e.stopPropagation()}>
               <ModalHeader>
                 <ModalTitle>
                   <Printer size={18} />
                   Ward Prescription Details
                 </ModalTitle>
-                <ModalCloseBtn onClick={() => setPrintPatient(null)}>✕</ModalCloseBtn>
+                <ModalCloseBtn onClick={() => setPrintPatient(null)}>X</ModalCloseBtn>
               </ModalHeader>
-              <ModalBody style={{ maxHeight: "78vh", overflowY: "auto" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14, borderBottom: `2px solid ${T.border}`, paddingBottom: 12, marginBottom: 16 }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1.2rem" }}>
-                    SH
-                  </div>
-                  <div>
-                    <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#0f766e" }}>SHANMUGA HOSPITAL LIMITED</div>
-                    <div style={{ fontSize: "0.76rem", color: T.slateMuted }}>51/24, Saradha College Road, Salem - 636007 • Ph: 04272706666</div>
-                  </div>
-                </div>
+              <ModalBody style={{ maxHeight: "82vh", overflowY: "auto" }}>
+                {/* ------ A5 Pharmacy Style Preview ------ */}
+                <div style={{ fontFamily: "Arial, sans-serif", fontSize: 9.5, color: "#111", padding: "6px 4px" }}>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px", fontSize: "0.82rem", marginBottom: 16 }}>
-                  <div><strong style={{ color: T.slateMuted }}>UHID:</strong> {p.uhid || "—"}</div>
-                  <div><strong style={{ color: T.slateMuted }}>Patient Name:</strong> {p.patient_details?.patient_name || p.patient_name || "—"}</div>
-                  <div><strong style={{ color: T.slateMuted }}>Ward / Room:</strong> {p.ward_name || p.room_no || "—"}</div>
-                  <div><strong style={{ color: T.slateMuted }}>IP Number:</strong> {p.inpatient_number || p.ip_number || "—"}</div>
-                  <div><strong style={{ color: T.slateMuted }}>Customer Type:</strong> <span style={{ color: isInsurance ? "#047857" : T.slateDark, fontWeight: 700 }}>{custTypeLabel}</span></div>
-                  <div><strong style={{ color: T.slateMuted }}>IP Advance:</strong> ₹{availableIpAdvance.toFixed(2)}</div>
-                </div>
-
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", marginBottom: 16 }}>
-                  <thead>
-                    <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Item Name</th>
-                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Type</th>
-                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Qty</th>
-                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Unit Price</th>
-                      <th style={{ padding: "8px 10px", border: `1px solid ${T.border}` }}>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((it, idx) => {
-                      const isCons = Boolean(it.is_consumable_items);
-                      const q = Number(it.qty ?? it.quantity ?? 0);
-                      const unitPrice = getUnitPrice(it);
-                      return (
-                        <tr key={idx}>
-                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}`, fontWeight: 600 }}>{it.item_name || it.medicine_name}</td>
-                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}` }}>
-                            {isCons ? <span style={{ color: "#c2410c", fontWeight: 700 }}>Consumable</span> : isInsurance ? <span style={{ color: "#15803d", fontWeight: 700 }}>Insurance</span> : "Regular"}
-                          </td>
-                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}` }}>{q}</td>
-                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}` }}>₹{unitPrice.toFixed(2)}</td>
-                          <td style={{ padding: "7px 10px", border: `1px solid ${T.border}`, fontWeight: 700 }}>₹{(q * unitPrice).toFixed(2)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-
-                <div style={{ background: "#f0fdfa", border: "1.5px solid #99f6e4", borderRadius: 8, padding: "12px 16px", fontSize: "0.82rem" }}>
-                  <div style={{ fontWeight: 800, color: "#0f766e", marginBottom: 6 }}>
-                    {isInsurance ? "INSURANCE & IP ADVANCE BREAKDOWN" : "IP ADVANCE SUMMARY"}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                    <span>Total Prescription Amount:</span>
-                    <strong>₹{totalPrescriptionAmount.toFixed(2)}</strong>
-                  </div>
-                  {isInsurance && (
-                    <>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, color: "#15803d" }}>
-                        <span>Insurance Covered (Non-Payable):</span>
-                        <strong>₹{insuranceCoveredAmount.toFixed(2)}</strong>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, color: "#c2410c", fontWeight: 700 }}>
-                        <span>Payable Consumable Amount:</span>
-                        <strong>₹{consumablePayableAmount.toFixed(2)}</strong>
-                      </div>
-                    </>
-                  )}
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, borderTop: "1px solid #cbd5e1", paddingTop: 4 }}>
-                    <span>Available IP Advance:</span>
-                    <span>₹{availableIpAdvance.toFixed(2)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, color: "#0284c7", fontWeight: 700 }}>
-                    <span>{isInsurance ? "Deducted for Consumables:" : "Deducted from IP Advance:"}</span>
-                    <span>- ₹{amountDeductedFromAdvance.toFixed(2)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, color: "#0f766e", borderTop: "1.5px solid #0f766e", paddingTop: 4 }}>
-                    <span>Remaining IP Advance:</span>
-                    <span>₹{remainingIpAdvance.toFixed(2)}</span>
-                  </div>
-                  {patientExcessToPay > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", color: "#dc2626", fontWeight: 800, marginTop: 4 }}>
-                      <span>Excess Payable by Patient:</span>
-                      <span>₹{patientExcessToPay.toFixed(2)}</span>
+                  {/* Header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1.5px solid #111", paddingBottom: 4, marginBottom: 4 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#111", letterSpacing: 0.5 }}>SHANMUGA HOSPITAL LIMITED</div>
+                      <div style={{ fontSize: 8.5, color: "#333" }}>51/24, Saradha College Road, Salem - 636007</div>
+                      <div style={{ fontSize: 8.5, color: "#333" }}>Ph No: 04272706666</div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Bill Title */}
+                  <div style={{ textAlign: "center", fontSize: 11, fontWeight: 800, letterSpacing: 1, margin: "3px 0" }}>WARD PRESCRIPTION</div>
+
+                  {/* Sub-header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8.5, marginBottom: 4 }}>
+                    <div>
+                      <div>IP No : {p.inpatient_number || p.ip_number || "—"}</div>
+                      <div>Req Ref : {p.Bill_id || p.bill_no || "—"}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontWeight: 700 }}>PHARMACY IP WARD REQUEST</div>
+                      <div>Date : {wardDateStr} &nbsp; {wardTimeStr}</div>
+                    </div>
+                  </div>
+
+                  {/* Patient Meta */}
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 9, marginBottom: 3 }}>
+                    <div>
+                      {[
+                        ["Patient", p.patient_details?.patient_name || p.patient_name || "—"],
+                        ["UHID No", p.uhid || "—"],
+                        ["Ward / Room", fullRoomLabel],
+                        ["Doctor", p.doctor_name || "—"],
+                      ].map(([k, v]) => (
+                        <div key={k} style={{ display: "flex", marginBottom: 1.5 }}>
+                          <span style={{ minWidth: 88, color: "#444" }}>{k}</span>
+                          <span>: </span>
+                          <span style={{ fontWeight: 600 }}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ textAlign: "right", fontSize: 9 }}>
+                      <div>Customer Type : <strong>{custTypeLabel}</strong></div>
+                      <div>Age : {p.age || "—"}</div>
+                      <div>Billing Mode : {p.billing_mode || "WARD REQUEST"}</div>
+                    </div>
+                  </div>
+
+                  {/* Medicines Table */}
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9, margin: "3px 0" }}>
+                    <thead>
+                      <tr style={{ borderTop: "1px solid #111" }}>
+                        <th style={{ textAlign: "left", padding: "2.5px 4px", fontWeight: 700, fontSize: 8.5 }}>Particulars</th>
+                        <th style={{ textAlign: "center", width: 52, padding: "2.5px 3px", fontWeight: 700, fontSize: 8.5 }}>Dosage</th>
+                        <th style={{ textAlign: "center", width: 60, padding: "2.5px 3px", fontWeight: 700, fontSize: 8.5 }}>Batch</th>
+                        <th style={{ textAlign: "center", width: 28, padding: "2.5px 3px", fontWeight: 700, fontSize: 8.5 }}>Qty</th>
+                        <th style={{ textAlign: "right", width: 54, padding: "2.5px 4px", fontWeight: 700, fontSize: 8.5 }}>Unit Price</th>
+                        <th colSpan={2} style={{ textAlign: "center", padding: "1.5px 3px", borderBottom: "1px solid #888", fontWeight: 700, fontSize: 8.5 }}>CGST</th>
+                        <th colSpan={2} style={{ textAlign: "center", padding: "1.5px 3px", borderBottom: "1px solid #888", fontWeight: 700, fontSize: 8.5 }}>SGST</th>
+                        <th style={{ textAlign: "right", width: 58, padding: "2.5px 4px", fontWeight: 700, fontSize: 8.5 }}>Amount</th>
+                      </tr>
+                      <tr style={{ borderBottom: "1px solid #111" }}>
+                        <th colSpan={5}></th>
+                        <th style={{ width: 26, textAlign: "center", padding: "1.5px 3px", fontWeight: 700, fontSize: 8.5 }}>%</th>
+                        <th style={{ width: 38, textAlign: "right", padding: "1.5px 3px", fontWeight: 700, fontSize: 8.5 }}>Amt</th>
+                        <th style={{ width: 26, textAlign: "center", padding: "1.5px 3px", fontWeight: 700, fontSize: 8.5 }}>%</th>
+                        <th style={{ width: 38, textAlign: "right", padding: "1.5px 3px", fontWeight: 700, fontSize: 8.5 }}>Amt</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody style={{ borderBottom: "1px solid #111" }}>
+                      {items.length > 0 ? items.map((item, i) => {
+                        const q = Number(item.qty ?? item.quantity ?? 0);
+                        const unitPrice = getUnitPrice(item);
+                        const lineAmt = q * unitPrice;
+                        const cgstPct = parseFloat(item.CGST_Percentage ?? item.cgst_percentage ?? 2.5);
+                        const sgstPct = parseFloat(item.SGST_Percentage ?? item.sgst_percentage ?? 2.5);
+                        const cgstAmt = parseFloat(item.CGST_Amt ?? item.cgst_amount ?? (lineAmt * cgstPct / 100));
+                        const sgstAmt = parseFloat(item.SGST_Amt ?? item.sgst_amount ?? (lineAmt * sgstPct / 100));
+                        return (
+                          <tr key={i}>
+                            <td style={{ padding: "2px 4px", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 155 }}>{item.item_name || item.medicine_name || "—"}</td>
+                            <td style={{ padding: "2px 3px", textAlign: "center" }}>{item.dosage || item.dose || "—"}</td>
+                            <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{item.batch_number || item.batch || "—"}</td>
+                            <td style={{ padding: "2px 3px", textAlign: "center", fontWeight: 700 }}>{q}</td>
+                            <td style={{ padding: "2px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{unitPrice.toFixed(2)}</td>
+                            <td style={{ padding: "2px 3px", textAlign: "center" }}>{cgstPct}</td>
+                            <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{cgstAmt.toFixed(2)}</td>
+                            <td style={{ padding: "2px 3px", textAlign: "center" }}>{sgstPct}</td>
+                            <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{sgstAmt.toFixed(2)}</td>
+                            <td style={{ padding: "2px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{lineAmt.toFixed(2)}</td>
+                          </tr>
+                        );
+                      }) : (
+                        <tr>
+                          <td colSpan={10} style={{ textAlign: "center", color: "#999", padding: "6px" }}>No medicine details available</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                  {/* Totals & Status */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 3 }}>
+                    <div style={{ fontSize: 9, paddingTop: 2 }}>
+                      <div><span style={{ fontWeight: 700 }}>Billing Mode :</span> {p.billing_mode || "WARD REQUEST"}</div>
+                      <div><span style={{ fontWeight: 700 }}>Status :</span> {p.billing_status || "—"}</div>
+                    </div>
+                    <table style={{ borderCollapse: "collapse", marginLeft: "auto", fontSize: 9.5 }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: "1px 12px 1px 0", textAlign: "right", fontWeight: 600, fontSize: 9.5, whiteSpace: "nowrap" }}>Total :</td>
+                          <td style={{ padding: "1px 0", textAlign: "right", fontWeight: 500, fontSize: 9.5, minWidth: 60 }}>₹{totalPrescriptionAmount.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "1px 12px 1px 0", textAlign: "right", fontWeight: 800, fontSize: 9.5, whiteSpace: "nowrap" }}>Net Amount (Payable) :</td>
+                          <td style={{ padding: "1px 0", textAlign: "right", fontWeight: 800, fontSize: 9.5, minWidth: 60 }}>₹{(p.net_amount != null ? Number(p.net_amount) : totalPrescriptionAmount).toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Footer Divider */}
+                  <div style={{ borderTop: "1px solid #111", margin: "3px 0 2px 0" }} />
+
+                  {/* Footer */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 8.5, padding: "1px 0" }}>
+                    <div style={{ fontWeight: 700 }}>E &amp; OE</div>
+                    <div style={{ textAlign: "center", flex: 1 }}>
+                      <div>Prepared by : {p.prepared_by || p.created_by_name || p.created_by || "—"}</div>
+                      <div style={{ fontStyle: "italic", color: "#333", marginTop: 1 }}>"Goods once sold will not taken back"</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>(Sign-pharmacist)</div>
+                  </div>
+
                 </div>
               </ModalBody>
               <ModalFooter>

@@ -1379,17 +1379,22 @@ const Summary = () => {
   const [actionsModalSummary, setActionsModalSummary] = useState(null);
 
   const resolveEmpName = (id, serverName) => {
-    if (serverName && serverName !== id && serverName !== "Unknown") return serverName;
+    if (serverName && serverName !== "Unknown") return serverName;
     if (!id) return "";
     const strId = String(id).trim();
     if (!strId) return "";
-    const docMatch = doctors.find(
-      (d) =>
-        String(d.employeeId || "").trim() === strId ||
-        (d.employeeName && d.employeeName.trim().toUpperCase() === strId.toUpperCase())
-    );
-    if (docMatch && docMatch.employeeName) return docMatch.employeeName;
-    return empNameMap[strId] || strId;
+    // If strId contains numbers, lookup employee name
+    if (/\d/.test(strId)) {
+      const docMatch = doctors.find(
+        (d) =>
+          String(d.employeeId || "").trim() === strId ||
+          (d.employeeName && d.employeeName.trim().toUpperCase() === strId.toUpperCase())
+      );
+      if (docMatch && docMatch.employeeName) return docMatch.employeeName;
+      return empNameMap[strId] || strId;
+    }
+    // If alphabets, display as it is
+    return strId;
   };
 
   // Summary Type Management state (same UI like Package.js)
@@ -2078,16 +2083,19 @@ const Summary = () => {
       [s.created_by, s.approved_by].forEach((id) => {
         if (!id) return;
         const strId = String(id).trim();
-        const isServerResolved =
-          (s.created_by === id && s.created_by_name && s.created_by_name !== strId && s.created_by_name !== "Unknown") ||
-          (s.approved_by === id && s.approved_by_name && s.approved_by_name !== strId && s.approved_by_name !== "Unknown");
-        const inDoctors = doctors.some(
-          (d) =>
-            String(d.employeeId || "").trim() === strId ||
-            (d.employeeName && d.employeeName.trim().toUpperCase() === strId.toUpperCase())
-        );
-        if (!isServerResolved && !inDoctors && !empNameMap[strId]) {
-          unresolved.add(strId);
+        // If strId has numbers, look up employee name if not already resolved
+        if (/\d/.test(strId)) {
+          const isServerResolved =
+            (s.created_by === id && s.created_by_name && s.created_by_name !== strId && s.created_by_name !== "Unknown") ||
+            (s.approved_by === id && s.approved_by_name && s.approved_by_name !== strId && s.approved_by_name !== "Unknown");
+          const inDoctors = doctors.some(
+            (d) =>
+              String(d.employeeId || "").trim() === strId ||
+              (d.employeeName && d.employeeName.trim().toUpperCase() === strId.toUpperCase())
+          );
+          if (!isServerResolved && !inDoctors && !empNameMap[strId]) {
+            unresolved.add(strId);
+          }
         }
       });
     });

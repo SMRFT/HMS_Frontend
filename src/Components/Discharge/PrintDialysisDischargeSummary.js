@@ -434,7 +434,7 @@ export default function PrintDialysisDischargeSummary() {
                     <th>#</th>
                     <th>Patient Name</th>
                     <th>UHID</th>
-                    <th>IP / ID No.</th>
+                    <th>ICD</th>
                     <th>Insurance</th>
                     <th>Next HD Date</th>
                     <th>Discharged On</th>
@@ -452,7 +452,7 @@ export default function PrintDialysisDischargeSummary() {
                       <td>
                         <span className="badge">{r.uhid || "—"}</span>
                       </td>
-                      <td style={{ fontFamily: "'DM Mono',monospace", fontSize: 12.5 }}>{r.id_no || "—"}</td>
+                      <td style={{ fontFamily: "'DM Mono',monospace", fontSize: 12.5 }}>{r.icd || r.id_no || "—"}</td>
                       <td>{r.insurance || <span style={{ color: "#cbd5e1" }}>—</span>}</td>
                       <td>{fmt(r.next_hd_session_on?.$date || r.next_hd_session_on)}</td>
                       <td>{fmt(r.created_date?.$date || r.created_date)}</td>
@@ -577,7 +577,7 @@ function PrintReport({ record: r }) {
           <div className="rpt-grid-3" style={{ marginBottom: 12 }}>
             <Field label="UHID" value={r.uhid} />
             <Field label="Consultant" value={r.consultant} />
-            <Field label="ID No." value={r.id_no} />
+            <Field label="ICD" value={r.icd || r.id_no} />
           </div>
           <div className="rpt-grid-2" style={{ marginBottom: 12 }}>
             <Field label="Insurance" value={r.insurance || "—"} />
@@ -624,41 +624,57 @@ function PrintReport({ record: r }) {
       )}
 
       {/* ── HD Sessions ── */}
-      {hdSessions.length > 0 && (
-        <div className="rpt-card">
-          <div className="rpt-card-head">💉 HD Sessions Log</div>
-          <div className="rpt-card-body">
-            <div style={{ overflowX: "auto" }}>
-              <table className="rpt-table">
-                <thead>
-                  <tr>
-                    <th>Session</th>
-                    <th>Date</th>
-                    <th>BP Pre-HD</th>
-                    <th>BP Post-HD</th>
-                    <th>Weight Gain</th>
-                    <th>UF Removed</th>
-                    <th>Complications</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hdSessions.map((s, i) => (
-                    <tr key={i}>
-                      <td style={{ fontWeight: 700, color: "#0f766e", fontFamily: "'DM Mono',monospace" }}>{s.session_no}</td>
-                      <td>{fmt(s.date)}</td>
-                      <td>{s.bp_pre_hd || "—"}</td>
-                      <td>{s.bp_post_hd || "—"}</td>
-                      <td>{s.weight_gain || "—"}</td>
-                      <td>{s.uf_removed || "—"}</td>
-                      <td>{s.complications || "—"}</td>
+      {hdSessions.length > 0 && (() => {
+        const standardKeys = new Set(["session_no", "date", "bp_pre_hd", "bp_post_hd", "weight_gain", "uf_removed", "complications", "is_custom", "_id"]);
+        const customHdColumns = Array.from(
+          new Set(
+            hdSessions.flatMap((s) =>
+              Object.keys(s).filter((k) => !standardKeys.has(k) && !k.startsWith("_"))
+            )
+          )
+        );
+        return (
+          <div className="rpt-card">
+            <div className="rpt-card-head">💉 HD Sessions Log</div>
+            <div className="rpt-card-body">
+              <div style={{ overflowX: "auto" }}>
+                <table className="rpt-table">
+                  <thead>
+                    <tr>
+                      <th>Session</th>
+                      <th>Date</th>
+                      <th>BP Pre-HD</th>
+                      <th>BP Post-HD</th>
+                      <th>Weight Gain</th>
+                      <th>UF Removed</th>
+                      <th>Complications</th>
+                      {customHdColumns.map((col) => (
+                        <th key={col}>{col}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {hdSessions.map((s, i) => (
+                      <tr key={i}>
+                        <td style={{ fontWeight: 700, color: "#0f766e", fontFamily: "'DM Mono',monospace" }}>{s.session_no}</td>
+                        <td>{fmt(s.date)}</td>
+                        <td>{s.bp_pre_hd || "—"}</td>
+                        <td>{s.bp_post_hd || "—"}</td>
+                        <td>{s.weight_gain || "—"}</td>
+                        <td>{s.uf_removed || "—"}</td>
+                        <td>{s.complications || "—"}</td>
+                        {customHdColumns.map((col) => (
+                          <td key={col}>{s[col] || "—"}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Complications ── */}
       {complications.length > 0 && (
@@ -698,15 +714,19 @@ function PrintReport({ record: r }) {
       </div>
 
       {/* ── Advice on Discharge ── */}
-      {advice.length > 0 && (
+      {(Array.isArray(r.advice_on_discharge) ? r.advice_on_discharge.length > 0 : Boolean(r.advice_on_discharge)) && (
         <div className="rpt-card">
           <div className="rpt-card-head">📋 Advice on Discharge</div>
           <div className="rpt-card-body">
-            <ul className="rpt-advice-list">
-              {advice.map((a, i) => (
-                <li key={i}>{typeof a === "string" ? a : a.text || "—"}</li>
-              ))}
-            </ul>
+            {Array.isArray(r.advice_on_discharge) ? (
+              <ul className="rpt-advice-list">
+                {r.advice_on_discharge.map((a, i) => (
+                  <li key={i}>{typeof a === "string" ? a : a.text || "—"}</li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ fontSize: 12.5, color: "#1e293b", lineHeight: 1.6, whiteSpace: "pre-line" }}>{r.advice_on_discharge || "—"}</p>
+            )}
           </div>
         </div>
       )}

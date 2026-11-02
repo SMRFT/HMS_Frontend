@@ -326,7 +326,7 @@ const StoresDepartmentIndentReport = () => {
                                                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                                                                             {indent.items.map((it, itIdx) => (
                                                                                                 <span key={itIdx} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem' }}>
-                                                                                                    <strong>{it.itemName || it.name || it.item_name}</strong>: {it.quantity || it.intent_qty || 0} Qty
+                                                                                                    <strong>{it.itemName || it.name || it.item_name}</strong>: {it.quantity || it.intent_qty || 0} Req{it.approved_quantity > 0 ? ` (${it.approved_quantity} Apprv, ${Math.max(0, Number(it.quantity || it.intent_qty || 0) - Number(it.approved_quantity))} Pending)` : ''}
                                                                                                 </span>
                                                                                             ))}
                                                                                         </div>

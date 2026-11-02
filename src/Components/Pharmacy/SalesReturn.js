@@ -785,6 +785,10 @@ const SalesReturn = () => {
   const [uhidBills, setUhidBills]             = useState([]);
   const [loadingUhidBills, setLoadingUhidBills] = useState(false);
 
+  // ── Patient Selection Modal State (Multiple Matches) ────────────────────────
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [matchingPatients, setMatchingPatients] = useState([]);
+
   const { showToast, ToastPortal } = useToast();
 
   const [form, setForm] = useState({
@@ -856,29 +860,53 @@ const SalesReturn = () => {
     try {
       setFetchingPatient(true);
 
-      // Fetch patient basic info
+      // Fetch patient basic info with smart matching
       const res = await apiRequest(
         `${HmsBaseUrl}salesreturn_get_patientdetails/?uhid=${encodeURIComponent(uhidVal)}`,
         "GET"
       );
       const data = res.data;
 
+      let patientsList = [];
       if (data?.status === "success") {
-        const d = data.data;
-        setForm(prev => ({
-          ...prev,
-          uhidNo:   d.uhid     || uhidVal,
-          ipNumber: d.ip_number || "",
-          name:     cleanPatientName(d.name) || "",
-          gender:   d.gender   || "",
-          ageY:     d.age?.years  ?? "",
-          ageM:     d.age?.months ?? "",
-          ageD:     d.age?.days   ?? "",
-        }));
+        if (Array.isArray(data.patients) && data.patients.length > 0) {
+          patientsList = data.patients;
+        } else if (data.data) {
+          patientsList = [data.data];
+        }
       }
 
-      // Step 2: fetch all bills within 30 days for this UHID and show modal
-      await fetchUhidBills(uhidVal);
+      // If backend returned nothing or failed, try patient_details fallback (same as Pharmacy billing)
+      if (patientsList.length === 0) {
+        try {
+          const pRes = await apiRequest(`${HmsBaseUrl}patient_details/?uhid=${encodeURIComponent(uhidVal)}`, "GET");
+          const pData = pRes.data?.data || pRes.data || pRes;
+          if (Array.isArray(pData) && pData.length > 0) {
+            patientsList = pData.map(p => ({
+              uhid: p.uhid,
+              name: `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim(),
+              gender: p.gender || "",
+              ip_number: p.ip_number || "",
+              mobile: p.mobilePhone || p.mobile || "",
+              age: { years: p.age || 0, months: 0, days: 0 },
+            }));
+          }
+        } catch (_) {}
+      }
+
+      if (patientsList.length === 0) {
+        showToast("No patient found for the given UHID.", "warning");
+        return;
+      }
+
+      if (patientsList.length > 1) {
+        // Multiple patients match (e.g. partial search with multiple results) -> show patient selection modal
+        setMatchingPatients(patientsList);
+        setShowPatientModal(true);
+      } else {
+        // Exactly 1 patient matched — select and fetch bills
+        await selectPatient(patientsList[0]);
+      }
 
     } catch (err) {
       console.error("Fetch patient error:", err);
@@ -886,6 +914,24 @@ const SalesReturn = () => {
     } finally {
       setFetchingPatient(false);
     }
+  };
+
+  const selectPatient = async (p) => {
+    setShowPatientModal(false);
+    const resolvedUhid = p.uhid || "";
+    setForm(prev => ({
+      ...prev,
+      uhidNo:   resolvedUhid,
+      ipNumber: p.ip_number || "",
+      name:     cleanPatientName(p.name) || "",
+      gender:   p.gender   || "",
+      ageY:     p.age?.years  ?? (typeof p.age === "number" ? p.age : ""),
+      ageM:     p.age?.months ?? "",
+      ageD:     p.age?.days   ?? "",
+    }));
+
+    // Step 2: fetch all bills within 30 days for this UHID and show bill modal
+    await fetchUhidBills(resolvedUhid);
   };
 
   // ── Fetch all bills for UHID within 30 days ──────────────────────────────────
@@ -1097,8 +1143,8 @@ const SalesReturn = () => {
     const medicine_particulars = billItems
       .filter(item => Number(item.returnQty) > 0)
       .map(item => {
-        const returnableQty   = parseFloat(item.qty ?? 0);               // remaining qty (for price calc)
-        const originalBilledQty = parseFloat(item.billed_qty ?? item.qty ?? 1); // ✅ original bill qty
+        const returnableQty   = parseFloat(item.qty ?? item.quantity ?? 0);               // remaining qty (for price calc)
+        const originalBilledQty = parseFloat(item.billed_qty ?? item.qty ?? item.quantity ?? 1); // ✅ original bill qty
         const calculatedPrice = parseFloat(item.calculated_price ?? 0);  // pro-rated to remaining qty
         const perUnitPrice    = returnableQty > 0 ? calculatedPrice / returnableQty : 0;
         const returnQty       = Number(item.returnQty);
@@ -1161,6 +1207,51 @@ const SalesReturn = () => {
     <>
       <GlobalStyle />
       <ToastPortal />
+
+      {/* ── Patient Selection Modal (when multiple patients match partial UHID) ── */}
+      {showPatientModal && (
+        <ModalOverlay onClick={() => setShowPatientModal(false)}>
+          <ModalBox onClick={e => e.stopPropagation()} style={{ maxWidth: 680 }}>
+            <ModalHeader>
+              Select Patient — {matchingPatients.length} Patients Found
+              <ModalCloseBtn onClick={() => setShowPatientModal(false)}>✕</ModalCloseBtn>
+            </ModalHeader>
+            <ModalBody>
+              <ModalTable>
+                <thead>
+                  <tr>
+                    <ModalTh>#</ModalTh>
+                    <ModalTh>UHID No</ModalTh>
+                    <ModalTh>Patient Name</ModalTh>
+                    <ModalTh>Gender / Age</ModalTh>
+                    <ModalTh>Mobile / IP</ModalTh>
+                    <ModalTh>Action</ModalTh>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matchingPatients.map((p, idx) => (
+                    <tr key={idx} style={{ cursor: "pointer" }} onClick={() => selectPatient(p)}>
+                      <ModalTd>{idx + 1}</ModalTd>
+                      <ModalTd style={{ fontWeight: 600 }}>{p.uhid}</ModalTd>
+                      <ModalTd>{cleanPatientName(p.name) || "—"}</ModalTd>
+                      <ModalTd>{p.gender || "—"}{p.age?.years ? ` / ${p.age.years}Y` : ""}</ModalTd>
+                      <ModalTd>{p.mobile || p.ip_number || "—"}</ModalTd>
+                      <ModalTd>
+                        <SelectBillBtn type="button" onClick={() => selectPatient(p)}>
+                          Select
+                        </SelectBillBtn>
+                      </ModalTd>
+                    </tr>
+                  ))}
+                </tbody>
+              </ModalTable>
+            </ModalBody>
+            <ModalFooter>
+              Showing {matchingPatients.length} patient(s) matching your search. Click <strong>Select</strong> to choose patient.
+            </ModalFooter>
+          </ModalBox>
+        </ModalOverlay>
+      )}
 
       {/* ── UHID Bills Selection Modal ────────────────────────────────────────── */}
       {showUhidModal && (
@@ -1504,8 +1595,8 @@ const SalesReturn = () => {
                           let totalRetAmt = 0;
                           const rows = billItems.map((item, index) => {
                             const retQty         = parseFloat(item.returnQty || 0);
-                            const returnableQty  = parseFloat(item.qty || 0);          // remaining qty from API
-                            const billedQty      = parseFloat(item.billed_qty ?? item.qty ?? 0);
+                            const returnableQty  = parseFloat(item.qty ?? item.quantity ?? 0);          // remaining qty from API
+                            const billedQty      = parseFloat(item.billed_qty ?? item.qty ?? item.quantity ?? 0);
                             const alreadyRet     = parseFloat(item.already_returned || 0);
                             const calcPrice      = parseFloat(item.calculated_price ?? 0); // already pro-rated
                             const perUnitPrice   = returnableQty > 0 ? calcPrice / returnableQty : 0;
@@ -1524,7 +1615,7 @@ const SalesReturn = () => {
                                 </BillItemsTd>
                                 <BillItemsTd>{item.batch_number || "—"}</BillItemsTd>
                                 {/* Original billed qty */}
-                                <BillItemsTd>{billedQty || "—"}</BillItemsTd>
+                                <BillItemsTd>{billedQty > 0 ? billedQty : (item.quantity ? parseFloat(item.quantity) : "—")}</BillItemsTd>
                                 {/* How many already returned */}
                                 <BillItemsTd>
                                   {alreadyRet > 0

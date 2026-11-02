@@ -1128,7 +1128,8 @@ const ExpiryMedicines = () => {
         return;
       }
       try {
-        const params = new URLSearchParams({ search: query, page: "all" });
+        const cleanQ = query.trim().toUpperCase();
+        const params = new URLSearchParams({ search: query.trim(), page: "1", page_size: "100" });
         params.append("outlet_code", entryOutlet === DRUG_PURCHASE_VALUE ? "" : entryOutlet);
         const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
         const payload = res?.data;
@@ -1144,7 +1145,8 @@ const ExpiryMedicines = () => {
             ...s,
             item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
           }))
-          .sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || "")));
+          .filter((s) => String(s.item_name || "").toUpperCase().startsWith(cleanQ))
+          .sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }));
         setMedicineResults(unique);
         setShowMedDropdown(unique.length > 0);
       } catch {

@@ -479,11 +479,16 @@ function MedicineTracking() {
               }}
             />
             <datalist id="med-search-list">
-              {medicines.slice(0, 300).map((m) => (
-                <option key={m.item_id} value={String(m.item_name || "").toUpperCase()}>
-                  {String(m.item_name || "").toUpperCase()} {m.brand_name ? `(${String(m.brand_name).toUpperCase()})` : ""}
-                </option>
-              ))}
+              {medicines
+                .filter((m) => {
+                  const q = searchValue.trim().toUpperCase();
+                  if (!q) return true;
+                  return String(m.item_name || "").toUpperCase().startsWith(q);
+                })
+                .slice(0, 50)
+                .map((m) => (
+                  <option key={m.item_id} value={String(m.item_name || "").toUpperCase()} />
+                ))}
             </datalist>
           </FilterGroup>
 

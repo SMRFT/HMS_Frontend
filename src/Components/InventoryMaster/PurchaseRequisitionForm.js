@@ -245,7 +245,8 @@ const MedicineSearchField = ({ value, onChange, fromOutlet, err, placeholder }) 
   const doSearch = useCallback(async (q) => {
     if (!q || q.length < 2) { setResults([]); setShowDrop(false); return }
     try {
-      const params = new URLSearchParams({ search: q })
+      const cleanQ = q.trim().toUpperCase()
+      const params = new URLSearchParams({ search: q.trim(), page: "1", page_size: "100" })
       if (fromOutlet) params.append("outlet_code", fromOutlet)
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET")
       const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : []
@@ -256,6 +257,7 @@ const MedicineSearchField = ({ value, onChange, fromOutlet, err, placeholder }) 
           ...s,
           item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
         }))
+        .filter(s => String(s.item_name || "").toUpperCase().startsWith(cleanQ))
         .sort((a, b) => String(a.item_name || a.medicine_name || "").localeCompare(String(b.item_name || b.medicine_name || ""), undefined, { sensitivity: "base" }))
       setResults(unique)
       setShowDrop(unique.length > 0)

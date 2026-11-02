@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper";
@@ -1064,8 +1064,9 @@ const StockTransfer = () => {
   const { outletCode, isDrugPurchase } = getAuthContext();
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [outlets, setOutlets]         = useState([]);
-  const [transfers, setTransfers]     = useState([]);
+  const [outlets, setOutlets]                   = useState([]);
+  const [stockDepartments, setStockDepartments] = useState([]);
+  const [transfers, setTransfers]               = useState([]);
   const [loading, setLoading]         = useState(false);
   const [showForm, setShowForm]       = useState(false);
 
@@ -1075,7 +1076,7 @@ const StockTransfer = () => {
   const [totalPages, setTotalPages]   = useState(1);
   const [searchQ, setSearchQ]         = useState("");
 
-  const [fromOutlet, setFromOutlet]   = useState(isDrugPurchase ? null : outletCode);
+  const [fromOutlet, setFromOutlet]   = useState(outletCode || "");
   const [toOutlet, setToOutlet]       = useState(null);
 
   // ── NEW: Remarks state ─────────────────────────────────────────────────────
@@ -1109,9 +1110,11 @@ const StockTransfer = () => {
   const getOutletName = useCallback((code) => {
     if (code === null || code === undefined || code === "" || code === "null")
       return DRUG_PURCHASE_LABEL;
+    const dept = stockDepartments.find((d) => d.department_id === code || d.department_name === code);
+    if (dept) return dept.department_name;
     const o = outlets.find((x) => x.outlet_code === code);
     return o ? o.outlet_name : code;
-  }, [outlets]);
+  }, [outlets, stockDepartments]);
 
   // ── Fetch outlets ──────────────────────────────────────────────────────────
   const fetchOutlets = useCallback(async () => {
@@ -1127,8 +1130,52 @@ const StockTransfer = () => {
     }
   }, [HmsBaseUrl]);
 
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const r = await apiRequest(`${HmsBaseUrl}get_stocktransfer_departments/`, "GET");
+      const list = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : []);
+      setStockDepartments(Array.isArray(list) ? list : []);
+    } catch {
+      console.warn("Failed to fetch stock transfer departments");
+    }
+  }, [HmsBaseUrl]);
+
   // ── Effects ────────────────────────────────────────────────────────────────
-  useEffect(() => { fetchOutlets(); }, [fetchOutlets]);
+  useEffect(() => {
+    fetchOutlets();
+    fetchDepartments();
+  }, [fetchOutlets, fetchDepartments]);
+
+  useEffect(() => {
+    if (outletCode) {
+      setFromOutlet(outletCode);
+    }
+  }, [outletCode]);
+
+  const loginOutletObj = useMemo(() => {
+    if (!outletCode) return null;
+    return outlets.find((o) => o.outlet_code === outletCode) || null;
+  }, [outlets, outletCode]);
+
+  const loginOutletName = useMemo(() => {
+    return (
+      loginOutletObj?.outlet_name ||
+      localStorage.getItem("selected_outlet_name") ||
+      localStorage.getItem("outlet_name") ||
+      localStorage.getItem("outletName") ||
+      (outletCode === "OLET001" ? "IP PHARMACY" : outletCode === "OLET002" ? "OP PHARMACY" : "")
+    );
+  }, [loginOutletObj, outletCode]);
+
+  const isIpPharmacy = useMemo(() => {
+    const name = (loginOutletName || "").toUpperCase();
+    return name.includes("IP") || outletCode === "OLET001";
+  }, [loginOutletName, outletCode]);
+
+  const isOpPharmacy = useMemo(() => {
+    const name = (loginOutletName || "").toUpperCase();
+    return name.includes("OP") || outletCode === "OLET002";
+  }, [loginOutletName, outletCode]);
 
   useEffect(() => {
     const h = (e) => {
@@ -1179,7 +1226,8 @@ const StockTransfer = () => {
     }
     if (fromOutlet === null) { setMedicineResults([]); setShowMedDropdown(false); return; }
     try {
-      const params = new URLSearchParams({ search: query, page: "all" });
+      const cleanQ = query.trim().toUpperCase();
+      const params = new URLSearchParams({ search: query.trim(), page: "1", page_size: "100" });
       params.append("outlet_code", fromOutlet);
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
       const payload = res?.data;
@@ -1194,6 +1242,7 @@ const StockTransfer = () => {
           ...s,
           item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
         }))
+        .filter((s) => String(s.item_name || "").toUpperCase().startsWith(cleanQ))
         .sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }));
       setMedicineResults(unique);
       setShowMedDropdown(unique.length > 0);
@@ -1308,9 +1357,14 @@ const StockTransfer = () => {
 
   // ── UPDATED: handleSave includes remarks ───────────────────────────────────
   const handleSave = async () => {
-    if (fromOutlet === null) { toast.error("Please select From Outlet"); return; }
-    if (toOutlet === null || toOutlet === undefined) {
-      toast.error("Please select To Outlet"); return;
+    const finalFrom = fromOutlet || outletCode;
+    if (finalFrom === null || finalFrom === undefined || (!finalFrom && finalFrom !== "")) {
+      toast.error("Please select From Outlet");
+      return;
+    }
+    if (toOutlet === null || toOutlet === undefined || !toOutlet) {
+      toast.error("Please select To Outlet");
+      return;
     }
     if (fromOutlet === toOutlet) {
       toast.error("From Outlet and To Outlet cannot be the same"); return;
@@ -1326,7 +1380,7 @@ const StockTransfer = () => {
 
     try {
       const res = await apiRequest(`${HmsBaseUrl}stock-transfer/`, "POST", {
-        from_outlet: fromOutlet,
+        from_outlet: finalFrom,
         to_outlet:   toOutlet,
         remarks:     remarks.trim(),    // ← NEW
         items: addedItems.map((i) => ({
@@ -1352,7 +1406,7 @@ const StockTransfer = () => {
   };
 
   const handleCancelForm = () => {
-    setFromOutlet(isDrugPurchase ? null : outletCode);
+    setFromOutlet(outletCode || "");
     setToOutlet(null);
     setAddedItems([]);
     setRemarks("");                  // ← NEW
@@ -1369,8 +1423,14 @@ const StockTransfer = () => {
   const canApprove = useCallback((t) => {
     if ((t.is_verified || "Draft") !== "Draft") return false;
     if (isDrugPurchase) return true;
+    const isDept =
+      (t.to_outlet || "").startsWith("DPT") ||
+      stockDepartments.some((d) => d.department_id === t.to_outlet);
+    if (isDept) {
+      return (t.from_outlet ?? t.outlet_code) === outletCode || !outletCode;
+    }
     return t.to_outlet === outletCode;
-  }, [isDrugPurchase, outletCode]);
+  }, [isDrugPurchase, outletCode, stockDepartments]);
 
   // ── Approve ────────────────────────────────────────────────────────────────
   const handleApproveClick = (t) => {
@@ -1436,14 +1496,45 @@ const StockTransfer = () => {
     ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
   ];
 
-  const toOutletOptions = [
-    { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
-    ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
-  ].filter((o) => {
-    if (fromOutlet === null) return true;
-    const code = o.value === DRUG_PURCHASE_VALUE ? "" : o.value;
-    return code !== fromOutlet;
-  });
+  const toOutletOptions = useMemo(() => {
+    const options = [];
+    const currentFrom = fromOutlet ?? outletCode;
+
+    // 1. Drug Purchase (unless current source is Drug Purchase)
+    if (currentFrom !== "" && currentFrom !== null && currentFrom !== undefined) {
+      options.push({
+        value: DRUG_PURCHASE_VALUE,
+        label: DRUG_PURCHASE_LABEL,
+      });
+    }
+
+    // 2. Active stock outlets (excluding current from outlet)
+    const activeOutlets = outlets
+      .filter((o) => {
+        if (!o.outlet_code) return false;
+        return o.outlet_code !== currentFrom;
+      })
+      .map((o) => ({
+        value: o.outlet_code,
+        label: o.outlet_name,
+      }));
+    options.push(...activeOutlets);
+
+    // 3. Departments from hospital_stocktransfer_department
+    let deptList = stockDepartments;
+    if (isIpPharmacy) {
+      deptList = deptList.filter((d) => d.is_ipstock_dept === true);
+    } else if (isOpPharmacy) {
+      deptList = deptList.filter((d) => d.is_opstock_dept === true);
+    }
+    const deptOptions = deptList.map((d) => ({
+      value: d.department_id,
+      label: d.department_name,
+    }));
+    options.push(...deptOptions);
+
+    return options;
+  }, [outlets, stockDepartments, fromOutlet, outletCode, isIpPharmacy, isOpPharmacy]);
 
   // ── Date/time formatter ────────────────────────────────────────────────────
   const fmtDateTime = (d) => {
@@ -1482,20 +1573,11 @@ const StockTransfer = () => {
               <FormRow columns="1fr 1fr" style={{ marginBottom: 22 }}>
                 <InputWrapper>
                   <Label required>From Outlet</Label>
-                  {isDrugPurchase ? (
-                    <FilterSelect
-                      style={{ width: "100%", padding: "9px 10px", fontSize: "0.9rem" }}
-                      value={toSelectVal(fromOutlet)}
-                      onChange={(e) => handleFromOutletChange(e.target.value)}
-                    >
-                      <option value="">-- Select From Outlet --</option>
-                      {fromOutletOptions.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </FilterSelect>
-                  ) : (
-                    <ReadonlyInput type="text" value={getOutletName(outletCode)} readOnly />
-                  )}
+                  <ReadonlyInput
+                    type="text"
+                    value={loginOutletName || getOutletName(fromOutlet || outletCode) || DRUG_PURCHASE_LABEL}
+                    readOnly
+                  />
                 </InputWrapper>
 
                 <InputWrapper>
@@ -1505,7 +1587,7 @@ const StockTransfer = () => {
                     value={toSelectVal(toOutlet)}
                     onChange={(e) => handleToOutletChange(e.target.value)}
                   >
-                    <option value="">-- Select To Outlet --</option>
+                    <option value="">-- Select To Department / Outlet --</option>
                     {toOutletOptions.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}

@@ -72,9 +72,10 @@ const SValue = styled.div`font-size:1.7rem;font-weight:800;color:#111827;line-he
 const FilterBar = styled.div`display:flex;gap:10px;align-items:flex-end;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;background:#fafafa;`;
 const FF = styled.div`display:flex;flex-direction:column;gap:3px;flex:${p => p.flex || '1 1 150px'};`;
 const FL = styled.label`font-size:.74rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.04em;`;
-const FSel = styled.select`height:36px;padding:0 10px;font-size:.84rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
+const FSel = styled.select`height:36px;padding:0 10px;font-size:.84rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}`;
 const FInp = styled.input`height:36px;padding:0 10px;font-size:.84rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
 const SearchBtn = styled.button`height:36px;padding:0 20px;font-size:.84rem;font-weight:700;background:#0d9488;color:#fff;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;&:hover{background:#0f766e;}`;
+const ResetBtn = styled.button`height:36px;padding:0 16px;font-size:.84rem;font-weight:700;background:#f8fafc;color:#475569;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s ease;&:hover{background:#f1f5f9;color:#1e293b;border-color:#94a3b8;}`;
 
 // ─── Form Panel ────────────────────────────────────────────────────────────────
 const FormPanel = styled.div`overflow:hidden;border-bottom:2px solid #0d9488;animation:${openAnim} .4s ease both;`;
@@ -85,7 +86,7 @@ const FGrid = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:8p
 const Field = styled.div`display:flex;flex-direction:column;gap:3px;grid-column:span ${p => p.span || 1};`;
 const Lbl = styled.label`font-size:.76rem;font-weight:600;color:#374151;&::after{content:${p => p.req ? '" *"' : '""'};color:#ef4444;}`;
 const Inp = styled.input`height:34px;padding:0 9px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;background:${p => p.readOnly ? '#f3f4f6' : '#fff'};color:${p => p.readOnly ? '#6b7280' : '#111827'};outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}`;
-const Sel = styled.select`height:34px;padding:0 8px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}&:disabled{background:#f3f4f6;color:#6b7280;}`;
+const Sel = styled.select`height:34px;padding:0 8px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}&:disabled{background:#f3f4f6;color:#6b7280;}`;
 const Txta = styled.textarea`padding:6px 9px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;resize:vertical;min-height:50px;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;outline:none;}`;
 const SecDiv = styled.div`grid-column:span 6;border-top:1px solid #e5e7eb;margin:8px 0 4px;padding-top:8px;font-size:.76rem;font-weight:800;color:#0d9488;text-transform:uppercase;letter-spacing:.05em;`;
 const IRow = styled.div`display:flex;align-items:center;gap:4px;`;
@@ -120,7 +121,7 @@ const ToggleSwitchWrapper = styled.div`
 const ToggleTrack = styled.div`
   width: 44px;
   height: 24px;
-  background: ${p => p.active ? "#dc2626" : "#cbd5e1"};
+  background: ${p => p.active ? (p.color || "#0d9488") : "#cbd5e1"};
   border-radius: 12px;
   position: relative;
   transition: background 0.25s ease;
@@ -291,7 +292,7 @@ const Drop = styled.div`
     background: #94a3b8;
   }
 `;
-const DI = styled.button`width:100%;padding:9px 14px;text-align:left;font-size:.78rem;font-weight:500;background:none;border:none;display:flex;align-items:center;gap:8px;color:${p => p.disabled ? '#9ca3af' : p.danger ? '#dc2626' : '#374151'};cursor:${p => p.disabled ? 'not-allowed' : 'pointer'};&:hover:not(:disabled){background:${p => p.danger ? '#fff1f2' : '#f0fdf4'};}`;
+const DI = styled.button`width:100%;padding:9px 14px;text-align:left;font-size:.78rem;font-weight:500;background:none;border:none;outline:none;display:flex;align-items:center;gap:8px;color:${p => p.disabled ? '#9ca3af' : p.danger ? '#dc2626' : '#374151'};cursor:${p => p.disabled ? 'not-allowed' : 'pointer'};&:hover:not(:disabled),&:focus:not(:disabled){background:${p => p.danger ? '#fff1f2' : '#f0fdf4'};color:${p => p.danger ? '#dc2626' : '#0d9488'};box-shadow:inset 3px 0 0 #0d9488;}`;
 
 // ─── Pagination ────────────────────────────────────────────────────────────────
 const Pager = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid #e5e7eb;font-size:.75rem;color:#6b7280;flex-wrap:wrap;gap:6px;`;
@@ -527,7 +528,7 @@ function BarcodeSVG({ value = "", width = 240, height = 64, showText = true }) {
 // ══════════════════════════════════════════════════════════════════════════════
 const EMPTY = {
   uhid: "", ipNumber: "", admittingDoctor: "", consultingDoctor: "",
-  roomNo: "", bedNo: "", reasonForAdmission: "",
+  roomNo: "", bedNo: "", is_day_care: false, reasonForAdmission: "",
   packageNo: "", packageName: "",
   mlc_type: "", mlc_doc: null, mlc_remarks: "",
   attender_name: "", attender_relationship: "", attender_phone: "",
@@ -1553,7 +1554,13 @@ function SearchSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
+  const itemRefs = useRef([]);
+  const isKeyboardNav = useRef(false);
+  const lastMousePos = useRef({ x: -1, y: -1 });
 
   const normOptions = useMemo(() => {
     return options.map(opt => {
@@ -1570,6 +1577,7 @@ function SearchSelect({
   }, [normOptions, value]);
 
   const filtered = useMemo(() => {
+    itemRefs.current = [];
     if (!query.trim()) return normOptions;
     const q = query.toLowerCase();
     return normOptions.filter(o =>
@@ -1578,6 +1586,51 @@ function SearchSelect({
       (o.sub && o.sub.toLowerCase().includes(q))
     );
   }, [normOptions, query]);
+
+  // Sync highlightedIndex when menu opens or query changes
+  useEffect(() => {
+    if (isOpen) {
+      const idx = filtered.findIndex(o => String(o.value) === String(value));
+      const targetIdx = idx >= 0 ? idx : (filtered.length > 0 ? 0 : -1);
+      setHighlightedIndex(targetIdx);
+      setTimeout(() => {
+        if (inputRef.current) inputRef.current.focus();
+        if (listRef.current && targetIdx >= 0 && itemRefs.current[targetIdx]) {
+          try {
+            itemRefs.current[targetIdx].scrollIntoView({ block: "nearest", behavior: "auto" });
+          } catch (e) {}
+        }
+      }, 40);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [isOpen, query]);
+
+  // Precise scrolling on highlight change: works for both Up and Down arrows
+  useEffect(() => {
+    if (isOpen && highlightedIndex >= 0 && listRef.current && itemRefs.current[highlightedIndex]) {
+      const container = listRef.current;
+      const el = itemRefs.current[highlightedIndex];
+      if (!el || !container) return;
+
+      // 1. Native scrollIntoView
+      try {
+        el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+      } catch (err) {}
+
+      // 2. Direct offsetTop bounds checking ensuring it is 100% inside container viewport
+      const elTop = el.offsetTop;
+      const elBottom = elTop + el.offsetHeight;
+      const cTop = container.scrollTop;
+      const cBottom = cTop + container.clientHeight;
+
+      if (elTop < cTop) {
+        container.scrollTop = elTop;
+      } else if (elBottom > cBottom) {
+        container.scrollTop = elBottom - container.clientHeight;
+      }
+    }
+  }, [highlightedIndex, isOpen]);
 
   useEffect(() => {
     const handleOut = (e) => {
@@ -1591,7 +1644,7 @@ function SearchSelect({
   }, []);
 
   const handleChoose = (opt) => {
-    if (disabled) return;
+    if (disabled || !opt) return;
     onChange && onChange({ target: { name, value: opt.value } });
     setIsOpen(false);
     setQuery("");
@@ -1604,17 +1657,96 @@ function SearchSelect({
     setQuery("");
   };
 
+  const handleKeyDown = (e) => {
+    if (disabled) return;
+
+    if (!isOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setIsOpen(true);
+        setQuery("");
+        const idx = filtered.findIndex(o => String(o.value) === String(value));
+        if (e.key === "ArrowDown") {
+          const next = idx >= 0 && idx < filtered.length - 1 ? idx + 1 : 0;
+          setHighlightedIndex(next);
+        } else {
+          const prev = idx > 0 ? idx - 1 : (filtered.length > 0 ? filtered.length - 1 : 0);
+          setHighlightedIndex(prev);
+        }
+      } else if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setIsOpen(true);
+        setQuery("");
+        const idx = filtered.findIndex(o => String(o.value) === String(value));
+        setHighlightedIndex(idx >= 0 ? idx : (filtered.length > 0 ? 0 : -1));
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (filtered.length === 0) return;
+      isKeyboardNav.current = true;
+      setHighlightedIndex(prev => {
+        if (prev < 0) return 0;
+        return Math.min(filtered.length - 1, prev + 1);
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (filtered.length === 0) return;
+      isKeyboardNav.current = true;
+      setHighlightedIndex(prev => {
+        if (prev <= 0) return 0;
+        return prev - 1;
+      });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
+        handleChoose(filtered[highlightedIndex]);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setIsOpen(false);
+      setQuery("");
+    } else if (e.key === "Tab") {
+      if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
+        handleChoose(filtered[highlightedIndex]);
+      } else {
+        setIsOpen(false);
+        setQuery("");
+      }
+    }
+  };
+
+  // Only update hover index if user physically moved mouse (prevents scroll synthetic events overriding keyboard nav)
+  const handleItemMouseMove = (idx, e) => {
+    const dx = Math.abs(e.clientX - lastMousePos.current.x);
+    const dy = Math.abs(e.clientY - lastMousePos.current.y);
+    if (dx > 3 || dy > 3) {
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+      isKeyboardNav.current = false;
+      setHighlightedIndex(idx);
+    }
+  };
+
   return (
     <div ref={wrapRef} style={{ position: "relative", width: "100%", ...style }}>
       <div
-        onClick={() => { if (!disabled) { setIsOpen(!isOpen); setQuery(""); } }}
+        tabIndex={disabled ? -1 : 0}
+        onClick={() => {
+          if (!disabled) {
+            setIsOpen(!isOpen);
+            setQuery("");
+          }
+        }}
+        onKeyDown={handleKeyDown}
         style={{
           height: height,
           boxSizing: "border-box",
           padding: "0 7px",
           fontSize: ".75rem",
-          border: error ? "1px solid #ef4444" : isOpen ? "1px solid #0d9488" : "1px solid #d1d5db",
-          borderRadius: "4px",
+          border: error ? "1.5px solid #ef4444" : isOpen ? "1.5px solid #0d9488" : "1px solid #d1d5db",
+          borderRadius: "5px",
           background: disabled ? "#f3f4f6" : "#fff",
           color: disabled ? "#6b7280" : selectedOpt ? "#111827" : "#9ca3af",
           display: "flex",
@@ -1623,9 +1755,10 @@ function SearchSelect({
           cursor: disabled ? "not-allowed" : "pointer",
           boxShadow: isOpen ? "0 0 0 2px #ccfbf1" : "none",
           userSelect: "none",
+          outline: "none",
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, fontWeight: selectedOpt ? 600 : 400 }}>
           {selectedOpt ? selectedOpt.label : placeholder}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 4 }}>
@@ -1638,7 +1771,9 @@ function SearchSelect({
               ✕
             </span>
           )}
-          <span style={{ fontSize: ".65rem", color: "#6b7280" }}>{isOpen ? "▲" : "▼"}</span>
+          <span style={{ fontSize: ".65rem", color: isOpen ? "#0d9488" : "#6b7280", fontWeight: 700 }}>
+            {isOpen ? "▲" : "▼"}
+          </span>
         </div>
       </div>
 
@@ -1646,76 +1781,128 @@ function SearchSelect({
         <div
           style={{
             position: "absolute",
-            top: "calc(100% + 2px)",
+            top: "calc(100% + 3px)",
             left: 0,
             right: 0,
             background: "#fff",
-            border: "1px solid #cbd5e1",
-            borderRadius: "5px",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            border: "1.5px solid #0d9488",
+            borderRadius: "6px",
+            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.25), 0 8px 10px -6px rgba(0,0,0,0.15)",
             zIndex: 99999,
-            maxHeight: "220px",
-            overflowY: "auto",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <div style={{ padding: "5px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", position: "sticky", top: 0, zIndex: 1 }}>
+          {/* Static Search Header: Never covers options */}
+          <div style={{ padding: "6px 8px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flexShrink: 0 }}>
             <input
+              ref={inputRef}
               type="text"
-              autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Type to filter..."
+              onKeyDown={handleKeyDown}
+              placeholder="🔍 Search or use ↑ / ↓ to navigate..."
               style={{
                 width: "100%",
-                height: "26px",
-                padding: "0 6px",
+                height: "28px",
+                padding: "0 8px",
                 boxSizing: "border-box",
-                fontSize: ".72rem",
+                fontSize: ".74rem",
                 border: "1px solid #cbd5e1",
                 borderRadius: "4px",
                 outline: "none",
+                background: "#fff",
               }}
               onClick={(e) => e.stopPropagation()}
             />
           </div>
-          {filtered.length === 0 ? (
-            <div style={{ padding: "10px", fontSize: ".72rem", color: "#94a3b8", textAlign: "center" }}>
-              No matches found
-            </div>
-          ) : (
-            filtered.map((opt) => (
-              <div
-                key={opt.value}
-                onClick={() => handleChoose(opt)}
-                style={{
-                  padding: "6px 8px",
-                  fontSize: ".74rem",
-                  cursor: "pointer",
-                  background: String(opt.value) === String(value) ? "#f0fdf4" : "transparent",
-                  color: String(opt.value) === String(value) ? "#0f766e" : "#1e293b",
-                  fontWeight: String(opt.value) === String(value) ? 700 : 400,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  borderBottom: "1px solid #f8fafc",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "#e6f7f5"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = String(opt.value) === String(value) ? "#f0fdf4" : "transparent"; }}
-              >
-                <span>{opt.label}</span>
-                {opt.sub && <span style={{ fontSize: ".65rem", color: "#64748b" }}>{opt.sub}</span>}
+
+          {/* Scrollable list */}
+          <div
+            ref={listRef}
+            style={{
+              position: "relative",
+              maxHeight: "220px",
+              overflowY: "auto",
+            }}
+          >
+            {filtered.length === 0 ? (
+              <div style={{ padding: "12px", fontSize: ".74rem", color: "#94a3b8", textAlign: "center" }}>
+                No matches found
               </div>
-            ))
-          )}
+            ) : (
+              filtered.map((opt, idx) => {
+                const isSelected = String(opt.value) === String(value);
+                const isHighlighted = idx === highlightedIndex;
+
+                let itemBg = "transparent";
+                let itemColor = "#111827";
+                let itemWeight = 400;
+
+                if (isHighlighted) {
+                  itemBg = "#0d9488";
+                  itemColor = "#ffffff";
+                  itemWeight = 700;
+                } else if (isSelected) {
+                  itemBg = "#f0fdfa";
+                  itemColor = "#0f766e";
+                  itemWeight = 700;
+                }
+
+                return (
+                  <div
+                    key={opt.value || idx}
+                    ref={el => { itemRefs.current[idx] = el; }}
+                    onClick={() => handleChoose(opt)}
+                    onMouseMove={(e) => handleItemMouseMove(idx, e)}
+                    style={{
+                      padding: "8px 12px",
+                      fontSize: ".75rem",
+                      cursor: "pointer",
+                      background: itemBg,
+                      color: itemColor,
+                      fontWeight: itemWeight,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      borderBottom: "1px solid #f1f5f9",
+                      userSelect: "none",
+                      transition: "background .05s ease",
+                    }}
+                  >
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, color: itemColor, fontWeight: itemWeight }}>
+                      {opt.label}
+                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8, flexShrink: 0 }}>
+                      {opt.sub && (
+                        <span style={{ fontSize: ".65rem", color: isHighlighted ? "#ccfbf1" : "#64748b", fontWeight: 500 }}>
+                          {opt.sub}
+                        </span>
+                      )}
+                      {isSelected && (
+                        <span style={{ fontSize: ".76rem", fontWeight: 800, color: isHighlighted ? "#ffffff" : "#0d9488" }}>
+                          ✓
+                        </span>
+                      )}
+                      {isHighlighted && !isSelected && (
+                        <span style={{ fontSize: ".62rem", color: "#ccfbf1", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" }}>
+                          ↵ Enter
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ══════════════════════════════════════════════════════════════════════════════
+
 export default function Admission({ patient: propPatient, uhid: propUhid, ipNumber: propIpNumber, onClose, onSaved }) {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
   const API_ADMISSION_LIST = `${HmsBaseUrl}admission-list/`;
@@ -1747,10 +1934,41 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const [regSort, setRegSort] = useState({ key: "uhid", direction: "desc" });
   const [todayRegCount, setTodayRegCount] = useState(0);
 
+  const handleResetFilters = () => {
+    setFFrom(today);
+    setFTo(today);
+    setFDoctor("ALL");
+    setFCustomerType("ALL");
+    setFStatus("All");
+    setTSearch("");
+    setActiveStatFilter(null);
+    setPage(1);
+    fetchAdmissions({
+      from_date: today,
+      to_date: today,
+      doctor: "ALL",
+      customer_type: "ALL",
+      status: "All"
+    });
+  };
+
+  const handleSearchClick = () => {
+    setPage(1);
+    setActiveStatFilter(null);
+    fetchAdmissions({
+      from_date: fFrom,
+      to_date: fTo,
+      doctor: fDoctor,
+      customer_type: fCustomerType,
+      status: fStatus
+    });
+  };
+
   const [fDoctor, setFDoctor] = useState("ALL");
   const [fFrom, setFFrom] = useState(today);
   const [fTo, setFTo] = useState(today);
   const [fStatus, setFStatus] = useState("All");
+  const [fCustomerType, setFCustomerType] = useState("ALL");
   const [tSearch, setTSearch] = useState("");
   const [perPage, setPerPage] = useState(15);
   const [page, setPage] = useState(1);
@@ -2045,14 +2263,27 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     } catch { }
   };
 
-  const fetchAdmissions = async () => {
+  const fetchAdmissions = async (filters) => {
     setLoading(true);
     try {
+      const fromVal = filters?.from_date !== undefined ? filters.from_date : fFrom;
+      const toVal = filters?.to_date !== undefined ? filters.to_date : fTo;
+      const docVal = filters?.doctor !== undefined ? filters.doctor : fDoctor;
+      const custVal = filters?.customer_type !== undefined ? filters.customer_type : fCustomerType;
+      const statVal = filters?.status !== undefined ? filters.status : fStatus;
+
       const p = new URLSearchParams();
-      if (fFrom) p.append("from_date", fFrom);
-      if (fTo) p.append("to_date", fTo);
-      if (fDoctor !== "ALL") p.append("admitting_doctor", fDoctor);
-      if (fStatus !== "All") p.append("status", fStatus);
+      if (fromVal) p.append("from_date", fromVal);
+      if (toVal) p.append("to_date", toVal);
+      if (docVal && docVal !== "ALL") {
+        p.append("admitting_doctor", docVal);
+        const docObj = doctors.find(d => String(d.employeeId) === String(docVal));
+        if (docObj?.employeeName) {
+          p.append("doctor_name", docObj.employeeName);
+        }
+      }
+      if (statVal && statVal !== "All") p.append("status", statVal);
+      if (custVal && custVal !== "ALL") p.append("customer_type", custVal);
       const q = p.toString() ? `?${p.toString()}` : "";
       const res = await apiRequest(`${API_ADMISSION_LIST}${q}`, "GET");
       const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
@@ -2328,6 +2559,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       customerType: adm.customerType || adm.customer_type || "General",
       insuranceCompanyName: adm.insuranceCompanyName || adm.insurance_company || "",
       company_code: adm.company_code || "",
+      is_day_care: Boolean(adm.is_day_care),
       is_high_risk: !!adm.is_high_risk,
       high_risk_reason: adm.high_risk_reason || "",
       high_risk_date: adm.high_risk_date ? String(adm.high_risk_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
@@ -2424,6 +2656,19 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", total];
   };
 
+  const getInsuranceName = (adm) => {
+    if (!adm) return "";
+    if (adm.insuranceCompanyName) return adm.insuranceCompanyName;
+    if (adm.insurance_company) return adm.insurance_company;
+    if (adm.company_name) return adm.company_name;
+    if (adm.company_code) {
+      const prov = insuranceProviders.find(p => p.company_code === adm.company_code);
+      if (prov && prov.company_name) return prov.company_name;
+      return adm.company_code;
+    }
+    return "";
+  };
+
   const filtered = useMemo(() => {
     let list = admissions;
 
@@ -2437,6 +2682,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     } else if (activeStatFilter === "total_discharges") {
       list = list.filter(a => a.is_discharged);
     }
+
+
 
     if (tSearch && tSearch.trim()) {
       const q = tSearch.trim().toLowerCase();
@@ -2772,6 +3019,41 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   };
 
   const handlePrint = adm => { setOpenMenu(null); setPrintData({ ...adm, admittingDoctorName: getDrName(adm.admittingDoctor) }); };
+
+  useEffect(() => {
+    if (openMenu === null) return;
+    const timer = setTimeout(() => {
+      const firstBtn = menuRef.current?.querySelector("button:not([disabled])");
+      firstBtn?.focus();
+    }, 50);
+
+    const handleMenuKey = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpenMenu(null);
+        return;
+      }
+      if (menuRef.current) {
+        const buttons = Array.from(menuRef.current.querySelectorAll("button:not([disabled])"));
+        if (!buttons.length) return;
+        const currentIdx = buttons.indexOf(document.activeElement);
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          const next = currentIdx === -1 ? 0 : (currentIdx + 1) % buttons.length;
+          buttons[next]?.focus();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          const next = currentIdx === -1 ? buttons.length - 1 : (currentIdx - 1 + buttons.length) % buttons.length;
+          buttons[next]?.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleMenuKey);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", handleMenuKey);
+    };
+  }, [openMenu]);
 
   const handleMenuToggle = (ipNumber, e) => {
     if (openMenu === ipNumber) { setOpenMenu(null); return; }
@@ -3111,25 +3393,56 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
         {viewMode === "table" && (
           <FilterBar>
+            <FF flex="0 0 145px">
+              <FL>From Date</FL>
+              <FInp type="date" value={fFrom} onChange={e => setFFrom(e.target.value)} />
+            </FF>
+            <FF flex="0 0 145px">
+              <FL>To Date</FL>
+              <FInp type="date" value={fTo} onChange={e => setFTo(e.target.value)} />
+            </FF>
             <FF flex="1 1 200px">
-              <FL>Admitting Doctor</FL>
+              <FL>Doctor</FL>
               <SearchSelect
                 options={[{ value: "ALL", label: "ALL" }, ...doctors.map(d => ({ value: String(d.employeeId), label: d.employeeName }))]}
                 value={fDoctor}
-                onChange={e => { setFDoctor(e.target.value); setPage(1); }}
+                onChange={e => setFDoctor(e.target.value)}
                 placeholder="Search Doctor..."
-                height="32px"
+                height="36px"
               />
             </FF>
-            <FF flex="0 0 150px"><FL>From Date</FL><FInp type="date" value={fFrom} onChange={e => { setFFrom(e.target.value); setPage(1); }} /></FF>
-            <FF flex="0 0 150px"><FL>To Date</FL><FInp type="date" value={fTo} onChange={e => { setFTo(e.target.value); setPage(1); }} /></FF>
+            <FF flex="0 0 160px">
+              <FL>Customer Type</FL>
+              <SearchSelect
+                options={[
+                  { value: "ALL", label: "All" },
+                  { value: "General", label: "General" },
+                  { value: "Insurance", label: "Insurance" },
+                  ...customerTypes.filter(ct => ct.type_name !== "General" && ct.type_name !== "Insurance").map(ct => ({ value: ct.type_name, label: ct.type_name }))
+                ]}
+                value={fCustomerType}
+                onChange={e => setFCustomerType(e.target.value)}
+                placeholder="Search Type..."
+                height="36px"
+              />
+            </FF>
             <FF flex="0 0 140px">
               <FL>Status</FL>
-              <FSel value={fStatus} onChange={e => { setFStatus(e.target.value); setPage(1); }}>
-                <option>All</option><option>Admitted</option><option>Discharged</option>
-              </FSel>
+              <SearchSelect
+                options={[
+                  { value: "All", label: "All" },
+                  { value: "Admitted", label: "Admitted" },
+                  { value: "Discharged", label: "Discharged" },
+                  { value: "Cancelled", label: "Cancelled" }
+                ]}
+                value={fStatus}
+                onChange={e => setFStatus(e.target.value)}
+                placeholder="Search Status..."
+                height="36px"
+              />
             </FF>
-            <SearchBtn onClick={fetchAdmissions}>🔍 Search</SearchBtn>
+            <SearchBtn type="button" onClick={handleSearchClick}>🔍 Search</SearchBtn>
+            <ResetBtn type="button" onClick={handleResetFilters} title="Reset all filters">🔄 Reset</ResetBtn>
           </FilterBar>
         )}
 
@@ -3236,7 +3549,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                 <Field><Lbl>Gender</Lbl><Inp value={form.gender} readOnly /></Field>
                 <Field span={2}>
                   <Lbl req>Customer Type</Lbl>
-                  <Sel
+                  <SearchSelect
                     name="customerType"
                     value={form.customerType || "General"}
                     onChange={(e) => {
@@ -3250,12 +3563,13 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                         ...(val !== "Insurance" ? { insuranceCompanyName: "", company_code: "" } : {})
                       }));
                     }}
-                  >
-                    <option value="General">General</option>
-                    {customerTypes.filter(ct => ct.type_name !== "General").map(ct => (
-                      <option key={ct.type_id || ct.type_name} value={ct.type_name}>{ct.type_name}</option>
-                    ))}
-                  </Sel>
+                    options={[
+                      { value: "General", label: "General" },
+                      ...customerTypes.filter(ct => ct.type_name !== "General").map(ct => ({ value: ct.type_name, label: ct.type_name }))
+                    ]}
+                    placeholder="Search Customer Type..."
+                    height="34px"
+                  />
                 </Field>
                 <Field span={4}>
                   <Lbl req={form.customerType === "Insurance"}>Insurance</Lbl>
@@ -3324,7 +3638,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     <span style={{ fontSize: ".72rem", fontWeight: 700, color: form.is_high_risk ? "#dc2626" : "#64748b" }}>
                       {form.is_high_risk ? "🚨 High Risk Active" : "No (Normal)"}
                     </span>
-                    <ToggleTrack active={form.is_high_risk}>
+                    <ToggleTrack active={form.is_high_risk} color="#dc2626">
                       <ToggleThumb active={form.is_high_risk} />
                     </ToggleTrack>
                   </ToggleSwitchWrapper>
@@ -3414,7 +3728,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                 </Field>
 
                 <SecDiv>Room &amp; Bed</SecDiv>
-                <Field span={2}>
+                <Field span={3}>
                   <Lbl req>Room No.</Lbl>
                   <IRow>
                     <Inp
@@ -3428,7 +3742,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                   </IRow>
                   {errors.roomNo && <FieldError>{errors.roomNo}</FieldError>}
                 </Field>
-                <Field span={2}>
+                <Field span={3}>
                   <Lbl req>Bed No.</Lbl>
                   <Inp
                     name="bedNo"
@@ -3439,8 +3753,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                   />
                   {errors.bedNo && <FieldError>{errors.bedNo}</FieldError>}
                 </Field>
-                <Field span={2} />
-
                 {editingId && (
                   <RoomTimeline roomDetails={form.room_details} shiftingDetails={form.roomShitingDetails} isDischarged={Boolean(form.is_discharged)} />
                 )}
@@ -3473,16 +3785,23 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                 <SecDiv>MLC (if applicable)</SecDiv>
                 <Field span={2}>
                   <Lbl>MLC Type</Lbl>
-                  <Sel name="mlc_type" value={form.mlc_type} onChange={handleFormChange}>
-                    <option value="">-- Non MLC --</option>
-                    <option value="Accident">Accident</option>
-                    <option value="Assault">Assault</option>
-                    <option value="Poisoning">Poisoning</option>
-                    <option value="Burns">Burns</option>
-                    <option value="Self-Harm">Self-Harm</option>
-                    <option value="Industrial Accident">Industrial Accident</option>
-                    <option value="Other">Other</option>
-                  </Sel>
+                  <SearchSelect
+                    name="mlc_type"
+                    value={form.mlc_type || ""}
+                    onChange={handleFormChange}
+                    options={[
+                      { value: "", label: "-- Non MLC --" },
+                      { value: "Accident", label: "Accident" },
+                      { value: "Assault", label: "Assault" },
+                      { value: "Poisoning", label: "Poisoning" },
+                      { value: "Burns", label: "Burns" },
+                      { value: "Self-Harm", label: "Self-Harm" },
+                      { value: "Industrial Accident", label: "Industrial Accident" },
+                      { value: "Other", label: "Other" }
+                    ]}
+                    placeholder="Select MLC Type..."
+                    height="34px"
+                  />
                 </Field>
                 <Field span={2}>
                   <Lbl>MLC Document</Lbl>
@@ -3708,15 +4027,15 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     <Th>Time</Th>
                     <Th>UHID</Th>
                     <Th>IP No.</Th>
-                    <Th>Name</Th><Th>Age</Th><Th>Gender</Th>
+                    <Th>Name</Th><Th>Age</Th><Th>Gender</Th><Th style={{ minWidth: "150px" }}>Customer Type / Insurance</Th>
                     <Th>Admitting Dr.</Th><Th>Room / Bed</Th><Th>Room History</Th><Th>Actions</Th>
                   </tr>
                 </Thead>
                 <tbody>
                   {loading ? (
-                    <tr><Td colSpan={12} style={{ textAlign: "center", padding: 28 }}>Loading…</Td></tr>
+                    <tr><Td colSpan={13} style={{ textAlign: "center", padding: 28 }}>Loading…</Td></tr>
                   ) : paginated.length === 0 ? (
-                    <tr><Td colSpan={12} style={{ textAlign: "center", padding: 28, color: "#6b7280" }}>No admissions found</Td></tr>
+                    <tr><Td colSpan={13} style={{ textAlign: "center", padding: 28, color: "#6b7280" }}>No admissions found</Td></tr>
                   ) : paginated.map((adm, idx) => {
                     const t = getAdmStatus(adm);
                     const { roomNo, bedNo } = getAdmittedRoom(adm);
@@ -3758,6 +4077,57 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                         </Td>
                         <Td>{adm.age ? `${adm.age} ${adm.age_type || "Y"}` : "-"}</Td>
                         <Td>{adm.gender || "-"}</Td>
+                        <Td>
+                          {(adm.customerType === "Insurance" || adm.customer_type === "Insurance" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                              <span style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                                padding: "2px 7px",
+                                borderRadius: 4,
+                                background: "#fef3c7",
+                                color: "#92400e",
+                                fontWeight: 700,
+                                fontSize: ".68rem",
+                                border: "1px solid #fde68a",
+                                width: "fit-content"
+                              }}>
+                                🛡️ Insurance
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: ".75rem",
+                                  fontWeight: 700,
+                                  color: "#0d9488",
+                                  lineHeight: "1.25",
+                                  wordBreak: "break-word"
+                                }}
+                                title={getInsuranceName(adm) || adm.company_code || "Insurance"}
+                              >
+                                {getInsuranceName(adm) || adm.company_code || "Insurance"}
+                              </span>
+                              {adm.company_code && getInsuranceName(adm) !== adm.company_code && (
+                                <span style={{ fontSize: ".65rem", color: "#64748b", fontFamily: "monospace" }}>
+                                  Code: {adm.company_code}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{
+                              display: "inline-block",
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              background: "#f1f5f9",
+                              color: "#475569",
+                              fontWeight: 600,
+                              fontSize: ".72rem",
+                              border: "1px solid #e2e8f0"
+                            }}>
+                              {adm.customerType || adm.customer_type || "General"}
+                            </span>
+                          )}
+                        </Td>
                         <Td>{adm.admittingDoctorName || getDrName(adm.admittingDoctor)}</Td>
                         <Td>
                           {roomNo !== "-" ? (

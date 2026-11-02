@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components";
+import { Select } from "antd";
 import { toast } from "react-toastify";
 import {
   Search,
@@ -151,6 +152,36 @@ const SelectInput = styled.select`
   &:focus {
     border-color: ${THEME.teal};
     box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+  }
+`;
+
+const StyledAntSelect = styled(Select)`
+  width: 100%;
+  .ant-select-selector {
+    border-radius: 6px !important;
+    border-color: ${THEME.border} !important;
+    min-height: 35px !important;
+    height: 35px !important;
+    display: flex;
+    align-items: center;
+    font-size: 13px !important;
+    background-color: #ffffff !important;
+  }
+  &.ant-select-focused .ant-select-selector,
+  .ant-select-selector:hover {
+    border-color: ${THEME.teal} !important;
+  }
+  &.ant-select-focused .ant-select-selector {
+    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15) !important;
+  }
+  .ant-select-selection-item {
+    font-size: 13px !important;
+    color: ${THEME.textMain} !important;
+    font-weight: 500;
+  }
+  .ant-select-selection-placeholder {
+    font-size: 13px !important;
+    color: #94a3b8 !important;
   }
 `;
 
@@ -618,6 +649,10 @@ const InsuranceMemberMaster = () => {
   const [pageSize, setPageSize] = useState(25);
   const [selectedMember, setSelectedMember] = useState(null);
 
+  // Insurance Providers from hospital_insuranceprovider
+  const [insuranceProviders, setInsuranceProviders] = useState([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
+
   // Form State
   const initialFormState = {
     member_number: "",
@@ -636,7 +671,7 @@ const InsuranceMemberMaster = () => {
     member_age_type: "YEARS",
     member_dob: "",
     parent_polyclinic: "",
-    insurance_type: "001",
+    insurance_type: "",
     scheme_category: "00001",
     scheme_subcategory: "00001",
     card_no: "",
@@ -710,6 +745,28 @@ const InsuranceMemberMaster = () => {
     fetchMembers();
   }, [fetchMembers]);
 
+  // --- Fetch Insurance Providers from hospital_insuranceprovider ---
+  const fetchInsuranceProviders = useCallback(async () => {
+    setProvidersLoading(true);
+    try {
+      const res = await apiRequest(`${HMS_URL}insurance-providers/`, "GET");
+      if (res && res.success && res.data) {
+        const list = Array.isArray(res.data) 
+          ? res.data 
+          : (Array.isArray(res.data.data) ? res.data.data : []);
+        setInsuranceProviders(list);
+      }
+    } catch (err) {
+      console.error("Error fetching insurance providers:", err);
+    } finally {
+      setProvidersLoading(false);
+    }
+  }, [HMS_URL]);
+
+  useEffect(() => {
+    fetchInsuranceProviders();
+  }, [fetchInsuranceProviders]);
+
   // --- Search Patient by UHID to auto-fill form ---
   const handleSearchUHID = async () => {
     if (!formData.uhid.trim()) {
@@ -719,20 +776,25 @@ const InsuranceMemberMaster = () => {
     try {
       const res = await apiRequest(`${HMS_URL}insurance-search-patient/?uhid=${encodeURIComponent(formData.uhid.trim())}`, "GET");
       if (res.success && res.data) {
-        const p = res.data;
+        // Handle both unwrapped and wrapped { success: true, data: { ... } } responses from apiRequest
+        const p = res.data?.data || res.data;
+        const firstName = p.firstName || p.name || p.patient_name || "";
+        const lastName = p.lastName || "";
+        const patientProvider = p.company_code || p.insurance_type || p.insurance_company || "";
         setFormData(prev => ({
           ...prev,
           uhid: p.uhid || prev.uhid,
-          member_first_name: p.firstName || "",
-          member_last_name: p.lastName || "",
-          member_phone: p.mobilePhone || prev.member_phone,
-          member_address_1: p.address || "",
+          member_first_name: firstName,
+          member_last_name: lastName,
+          member_phone: p.mobilePhone || p.phone || prev.member_phone,
+          member_address_1: p.address || p.permanentAddress || prev.member_address_1,
           area: p.area || prev.area,
           member_sex: (p.gender || "MALE").toUpperCase(),
-          member_age: p.age || "",
-          member_dob: p.dob || ""
+          member_age: (p.age !== undefined && p.age !== null && p.age !== "") ? p.age : prev.member_age,
+          member_dob: p.dob || prev.member_dob,
+          ...(patientProvider ? { insurance_type: patientProvider } : {})
         }));
-        toast.success(`Patient ${p.firstName} found and loaded!`);
+        toast.success(`Patient ${firstName} ${lastName}`.trim() + " found and loaded!");
       } else {
         toast.error(res.error || "No patient found with this UHID");
       }
@@ -762,7 +824,7 @@ const InsuranceMemberMaster = () => {
       member_age_type: member.member_age_type || "YEARS",
       member_dob: member.member_dob || "",
       parent_polyclinic: member.parent_polyclinic || "",
-      insurance_type: member.insurance_type || "001",
+      insurance_type: member.insurance_type || member.company_code || member.insurance_company || "",
       scheme_category: member.scheme_category || "00001",
       scheme_subcategory: member.scheme_subcategory || "00001",
       card_no: member.card_no || member.echs_card || "",
@@ -1125,6 +1187,12 @@ const InsuranceMemberMaster = () => {
                       placeholder="e.g. S023/002773"
                       value={formData.uhid}
                       onChange={(e) => setFormData({ ...formData, uhid: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSearchUHID();
+                        }
+                      }}
                     />
                     <InputSearchButton
                       type="button"
@@ -1307,14 +1375,57 @@ const InsuranceMemberMaster = () => {
                   <FieldLabel>
                     Type <span className="required">*</span>
                   </FieldLabel>
-                  <SelectInput
-                    value={formData.insurance_type}
-                    onChange={(e) => setFormData({ ...formData, insurance_type: e.target.value })}
-                  >
-                    <option value="001">001 - ECHS / Ex-Servicemen</option>
-                    <option value="002">002 - State Govt Scheme</option>
-                    <option value="003">003 - Private TPA</option>
-                  </SelectInput>
+                  {(() => {
+                    const selectedVal = (() => {
+                      if (!formData.insurance_type) return undefined;
+                      const match = insuranceProviders.find(p => 
+                        p.company_code === formData.insurance_type || 
+                        p.company_name === formData.insurance_type ||
+                        (p.company_code && p.company_name && `${p.company_code} - ${p.company_name}` === formData.insurance_type)
+                      );
+                      return match ? (match.company_code || match.company_name) : formData.insurance_type;
+                    })();
+
+                    const providerOptions = [
+                      ...insuranceProviders.map((prov) => {
+                        const code = prov.company_code || prov.code || "";
+                        const name = prov.company_name || prov.name || "";
+                        const val = code || name;
+                        const label = code && name ? `${code} - ${name}` : (name || code);
+                        return { value: val, label: label };
+                      }),
+                      ...(formData.insurance_type && !insuranceProviders.some(p => p.company_code === formData.insurance_type || p.company_name === formData.insurance_type)
+                        ? [{ value: formData.insurance_type, label: formData.insurance_type }]
+                        : [])
+                    ];
+
+                    return (
+                      <StyledAntSelect
+                        showSearch
+                        allowClear
+                        placeholder={providersLoading ? "Loading providers..." : "Search or Select Insurance Provider"}
+                        value={selectedVal}
+                        loading={providersLoading}
+                        onChange={(val) => {
+                          const selected = val || "";
+                          const matchedProv = insuranceProviders.find(p => p.company_code === selected || p.company_name === selected);
+                          setFormData({
+                            ...formData,
+                            insurance_type: selected,
+                            company_code: matchedProv ? matchedProv.company_code : selected,
+                            insurance_company: matchedProv ? matchedProv.company_name : ""
+                          });
+                        }}
+                        filterOption={(input, option) =>
+                          (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                        }
+                        filterSort={(optionA, optionB) =>
+                          (optionA?.label ?? "").localeCompare(optionB?.label ?? "")
+                        }
+                        options={providerOptions}
+                      />
+                    );
+                  })()}
                 </FormGroup>
 
                 <FormGroup>

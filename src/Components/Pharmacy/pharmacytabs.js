@@ -173,6 +173,7 @@ const OPPharmacyTabs = () => {
   const [estimateToLoad, setEstimateToLoad] = useState(null);
   const [billToEdit, setBillToEdit] = useState(null);
   const [estimateRefreshKey, setEstimateRefreshKey] = useState(0);
+  const [medichartRefreshKey, setMedichartRefreshKey] = useState(0);
 
   // ── Ward request state (used for MedicineChart → Convert to Bill flow) ──
   const [wardRequestToLoad, setWardRequestToLoad] = useState(null);
@@ -236,6 +237,14 @@ const OPPharmacyTabs = () => {
   const handleEstimateSaved = () => {
     setEstimateRefreshKey(prev => prev + 1);
   };
+
+  // Called by OPPharmacy after a successful Bill save/finalize — signals MedicineChart to re-fetch
+  const handleBillSaved = useCallback((info) => {
+    setMedichartRefreshKey((prev) => prev + 1);
+    if (info?.isWardRequest) {
+      setMedichartCount((prev) => Math.max(0, prev - 1));
+    }
+  }, []);
 
   const handleEstimateLoaded = () => {
     setEstimateToLoad(null);
@@ -421,6 +430,9 @@ const OPPharmacyTabs = () => {
   }, []);
 
   const handleTabClick = (key) => {
+    if (key === "medichart") {
+      setMedichartRefreshKey((prev) => prev + 1);
+    }
     setActiveTab(key);
     setVisitedTabs((prev) => new Set(prev).add(key));
   };
@@ -462,6 +474,7 @@ const OPPharmacyTabs = () => {
           prescriptionToLoad={prescriptionToLoad}
           onPrescriptionLoaded={handlePrescriptionLoaded}
           onEstimateSaved={handleEstimateSaved}
+          onBillSaved={handleBillSaved}
         />
       </TabPanel>
 
@@ -492,6 +505,8 @@ const OPPharmacyTabs = () => {
           <MedicineChart
             onConvertToBill={handleConvertMedicineChart}
             onCountChange={setMedichartCount}
+            refreshTrigger={medichartRefreshKey}
+            activeTab={activeTab}
           />
         </TabPanel>
       )}
