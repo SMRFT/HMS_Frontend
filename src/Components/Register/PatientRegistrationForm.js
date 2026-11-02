@@ -141,7 +141,7 @@ const PatientRegistrationForm = () => {
     mobilePhone: "",
     homePhone: "",
     bloodGroup: "",
-    guardianType: "W/o",
+    guardianType: "S/o",
     guardianName: "",
     spouseName: "",
     occupation: "",
@@ -556,21 +556,74 @@ const PatientRegistrationForm = () => {
     iframe.style.border = '0';
     document.body.appendChild(iframe);
 
-    // Generate Code128 Barcode via local JsBarcode synchronously (no CDN required)
+    // Generate Code128 Barcode via local JsBarcode synchronously
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     try {
-      JsBarcode(svg, String(visit.uhid || ""), {
+      JsBarcode(svg, String(visit.uhid || "").trim(), {
         format: "CODE128",
         displayValue: false,
-        height: 30,
-        width: 1.6,
+        height: 20,
+        width: 1,
         margin: 0
       });
+      svg.setAttribute("preserveAspectRatio", "none");
     } catch (bcErr) {
       console.error("Barcode generation error:", bcErr);
     }
     const barcodeSvgHtml = new XMLSerializer().serializeToString(svg);
-    const hospName = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL";
+
+    // 1. Patient Name, Age & Gender
+    const rawName = String(visit.patientName || visit.firstName || "").replace(/^(mr|ms|mrs|miss|master)\.?\s+/i, '').trim();
+    const patientName = rawName ? rawName.toUpperCase() : String(visit.patientName || "").toUpperCase();
+
+    const cleanGender = String(visit.gender || "").toUpperCase().startsWith('F') ? 'FEMALE' : (String(visit.gender || "").toUpperCase().startsWith('M') ? 'MALE' : String(visit.gender || "").toUpperCase());
+    const ageVal = visit.age !== undefined && visit.age !== null && visit.age !== '' ? `${visit.age} YEARS` : '';
+    const line2 = [patientName, [ageVal, cleanGender].filter(Boolean).join('/')].filter(Boolean).join(' / ');
+
+    // 2. Guardian Line (D/o, S/o, W/o, H/o, etc.)
+    let gType = visit.guardianType;
+    if (!gType || (cleanGender === 'MALE' && gType === 'W/o')) {
+      gType = cleanGender === 'FEMALE' ? 'D/o' : 'S/o';
+    }
+    const gName = String(visit.guardianName || visit.spouseName || visit.fatherName || '').trim().toUpperCase();
+    const guardianLine = gName ? `${gType} ${gName}` : `${gType} -`;
+
+    // 3. Address Lines (Line 1: Door/Street, Line 2: Area/City/District)
+    let addrLine1 = String(visit.permanentAddress || '').trim().toUpperCase();
+    let addrParts = [visit.area, visit.city, visit.district].filter(Boolean).map(s => String(s).trim().toUpperCase());
+    let uniqueAddrParts = [];
+    addrParts.forEach(p => {
+      if (!uniqueAddrParts.includes(p)) {
+        uniqueAddrParts.push(p);
+      }
+    });
+    let addrLine2 = uniqueAddrParts.join(' ');
+
+    if (!addrLine1 && visit.address) {
+      const parts = String(visit.address).split(/[,|\n]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+      if (parts.length > 2) {
+        addrLine1 = parts.slice(0, 2).join(' ');
+        addrLine2 = parts.slice(2).join(' ');
+      } else if (parts.length === 2) {
+        addrLine1 = parts[0];
+        addrLine2 = parts[1];
+      } else {
+        addrLine1 = parts[0] || '';
+      }
+    }
+
+    if (!addrLine1) addrLine1 = '-';
+    if (!addrLine2) addrLine2 = '-';
+
+    // 4. Phone
+    const rawMobile = String(visit.mobile || visit.mobilePhone || '').trim();
+    const cleanMobile = rawMobile.replace(/^(\+91|91)/, '').trim();
+    const phoneLine = cleanMobile ? `Ph.+91${cleanMobile}` : (rawMobile ? `Ph.${rawMobile}` : 'Ph. -');
+
+    // 5. Doctor Line
+    let rawDoc = String(visit.doctorName || visit.doctor || '').trim();
+    rawDoc = rawDoc.replace(/^(dr|doctor)[\s.]+/i, '').replace(/^(dr|doctor)[\s.]+/i, '').trim();
+    const docDisplay = rawDoc ? (/^[a-z]\./i.test(rawDoc) ? `DR.${rawDoc.toUpperCase()}` : `DR. ${rawDoc.toUpperCase()}`) : 'DR. -';
 
     const printDocument = iframe.contentWindow.document;
     printDocument.open();
@@ -580,94 +633,105 @@ const PatientRegistrationForm = () => {
         <head>
           <title>Barcode Sticker - ${visit.uhid}</title>
           <style>
-            @page { size: auto; margin: 0; }
-            @media print {
-              html, body { margin: 0; padding: 0; }
+            @page {
+              size: 50mm 30mm;
+              margin: 0 !important;
             }
-            body {
-              font-family: Arial, Helvetica, sans-serif;
+            @media print {
+              @page {
+                size: 50mm 30mm;
+                margin: 0 !important;
+              }
+              html, body {
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+              }
+            }
+            html, body {
+              width: 100%;
+              height: 100%;
               margin: 0;
-              padding: 4px 6px;
-              width: 55mm;
-              max-width: 100%;
+              padding: 0;
               box-sizing: border-box;
+              font-family: Arial, Helvetica, sans-serif;
               color: #000;
               background-color: #fff;
+              -webkit-print-color-adjust: exact;
             }
             .sticker-content {
               width: 100%;
+              max-width: 100%;
+              box-sizing: border-box;
+              padding: 1mm 1.5mm 0.5mm 1.5mm;
               overflow: hidden;
             }
-            .hosp-title {
-              font-size: 10px;
-              font-weight: 900;
-              text-align: center;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              margin-bottom: 2px;
-              line-height: 1.1;
-            }
-            .barcode-box {
-              text-align: center;
-              margin: 2px 0 1px 0;
-            }
-            .barcode-box svg {
-              max-width: 100%;
-              height: 28px;
-              display: block;
-              margin: 0 auto;
-            }
-            .uhid-txt {
-              font-size: 11px;
-              font-weight: 800;
-              letter-spacing: 0.5px;
-              text-align: center;
-              font-family: monospace;
-              margin-top: 1px;
-            }
-            .info-line {
-              font-size: 9px;
-              line-height: 1.25;
+            .top-row {
               display: flex;
               justify-content: space-between;
+              align-items: center;
+              width: 100%;
+              margin-bottom: 1.5px;
+              gap: 4px;
+            }
+            .barcode-svg-wrap {
+              width: 54px;
+              height: 15px;
+              flex-shrink: 0;
+              display: flex;
+              align-items: center;
+              overflow: hidden;
+            }
+            .barcode-svg-wrap svg {
+              display: block;
+              width: 100% !important;
+              height: 100% !important;
+            }
+            .uhid-txt {
+              font-size: 8.5px;
+              font-weight: 800;
+              letter-spacing: -0.2px;
+              white-space: nowrap;
+              text-align: right;
+              flex-shrink: 0;
+            }
+            .sticker-line {
+              font-size: 8.5px;
+              line-height: 1.3;
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
-            }
-            .info-line.bold {
               font-weight: 700;
+              letter-spacing: 0px;
             }
-            .patient-name {
+            .patient-line {
+              font-size: 9px;
               font-weight: 800;
-              font-size: 9.5px;
-              text-transform: uppercase;
-              overflow: hidden;
-              text-overflow: ellipsis;
+              margin-bottom: 0.5px;
+            }
+            .doc-line {
+              font-size: 8.5px;
+              font-weight: 800;
+              margin-top: 0.5px;
             }
           </style>
         </head>
         <body>
           <div class="sticker-content">
-            <div class="hosp-title">${hospName}</div>
-            <div class="barcode-box">
-              ${barcodeSvgHtml}
+            <div class="top-row">
+              <div class="barcode-svg-wrap">
+                ${barcodeSvgHtml}
+              </div>
               <div class="uhid-txt">UHID : ${visit.uhid}</div>
             </div>
-            <div class="info-line bold">
-              <span class="patient-name">${visit.patientName || ''}</span>
-              <span>${visit.age !== undefined && visit.age !== null && visit.age !== '' ? `${visit.age}Y` : ''}/${visit.gender ? (String(visit.gender).toUpperCase().startsWith('M') ? 'M' : (String(visit.gender).toUpperCase().startsWith('F') ? 'F' : visit.gender)) : ''}</span>
-            </div>
-            ${(visit.guardianName || visit.spouseName) ? `
-            <div class="info-line">
-              <span>${visit.guardianType || 'W/o'}: ${(visit.guardianName || visit.spouseName || '').toUpperCase()}</span>
-            </div>` : ''}
-            <div class="info-line">
-              <span>Dr. ${(visit.doctorName || visit.doctor || '').replace(/^(dr\\b\\.?|doctor\\b\\.?)\\s*/gi, '')}</span>
-            </div>
-            <div class="info-line">
-              <span>Ph: +91${visit.mobile || ''}</span>
-              <span>${visit.date || ''}</span>
-            </div>
+            <div class="sticker-line patient-line">${line2}</div>
+            <div class="sticker-line">${guardianLine}</div>
+            <div class="sticker-line">${addrLine1}</div>
+            <div class="sticker-line">${addrLine2}</div>
+            <div class="sticker-line">${phoneLine}</div>
+            <div class="sticker-line doc-line">${docDisplay}</div>
           </div>
           <script>
             window.onload = function() {
@@ -834,16 +898,26 @@ const PatientRegistrationForm = () => {
     if (name === "salutation") {
       let autoGender = undefined;
       const s = String(value).trim().toLowerCase();
-      if (s === "mr." || s === "mr") autoGender = "Male";
-      else if (s === "mrs." || s === "mrs") autoGender = "Female";
-      else if (s === "miss." || s === "miss") autoGender = "Female";
-      else if (s === "ms." || s === "ms") autoGender = "Female";
-      else if (s === "master") autoGender = "Male";
+      let autoGuardianType = undefined;
+      if (s === "mr." || s === "mr") {
+        autoGender = "Male";
+        autoGuardianType = "S/o";
+      } else if (s === "mrs." || s === "mrs") {
+        autoGender = "Female";
+        autoGuardianType = "W/o";
+      } else if (s === "miss." || s === "miss" || s === "ms." || s === "ms") {
+        autoGender = "Female";
+        autoGuardianType = "D/o";
+      } else if (s === "master") {
+        autoGender = "Male";
+        autoGuardianType = "S/o";
+      }
 
       setPatient(prev => ({
         ...prev,
         salutation: value,
-        ...(autoGender ? { gender: autoGender } : {})
+        ...(autoGender ? { gender: autoGender } : {}),
+        ...(autoGuardianType ? { guardianType: autoGuardianType } : {})
       }));
 
       if (autoGender && validationErrors.gender) {
@@ -1031,12 +1105,18 @@ const PatientRegistrationForm = () => {
         const visitObj = {
           uhid: result.data.uhid,
           billNumber: result.data.bill_number,
-          patientName: `${patient.salutation} ${patient.firstName} ${patient.lastName}`.trim(),
+          patientName: `${patient.salutation || ''} ${patient.firstName} ${patient.lastName}`.trim(),
+          firstName: patient.firstName,
+          lastName: patient.lastName,
           age: patient.age,
           gender: patient.gender,
-          guardianType: patient.guardianType || "W/o",
+          guardianType: patient.guardianType || (String(patient.gender || '').toUpperCase().startsWith('F') ? 'D/o' : 'S/o'),
           guardianName: patient.guardianName || patient.spouseName || "",
           spouseName: patient.guardianName || patient.spouseName || "",
+          permanentAddress: patient.permanentAddress || "",
+          area: patient.area || "",
+          city: patient.city || "",
+          district: patient.district || "",
           address: formattedAddress || patient.permanentAddress,
           mobile: patient.mobilePhone,
           doctorName: patient.doctorName,
@@ -1090,7 +1170,7 @@ const PatientRegistrationForm = () => {
           mobilePhone: "",
           homePhone: "",
           bloodGroup: "",
-          guardianType: "W/o",
+          guardianType: "S/o",
           guardianName: "",
           spouseName: "",
           referredBy: "",
@@ -1679,7 +1759,7 @@ const PatientRegistrationForm = () => {
       mobilePhone: "",
       homePhone: "",
       bloodGroup: "",
-      guardianType: "W/o",
+      guardianType: "S/o",
       guardianName: "",
       spouseName: "",
       occupation: "",

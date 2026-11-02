@@ -854,11 +854,11 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
         OLET004: "CANCER BLOCK",
         OLET005: "VELAVAN",
       };
-      let res = await apiRequest(`${HmsBaseUrl}bill-types/?ignore_outlet=true`, "GET");
-      let list = res.records || res.data?.billTypes || (Array.isArray(res.data) ? res.data : []);
+      const res = await apiRequest(`${HmsBaseUrl}ward-bill-types/?module=lab`, "GET");
+      let list = res.data?.billTypes || (Array.isArray(res.data) ? res.data : []);
       if (!list || list.length === 0) {
-        res = await apiRequest(`${HmsBaseUrl}get_LabBillType_list/`, "GET");
-        list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+        const fallbackRes = await apiRequest(`${HmsBaseUrl}get_LabBillType_list/`, "GET");
+        list = fallbackRes.data?.data || (Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
       }
       if (Array.isArray(list) && list.length > 0) {
         const enriched = list.map((b) => {
@@ -875,16 +875,18 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
           const billNo = (b.billTypeNo || "").toUpperCase();
           return billNo.startsWith("LAB") || name.includes("LAB") || b.ward_request === true;
         };
-        const labList = enriched.filter(isLab).sort((a, b) => (a.bill_name || "").localeCompare(b.bill_name || ""));
-        const otherList = enriched.filter((b) => !isLab(b)).sort((a, b) => {
-          const outCmp = (a.outlet_name || "").localeCompare(b.outlet_name || "");
-          if (outCmp !== 0) return outCmp;
-          return (a.bill_name || "").localeCompare(b.bill_name || "");
-        });
-        const allBillTypes = [...labList, ...otherList];
-        setBillTypeOptions(allBillTypes);
 
-        const defaultOpt = allBillTypes.find(b => b.billTypeNo === "LAB01") || allBillTypes[0];
+        // Filter bill types configured for Lab Ward Request (ward_lab === true)
+        const configuredLabTypes = enriched.filter((b) => {
+          if (b.ward_lab === true) return true;
+          // Fallback if ward_lab is not explicitly set
+          return b.ward_request === true && (b.outlet_code === "OLET003" || b.outlet_name?.toUpperCase() === "MAIN BLOCK") && isLab(b);
+        }).sort((a, b) => (a.bill_name || "").localeCompare(b.bill_name || ""));
+
+        const finalBillTypes = configuredLabTypes.length > 0 ? configuredLabTypes : enriched.filter(isLab);
+        setBillTypeOptions(finalBillTypes);
+
+        const defaultOpt = finalBillTypes.find(b => b.billTypeNo === "LAB01") || finalBillTypes[0];
         if (defaultOpt) {
           setBillTypeNo(defaultOpt.billTypeNo);
           setBilltype(defaultOpt.bill_type);
@@ -1235,7 +1237,6 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                       options={billTypeOptions.map((opt) => ({
                         id: `${opt.billTypeNo}|${opt.bill_type}`,
                         name: opt.bill_name,
-                        badge: opt.outlet_badge,
                       }))}
                       placeholder="Search or Select Bill Type"
                       displayKey="name"
