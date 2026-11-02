@@ -48,7 +48,7 @@ export const buildDefaultHdSessions = () =>
     bp_post_hd: "",
     weight_gain: "",
     uf_removed: "",
-    complications: "",
+    complications: "NIL",
   }));
 
 /** Build the default complications array from COMPLICATIONS_LIST */
@@ -56,10 +56,9 @@ export const buildDefaultComplications = () =>
   COMPLICATIONS_LIST.map((type) => ({
     type,
     date: TODAY,
-    medication_type: "",
-    medications: "",
+    medication_type: "NIL",
+    medications: "NIL",
   }));
 
-/** Build the default advice array (5 blank slots) */
-export const buildDefaultAdvice = () =>
-  Array(5).fill(null).map(() => ({ text: "" }));
+/** Build the default advice (single string for single input box) */
+export const buildDefaultAdvice = () => "";

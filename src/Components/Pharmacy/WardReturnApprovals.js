@@ -11,7 +11,6 @@ import {
   FileText,
   Clock,
   ArrowRight,
-  TrendingDown,
   UserCheck,
   AlertCircle
 } from "lucide-react";
@@ -432,6 +431,14 @@ const ModalFooter = styled.div`
   background: #F8FAFC;
 `;
 
+const getTodayDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function WardReturnApprovals() {
   const [activeTab, setActiveTab] = useState("pending"); // "pending" or "report"
   const [pendingList, setPendingList] = useState([]);
@@ -441,8 +448,8 @@ export default function WardReturnApprovals() {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(getTodayDate);
+  const [toDate, setToDate] = useState(getTodayDate);
 
   // Modals
   const [selectedPrintBill, setSelectedPrintBill] = useState(null);
@@ -676,26 +683,6 @@ export default function WardReturnApprovals() {
             <UserCheck size={22} />
           </div>
         </MetricCard>
-
-        <MetricCard $bg="#FEF2F2" $color={colors.danger}>
-          <div className="meta">
-            <div className="label">Total Return Value</div>
-            <div className="value">₹{totalApprovedReturnValue.toFixed(2)}</div>
-          </div>
-          <div className="icon-wrap">
-            <TrendingDown size={22} />
-          </div>
-        </MetricCard>
-
-        <MetricCard $bg={colors.primaryLight} $color={colors.primary}>
-          <div className="meta">
-            <div className="label">Net Retained Amount</div>
-            <div className="value">₹{totalNetRetainedValue.toFixed(2)}</div>
-          </div>
-          <div className="icon-wrap">
-            <FileText size={22} />
-          </div>
-        </MetricCard>
       </MetricCardsGrid>
 
       {/* ── Sub Tabs ── */}
@@ -742,12 +729,21 @@ export default function WardReturnApprovals() {
           />
         </div>
 
+        <button
+          onClick={() => { setFromDate(getTodayDate()); setToDate(getTodayDate()); }}
+          style={{ padding: "8px 14px", border: `1.5px solid ${colors.primary}`, background: colors.primaryLight, color: colors.primary, borderRadius: "6px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 700 }}
+          title="Reset to today's date"
+        >
+          Today
+        </button>
+
         {(fromDate || toDate || searchQuery) && (
           <button
             onClick={() => { setFromDate(""); setToDate(""); setSearchQuery(""); }}
             style={{ padding: "8px 14px", border: "none", background: "#E2E8F0", borderRadius: "6px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}
+            title="View all records without date filter"
           >
-            Clear Filters
+            All Records
           </button>
         )}
       </FilterBar>
