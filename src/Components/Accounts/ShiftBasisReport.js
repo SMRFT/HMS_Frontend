@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
@@ -287,6 +287,25 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
         };
     }).filter(group => group.bills.length > 0 || !shiftNo); // Show all shifts or only filtered
 
+    const totals = useMemo(() => {
+        return summaryData.reduce((acc, s) => {
+            acc.opening += parseFloat(s.OpeningBalance || 0);
+            acc.collection += parseFloat(s.collected_Amount || 0);
+            acc.closing += parseFloat(s.ClosingBalance || 0);
+            acc.returnAmount += parseFloat(s.SalesReturnAmount || 0);
+            acc.remitted += parseFloat(s.RemittedToBank || 0);
+            acc.handover += parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0);
+            return acc;
+        }, {
+            opening: 0,
+            collection: 0,
+            closing: 0,
+            returnAmount: 0,
+            remitted: 0,
+            handover: 0
+        });
+    }, [summaryData]);
+
     return (
         <>
             <PageWrapper style={isModalView ? { padding: 0 } : {}}>
@@ -470,9 +489,20 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                                     </Tr>
                                                 ))}
                                                 {group.bills.length === 0 && (
-                                                    <Tr><Td colSpan="6" style={{ textAlign: "center", padding: "20px", color: colors.textMuted }}>No transactions recorded in this shift.</Td></Tr>
+                                                    <Tr><Td colSpan="7" style={{ textAlign: "center", padding: "20px", color: colors.textMuted }}>No transactions recorded in this shift.</Td></Tr>
                                                 )}
                                             </tbody>
+                                            {group.bills.length > 0 && (
+                                                <tfoot>
+                                                    <Tr style={{ fontWeight: "700", background: "#f8fafc", borderTop: `2px solid ${colors.border}` }}>
+                                                        <Td colSpan="3" style={{ textAlign: "right", padding: "8px", fontWeight: "bold" }}>Total ({group.bills.length} bills):</Td>
+                                                        <Td style={{ textAlign: "right", padding: "8px", fontWeight: "bold", color: colors.primary }}>
+                                                            ₹{group.bills.reduce((sum, b) => sum + (parseFloat(b.net_amount) || 0), 0).toFixed(2)}
+                                                        </Td>
+                                                        <Td colSpan="3" style={{ padding: "8px" }}></Td>
+                                                    </Tr>
+                                                </tfoot>
+                                            )}
                                         </Table>
                                     </div>
                                 </div>
@@ -538,6 +568,21 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                     </Tr>
                                 )}
                             </tbody>
+                            {summaryData.length > 0 && (
+                                <tfoot>
+                                    <Tr style={{ fontWeight: "700", background: "#f8fafc", borderTop: `2px solid ${colors.border}` }}>
+                                        <Td colSpan="6" style={{ textAlign: "right", fontWeight: "bold" }}>Total ({summaryData.length} Shifts):</Td>
+                                        <Td style={{ textAlign: "right", fontWeight: "bold" }}>₹{totals.opening.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", color: colors.success, fontWeight: "bold" }}>₹{totals.collection.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", fontWeight: "bold" }}>₹{totals.closing.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", color: colors.danger, fontWeight: "bold" }}>₹{totals.returnAmount.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", color: "#6366f1", fontWeight: "bold" }}>₹{totals.remitted.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", color: "#8b5cf6", fontWeight: "bold" }}>₹{totals.handover.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", fontWeight: "bold" }}>₹{totals.collection.toFixed(2)}</Td>
+                                        <Td className="hide-on-print"></Td>
+                                    </Tr>
+                                </tfoot>
+                            )}
                         </Table>
                     </TableWrapper>
                 )}
@@ -604,6 +649,20 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                 </tr>
                             ))}
                         </tbody>
+                        {summaryData.length > 0 && (
+                            <tfoot>
+                                <tr style={{ background: "#f0f0f0", fontWeight: "bold" }}>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Total:</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{totals.opening.toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{totals.collection.toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{totals.closing.toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{totals.remitted.toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{totals.handover.toFixed(2)}</td>
+                                    <td colSpan="3" style={{ border: "1px solid black", padding: "5px" }}></td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right", fontWeight: "bold" }}>{totals.collection.toFixed(2)}</td>
+                                </tr>
+                            </tfoot>
+                        )}
                     </table>
 
                     <div style={{ marginTop: "50px", display: "flex", justifyContent: "space-between" }}>
@@ -672,6 +731,17 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                             <Tr><Td colSpan="7" style={{ textAlign: "center", padding: "30px", color: colors.textMuted }}>No transactions found for this shift.</Td></Tr>
                                         )}
                                     </tbody>
+                                    {selectedShiftBills.bills.length > 0 && (
+                                        <tfoot>
+                                            <Tr style={{ fontWeight: "700", background: "#f8fafc", borderTop: `2px solid ${colors.border}` }}>
+                                                <Td colSpan="3" style={{ textAlign: "right", padding: "8px", fontWeight: "bold" }}>Total:</Td>
+                                                <Td style={{ textAlign: "right", padding: "8px", fontWeight: "bold", color: colors.primary }}>
+                                                    ₹{selectedShiftBills.bills.reduce((sum, b) => sum + (parseFloat(b.net_amount) || 0), 0).toFixed(2)}
+                                                </Td>
+                                                <Td colSpan="3" style={{ padding: "8px" }}></Td>
+                                            </Tr>
+                                        </tfoot>
+                                    )}
                                 </Table>
                             </TableWrapper>
                             </ModalBody>

@@ -38,12 +38,12 @@ const fadeIn = keyframes`
 `;
 
 const ModernPageContainer = styled(PageWrapper)`
-  background: #f1f5f9;
-  padding: 12px 16px;
-  height: 100vh;
+  background: ${props => props.$isModalView ? 'transparent' : '#f1f5f9'};
+  padding: ${props => props.$isModalView ? '8px 12px' : '12px 16px'};
+  height: ${props => props.$isModalView ? 'auto' : '100vh'};
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: ${props => props.$isModalView ? 'visible' : 'hidden'};
   animation: ${fadeIn} 0.5s ease-out;
   font-family: 'Inter', -apple-system, sans-serif;
 
@@ -61,7 +61,7 @@ const GlassCard = styled.div`
   border-radius: 20px;
   padding: 0;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
-  flex: 1;
+  flex: ${props => props.$isModalView ? 'none' : '1'};
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -417,9 +417,23 @@ const tiles = [
     { key: "ip", label: "IP Returns", icon: <Building2 size={16} /> },
 ];
 
-const SalesReturnReport = () => {
-    const [returnType, setReturnType] = useState("all");
-    const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()]);
+const SalesReturnReport = ({
+    isModalView = false,
+    startDate,
+    endDate,
+    initialOutlet,
+    outlet,
+    billType,
+    patientType,
+    category
+}) => {
+    const activeReturnType = (billType || patientType || category || "all").toLowerCase();
+    const [returnType, setReturnType] = useState(activeReturnType);
+    const [selectedOutlet, setSelectedOutlet] = useState(outlet || initialOutlet || "all");
+    const [dateRange, setDateRange] = useState([
+        startDate ? dayjs(startDate) : dayjs().startOf('month'),
+        endDate ? dayjs(endDate) : dayjs()
+    ]);
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
     const [summary, setSummary] = useState({ total_returns: 0, op_returns: 0, ip_returns: 0, total_amount: 0 });
@@ -429,6 +443,20 @@ const SalesReturnReport = () => {
 
     const HMS_BASE_URL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+    useEffect(() => {
+        if (startDate && endDate) {
+            setDateRange([dayjs(startDate), dayjs(endDate)]);
+        }
+        const rt = billType || patientType || category;
+        if (rt) {
+            setReturnType(rt.toLowerCase());
+        }
+        const o = outlet || initialOutlet;
+        if (o) {
+            setSelectedOutlet(o);
+        }
+    }, [startDate, endDate, billType, patientType, category, outlet, initialOutlet]);
+
     const fetchReport = async () => {
         setLoading(true);
         try {
@@ -437,6 +465,10 @@ const SalesReturnReport = () => {
                 end_date: dateRange[1].format("YYYY-MM-DD"),
                 return_type: returnType,
             };
+            const activeOutlet = outlet || initialOutlet || selectedOutlet;
+            if (activeOutlet && activeOutlet !== "all" && activeOutlet !== "All") {
+                params.outlet_code = activeOutlet;
+            }
             const queryString = new URLSearchParams(params).toString();
             const response = await apiRequest(`${HMS_BASE_URL}SalesReturnReport/?${queryString}`, "GET");
 
@@ -517,7 +549,8 @@ const SalesReturnReport = () => {
         : <Badge bg="#fffbeb" color="#d97706">{mode}</Badge>;
 
     return (
-        <ModernPageContainer>
+        <ModernPageContainer $isModalView={isModalView}>
+            {!isModalView && (
             <PageHeader>
                 <TitleGroup>
                     <h1>
@@ -536,6 +569,7 @@ const SalesReturnReport = () => {
                     )}
                 </ActionButtons>
             </PageHeader>
+            )}
 
             <FilterSection className="no-print">
                 <ModernInputWrapper>
@@ -612,7 +646,7 @@ const SalesReturnReport = () => {
                 ))}
             </TileGrid>
 
-            <GlassCard style={{ padding: '0', overflow: 'hidden' }}>
+            <GlassCard $isModalView={isModalView} style={{ padding: '0', overflow: 'hidden' }}>
                 <ModernTableWrapper>
                     {getFilteredData().length > 0 && (
                         <ModernTable>

@@ -97,7 +97,7 @@ const DischargeBills = ({
         if (!fromDate || !toDate) return;
         setLoading(true);
         try {
-            const params = new URLSearchParams({ from_date: fromDate, to_date: toDate, status: "Billed" });
+            const params = new URLSearchParams({ from_date: fromDate, to_date: toDate, status: "all" });
             if (billType !== "all") params.set("payment_mode", billType);
             if (insuranceFilter !== "all") params.set("insurance", insuranceFilter);
             const selectedOutlet = outlet || initialOutlet;
