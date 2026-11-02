@@ -315,6 +315,12 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       StartingTime:   new Date().toISOString(),
       OpeningBalance: safeParse(formData.openingBalance),
       PettyCashBalance: safeParse(formData.pettyCashBalance),
+      "auth-outlet-code": resolvedOutlet,
+      outlet_code:    resolvedOutlet,
+      SelectedOutlet: resolvedOutlet,
+      "auth-user-id": localStorage.getItem("user_id") || localStorage.getItem("employee_id") || localStorage.getItem("employeeId") || "50886",
+      "auth-branch-code": localStorage.getItem("selected_branch") || "SHB001",
+      "auth-hospital-code": localStorage.getItem("selected_hospital") || "SH001",
     };
 
     setLoading(true);
@@ -380,6 +386,12 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       RemittedToBank: safeParse(formData.remittedToBank),
       SubmittedToAccount: safeParse(formData.submittedToAccount),
       closingTime:    new Date().toISOString(),
+      "auth-outlet-code": resolvedOutlet,
+      outlet_code:    resolvedOutlet,
+      SelectedOutlet: resolvedOutlet,
+      "auth-user-id": localStorage.getItem("user_id") || localStorage.getItem("employee_id") || localStorage.getItem("employeeId") || "50886",
+      "auth-branch-code": localStorage.getItem("selected_branch") || "SHB001",
+      "auth-hospital-code": localStorage.getItem("selected_hospital") || "SH001",
     };
 
     setLoading(true);

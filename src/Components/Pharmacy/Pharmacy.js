@@ -937,7 +937,7 @@ const buildPrintBillHtml = (data) => {
 </html>`;
 };
 
-const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoaded, wardRequestToLoad, onWardRequestLoaded, prescriptionToLoad, onPrescriptionLoaded, onEstimateSaved }) => {
+const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoaded, wardRequestToLoad, onWardRequestLoaded, prescriptionToLoad, onPrescriptionLoaded, onEstimateSaved, onBillSaved }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const selectedBranch = localStorage.getItem("selected_branch") || "";
@@ -2303,10 +2303,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           });
           try {
             localStorage.setItem("hms_last_billing_update", Date.now().toString());
+            localStorage.setItem("hms_last_medichart_update", Date.now().toString());
             if (typeof BroadcastChannel !== "undefined") {
-              new BroadcastChannel("hms_billing_channel").postMessage({ type: "BILL_SAVED", billNo: savedBillNo });
+              new BroadcastChannel("hms_billing_channel").postMessage({
+                type: "BILL_SAVED",
+                billNo: savedBillNo,
+                billId: recordId,
+                isWardRequest: true,
+              });
             }
           } catch (e) {}
+          if (typeof onBillSaved === "function") {
+            onBillSaved({ billNo: savedBillNo, billId: recordId, isWardRequest: true });
+          }
 
           const rawDocName = finalizeRes.data?.doctor_name || finalizeRes.doctor_name || formData.doctor_name;
           const doctorName = formatDoctorDisplay(formData.doctor_id, rawDocName);
@@ -2551,10 +2560,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           const savedBillNo = response.data?.bill_no || response.bill_no || "";
           try {
             localStorage.setItem("hms_last_billing_update", Date.now().toString());
+            localStorage.setItem("hms_last_medichart_update", Date.now().toString());
             if (typeof BroadcastChannel !== "undefined") {
-              new BroadcastChannel("hms_billing_channel").postMessage({ type: "BILL_SAVED", billNo: savedBillNo });
+              new BroadcastChannel("hms_billing_channel").postMessage({
+                type: "BILL_SAVED",
+                billNo: savedBillNo,
+                billId: recordId,
+                isWardRequest: Boolean(isWardRequest),
+              });
             }
           } catch (e) {}
+          if (typeof onBillSaved === "function") {
+            onBillSaved({ billNo: savedBillNo, billId: recordId, isWardRequest: Boolean(isWardRequest) });
+          }
           const rawDocName = response.data?.doctor_name || response.doctor_name || formData.doctor_name;
           const doctorName = formatDoctorDisplay(formData.doctor_id, rawDocName);
           const rawEmpName = response.data?.created_by_name || response.data?.employee_name || response.created_by_name || response.employee_name;
