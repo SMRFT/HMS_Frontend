@@ -4,6 +4,11 @@ export const PAGE_PERMISSIONS = {
     "/RoomOccupencyReport": "HMS-P-ROR",
     "/PreDayRoomOccupancyReport": "HMS-P-ROR",
     "/InsuranceCreditReport": "HMS-P-FOR",
+    "/wardrequest": "HMS-P-WR",
+    "/LabWardRequest": "HMS-P-WR",
+    "/RoomShifting": "HMS-P-RSHFT",
+    "/LaundryAdmin": "HMS-P-LND",
+    "/NursingStation": "HMS-P-NS",
 };
 
 /**

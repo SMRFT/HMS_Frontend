@@ -831,9 +831,9 @@ export default function RadiologyWardRequest({ patient, onClose }) {
         OLET004: "CANCER BLOCK",
         OLET005: "VELAVAN",
       };
-      const res = await apiRequest(`${HmsBaseUrl}bill-types/?ignore_outlet=true`, "GET");
-      if (res.success) {
-        const list = res.data?.billTypes || [];
+      const res = await apiRequest(`${HmsBaseUrl}ward-bill-types/?module=radiology`, "GET");
+      if (res && res.success) {
+        const list = res.data?.billTypes || (Array.isArray(res.data) ? res.data : []);
         const enriched = list.map((b) => {
           const oc = b.outlet_code || "";
           const on = outletMap[oc] || (oc ? oc : "General");
@@ -857,14 +857,15 @@ export default function RadiologyWardRequest({ patient, onClose }) {
             name.includes("USG")
           );
         };
-        const radList = enriched.filter(isRad).sort((a, b) => (a.bill_name || "").localeCompare(b.bill_name || ""));
-        const otherList = enriched.filter((b) => !isRad(b)).sort((a, b) => {
-          const outCmp = (a.outlet_name || "").localeCompare(b.outlet_name || "");
-          if (outCmp !== 0) return outCmp;
-          return (a.bill_name || "").localeCompare(b.bill_name || "");
-        });
-        const allBillTypes = [...radList, ...otherList];
-        setBillTypes(allBillTypes);
+        // Filter bill types configured for Radiology Ward Request (ward_radiology === true)
+        const configuredRadTypes = enriched.filter((b) => {
+          if (b.ward_radiology === true) return true;
+          // Fallback if ward_radiology is not explicitly set
+          return b.ward_request === true && (b.outlet_code === "OLET003" || b.outlet_name?.toUpperCase() === "MAIN BLOCK") && isRad(b);
+        }).sort((a, b) => (a.bill_name || "").localeCompare(b.bill_name || ""));
+
+        const finalBillTypes = configuredRadTypes.length > 0 ? configuredRadTypes : enriched.filter(isRad);
+        setBillTypes(finalBillTypes);
       }
     } catch (e) { console.error(e); }
   };
@@ -1061,8 +1062,8 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                   value={selectedBillType}
                   onChange={(val) => handleBillTypeChange(val)}
                   options={[
-                    { id: "PACK", name: "Packages", badge: "Package" },
-                    ...billTypes.map((o) => ({ id: o.bill_type, name: o.bill_name, badge: o.outlet_badge }))
+                    { id: "PACK", name: "Packages" },
+                    ...billTypes.map((o) => ({ id: o.bill_type, name: o.bill_name }))
                   ]}
                   placeholder="Select Bill Type"
                   displayKey="name"

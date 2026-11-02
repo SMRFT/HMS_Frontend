@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import {
   PageWrapper,
@@ -214,6 +214,9 @@ const EMPTY_FORM = {
   GST_export: false,
   IP_billType: false,
   ward_request: false,
+  ward_medicine: false,
+  ward_lab: false,
+  ward_radiology: false,
   med_wise_discount: false,
   med_dispatch: false,
   outlet_code: "",
@@ -234,6 +237,91 @@ const BillType = () => {
   const [selectedInvCat, setSelectedInvCat] = useState("");
   const [originalInvCat, setOriginalInvCat] = useState("");
   const [viewRec, setViewRec] = useState(null);
+
+  // ── Ward Request Matrix Modal States ──
+  const [showWardMatrixModal, setShowWardMatrixModal] = useState(false);
+  const [wardMatrixList, setWardMatrixList] = useState([]);
+  const [initialWardMatrix, setInitialWardMatrix] = useState([]);
+  const [matrixSaving, setMatrixSaving] = useState(false);
+  const [matrixSearch, setMatrixSearch] = useState("");
+  const [matrixOutletFilter, setMatrixOutletFilter] = useState("all");
+
+  const openWardMatrixModal = () => {
+    const cloned = records.map((r) => ({
+      bill_type: r.bill_type,
+      billTypeNo: r.billTypeNo,
+      bill_name: r.bill_name,
+      outlet_code: r.outlet_code || "",
+      ward_medicine: Boolean(r.ward_medicine),
+      ward_lab: Boolean(r.ward_lab),
+      ward_radiology: Boolean(r.ward_radiology),
+      ward_request: Boolean(r.ward_request),
+    }));
+    setWardMatrixList(cloned);
+    setInitialWardMatrix(JSON.parse(JSON.stringify(cloned)));
+    setMatrixSearch("");
+    setMatrixOutletFilter("all");
+    setShowWardMatrixModal(true);
+  };
+
+  const handleMatrixToggle = (billTypeInt, field) => {
+    setWardMatrixList((prev) =>
+      prev.map((item) => {
+        if (item.bill_type === billTypeInt) {
+          const updatedVal = !item[field];
+          const newObj = { ...item, [field]: updatedVal };
+          newObj.ward_request = newObj.ward_medicine || newObj.ward_lab || newObj.ward_radiology;
+          return newObj;
+        }
+        return item;
+      })
+    );
+  };
+
+  // Only rows that were modified compared to original snapshot
+  const changedItems = useMemo(() => {
+    if (!initialWardMatrix.length) return [];
+    return wardMatrixList.filter((item) => {
+      const initial = initialWardMatrix.find((init) => init.bill_type === item.bill_type);
+      if (!initial) return false;
+      return (
+        Boolean(initial.ward_medicine) !== Boolean(item.ward_medicine) ||
+        Boolean(initial.ward_lab) !== Boolean(item.ward_lab) ||
+        Boolean(initial.ward_radiology) !== Boolean(item.ward_radiology)
+      );
+    });
+  }, [wardMatrixList, initialWardMatrix]);
+
+  const handleSaveWardMatrix = async () => {
+    if (changedItems.length === 0) {
+      alert("No changes detected. Nothing to save.");
+      return;
+    }
+
+    setMatrixSaving(true);
+    try {
+      const updates = changedItems.map((item) => ({
+        bill_type: item.bill_type,
+        ward_medicine: item.ward_medicine,
+        ward_lab: item.ward_lab,
+        ward_radiology: item.ward_radiology,
+        ward_request: item.ward_request,
+      }));
+      const res = await apiRequest(`${HMSURL}bill-types/bulk-ward-config/`, "PATCH", { updates });
+      if (res.success) {
+        alert(res.data?.message || `Successfully saved ${updates.length} changed bill type(s)!`);
+        setShowWardMatrixModal(false);
+        fetchRecords();
+      } else {
+        alert(res.error || "Failed to update ward configuration.");
+      }
+    } catch (err) {
+      console.error("Save ward matrix error:", err);
+      alert("Error saving ward configuration.");
+    } finally {
+      setMatrixSaving(false);
+    }
+  };
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
@@ -636,6 +724,20 @@ const BillType = () => {
             <button style={css.btn("outline")} onClick={handleExportCSV}>
               ⬇ Export CSV
             </button>
+            <button
+              style={{
+                ...css.btn("outline"),
+                borderColor: "#059669",
+                color: "#059669",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+              onClick={openWardMatrixModal}
+            >
+              🏥 Ward Request Config
+            </button>
           </div>
 
           <Table>
@@ -645,6 +747,7 @@ const BillType = () => {
                 <Th>Bill Name</Th>
                 <Th>Bill Type ID</Th>
                 <Th>Outlet</Th>
+                <Th>Ward Modules</Th>
                 <Th>Status</Th>
                 <Th>Actions</Th>
               </Tr>
@@ -695,6 +798,28 @@ const BillType = () => {
                         ?.outlet_name ||
                         rec.outlet_code ||
                         "—"}
+                    </Td>
+                    <Td>
+                      <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                        {rec.ward_medicine && (
+                          <span style={{ fontSize: "10px", background: "#e0f2fe", color: "#0284c7", padding: "2px 7px", borderRadius: "10px", fontWeight: 700 }}>
+                            💊 Med
+                          </span>
+                        )}
+                        {rec.ward_lab && (
+                          <span style={{ fontSize: "10px", background: "#d1fae5", color: "#059669", padding: "2px 7px", borderRadius: "10px", fontWeight: 700 }}>
+                            🧪 Lab
+                          </span>
+                        )}
+                        {rec.ward_radiology && (
+                          <span style={{ fontSize: "10px", background: "#ede9fe", color: "#7c3aed", padding: "2px 7px", borderRadius: "10px", fontWeight: 700 }}>
+                            🩻 Rad
+                          </span>
+                        )}
+                        {!rec.ward_medicine && !rec.ward_lab && !rec.ward_radiology && (
+                          <span style={{ fontSize: "11px", color: tokens.muted }}>—</span>
+                        )}
+                      </div>
                     </Td>
 
                     <Td>
@@ -862,6 +987,55 @@ const BillType = () => {
                         onChange={handleInputChange}
                       />
                       {check.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ward Request Module Visibility */}
+              <div style={css.card}>
+                <div style={css.cardTitle}>
+                  <div style={css.sectionLine} /> 🏥 Ward Request Module Visibility
+                </div>
+                <div style={{ marginBottom: 12, fontSize: 12, color: tokens.muted }}>
+                  Select which Inpatient Ward Request modules should display this bill type.
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: 12,
+                  }}
+                >
+                  {[
+                    { id: "ward_medicine", label: "💊 Medicine Ward Request", color: "#0284c7" },
+                    { id: "ward_lab", label: "🧪 Lab Ward Request", color: "#059669" },
+                    { id: "ward_radiology", label: "🩻 Radiology Ward Request", color: "#7c3aed" },
+                  ].map((w) => (
+                    <label
+                      key={w.id}
+                      style={{
+                        ...css.checkboxLabel,
+                        border: formData[w.id] ? `1.5px solid ${w.color}` : `1px solid ${tokens.border}`,
+                        background: formData[w.id] ? `${w.color}10` : tokens.bg,
+                        fontWeight: formData[w.id] ? 700 : 500,
+                        color: formData[w.id] ? w.color : tokens.navy,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        name={w.id}
+                        checked={Boolean(formData[w.id])}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setFormData((prev) => ({
+                            ...prev,
+                            [w.id]: checked,
+                            ward_request: checked || prev.ward_medicine || prev.ward_lab || prev.ward_radiology,
+                          }));
+                        }}
+                      />
+                      {w.label}
                     </label>
                   ))}
                 </div>
@@ -1384,6 +1558,282 @@ const BillType = () => {
             >
               <button style={css.btn("ghost")} onClick={() => setViewRec(null)}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Quick Ward Request Config Matrix Modal ── */}
+      {showWardMatrixModal && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.65)",
+          backdropFilter: "blur(4px)",
+          zIndex: 1000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 20
+        }}>
+          <div style={{
+            background: "#ffffff",
+            borderRadius: 16,
+            width: "95%",
+            maxWidth: 1050,
+            maxHeight: "88vh",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            overflow: "hidden",
+            border: "1px solid #e2e8f0"
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: "18px 24px",
+              background: "linear-gradient(135deg, #0f172a, #1e293b)",
+              color: "#ffffff",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>🏥</span> Ward Request Bill Type Configuration
+                </h3>
+                <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#94a3b8" }}>
+                  Toggle which Bill Types appear in Medicine, Lab, and Radiology Ward Requests.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowWardMatrixModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#94a3b8",
+                  fontSize: 22,
+                  cursor: "pointer",
+                  lineHeight: 1
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div style={{
+              padding: "14px 24px",
+              borderBottom: "1px solid #e2e8f0",
+              background: "#f8fafc",
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+              flexWrap: "wrap"
+            }}>
+              <input
+                style={{
+                  height: 36,
+                  padding: "0 12px",
+                  fontSize: 13,
+                  border: "1px solid #cbd5e1",
+                  borderRadius: 8,
+                  width: 260,
+                  outline: "none"
+                }}
+                placeholder="Search bill type or code..."
+                value={matrixSearch}
+                onChange={(e) => setMatrixSearch(e.target.value)}
+              />
+              <select
+                style={{
+                  height: 36,
+                  padding: "0 12px",
+                  fontSize: 13,
+                  border: "1px solid #cbd5e1",
+                  borderRadius: 8,
+                  background: "#fff",
+                  outline: "none",
+                  cursor: "pointer"
+                }}
+                value={matrixOutletFilter}
+                onChange={(e) => setMatrixOutletFilter(e.target.value)}
+              >
+                <option value="all">All Outlets / Blocks</option>
+                {outlets.map((o) => (
+                  <option key={o.outlet_code} value={o.outlet_code}>
+                    {o.outlet_name || o.outlet_code}
+                  </option>
+                ))}
+              </select>
+
+              <div style={{ flex: 1 }} />
+
+              <div style={{ display: "flex", gap: 10, fontSize: 12 }}>
+                <span style={{ padding: "4px 8px", background: "#e0f2fe", color: "#0369a1", borderRadius: 6, fontWeight: 700 }}>
+                  💊 Med: {wardMatrixList.filter(x => x.ward_medicine).length}
+                </span>
+                <span style={{ padding: "4px 8px", background: "#d1fae5", color: "#047857", borderRadius: 6, fontWeight: 700 }}>
+                  🧪 Lab: {wardMatrixList.filter(x => x.ward_lab).length}
+                </span>
+                <span style={{ padding: "4px 8px", background: "#ede9fe", color: "#6d28d9", borderRadius: 6, fontWeight: 700 }}>
+                  🩻 Rad: {wardMatrixList.filter(x => x.ward_radiology).length}
+                </span>
+              </div>
+            </div>
+
+            {/* Scrollable Matrix Table */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 24px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #e2e8f0", textAlign: "left", position: "sticky", top: 0, background: "#fff", zIndex: 2 }}>
+                    <th style={{ padding: "12px 10px", color: "#475569", fontWeight: 700 }}>Code</th>
+                    <th style={{ padding: "12px 10px", color: "#475569", fontWeight: 700 }}>Bill Name</th>
+                    <th style={{ padding: "12px 10px", color: "#475569", fontWeight: 700 }}>Outlet / Block</th>
+                    <th style={{ padding: "12px 10px", color: "#0284c7", fontWeight: 700, textAlign: "center" }}>💊 Medicine Ward</th>
+                    <th style={{ padding: "12px 10px", color: "#059669", fontWeight: 700, textAlign: "center" }}>🧪 Lab Ward</th>
+                    <th style={{ padding: "12px 10px", color: "#7c3aed", fontWeight: 700, textAlign: "center" }}>🩻 Radiology Ward</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wardMatrixList
+                    .filter((item) => {
+                      if (matrixOutletFilter !== "all" && item.outlet_code !== matrixOutletFilter) return false;
+                      if (!matrixSearch.trim()) return true;
+                      const q = matrixSearch.toLowerCase();
+                      return (
+                        (item.bill_name || "").toLowerCase().includes(q) ||
+                        (item.billTypeNo || "").toLowerCase().includes(q)
+                      );
+                    })
+                    .map((item) => {
+                      const outletName = outlets.find((o) => o.outlet_code === item.outlet_code)?.outlet_name || item.outlet_code || "—";
+                      const isMainBlock = item.outlet_code === "OLET003" || item.outlet_code === "OLET001";
+                      const isRowChanged = Boolean(
+                        initialWardMatrix.length &&
+                        (() => {
+                          const init = initialWardMatrix.find((x) => x.bill_type === item.bill_type);
+                          if (!init) return false;
+                          return (
+                            Boolean(init.ward_medicine) !== Boolean(item.ward_medicine) ||
+                            Boolean(init.ward_lab) !== Boolean(item.ward_lab) ||
+                            Boolean(init.ward_radiology) !== Boolean(item.ward_radiology)
+                          );
+                        })()
+                      );
+                      return (
+                        <tr
+                          key={item.bill_type}
+                          style={{
+                            borderBottom: "1px solid #f1f5f9",
+                            background: isRowChanged ? "#fefce8" : (isMainBlock ? "#fcfcfd" : "#ffffff")
+                          }}
+                        >
+                          <td style={{ padding: "10px", fontWeight: 700, color: "#1e293b" }}>{item.billTypeNo}</td>
+                          <td style={{ padding: "10px", color: "#334155" }}>
+                            {item.bill_name}
+                            <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: 6 }}>#{item.bill_type}</span>
+                            {isRowChanged && (
+                              <span style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                background: "#fde047",
+                                color: "#854d0e",
+                                marginLeft: 8
+                              }}>
+                                Modified
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "10px", color: "#64748b" }}>
+                            <span style={{
+                              padding: "2px 8px",
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              background: isMainBlock ? "#ecfdf5" : "#f1f5f9",
+                              color: isMainBlock ? "#047857" : "#475569"
+                            }}>
+                              {outletName}
+                            </span>
+                          </td>
+                          <td style={{ padding: "10px", textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0284c7" }}
+                              checked={item.ward_medicine}
+                              onChange={() => handleMatrixToggle(item.bill_type, "ward_medicine")}
+                            />
+                          </td>
+                          <td style={{ padding: "10px", textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#059669" }}
+                              checked={item.ward_lab}
+                              onChange={() => handleMatrixToggle(item.bill_type, "ward_lab")}
+                            />
+                          </td>
+                          <td style={{ padding: "10px", textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#7c3aed" }}
+                              checked={item.ward_radiology}
+                              onChange={() => handleMatrixToggle(item.bill_type, "ward_radiology")}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: "16px 24px",
+              borderTop: "1px solid #e2e8f0",
+              background: "#f8fafc",
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 12
+            }}>
+              <button
+                style={{
+                  padding: "8px 18px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  color: "#475569",
+                  cursor: "pointer"
+                }}
+                onClick={() => setShowWardMatrixModal(false)}
+                disabled={matrixSaving}
+              >
+                Cancel
+              </button>
+              <button
+                style={{
+                  padding: "8px 22px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  borderRadius: 8,
+                  border: "none",
+                  background: changedItems.length > 0 ? "linear-gradient(135deg, #059669, #0d9488)" : "#94a3b8",
+                  color: "#ffffff",
+                  cursor: matrixSaving || changedItems.length === 0 ? "not-allowed" : "pointer",
+                  boxShadow: changedItems.length > 0 ? "0 4px 12px rgba(13, 148, 136, 0.25)" : "none"
+                }}
+                onClick={handleSaveWardMatrix}
+                disabled={matrixSaving || changedItems.length === 0}
+              >
+                {matrixSaving
+                  ? "Saving Configuration..."
+                  : changedItems.length > 0
+                  ? `Save Changes (${changedItems.length} Modified)`
+                  : "Save Ward Configuration (0 Changes)"}
               </button>
             </div>
           </div>
