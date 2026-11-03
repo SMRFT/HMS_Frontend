@@ -37,12 +37,12 @@ const customSelectStyles = {
         minHeight: '38px',
         height: '38px',
         borderRadius: '8px',
-        borderColor: state.isFocused ? '#dc2626' : '#c0dbff',
-        boxShadow: state.isFocused ? '0 0 0 1px #dc2626' : 'none',
+        borderColor: state.isFocused ? '#059669' : '#c0dbff',
+        boxShadow: state.isFocused ? '0 0 0 1px #059669' : 'none',
         fontSize: '0.85rem',
         backgroundColor: '#ffffff',
         '&:hover': {
-            borderColor: '#dc2626'
+            borderColor: '#059669'
         }
     }),
     valueContainer: (provided) => ({
@@ -73,9 +73,9 @@ const customSelectStyles = {
     option: (provided, state) => ({
         ...provided,
         backgroundColor: state.isSelected
-            ? '#dc2626'
+            ? '#059669'
             : state.isFocused
-            ? '#fee2e2'
+            ? '#ecfdf5'
             : '#ffffff',
         color: state.isSelected ? '#ffffff' : '#1e293b',
         cursor: 'pointer',
@@ -398,9 +398,9 @@ const StoresPurchaseReturn = () => {
                         <div style="font-size: 9.5px; color: #64748b;">Item Code: ${it.item_id || '-'}</div>
                     </td>
                     <td style="text-align: center; font-family: monospace; font-size: 10.5px;">${it.batch_no || 'N/A'}</td>
-                    <td style="text-align: right; font-weight: 700; color: #dc2626;">${qty}</td>
+                    <td style="text-align: right; font-weight: 700; color: #059669;">${qty}</td>
                     <td style="text-align: right;">₹${rate.toFixed(2)}</td>
-                    <td style="text-align: right; font-weight: 800; color: #dc2626;">₹${lineTotal.toFixed(2)}</td>
+                    <td style="text-align: right; font-weight: 800; color: #059669;">₹${lineTotal.toFixed(2)}</td>
                 </tr>
             `;
         }).join('');
@@ -440,13 +440,13 @@ const StoresPurchaseReturn = () => {
                         width: 100%;
                         max-width: 780px;
                         margin: 0 auto;
-                        border: 1.5px solid #dc2626;
+                        border: 1.5px solid #059669;
                         background: #ffffff;
                     }
                     .header-wrapper {
                         padding: 14px 18px 10px 18px;
-                        background: #fef2f2;
-                        border-bottom: 2px solid #dc2626;
+                        background: #f0fdf4;
+                        border-bottom: 2px solid #059669;
                         display: flex;
                         justify-content: space-between;
                         align-items: flex-start;
@@ -454,7 +454,7 @@ const StoresPurchaseReturn = () => {
                     .hospital-title {
                         font-size: 20px;
                         font-weight: 900;
-                        color: #991b1b;
+                        color: #047857;
                         letter-spacing: 0.5px;
                         margin: 0 0 2px 0;
                         text-transform: uppercase;
@@ -462,7 +462,7 @@ const StoresPurchaseReturn = () => {
                     .hospital-subtitle {
                         font-size: 11px;
                         font-weight: 700;
-                        color: #b91c1c;
+                        color: #059669;
                         margin: 0 0 3px 0;
                         text-transform: uppercase;
                     }
@@ -481,7 +481,7 @@ const StoresPurchaseReturn = () => {
                     }
                     .title-tag {
                         display: inline-block;
-                        background: #dc2626;
+                        background: #059669;
                         color: #ffffff;
                         font-weight: 900;
                         font-size: 13px;
@@ -494,7 +494,7 @@ const StoresPurchaseReturn = () => {
                     .note-num {
                         font-size: 13px;
                         font-weight: 800;
-                        color: #dc2626;
+                        color: #059669;
                     }
                     .note-date {
                         font-size: 10.5px;
@@ -504,22 +504,22 @@ const StoresPurchaseReturn = () => {
                     .info-strip {
                         display: grid;
                         grid-template-columns: 1.2fr 1fr;
-                        border-bottom: 1.5px solid #dc2626;
+                        border-bottom: 1.5px solid #059669;
                         background: #ffffff;
                     }
                     .info-block {
                         padding: 10px 14px;
                     }
                     .info-block:first-child {
-                        border-right: 1px solid #fee2e2;
+                        border-right: 1px solid #ecfdf5;
                     }
                     .block-title {
                         font-size: 9px;
                         font-weight: 800;
-                        color: #dc2626;
+                        color: #059669;
                         text-transform: uppercase;
                         letter-spacing: 0.8px;
-                        border-bottom: 1px solid #fecaca;
+                        border-bottom: 1px solid #a7f3d0;
                         padding-bottom: 2px;
                         margin-bottom: 6px;
                     }
@@ -549,14 +549,14 @@ const StoresPurchaseReturn = () => {
                         border-collapse: collapse;
                     }
                     .items-table th {
-                        background: #dc2626;
+                        background: #059669;
                         color: #ffffff;
                         padding: 6px 8px;
                         font-size: 9.5px;
                         font-weight: 700;
                         text-transform: uppercase;
                         letter-spacing: 0.5px;
-                        border: 1px solid #dc2626;
+                        border: 1px solid #059669;
                     }
                     .items-table td {
                         padding: 6px 8px;
@@ -565,18 +565,18 @@ const StoresPurchaseReturn = () => {
                         vertical-align: middle;
                     }
                     .items-table tr:nth-child(even) {
-                        background: #fef2f2;
+                        background: #f0fdf4;
                     }
                     .words-strip {
-                        background: #fff1f2;
-                        border-top: 1px dashed #dc2626;
-                        border-bottom: 1px dashed #dc2626;
+                        background: #f0fdf4;
+                        border-top: 1px dashed #059669;
+                        border-bottom: 1px dashed #059669;
                         padding: 6px 14px;
                         font-size: 10px;
                     }
                     .words-title {
                         font-weight: 700;
-                        color: #dc2626;
+                        color: #059669;
                         text-transform: uppercase;
                         margin-right: 4px;
                     }
@@ -589,19 +589,19 @@ const StoresPurchaseReturn = () => {
                         display: flex;
                         justify-content: flex-end;
                         padding: 12px 16px;
-                        border-top: 1.5px solid #dc2626;
+                        border-top: 1.5px solid #059669;
                         background: #f8fafc;
                     }
                     .total-badge {
-                        background: #fef2f2;
-                        border: 1px solid #fecaca;
+                        background: #f0fdf4;
+                        border: 1px solid #a7f3d0;
                         padding: 8px 16px;
                         border-radius: 6px;
                         display: flex;
                         gap: 20px;
                         font-size: 13px;
                         font-weight: 900;
-                        color: #dc2626;
+                        color: #059669;
                     }
                     .sig-section {
                         display: grid;
@@ -633,7 +633,7 @@ const StoresPurchaseReturn = () => {
                     }
                     @media print {
                         body { padding: 0; }
-                        .note-sheet { border: 1.5px solid #dc2626 !important; }
+                        .note-sheet { border: 1.5px solid #059669 !important; }
                     }
                 </style>
             </head>
@@ -650,7 +650,7 @@ const StoresPurchaseReturn = () => {
                             <div class="title-tag">DEBIT NOTE</div>
                             <div class="note-num">NOTE NO: ${ret.debit_note_no || ret.return_id}</div>
                             <div class="note-date">Date: <strong>${ret.return_date}</strong></div>
-                            <div style="font-size: 9px; color: #dc2626; font-weight: 700; margin-top: 2px;">STATUS: ISSUED</div>
+                            <div style="font-size: 9px; color: #059669; font-weight: 700; margin-top: 2px;">STATUS: ISSUED</div>
                         </div>
                     </div>
 
@@ -666,7 +666,7 @@ const StoresPurchaseReturn = () => {
                         <div class="info-block">
                             <div class="block-title">RETURN REFERENCE & REASON</div>
                             <div class="meta-row"><span class="meta-label">Against GRN:</span><span class="meta-val">${ret.grn_number || 'N/A'}</span></div>
-                            <div class="meta-row"><span class="meta-label">Return Reason:</span><span class="meta-val" style="color:#dc2626; font-weight:800;">${ret.return_reason || 'DAMAGED'}</span></div>
+                            <div class="meta-row"><span class="meta-label">Return Reason:</span><span class="meta-val" style="color:#059669; font-weight:800;">${ret.return_reason || 'DAMAGED'}</span></div>
                             <div class="meta-row"><span class="meta-label">Return Date:</span><span class="meta-val">${ret.return_date}</span></div>
                             ${ret.remarks ? `<div class="meta-row"><span class="meta-label">Remarks:</span><span class="meta-val">${ret.remarks}</span></div>` : ''}
                         </div>
@@ -742,8 +742,8 @@ const StoresPurchaseReturn = () => {
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                     <div>
-                        <h1 style={{ margin: 0, color: '#dc2626', fontSize: '1.75rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <RotateCcw size={28} color="#dc2626" /> Stores Purchase Return & Debit Note
+                        <h1 style={{ margin: 0, color: '#059669', fontSize: '1.75rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <RotateCcw size={28} color="#059669" /> Stores Purchase Return & Debit Note
                         </h1>
                         <p style={{ margin: '4px 0 0 0', color: colors.textMuted, fontSize: '0.9rem' }}>
                             Return goods to suppliers with automatic inventory deduction and printable Debit Notes.
@@ -759,7 +759,7 @@ const StoresPurchaseReturn = () => {
                         </Button>
                         <Button 
                             onClick={() => setShowCreateModal(true)}
-                            style={{ background: '#dc2626', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '700' }}
+                            style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '700' }}
                         >
                             <Plus size={18} /> New Purchase Return
                         </Button>
@@ -813,7 +813,7 @@ const StoresPurchaseReturn = () => {
                         />
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end' }}>
-                        <Button onClick={fetchReturns} style={{ background: '#dc2626', color: '#fff', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600' }}>
+                        <Button onClick={fetchReturns} style={{ background: '#059669', color: '#fff', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600' }}>
                             <Search size={16} /> Filter
                         </Button>
                         <Button onClick={() => { setFromDate(oneMonthAgo); setToDate(today); setSelectedVendor(''); setSelectedDepartment(''); setSearchTerm(''); setTimeout(fetchReturns, 50); }} style={{ background: '#e2e8f0', color: colors.textMain, padding: '9px 14px', borderRadius: '8px', border: 'none' }}>
@@ -827,16 +827,16 @@ const StoresPurchaseReturn = () => {
                     <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <div style={{ color: colors.textMuted, fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Return Records</div>
-                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>{filteredReturns.length}</div>
+                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#059669', marginTop: '4px' }}>{filteredReturns.length}</div>
                         </div>
-                        <RotateCcw size={30} color="#dc2626" opacity={0.35} />
+                        <RotateCcw size={30} color="#059669" opacity={0.35} />
                     </div>
                     <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <div style={{ color: colors.textMuted, fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Return Debit Value</div>
-                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>₹{totalReturnValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#059669', marginTop: '4px' }}>₹{totalReturnValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                         </div>
-                        <AlertTriangle size={30} color="#dc2626" opacity={0.35} />
+                        <AlertTriangle size={30} color="#059669" opacity={0.35} />
                     </div>
                     <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
@@ -866,7 +866,7 @@ const StoresPurchaseReturn = () => {
                             {loading ? (
                                 <Tr>
                                     <Td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>
-                                        <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', color: '#dc2626' }} />
+                                        <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', color: '#059669' }} />
                                         <p style={{ marginTop: '8px', color: colors.textMuted }}>Loading Purchase Returns...</p>
                                     </Td>
                                 </Tr>
@@ -879,7 +879,7 @@ const StoresPurchaseReturn = () => {
                             ) : (
                                 pagination.pageData.map(ret => (
                                     <Tr key={ret.return_id}>
-                                        <Td style={{ fontWeight: '700', color: '#dc2626' }}>{ret.return_id}</Td>
+                                        <Td style={{ fontWeight: '700', color: '#059669' }}>{ret.return_id}</Td>
                                         <Td style={{ fontWeight: '600', color: colors.primary }}>{ret.debit_note_no || 'N/A'}</Td>
                                         <Td>{ret.grn_number || 'N/A'}</Td>
                                         <Td>{ret.return_date}</Td>
@@ -888,25 +888,25 @@ const StoresPurchaseReturn = () => {
                                             <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {ret.vendor_id}</div>
                                         </Td>
                                         <Td>
-                                            <span style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', background: '#fee2e2', color: '#dc2626' }}>
+                                            <span style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', background: '#ecfdf5', color: '#059669' }}>
                                                 {ret.return_reason || 'DAMAGED'}
                                             </span>
                                         </Td>
-                                        <Td style={{ textAlign: 'right', fontWeight: '700', color: '#dc2626' }}>
+                                        <Td style={{ textAlign: 'right', fontWeight: '700', color: '#059669' }}>
                                             ₹{parseFloat(ret.total_return_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                         </Td>
                                         <Td style={{ textAlign: 'center' }}>
                                             <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                                                 <Button
                                                     onClick={() => setPreviewReturn(ret)}
-                                                    style={{ padding: '6px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                                                    style={{ padding: '6px 10px', background: '#ecfdf5', color: '#059669', border: '1px solid #059669', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
                                                     title="Preview Debit Note"
                                                 >
                                                     <Eye size={14} /> View
                                                 </Button>
                                                 <Button
                                                     onClick={() => handlePrintDebitNote(ret)}
-                                                    style={{ padding: '6px 10px', background: '#dc2626', color: '#ffffff', border: 'none', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                                                    style={{ padding: '6px 10px', background: '#059669', color: '#ffffff', border: 'none', borderRadius: '6px', fontWeight: '600', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
                                                     title="Print Debit Note Template"
                                                 >
                                                     <Printer size={14} /> Print
@@ -927,7 +927,7 @@ const StoresPurchaseReturn = () => {
                         goTo={pagination.goTo}
                         onPageSizeChange={pagination.handlePageSizeChange}
                         itemName="purchase returns"
-                        themeColor="#dc2626"
+                        themeColor="#059669"
                     />
                 </TableWrapper>
 
@@ -936,8 +936,8 @@ const StoresPurchaseReturn = () => {
                     <ModalOverlay style={{ zIndex: 1050 }}>
                         <ModalContainer style={{ maxWidth: '1000px', width: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
                             <ModalHeader style={{ padding: '16px 24px', borderBottom: `1px solid ${colors.border}` }}>
-                                <ModalTitle style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
-                                    <RotateCcw size={20} color="#dc2626" /> Create Return to Vendor (Debit Note)
+                                <ModalTitle style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#059669' }}>
+                                    <RotateCcw size={20} color="#059669" /> Create Return to Vendor (Debit Note)
                                 </ModalTitle>
                                 <CloseButton onClick={() => setShowCreateModal(false)}><X size={20} /></CloseButton>
                             </ModalHeader>
@@ -986,7 +986,7 @@ const StoresPurchaseReturn = () => {
 
                                     {/* GRN Items Return Selection */}
                                     <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: `1px solid ${colors.border}`, marginBottom: '20px' }}>
-                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: '700', color: '#dc2626' }}>Items in Selected GRN</h4>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: '700', color: '#059669' }}>Items in Selected GRN</h4>
                                         {formData.items.length === 0 ? (
                                             <p style={{ color: colors.textMuted, fontSize: '0.85rem', margin: 0 }}>Please select a GRN above to load items.</p>
                                         ) : (
@@ -1018,7 +1018,7 @@ const StoresPurchaseReturn = () => {
                                                                         style={{ width: '90px', textAlign: 'right', padding: '4px 8px' }}
                                                                     />
                                                                 </Td>
-                                                                <Td style={{ textAlign: 'right', fontWeight: '700', color: it.total_return_amount > 0 ? '#dc2626' : colors.textMuted }}>
+                                                                <Td style={{ textAlign: 'right', fontWeight: '700', color: it.total_return_amount > 0 ? '#059669' : colors.textMuted }}>
                                                                     ₹{it.total_return_amount.toFixed(2)}
                                                                 </Td>
                                                             </Tr>
@@ -1045,7 +1045,7 @@ const StoresPurchaseReturn = () => {
                                         <Button type="button" onClick={() => setShowCreateModal(false)} style={{ background: '#e2e8f0', color: colors.textMain, padding: '10px 20px', borderRadius: '8px', border: 'none' }}>
                                             Cancel
                                         </Button>
-                                        <Button type="submit" disabled={loading} style={{ background: '#dc2626', color: '#fff', padding: '10px 24px', borderRadius: '8px', border: 'none', fontWeight: '700' }}>
+                                        <Button type="submit" disabled={loading} style={{ background: '#059669', color: '#fff', padding: '10px 24px', borderRadius: '8px', border: 'none', fontWeight: '700' }}>
                                             {loading ? 'Processing...' : 'Submit Return & Issue Debit Note'}
                                         </Button>
                                     </div>
@@ -1060,11 +1060,11 @@ const StoresPurchaseReturn = () => {
                     <ModalOverlay style={{ zIndex: 1100 }}>
                         <ModalContainer style={{ maxWidth: '850px', width: '95vw', maxHeight: '95vh', display: 'flex', flexDirection: 'column' }}>
                             <ModalHeader style={{ padding: '16px 24px', borderBottom: `1px solid ${colors.border}` }}>
-                                <ModalTitle style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
-                                    <FileText size={20} color="#dc2626" /> Debit Note (Purchase Return) Preview
+                                <ModalTitle style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#059669' }}>
+                                    <FileText size={20} color="#059669" /> Debit Note (Purchase Return) Preview
                                 </ModalTitle>
                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                    <Button onClick={() => handlePrintDebitNote(previewReturn)} style={{ background: '#dc2626', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '6px', border: 'none', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer' }}>
+                                    <Button onClick={() => handlePrintDebitNote(previewReturn)} style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '6px', border: 'none', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer' }}>
                                         <Printer size={16} /> Print Debit Note
                                     </Button>
                                     <CloseButton onClick={() => setPreviewReturn(null)}><X size={20} /></CloseButton>
@@ -1074,7 +1074,7 @@ const StoresPurchaseReturn = () => {
                             <ModalBody style={{ padding: '32px', overflowY: 'auto', background: '#ffffff' }}>
                                 <div id="printable-debit-note-document" style={{ border: '1px solid #e2e8f0', padding: '24px', borderRadius: '8px' }}>
                                     {/* Hospital Letterhead Header */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #dc2626', paddingBottom: '16px', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #059669', paddingBottom: '16px', marginBottom: '20px' }}>
                                         <div>
                                             <h2 style={{ margin: '0 0 4px 0', color: colors.primary, fontSize: '1.5rem', fontWeight: '800' }}>SHANMUGA HOSPITAL</h2>
                                             <p style={{ margin: 0, fontSize: '0.85rem', color: colors.textMuted }}>Central Stores & Pharmacy Division</p>
@@ -1082,7 +1082,7 @@ const StoresPurchaseReturn = () => {
                                             <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem', color: colors.textMuted }}>GSTIN: 33AAAAA0000A1Z5</p>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#dc2626' }}>DEBIT NOTE</div>
+                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#059669' }}>DEBIT NOTE</div>
                                             <div style={{ fontSize: '0.95rem', fontWeight: '700', color: colors.textMain, marginTop: '4px' }}>NO: {previewReturn.debit_note_no || previewReturn.return_id}</div>
                                             <div style={{ fontSize: '0.85rem', color: colors.textMuted, marginTop: '2px' }}>Date: {previewReturn.return_date}</div>
                                             <div style={{ fontSize: '0.85rem', color: colors.textMuted, marginTop: '2px' }}>Against GRN: <strong>{previewReturn.grn_number || 'N/A'}</strong></div>
@@ -1099,7 +1099,7 @@ const StoresPurchaseReturn = () => {
                                     {/* Returned Items Table */}
                                     <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '0.85rem' }}>
                                         <thead>
-                                            <tr style={{ background: '#dc2626', color: '#ffffff' }}>
+                                            <tr style={{ background: '#059669', color: '#ffffff' }}>
                                                 <th style={{ padding: '8px 10px', textAlign: 'left' }}>#</th>
                                                 <th style={{ padding: '8px 10px', textAlign: 'left' }}>Item Description</th>
                                                 <th style={{ padding: '8px 10px', textAlign: 'left' }}>Batch No</th>
@@ -1114,7 +1114,7 @@ const StoresPurchaseReturn = () => {
                                                     <td style={{ padding: '8px 10px' }}>{idx + 1}</td>
                                                     <td style={{ padding: '8px 10px', fontWeight: '600' }}>{it.itemName || it.item_id}</td>
                                                     <td style={{ padding: '8px 10px' }}>{it.batch_no || '-'}</td>
-                                                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '700', color: '#dc2626' }}>{it.return_qty || it.quantity}</td>
+                                                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '700', color: '#059669' }}>{it.return_qty || it.quantity}</td>
                                                     <td style={{ padding: '8px 10px', textAlign: 'right' }}>₹{parseFloat(it.unit_price || it.rate || 0).toFixed(2)}</td>
                                                     <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '700' }}>₹{parseFloat(it.total_return_amount || (it.return_qty * it.unit_price) || 0).toFixed(2)}</td>
                                                 </tr>
@@ -1124,8 +1124,8 @@ const StoresPurchaseReturn = () => {
 
                                     {/* Total Summary */}
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '30px' }}>
-                                        <div style={{ background: '#fef2f2', padding: '14px 20px', borderRadius: '8px', border: '1px solid #fecaca', minWidth: '280px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: '800', color: '#dc2626' }}>
+                                        <div style={{ background: '#f0fdf4', padding: '14px 20px', borderRadius: '8px', border: '1px solid #a7f3d0', minWidth: '280px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: '800', color: '#059669' }}>
                                                 <span>Total Debit Value:</span>
                                                 <span>₹{parseFloat(previewReturn.total_return_amount || 0).toFixed(2)}</span>
                                             </div>

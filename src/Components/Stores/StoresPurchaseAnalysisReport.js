@@ -1,9 +1,10 @@
+import { printStoresReport } from './printStoresReport';
 import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import { 
-    BarChart3, TrendingUp, Calendar, RefreshCw, Download, 
+    BarChart3, TrendingUp, Calendar, RefreshCw, Download, Printer, 
     Building2, Package, PieChart, Search
 } from 'lucide-react';
 import {
@@ -84,41 +85,54 @@ const StoresPurchaseAnalysisReport = () => {
         }
     };
 
-    const exportToExcel = () => {
+    const exportMonthlyExcel = () => {
+        if (!monthlyTrends || monthlyTrends.length === 0) return;
         const wb = XLSX.utils.book_new();
-
-        // Sheet 1: Monthly Trends
         const wsMonthly = XLSX.utils.json_to_sheet(monthlyTrends.map(m => ({
             'Month': m.month,
-            'Total Purchases (₹)': m.total_amount,
+            'GRN Count': m.grn_count,
             'Tax Amount (₹)': m.tax_amount,
-            'GRN Count': m.grn_count
+            'Total Purchases (₹)': m.total_amount
         })));
         XLSX.utils.book_append_sheet(wb, wsMonthly, "MonthlyTrends");
+        XLSX.writeFile(wb, `Stores_Monthly_Spend_${today}.xlsx`);
+    };
 
-        // Sheet 2: Vendor Breakdown
-        const wsVendor = XLSX.utils.json_to_sheet(vendorBreakdown.map(v => ({
+    const exportVendorExcel = () => {
+        if (!vendorBreakdown || vendorBreakdown.length === 0) return;
+        const wb = XLSX.utils.book_new();
+        const wsVendor = XLSX.utils.json_to_sheet(vendorBreakdown.map((v, i) => ({
+            'S.No': i + 1,
             'Vendor ID': v.vendor_id,
             'Vendor Name': v.vendor_name,
-            'Total Purchases (₹)': v.total_amount,
-            'Share %': v.share_percentage,
-            'GRN Count': v.grn_count
+            'GRN Count': v.grn_count,
+            'Total Purchases (₹)': v.total_amount
         })));
         XLSX.utils.book_append_sheet(wb, wsVendor, "VendorSpend");
+        XLSX.writeFile(wb, `Stores_Vendor_Spend_${today}.xlsx`);
+    };
 
-        // Sheet 3: Top Items
-        const wsItems = XLSX.utils.json_to_sheet(topItems.map(it => ({
+    const exportItemsExcel = () => {
+        if (!topItems || topItems.length === 0) return;
+        const wb = XLSX.utils.book_new();
+        const wsItems = XLSX.utils.json_to_sheet(topItems.map((it, i) => ({
+            'S.No': i + 1,
             'Item ID': it.item_id,
             'Item Name': it.item_name,
-            'Total Quantity': it.total_quantity,
-            'Total Spend (₹)': it.total_spend,
+            'Purchased Qty': it.total_quantity,
             'Avg Rate (₹)': it.avg_rate,
             'Min Rate (₹)': it.min_rate,
-            'Max Rate (₹)': it.max_rate
+            'Max Rate (₹)': it.max_rate,
+            'Total Spend (₹)': it.total_spend
         })));
         XLSX.utils.book_append_sheet(wb, wsItems, "TopItems");
+        XLSX.writeFile(wb, `Stores_Top_Items_${today}.xlsx`);
+    };
 
-        XLSX.writeFile(wb, `Stores_Purchase_Analysis_${today}.xlsx`);
+    const exportCurrentTabToExcel = () => {
+        if (activeTab === 'monthly') exportMonthlyExcel();
+        else if (activeTab === 'vendor') exportVendorExcel();
+        else if (activeTab === 'items') exportItemsExcel();
     };
 
     return (
@@ -137,10 +151,16 @@ const StoresPurchaseAnalysisReport = () => {
 
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <Button 
-                            onClick={exportToExcel}
-                            style={{ background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', borderRadius: '8px', border: 'none', fontWeight: '600' }}
+                            onClick={exportCurrentTabToExcel}
+                            style={{ background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer' }}
                         >
-                            <Download size={16} /> Export Analysis
+                            <Download size={16} /> Download {activeTab === 'monthly' ? 'Monthly Trends' : activeTab === 'vendor' ? 'Vendor Spend' : 'Top Items'} Excel
+                        </Button>
+                        <Button 
+                            onClick={() => printStoresReport(null, { reportTitle: `Stores Purchase Analysis (${activeTab === 'monthly' ? 'Monthly Spend Trends' : activeTab === 'vendor' ? 'Vendor Spend Distribution' : 'Top Items & Rates'})` })}
+                            style={{ background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer' }}
+                        >
+                            <Printer size={16} /> Print
                         </Button>
                     </div>
                 </div>
@@ -203,61 +223,70 @@ const StoresPurchaseAnalysisReport = () => {
                 </div>
 
                 {/* Tabs */}
-                <div style={{ display: 'flex', gap: '8px', borderBottom: `2px solid ${colors.border}`, marginBottom: '20px' }}>
-                    <button
-                        onClick={() => setActiveTab('monthly')}
-                        style={{
-                            padding: '10px 20px',
-                            background: 'none',
-                            border: 'none',
-                            borderBottom: activeTab === 'monthly' ? `3px solid ${colors.primary}` : '3px solid transparent',
-                            color: activeTab === 'monthly' ? colors.primary : colors.textMuted,
-                            fontWeight: '700',
-                            fontSize: '0.95rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                        }}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${colors.border}`, marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={() => setActiveTab('monthly')}
+                            style={{
+                                padding: '10px 20px',
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: activeTab === 'monthly' ? `3px solid ${colors.primary}` : '3px solid transparent',
+                                color: activeTab === 'monthly' ? colors.primary : colors.textMuted,
+                                fontWeight: '700',
+                                fontSize: '0.95rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <TrendingUp size={16} /> Monthly Spend Trends ({monthlyTrends.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('vendor')}
+                            style={{
+                                padding: '10px 20px',
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: activeTab === 'vendor' ? `3px solid ${colors.primary}` : '3px solid transparent',
+                                color: activeTab === 'vendor' ? colors.primary : colors.textMuted,
+                                fontWeight: '700',
+                                fontSize: '0.95rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <Building2 size={16} /> Vendor Spend Distribution ({vendorBreakdown.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('items')}
+                            style={{
+                                padding: '10px 20px',
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: activeTab === 'items' ? `3px solid ${colors.primary}` : '3px solid transparent',
+                                color: activeTab === 'items' ? colors.primary : colors.textMuted,
+                                fontWeight: '700',
+                                fontSize: '0.95rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <Package size={16} /> Top Purchased Items & Rates ({topItems.length})
+                        </button>
+                    </div>
+
+                    <Button
+                        onClick={exportCurrentTabToExcel}
+                        style={{ background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', marginBottom: '4px', fontSize: '0.85rem' }}
                     >
-                        <TrendingUp size={16} /> Monthly Spend Trends ({monthlyTrends.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('vendor')}
-                        style={{
-                            padding: '10px 20px',
-                            background: 'none',
-                            border: 'none',
-                            borderBottom: activeTab === 'vendor' ? `3px solid ${colors.primary}` : '3px solid transparent',
-                            color: activeTab === 'vendor' ? colors.primary : colors.textMuted,
-                            fontWeight: '700',
-                            fontSize: '0.95rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                        }}
-                    >
-                        <Building2 size={16} /> Vendor Spend Distribution ({vendorBreakdown.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('items')}
-                        style={{
-                            padding: '10px 20px',
-                            background: 'none',
-                            border: 'none',
-                            borderBottom: activeTab === 'items' ? `3px solid ${colors.primary}` : '3px solid transparent',
-                            color: activeTab === 'items' ? colors.primary : colors.textMuted,
-                            fontWeight: '700',
-                            fontSize: '0.95rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                        }}
-                    >
-                        <Package size={16} /> Top Purchased Items & Rates ({topItems.length})
-                    </button>
+                        <Download size={14} /> Download {activeTab === 'monthly' ? 'Monthly' : activeTab === 'vendor' ? 'Vendor' : 'Items'} Excel
+                    </Button>
                 </div>
 
                 {/* Tab Contents */}
@@ -275,34 +304,22 @@ const StoresPurchaseAnalysisReport = () => {
                                     <Th style={{ textAlign: 'right' }}>GRN Invoices</Th>
                                     <Th style={{ textAlign: 'right' }}>Tax Amount (₹)</Th>
                                     <Th style={{ textAlign: 'right' }}>Total Purchase Spend (₹)</Th>
-                                    <Th style={{ textAlign: 'right' }}>Share %</Th>
                                 </Tr>
                             </thead>
                             <tbody>
                                 {monthlyTrends.length === 0 ? (
-                                    <Tr><Td colSpan="5" style={{ textAlign: 'center', padding: '30px' }}>No monthly data available.</Td></Tr>
+                                    <Tr><Td colSpan="4" style={{ textAlign: 'center', padding: '30px' }}>No monthly data available.</Td></Tr>
                                 ) : (
-                                    monthlyTrends.map((m, idx) => {
-                                        const share = summary.total_spend > 0 ? ((m.total_amount / summary.total_spend) * 100).toFixed(1) : 0;
-                                        return (
-                                            <Tr key={idx}>
-                                                <Td style={{ fontWeight: '700', color: colors.primary }}>{m.month}</Td>
-                                                <Td style={{ textAlign: 'right' }}>{m.grn_count}</Td>
-                                                <Td style={{ textAlign: 'right' }}>₹{m.tax_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Td>
-                                                <Td style={{ textAlign: 'right', fontWeight: '800', color: '#059669' }}>
-                                                    ₹{m.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </Td>
-                                                <Td style={{ textAlign: 'right' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                                                        <div style={{ width: '80px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                                                            <div style={{ width: `${share}%`, height: '100%', background: colors.primary }}></div>
-                                                        </div>
-                                                        <span style={{ fontSize: '0.8rem', fontWeight: '700' }}>{share}%</span>
-                                                    </div>
-                                                </Td>
-                                            </Tr>
-                                        );
-                                    })
+                                    monthlyTrends.map((m, idx) => (
+                                        <Tr key={idx}>
+                                            <Td style={{ fontWeight: '700', color: colors.primary }}>{m.month}</Td>
+                                            <Td style={{ textAlign: 'right' }}>{m.grn_count}</Td>
+                                            <Td style={{ textAlign: 'right' }}>₹{m.tax_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Td>
+                                            <Td style={{ textAlign: 'right', fontWeight: '800', color: '#059669' }}>
+                                                ₹{m.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </Td>
+                                        </Tr>
+                                    ))
                                 )}
                             </tbody>
                         </Table>
@@ -317,12 +334,11 @@ const StoresPurchaseAnalysisReport = () => {
                                     <Th>Vendor ID</Th>
                                     <Th style={{ textAlign: 'right' }}>GRN Count</Th>
                                     <Th style={{ textAlign: 'right' }}>Total Purchase Spend (₹)</Th>
-                                    <Th style={{ textAlign: 'right' }}>Share of Total Spend</Th>
                                 </Tr>
                             </thead>
                             <tbody>
                                 {vendorBreakdown.length === 0 ? (
-                                    <Tr><Td colSpan="6" style={{ textAlign: 'center', padding: '30px' }}>No vendor data available.</Td></Tr>
+                                    <Tr><Td colSpan="5" style={{ textAlign: 'center', padding: '30px' }}>No vendor data available.</Td></Tr>
                                 ) : (
                                     vendorBreakdown.map((v, idx) => (
                                         <Tr key={idx}>
@@ -332,14 +348,6 @@ const StoresPurchaseAnalysisReport = () => {
                                             <Td style={{ textAlign: 'right' }}>{v.grn_count}</Td>
                                             <Td style={{ textAlign: 'right', fontWeight: '800', color: '#059669' }}>
                                                 ₹{v.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                            </Td>
-                                            <Td style={{ textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                                                    <div style={{ width: '100px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                                                        <div style={{ width: `${Math.min(100, v.share_percentage || 0)}%`, height: '100%', background: '#059669' }}></div>
-                                                    </div>
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: '700' }}>{v.share_percentage}%</span>
-                                                </div>
                                             </Td>
                                         </Tr>
                                     ))

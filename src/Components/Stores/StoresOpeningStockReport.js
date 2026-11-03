@@ -1,3 +1,4 @@
+import { printStoresReport } from './printStoresReport';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -180,7 +181,10 @@ const StoresOpeningStockReport = () => {
     };
 
     const handlePrint = () => {
-        window.print();
+        printStoresReport('stores-opening-stock-table-wrapper', {
+            reportTitle: 'Stores Item Opening Stock Audit Report',
+            hospitalName: 'SHANMUGA HOSPITAL LIMITED'
+        });
     };
 
     return (
@@ -378,7 +382,7 @@ const StoresOpeningStockReport = () => {
                         <p style={{ marginTop: '12px', fontWeight: '600', fontSize: '0.95rem' }}>Loading Opening Stock Audit Trail...</p>
                     </div>
                 ) : (
-                    <TableWrapper style={{ background: '#ffffff', borderRadius: '12px', border: `1px solid ${colors.border}`, overflowX: 'auto', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                    <TableWrapper id="stores-opening-stock-table-wrapper" style={{ background: '#ffffff', borderRadius: '12px', border: `1px solid ${colors.border}`, overflowX: 'auto', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                         <Table>
                             <thead>
                                 <Tr style={{ background: '#f8fafc' }}>

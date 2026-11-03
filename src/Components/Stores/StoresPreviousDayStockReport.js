@@ -1,9 +1,10 @@
+import { printStoresReport } from './printStoresReport';
 import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import { 
-    Calendar, RefreshCw, Download, Search, 
+    Calendar, RefreshCw, Download, Printer, Search, 
     Layers, ArrowDownRight, ArrowUpRight, RotateCcw, Package
 } from 'lucide-react';
 import {
@@ -110,6 +111,13 @@ const StoresPreviousDayStockReport = () => {
                         >
                             <Download size={16} /> Export Excel
                         </Button>
+                        <Button 
+                            onClick={() => printStoresReport(null, { reportTitle: 'Stores Previous Day / Daily Stock Report' })}
+                            style={{ background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer' }}
+                        >
+                            <Printer size={16} /> Print
+                        </Button>
+
                     </div>
                 </div>
 

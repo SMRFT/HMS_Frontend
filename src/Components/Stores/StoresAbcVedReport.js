@@ -1,3 +1,4 @@
+import { printStoresReport } from './printStoresReport';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import styled, { keyframes, createGlobalStyle } from 'styled-components';
@@ -832,11 +833,10 @@ const StoresAbcVedReport = () => {
 
     // Full Table Print Handler
     const handlePrint = () => {
-        setIsPrinting(true);
-        setTimeout(() => {
-            window.print();
-            setIsPrinting(false);
-        }, 300);
+        printStoresReport('stores-abc-ved-table-wrapper', {
+            reportTitle: 'Stores ABC & VED Analysis Report',
+            hospitalName: 'SHANMUGA HOSPITAL LIMITED'
+        });
     };
 
     // Calculate pagination page numbers to show
@@ -1047,7 +1047,7 @@ const StoresAbcVedReport = () => {
                     ) : (
                         <>
                             {/* Inline Scrollable Table Container */}
-                            <TableWrapper className="printable-table-wrapper">
+                            <TableWrapper id="stores-abc-ved-table-wrapper" className="printable-table-wrapper">
                                 <Table className="printable-table">
                                     <thead>
                                         <Tr>
