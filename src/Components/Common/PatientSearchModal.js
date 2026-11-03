@@ -197,7 +197,16 @@ const Th = styled.th`
 const Tr = styled.tr`
   border-bottom: 1px solid #f1f5f9;
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.12s, box-shadow 0.12s;
+  background: ${(props) => (props.$isSelected ? "#ccfbf1" : "transparent")};
+
+  ${(props) =>
+    props.$isSelected &&
+    `
+    background: #ccfbf1 !important;
+    outline: 2px solid #0f766e;
+    outline-offset: -2px;
+  `}
 
   &:hover {
     background: #f0fdfa;
@@ -225,14 +234,16 @@ const ActionCircleButton = styled.button`
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #0f766e;
+  background: ${(props) => (props.$isSelected ? "#115e59" : "#0f766e")};
+  transform: ${(props) => (props.$isSelected ? "scale(1.1)" : "none")};
+  box-shadow: ${(props) => (props.$isSelected ? "0 0 0 3px rgba(15, 118, 110, 0.25)" : "none")};
   border: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   cursor: pointer;
-  transition: transform 0.15s, background 0.15s;
+  transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
 
   &:hover {
     background: #115e59;
@@ -336,6 +347,8 @@ export default function PatientSearchModal({
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [highlightedRowIndex, setHighlightedRowIndex] = useState(0);
+  const tableContainerRef = useRef(null);
   const pageSize = 10;
   const searchReqIdRef = useRef(0);
 
@@ -462,27 +475,99 @@ export default function PatientSearchModal({
     }
   }, [isOpen, initialQuery, isIpMode]); // eslint-disable-line
 
-  // Close on ESC
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   const totalEntries = results.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
   const currentRecords = results.slice(startIndex, startIndex + pageSize);
 
-  const handleRowClick = (item) => {
-    onSelect(item);
-    onClose();
+  const handleRowClick = useCallback(
+    (item) => {
+      onSelect(item);
+      onClose();
+    },
+    [onSelect, onClose]
+  );
+
+  // Reset highlight on page or result change
+  useEffect(() => {
+    setHighlightedRowIndex(0);
+  }, [results, currentPage]);
+
+  // Keep highlighted row visible
+  useEffect(() => {
+    if (tableContainerRef.current) {
+      const rows = tableContainerRef.current.querySelectorAll("tbody tr");
+      if (rows && rows[highlightedRowIndex]) {
+        rows[highlightedRowIndex].scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedRowIndex]);
+
+  // Keyboard navigation inside modal (ESC, ArrowDown, ArrowUp, Enter)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!isOpen) return;
+      if (e.key === "Escape") {
+        onClose();
+      } else if (e.key === "ArrowDown") {
+        if (currentRecords.length > 0) {
+          e.preventDefault();
+          setHighlightedRowIndex((prev) =>
+            prev < currentRecords.length - 1 ? prev + 1 : 0
+          );
+        }
+      } else if (e.key === "ArrowUp") {
+        if (currentRecords.length > 0) {
+          e.preventDefault();
+          setHighlightedRowIndex((prev) =>
+            prev > 0 ? prev - 1 : currentRecords.length - 1
+          );
+        }
+      } else if (e.key === "Enter") {
+        // If results exist and a row is highlighted, select it on Enter
+        if (
+          currentRecords.length > 0 &&
+          highlightedRowIndex >= 0 &&
+          highlightedRowIndex < currentRecords.length
+        ) {
+          e.preventDefault();
+          handleRowClick(currentRecords[highlightedRowIndex]);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose, currentRecords, highlightedRowIndex, handleRowClick]);
+
+  if (!isOpen) return null;
+
+  const handleFilterInputKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      if (currentRecords.length > 0) {
+        e.preventDefault();
+        setHighlightedRowIndex((prev) =>
+          prev < currentRecords.length - 1 ? prev + 1 : 0
+        );
+      }
+    } else if (e.key === "ArrowUp") {
+      if (currentRecords.length > 0) {
+        e.preventDefault();
+        setHighlightedRowIndex((prev) =>
+          prev > 0 ? prev - 1 : currentRecords.length - 1
+        );
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (
+        currentRecords.length > 0 &&
+        highlightedRowIndex >= 0 &&
+        highlightedRowIndex < currentRecords.length
+      ) {
+        handleRowClick(currentRecords[highlightedRowIndex]);
+      } else {
+        executeSearch();
+      }
+    }
   };
 
   return (
@@ -505,7 +590,7 @@ export default function PatientSearchModal({
                 placeholder={isIpMode ? "e.g. 022 or IP0022" : "e.g. 022 or 22"}
                 value={primaryInput}
                 onChange={(e) => setPrimaryInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && executeSearch()}
+                onKeyDown={handleFilterInputKeyDown}
                 autoFocus
               />
             </FilterField>
@@ -517,7 +602,7 @@ export default function PatientSearchModal({
                 placeholder="Name or Phone"
                 value={namePhoneInput}
                 onChange={(e) => setNamePhoneInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && executeSearch()}
+                onKeyDown={handleFilterInputKeyDown}
               />
             </FilterField>
 
@@ -553,7 +638,7 @@ export default function PatientSearchModal({
             <EmptyState>No records found. Try searching with a different value.</EmptyState>
           ) : (
             <>
-              <TableContainer>
+              <TableContainer ref={tableContainerRef}>
                 <Table>
                   <thead>
                     <tr>
@@ -592,12 +677,20 @@ export default function PatientSearchModal({
                             : p.room_no || "—";
                       }
 
+                      const isSelected = idx === highlightedRowIndex;
+
                       return (
-                        <Tr key={p.id || p.uhid || idx} onClick={() => handleRowClick(p)}>
+                        <Tr
+                          key={p.id || p.uhid || idx}
+                          $isSelected={isSelected}
+                          onClick={() => handleRowClick(p)}
+                          onMouseEnter={() => setHighlightedRowIndex(idx)}
+                        >
                           <Td style={{ textAlign: "center", width: 70 }}>
                             <ActionCircleButton
                               type="button"
                               title="Select"
+                              $isSelected={isSelected}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleRowClick(p);

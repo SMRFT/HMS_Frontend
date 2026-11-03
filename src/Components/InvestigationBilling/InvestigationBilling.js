@@ -128,7 +128,9 @@ const DropdownItem = styled.div`
   padding: 5px 8px;
   cursor: pointer;
   font-size: 0.82rem;
-  color: ${colors.textMain};
+  color: ${(props) => (props.$isHighlighted ? colors.primaryDark : colors.textMain)};
+  background: ${(props) => (props.$isHighlighted ? colors.tabBg : "transparent")};
+  font-weight: ${(props) => (props.$isHighlighted ? "600" : "normal")};
 
   &:hover {
     background: ${colors.tabBg};
@@ -317,6 +319,51 @@ const SubmitBtn = styled(Button)`
   }
 `;
 
+// ─── Focus Navigation Helper ──────────────────────────────────────────────────
+
+const moveToNextField = (currentElement) => {
+  if (!currentElement) return;
+  const form = currentElement.closest("form");
+  if (!form) return;
+
+  const selector = [
+    'input:not([type="hidden"]):not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    'button:not([disabled])',
+  ].join(", ");
+
+  const allElements = Array.from(form.querySelectorAll(selector));
+
+  const focusable = allElements.filter((el) => {
+    // Skip readOnly text/date inputs so focus advances directly to editable fields
+    if (el.tagName === "INPUT" && el.readOnly) return false;
+
+    // Skip utility buttons with data-skip-enter
+    if (el.getAttribute("data-skip-enter") === "true") return false;
+
+    // Skip elements explicitly marked with tabIndex -1
+    if (el.tabIndex === -1) return false;
+
+    // Must be visible
+    return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+  });
+
+  const currentIndex = focusable.indexOf(currentElement);
+  if (currentIndex > -1 && currentIndex + 1 < focusable.length) {
+    const nextElement = focusable[currentIndex + 1];
+    nextElement.focus();
+    if (
+      typeof nextElement.select === "function" &&
+      nextElement.tagName === "INPUT" &&
+      nextElement.type !== "date" &&
+      nextElement.type !== "time"
+    ) {
+      nextElement.select();
+    }
+  }
+};
+
 // ─── Searchable Dropdown Component ───────────────────────────────────────────
 
 const SearchableDropdown = ({
@@ -342,7 +389,10 @@ const SearchableDropdown = ({
 
   const [inputValue, setInputValue] = useState(() => getLabel(value));
   const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef(null);
+  const listRef = useRef(null);
+  const inputRef = useRef(null);
   const isSearchingRef = useRef(false);
 
   // Only sync from outside when NOT actively typing
@@ -358,6 +408,7 @@ const SearchableDropdown = ({
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         isSearchingRef.current = false;
         setIsOpen(false);
+        setHighlightedIndex(-1);
         setInputValue(getLabel(value)); // restore on blur without selection
       }
     };
@@ -367,13 +418,35 @@ const SearchableDropdown = ({
 
   const filtered = options.filter((o) => {
     const label = typeof o === "string" ? o : o[displayKey];
-    return label.toLowerCase().includes(inputValue.toLowerCase());
+    return String(label || "").toLowerCase().includes(inputValue.toLowerCase());
   });
+
+  // Ensure highlightedIndex stays in bounds when filtered options change
+  useEffect(() => {
+    if (isOpen && filtered.length > 0) {
+      if (highlightedIndex < 0 || highlightedIndex >= filtered.length) {
+        setHighlightedIndex(-1);
+      }
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [isOpen, filtered.length]); // eslint-disable-line
+
+  // Scroll active item into view
+  useEffect(() => {
+    if (isOpen && listRef.current && highlightedIndex >= 0) {
+      const items = listRef.current.children;
+      if (items && items[highlightedIndex]) {
+        items[highlightedIndex].scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [isOpen, highlightedIndex]);
 
   const handleInputChange = (e) => {
     isSearchingRef.current = true;
     setInputValue(e.target.value);
     setIsOpen(true);
+    setHighlightedIndex(0);
     if (e.target.value === "") {
       isSearchingRef.current = false;
       onChange(""); // clear parent
@@ -384,6 +457,7 @@ const SearchableDropdown = ({
     isSearchingRef.current = false;
     setInputValue("");
     setIsOpen(false);
+    setHighlightedIndex(-1);
     onChange(""); // clear parent
   };
 
@@ -393,13 +467,75 @@ const SearchableDropdown = ({
     isSearchingRef.current = false;
     setInputValue(dv);
     setIsOpen(false);
+    setHighlightedIndex(-1);
     onChange(sv);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const handleFocus = () => {
     isSearchingRef.current = true;
     setInputValue(""); // clear text so user sees all options
     setIsOpen(true);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+        setHighlightedIndex(0);
+      } else if (filtered.length > 0) {
+        setHighlightedIndex((prev) =>
+          prev < 0 ? 0 : (prev + 1) % filtered.length
+        );
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+        setHighlightedIndex(filtered.length > 0 ? filtered.length - 1 : 0);
+      } else if (filtered.length > 0) {
+        setHighlightedIndex((prev) =>
+          prev <= 0 ? filtered.length - 1 : prev - 1
+        );
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      // If dropdown is open and user highlighted an option, select it
+      if (
+        isOpen &&
+        filtered.length > 0 &&
+        highlightedIndex >= 0 &&
+        highlightedIndex < filtered.length
+      ) {
+        handleSelect(filtered[highlightedIndex]);
+        // Focus stays on input so next Enter moves to the next field
+      } else {
+        // Dropdown closed or no option highlighted: close and advance to next field
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        moveToNextField(e.target);
+      }
+    } else if (e.key === "Tab") {
+      if (
+        isOpen &&
+        filtered.length > 0 &&
+        highlightedIndex >= 0 &&
+        highlightedIndex < filtered.length
+      ) {
+        handleSelect(filtered[highlightedIndex]);
+      }
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+      setInputValue(getLabel(value));
+    }
   };
 
   return (
@@ -408,10 +544,12 @@ const SearchableDropdown = ({
         style={{ position: "relative", display: "flex", alignItems: "center" }}
       >
         <Input
+          ref={inputRef}
           type="text"
           value={inputValue}
           onChange={handleInputChange}
           onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
           style={{ paddingRight: value ? "28px" : undefined }}
@@ -437,11 +575,13 @@ const SearchableDropdown = ({
         )}
       </div>
       {isOpen && filtered.length > 0 && (
-        <DropdownList>
+        <DropdownList ref={listRef}>
           {filtered.map((option, index) => (
             <DropdownItem
               key={index}
+              $isHighlighted={index === highlightedIndex}
               onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setHighlightedIndex(index)}
               onClick={() => handleSelect(option)}
             >
               {typeof option === "string" ? option : option[displayKey]}
@@ -1168,6 +1308,22 @@ const InvestigationBilling = () => {
     return { calculatedAge: `${days}`, ageType: "D" };
   };
 
+  const handleFormKeyDown = (e) => {
+    if (e.key === "Enter") {
+      // 1. Textarea: allow Enter to create newline
+      if (e.target.tagName === "TEXTAREA") {
+        return;
+      }
+      // 2. Button: allow pressing Enter to trigger that button
+      if (e.target.tagName === "BUTTON") {
+        return;
+      }
+      // 3. Prevent default form submission
+      e.preventDefault();
+      moveToNextField(e.target);
+    }
+  };
+
   // ── JSX ─────────────────────────────────────────────────────────────────────
 
   return (
@@ -1192,7 +1348,7 @@ const InvestigationBilling = () => {
       )}
 
       <ContentCard>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
           {/* ── Patient Information ── */}
           <SectionHeader>
             <SectionLabel>👤 Patient Information</SectionLabel>
@@ -1210,11 +1366,15 @@ const InvestigationBilling = () => {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    openUhidSearch();
+                    if (!isPatientFetched && formData.uhid && formData.uhid.trim()) {
+                      openUhidSearch();
+                    } else {
+                      moveToNextField(e.target);
+                    }
                   }
                 }}
               />
-              <InlineSearchBtn type="button" onClick={fetchPatientDetails}>
+              <InlineSearchBtn type="button" data-skip-enter="true" onClick={fetchPatientDetails}>
                 🔍 Search
               </InlineSearchBtn>
             </InputWrapper>
@@ -1230,11 +1390,15 @@ const InvestigationBilling = () => {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    openIpSearch();
+                    if (!isPatientFetched && formData.ipNumber && formData.ipNumber.trim()) {
+                      openIpSearch();
+                    } else {
+                      moveToNextField(e.target);
+                    }
                   }
                 }}
               />
-              <InlineSearchBtn type="button" onClick={fetchIpPatient}>
+              <InlineSearchBtn type="button" data-skip-enter="true" onClick={fetchIpPatient}>
                 🔍 Search
               </InlineSearchBtn>
             </InputWrapper>
@@ -1313,6 +1477,12 @@ const InvestigationBilling = () => {
                 name="ageType"
                 value={formData.ageType || ""}
                 onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    moveToNextField(e.target);
+                  }
+                }}
                 disabled={isPatientFetched}
               >
                 <option value="">Select</option>
@@ -1328,6 +1498,12 @@ const InvestigationBilling = () => {
                 name="gender"
                 value={normalizeGender(formData.gender)}
                 onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    moveToNextField(e.target);
+                  }
+                }}
                 disabled={isPatientFetched}
               >
                 <option value="">Select</option>
@@ -1516,6 +1692,23 @@ const InvestigationBilling = () => {
                           Math.max(1, prev + (e.deltaY > 0 ? -1 : 1)),
                         );
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (selectedItem) {
+                            addProduct();
+                            setTimeout(() => {
+                              const itemInput = document.querySelector(
+                                'input[placeholder="Select item..."]'
+                              );
+                              if (itemInput) itemInput.focus();
+                            }, 50);
+                          } else {
+                            moveToNextField(e.target);
+                          }
+                        }
+                      }}
                     />
                   </QuantityControl>
                 </InputWrapper>
@@ -1525,7 +1718,7 @@ const InvestigationBilling = () => {
                   <Input type="text" value={selectedPrice} readOnly />
                 </InputWrapper>
 
-                <AddBtn type="button" onClick={addProduct}>
+                <AddBtn type="button" data-skip-enter="true" onClick={addProduct}>
                   + Add Item
                 </AddBtn>
               </ItemSelectionGrid>
@@ -1555,6 +1748,8 @@ const InvestigationBilling = () => {
                         <Td>
                           <DelBtn
                             type="button"
+                            data-skip-enter="true"
+                            tabIndex={-1}
                             onClick={() => deleteProduct(index)}
                             disabled={selectedBillTypeNo === "PACK"}
                           >
@@ -1647,6 +1842,12 @@ const InvestigationBilling = () => {
                   name="paymentMethod"
                   value={formData.paymentMethod}
                   onChange={handleInputChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      moveToNextField(e.target);
+                    }
+                  }}
                 >
                   <option value="">Select Payment Method</option>
                   <option value="Cash">Cash</option>
@@ -1656,10 +1857,10 @@ const InvestigationBilling = () => {
             </SummaryGrid>
 
             <ActionRow>
-              <ResetBtn type="button" onClick={handleReset}>
+              <ResetBtn type="button" data-skip-enter="true" onClick={handleReset}>
                 🔄 Reset
               </ResetBtn>
-              <EstimateBtn type="button" onClick={handleEstimate}>
+              <EstimateBtn type="button" data-skip-enter="true" onClick={handleEstimate}>
                 📊 Make Estimate
               </EstimateBtn>
               <SubmitBtn type="submit">
@@ -1674,7 +1875,18 @@ const InvestigationBilling = () => {
       <PatientSearchModal
         isOpen={showPatientModal}
         onClose={() => setShowPatientModal(false)}
-        onSelect={handlePatientSelect}
+        onSelect={(patientData) => {
+          handlePatientSelect(patientData);
+          setTimeout(() => {
+            const startEl =
+              patientSearchMode === "ip"
+                ? document.querySelector('input[name="ipNumber"]')
+                : document.querySelector('input[name="uhid"]');
+            if (startEl) {
+              moveToNextField(startEl);
+            }
+          }, 80);
+        }}
         initialQuery={patientSearchQuery}
         mode={patientSearchMode}
       />
