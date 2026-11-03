@@ -1,3 +1,4 @@
+import { printStoresReport } from './printStoresReport';
 import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';

@@ -12,6 +12,7 @@ import {
     ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
+import { printStoresReport } from './printStoresReport';
 import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
 import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import TablePagination, { usePagination } from './TablePagination';
@@ -1019,65 +1020,13 @@ const StoresGRNReport = () => {
     };
 
     const handlePrintTable = () => {
-        const printContent = `
-            <html>
-                <head>
-                    <title>GRN Report</title>
-                    <style>
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-family: sans-serif; }
-                        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 12px; }
-                        th { background-color: #f2f2f2; font-weight: bold; }
-                        h2 { text-align: center; color: #333; }
-                        .footer { margin-top: 20px; text-align: right; font-size: 10px; }
-                    </style>
-                </head>
-                <body>
-                    <h2>Stores GRN Report</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>GRN No</th>
-                                <th>Date</th>
-                                <th>Vendor</th>
-                                <th>Category</th>
-                                <th>Invoice No</th>
-                                <th>Net Amt</th>
-                                <th>Paid</th>
-                                <th>Pending</th>
-                                <th>Status</th>
-                                <th>Approved</th>
-                                <th>Entered By</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${grns.map(grn => {
-                                const { totalPaid, netAmt, pending, latest } = getPaymentInfo(grn);
-                                return `
-                                    <tr>
-                                        <td>${grn.grn_number}</td>
-                                        <td>${grn.date ? new Date(grn.date).toLocaleDateString('en-IN') : '-'}</td>
-                                        <td>${getVendorName(grn.vendor_id)}</td>
-                                        <td>${grn.purchase_category || '-'}</td>
-                                        <td>${grn.invoice_no}</td>
-                                        <td>₹${netAmt.toFixed(2)}</td>
-                                        <td>₹${totalPaid.toFixed(2)}</td>
-                                        <td>₹${pending.toFixed(2)}</td>
-                                        <td>${latest.status}</td>
-                                        <td>${grn.is_approved ? "Yes" : "No"}</td>
-                                        <td>${grn.entered_by || grn.created_by_name || grn.created_by || '-'}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                    <div class="footer">Generated on: ${new Date().toLocaleString()}</div>
-                </body>
-            </html>
-        `;
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        printWindow.print();
+        printStoresReport('stores-grn-table-wrapper', {
+            reportTitle: 'Stores Goods Received Note (GRN) Report',
+            hospitalName: 'SHANMUGA HOSPITAL LIMITED',
+            department: selectedDepartment || 'GENERAL PURCHASE',
+            fromDate,
+            toDate
+        });
     };
 
     const handlePrintRow = (grn) => {
@@ -1885,7 +1834,7 @@ const StoresGRNReport = () => {
                         boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
                         border: `1px solid ${colors.border}`
                     }}>
-                        <div style={{ overflowX: 'auto' }}>
+                        <div id="stores-grn-table-wrapper" style={{ overflowX: 'auto' }}>
                             <Table>
                                 <thead>
                                     <Tr style={{ background: '#e6f4f1' }}>

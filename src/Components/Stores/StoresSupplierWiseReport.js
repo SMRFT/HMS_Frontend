@@ -1,11 +1,11 @@
+import { printStoresReport } from './printStoresReport';
 import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import { 
     Building2, Phone, Mail, Search, RefreshCw, 
-    Download
-} from 'lucide-react';
+    Download, Printer } from 'lucide-react';
 import {
     PageWrapper,
     Container,
@@ -106,6 +106,12 @@ const StoresSupplierWiseReport = () => {
                         >
                             <Download size={16} /> Export Excel
                         </Button>
+                        <Button 
+                            onClick={() => printStoresReport('stores-supplier-wise-table', { reportTitle: 'Stores Supplier Wise Directory & Ledger', hospitalName: 'SHANMUGA HOSPITAL LIMITED' })} 
+                            style={{ background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', borderRadius: '8px', border: 'none', fontWeight: '600' }}
+                        >
+                            <Printer size={16} /> Print
+                        </Button>
                     </div>
                 </div>
 
@@ -158,7 +164,7 @@ const StoresSupplierWiseReport = () => {
                 </div>
 
                 {/* Suppliers Table */}
-                <TableWrapper style={{ background: '#ffffff', borderRadius: '12px', border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
+                <TableWrapper id="stores-supplier-wise-table" style={{ background: '#ffffff', borderRadius: '12px', border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
                     <Table>
                         <thead>
                             <Tr>

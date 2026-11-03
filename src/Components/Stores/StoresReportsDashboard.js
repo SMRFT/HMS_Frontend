@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import ReactSelect from 'react-select';
 import apiRequest from '../../Auth/apiRequest';
 import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import { printStoresReport } from './printStoresReport';
 import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import { useNavigate } from 'react-router-dom';
 import { 
     FileText, Building2, ClipboardList, ShoppingCart, BarChart3, 
-    CheckCircle, Search, ArrowRight, Maximize2, X, RefreshCw, Layers,
+    CheckCircle, Search, ArrowRight, Maximize2, X, RefreshCw, Layers, Printer,
     ShoppingBag, RotateCcw, TrendingUp, Clock, AlertTriangle, AlertCircle, Grid, ShieldCheck
 } from 'lucide-react';
 import {
@@ -47,8 +48,7 @@ const reportsConfig = [
         title: 'Purchase Order Format (PO)',
         description: 'Generate, manage, and print standardized Hospital Purchase Orders with vendor terms and item tax lines.',
         icon: ShoppingBag,
-        color: '#2563eb',
-        bg: '#eff6ff',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresPurchaseOrderFormat',
         component: StoresPurchaseOrderFormat
     },
@@ -57,8 +57,7 @@ const reportsConfig = [
         title: 'Purchase Return & Debit Notes',
         description: 'Return defective or excess goods to suppliers with automatic stock deduction and printable Debit Notes.',
         icon: RotateCcw,
-        color: '#dc2626',
-        bg: '#fef2f2',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresPurchaseReturn',
         component: StoresPurchaseReturn
     },
@@ -67,8 +66,7 @@ const reportsConfig = [
         title: 'Purchase Analysis Report',
         description: 'Analyze monthly purchase trends, vendor spend shares, top purchased goods, and price fluctuations over time.',
         icon: TrendingUp,
-        color: '#7c3aed',
-        bg: '#f5f3ff',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresPurchaseAnalysisReport',
         component: StoresPurchaseAnalysisReport
     },
@@ -77,8 +75,7 @@ const reportsConfig = [
         title: 'Previous Day / Daily Stock Report',
         description: 'Daily opening stock balance, GRN inward receipts, Indent outward issues, returns, and closing valuation.',
         icon: Layers,
-        color: '#059669',
-        bg: '#ecfdf5',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresPreviousDayStockReport',
         component: StoresPreviousDayStockReport
     },
@@ -87,8 +84,7 @@ const reportsConfig = [
         title: 'Supplier-Wise List & Ledger',
         description: 'Comprehensive directory of suppliers with cumulative order values, total payments made, and pending dues.',
         icon: Building2,
-        color: '#0284c7',
-        bg: '#f0f9ff',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresSupplierWiseReport',
         component: StoresSupplierWiseReport
     },
@@ -97,8 +93,7 @@ const reportsConfig = [
         title: 'Non-Moving Items Report (Dead Stock)',
         description: 'Identify slow-moving and idle items with zero indents over 30 / 60 / 90 / 180+ days to prevent dead capital.',
         icon: Clock,
-        color: '#d97706',
-        bg: '#fffbeb',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresNonMovingReport',
         component: StoresNonMovingReport
     },
@@ -107,8 +102,7 @@ const reportsConfig = [
         title: 'Short Expiry & Expired List',
         description: 'Early warning alert report tracking pharmaceutical and medical items nearing expiry within 30, 60, or 90 days.',
         icon: AlertTriangle,
-        color: '#e11d48',
-        bg: '#fff1f2',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresShortExpiryReport',
         component: StoresShortExpiryReport
     },
@@ -117,8 +111,7 @@ const reportsConfig = [
         title: 'Reorder Level Indication',
         description: 'Real-time stock threshold monitoring, identifying out-of-stock and low-stock items with suggested reorder quantities.',
         icon: AlertCircle,
-        color: '#4f46e5',
-        bg: '#eef2ff',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresReorderLevelReport',
         component: StoresReorderLevelReport
     },
@@ -127,8 +120,7 @@ const reportsConfig = [
         title: 'Barcode Entry & Rack Classification',
         description: 'Spatial inventory mapping to manage Racks, Shelves, and Bins with barcode scanner integration.',
         icon: Grid,
-        color: '#0891b2',
-        bg: '#ecfeff',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresRackClassification',
         component: StoresRackClassification
     },
@@ -137,8 +129,7 @@ const reportsConfig = [
         title: 'Supplier-Based GRN Report',
         description: 'Goods Received Note (GRN) report categorized by Supplier / Vendor with tax details and payment status.',
         icon: Building2,
-        color: '#2563eb',
-        bg: '#eff6ff',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresSupplierGrnReport',
         component: StoresSupplierGrnReport
     },
@@ -147,8 +138,7 @@ const reportsConfig = [
         title: 'Department-Based Indent Report',
         description: 'Store item requisitions (indents) grouped by Department with approval status and item quantities.',
         icon: ClipboardList,
-        color: '#7c3aed',
-        bg: '#f5f3ff',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresDepartmentIndentReport',
         component: StoresDepartmentIndentReport
     },
@@ -157,8 +147,7 @@ const reportsConfig = [
         title: 'Vending Machine Sales & Stock Report',
         description: 'Track Vending Machine sales, compare revenue against GRN costs, and calculate stock reconciliation.',
         icon: ShoppingCart,
-        color: '#059669',
-        bg: '#ecfdf5',
+        color: '#059669', bg: '#ecfdf5',
         route: '/VendingMachineReport',
         component: VendingMachineReport
     },
@@ -167,8 +156,7 @@ const reportsConfig = [
         title: 'Stores GRN General Report',
         description: 'Comprehensive general GRN report with invoice details, vendor mapping, and payment tracking.',
         icon: FileText,
-        color: '#d97706',
-        bg: '#fffbeb',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresGRNReport',
         component: StoresGRNReport
     },
@@ -177,8 +165,7 @@ const reportsConfig = [
         title: 'Stores Intent Approval Report',
         description: 'Review, approve, and track department store intent requisitions.',
         icon: CheckCircle,
-        color: '#0284c7',
-        bg: '#f0f9ff',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoreIntentApproval',
         component: StoreIntentApproval
     },
@@ -187,8 +174,7 @@ const reportsConfig = [
         title: 'Stores ABC & VED Analysis Report',
         description: 'Analysis report categorizing inventory items based on ABC value and VED criticality.',
         icon: BarChart3,
-        color: '#dc2626',
-        bg: '#fef2f2',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresAbcVedReport',
         component: StoresAbcVedReport
     },
@@ -197,8 +183,7 @@ const reportsConfig = [
         title: 'Opening Stock Audit Report',
         description: 'Complete audit trail of Item Master opening stock values, adjustments, audit remarks, and user history.',
         icon: ShieldCheck,
-        color: '#0284c7',
-        bg: '#f0f9ff',
+        color: '#059669', bg: '#ecfdf5',
         route: '/StoresOpeningStockReport',
         component: StoresOpeningStockReport
     }
@@ -253,14 +238,31 @@ const StoresReportsDashboard = () => {
         setActiveModalReport(null);
     };
 
+    const handlePrintReport = (report) => {
+        if (activeModalReport?.id === report.id) {
+            printStoresReport("stores-modal-report-content", {
+                reportTitle: report.title,
+                department: selectedDepartment
+            });
+        } else {
+            setActiveModalReport(report);
+            setTimeout(() => {
+                printStoresReport("stores-modal-report-content", {
+                    reportTitle: report.title,
+                    department: selectedDepartment
+                });
+            }, 600);
+        }
+    };
+
     return (
         <PageWrapper style={{ background: '#f8fafc', minHeight: '100vh', padding: '24px' }}>
             <Container>
                 {/* Header Section */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                     <div>
-                        <h1 style={{ margin: 0, color: colors.primary, fontSize: '1.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Layers size={32} color={colors.primary} /> Stores & Inventory Reports Dashboard
+                        <h1 style={{ margin: 0, color: '#047857', fontSize: '1.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Layers size={32} color="#059669" /> Stores & Inventory Reports Dashboard
                         </h1>
                         <p style={{ margin: '4px 0 0 0', color: colors.textMuted, fontSize: '0.95rem' }}>
                             Centralized report center for Stores Items, Supplier GRNs, Department Indents, Vending Machine sales, and Inventory Analysis.
@@ -321,8 +323,8 @@ const StoresReportsDashboard = () => {
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-4px)';
-                                    e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.06)';
-                                    e.currentTarget.style.borderColor = report.color;
+                                    e.currentTarget.style.boxShadow = '0 10px 20px rgba(5, 150, 105, 0.08)';
+                                    e.currentTarget.style.borderColor = '#059669';
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.transform = 'translateY(0)';
@@ -335,7 +337,7 @@ const StoresReportsDashboard = () => {
                                         <div style={{ background: report.bg, width: '52px', height: '52px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <IconComponent size={26} color={report.color} />
                                         </div>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: '700', background: '#f1f5f9', color: colors.textMuted, padding: '4px 10px', borderRadius: '12px' }}>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: '700', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: '12px' }}>
                                             STORES REPORT
                                         </span>
                                     </div>
@@ -348,12 +350,12 @@ const StoresReportsDashboard = () => {
                                     </p>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '10px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
                                     <button
                                         onClick={() => openReportModal(report)}
                                         style={{
-                                            flex: 1,
-                                            padding: '10px',
+                                            flex: '1 1 auto',
+                                            padding: '9px 12px',
                                             borderRadius: '8px',
                                             border: `1px solid ${report.color}`,
                                             background: report.bg,
@@ -367,13 +369,15 @@ const StoresReportsDashboard = () => {
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        <Maximize2 size={16} /> Open Modal Report
+                                        <Maximize2 size={16} /> Open Modal
                                     </button>
+
+                                    
 
                                     <button
                                         onClick={() => navigate(report.route)}
                                         style={{
-                                            padding: '10px 14px',
+                                            padding: '9px 12px',
                                             borderRadius: '8px',
                                             border: '1px solid #cbd5e1',
                                             background: '#ffffff',
@@ -399,14 +403,38 @@ const StoresReportsDashboard = () => {
                 {activeModalReport && (
                     <ModalOverlay style={{ zIndex: 1000, padding: '20px' }}>
                         <ModalContainer style={{ maxWidth: '1350px', width: '95vw', height: '90vh', display: 'flex', flexDirection: 'column' }}>
-                            <ModalHeader style={{ background: activeModalReport.bg, padding: '16px 24px', borderBottom: `1px solid ${colors.border}` }}>
+                            <ModalHeader style={{ background: '#ecfdf5', padding: '16px 24px', borderBottom: '1px solid #a7f3d0' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                     <activeModalReport.icon size={24} color={activeModalReport.color} />
                                     <ModalTitle style={{ color: colors.textMain, fontSize: '1.25rem' }}>
                                         {activeModalReport.title}
                                     </ModalTitle>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <button
+                                        onClick={() => {
+                                            printStoresReport("stores-modal-report-content", {
+                                                reportTitle: activeModalReport.title,
+                                                department: selectedDepartment
+                                            });
+                                        }}
+                                        style={{
+                                            background: '#059669',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            padding: '7px 16px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.82rem',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            boxShadow: '0 2px 4px rgba(5, 150, 105, 0.25)'
+                                        }}
+                                    >
+                                        <Printer size={15} /> Print Report
+                                    </button>
                                     <button
                                         onClick={() => {
                                             closeModal();
@@ -421,14 +449,16 @@ const StoresReportsDashboard = () => {
                             </ModalHeader>
 
                             <ModalBody style={{ flex: 1, padding: 0, overflowY: 'auto' }}>
-                                <Suspense fallback={
-                                    <div style={{ textAlign: 'center', padding: '60px', color: colors.textMuted }}>
-                                        <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite' }} />
-                                        <p style={{ marginTop: '12px', fontWeight: '600' }}>Loading Report Modal Data...</p>
-                                    </div>
-                                }>
-                                    <activeModalReport.component />
-                                </Suspense>
+                                <div id="stores-modal-report-content" style={{ width: '100%', minHeight: '100%' }}>
+                                    <Suspense fallback={
+                                        <div style={{ textAlign: 'center', padding: '60px', color: colors.textMuted }}>
+                                            <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite' }} />
+                                            <p style={{ marginTop: '12px', fontWeight: '600' }}>Loading Report Modal Data...</p>
+                                        </div>
+                                    }>
+                                        <activeModalReport.component />
+                                    </Suspense>
+                                </div>
                             </ModalBody>
                         </ModalContainer>
                     </ModalOverlay>

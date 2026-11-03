@@ -4,8 +4,9 @@ import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import { 
     Search, Calendar, RefreshCw, FileText, ChevronDown, ChevronRight, 
-    Building2, Download
+    Building2, Download, Printer
 } from 'lucide-react';
+import { printStoresReport } from './printStoresReport';
 import {
     PageWrapper,
     Container,
@@ -62,6 +63,10 @@ const StoresSupplierGrnReport = () => {
                 const resPayload = response.data;
                 const reportList = Array.isArray(resPayload.data) ? resPayload.data : (Array.isArray(resPayload) ? resPayload : []);
                 setReportData(reportList);
+                setTimeout(() => {
+                    const printContainer = document.getElementById("stores-supplier-grn-printable");
+                    if (printContainer) printContainer._reportData = reportList;
+                }, 50);
                 if (resPayload.summary) setSummary(resPayload.summary);
             } else {
                 setReportData([]);
@@ -236,11 +241,14 @@ const StoresSupplierGrnReport = () => {
                         <Button type="button" onClick={exportToExcel} style={{ background: '#16a34a', color: '#ffffff', height: '42px', padding: '0 18px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Download size={16} /> Export Excel
                         </Button>
+                        <Button type="button" onClick={() => printStoresReport(reportData, { isSupplierPurchaseFormat: true, fromDate, toDate, summary, hospitalName: 'SHANMUGA HOSPITAL LIMITED', department: 'GENERAL PURCHASE' })} style={{ background: '#0284c7', color: '#ffffff', height: '42px', padding: '0 18px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Printer size={16} /> Print
+                        </Button>
                     </form>
                 </ControlsContainer>
 
                 {/* Report Table */}
-                <div style={{ background: '#ffffff', borderRadius: '12px', border: `1px solid ${colors.border}`, padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div id="stores-supplier-grn-printable" style={{ background: '#ffffff', borderRadius: '12px', border: `1px solid ${colors.border}`, padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                     {loading ? (
                         <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>
                             <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} /> Loading Supplier GRN Report...

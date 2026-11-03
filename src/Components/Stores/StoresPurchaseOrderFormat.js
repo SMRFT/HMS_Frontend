@@ -105,7 +105,15 @@ SALEM – 636007.
 GSTIN: 33AACTS1080N2ZC`;
 
 const DEFAULT_PAYMENT_TERMS = '50% Advance with PO and remaining 50% will be done after dispatch';
-const DEFAULT_TERMS = `1. Goods must be strictly according to specifications.\n2. Invoices must mention this PO number.\n3. Damaged goods will be rejected and returned.`;
+const DEFAULT_TERMS = `1. Goods must be strictly according to specifications.\n2. Damaged goods will be rejected and returned.`;
+const sanitizeTerms = (terms) => {
+    if (!terms) return '';
+    return terms
+        .replace(/2\.\s*Invoices must mention this PO number\.?\s*\n?/gi, '')
+        .replace(/3\.\s*Damaged goods/gi, '2. Damaged goods')
+        .trim();
+};
+
 
 const StoresPurchaseOrderFormat = () => {
     const today = dayjs().format('YYYY-MM-DD');
@@ -641,10 +649,15 @@ const StoresPurchaseOrderFormat = () => {
                         color: #0f766e;
                     }
                     .payment-terms-box {
-                        margin: 12px 0 6px 0;
-                        font-size: 11.5px;
+                        margin: 12px 0 10px 0;
+                        padding: 8px 12px;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 4px;
+                        background: #f8fafc;
+                        font-size: 11px;
                         line-height: 1.5;
                         color: #0f172a;
+                        white-space: pre-line;
                     }
                     .signatory-section {
                         display: flex;
@@ -784,7 +797,7 @@ const StoresPurchaseOrderFormat = () => {
                             ${po.terms_and_conditions ? `
                                 <div style="margin-top: 8px; font-size: 9.5px; color: #475569;">
                                     <strong>Terms & Conditions:</strong>
-                                    <div style="white-space: pre-line; line-height: 1.35;">${po.terms_and_conditions}</div>
+                                    <div style="white-space: pre-line; line-height: 1.35;">${sanitizeTerms(po.terms_and_conditions)}</div>
                                 </div>
                             ` : ''}
                         </div>
@@ -1118,26 +1131,42 @@ const StoresPurchaseOrderFormat = () => {
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                                        <div>
-                                            <label style={{ fontSize: '0.85rem', fontWeight: '700', color: colors.textMain, display: 'block', marginBottom: '6px' }}>Subject Line (SUB: PURCHASE ORDER FOR;)</label>
-                                            <Input 
-                                                type="text" 
-                                                placeholder="Auto-generated or custom subject line..."
-                                                value={formData.subject} 
-                                                onChange={e => setFormData(prev => ({ ...prev, subject: e.target.value }))} 
-                                                style={{ width: '100%' }} 
-                                            />
-                                        </div>
-                                        <div>
-                                            <label style={{ fontSize: '0.85rem', fontWeight: '700', color: colors.textMain, display: 'block', marginBottom: '6px' }}>Payment Terms</label>
-                                            <Input 
-                                                type="text" 
-                                                value={formData.payment_terms} 
-                                                onChange={e => setFormData(prev => ({ ...prev, payment_terms: e.target.value }))} 
-                                                style={{ width: '100%' }} 
-                                            />
-                                        </div>
+                                    {/* 1. Subject Line in a single big line */}
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: '700', color: colors.textMain, display: 'block', marginBottom: '6px' }}>
+                                            Subject Line (SUB: PURCHASE ORDER FOR;)
+                                        </label>
+                                        <Input 
+                                            type="text" 
+                                            placeholder="Auto-generated or custom subject line (e.g. SUB: PURCHASE ORDER FOR MEDICINES / SURGICALS)..."
+                                            value={formData.subject} 
+                                            onChange={e => setFormData(prev => ({ ...prev, subject: e.target.value }))} 
+                                            style={{ width: '100%', height: '40px', fontSize: '0.9rem', padding: '0 12px' }} 
+                                        />
+                                    </div>
+
+                                    {/* 2. Payment Terms field more big rectangle box */}
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: '700', color: colors.textMain, display: 'block', marginBottom: '6px' }}>
+                                            Payment Terms
+                                        </label>
+                                        <textarea 
+                                            rows="3"
+                                            placeholder="Enter payment terms (e.g. 50% Advance with PO and remaining 50% will be done after dispatch)..."
+                                            value={formData.payment_terms} 
+                                            onChange={e => setFormData(prev => ({ ...prev, payment_terms: e.target.value }))} 
+                                            style={{ 
+                                                width: '100%', 
+                                                minHeight: '85px', 
+                                                padding: '10px 14px', 
+                                                borderRadius: '8px', 
+                                                border: `1px solid ${colors.border}`, 
+                                                fontFamily: 'inherit', 
+                                                fontSize: '0.88rem', 
+                                                resize: 'vertical',
+                                                boxSizing: 'border-box' 
+                                            }} 
+                                        />
                                     </div>
 
                                     {/* Item Addition Section */}
@@ -1440,7 +1469,7 @@ const StoresPurchaseOrderFormat = () => {
                                                 {previewPo.terms_and_conditions && (
                                                     <div style={{ marginTop: '8px', fontSize: '9.5px', color: '#475569' }}>
                                                         <strong>Terms & Conditions:</strong>
-                                                        <div style={{ whiteSpace: 'pre-line', lineHeight: '1.35' }}>{previewPo.terms_and_conditions}</div>
+                                                        <div style={{ whiteSpace: 'pre-line', lineHeight: '1.35' }}>{sanitizeTerms(previewPo.terms_and_conditions)}</div>
                                                     </div>
                                                 )}
                                             </div>
@@ -1475,7 +1504,7 @@ const StoresPurchaseOrderFormat = () => {
                                         </div>
 
                                         {/* Payment Terms */}
-                                        <div style={{ margin: '12px 0 6px 0', fontSize: '11.5px', lineHeight: '1.5', color: '#0f172a' }}>
+                                        <div style={{ margin: '12px 0 10px 0', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#f8fafc', fontSize: '11px', lineHeight: '1.5', color: '#0f172a', whiteSpace: 'pre-line' }}>
                                             <strong>Payment terms:</strong> {previewPo.payment_terms || DEFAULT_PAYMENT_TERMS}
                                         </div>
 

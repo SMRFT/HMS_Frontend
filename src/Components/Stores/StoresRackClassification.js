@@ -1,3 +1,4 @@
+import { printStoresReport } from './printStoresReport';
 import React, { useState, useEffect, useRef } from 'react';
 import apiRequest from '../../Auth/apiRequest';
 import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
@@ -5,7 +6,7 @@ import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentS
 import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
 import { 
-    Grid, Barcode, Search, RefreshCw, Download, 
+    Grid, Barcode, Search, RefreshCw, Download, Printer, 
     Save, Edit, CheckCircle, Package, Layers, X, Plus, Trash2, Tag, Box, AlertCircle
 } from 'lucide-react';
 import TablePagination, { usePagination } from './TablePagination';
@@ -334,7 +335,7 @@ const StoresRackClassification = () => {
     };
 
     const handleDeleteShelf = async (shelfId) => {
-        if (!window.confirm("Are you sure you want to delete this shelf?")) return;
+        if (!window.confirm("Are you sure you want to delete this bero?")) return;
         try {
             setMasterLoading(true);
             const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/shelf-master/${shelfId}/`, 'DELETE');
@@ -355,15 +356,12 @@ const StoresRackClassification = () => {
     const exportToExcel = () => {
         if (!itemsList || itemsList.length === 0) return;
         const excelData = itemsList.map(item => ({
-            'Item ID': item.item_id,
             'Item Name': item.itemName,
             'Department': item.department,
             'Group': item.group,
             'Category': item.category,
             'Rack No': item.rack_no || 'Unassigned',
-            'Shelf No': item.shelf_no || 'Unassigned',
-            'Bin No': item.bin_no || 'Unassigned',
-            'Barcode': item.barcode || item.item_id,
+            'Bero No': item.shelf_no || 'Unassigned',
             'Current Stock': item.total_quantity
         }));
 
@@ -392,7 +390,7 @@ const StoresRackClassification = () => {
                             onClick={() => setShowMasterModal(true)}
                             style={{ background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '700', cursor: 'pointer', boxShadow: '0 2px 4px rgba(2,132,199,0.2)' }}
                         >
-                            <Box size={16} /> Manage Racks & Shelves
+                            <Box size={16} /> Manage Racks & Bero
                         </Button>
                         <Button 
                             onClick={exportToExcel}
@@ -400,6 +398,13 @@ const StoresRackClassification = () => {
                         >
                             <Download size={16} /> Export Excel
                         </Button>
+                        <Button 
+                            onClick={() => printStoresReport(null, { reportTitle: 'Barcode Entry & Rack Classification' })}
+                            style={{ background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer' }}
+                        >
+                            <Printer size={16} /> Print
+                        </Button>
+
                     </div>
                 </div>
 
@@ -496,21 +501,21 @@ const StoresRackClassification = () => {
                             />
                         </div>
                         <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
-                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Filter Shelf</label>
+                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Filter Bero</label>
                             <ReactSelect
                                 options={[
-                                    { value: '', label: 'All Shelves' },
-                                    ...[...shelves].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(s => ({ value: s, label: `Shelf ${s}` }))
+                                    { value: '', label: 'All Bero' },
+                                    ...[...shelves].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(s => ({ value: s, label: `Bero ${s}` }))
                                 ]}
                                 value={[
-                                    { value: '', label: 'All Shelves' },
-                                    ...[...shelves].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(s => ({ value: s, label: `Shelf ${s}` }))
-                                ].find(opt => opt.value === selectedShelf) || { value: '', label: 'All Shelves' }}
+                                    { value: '', label: 'All Bero' },
+                                    ...[...shelves].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(s => ({ value: s, label: `Bero ${s}` }))
+                                ].find(opt => opt.value === selectedShelf) || { value: '', label: 'All Bero' }}
                                 onChange={opt => setSelectedShelf(opt ? opt.value : '')}
                                 styles={customSelectStyles}
                                 menuPortalTarget={document.body}
                                 isSearchable
-                                placeholder="Search Shelf..."
+                                placeholder="Search Bero..."
                             />
                         </div>
                         <div style={{ flex: '1 1 250px', minWidth: '200px' }}>
@@ -541,11 +546,9 @@ const StoresRackClassification = () => {
                             <Tr>
                                 <Th>#</Th>
                                 <Th>Item Details</Th>
-                                <Th>Barcode / SKU</Th>
                                 <Th>Group / Category</Th>
                                 <Th style={{ textAlign: 'center' }}>Rack No</Th>
-                                <Th style={{ textAlign: 'center' }}>Shelf No</Th>
-                                <Th style={{ textAlign: 'center' }}>Bin No</Th>
+                                <Th style={{ textAlign: 'center' }}>Bero No</Th>
                                 <Th style={{ textAlign: 'right' }}>Current Stock</Th>
                                 <Th style={{ textAlign: 'center' }}>Actions</Th>
                             </Tr>
@@ -553,15 +556,15 @@ const StoresRackClassification = () => {
                         <tbody>
                             {loading ? (
                                 <Tr>
-                                    <Td colSpan="9" style={{ textAlign: 'center', padding: '40px' }}>
+                                    <Td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}>
                                         <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', color: '#0284c7' }} />
                                         <p style={{ marginTop: '8px', color: colors.textMuted }}>Loading rack catalog...</p>
                                     </Td>
                                 </Tr>
                             ) : itemsList.length === 0 ? (
                                 <Tr>
-                                    <Td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>
-                                        No items found matching the selected rack/shelf filter.
+                                    <Td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>
+                                        No items found matching the selected rack/bero filter.
                                     </Td>
                                 </Tr>
                             ) : (
@@ -570,12 +573,6 @@ const StoresRackClassification = () => {
                                         <Td>{startIdx + idx + 1}</Td>
                                         <Td>
                                             <div style={{ fontWeight: '700', color: colors.textMain }}>{item.itemName}</div>
-                                            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {item.item_id}</div>
-                                        </Td>
-                                        <Td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace', fontWeight: '700', color: colors.primary }}>
-                                                <Barcode size={16} /> {item.barcode || item.item_id}
-                                            </div>
                                         </Td>
                                         <Td>
                                             <div>{item.group || '-'}</div>
@@ -589,11 +586,6 @@ const StoresRackClassification = () => {
                                         <Td style={{ textAlign: 'center' }}>
                                             <span style={{ padding: '4px 10px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', background: item.shelf_no ? '#f5f3ff' : '#f1f5f9', color: item.shelf_no ? '#7c3aed' : colors.textMuted }}>
                                                 {item.shelf_no || 'Unassigned'}
-                                            </span>
-                                        </Td>
-                                        <Td style={{ textAlign: 'center' }}>
-                                            <span style={{ padding: '4px 8px', borderRadius: '8px', fontWeight: '600', fontSize: '0.8rem', background: item.bin_no ? '#ecfdf5' : '#f1f5f9', color: item.bin_no ? '#059669' : colors.textMuted }}>
-                                                {item.bin_no || '-'}
                                             </span>
                                         </Td>
                                         <Td style={{ textAlign: 'right', fontWeight: '800', color: item.total_quantity > 0 ? '#059669' : '#dc2626' }}>
@@ -631,7 +623,7 @@ const StoresRackClassification = () => {
                         <ModalContainer style={{ maxWidth: '550px', width: '90vw' }}>
                             <ModalHeader style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.border}` }}>
                                 <ModalTitle style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0284c7' }}>
-                                    <Grid size={20} color="#0284c7" /> Assign Rack, Shelf & Barcode
+                                    <Grid size={20} color="#0284c7" /> Assign Rack & Bero
                                 </ModalTitle>
                                 <CloseButton onClick={() => setEditingItem(null)}><X size={20} /></CloseButton>
                             </ModalHeader>
@@ -642,7 +634,6 @@ const StoresRackClassification = () => {
                                         <div style={{ fontSize: '0.8rem', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Item Details</div>
                                         <div style={{ fontSize: '1.1rem', fontWeight: '800', color: colors.textMain, marginTop: '2px' }}>{editingItem.itemName}</div>
                                         <div style={{ fontSize: '0.8rem', color: colors.textMuted, marginTop: '2px' }}>
-                                            ID: <strong style={{ color: colors.primary }}>{editingItem.item_id}</strong> &nbsp;|&nbsp; 
                                             Stock: <strong style={{ color: editingItem.total_quantity > 0 ? '#059669' : '#dc2626' }}>{editingItem.total_quantity}</strong>
                                         </div>
                                     </div>
@@ -665,7 +656,7 @@ const StoresRackClassification = () => {
                                         ))}
                                     </datalist>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
                                         <div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                                 <label style={{ fontSize: '0.85rem', fontWeight: '700', margin: 0, color: colors.textMain }}>
@@ -693,65 +684,26 @@ const StoresRackClassification = () => {
                                         <div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                                 <label style={{ fontSize: '0.85rem', fontWeight: '700', margin: 0, color: colors.textMain }}>
-                                                    Shelf Number <span style={{ color: '#ef4444' }}>*</span>
+                                                    Bero Number <span style={{ color: '#ef4444' }}>*</span>
                                                 </label>
                                                 <button
                                                     type="button"
                                                     onClick={() => { setShowMasterModal(true); setMasterTab('shelves'); }}
                                                     style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', padding: 0 }}
                                                 >
-                                                    + Add Shelf
+                                                    + Add Bero
                                                 </button>
                                             </div>
                                             <Input 
                                                 type="text" 
                                                 list="existing-shelves"
-                                                placeholder="e.g. Shelf 1, Shelf 2" 
+                                                placeholder="e.g. Bero 1, Bero 2" 
                                                 value={editShelf} 
                                                 onChange={e => setEditShelf(e.target.value)} 
                                                 style={{ width: '100%' }}
                                                 required
                                             />
-                                            <span style={{ fontSize: '0.72rem', color: colors.textMuted }}>Pick registered shelf or type new</span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-                                        <div>
-                                            <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px', color: colors.textMain }}>
-                                                Bin / Compartment
-                                            </label>
-                                            <Input 
-                                                type="text" 
-                                                placeholder="e.g. BIN-01, B-02" 
-                                                value={editBin} 
-                                                onChange={e => setEditBin(e.target.value)} 
-                                                style={{ width: '100%' }}
-                                            />
-                                        </div>
-                                        <div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                                <label style={{ fontSize: '0.85rem', fontWeight: '700', margin: 0, color: colors.textMain }}>
-                                                    Barcode / SKU
-                                                </label>
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const randomNum = Math.floor(1000000 + Math.random() * 9000000);
-                                                        setEditBarcode(`890${randomNum}`);
-                                                    }}
-                                                    style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', padding: 0 }}
-                                                >
-                                                    + Auto Generate
-                                                </button>
-                                            </div>
-                                            <Input 
-                                                type="text" 
-                                                placeholder="Scan or enter barcode" 
-                                                value={editBarcode} 
-                                                onChange={e => setEditBarcode(e.target.value)} 
-                                                style={{ width: '100%', fontFamily: 'monospace' }}
-                                            />
+                                            <span style={{ fontSize: '0.72rem', color: colors.textMuted }}>Pick registered bero or type new</span>
                                         </div>
                                     </div>
 
@@ -760,7 +712,7 @@ const StoresRackClassification = () => {
                                             Cancel
                                         </Button>
                                         <Button type="submit" disabled={loading} style={{ background: '#0284c7', color: '#fff', padding: '9px 24px', borderRadius: '8px', border: 'none', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Save size={16} /> {loading ? 'Saving...' : 'Save Location & Barcode'}
+                                            <Save size={16} /> {loading ? 'Saving...' : 'Save Location'}
                                         </Button>
                                     </div>
                                 </form>
@@ -816,7 +768,7 @@ const StoresRackClassification = () => {
                                         gap: '6px'
                                     }}
                                 >
-                                    <Package size={16} /> Shelves Master ({shelfMasters.length})
+                                    <Package size={16} /> Bero Master ({shelfMasters.length})
                                 </button>
                             </div>
 
@@ -904,14 +856,14 @@ const StoresRackClassification = () => {
                                         {/* Add Shelf Form */}
                                         <form onSubmit={handleCreateShelf} style={{ background: '#f1f5f9', padding: '16px', borderRadius: '10px', marginBottom: '20px' }}>
                                             <div style={{ fontSize: '0.9rem', fontWeight: '800', color: colors.textMain, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Plus size={16} color="#0284c7" /> Add New Shelf
+                                                <Plus size={16} color="#0284c7" /> Add New Bero
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '10px', alignItems: 'flex-end' }}>
                                                 <div>
-                                                    <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Shelf Name *</label>
+                                                    <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Bero Name *</label>
                                                     <Input 
                                                         type="text" 
-                                                        placeholder="e.g. Shelf 1, Shelf 5" 
+                                                        placeholder="e.g. Bero 1, Bero 5" 
                                                         value={newShelfName} 
                                                         onChange={e => setNewShelfName(e.target.value)} 
                                                         required 
@@ -946,7 +898,7 @@ const StoresRackClassification = () => {
                                                     disabled={masterLoading}
                                                     style={{ background: '#0284c7', color: '#fff', padding: '9px 18px', borderRadius: '8px', border: 'none', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                                                 >
-                                                    <Save size={14} /> {masterLoading ? 'Saving...' : 'Add Shelf'}
+                                                    <Save size={14} /> {masterLoading ? 'Saving...' : 'Add Bero'}
                                                 </Button>
                                             </div>
                                         </form>
@@ -956,8 +908,8 @@ const StoresRackClassification = () => {
                                             <Table>
                                                 <thead>
                                                     <Tr>
-                                                        <Th>Shelf ID</Th>
-                                                        <Th>Shelf Name</Th>
+                                                        <Th>Bero ID</Th>
+                                                        <Th>Bero Name</Th>
                                                         <Th>Rack ID / Rack Name</Th>
                                                         <Th>Description</Th>
                                                         <Th style={{ textAlign: 'center' }}>Action</Th>
@@ -967,7 +919,7 @@ const StoresRackClassification = () => {
                                                     {shelfMasters.length === 0 ? (
                                                         <Tr>
                                                             <Td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>
-                                                                No shelves registered yet. Use the form above to add one.
+                                                                No bero registered yet. Use the form above to add one.
                                                             </Td>
                                                         </Tr>
                                                     ) : (

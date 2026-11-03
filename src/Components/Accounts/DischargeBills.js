@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
 import { FaPrint, FaSearch, FaFileExcel } from "react-icons/fa";
@@ -11,47 +10,184 @@ import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
-    fadeIn,
     FormRow,
     InputWrapper,
     Label,
     Select,
     Button,
-    TableWrapper,
-    Table,
-    Th,
-    Td,
-    Tr,
     SectionTitle,
 } from "../GlobalStyles";
 
-const SummaryCard = styled.div`
+const FilterSection = styled.div`
     background: ${colors.surface};
     border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    border-left: 4px solid ${props => props.color || colors.primary};
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: 80px;
-    animation: ${fadeIn} 0.4s ease-out;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 `;
 
-const SummaryValue = styled.h3`
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: ${colors.textMain};
+// ─── STYLED PRINT / DOCUMENT LAYOUT MATCHING detail discharge.pdf ────────────
+const DocumentContainer = styled.div`
+    width: 100%;
+    background: #ffffff;
+    color: #000000;
+    font-family: 'Courier New', Courier, monospace, monospace;
+    font-size: 11px;
+    line-height: 1.35;
+    padding: 12px 16px;
+    box-sizing: border-box;
+
+    @media print {
+        padding: 0;
+    }
 `;
 
-const SummaryLabel = styled.p`
-    margin: 0;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: ${colors.textMuted};
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+const HospitalHeader = styled.div`
+    text-align: left;
+    margin-bottom: 8px;
+
+    .hospital-title {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin: 0 0 2px 0;
+    }
+    .hospital-sub {
+        font-size: 10.5px;
+        font-weight: normal;
+        margin: 0 0 6px 0;
+    }
+    .report-meta-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        font-weight: 700;
+        margin-top: 4px;
+        padding-bottom: 4px;
+        border-bottom: 1.5px solid #000000;
+    }
+`;
+
+const RegisterTable = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2px;
+    font-size: 11px;
+    font-family: 'Courier New', Courier, monospace;
+
+    thead tr {
+        border-top: 1.5px solid #000000;
+        border-bottom: 1.5px solid #000000;
+    }
+
+    th {
+        font-weight: 700;
+        padding: 4px 6px;
+        text-align: left;
+        white-space: nowrap;
+        background: transparent !important;
+        color: #000000 !important;
+    }
+
+    th.num, td.num {
+        text-align: right;
+    }
+
+    th.flag, td.flag {
+        text-align: center;
+        width: 25px;
+        padding-left: 2px;
+        padding-right: 2px;
+    }
+
+    tbody td {
+        padding: 3px 6px;
+        vertical-align: top;
+        border: none;
+        color: #000000;
+    }
+
+    .bill-type-banner {
+        font-weight: 700;
+        padding: 6px 6px 2px 6px;
+        font-size: 11px;
+        text-transform: uppercase;
+    }
+
+    .patient-cell {
+        .main-name {
+            font-weight: 600;
+        }
+        .sub-line {
+            font-size: 10px;
+            color: #111;
+            padding-left: 2px;
+        }
+        .deduction {
+            font-size: 10px;
+            font-weight: 600;
+            color: #000;
+        }
+        .cancelled {
+            font-size: 10px;
+            font-weight: 700;
+            color: #b91c1c;
+        }
+    }
+
+    .total-row {
+        border-top: 1.5px solid #000000;
+        border-bottom: 1.5px solid #000000;
+        font-weight: 700;
+        td {
+            padding: 4px 6px;
+        }
+    }
+`;
+
+const AccountingSummaryBox = styled.div`
+    margin-top: 10px;
+    padding-top: 6px;
+    border-top: 1px solid #000000;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10.5px;
+    line-height: 1.45;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 30px;
+
+    .summary-col {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .summary-line {
+        display: flex;
+        justify-content: space-between;
+        padding: 1px 0;
+        white-space: nowrap;
+    }
+
+    .summary-line .label {
+        font-weight: normal;
+    }
+
+    .summary-line .value {
+        font-weight: 700;
+        text-align: right;
+        min-width: 90px;
+    }
+
+    .end-marker {
+        grid-column: span 2;
+        text-align: center;
+        font-weight: 700;
+        margin-top: 8px;
+        border-top: 1px dashed #000000;
+        padding-top: 4px;
+    }
 `;
 
 const DischargeBills = ({ 
@@ -63,26 +199,20 @@ const DischargeBills = ({
     initialOutlet,
     outlet
 }) => {
-    const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
-    const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
+    const [fromDate, setFromDate] = useState(startDate || dayjs().startOf('month').format("YYYY-MM-DD"));
+    const [toDate, setToDate] = useState(endDate || dayjs().format("YYYY-MM-DD"));
     const [billType, setBillType] = useState(() => {
         const bt = propBillType || initialBillType;
         if (bt && bt !== "All" && bt !== "all") return bt;
         return "all";
     });
-    const [insuranceFilter, setInsuranceFilter] = useState("false");
+    const [insuranceFilter, setInsuranceFilter] = useState("all");
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [expandedRow, setExpandedRow] = useState(null);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-
-    const formatDateSafe = (dateVal) => {
-        if (!dateVal) return "—";
-        const d = dayjs(dateVal);
-        if (d.isValid()) return d.format("DD/MM/YYYY");
-        return String(dateVal);
-    };
+    const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
+    const hospital_address = localStorage.getItem("hospital_address") || "51/24.Saradha College Road, Salem - 636007,";
 
     useEffect(() => {
         if (startDate) setFromDate(startDate);
@@ -122,7 +252,7 @@ const DischargeBills = ({
                 setReportData([]);
             }
         } catch (error) {
-            console.error("Error fetching cash discharge report:", error);
+            console.error("Error fetching discharge bills report:", error);
             toast.error("Failed to fetch discharge bills");
         } finally {
             setLoading(false);
@@ -133,9 +263,63 @@ const DischargeBills = ({
         fetchReport();
     }, [fetchReport]);
 
+    const formatINR = (val) => {
+        const num = Number(val);
+        return isNaN(num) ? "0.00" : num.toFixed(2);
+    };
+
     const handlePrint = () => {
         printAccountsReport("printable-cash-discharge-report-area", "landscape");
     };
+
+    // Calculate report statistics matching the PDF structure
+    const computedTotals = reportData.reduce((acc, bill) => {
+        const mode = (bill.payment_mode || "Cash").toLowerCase();
+        const isCash = mode === "cash" || mode === "";
+        const isBank = mode.includes("bank") || mode.includes("card") || mode.includes("visa") || mode.includes("pos") || mode.includes("upi");
+        const isCredit = bill.has_insurance || mode.includes("credit") || mode.includes("scheme") || mode.includes("tpa") || mode.includes("cghs") || mode.includes("echs");
+
+        const gross = Number(bill.bill_amount || bill.total_amount || bill.net_amount || 0);
+        const netAmt = Number(bill.net_amount !== undefined ? bill.net_amount : (bill.paid_by_patient || 0));
+        const advance = Number(bill.advance_amount || bill.advance || 0);
+        const discount = Number(bill.discount_amount || bill.total_disc || 0);
+        const salesReturn = Number(bill.sales_return || 0);
+        const patientDebit = Number(bill.patient_debit || 0);
+
+        const cash = isCash ? netAmt : 0;
+        const bank = isBank ? netAmt : 0;
+        const credit = isCredit ? (bill.credit_amount !== undefined ? Number(bill.credit_amount) : gross - advance - discount) : 0;
+
+        acc.gross += gross;
+        acc.cash += cash;
+        acc.bank += bank;
+        acc.credit += credit;
+        acc.advance += advance;
+        acc.discount += discount;
+        acc.sales_return += salesReturn;
+        acc.patient_debit += patientDebit;
+
+        if (cash > 0) {
+            acc.cashBillsCount += 1;
+            acc.cashBillsAmount += cash;
+        }
+        if (credit > 0) {
+            acc.creditBillsCount += 1;
+            acc.creditBillsAmount += credit;
+        }
+        if (bill.status === "Cancelled" || bill.is_cancelled) {
+            acc.cancBillsCount += 1;
+            acc.cancBillsAmount += gross;
+        }
+
+        return acc;
+    }, {
+        gross: 0, cash: 0, credit: 0, bank: 0,
+        advance: 0, discount: 0, sales_return: 0, patient_debit: 0,
+        cashBillsCount: 0, cashBillsAmount: 0,
+        creditBillsCount: 0, creditBillsAmount: 0,
+        cancBillsCount: 0, cancBillsAmount: 0
+    });
 
     const handleExportExcel = () => {
         if (!reportData || reportData.length === 0) {
@@ -143,410 +327,282 @@ const DischargeBills = ({
             return;
         }
         try {
-            const rows = reportData.map((bill, index) => ({
-                "S.No": index + 1,
-                "Patient Name": bill.patient_details?.patient_name || bill.patient_name || "N/A",
-                "IP No": bill.ip_number || "",
-                "Bill No": bill.bill_no || "",
-                "Room": bill.patient_details?.room_no || "N/A",
-                "Admission Date": formatDateSafe(bill.patient_details?.admission_date || bill.admitting_date),
-                "Discharge Date": formatDateSafe(bill.bill_date || bill.discharge_date),
-                "Bill Amount (₹)": Number((bill.bill_amount || bill.total_amount || 0).toFixed(2)),
-                "Advance (₹)": Number((bill.advance_amount || bill.advance || 0).toFixed(2)),
-                "Net Paid (₹)": Number((bill.net_amount || 0).toFixed(2)),
-                "Payment Mode": bill.payment_mode || "Cash",
-                "Cashier": bill.cashier_id || bill.user || "Staff"
-            }));
+            const rows = reportData.map((bill, index) => {
+                const mode = (bill.payment_mode || "Cash").toLowerCase();
+                const isCash = mode === "cash" || mode === "";
+                const isBank = mode.includes("bank") || mode.includes("card") || mode.includes("visa");
+                const isCredit = bill.has_insurance || mode.includes("credit") || mode.includes("scheme");
+
+                const gross = Number(bill.bill_amount || bill.total_amount || 0);
+                const netAmt = Number(bill.net_amount || 0);
+                const advance = Number(bill.advance_amount || 0);
+                const discount = Number(bill.discount_amount || 0);
+
+                return {
+                    "S.No": index + 1,
+                    "Flag": isCash ? "C" : "R",
+                    "Bill Date": bill.bill_date ? dayjs(bill.bill_date).format("DD/MM/YYYY") : "—",
+                    "Bill Number": bill.bill_no || "",
+                    "Patient Name": bill.patient_details?.patient_name || bill.patient_name || "N/A",
+                    "Ip Number": bill.ip_number || "—",
+                    "Gross": Number(formatINR(gross)),
+                    "Cash": Number(formatINR(isCash ? netAmt : 0)),
+                    "Credit": Number(formatINR(isCredit ? (gross - advance - discount) : 0)),
+                    "Bank": Number(formatINR(isBank ? netAmt : 0)),
+                    "Advance": Number(formatINR(advance)),
+                    "Discount": Number(formatINR(discount)),
+                    "Scheme / Insurance": bill.insurance_company || bill.company_name || ""
+                };
+            });
 
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(rows);
-            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
-            XLSX.utils.book_append_sheet(wb, ws, "Cash Discharge Bills");
-            XLSX.writeFile(wb, `Cash_Discharge_Bills_Report_${fromDate}_to_${toDate}.xlsx`);
-            toast.success("Excel exported successfully!");
-        } catch (err) {
-            console.error("Excel export error:", err);
-            toast.error("Failed to export Excel file");
+
+            const summaryRows = [
+                { "Metric": "From Date", "Value": fromDate ? dayjs(fromDate).format("DD/MM/YYYY") : "—" },
+                { "Metric": "To Date", "Value": toDate ? dayjs(toDate).format("DD/MM/YYYY") : "—" },
+                { "Metric": "Total Bills", "Value": reportData.length },
+                { "Metric": "Gross Total (₹)", "Value": Number(formatINR(computedTotals.gross)) },
+                { "Metric": "Cash Total (₹)", "Value": Number(formatINR(computedTotals.cash)) },
+                { "Metric": "Credit Total (₹)", "Value": Number(formatINR(computedTotals.credit)) },
+                { "Metric": "Bank Total (₹)", "Value": Number(formatINR(computedTotals.bank)) }
+            ];
+            const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+            XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+            XLSX.utils.book_append_sheet(wb, ws, "Discharge Bills");
+            XLSX.writeFile(wb, `Discharge_Bill_Report_${fromDate}_to_${toDate}.xlsx`);
+        } catch (error) {
+            console.error("Excel Export Error:", error);
+            toast.error("Failed to export to Excel");
         }
     };
 
-    const grandBillTotal = reportData.reduce((acc, curr) => acc + Number(curr.bill_amount || curr.total_amount || 0), 0);
-    const grandAdvanceTotal = reportData.reduce((acc, curr) => acc + Number(curr.advance_amount || curr.advance || 0), 0);
-    const grandNetTotal = reportData.reduce((acc, curr) => acc + Number(curr.net_amount || 0), 0);
-
     return (
-        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
-            {isModalView && (
-                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
-                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
-                        {localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
-                    </h2>
-                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
-                        Discharge Bills Report (Cash / Self-paying) From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
-                    </div>
-                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
-                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
-                    </div>
-                </div>
-            )}
-
+        <PageWrapper style={{ padding: isModalView ? "0" : "20px" }}>
             {!isModalView && (
-                <SectionTitle className="no-print">
-                    <h3>Cash Discharge Report</h3>
-                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                        Discharged patient settlement bills (Cash / Self-paying)
-                    </p>
-                </SectionTitle>
+                <FilterSection>
+                    <SectionTitle style={{ marginBottom: "16px" }}>Discharge Bill Report</SectionTitle>
+                    <FormRow style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px" }}>
+                        <InputWrapper>
+                            <Label>From Date</Label>
+                            <DatePicker
+                                value={dayjs(fromDate)}
+                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                                format="DD/MM/YYYY"
+                                style={{ width: "100%", height: "40px" }}
+                            />
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>To Date</Label>
+                            <DatePicker
+                                value={dayjs(toDate)}
+                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                                format="DD/MM/YYYY"
+                                style={{ width: "100%", height: "40px" }}
+                            />
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>Payment Mode</Label>
+                            <Select
+                                value={billType}
+                                onChange={(e) => setBillType(e.target.value)}
+                                style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                            >
+                                <option value="all">All Modes</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Card">Card</option>
+                                <option value="Cheque">Cheque</option>
+                                <option value="Multiple Payment">Multiple Payment</option>
+                            </Select>
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>Category</Label>
+                            <Select
+                                value={insuranceFilter}
+                                onChange={(e) => setInsuranceFilter(e.target.value)}
+                                style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                            >
+                                <option value="all">All Discharges</option>
+                                <option value="false">Cash / Self-paying Only</option>
+                                <option value="true">Insurance Only</option>
+                            </Select>
+                        </InputWrapper>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
+                            <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
+                                <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
+                            </Button>
+                            <Button 
+                                onClick={handleExportExcel} 
+                                disabled={loading || reportData.length === 0} 
+                                style={{ height: "40px", background: "#10b981", borderColor: "#10b981", color: "#fff" }}
+                            >
+                                <FaFileExcel style={{ marginRight: "8px" }} /> Excel
+                            </Button>
+                            <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
+                                <FaPrint style={{ marginRight: "8px" }} /> Print
+                            </Button>
+                        </div>
+                    </FormRow>
+                </FilterSection>
             )}
 
-            <FilterSection className="no-print">
-                <FormRow>
-                    <InputWrapper>
-                        <Label>From Date</Label>
-                        <DatePicker 
-                            value={fromDate ? dayjs(fromDate) : null} 
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
-                            format="DD/MM/YYYY"
-                            allowClear={false}
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>To Date</Label>
-                        <DatePicker 
-                            value={toDate ? dayjs(toDate) : null} 
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
-                            format="DD/MM/YYYY"
-                            allowClear={false}
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-
-                    <InputWrapper>
-                        <Label>Payment Mode</Label>
-                        <Select
-                            value={billType}
-                            onChange={(e) => setBillType(e.target.value)}
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        >
-                            <option value="all">All Modes</option>
-                            <option value="Cash">Cash</option>
-                            <option value="Card">Card</option>
-                            <option value="Cheque">Cheque</option>
-                            <option value="Multiple Payment">Multiple Payment</option>
-                        </Select>
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>Category</Label>
-                        <Select
-                            value={insuranceFilter}
-                            onChange={(e) => setInsuranceFilter(e.target.value)}
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        >
-                            <option value="false">Cash / Self-paying Only</option>
-                            <option value="all">All Discharges</option>
-                            <option value="true">Insurance Only</option>
-                        </Select>
-                    </InputWrapper>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
-                            <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
-                        </Button>
-                        <Button 
-                            onClick={handleExportExcel} 
-                            disabled={loading || reportData.length === 0} 
-                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
-                        >
-                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
-                        </Button>
-                        <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
-                            <FaPrint style={{ marginRight: "8px" }} /> Print
-                        </Button>
+            {/* Document / Authentic Detailed Bill Register View */}
+            <DocumentContainer id="printable-cash-discharge-report-area">
+                <HospitalHeader>
+                    <div className="hospital-title">{hospital_name}</div>
+                    <div className="hospital-sub">{hospital_address}</div>
+                    <div className="report-meta-row">
+                        <div>
+                            Detailed Bill Register for the period {dayjs(fromDate).format("DD/MM/YYYY")} to {dayjs(toDate).format("DD/MM/YYYY")}
+                        </div>
+                        <div>Page # 1</div>
                     </div>
-                </FormRow>
-            </FilterSection>
+                </HospitalHeader>
 
-            {!isModalView && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
-                    <SummaryCard color={colors.primary}>
-                        <SummaryLabel>Total Discharged Patients</SummaryLabel>
-                        <SummaryValue>{reportData.length}</SummaryValue>
-                    </SummaryCard>
-                    <SummaryCard color={colors.info || "#3b82f6"}>
-                        <SummaryLabel>Total Bill Amount</SummaryLabel>
-                        <SummaryValue>₹{grandBillTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                    </SummaryCard>
-                    <SummaryCard color={colors.warning || "#f59e0b"}>
-                        <SummaryLabel>Total Advance Adjusted</SummaryLabel>
-                        <SummaryValue>₹{grandAdvanceTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                    </SummaryCard>
-                    <SummaryCard color={colors.success}>
-                        <SummaryLabel>Total Net Paid</SummaryLabel>
-                        <SummaryValue>₹{grandNetTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                    </SummaryCard>
-                </div>
-            )}
-
-            <TableWrapper>
-                <Table id="discharge-bills-table">
-                    <thead>
-                        <Tr>
-                            <Th>S.No</Th>
-                            <Th>Patient Name</Th>
-                            <Th>IP.No</Th>
-                            <Th>Bill No</Th>
-                            <Th>Room</Th>
-                            <Th>Admission Date</Th>
-                            <Th>Discharge Date</Th>
-                            <Th style={{ textAlign: "right" }}>Bill Amount</Th>
-                            <Th style={{ textAlign: "right" }}>Advance</Th>
-                            <Th style={{ textAlign: "right" }}>Net Paid</Th>
-                            <Th>Mode</Th>
-                            <Th>Cashier</Th>
-                            <Th className="no-print">Breakdown</Th>
-                        </Tr>
-                    </thead>
-                    <tbody>
-                        {reportData.length > 0 ? (
-                            reportData.map((bill, index) => (
-                                <React.Fragment key={index}>
-                                    <Tr>
-                                        <Td>{index + 1}</Td>
-                                        <Td style={{ fontWeight: "600" }}>{bill.patient_details?.patient_name || bill.patient_name || "N/A"}</Td>
-                                        <Td style={{ fontWeight: "700" }}>{bill.ip_number || "—"}</Td>
-                                        <Td>{bill.bill_no || "—"}</Td>
-                                        <Td>{bill.patient_details?.room_no || "N/A"}</Td>
-                                        <Td>{formatDateSafe(bill.patient_details?.admission_date || bill.admitting_date)}</Td>
-                                        <Td>{formatDateSafe(bill.bill_date || bill.discharge_date)}</Td>
-                                        <Td style={{ textAlign: "right" }}>₹{Number(bill.bill_amount || bill.total_amount || 0).toFixed(2)}</Td>
-                                        <Td style={{ textAlign: "right", color: colors.warning || "#d97706" }}>₹{Number(bill.advance_amount || bill.advance || 0).toFixed(2)}</Td>
-                                        <Td style={{ textAlign: "right", fontWeight: "700", color: colors.success }}>₹{Number(bill.net_amount || 0).toFixed(2)}</Td>
-                                        <Td>{bill.payment_mode || "Cash"}</Td>
-                                        <Td style={{ fontSize: "0.85rem" }}>{bill.cashier_id || bill.user || "Staff"}</Td>
-                                        <Td className="no-print">
-                                            {bill.department_breakdown?.length > 0 && (
-                                                <Button
-                                                    secondary
-                                                    style={{ padding: "4px 10px", fontSize: "0.75rem", height: "auto" }}
-                                                    onClick={() => setExpandedRow(expandedRow === index ? null : index)}
-                                                >
-                                                    {expandedRow === index ? "Hide" : "View"}
-                                                </Button>
-                                            )}
-                                        </Td>
-                                    </Tr>
-                                    {expandedRow === index && bill.department_breakdown?.length > 0 && (
-                                        <Tr className="no-print">
-                                            <Td colSpan="13" style={{ background: "#f8fafc", padding: "12px 20px" }}>
-                                                <strong style={{ fontSize: "0.8rem", color: colors.textMuted }}>Department-wise breakdown:</strong>
-                                                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "8px" }}>
-                                                    {bill.department_breakdown.map((d, i) => (
-                                                        <span key={i} style={{
-                                                             background: "white", border: `1px solid ${colors.border}`,
-                                                             borderRadius: "8px", padding: "4px 10px", fontSize: "0.8rem"
-                                                        }}>
-                                                            {d.category}: <strong>₹{d.amount.toFixed(2)}</strong>
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </Td>
-                                        </Tr>
-                                    )}
-                                </React.Fragment>
-                            ))
-                        ) : (
-                            <Tr>
-                                <Td colSpan="13" style={{ textAlign: "center", padding: "30px", color: colors.textMuted }}>
-                                    No discharge bills found for the selected period.
-                                </Td>
-                            </Tr>
-                        )}
-                    </tbody>
-                    {reportData.length > 0 && (
-                        <tfoot>
-                            <Tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
-                                <Td colSpan="7" style={{ textAlign: "right" }}>Grand Totals ({reportData.length} Bills):</Td>
-                                <Td style={{ textAlign: "right" }}>₹{grandBillTotal.toFixed(2)}</Td>
-                                <Td style={{ textAlign: "right", color: colors.warning || "#d97706" }}>₹{grandAdvanceTotal.toFixed(2)}</Td>
-                                <Td style={{ textAlign: "right", color: colors.success }}>₹{grandNetTotal.toFixed(2)}</Td>
-                                <Td colSpan="3" className="no-print"></Td>
-                            </Tr>
-                        </tfoot>
-                    )}
-                </Table>
-            </TableWrapper>
-
-            <style>
-                {`
-                @media print {
-                    @page { size: landscape; margin: 8mm; }
-                    body * { visibility: hidden; }
-                    #printable-cash-discharge-report-area, #printable-cash-discharge-report-area * { visibility: visible; }
-                    #printable-cash-discharge-report-area {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        display: block !important;
-                    }
-                    body { background: white !important; }
-                }
-                `}
-            </style>
-
-            <PrintTemplate id="printable-cash-discharge-report-area">
-                <PrintHeader>
-                    <h1>{localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL"}</h1>
-                    <p>{localStorage.getItem("hospital_address") || "51/24.Saradha College Road, Salem - 636007"}</p>
-                    <div className="report-title">Cash Discharge Report (Self-paying)</div>
-                </PrintHeader>
-
-                <PrintInfoTable>
-                    <tbody>
-                        <tr>
-                            <td style={{ width: "30%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ width: "30%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm:ss")}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Bill Type:</strong> {billType === "all" ? "All Modes" : billType}</td>
-                            <td><strong>Total Patients:</strong> {reportData.length}</td>
-                            <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
-                        </tr>
-                    </tbody>
-                </PrintInfoTable>
-
-                <PrintTable>
+                <RegisterTable>
                     <thead>
                         <tr>
-                            <th>S.No</th>
+                            <th className="flag"></th>
+                            <th style={{ width: "95px" }}>Bill date</th>
+                            <th style={{ width: "115px" }}>Bill Number</th>
                             <th>Patient Name</th>
-                            <th>IP No</th>
-                            <th>Bill No</th>
-                            <th>Room</th>
-                            <th>Adm Date</th>
-                            <th>Dis Date</th>
-                            <th style={{ textAlign: "right" }}>Bill Amount</th>
-                            <th style={{ textAlign: "right" }}>Advance</th>
-                            <th style={{ textAlign: "right" }}>Net Paid</th>
-                            <th>Mode</th>
-                            <th>Cashier</th>
+                            <th style={{ width: "110px" }}>Ip Number</th>
+                            <th className="num" style={{ width: "90px" }}>Gross</th>
+                            <th className="num" style={{ width: "90px" }}>Cash</th>
+                            <th className="num" style={{ width: "90px" }}>Credit</th>
+                            <th className="num" style={{ width: "90px" }}>Bank</th>
                         </tr>
                     </thead>
                     <tbody>
+                        <tr>
+                            <td colSpan="9" className="bill-type-banner">
+                                BILLTYPE : DISCHARGE
+                            </td>
+                        </tr>
+
                         {reportData.length > 0 ? (
-                            reportData.map((bill, index) => (
-                                <tr key={index}>
-                                    <td>{index + 1}</td>
-                                    <td>{bill.patient_details?.patient_name || bill.patient_name || "N/A"}</td>
-                                    <td>{bill.ip_number || "—"}</td>
-                                    <td>{bill.bill_no || "—"}</td>
-                                    <td>{bill.patient_details?.room_no || "N/A"}</td>
-                                    <td>{bill.patient_details?.admission_date ? dayjs(bill.patient_details.admission_date).format("DD/MM/YYYY") : (bill.admitting_date ? dayjs(bill.admitting_date).format("DD/MM/YYYY") : "—")}</td>
-                                    <td>{bill.bill_date ? dayjs(bill.bill_date).format("DD/MM/YYYY") : "—"}</td>
-                                    <td style={{ textAlign: "right" }}>₹{Number(bill.bill_amount || bill.total_amount || 0).toFixed(2)}</td>
-                                    <td style={{ textAlign: "right" }}>₹{Number(bill.advance_amount || bill.advance || 0).toFixed(2)}</td>
-                                    <td style={{ textAlign: "right", fontWeight: "bold" }}>₹{Number(bill.net_amount || 0).toFixed(2)}</td>
-                                    <td>{bill.payment_mode || "Cash"}</td>
-                                    <td>{bill.cashier_id || bill.user || "Staff"}</td>
-                                </tr>
-                            ))
+                            reportData.map((b, i) => {
+                                const mode = (b.payment_mode || "Cash").toLowerCase();
+                                const isCash = mode === "cash" || mode === "";
+                                const isBank = mode.includes("bank") || mode.includes("card") || mode.includes("visa");
+                                const isCredit = b.has_insurance || mode.includes("credit") || mode.includes("scheme");
+
+                                const flag = isCash ? "C" : "R";
+                                const gross = Number(b.bill_amount || b.total_amount || b.net_amount || 0);
+                                const netAmt = Number(b.net_amount !== undefined ? b.net_amount : (b.paid_by_patient || 0));
+                                const advAmt = Number(b.advance_amount || b.advance || 0);
+                                const discAmt = Number(b.discount_amount || b.total_disc || 0);
+                                const srAmt = Number(b.sales_return || 0);
+                                const pdebAmt = Number(b.patient_debit || 0);
+
+                                const cashVal = isCash ? netAmt : 0;
+                                const bankVal = isBank ? netAmt : 0;
+                                const creditVal = isCredit ? (b.credit_amount !== undefined ? Number(b.credit_amount) : gross - advAmt - discAmt) : 0;
+                                const schemeLabel = b.insurance_company || b.company_name || (isBank ? "VISA CARD" : "");
+
+                                return (
+                                    <tr key={i}>
+                                        <td className="flag">{flag}</td>
+                                        <td>{b.bill_date ? dayjs(b.bill_date).format("DD/MM/YYYY") : "—"}</td>
+                                        <td>{b.bill_no || "—"}</td>
+                                        <td className="patient-cell">
+                                            <div className="main-name">{b.patient_details?.patient_name || b.patient_name || "N/A"}</div>
+                                            {schemeLabel && <div className="sub-line">{schemeLabel}</div>}
+                                            {discAmt > 0 && <div className="deduction">LESS DISCOUNT {formatINR(discAmt)}</div>}
+                                            {advAmt > 0 && <div className="deduction">LESS ADVANCE {formatINR(advAmt)}</div>}
+                                            {srAmt > 0 && <div className="deduction">LESS CREDIT S.RETURN {formatINR(srAmt)}</div>}
+                                            {pdebAmt > 0 && <div className="deduction">LESS PATIENT DEBIT {formatINR(pdebAmt)}</div>}
+                                            {(b.status === "Cancelled" || b.is_cancelled) && (
+                                                <div className="cancelled">CANCELLED:({formatINR(gross)})</div>
+                                            )}
+                                        </td>
+                                        <td>{b.ip_number || "—"}</td>
+                                        <td className="num">{formatINR(gross)}</td>
+                                        <td className="num">{cashVal !== 0 ? formatINR(cashVal) : ""}</td>
+                                        <td className="num">{creditVal > 0 ? formatINR(creditVal) : ""}</td>
+                                        <td className="num">{bankVal > 0 ? formatINR(bankVal) : ""}</td>
+                                    </tr>
+                                );
+                            })
                         ) : (
                             <tr>
-                                <td colSpan="12" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>
+                                <td colSpan="9" style={{ textAlign: "center", padding: "30px", color: "#666" }}>
+                                    {loading ? "Loading Discharge Bills..." : "No discharge bills found for the selected period."}
+                                </td>
                             </tr>
                         )}
+
                         {reportData.length > 0 && (
-                            <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
-                                <td colSpan="7" style={{ textAlign: "right" }}>Totals:</td>
-                                <td style={{ textAlign: "right" }}>₹{grandBillTotal.toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{grandAdvanceTotal.toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{grandNetTotal.toFixed(2)}</td>
-                                <td colSpan="2"></td>
+                            <tr className="total-row">
+                                <td className="flag"></td>
+                                <td colSpan="4">Total...</td>
+                                <td className="num">{formatINR(computedTotals.gross)}</td>
+                                <td className="num">{formatINR(computedTotals.cash)}</td>
+                                <td className="num">{formatINR(computedTotals.credit)}</td>
+                                <td className="num">{formatINR(computedTotals.bank)}</td>
                             </tr>
                         )}
                     </tbody>
-                </PrintTable>
+                </RegisterTable>
 
-                <PrintSignatures>
-                    <div className="sig-box">Prepared By</div>
-                    <div className="sig-box">Accounts Officer</div>
-                    <div className="sig-box">Authorized Signatory</div>
-                </PrintSignatures>
-            </PrintTemplate>
+                {reportData.length > 0 && (
+                    <AccountingSummaryBox>
+                        <div className="summary-col">
+                            <div className="summary-line">
+                                <span className="label">Cash Bills {computedTotals.cashBillsCount} Amount</span>
+                                <span className="value">{formatINR(computedTotals.cashBillsAmount)}</span>
+                            </div>
+                            <div className="summary-line">
+                                <span className="label">Credit Bills {computedTotals.creditBillsCount} Amount</span>
+                                <span className="value">{formatINR(computedTotals.creditBillsAmount)}</span>
+                            </div>
+                            <div className="summary-line">
+                                <span className="label">Cash Amount :</span>
+                                <span className="value">{formatINR(computedTotals.cash)}</span>
+                            </div>
+                            <div className="summary-line">
+                                <span className="label">Sales Returns :</span>
+                                <span className="value">{formatINR(computedTotals.sales_return)}</span>
+                            </div>
+                            <div className="summary-line">
+                                <span className="label">Net Amt :</span>
+                                <span className="value">{formatINR(computedTotals.cash - computedTotals.sales_return)}</span>
+                            </div>
+                        </div>
+
+                        <div className="summary-col">
+                            <div className="summary-line">
+                                <span className="label">Discount Amount</span>
+                                <span className="value">{formatINR(computedTotals.discount)}</span>
+                            </div>
+                            <div className="summary-line">
+                                <span className="label">Advance Amount</span>
+                                <span className="value">{formatINR(computedTotals.advance)}</span>
+                            </div>
+                            <div className="summary-line">
+                                <span className="label">P.Debit Amount</span>
+                                <span className="value">{formatINR(computedTotals.patient_debit)}</span>
+                            </div>
+                            <div className="summary-line">
+                                <span className="label">Debit Colln</span>
+                                <span className="value">0.00</span>
+                            </div>
+                            <div className="summary-line">
+                                <span className="label">Cancelled Bills</span>
+                                <span className="value">{computedTotals.cancBillsCount.toFixed(2)}</span>
+                            </div>
+                            <div className="summary-line">
+                                <span className="label">Cancelled Amount</span>
+                                <span className="value">{formatINR(computedTotals.cancBillsAmount)}</span>
+                            </div>
+                        </div>
+
+                        <div className="end-marker">(End.)</div>
+                    </AccountingSummaryBox>
+                )}
+            </DocumentContainer>
         </PageWrapper>
     );
 };
-
-const FilterSection = styled.div`
-    background: ${colors.surface};
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-`;
-
-const PrintTemplate = styled.div`
-    display: none;
-    @media print {
-        display: block !important;
-        background: white;
-        width: 100%;
-        color: black;
-        font-family: 'Times New Roman', serif;
-    }
-`;
-
-const PrintHeader = styled.div`
-    text-align: center;
-    border-bottom: 2px solid #000;
-    padding-bottom: 8px;
-    margin-bottom: 12px;
-    h1 { margin: 0; font-size: 18px; text-transform: uppercase; font-weight: bold; }
-    p { margin: 2px 0; font-size: 11px; }
-    .report-title { font-size: 13px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
-`;
-
-const PrintInfoTable = styled.table`
-    width: 100%;
-    margin-bottom: 10px;
-    border-collapse: collapse;
-    font-size: 10px;
-    td { padding: 2px 0; border: none !important; }
-`;
-
-const PrintTable = styled.table`
-    width: 100%;
-    border-collapse: collapse;
-    margin: 8px 0;
-    font-size: 9px;
-    th, td {
-        border: 1px solid #000 !important;
-        padding: 4px 5px;
-        text-align: left;
-    }
-    th {
-        background-color: #f2f2f2 !important;
-        font-weight: bold;
-        text-transform: uppercase;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-`;
-
-const PrintSignatures = styled.div`
-    margin-top: 35px;
-    display: flex;
-    justify-content: space-between;
-    font-size: 10px;
-    page-break-inside: avoid;
-    .sig-box {
-        text-align: center;
-        width: 180px;
-        border-top: 1px solid #000;
-        padding-top: 4px;
-        font-weight: bold;
-    }
-`;
 
 export default DischargeBills;

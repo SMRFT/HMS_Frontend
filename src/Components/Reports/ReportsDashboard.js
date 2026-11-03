@@ -686,6 +686,7 @@ const ReportsDashboard = () => {
     const [billType, setBillType] = useState("All");
     const [outlets, setOutlets] = useState([]);
     const [selectedOutlet, setSelectedOutlet] = useState("all");
+    const [billTypesList, setBillTypesList] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [isMaximized, setIsMaximized] = useState(false);
 
@@ -702,7 +703,19 @@ const ReportsDashboard = () => {
                 console.error("Failed to fetch outlets:", err);
             }
         };
+        const fetchBillTypes = async () => {
+            try {
+                const res = await apiRequest(`${HmsBaseUrl}bill-types_get/`, "GET");
+                const recs = res?.records || res?.data?.records || res?.data;
+                if (Array.isArray(recs)) {
+                    setBillTypesList(recs);
+                }
+            } catch (err) {
+                console.error("Failed to fetch bill types:", err);
+            }
+        };
         fetchOutlets();
+        fetchBillTypes();
     }, [HmsBaseUrl]);
 
     const closeModal = () => {
@@ -1150,14 +1163,24 @@ const ReportsDashboard = () => {
                                     ) : (
                                         <>
                                             <option value="All">All Types</option>
-                                            <option value="Registration">Registration</option>
-                                            <option value="Investigation">Investigation</option>
-                                            <option value="Pharmacy">Pharmacy</option>
-                                            <option value="Discharge">Discharge</option>
-                                            <option value="IP Advance">IP Advance</option>
-                                            <option value="Admission">Admission</option>
-                                            <option value="Sales Return">Sales Return</option>
-                                            <option value="Miscellaneous">Miscellaneous Payment</option>
+                                            {billTypesList && billTypesList.length > 0 ? (
+                                                billTypesList.map((bt, idx) => (
+                                                    <option key={bt._id || bt.billTypeNo || idx} value={bt.bill_name || bt.bill_type}>
+                                                        {bt.bill_name} {bt.billTypeNo ? `(${bt.billTypeNo})` : ""}
+                                                    </option>
+                                                ))
+                                            ) : (
+                                                <>
+                                                    <option value="Registration">Registration</option>
+                                                    <option value="Investigation">Investigation</option>
+                                                    <option value="Pharmacy">Pharmacy</option>
+                                                    <option value="Discharge">Discharge</option>
+                                                    <option value="IP Advance">IP Advance</option>
+                                                    <option value="Admission">Admission</option>
+                                                    <option value="Sales Return">Sales Return</option>
+                                                    <option value="Miscellaneous">Miscellaneous Payment</option>
+                                                </>
+                                            )}
                                         </>
                                     )}
                                 </Select>

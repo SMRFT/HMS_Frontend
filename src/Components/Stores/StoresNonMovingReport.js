@@ -1,9 +1,10 @@
+import { printStoresReport } from './printStoresReport';
 import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import { 
-    Clock, AlertOctagon, Download, Search, RefreshCw, 
+    Clock, AlertOctagon, Download, Printer, Search, RefreshCw, 
     Layers, DollarSign, Package, Calendar
 } from 'lucide-react';
 import {
@@ -104,6 +105,13 @@ const StoresNonMovingReport = () => {
                         >
                             <Download size={16} /> Export Excel
                         </Button>
+                        <Button 
+                            onClick={() => printStoresReport(null, { reportTitle: 'Stores Non-Moving Items Report' })}
+                            style={{ background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer' }}
+                        >
+                            <Printer size={16} /> Print
+                        </Button>
+
                     </div>
                 </div>
 

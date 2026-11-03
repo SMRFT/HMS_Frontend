@@ -1828,7 +1828,7 @@ const StoresGRNGeneration = () => {
                             </SectionTitleCard>
 
                             <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                {/* Row 1: 1. Department, 2. Category, 3. Vendor */}
+                                {/* Row 1: 1. Department, 2. Vendor, 3. Category */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
                                     {/* 1. Department */}
                                     <div style={{ gridColumn: 'span 4' }}>
@@ -1925,30 +1925,8 @@ const StoresGRNGeneration = () => {
                                         </div>
                                     </div>
 
-                                    {/* 2. Category */}
-                                    <div style={{ gridColumn: 'span 4' }}>
-                                        <Label required>Category</Label>
-                                        <Select
-                                            options={purchaseCategories}
-                                            value={purchaseCategories.find(c => c.value === formData.purchase_category)}
-                                            onChange={(opt) => handleInputChange({ target: { name: 'purchase_category', value: opt ? opt.value : '' } })}
-                                            menuPortalTarget={document.body}
-                                            isDisabled={isVerified}
-                                            styles={{
-                                                menuPortal: base => ({ ...base, zIndex: 99999 }),
-                                                control: base => ({
-                                                    ...base,
-                                                    minHeight: '34px',
-                                                    height: '34px',
-                                                    borderRadius: '6px',
-                                                    borderColor: colors.border
-                                                })
-                                            }}
-                                        />
-                                    </div>
-
-                                    {/* 3. Vendor */}
-                                    <div style={{ gridColumn: 'span 4' }}>
+                                    {/* 2. Vendor (Displayed first, wider span 5) */}
+                                    <div style={{ gridColumn: 'span 5' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                             <Label required style={{ margin: 0 }}>Vendor</Label>
                                             {!isVerified && (
@@ -1994,6 +1972,28 @@ const StoresGRNGeneration = () => {
                                             isClearable
                                             isDisabled={isVerified}
                                             menuPortalTarget={document.body}
+                                            styles={{
+                                                menuPortal: base => ({ ...base, zIndex: 99999 }),
+                                                control: base => ({
+                                                    ...base,
+                                                    minHeight: '34px',
+                                                    height: '34px',
+                                                    borderRadius: '6px',
+                                                    borderColor: colors.border
+                                                })
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* 3. Category (Decreased width to span 3, next to vendor) */}
+                                    <div style={{ gridColumn: 'span 3' }}>
+                                        <Label required>Category</Label>
+                                        <Select
+                                            options={purchaseCategories}
+                                            value={purchaseCategories.find(c => c.value === formData.purchase_category)}
+                                            onChange={(opt) => handleInputChange({ target: { name: 'purchase_category', value: opt ? opt.value : '' } })}
+                                            menuPortalTarget={document.body}
+                                            isDisabled={isVerified}
                                             styles={{
                                                 menuPortal: base => ({ ...base, zIndex: 99999 }),
                                                 control: base => ({
