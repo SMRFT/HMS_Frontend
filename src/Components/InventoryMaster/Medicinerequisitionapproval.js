@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString, SearchSelect } from "./InventoryUIHelper"
+import {  InvTopToolbar, InvPagination, getTodayDateString, SearchSelect , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -289,7 +289,7 @@ const ViewModal = ({ pr, onClose, fmtDT }) => (
           <>
             <DSec>✔ Approval Info</DSec>
             <DRow>
-              <DField><DLbl>Approved By</DLbl><DVal style={{ color: C.success }}>{pr.approved_by || "—"}</DVal></DField>
+              <DField><DLbl>Approved By</DLbl><DVal style={{ color: C.success }}>{pr.approved_by_name || pr.approved_by || "-"}</DVal></DField>
               <DField><DLbl>Approved Date</DLbl><DVal>{fmtDT(pr.approved_date)}</DVal></DField>
             </DRow>
           </>
@@ -298,7 +298,7 @@ const ViewModal = ({ pr, onClose, fmtDT }) => (
           <>
             <DSec>✕ Rejection Info</DSec>
             <DRow>
-              <DField><DLbl>Rejected By</DLbl><DVal style={{ color: C.danger }}>{pr.rejected_by || "—"}</DVal></DField>
+              <DField><DLbl>Rejected By</DLbl><DVal style={{ color: C.danger }}>{pr.rejected_by_name || pr.rejected_by || "-"}</DVal></DField>
               <DField><DLbl>Rejected Date</DLbl><DVal>{fmtDT(pr.rejected_date)}</DVal></DField>
             </DRow>
             <DRow>
@@ -310,7 +310,7 @@ const ViewModal = ({ pr, onClose, fmtDT }) => (
           <>
             <DSec>✏️ Last Edit</DSec>
             <DRow>
-              <DField><DLbl>Edited By</DLbl><DVal>{pr.edited_by}</DVal></DField>
+              <DField><DLbl>Edited By</DLbl><DVal>{pr.edited_by_name || pr.edited_by}</DVal></DField>
               <DField><DLbl>Edited Date</DLbl><DVal>{fmtDT(pr.edited_date)}</DVal></DField>
             </DRow>
             <DRow>
@@ -320,11 +320,11 @@ const ViewModal = ({ pr, onClose, fmtDT }) => (
         )}
         <DSec>📅 Audit Trail</DSec>
         <DRow>
-          <DField><DLbl>Created By</DLbl><DVal>{pr.created_by || "—"}</DVal></DField>
+          <DField><DLbl>Created By</DLbl><DVal>{pr.created_by_name || pr.created_by || "-"}</DVal></DField>
           <DField><DLbl>Created Date</DLbl><DVal>{fmtDT(pr.created_date)}</DVal></DField>
         </DRow>
         <DRow>
-          <DField><DLbl>Modified By</DLbl><DVal>{pr.lastmodified_by || "—"}</DVal></DField>
+          <DField><DLbl>Modified By</DLbl><DVal>{pr.lastmodified_by_name || pr.lastmodified_by || "-"}</DVal></DField>
           <DField><DLbl>Modified Date</DLbl><DVal>{fmtDT(pr.lastmodified_date)}</DVal></DField>
         </DRow>
         <BtnRow style={{ marginTop: 14 }}>
@@ -363,14 +363,8 @@ const MedicineRequisitionApproval = () => {
   const [viewPr,    setViewPr]    = useState(null)
 
   /* Three-dot menu */
-  const [openMenuId, setOpenMenuId] = useState(null)
-  const menuRef = useRef(null)
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu()
 
-  useEffect(() => {
-    const h = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null) }
-    document.addEventListener("mousedown", h)
-    return () => document.removeEventListener("mousedown", h)
-  }, [])
 
   /* ── Fetch with server-side pagination ── */
   const fetchList = useCallback(async (p = page, size = pageSize, q = searchQ, stat = filterStat, from = fromDate, to = toDate) => {
@@ -551,24 +545,24 @@ const MedicineRequisitionApproval = () => {
                     return (
                       <Trow key={r.mr_number || idx}>
                         <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
-                        <Td><Pill>{r.mr_number}</Pill></Td>
+                        <Td><InvCodePill>{r.mr_number}</InvCodePill></Td>
                         <Td style={{ fontWeight: 700, maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textTransform: "uppercase" }} title={r.medicine_name}>{String(r.medicine_name || "").toUpperCase()}</Td>
                         <Td style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: C.muted, fontSize: ".78rem", textTransform: "uppercase" }} title={r.chemical_composition}>{String(r.chemical_composition || "—").toUpperCase()}</Td>
                         <Td style={{ whiteSpace: "nowrap" }}>{r.consultant_name || "—"}</Td>
                         <Td style={{ whiteSpace: "nowrap", fontSize: ".78rem" }}>{fmtDT(r.request_date)}</Td>
-                        <Td><Badge $s={r.status}>{r.status}</Badge></Td>
+                        <Td><InvStatusBadge status={r.status}>{r.status}</InvStatusBadge></Td>
 
                         {/* Approved / Rejected info */}
                         <Td style={{ minWidth: 170 }}>
                           {r.status === "Approved" && (
                             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                              <span style={{ background: C.sLight, color: "#166534", padding: "2px 8px", borderRadius: 4, fontSize: ".7rem", fontWeight: 700 }}>✔ {r.approved_by || "—"}</span>
+                              <span style={{ background: C.sLight, color: "#166534", padding: "2px 8px", borderRadius: 4, fontSize: ".7rem", fontWeight: 700 }}>✔ {r.approved_by_name || r.approved_by || "-"}</span>
                               <span style={{ fontSize: ".68rem", color: C.muted }}>{fmtDT(r.approved_date)}</span>
                             </div>
                           )}
                           {r.status === "Rejected" && (
                             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                              <span style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 8px", borderRadius: 4, fontSize: ".7rem", fontWeight: 700 }}>✕ {r.rejected_by || "—"}</span>
+                              <span style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 8px", borderRadius: 4, fontSize: ".7rem", fontWeight: 700 }}>✕ {r.rejected_by_name || r.rejected_by || "-"}</span>
                               <span style={{ fontSize: ".68rem", color: C.muted }}>{fmtDT(r.rejected_date)}</span>
                               {r.rejected_reason && (
                                 <span title={r.rejected_reason} style={{ fontSize: ".7rem", color: "#991b1b", background: "#fff1f2", border: "1px solid #fecaca", borderRadius: 4, padding: "2px 6px", maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
@@ -582,50 +576,16 @@ const MedicineRequisitionApproval = () => {
 
                         {/* Three-dot menu */}
                         <Td style={{ textAlign: "center" }}>
-                          <MenuWrap ref={openMenuId === r.mr_number ? menuRef : null}>
-                            <DotBtn
-                              title="Actions"
-                              onClick={() => setOpenMenuId(prev => prev === r.mr_number ? null : r.mr_number)}
-                            >
-                              ⋯
-                            </DotBtn>
-                            {openMenuId === r.mr_number && (
-                              <MenuList>
-                                {r.status === "Approved" ? (
-                                  <MenuItem onClick={() => { setViewPr(r); setOpenMenuId(null) }}>
-                                    👁 View
-                                  </MenuItem>
-                                ) : (
-                                  <>
-                                    <MenuItem onClick={() => { setViewPr(r); setOpenMenuId(null) }}>
-                                      👁 View
-                                    </MenuItem>
-                                    {canAct ? (
-                                      <>
-                                        <MenuItem $success onClick={() => { setApprovePr(r); setOpenMenuId(null) }}>
-                                          ✔ Approve
-                                        </MenuItem>
-                                        <MenuItem $danger onClick={() => { setRejectPr(r); setOpenMenuId(null) }}>
-                                          ✕ Reject
-                                        </MenuItem>
-                                      </>
-                                    ) : (
-                                      <MenuItem style={{ opacity: 0.45, cursor: "not-allowed" }}>
-                                        🔒 {r.status}
-                                      </MenuItem>
-                                    )}
-                                  </>
-                                )}
-                              </MenuList>
-                            )}
-                          </MenuWrap>
+                          <InvDropBtn onClick={(e) => openMenu(e, r.mr_number)} title="Actions">
+                            ⋮
+                          </InvDropBtn>
                         </Td>
                       </Trow>
                     )
                   })}
                 </tbody>
               </Tbl>
-            )}
+          )}
           </TblWrap>
 
           <InvPagination
@@ -637,6 +597,30 @@ const MedicineRequisitionApproval = () => {
           />
         </Card>
       </Body>
+
+            {/* ══ Action Dropdown (Admission / PO style) ══ */}
+      {menuOpenId && (() => {
+        const selectedPr = prList.find((p) => p.mr_number === menuOpenId);
+        if (!selectedPr) return null;
+        const canAct = selectedPr.status === "Draft";
+        return (
+          <InvDropMenu {...menuPos}>
+            <InvMenuItem onClick={() => { closeMenu(); setViewPr(selectedPr); }}>
+              👁 View Details
+            </InvMenuItem>
+            {canAct && (
+              <>
+                <InvMenuItem $success onClick={() => { closeMenu(); setApprovePr(selectedPr); }}>
+                  ✔ Approve
+                </InvMenuItem>
+                <InvMenuItem danger onClick={() => { closeMenu(); setRejectPr(selectedPr); }}>
+                  ✕ Reject
+                </InvMenuItem>
+              </>
+            )}
+          </InvDropMenu>
+        );
+      })()}
 
       {/* Modals */}
       {approvePr && <ApproveModal pr={approvePr} onConfirm={handleApproveConfirm} onClose={() => setApprovePr(null)} loading={actionLoading} />}

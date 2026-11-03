@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString, InvSelect } from "./InventoryUIHelper"
+import {  InvTopToolbar, InvPagination, getTodayDateString, InvSelect , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -427,6 +427,7 @@ const ViewModal = ({ pr, onClose }) => {
 const ALL_STATUSES = ["Draft", "Approved", "Rejected", "Purchase Order Initiated", "Purchased", "Stock Restocked"]
 
 export default function PurchaseRequisitionAdmin() {
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const [prList,      setPrList]      = useState([])
   const [loading,     setLoading]     = useState(false)
   const [acting,      setActing]      = useState(false)
@@ -588,6 +589,7 @@ export default function PurchaseRequisitionAdmin() {
             totalRecords={totalCount}
             customFilters={
               <InvSelect
+                style={{ width: 130, minWidth: 110, height: 30, fontSize: "0.78rem" }}
                 value={filterStatus}
                 onChange={(e) => {
                   setFilterStatus(e.target.value);
@@ -630,47 +632,25 @@ export default function PurchaseRequisitionAdmin() {
                     return (
                       <Trow key={pr.pr_number || idx}>
                         <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
-                        <Td><Pill>{pr.pr_number}</Pill></Td>
+                        <Td><InvCodePill>{pr.pr_number}</InvCodePill></Td>
                         <Td style={{ maxWidth: 200 }}>
                           <div style={{ fontWeight: 600, fontSize: ".82rem", textTransform: "uppercase" }}>{String(firstItem).toUpperCase()}</div>
                           {more && <div style={{ color: C.muted, fontSize: ".72rem" }}>{more} more</div>}
                         </Td>
-                        <Td><Badge $s={pr.status}>{pr.status}</Badge></Td>
+                        <Td><InvStatusBadge status={pr.status}>{pr.status}</InvStatusBadge></Td>
                         <Td style={{ fontSize: ".78rem" }}>{pr.created_by_name || pr.created_by || "—"}</Td>
                         <Td style={{ fontSize: ".78rem" }}>{fmtDT(pr.created_date)}</Td>
-                        <Td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                          <SecBtn
-                            style={{ padding: "5px 10px", fontSize: ".72rem", marginRight: 4 }}
-                            onClick={() => setViewPr(pr)}
-                          >
-                            👁 View
-                          </SecBtn>
-                          {actionList.map(actionCfg => (
-                            <Btn
-                              key={actionCfg.action}
-                              style={{
-                                padding: "5px 10px",
-                                fontSize: ".72rem",
-                                marginRight: 4,
-                                background: actionCfg.bg,
-                                color: actionCfg.color,
-                                borderColor: actionCfg.border,
-                              }}
-                              onClick={() => setActionModal({ pr, actionCfg })}
-                            >
-                              {actionCfg.label}
-                            </Btn>
-                          ))}
-                          {actionList.length === 0 && pr.status !== "Draft" && (
-                            <span style={{ fontSize: ".72rem", color: C.muted }}>—</span>
-                          )}
+                        <Td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                          <InvDropBtn onClick={(e) => openMenu(e, pr.pr_number)} title="Actions">
+                            ⋮
+                          </InvDropBtn>
                         </Td>
                       </Trow>
                     )
                   })}
                 </tbody>
               </Tbl>
-            )}
+          )}
           </TblWrap>
 
           <InvPagination
@@ -682,6 +662,30 @@ export default function PurchaseRequisitionAdmin() {
           />
         </Card>
       </Body>
+
+      {/* ══ Action Dropdown (Admission / PO style) ══ */}
+      {menuOpenId && (() => {
+        const selectedPr = prList.find((p) => p.pr_number === menuOpenId);
+        if (!selectedPr) return null;
+        const actionList = ACTION_CONFIG[selectedPr.status] || [];
+        return (
+          <InvDropMenu {...menuPos}>
+            <InvMenuItem onClick={() => { closeMenu(); setViewPr(selectedPr); }}>
+              👁 View Requisition
+            </InvMenuItem>
+            {actionList.map((actionCfg) => (
+              <InvMenuItem
+                key={actionCfg.action}
+                $success={actionCfg.action === "approve" || actionCfg.action === "verify"}
+                danger={actionCfg.action === "reject"}
+                onClick={() => { closeMenu(); setActionModal({ pr: selectedPr, actionCfg }); }}
+              >
+                {actionCfg.action === "approve" ? "✔" : actionCfg.action === "reject" ? "✕" : "➡"} {actionCfg.label}
+              </InvMenuItem>
+            ))}
+          </InvDropMenu>
+        );
+      })()}
 
       {/* View modal */}
       {viewPr && <ViewModal pr={viewPr} onClose={() => setViewPr(null)} />}

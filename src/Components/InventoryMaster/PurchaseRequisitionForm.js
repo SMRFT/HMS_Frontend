@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
+import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -469,6 +469,7 @@ const EditReasonModal = ({ onConfirm, onClose, saving }) => {
    MAIN COMPONENT
 ══════════════════════════════════════════════════════ */
 export default function PurchaseRequisition() {
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const [tab,         setTab]         = useState("form")
   const [prList,      setPrList]      = useState([])
   const [editPr,      setEditPr]      = useState(null)
@@ -772,28 +773,17 @@ export default function PurchaseRequisition() {
                       return (
                         <Trow key={r.pr_number || idx}>
                           <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
-                          <Td><Pill>{r.pr_number}</Pill></Td>
+                          <Td><InvCodePill>{r.pr_number}</InvCodePill></Td>
                           <Td style={{ fontWeight: 600, fontSize: ".82rem" }}>
                             {firstItem}
                             {more && <span style={{ color: C.muted, fontWeight: 400 }}>{more}</span>}
                           </Td>
-                          <Td><Badge $s={r.status}>{r.status}</Badge></Td>
+                          <Td><InvStatusBadge status={r.status}>{r.status}</InvStatusBadge></Td>
                           <Td style={{ fontSize: ".78rem" }}>{fmtDT(r.created_date)}</Td>
                           <Td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                            <SecBtn
-                              style={{ padding: "5px 12px", fontSize: ".75rem" }}
-                              onClick={() => setViewPr(r)}
-                            >
-                              👁 View
-                            </SecBtn>
-                            {canEdit && (
-                              <SecBtn
-                                style={{ padding: "5px 12px", fontSize: ".75rem", marginLeft: 4 }}
-                                onClick={() => handleEdit(r)}
-                              >
-                                ✏️ Edit
-                              </SecBtn>
-                            )}
+                            <InvDropBtn onClick={(e) => openMenu(e, r.pr_number)} title="Actions">
+                              ⋮
+                            </InvDropBtn>
                           </Td>
                         </Trow>
                       )
@@ -813,6 +803,25 @@ export default function PurchaseRequisition() {
           </Card>
         )}
       </Body>
+
+      {/* ══ Action Dropdown (Admission / PO style) ══ */}
+      {menuOpenId && (() => {
+        const selectedPr = prList.find((p) => p.pr_number === menuOpenId);
+        if (!selectedPr) return null;
+        const canEdit = selectedPr.status === "Draft";
+        return (
+          <InvDropMenu {...menuPos}>
+            <InvMenuItem onClick={() => { closeMenu(); setViewPr(selectedPr); }}>
+              👁 View Details
+            </InvMenuItem>
+            {canEdit && (
+              <InvMenuItem onClick={() => { closeMenu(); handleEdit(selectedPr); }}>
+                ✏️ Edit Requisition
+              </InvMenuItem>
+            )}
+          </InvDropMenu>
+        );
+      })()}
 
       {/* View detail modal */}
       {viewPr && <ViewModal pr={viewPr} onClose={() => setViewPr(null)} />}

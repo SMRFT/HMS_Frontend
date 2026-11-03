@@ -7,9 +7,9 @@ import {
 } from "../GlobalStyles"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
-import { Plus, Trash2, X, ShoppingCart, Lock, Camera, Upload, ScanLine, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
+import { Plus, Trash2, X, ShoppingCart, Lock, Camera, Upload, ScanLine, AlertCircle, CheckCircle, RefreshCw, Edit2, Check } from "lucide-react"
 import styled, { keyframes } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
+import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
 import SearchSelect from "../Common/SearchSelect"
 
 const Select = SearchSelect;
@@ -39,10 +39,14 @@ const GridRow = styled.div`
   @media(max-width: 900px){ grid-template-columns: repeat(2, 1fr) !important; }
   @media(max-width: 560px){ grid-template-columns: 1fr !important; }
 `
-const ReadOnlyInput = styled(Input)`
+const ReadOnlyInput = styled(Input).attrs(props => ({
+  tabIndex: props.tabIndex !== undefined ? props.tabIndex : -1,
+}))`
   background: #f1f5f9 !important; cursor: default; color: ${colors.textMuted}; font-size: 0.8rem;
 `
-const CalcInput = styled(Input)`
+const CalcInput = styled(Input).attrs(props => ({
+  tabIndex: props.tabIndex !== undefined ? props.tabIndex : -1,
+}))`
   background: #f1f5f9 !important; color: ${colors.textMuted}; cursor: default; font-size: 0.8rem;
 `
 const Lbl = styled(Label)`font-size: 0.72rem; margin-bottom: 2px; display: block;`
@@ -833,6 +837,8 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
 
 /* ─── Main Component ────────────────────────────────────────────────────── */
 const GRNGeneration = () => {
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
+  const medSearchInputRef = useRef(null);
   const [vendors,     setVendors]     = useState([])
   const [medicines,   setMedicines]   = useState([])
   const [grnList,     setGrnList]     = useState([])
@@ -859,6 +865,7 @@ const GRNGeneration = () => {
   const [listTotalPages, setListTotalPages] = useState(1);
 
   // ── NEW: edit reason modal state ──────────────────────────────────────────
+  const [editingItemId, setEditingItemId] = useState(null)
   const [showEditReasonModal, setShowEditReasonModal] = useState(false)
   // pendingPayload holds the ready-to-send payload while awaiting the reason
   const pendingPayloadRef = useRef(null)
@@ -1120,10 +1127,60 @@ const GRNGeneration = () => {
     if(expiryTooShort){ toast.error("Expiry is too short — items expiring within 6 months cannot be added"); return }
     if(!curItem.packing_price||parseFloat(curItem.packing_price)<=0){ toast.error("Enter packing price"); return }
     setItems(p=>[...p,{...curItem,id:Date.now()}])
-    setCurItem(EMPTY_ITEM); setMedSearch(""); setLastStock(null)
+    setCurItem(EMPTY_ITEM); setMedSearch(""); setLastStock(null); setTimeout(() => medSearchInputRef.current?.focus(), 50);
   }
 
-  const removeItem = (id) => { if(isVerified) return; setItems(p=>p.filter(i=>i.id!==id)) }
+  const handleEditItem = (it) => {
+    if (isVerified) return
+    setEditingItemId(it.id)
+    setMedSearch(it.name || "")
+    setCurItem({ ...it })
+    fetchLastStock(it.item_id)
+    const el = document.getElementById("item-entry-card")
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  const cancelEditItem = () => {
+    setEditingItemId(null)
+    setCurItem(EMPTY_ITEM)
+    setMedSearch("")
+    setLastStock(null)
+  }
+
+  const saveEditItem = () => {
+    if (isVerified) return
+    if (!curItem.name) { toast.error("Select a medicine"); return }
+    if (!curItem.batch?.trim()) { toast.error("Batch number is required"); return }
+    if (expiryTooShort) { toast.error("Expiry is too short — items expiring within 6 months cannot be added"); return }
+    if (!curItem.packing_price || parseFloat(curItem.packing_price) <= 0) { toast.error("Enter packing price"); return }
+
+    setItems(p => p.map(item => item.id === editingItemId ? { ...curItem, id: editingItemId } : item))
+    setEditingItemId(null)
+    setCurItem(EMPTY_ITEM)
+    setMedSearch("")
+    setLastStock(null)
+    toast.success("Item updated in GRN")
+  }
+
+  const parseItems = (raw) => {
+    if (!raw) return []
+    if (Array.isArray(raw)) return raw
+    if (typeof raw === "string") {
+      try {
+        const p = JSON.parse(raw)
+        return Array.isArray(p) ? p : (Array.isArray(p?.data) ? p.data : [])
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const removeItem = (id) => {
+    if (isVerified) return
+    if (editingItemId === id) cancelEditItem()
+    setItems(p => p.filter(i => i.id !== id))
+  }
 
   const updateItem = (id, field, value) => {
     setItems(prev => prev.map(it => {
@@ -1235,12 +1292,12 @@ const GRNGeneration = () => {
       net_invoice_amount:   grn.net_invoice_amount||"0.00",
       grn_number:           grn.grn_number||"",
       // ── edit audit fields ──
-      edited_by:     grn.edited_by     || "",
+      edited_by:     grn.edited_by_name || grn.edited_by || "",
       edited_date:   grn.edited_date   || "",
       edited_reason: grn.edited_reason || "",
     })
     setVendorInfo(vendors.find(x => String(x.vendor_id) === String(grn.vendor_id)) || null)
-    try{ setItems(JSON.parse(grn.items||"[]")) } catch { setItems([]) }
+    setItems(parseItems(grn.items))
     setEditDraftNo(grn.draft_number||"")
     setEditStatus(grn.status||"Draft")
     setOcrApplied(false)
@@ -1249,6 +1306,7 @@ const GRNGeneration = () => {
   }
 
   const resetForm = () => {
+    setEditingItemId(null)
     setGrnData(EMPTY_GRN); setItems([]); setCurItem(EMPTY_ITEM)
     setMedSearch(""); setEditDraftNo(""); setEditStatus(""); setVendorInfo(null); setLastStock(null)
     setOcrApplied(false)
@@ -1346,7 +1404,7 @@ const GRNGeneration = () => {
               {isEdit && !isVerified && grnData.edited_by && (
                 <EditInfoBanner>
                   <div>
-                    <strong>Last Edited By:</strong> {grnData.edited_by}
+                    <strong>Last Edited By:</strong> {grnData.edited_by_name || grnData.edited_by}
                     {grnData.edited_date && (
                       <span style={{marginLeft:10,fontWeight:400}}>
                         on {fmtDateTime(grnData.edited_date)}
@@ -1443,10 +1501,14 @@ const GRNGeneration = () => {
                         disabled={isVerified} placeholder="e.g. INV-52412" style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
-                      <Lbl>Invoice Date</Lbl>
-                      <ReadOnlyInput
+                      <Lbl>
+                        Invoice Date
+                        {ocrApplied && grnData.invoice_date && <OcrFieldBadge>OCR</OcrFieldBadge>}
+                      </Lbl>
+                      <Input
                         type="date" name="invoice_date" value={grnData.invoice_date}
-                        readOnly disabled style={{fontSize:"0.8rem", background:"#f1f5f9", cursor:"not-allowed"}}
+                        onChange={handleGrnChange}
+                        disabled={isVerified} style={{fontSize:"0.8rem"}}
                       />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
@@ -1465,7 +1527,7 @@ const GRNGeneration = () => {
 
               {/* ── Item Entry ── */}
               {!isVerified && (
-                <Card>
+                <Card id="item-entry-card">
                   <CardHeader>💊 Item Entry <span style={{fontWeight:400,fontSize:"0.72rem",color:colors.textMuted,marginLeft:4}}>(Manual — or edit OCR items in table below)</span></CardHeader>
                   <CardBody>
                     {isItemEntryEnabled ? (
@@ -1479,10 +1541,19 @@ const GRNGeneration = () => {
                               <Lbl>Medicine Name *</Lbl>
                               <AutoWrap>
                                 <Input
+                                  ref={medSearchInputRef}
                                   value={medSearch}
                                   onChange={e=>{setMedSearch(e.target.value);setShowDrop(true)}}
                                   onFocus={()=>setShowDrop(true)}
                                   onBlur={()=>setTimeout(()=>setShowDrop(false),180)}
+                                  onKeyDown={(e) => {
+                                    if ((e.key === "Enter" || e.key === "Tab") && showDrop && filteredMeds.length > 0 && !curItem.name) {
+                                      selectMedicine(filteredMeds[0]);
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                      }
+                                    }
+                                  }}
                                   placeholder="Search medicine…" style={{fontSize:"0.8rem"}}
                                 />
                                 {showDrop&&medSearch&&filteredMeds.length>0&&(
@@ -1686,15 +1757,48 @@ const GRNGeneration = () => {
                           </GreenBox>
 
                           <div style={{marginTop:12}}>
-                            <Button
-                              onClick={addItem}
-                              disabled={expiryTooShort}
-                              style={{width:"100%",fontSize:"0.82rem",padding:"8px",
-                                opacity: expiryTooShort ? 0.5 : 1,
-                                cursor: expiryTooShort ? "not-allowed" : "pointer"}}
-                            >
-                              <Plus size={13}/> &nbsp; Add Item to GRN
-                            </Button>
+                            {editingItemId ? (
+                              <div style={{display:"flex", gap:8}}>
+                                <Button
+                                  type="button"
+                                  onClick={saveEditItem}
+                                  disabled={expiryTooShort}
+                                  style={{
+                                    flex: 1,
+                                    fontSize:"0.82rem",
+                                    padding:"8px",
+                                    background: "#0284c7",
+                                    opacity: expiryTooShort ? 0.5 : 1,
+                                    cursor: expiryTooShort ? "not-allowed" : "pointer"
+                                  }}
+                                >
+                                  <Check size={13}/> &nbsp; Update Item
+                                </Button>
+                                <Button
+                                  type="button"
+                                  secondary
+                                  onClick={cancelEditItem}
+                                  style={{
+                                    fontSize:"0.82rem",
+                                    padding:"8px 14px",
+                                    background: "#f1f5f9",
+                                    color: "#475569"
+                                  }}
+                                >
+                                  <X size={13}/> Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                onClick={addItem}
+                                disabled={expiryTooShort}
+                                style={{width:"100%",fontSize:"0.82rem",padding:"8px",
+                                  opacity: expiryTooShort ? 0.5 : 1,
+                                  cursor: expiryTooShort ? "not-allowed" : "pointer"}}
+                              >
+                                <Plus size={13}/> &nbsp; Add Item to GRN
+                              </Button>
+                            )}
                             {expiryTooShort && (
                               <ExpiryWarn style={{textAlign:"center",marginTop:4}}>
                                 ⚠️ Cannot add — expiry within 6 months
@@ -1860,8 +1964,24 @@ const GRNGeneration = () => {
                                   ₹{parseFloat(it.selling_price||0).toFixed(2)}
                                 </Td>
                                 {!isVerified && (
-                                  <Td>
-                                    <Trash2 size={13} color={colors.danger} style={{cursor:"pointer"}} onClick={()=>removeItem(it.id)} />
+                                  <Td style={{whiteSpace:"nowrap"}}>
+                                    <Edit2
+                                      size={13}
+                                      color={colors.primary}
+                                      style={{cursor:"pointer", marginRight: 10}}
+                                      title="Edit item"
+                                      onClick={() => handleEditItem(it)}
+                                    />
+                                    <Trash2
+                                      size={13}
+                                      color={colors.danger}
+                                      style={{cursor:"pointer"}}
+                                      title="Delete item"
+                                      onClick={() => {
+                                        if (editingItemId === it.id) cancelEditItem();
+                                        removeItem(it.id);
+                                      }}
+                                    />
                                   </Td>
                                 )}
                               </Tr>
@@ -2012,7 +2132,7 @@ const GRNGeneration = () => {
                         <Td style={{fontSize:"0.72rem",maxWidth:140}}>
                           {grn.edited_by ? (
                             <div style={{display:"flex",flexDirection:"column",gap:1}}>
-                              <span style={{fontWeight:700,color:"#92400e"}}>{grn.edited_by}</span>
+                              <span style={{fontWeight:700,color:"#92400e"}}>{grn.edited_by_name || grn.edited_by}</span>
                               {grn.edited_date && (
                                 <span style={{color:"#9ca3af",fontSize:"0.68rem"}}>{fmtDateTime(grn.edited_date)}</span>
                               )}
@@ -2034,18 +2154,10 @@ const GRNGeneration = () => {
                           )}
                         </Td>
 
-                        <Td>
-                          <div style={{display:"flex",gap:4}}>
-                            {grn.status==="Verified" ? (
-                              <ActionBtn onClick={()=>handleEdit(grn)} title="View (read-only)">
-                                <Lock size={11} style={{marginRight:2}}/>View
-                              </ActionBtn>
-                            ) : (
-                              (!grn.status||grn.status==="Draft") && (
-                                <ActionBtn onClick={()=>handleEdit(grn)}>Edit</ActionBtn>
-                              )
-                            )}
-                          </div>
+                        <Td style={{ textAlign: "center" }}>
+                          <InvDropBtn onClick={(e) => openMenu(e, grn.grn_id || grn.grn_number || grn.draft_number)} title="Actions">
+                            ⋮
+                          </InvDropBtn>
                         </Td>
                       </Tr>
                     ))}
@@ -2063,6 +2175,20 @@ const GRNGeneration = () => {
           )}
         </FormContent>
       </Container>
+
+      {/* ══ Action Dropdown (Admission / PO style) ══ */}
+      {menuOpenId && (() => {
+        const grn = grnList.find((g) => (g.grn_id || g.grn_number || g.draft_number) === menuOpenId);
+        if (!grn) return null;
+        const isVerified = grn.status === "Verified";
+        return (
+          <InvDropMenu {...menuPos}>
+            <InvMenuItem onClick={() => { closeMenu(); handleEdit(grn); }}>
+              {isVerified ? "👁 View Details" : "✏️ Edit GRN"}
+            </InvMenuItem>
+          </InvDropMenu>
+        );
+      })()}
 
       {/* ── Edit Reason Modal ── */}
       {showEditReasonModal && (

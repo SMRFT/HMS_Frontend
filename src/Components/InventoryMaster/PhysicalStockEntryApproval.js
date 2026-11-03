@@ -7,6 +7,7 @@ import {
   Button,
 } from "../GlobalStyles";
 import styled from "styled-components";
+import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper";
 
 // ── Styled Components ─────────────────────────────────────────────────────────
 
@@ -32,107 +33,6 @@ const PageSubtitle = styled.p`
   opacity: 0.8;
 `;
 
-const SectionTitle = styled.h4`
-  color: #0d9488;
-  margin: 0 0 16px;
-  font-size: 0.95rem;
-  font-weight: 700;
-`;
-
-const FilterBar = styled.div`
-  display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-`;
-
-const FilterButton = styled.button`
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: 2px solid ${({ active }) => (active ? "#0d9488" : "#e5e7eb")};
-  background: ${({ active }) => (active ? "#0d9488" : "white")};
-  color: ${({ active }) => (active ? "white" : "#6b7280")};
-  transition: all 0.15s;
-  &:hover { border-color: #0d9488; color: #0d9488; background: white; }
-  ${({ active }) => active && `&:hover { color: white; background: #0d9488; }`}
-`;
-
-const TTBar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  flex-wrap: wrap;
-  gap: 12px;
-  background: #fff;
-`;
-
-const TableSelect = styled.select`
-  height: 32px;
-  width: 72px;
-  padding: 0 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border: 1.5px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  color: #1f2937;
-  cursor: pointer;
-  outline: none;
-  &:focus {
-    border-color: #0d9488;
-  }
-`;
-
-const Pager = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 24px;
-  border-top: 1px solid #e5e7eb;
-  font-size: 0.82rem;
-  color: #6b7280;
-  flex-wrap: wrap;
-  gap: 8px;
-  background: #fff;
-`;
-
-const PB = styled.button`
-  height: 32px;
-  padding: 0 14px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: ${(p) => (p.active ? "#0d9488" : "#fff")};
-  color: ${(p) => (p.active ? "#fff" : "#374151")};
-  cursor: pointer;
-  transition: all 0.15s;
-  &:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-  &:hover:not(:disabled) {
-    background: ${(p) => (p.active ? "#0f766e" : "#f3f4f6")};
-  }
-`;
-
-const SearchBox = styled.input`
-  padding: 6px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  outline: none;
-  min-width: 240px;
-  &:focus {
-    border-color: #0d9488;
-    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
-  }
-`;
 
 const StatusBadge = styled.span`
   display: inline-block;
@@ -193,38 +93,10 @@ const VarianceChip = styled.span`
   font-weight: 700;
   color: ${({ val }) => (val > 0 ? "#059669" : val < 0 ? "#dc2626" : "#6b7280")};
 `;
-
-const StatsRow = styled.div`
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-`;
-
-const StatCard = styled.div`
-  background: ${({ bg }) => bg || "#f0fdfa"};
-  border: 1px solid ${({ border }) => border || "#99f6e4"};
-  border-radius: 8px;
-  padding: 10px 20px;
-  min-width: 120px;
-  text-align: center;
-`;
-
-const StatValue = styled.div`
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: ${({ color }) => color || "#0d9488"};
-`;
-
-const StatLabel = styled.div`
-  font-size: 0.75rem;
-  color: #6b7280;
-  margin-top: 2px;
-`;
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const PhysicalStockApproval = () => {
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const [entries, setEntries]   = useState([]);
   const [filter, setFilter]     = useState("pending");   // "all" | "pending" | "approved"
   const [notes, setNotes]       = useState({});          // { entry_id: noteText }
@@ -236,6 +108,8 @@ const PhysicalStockApproval = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [searchQ, setSearchQ]   = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate]     = useState("");
 
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -249,6 +123,8 @@ const PhysicalStockApproval = () => {
       });
       if (flt && flt !== "all") params.append("status", flt);
       if (q && q.trim()) params.append("search", q.trim());
+      if (fromDate) params.append("from_date", fromDate);
+      if (toDate) params.append("to_date", toDate);
 
       const response = await apiRequest(
         `${HmsBaseUrl}physical-stock-approval/?${params.toString()}`,
@@ -267,11 +143,11 @@ const PhysicalStockApproval = () => {
     } finally {
       setLoading(false);
     }
-  }, [HmsBaseUrl, page, pageSize, searchQ, filter]);
+  }, [HmsBaseUrl, page, pageSize, searchQ, filter, fromDate, toDate]);
 
   useEffect(() => {
     fetchEntries(page, pageSize, searchQ, filter);
-  }, [page, pageSize, searchQ, filter]); // eslint-disable-line
+  }, [page, pageSize, searchQ, filter, fromDate, toDate]); // eslint-disable-line
 
   // ── Approve / Reject ───────────────────────────────────────────────────
   const handleAction = async (entry, action) => {
@@ -321,72 +197,51 @@ const PhysicalStockApproval = () => {
           </Button>
         </PageHeader>
 
-        <div style={{ padding: "20px 24px 0" }}>
-
-          {/* Filter */}
-          <FilterBar>
-            <FilterButton
-              active={filter === "all"}
-              onClick={() => { setFilter("all"); setPage(1); }}
-            >
-              All
-            </FilterButton>
-            <FilterButton
-              active={filter === "pending"}
-              onClick={() => { setFilter("pending"); setPage(1); }}
-            >
-              Pending
-            </FilterButton>
-            <FilterButton
-              active={filter === "approved"}
-              onClick={() => { setFilter("approved"); setPage(1); }}
-            >
-              Approved
-            </FilterButton>
-          </FilterBar>
-
-          <SectionTitle>
-            Stock Entries
-            <span style={{
-              background: "#e5e7eb", color: "#6b7280",
-              fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: 600, marginLeft: 8,
-            }}>
-              {totalCount}
-            </span>
-          </SectionTitle>
-        </div>
-
-        {/* TTBar and Table */}
-        <div style={{ padding: "0 24px 24px" }}>
-          <TTBar>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: "0.85rem", color: "#4b5563" }}>Show</span>
-              <TableSelect
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-              >
-                {[10, 25, 50, 100].map((sz) => (
-                  <option key={sz} value={sz}>{sz}</option>
+        <div style={{ padding: "16px 24px 0" }}>
+          <InvTopToolbar
+            pageSize={pageSize}
+            onPageSizeChange={(sz) => { setPageSize(sz); setPage(1); }}
+            search={searchQ}
+            onSearchChange={(q) => { setSearchQ(q); setPage(1); }}
+            searchPlaceholder="Search item, batch, notes..."
+            fromDate={fromDate}
+            toDate={toDate}
+            onFromDateChange={(d) => { setFromDate(d); setPage(1); }}
+            onToDateChange={(d) => { setToDate(d); setPage(1); }}
+            onClearDate={() => { setFromDate(""); setToDate(""); setPage(1); }}
+            onSetToday={() => { const t = getTodayDateString(); setFromDate(t); setToDate(t); setPage(1); }}
+            totalRecords={totalCount}
+            customFilters={
+              <div style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                {[
+                  { id: "pending", label: "Pending" },
+                  { id: "approved", label: "Approved" },
+                  { id: "all", label: "All" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => { setFilter(tab.id); setPage(1); }}
+                    style={{
+                      height: 30,
+                      padding: "0 10px",
+                      fontSize: "0.74rem",
+                      fontWeight: 700,
+                      borderRadius: 6,
+                      border: `1px solid ${filter === tab.id ? "#0d9488" : "#cbd5e1"}`,
+                      background: filter === tab.id ? "#f0fdfa" : "#ffffff",
+                      color: filter === tab.id ? "#0f766e" : "#475569",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
                 ))}
-              </TableSelect>
-              <span style={{ fontSize: "0.85rem", color: "#4b5563" }}>entries</span>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <SearchBox
-                type="text"
-                placeholder="Search item, batch, notes..."
-                value={searchQ}
-                onChange={(e) => {
-                  setSearchQ(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-          </TTBar>
+              </div>
+            }
+          />
+        </div>
+        <div style={{ padding: "0 24px 24px" }}>
 
           {loading ? (
             <div style={{ textAlign: "center", padding: 32, color: "#9ca3af" }}>
@@ -477,7 +332,7 @@ const PhysicalStockApproval = () => {
                         </Td>
 
                         <Td style={{ fontSize: "0.82rem", color: "#6b7280" }}>
-                          {entry.approved_by || "—"}
+                          {entry.approved_by_name || entry.approved_by || "-"}
                         </Td>
 
                         <Td>
@@ -500,28 +355,10 @@ const PhysicalStockApproval = () => {
                           )}
                         </Td>
 
-                        <Td>
-                          {!entry.is_approved && (
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <ApproveBtn
-                                disabled={actionLoading === entry.entry_id}
-                                onClick={() => handleAction(entry, "approve")}
-                              >
-                                {actionLoading === entry.entry_id ? "..." : "Approve"}
-                              </ApproveBtn>
-                              <RejectBtn
-                                disabled={actionLoading === entry.entry_id}
-                                onClick={() => handleAction(entry, "reject")}
-                              >
-                                Reject
-                              </RejectBtn>
-                            </div>
-                          )}
-                          {entry.is_approved && (
-                            <span style={{ fontSize: "0.82rem", color: "#10b981", fontWeight: 600 }}>
-                              ✅ Done
-                            </span>
-                          )}
+                        <Td style={{ textAlign: "center" }}>
+                          <InvDropBtn onClick={(e) => openMenu(e, entry.entry_id)} title="Actions">
+                            ⋮
+                          </InvDropBtn>
                         </Td>
                       </Tr>
                     ))
@@ -531,56 +368,52 @@ const PhysicalStockApproval = () => {
             </TableWrapper>
           )}
 
-          <Pager>
-            <div>
-              Showing {totalCount === 0 ? 0 : (page - 1) * pageSize + 1} to{" "}
-              {Math.min(page * pageSize, totalCount)} of {totalCount} entries
-            </div>
-            <div style={{ display: "flex", gap: 4 }}>
-              <PB
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </PB>
-              {(() => {
-                const pages = [];
-                if (totalPages <= 7) {
-                  for (let i = 1; i <= totalPages; i++) pages.push(i);
-                } else {
-                  pages.push(1);
-                  if (page > 3) pages.push("...");
-                  const start = Math.max(2, page - 1);
-                  const end = Math.min(totalPages - 1, page + 1);
-                  for (let i = start; i <= end; i++) pages.push(i);
-                  if (page < totalPages - 2) pages.push("...");
-                  pages.push(totalPages);
-                }
-                return pages.map((pNum, i) =>
-                  pNum === "..." ? (
-                    <span key={`dots-${i}`} style={{ padding: "0 6px", alignSelf: "center" }}>...</span>
-                  ) : (
-                    <PB
-                      key={pNum}
-                      active={page === pNum}
-                      onClick={() => setPage(pNum)}
-                    >
-                      {pNum}
-                    </PB>
-                  )
-                );
-              })()}
-              <PB
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-              </PB>
-            </div>
-          </Pager>
+          <InvPagination
+            currentPage={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={totalCount}
+            onPageChange={setPage}
+          />
         </div>
 
       </Container>
+      {/* ══ Action Dropdown (Admission / PO style) ══ */}
+      {menuOpenId && (() => {
+        const entry = entries.find((e) => e.entry_id === menuOpenId);
+        if (!entry) return null;
+        return (
+          <InvDropMenu {...menuPos}>
+            {!entry.is_approved ? (
+              <>
+                <InvMenuItem
+                  $success
+                  onClick={() => {
+                    closeMenu();
+                    handleAction(entry, "approve");
+                  }}
+                >
+                  ✔ Approve Entry
+                </InvMenuItem>
+                <InvMenuItem
+                  danger
+                  onClick={() => {
+                    closeMenu();
+                    handleAction(entry, "reject");
+                  }}
+                >
+                  ✕ Reject Entry
+                </InvMenuItem>
+              </>
+            ) : (
+              <InvMenuItem disabled>
+                🔒 Already Approved
+              </InvMenuItem>
+            )}
+          </InvDropMenu>
+        );
+      })()}
+
     </PageWrapper>
   );
 };

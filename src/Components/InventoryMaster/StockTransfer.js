@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
-import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper";
+import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper";
 import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
@@ -1060,6 +1060,7 @@ const RowKebabMenu = ({ transfer, canApprove, onApprove, onReject, onPrint }) =>
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 const StockTransfer = () => {
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
   const { outletCode, isDrugPurchase } = getAuthContext();
 
@@ -1934,13 +1935,9 @@ const StockTransfer = () => {
                           </Td>
 
                           <Td style={{ textAlign: "center" }}>
-                            <RowKebabMenu
-                              transfer={t}
-                              canApprove={canApprove(t)}
-                              onApprove={() => handleApproveClick(t)}
-                              onReject={() => handleRejectClick(t)}
-                              onPrint={() => setPrintSlip(t)}
-                            />
+                            <InvDropBtn onClick={(e) => openMenu(e, t.transfer_ref_number || t.transfer_number)} title="Actions">
+                              ⋮
+                            </InvDropBtn>
                           </Td>
                         </Tr>
                       );
@@ -1992,6 +1989,30 @@ const StockTransfer = () => {
           HmsBaseUrl={HmsBaseUrl}
         />
       )}
+
+      {/* ══ Action Dropdown (Admission / PO style) ══ */}
+      {menuOpenId && (() => {
+        const transfer = transfers.find((t) => (t.transfer_ref_number || t.transfer_number) === menuOpenId);
+        if (!transfer) return null;
+        const isPending = transfer.status === "Pending" || transfer.status === "Draft";
+        return (
+          <InvDropMenu {...menuPos}>
+            <InvMenuItem onClick={() => { closeMenu(); setPrintSlip(transfer); }}>
+              🖨️ Print Transfer
+            </InvMenuItem>
+            {isPending && (
+              <>
+                <InvMenuItem $success onClick={() => { closeMenu(); handleApproveClick(transfer); }}>
+                  ✔ Approve Transfer
+                </InvMenuItem>
+                <InvMenuItem danger onClick={() => { closeMenu(); handleRejectClick(transfer); }}>
+                  ✕ Reject Transfer
+                </InvMenuItem>
+              </>
+            )}
+          </InvDropMenu>
+        );
+      })()}
 
     </PageWrapper>
   );

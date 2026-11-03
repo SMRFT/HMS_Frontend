@@ -2,11 +2,11 @@ import React, { useState, useRef } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import {
-  Container, PageWrapper, FormContent, FormRow,
-  InputWrapper, Label, Input, Button, ButtonContainer,
+  Container, PageWrapper, FormContent, InputWrapper, Label, Input,
   TableWrapper, Table, Th, Td, Tr,
 } from "../GlobalStyles";
 import styled from "styled-components";
+import { InvTopToolbar, InvPagination } from "./InventoryUIHelper";
 
 // ── Styled Components ─────────────────────────────────────────────────────────
 
@@ -149,72 +149,11 @@ const InfoBox = styled.div`
   margin-bottom: 12px;
 `;
 
-const TTBar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  flex-wrap: wrap;
-  gap: 12px;
-  background: #fff;
-`;
-
-const TableSelect = styled.select`
-  height: 32px;
-  width: 72px;
-  padding: 0 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border: 1.5px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  color: #1f2937;
-  cursor: pointer;
-  outline: none;
-  &:focus {
-    border-color: #0d9488;
-  }
-`;
-
-const Pager = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 24px;
-  border-top: 1px solid #e5e7eb;
-  font-size: 0.82rem;
-  color: #6b7280;
-  flex-wrap: wrap;
-  gap: 8px;
-  background: #fff;
-`;
-
-const PB = styled.button`
-  height: 32px;
-  padding: 0 14px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: ${(p) => (p.active ? "#0d9488" : "#fff")};
-  color: ${(p) => (p.active ? "#fff" : "#374151")};
-  cursor: pointer;
-  transition: all 0.15s;
-  &:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-  &:hover:not(:disabled) {
-    background: ${(p) => (p.active ? "#0f766e" : "#f3f4f6")};
-  }
-`;
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const PhysicalStockEntry = () => {
   const [searchName, setSearchName]   = useState("");
-  const [batches, setBatches]         = useState([]);   // fetched from API
+  const [, setBatches]         = useState([]);   // fetched from API
   const [rows, setRows]               = useState([]);   // working rows (editable)
   const [editingIdx, setEditingIdx]   = useState(null);
   const [loading, setLoading]         = useState(false);
@@ -458,23 +397,11 @@ const PhysicalStockEntry = () => {
               ℹ️ Computer Stock = Total Stock − Sold − Transferred Out − GRN Return − Blocked + Sales Return. Enter Physical Stock manually. Entries will be visible after manager approval.
             </InfoBox>
 
-            <TTBar>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: "0.85rem", color: "#4b5563" }}>Show</span>
-                <TableSelect
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setPage(1);
-                  }}
-                >
-                  {[10, 25, 50, 100].map((sz) => (
-                    <option key={sz} value={sz}>{sz}</option>
-                  ))}
-                </TableSelect>
-                <span style={{ fontSize: "0.85rem", color: "#4b5563" }}>entries</span>
-              </div>
-            </TTBar>
+            <InvTopToolbar
+              pageSize={pageSize}
+              onPageSizeChange={(sz) => { setPageSize(sz); setPage(1); }}
+              totalRecords={totalBatches}
+            />
 
             <TableWrapper>
               <Table>
@@ -584,53 +511,13 @@ const PhysicalStockEntry = () => {
               </Table>
             </TableWrapper>
 
-            <Pager>
-              <div>
-                Showing {totalBatches === 0 ? 0 : (page - 1) * pageSize + 1} to{" "}
-                {Math.min(page * pageSize, totalBatches)} of {totalBatches} entries
-              </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                <PB
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Previous
-                </PB>
-                {(() => {
-                  const pages = [];
-                  if (totalPages <= 7) {
-                    for (let i = 1; i <= totalPages; i++) pages.push(i);
-                  } else {
-                    pages.push(1);
-                    if (page > 3) pages.push("...");
-                    const start = Math.max(2, page - 1);
-                    const end = Math.min(totalPages - 1, page + 1);
-                    for (let i = start; i <= end; i++) pages.push(i);
-                    if (page < totalPages - 2) pages.push("...");
-                    pages.push(totalPages);
-                  }
-                  return pages.map((pNum, i) =>
-                    pNum === "..." ? (
-                      <span key={`dots-${i}`} style={{ padding: "0 6px", alignSelf: "center" }}>...</span>
-                    ) : (
-                      <PB
-                        key={pNum}
-                        active={page === pNum}
-                        onClick={() => setPage(pNum)}
-                      >
-                        {pNum}
-                      </PB>
-                    )
-                  );
-                })()}
-                <PB
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                </PB>
-              </div>
-            </Pager>
+            <InvPagination
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalRecords={totalBatches}
+              onPageChange={setPage}
+            />
           </div>
         )}
 

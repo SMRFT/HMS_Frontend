@@ -86,36 +86,64 @@ export const InvAddBtn = styled.button`
 
 /* ─── Top Toolbar (Show Upto, Date Filter, Search, Custom Filters) ────────── */
 /* ─── Top Toolbar (Show Upto, Date Filter, Search, Custom Filters) ────────── */
+export const InvCustomFiltersWrapper = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+  & > * {
+    max-width: 135px !important;
+    min-width: 95px !important;
+    height: 28px !important;
+  }
+  & .search-select-wrapper, & div[data-search-select-trigger] {
+    width: 125px !important;
+    max-width: 135px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    font-size: 0.74rem !important;
+    padding: 0 6px !important;
+  }
+`;
+
 export const InvToolbarWrapper = styled.div`
   background: #f8fafc;
   border: 1px solid ${InvTheme.border};
+  border-bottom: none;
   border-radius: 8px 8px 0 0;
-  padding: 8px 14px;
+  padding: 4px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px 12px;
+  flex-wrap: nowrap !important;
+  gap: 6px 8px;
   margin-bottom: 0;
   box-sizing: border-box;
   width: 100%;
+  min-height: 38px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  &::-webkit-scrollbar { height: 3px; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
 `;
 
 export const InvToolbarLeft = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  flex: 1 1 auto;
+  gap: 6px;
+  flex-wrap: nowrap !important;
+  flex: 0 1 auto;
+  min-width: 0;
 `;
 
 export const InvToolbarRight = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap !important;
   justify-content: flex-end;
   flex: 0 0 auto;
+  margin-left: auto;
 `;
 
 export const InvFieldGroup = styled.div`
@@ -134,11 +162,11 @@ export const InvFieldLabel = styled.label`
 `;
 
 export const InvNativeSelect = styled.select`
-  height: 35px;
+  height: 28px;
   width: 100%;
   min-width: 0;
-  padding: 0 10px;
-  font-size: 0.81rem;
+  padding: 0 6px;
+  font-size: 0.76rem;
   font-family: ${InvTheme.font};
   border: 1px solid ${InvTheme.borderMedium};
   border-radius: 6px;
@@ -161,11 +189,11 @@ export const InvSelect = SearchSelect;
 export { SearchSelect, SearchSelect as InvSearchSelect };
 
 export const InvInput = styled.input`
-  height: 35px;
+  height: 28px;
   width: 100%;
   min-width: 0;
-  padding: 0 10px;
-  font-size: 0.81rem;
+  padding: 0 8px;
+  font-size: 0.76rem;
   font-family: ${InvTheme.font};
   border: 1px solid ${InvTheme.borderMedium};
   border-radius: 6px;
@@ -196,9 +224,9 @@ export const InvInput = styled.input`
 `;
 
 export const InvPillBtn = styled.button`
-  height: 30px;
-  padding: 0 10px;
-  font-size: 0.74rem;
+  height: 26px;
+  padding: 0 7px;
+  font-size: 0.7rem;
   font-weight: 600;
   border-radius: 6px;
   border: 1px solid ${p => p.active ? InvTheme.primary : InvTheme.borderMedium};
@@ -220,12 +248,13 @@ export const InvPillBtn = styled.button`
 export const InvCountBadge = styled.span`
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: 2px 8px;
+  height: 24px;
   background: #f1f5f9;
   color: #334155;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  font-size: 0.72rem;
+  border-radius: 12px;
+  font-size: 0.68rem;
   font-weight: 700;
   white-space: nowrap;
 `;
@@ -248,8 +277,10 @@ export const InvTopToolbar = ({
   onClearDate,
   onSetToday,
   totalRecords,
+  totalCount,
   customFilters,
 }) => {
+  const displayTotal = totalRecords !== undefined ? totalRecords : totalCount;
   const activeDateVal = date || dateFilter || "";
   const isDateActive = Boolean(activeDateVal || fromDate || toDate);
 
@@ -274,7 +305,7 @@ export const InvTopToolbar = ({
           <InvFieldGroup>
             <InvFieldLabel>Show:</InvFieldLabel>
             <InvNativeSelect
-              style={{ width: "auto", minWidth: 68 }}
+              style={{ width: 54, minWidth: 54, height: 28 }}
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
             >
@@ -291,7 +322,7 @@ export const InvTopToolbar = ({
             <InvFieldLabel>From:</InvFieldLabel>
             <InvInput
               type="date"
-              style={{ width: 130 }}
+              style={{ width: 105, height: 28 }}
               value={fromDate || ""}
               onChange={(e) => onFromDateChange(e.target.value)}
             />
@@ -300,7 +331,7 @@ export const InvTopToolbar = ({
                 <InvFieldLabel style={{ marginLeft: 2 }}>To:</InvFieldLabel>
                 <InvInput
                   type="date"
-                  style={{ width: 130 }}
+                  style={{ width: 105, height: 28 }}
                   value={toDate || ""}
                   onChange={(e) => onToDateChange(e.target.value)}
                 />
@@ -312,7 +343,7 @@ export const InvTopToolbar = ({
             <InvFieldLabel>Date:</InvFieldLabel>
             <InvInput
               type="date"
-              style={{ width: 130 }}
+              style={{ width: 105, height: 28 }}
               value={activeDateVal}
               onChange={(e) => onDateChange(e.target.value)}
             />
@@ -332,7 +363,11 @@ export const InvTopToolbar = ({
         )}
 
         {/* Custom Filters (e.g. Category Filter) on the same line */}
-        {customFilters}
+        {customFilters && (
+          <InvCustomFiltersWrapper>
+            {customFilters}
+          </InvCustomFiltersWrapper>
+        )}
       </InvToolbarLeft>
 
       {/* Right: Search & Live Count */}
@@ -340,7 +375,7 @@ export const InvTopToolbar = ({
         {onSearchChange && (
           <InvFieldGroup>
             <InvInput
-              style={{ minWidth: 220, width: "100%", maxWidth: 320 }}
+              style={{ width: 165, minWidth: 120, maxWidth: 200, height: 28 }}
               type="text"
               placeholder={searchPlaceholder}
               value={search || ""}
@@ -354,9 +389,9 @@ export const InvTopToolbar = ({
           </InvFieldGroup>
         )}
 
-        {totalRecords !== undefined && (
+        {displayTotal !== undefined && (
           <InvCountBadge>
-            {totalRecords} record{totalRecords === 1 ? "" : "s"}
+            {displayTotal} record{displayTotal === 1 ? "" : "s"}
           </InvCountBadge>
         )}
       </InvToolbarRight>
@@ -414,32 +449,38 @@ export const InvPageBtn = styled.button`
 
 export const InvPagination = ({
   currentPage = 1,
+  page,
   totalPages = 1,
   pageSize = 10,
   totalRecords = 0,
+  totalCount,
   onPageChange,
 }) => {
-  const startIdx = totalRecords === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endIdx = Math.min(currentPage * pageSize, totalRecords);
+  const activePage = page || currentPage || 1;
+  const count = totalRecords !== undefined && totalRecords !== null && totalRecords !== 0 ? totalRecords : (totalCount || 0);
+  const pages = Math.max(1, totalPages || Math.ceil(count / (pageSize || 10)));
+  const sz = pageSize || 10;
+  const startIdx = count === 0 ? 0 : (activePage - 1) * sz + 1;
+  const endIdx = count === 0 ? 0 : Math.min(activePage * sz, count);
 
   const getPageNumbers = () => {
-    const pages = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    const list = [];
+    if (pages <= 7) {
+      for (let i = 1; i <= pages; i++) list.push(i);
     } else {
-      pages.push(1);
-      if (currentPage > 3) pages.push("...");
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (currentPage < totalPages - 2) pages.push("...");
-      pages.push(totalPages);
+      list.push(1);
+      if (activePage > 3) list.push("...");
+      const start = Math.max(2, activePage - 1);
+      const end = Math.min(pages - 1, activePage + 1);
+      for (let i = start; i <= end; i++) list.push(i);
+      if (activePage < pages - 2) list.push("...");
+      list.push(pages);
     }
-    return pages;
+    return list;
   };
 
   const goTo = (p) => {
-    if (p >= 1 && p <= totalPages && p !== currentPage && onPageChange) {
+    if (p >= 1 && p <= pages && p !== activePage && onPageChange) {
       onPageChange(p);
     }
   };
@@ -447,14 +488,14 @@ export const InvPagination = ({
   return (
     <InvPagerWrapper>
       <InvPagerInfo>
-        Showing <strong>{startIdx}–{endIdx}</strong> of <strong>{totalRecords}</strong> records
+        Showing <strong>{startIdx}–{endIdx}</strong> of <strong>{count}</strong> records
       </InvPagerInfo>
 
       <InvPagerControls>
-        <InvPageBtn onClick={() => goTo(1)} disabled={currentPage === 1} title="First Page">
+        <InvPageBtn onClick={() => goTo(1)} disabled={activePage === 1} title="First Page">
           «
         </InvPageBtn>
-        <InvPageBtn onClick={() => goTo(currentPage - 1)} disabled={currentPage === 1} title="Previous Page">
+        <InvPageBtn onClick={() => goTo(activePage - 1)} disabled={activePage === 1} title="Previous Page">
           ‹
         </InvPageBtn>
 
@@ -462,16 +503,16 @@ export const InvPagination = ({
           p === "..." ? (
             <InvPageBtn key={`ellipsis-${idx}`} disabled style={{ cursor: "default" }}>…</InvPageBtn>
           ) : (
-            <InvPageBtn key={p} active={p === currentPage} onClick={() => goTo(p)}>
+            <InvPageBtn key={p} active={p === activePage} onClick={() => goTo(p)}>
               {p}
             </InvPageBtn>
           )
         )}
 
-        <InvPageBtn onClick={() => goTo(currentPage + 1)} disabled={currentPage === totalPages} title="Next Page">
+        <InvPageBtn onClick={() => goTo(activePage + 1)} disabled={activePage === pages} title="Next Page">
           ›
         </InvPageBtn>
-        <InvPageBtn onClick={() => goTo(totalPages)} disabled={currentPage === totalPages} title="Last Page">
+        <InvPageBtn onClick={() => goTo(pages)} disabled={activePage === pages} title="Last Page">
           »
         </InvPageBtn>
       </InvPagerControls>
@@ -947,5 +988,147 @@ export const InvSlideFormFooter = styled.div`
   background: #f8fafc;
   border-top: 1px solid ${InvTheme.border};
 `;
+
+/* ─── Unified Dropdown Primitives (Admission / PO standard) ─────────────── */
+export const InvDropBtn = styled.button`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: #64748b;
+  transition: all 0.15s ease;
+  &:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #cbd5e1;
+  }
+`;
+
+export const InvDropMenu = styled.div`
+  position: fixed;
+  ${p => p.placement === "top" ? `bottom: ${p.bottom}px;` : `top: ${p.top}px;`}
+  left: ${p => p.left}px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+  z-index: 9999;
+  min-width: 190px;
+  max-height: ${p => p.maxHeight || 280}px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  animation: ${fadeIn} 0.14s ease;
+
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+`;
+
+export const InvMenuItem = styled.button`
+  width: 100%;
+  padding: 9px 14px;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: none;
+  border: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: ${p => p.disabled ? '#94a3b8' : p.danger ? '#dc2626' : p.$mail ? '#7c3aed' : p.$success ? '#166534' : '#334155'};
+  cursor: ${p => p.disabled ? 'not-allowed' : 'pointer'};
+  transition: background 0.12s, color 0.12s;
+  &:hover:not(:disabled), &:focus:not(:disabled) {
+    background: ${p => p.danger ? '#fff1f2' : p.$mail ? '#f5f3ff' : p.$success ? '#f0fdf4' : '#f0fdfa'};
+    color: ${p => p.danger ? '#dc2626' : p.$mail ? '#6d28d9' : p.$success ? '#166534' : '#0d9488'};
+    box-shadow: inset 3px 0 0 ${p => p.danger ? '#dc2626' : p.$mail ? '#7c3aed' : p.$success ? '#16a34a' : '#0d9488'};
+  }
+`;
+
+export const InvCodePill = styled.span`
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #f0fdfa;
+  color: #0d9488;
+  font-weight: 700;
+  font-size: 0.78rem;
+  font-family: monospace;
+  border: 1px solid #ccfbf1;
+`;
+
+export const InvStatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  ${p => {
+    const s = String(p.status || p.$s || "").toLowerCase();
+    if (s.includes("appr") || s.includes("active") || s.includes("restock") || s.includes("done")) {
+      return `background: #dcfce7; color: #166534; border: 1px solid #86efac; &::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #16a34a; }`;
+    }
+    if (s.includes("rej") || s.includes("canc") || s.includes("fail") || s.includes("expired") || s.includes("inactive")) {
+      return `background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; &::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #dc2626; }`;
+    }
+    if (s.includes("veri") || s.includes("po") || s.includes("init")) {
+      return `background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; &::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #2563eb; }`;
+    }
+    return `background: #fef9c3; color: #92400e; border: 1px solid #fde68a; &::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #d97706; }`;
+  }}
+`;
+
+export const useInvDropMenu = () => {
+  const [openId, setOpenId] = React.useState(null);
+  const [menuPos, setMenuPos] = React.useState({ top: 0, bottom: 0, left: 0, placement: "bottom" });
+
+  const openMenu = React.useCallback((e, id) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (openId === id) {
+      setOpenId(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placement = spaceBelow < 220 ? "top" : "bottom";
+    setMenuPos({
+      top: rect.bottom + 4,
+      bottom: window.innerHeight - rect.top + 4,
+      left: Math.max(10, rect.right - 200),
+      placement,
+    });
+    setOpenId(id);
+  }, [openId]);
+
+  const closeMenu = React.useCallback(() => {
+    setOpenId(null);
+  }, []);
+
+  React.useEffect(() => {
+    if (!openId) return;
+    const handleClose = () => setOpenId(null);
+    window.addEventListener("click", handleClose);
+    window.addEventListener("scroll", handleClose, true);
+    return () => {
+      window.removeEventListener("click", handleClose);
+      window.removeEventListener("scroll", handleClose, true);
+    };
+  }, [openId]);
+
+  return { openId, menuPos, openMenu, closeMenu };
+};
+
 
 

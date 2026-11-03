@@ -9,7 +9,7 @@ import { toast } from "react-toastify"
 import { Eye, CheckCircle, X, Printer } from "lucide-react"
 import styled from "styled-components"
 import dayjs from "dayjs"
-import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper"
+import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
 
 /* ─── Styled Components ─────────────────────────────────────────────────── */
 const PageHeader = styled.div`
@@ -205,7 +205,7 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
 
     return {
       sl: i + 1,
-      product: it.name || it.itemName || it.item_name || "Item",
+      product: it.name || it.itemName || it.item_name || it.medicine_name || "Item",
       hsn: it.hsn || it.hsn_code || "—",
       batch: it.batch || it.batch_no || "—",
       expiry: expDisplay,
@@ -470,10 +470,9 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
       </table>
 
       {/* ── Signature strip ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 12px", fontSize: 8.5, background: "#f8fafc" }}>
-        <span><strong>Entered By :</strong> {grn.entered_by || grn.created_by_name || grn.created_by || "—"}</span>
-        <span><strong>Checked By :</strong> —</span>
-        <span><strong>Verified By :</strong> {grn.verified_by || (grn.is_approved ? "APPROVED" : "—")}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 16px", fontSize: 8.5, background: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
+        <span><strong>Entered By :</strong> {grn.entered_by_name || grn.entered_by || grn.created_by_name || grn.created_by || "—"}</span>
+        <span><strong>Verified By :</strong> {grn.verified_by_name || grn.verified_by || (grn.status === "Verified" ? (grn.lastmodified_by_name || grn.lastmodified_by || "APPROVED") : (grn.is_approved ? "APPROVED" : "—"))}</span>
       </div>
     </div>
   );
@@ -481,6 +480,7 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
 
 /* ─── Main Component ────────────────────────────────────────────────────── */
 const GRNAnalysis = () => {
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const [grnList, setGrnList] = useState([])
   const [vendors, setVendors] = useState([])
   const [fromDate, setFromDate] = useState(getTodayDateString())
@@ -539,10 +539,24 @@ const GRNAnalysis = () => {
   const getVendor = (id) => vendors.find(x => Number(x.vendor_id) === Number(id)) || null
   const getVendorName = (id) => { const v = getVendor(id); return v ? v.name : String(id || "") }
 
+  const parseItems = (raw) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === "string") {
+      try {
+        const p = JSON.parse(raw);
+        return Array.isArray(p) ? p : (Array.isArray(p?.data) ? p.data : []);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   const openView = (grn) => {
-    try { setViewItems(JSON.parse(grn.items || "[]")) } catch { setViewItems([]) }
-    setViewGrn(grn)
-  }
+    setViewItems(parseItems(grn.items));
+    setViewGrn(grn);
+  };
   const closeView = () => { setViewGrn(null); setViewItems([]) }
 
   const handlePrint = () => {
@@ -640,18 +654,10 @@ const GRNAnalysis = () => {
                     <Td style={{ fontSize: "0.73rem" }}>{grn.payment_mode}</Td>
                     <Td style={{ fontWeight: 700, color: colors.primary, fontSize: "0.78rem" }}>₹{fmt2(grn.net_invoice_amount)}</Td>
                     <Td><StatusBadge status={grn.status}>{grn.status || "Draft"}</StatusBadge></Td>
-                    <Td>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "nowrap" }}>
-                        <ActionBtn variant="green" onClick={() => handleGenerateGRN(grn)}
-                          disabled={grn.status === "Verified" || confirmId === grn.grn_id}
-                          title={grn.status === "Verified" ? "Already Verified" : "Generate GRN & Update Stock"}>
-                          <CheckCircle size={12} />
-                          {confirmId === grn.grn_id ? "…" : grn.status === "Verified" ? "Verified" : "Generate GRN"}
-                        </ActionBtn>
-                        <ActionBtn variant="blue" onClick={() => openView(grn)} title="View GRN Report">
-                          <Eye size={12} /> View GRN
-                        </ActionBtn>
-                      </div>
+                    <Td style={{ textAlign: "center" }}>
+                      <InvDropBtn onClick={(e) => openMenu(e, grn.grn_id || grn.grn_number || grn.draft_number)} title="Actions">
+                        ⋮
+                      </InvDropBtn>
                     </Td>
                   </Tr>
                 ))}
@@ -668,6 +674,25 @@ const GRNAnalysis = () => {
           />
         </FormContent>
       </Container>
+
+      {/* ══ Action Dropdown (Admission / PO style) ══ */}
+      {menuOpenId && (() => {
+        const grn = grnList.find((g) => (g.grn_id || g.grn_number || g.draft_number) === menuOpenId);
+        if (!grn) return null;
+        const canGenerate = !grn.grn_number;
+        return (
+          <InvDropMenu {...menuPos}>
+            <InvMenuItem onClick={() => { closeMenu(); openView(grn); }}>
+              👁 View GRN Report
+            </InvMenuItem>
+            {canGenerate && (
+              <InvMenuItem $success onClick={() => { closeMenu(); handleGenerateGRN(grn); }}>
+                🧾 Generate GRN
+              </InvMenuItem>
+            )}
+          </InvDropMenu>
+        );
+      })()}
 
       {viewGrn && (
         <Overlay onClick={e => { if (e.target === e.currentTarget) closeView() }}>

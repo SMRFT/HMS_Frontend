@@ -10,7 +10,8 @@ import {
   Td,
   Tr,
 } from "../GlobalStyles";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
+import { InvTopToolbar, InvPagination } from "./InventoryUIHelper";
 
 // ─── Styled Components ────────────────────────────────────────────────────────
 const PageHeader = styled.div`
@@ -254,69 +255,6 @@ const SelectedInfoBox = styled.div`
   flex-wrap: wrap;
 `;
 
-const TTBar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  gap: 8px;
-`;
-
-const TableSelect = styled.select`
-  height: 28px;
-  width: 68px;
-  padding: 0 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  background: #fff;
-  color: #1e293b;
-  cursor: pointer;
-  outline: none;
-  &:focus {
-    border-color: #0d9488;
-  }
-`;
-
-const Pager = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border: 1px solid #e2e8f0;
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  font-size: 0.75rem;
-  color: #64748b;
-  flex-wrap: wrap;
-  gap: 6px;
-  background: #fff;
-`;
-
-const PB = styled.button`
-  height: 26px;
-  padding: 0 10px;
-  font-size: 0.72rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  background: ${(p) => (p.active ? "#0d9488" : "#fff")};
-  color: ${(p) => (p.active ? "#fff" : "#334155")};
-  cursor: pointer;
-  font-weight: 600;
-  &:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-  &:hover:not(:disabled) {
-    background: ${(p) => (p.active ? "#0f766e" : "#f1f5f9")};
-  }
-`;
-
 const TYPE_META = {
   PURCHASE: { label: "Purchase", bg: "#fef3c7", color: "#92400e" },
   STOCK_TRANSFER_IN: { label: "Transfer In", bg: "#d1fae5", color: "#065f46" },
@@ -355,7 +293,7 @@ function MedicineTracking() {
     } catch {
       setMedicines([]);
     }
-  }, [HmsBaseUrl]);
+  }, []);
 
   useEffect(() => {
     const selectedOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
@@ -649,23 +587,11 @@ function MedicineTracking() {
                   {totalItems} total movement(s)
                 </span>
               </SectionTitle>
-              <TTBar>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: "0.8rem", color: "#475569" }}>Show</span>
-                  <TableSelect
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setPage(1);
-                    }}
-                  >
-                    {[10, 25, 50, 100].map((sz) => (
-                      <option key={sz} value={sz}>{sz}</option>
-                    ))}
-                  </TableSelect>
-                  <span style={{ fontSize: "0.8rem", color: "#475569" }}>entries</span>
-                </div>
-              </TTBar>
+              <InvTopToolbar
+                pageSize={pageSize}
+                onPageSizeChange={(sz) => { setPageSize(sz); setPage(1); }}
+                totalRecords={totalItems}
+              />
               <TableWrapper style={{ border: "1px solid #e2e8f0", borderTop: "none" }}>
                 <Table>
                   <thead>
@@ -714,53 +640,13 @@ function MedicineTracking() {
                 </Table>
               </TableWrapper>
 
-              <Pager>
-                <div>
-                  Showing {totalItems === 0 ? 0 : (page - 1) * pageSize + 1} to{" "}
-                  {Math.min(page * pageSize, totalItems)} of {totalItems} entries
-                </div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <PB
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </PB>
-                  {(() => {
-                    const pages = [];
-                    if (totalPages <= 7) {
-                      for (let i = 1; i <= totalPages; i++) pages.push(i);
-                    } else {
-                      pages.push(1);
-                      if (page > 3) pages.push("...");
-                      const start = Math.max(2, page - 1);
-                      const end = Math.min(totalPages - 1, page + 1);
-                      for (let i = start; i <= end; i++) pages.push(i);
-                      if (page < totalPages - 2) pages.push("...");
-                      pages.push(totalPages);
-                    }
-                    return pages.map((pNum, i) =>
-                      pNum === "..." ? (
-                        <span key={`dots-${i}`} style={{ padding: "0 4px", alignSelf: "center" }}>...</span>
-                      ) : (
-                        <PB
-                          key={pNum}
-                          active={page === pNum}
-                          onClick={() => setPage(pNum)}
-                        >
-                          {pNum}
-                        </PB>
-                      )
-                    );
-                  })()}
-                  <PB
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  >
-                    Next
-                  </PB>
-                </div>
-              </Pager>
+              <InvPagination
+                currentPage={page}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalRecords={totalItems}
+                onPageChange={setPage}
+              />
             </div>
           )}
 
