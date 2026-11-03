@@ -47,6 +47,7 @@ import ViewEstimate from "./Components/InvestigationBilling/ViewEstimate";
 // Investigation Reports
 import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
+import TumourBoardCertificaiton from "./Components/InvestigationReports/TumourBoardCertificaiton";
 import MHCList from "./Components/MHC/MHCList";
 import MHCReportForm from "./Components/MHC/MHCReportForm";
 import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
@@ -445,6 +446,8 @@ function App() {
       "/ViewBills": "View Bills",
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
+      "/TumourBoardCertificaiton": "Tumour Board Certification",
+      "/TumourBoardCertification": "Tumour Board Certification",
       "/MHCList": "MHC Reports",
       "/MHCReviewList": "MHC Review & Due List",
       "/Masterhealthcheck": "Master Health Check",
@@ -1337,6 +1340,12 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/JRDReport" element={<JRDReport />} />}
+              {hasPagePermission(
+                "/TumourBoardCertification",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/TumourBoardCertification" element={<TumourBoardCertificaiton />} />}
+
               {/* MHC Reports */}
               {(hasPagePermission(
                 "/MHCList",
@@ -2083,6 +2092,10 @@ function App() {
               <Route path="/insurancepackages" element={<InsurancePackages />} />
               <Route path="/InsurancePackagesMaster" element={<InsurancePackages />} />
               <Route path="/insurancepackagesmaster" element={<InsurancePackages />} />
+              <Route path="/TumourBoardCertification" element={<TumourBoardCertificaiton />} />
+              <Route path="/tumourboardcertification" element={<TumourBoardCertificaiton />} />
+              <Route path="/TumourBoardCertificaiton" element={<TumourBoardCertificaiton />} />
+              <Route path="/tumourboardcertificaiton" element={<TumourBoardCertificaiton />} />
             </Routes>
 
 
