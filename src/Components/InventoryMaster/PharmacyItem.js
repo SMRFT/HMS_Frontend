@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import SearchSelect from "../Common/SearchSelect";
 import {
   InvTheme,
   InvPageHeader,
@@ -296,11 +297,18 @@ const PharmacyItem = () => {
   const [editId, setEditId] = useState(null);
   const [errors, setErrors] = useState({});
 
-  // Item Tracking Modal State
-  const [trackingModalOpen, setTrackingModalOpen] = useState(false);
-  const [trackingData, setTrackingData] = useState(null);
-  const [trackingItemName, setTrackingItemName] = useState("");
-  const [trackingLoading, setTrackingLoading] = useState(false);
+  // Purchase History Modal State
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyItem, setHistoryItem] = useState(null);
+  const [historyData, setHistoryData] = useState([]);
+  const [historySuppliers, setHistorySuppliers] = useState([]);
+  const [selectedSupplier, setSelectedSupplier] = useState("ALL");
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyPageSize, setHistoryPageSize] = useState(10);
+  const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
+  const [historyTotalRecords, setHistoryTotalRecords] = useState(0);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -414,23 +422,42 @@ const PharmacyItem = () => {
     fetchCompositions();
   }, []);
 
-  const handleTrackItem = async (item) => {
-    setTrackingItemName(item.item_name);
-    setTrackingModalOpen(true);
-    setTrackingData(null);
-    setTrackingLoading(true);
+  const fetchPurchaseHistory = useCallback(async (itemId, supplier = "ALL", page = 1, pageSize = 10) => {
+    if (!itemId) return;
+    setHistoryLoading(true);
     try {
-      const res = await apiRequest(`${baseUrl}get_pharmacy_item_tracking/?item_id=${item.item_id}`, "GET");
+      const q = new URLSearchParams({
+        item_id: String(itemId),
+        supplier: supplier === "ALL" ? "" : supplier,
+        page: String(page),
+        page_size: String(pageSize),
+      });
+      const res = await apiRequest(`${baseUrl}pharmacy_item_purchase_history/?${q.toString()}`, "GET");
       if (res && res.success) {
-        setTrackingData(res.data);
+        setHistoryData(res.records || []);
+        setHistoryTotalRecords(res.total_records || 0);
+        setHistoryTotalPages(res.total_pages || 1);
+        if (res.suppliers) {
+          setHistorySuppliers(res.suppliers);
+        }
       } else {
-        showToast(res?.error || "Failed to fetch tracking data", "error");
+        showToast(res?.error || "Failed to fetch purchase history", "error");
       }
     } catch {
-      showToast("Error fetching tracking data", "error");
+      showToast("Error fetching purchase history", "error");
     } finally {
-      setTrackingLoading(false);
+      setHistoryLoading(false);
     }
+  }, []);
+
+  const handleOpenPurchaseHistory = (item) => {
+    setHistoryItem(item);
+    setSelectedSupplier("ALL");
+    setHistorySearch("");
+    setHistoryCurrentPage(1);
+    setHistoryPageSize(10);
+    setHistoryModalOpen(true);
+    fetchPurchaseHistory(item.item_id, "ALL", 1, 10);
   };
 
   const getCompositionName = (id) => {
@@ -564,6 +591,18 @@ const PharmacyItem = () => {
       setLoading(false);
     }
   };
+
+  const displayHistoryData = (historyData || []).filter((r) => {
+    if (!historySearch.trim()) return true;
+    const q = historySearch.toLowerCase();
+    return (
+      (r.ref || "").toLowerCase().includes(q) ||
+      (r.batch || "").toLowerCase().includes(q) ||
+      (r.supplier || "").toLowerCase().includes(q) ||
+      (r.type || "").toLowerCase().includes(q) ||
+      (r.order_number || "").toLowerCase().includes(q)
+    );
+  });
 
   const startIdx = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
 
@@ -1018,8 +1057,8 @@ const PharmacyItem = () => {
                     </InvTd>
                     <InvTd style={{ textAlign: "center" }}>
                       <InvActionGroup>
-                        <InvActionBtn variant="track" onClick={() => handleTrackItem(item)} title="Track Batch & Stock">
-                          🔍 Track
+                        <InvActionBtn variant="history" onClick={() => handleOpenPurchaseHistory(item)} title="Purchase History">
+                          📋 Purchase History
                         </InvActionBtn>
                         <InvActionBtn variant="edit" onClick={() => handleEdit(item)} title="Edit Pharmacy Item">
                           ✏️ Edit
@@ -1046,77 +1085,275 @@ const PharmacyItem = () => {
         />
       </ContentCard>
 
-      {/* ── Tracking Modal ── */}
-      {trackingModalOpen && (
-        <InvModalOverlay onClick={() => setTrackingModalOpen(false)}>
-          <InvModalContainer maxWidth="800px" onClick={(e) => e.stopPropagation()}>
+      {/* ── Purchase History Modal ── */}
+      {historyModalOpen && (
+        <InvModalOverlay onClick={() => setHistoryModalOpen(false)}>
+          <InvModalContainer maxWidth="1150px" onClick={(e) => e.stopPropagation()}>
             <InvModalHeader>
-              <InvModalTitle>🔍 Item Stock & Batch Tracking — {trackingItemName}</InvModalTitle>
-              <InvModalCloseBtn onClick={() => setTrackingModalOpen(false)}>✕</InvModalCloseBtn>
+              <InvModalTitle>
+                Purchase History
+                {historyItem && (
+                  <span style={{ fontSize: "0.82rem", fontWeight: 400, opacity: 0.9, marginLeft: 10 }}>
+                    — {String(historyItem.item_name || "").toUpperCase()}
+                  </span>
+                )}
+              </InvModalTitle>
+              <InvModalCloseBtn onClick={() => setHistoryModalOpen(false)}>✕</InvModalCloseBtn>
             </InvModalHeader>
 
-            <InvModalBody>
-              {trackingLoading ? (
-                <div style={{ textAlign: "center", padding: 30 }}>Loading tracking details...</div>
-              ) : !trackingData ? (
-                <InvEmptyState>No stock / batch data found for this item.</InvEmptyState>
-              ) : (
-                <div>
-                  <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
-                    <div style={{ background: "#f0fdfa", padding: "10px 16px", borderRadius: 6, border: `1px solid ${InvTheme.primaryBorder}` }}>
-                      <div style={{ fontSize: "0.75rem", color: InvTheme.textMuted }}>Total Stock</div>
-                      <div style={{ fontSize: "1.2rem", fontWeight: 700, color: InvTheme.primaryDark }}>
-                        {trackingData.total_stock ?? 0}
-                      </div>
-                    </div>
-                    <div style={{ background: "#f8fafc", padding: "10px 16px", borderRadius: 6, border: `1px solid ${InvTheme.border}` }}>
-                      <div style={{ fontSize: "0.75rem", color: InvTheme.textMuted }}>Active Batches</div>
-                      <div style={{ fontSize: "1.2rem", fontWeight: 700, color: InvTheme.textMain }}>
-                        {trackingData.batches?.length ?? 0}
-                      </div>
+            <InvModalBody style={{ padding: "16px 20px" }}>
+              {/* Single-line Filter, Show Entries, Quick Search & Live Count */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                marginBottom: 10,
+                flexWrap: "nowrap",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+                padding: "6px 10px"
+              }}>
+                {/* Left: Supplier & Show entries on same line */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "nowrap" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#475569", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                      Supplier:
+                    </label>
+                    <div style={{ width: 170 }}>
+                      <SearchSelect
+                        height={28}
+                        style={{ height: 28, fontSize: "0.76rem" }}
+                        value={selectedSupplier}
+                        onChange={(val) => {
+                          setSelectedSupplier(val);
+                          setHistoryCurrentPage(1);
+                          fetchPurchaseHistory(historyItem?.item_id, val, 1, historyPageSize);
+                        }}
+                        options={[
+                          { value: "ALL", label: "All Suppliers" },
+                          ...historySuppliers.map((s) => ({
+                            value: String(s.vendor_id),
+                            label: s.name,
+                          })),
+                        ]}
+                        placeholder="All Suppliers"
+                      />
                     </div>
                   </div>
 
-                  <FormSectionTitle>Batch Breakdown</FormSectionTitle>
-                  <InvTableWrapper>
-                    <InvTable>
-                      <thead>
-                        <tr>
-                          <InvTh>Batch No.</InvTh>
-                          <InvTh>Outlet</InvTh>
-                          <InvTh>Available Qty</InvTh>
-                          <InvTh>MRP</InvTh>
-                          <InvTh>Expiry Date</InvTh>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(trackingData.batches || []).length === 0 ? (
-                          <tr>
-                            <InvTd colSpan={5} style={{ textAlign: "center" }}>No active batches</InvTd>
-                          </tr>
-                        ) : (
-                          trackingData.batches.map((b, i) => (
-                            <InvTr key={i}>
-                              <InvTd style={{ fontWeight: 600 }}>{b.batch_number || "—"}</InvTd>
-                              <InvTd>{b.outlet_code || "Main Store"}</InvTd>
-                              <InvTd style={{ fontWeight: 700, color: InvTheme.primary }}>{b.available_stock ?? b.quantity ?? 0}</InvTd>
-                              <InvTd>₹{b.mrp ?? "0.00"}</InvTd>
-                              <InvTd>{b.expiry_date || "—"}</InvTd>
-                            </InvTr>
-                          ))
-                        )}
-                      </tbody>
-                    </InvTable>
-                  </InvTableWrapper>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#475569", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                      Show:
+                    </label>
+                    <select
+                      value={historyPageSize}
+                      onChange={(e) => {
+                        const sz = Number(e.target.value);
+                        setHistoryPageSize(sz);
+                        setHistoryCurrentPage(1);
+                        fetchPurchaseHistory(historyItem?.item_id, selectedSupplier, 1, sz);
+                      }}
+                      style={{
+                        height: 28,
+                        minWidth: 54,
+                        padding: "0 6px",
+                        borderRadius: 6,
+                        border: "1px solid #cbd5e1",
+                        fontSize: "0.76rem",
+                        background: "#fff",
+                        cursor: "pointer",
+                        outline: "none",
+                      }}
+                    >
+                      {[10, 25, 50, 100].map((sz) => (
+                        <option key={sz} value={sz}>{sz}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              )}
-            </InvModalBody>
 
-            <InvModalFooter>
-              <InvAddBtn secondary onClick={() => setTrackingModalOpen(false)}>
-                Close
-              </InvAddBtn>
-            </InvModalFooter>
+                {/* Right: Quick Search input + Live Record Count on same line */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
+                  <input
+                    type="text"
+                    placeholder="Search ref, batch, supplier..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    style={{
+                      height: 28,
+                      width: 170,
+                      padding: "0 8px",
+                      borderRadius: 6,
+                      border: "1px solid #cbd5e1",
+                      fontSize: "0.76rem",
+                      background: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "2px 8px",
+                    height: 22,
+                    background: "#f1f5f9",
+                    color: "#334155",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 12,
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    whiteSpace: "nowrap",
+                  }}>
+                    {displayHistoryData.length} records
+                  </span>
+                </div>
+              </div>
+
+              {/* Data Table */}
+              <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 6 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050, fontSize: "0.78rem" }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Ref</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>P.Date</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Supplier</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Unit</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Quantity</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Batch</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155", textAlign: "right" }}>P.Rate</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155", textAlign: "right" }}>Mrp</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Inv Date</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Order Number</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Type</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Expiry</th>
+                      <th style={{ padding: "10px 12px", fontWeight: 700, color: "#334155" }}>Packing</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyLoading ? (
+                      <tr>
+                        <td colSpan={13} style={{ textAlign: "center", padding: 30, color: "#64748b" }}>
+                          Loading purchase history...
+                        </td>
+                      </tr>
+                    ) : displayHistoryData.length === 0 ? (
+                      <tr>
+                        <td colSpan={13} style={{ textAlign: "center", padding: 30, color: "#94a3b8" }}>
+                          No purchase history found for this item.
+                        </td>
+                      </tr>
+                    ) : (
+                      displayHistoryData.map((row, idx) => (
+                        <tr
+                          key={idx}
+                          style={{
+                            borderBottom: "1px solid #f1f5f9",
+                            background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd",
+                            transition: "background 0.1s",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "#f0fdfa")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = idx % 2 === 0 ? "#ffffff" : "#fcfdfd")}
+                        >
+                          <td style={{ padding: "10px 12px", fontWeight: 600, color: "#0f766e" }}>{row.ref}</td>
+                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{row.p_date}</td>
+                          <td style={{ padding: "10px 12px", fontWeight: 500, color: "#1e293b", maxWidth: 200 }}>{row.supplier}</td>
+                          <td style={{ padding: "10px 12px" }}>{row.unit}</td>
+                          <td style={{ padding: "10px 12px", fontWeight: 700 }}>{row.quantity}</td>
+                          <td style={{ padding: "10px 12px", fontFamily: "monospace", fontWeight: 600 }}>{row.batch}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>₹ {row.p_rate}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>₹ {row.mrp}</td>
+                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{row.inv_date}</td>
+                          <td style={{ padding: "10px 12px" }}>{row.order_number || "—"}</td>
+                          <td style={{ padding: "10px 12px", fontSize: "0.72rem", color: "#475569" }}>{row.type}</td>
+                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{row.expiry}</td>
+                          <td style={{ padding: "10px 12px" }}>{row.packing}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination matching screenshot */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, flexWrap: "wrap", gap: 10 }}>
+                <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                  Showing {historyTotalRecords === 0 ? 0 : (historyCurrentPage - 1) * historyPageSize + 1} to{" "}
+                  {Math.min(historyCurrentPage * historyPageSize, historyTotalRecords)} of {historyTotalRecords} entries
+                </span>
+
+                <div style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                  <button
+                    disabled={historyCurrentPage === 1 || historyLoading}
+                    onClick={() => {
+                      const prev = historyCurrentPage - 1;
+                      setHistoryCurrentPage(prev);
+                      fetchPurchaseHistory(historyItem?.item_id, selectedSupplier, prev, historyPageSize);
+                    }}
+                    style={{
+                      height: 30,
+                      padding: "0 10px",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 4,
+                      background: historyCurrentPage === 1 ? "#f8fafc" : "#ffffff",
+                      color: historyCurrentPage === 1 ? "#94a3b8" : "#334155",
+                      cursor: historyCurrentPage === 1 ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Previous
+                  </button>
+
+                  {Array.from({ length: Math.min(5, historyTotalPages) }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        setHistoryCurrentPage(p);
+                        fetchPurchaseHistory(historyItem?.item_id, selectedSupplier, p, historyPageSize);
+                      }}
+                      style={{
+                        height: 30,
+                        minWidth: 30,
+                        padding: "0 8px",
+                        fontSize: "0.75rem",
+                        fontWeight: p === historyCurrentPage ? 700 : 500,
+                        border: "1px solid",
+                        borderColor: p === historyCurrentPage ? "#0d9488" : "#cbd5e1",
+                        borderRadius: 4,
+                        background: p === historyCurrentPage ? "#0f766e" : "#ffffff",
+                        color: p === historyCurrentPage ? "#ffffff" : "#334155",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+
+                  <button
+                    disabled={historyCurrentPage >= historyTotalPages || historyLoading}
+                    onClick={() => {
+                      const next = historyCurrentPage + 1;
+                      setHistoryCurrentPage(next);
+                      fetchPurchaseHistory(historyItem?.item_id, selectedSupplier, next, historyPageSize);
+                    }}
+                    style={{
+                      height: 30,
+                      padding: "0 10px",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 4,
+                      background: historyCurrentPage >= historyTotalPages ? "#f8fafc" : "#ffffff",
+                      color: historyCurrentPage >= historyTotalPages ? "#94a3b8" : "#334155",
+                      cursor: historyCurrentPage >= historyTotalPages ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </InvModalBody>
           </InvModalContainer>
         </InvModalOverlay>
       )}

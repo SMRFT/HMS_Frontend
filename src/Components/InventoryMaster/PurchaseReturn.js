@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
-import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper";
+import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper";
 import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
@@ -179,39 +179,6 @@ const TableSelect = styled.select`
   outline: none;
   &:focus {
     border-color: #0d9488;
-  }
-`;
-
-const Pager = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 24px;
-  border-top: 1px solid #e5e7eb;
-  font-size: 0.82rem;
-  color: #6b7280;
-  flex-wrap: wrap;
-  gap: 8px;
-  background: #fff;
-`;
-
-const PB = styled.button`
-  height: 32px;
-  padding: 0 14px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: ${(p) => (p.active ? "#0d9488" : "#fff")};
-  color: ${(p) => (p.active ? "#fff" : "#374151")};
-  cursor: pointer;
-  transition: all 0.15s;
-  &:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-  &:hover:not(:disabled) {
-    background: ${(p) => (p.active ? "#0f766e" : "#f3f4f6")};
   }
 `;
 
@@ -620,6 +587,7 @@ const ViewDetailsModal = ({ record, outlets, onClose }) => {
               ["Vendor", record.vendor_name || record.vendor_code || "-"],
               ["Outlet", getOutletName(record.outlet_code)],
               ["Status", record.status],
+              ["Created By", record.created_by_name || record.created_by || "-"],
               ["Total Amt", `₹ ${Number(record.purchase_return_amount || 0).toFixed(2)}`],
             ].map(([lbl, val]) => (
               <div key={lbl} style={{ minWidth: 130 }}>
@@ -693,6 +661,7 @@ function getAuthContext() {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 const PurchaseReturn = () => {
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
   const { outletCode, isDrugPurchase } = getAuthContext();
 
@@ -827,19 +796,30 @@ const PurchaseReturn = () => {
   // ── GRN Search ─────────────────────────────────────────────────────────────
   const handleGrnSearch = async () => {
     if (!grnNumber.trim()) { toast.error("Please enter a GRN number"); return; }
-    if (!selectedVendor) { toast.error("Please select a vendor first"); return; }
-    const vendorId = selectedVendor.vendor_code || selectedVendor.code || selectedVendor.vendor_id || "";
+    const vendorId = selectedVendor ? (selectedVendor.vendor_code || selectedVendor.code || selectedVendor.vendor_id || "") : "";
 
     setGrnLoading(true);
     setGrnSearched(false);
     try {
-      const r = await apiRequest(
-        `${HmsBaseUrl}grn-items/?grn_number=${encodeURIComponent(grnNumber.trim())}&vendor_id=${encodeURIComponent(vendorId)}`, "GET"
-      );
+      const url = vendorId
+        ? `${HmsBaseUrl}grn-items/?grn_number=${encodeURIComponent(grnNumber.trim())}&vendor_id=${encodeURIComponent(vendorId)}`
+        : `${HmsBaseUrl}grn-items/?grn_number=${encodeURIComponent(grnNumber.trim())}`;
+      const r = await apiRequest(url, "GET");
       const apiResp = r?.data;
       if (apiResp && apiResp.success === false) {
         toast.error(apiResp.error || "No items found for this GRN number");
       } else {
+        // Auto-populate vendor if returned from GRN
+        if (apiResp?.vendor) {
+          const matchedVendor = vendors.find((v) =>
+            String(v.vendor_id || v.vendor_code || v.code) === String(apiResp.vendor.vendor_id || apiResp.vendor.vendor_code)
+          ) || apiResp.vendor;
+          setSelectedVendor(matchedVendor);
+        }
+        if (apiResp?.outlet_code && !selectedOutlet) {
+          setSelectedOutlet(apiResp.outlet_code);
+        }
+
         const data = apiResp?.data ?? (Array.isArray(apiResp) ? apiResp : []);
         if (!data || data.length === 0) {
           toast.warning("No items found for this GRN number");
@@ -851,10 +831,9 @@ const PurchaseReturn = () => {
             cause_of_return: "",
           }));
           setAddedItems((prev) => [...prev, ...newItems]);
-          toast.success(`Appended ${data.length} item(s) from GRN`);
+          toast.success(`Found GRN: loaded vendor & ${data.length} item(s)`);
         }
       }
-      setGrnNumber(""); // Clear the search field for the next one
       setGrnSearched(true);
     } catch {
       toast.error("Failed to search GRN");
@@ -991,7 +970,7 @@ const PurchaseReturn = () => {
                   </div>
                   <div>
                     <label style={{ fontSize: "0.68rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Phone</label>
-                    <input readOnly value={selectedVendor ? (selectedVendor.phone || selectedVendor.contact_number || "") : ""} style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: "0.82rem", color: "#374151", outline: "none", boxSizing: "border-box" }} />
+                    <input readOnly tabIndex={-1} value={selectedVendor ? (selectedVendor.phone || selectedVendor.contact_number || "") : ""} style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: "0.82rem", color: "#374151", outline: "none", boxSizing: "border-box" }} />
                   </div>
                 </div>
               </div>
@@ -1257,16 +1236,9 @@ const PurchaseReturn = () => {
                             ₹ {Number(rec.purchase_return_amount || 0).toFixed(2)}
                           </Td>
                           <Td style={{ textAlign: "center" }}>
-                            <RowKebabMenu
-                              record={rec}
-                              onPrint={() => setPrintModal(rec)}
-                              onView={() => setViewModal(rec)}
-                              onUpdateStatus={() => {
-                                if (window.confirm("Are you sure you want to return this bill?")) {
-                                  handleStatusUpdate(rec, "Returned");
-                                }
-                              }}
-                            />
+                            <InvDropBtn onClick={(e) => openMenu(e, rec.purchase_return_bill_no)} title="Actions">
+                                ⋮
+                              </InvDropBtn>
                           </Td>
                         </Tr>
                       );
@@ -1277,53 +1249,13 @@ const PurchaseReturn = () => {
             )}
           </TableWrapper>
 
-          <Pager>
-            <div>
-              Showing {totalCount === 0 ? 0 : (page - 1) * pageSize + 1} to{" "}
-              {Math.min(page * pageSize, totalCount)} of {totalCount} entries
-            </div>
-            <div style={{ display: "flex", gap: 4 }}>
-              <PB
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </PB>
-              {(() => {
-                const pages = [];
-                if (totalPages <= 7) {
-                  for (let i = 1; i <= totalPages; i++) pages.push(i);
-                } else {
-                  pages.push(1);
-                  if (page > 3) pages.push("...");
-                  const start = Math.max(2, page - 1);
-                  const end = Math.min(totalPages - 1, page + 1);
-                  for (let i = start; i <= end; i++) pages.push(i);
-                  if (page < totalPages - 2) pages.push("...");
-                  pages.push(totalPages);
-                }
-                return pages.map((pNum, i) =>
-                  pNum === "..." ? (
-                    <span key={`dots-${i}`} style={{ padding: "0 6px", alignSelf: "center" }}>...</span>
-                  ) : (
-                    <PB
-                      key={pNum}
-                      active={page === pNum}
-                      onClick={() => setPage(pNum)}
-                    >
-                      {pNum}
-                    </PB>
-                  )
-                );
-              })()}
-              <PB
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-              </PB>
-            </div>
-          </Pager>
+          <InvPagination
+            currentPage={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={totalCount}
+            onPageChange={setPage}
+          />
         </div>
 
       </Container>
@@ -1348,6 +1280,34 @@ const PurchaseReturn = () => {
           onClose={() => setPrintModal(null)}
         />
       )}
+      {/* ══ Action Dropdown (Admission / PO style) ══ */}
+      {menuOpenId && (() => {
+        const rec = returns.find((r) => r.purchase_return_bill_no === menuOpenId);
+        if (!rec) return null;
+        return (
+          <InvDropMenu {...menuPos}>
+            <InvMenuItem onClick={() => { closeMenu(); setViewModal(rec); }}>
+              👁 View Details
+            </InvMenuItem>
+            {rec.status === "Returned" && (
+              <InvMenuItem onClick={() => { closeMenu(); setPrintModal(rec); }}>
+                🖨️ Print Return
+              </InvMenuItem>
+            )}
+            {rec.status === "Pending" && (
+              <InvMenuItem $success onClick={() => {
+                closeMenu();
+                if (window.confirm("Are you sure you want to return this bill?")) {
+                  handleStatusUpdate(rec, "Returned");
+                }
+              }}>
+                ✔ Mark as Returned
+              </InvMenuItem>
+            )}
+          </InvDropMenu>
+        );
+      })()}
+
     </PageWrapper>
   );
 };

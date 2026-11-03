@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString, InvSelect } from "./InventoryUIHelper"
+import {  InvTopToolbar, getTodayDateString, InvSelect , InvPagination } from "./InventoryUIHelper"
+import SendEmailModal from "./SendEmailModal"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
 /* ── Animations ── */
 const fadeSlide = keyframes`from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}`
+const fadeIn    = keyframes`from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)}`
 const spin      = keyframes`to{transform:rotate(360deg)}`
 
 /* ── Tokens ── */
@@ -61,12 +63,6 @@ const SLbl  = styled.div`font-size:.68rem;font-weight:800;text-transform:upperca
 const Card     = styled.div`background:${C.surface};border:1px solid ${C.border};border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);${css`animation:${fadeSlide} .22s ease;`}`
 const CardHead = styled.div`background:${C.faint};border-bottom:1px solid ${C.border};padding:12px 18px;font-size:.82rem;font-weight:800;color:${C.primary};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;`
 
-/* ── Filter bar ── */
-const FBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:13px 18px;background:${C.faint};border-bottom:1px solid ${C.border};`
-const FG   = styled.div`display:flex;flex-direction:column;gap:4px;`
-const Lbl  = styled.label`font-size:.7rem;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:.05em;`
-const Inp  = styled.input`padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};border-radius:7px;font-size:.875rem;color:${C.text};outline:none;font-family:inherit;width:100%;box-sizing:border-box;transition:border-color .13s;&:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}`
-const Sel  = styled.select`padding:9px 12px;border:1.5px solid ${C.border};border-radius:7px;font-size:.875rem;color:${C.text};outline:none;background:#fff;font-family:inherit;width:100%;box-sizing:border-box;transition:border-color .13s;&:focus{border-color:${C.primary};}`
 const Txta = styled.textarea`padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};border-radius:7px;font-size:.875rem;color:${C.text};outline:none;width:100%;box-sizing:border-box;resize:vertical;min-height:88px;font-family:inherit;transition:border-color .13s;&:focus{border-color:${C.danger};box-shadow:0 0 0 3px rgba(220,38,38,.1);}`
 const Err  = styled.div`font-size:.7rem;color:${C.danger};margin-top:4px;`
 
@@ -93,97 +89,85 @@ const Pill = styled.span`background:${C.pLight};color:${C.pDark};padding:2px 8px
 const Btn     = styled.button`display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:6px;font-size:.75rem;font-weight:800;cursor:pointer;font-family:inherit;transition:background .13s;&:disabled{opacity:.4;cursor:not-allowed;}`
 const ApprBtn = styled(Btn)`background:${C.sLight};color:${C.success};border:1px solid #86efac;&:hover:not(:disabled){background:#bbf7d0;}`
 const RejBtn  = styled(Btn)`background:${C.dLight};color:${C.danger};border:1px solid #fca5a5;&:hover:not(:disabled){background:#fecaca;}`
-const ViewBtn = styled(Btn)`background:${C.faint};color:${C.muted};border:1px solid ${C.border};&:hover:not(:disabled){background:#eef2f7;}`
 const MailBtn = styled(Btn)`background:${C.mailL};color:${C.mail};border:1px solid ${C.mailB};&:hover:not(:disabled){background:#ddd6fe;}`
 const SecBtn  = styled(Btn)`background:#fff;color:#374151;border:1.5px solid ${C.border};padding:8px 18px;&:hover:not(:disabled){background:${C.faint};}`
 const RefBtn  = styled(Btn)`background:${C.primary};color:#fff;border:none;padding:8px 16px;font-size:.82rem;&:hover:not(:disabled){background:${C.pDark};}`
 
-const TTBar = styled.div`
-  display: flex;
+/* ── Dropdown Action Menu (Matching Admission List) ── */
+const AW = styled.div`
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px;
-  border-bottom: 1px solid #e5e7eb;
-  flex-wrap: wrap;
-  gap: 8px;
-  background: #fff;
 `;
 
-const TableSelect = styled.select`
+const DotB = styled.button`
+  width: 28px;
   height: 28px;
-  width: 72px;
-  padding: 0 6px;
-  font-size: .75rem;
-  font-weight: 600;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
-  color: #1f2937;
-  cursor: pointer;
-  outline: none;
-  &:focus {
-    border-color: ${C.primary};
-  }
-`;
-
-const Pager = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 18px;
-  border-top: 1px solid #e5e7eb;
-  font-size: .75rem;
-  color: #6b7280;
-  flex-wrap: wrap;
-  gap: 6px;
-  background: #fff;
-`;
-
-const PB = styled.button`
-  height: 28px;
-  padding: 0 13px;
-  font-size: .75rem;
+  border-radius: 50%;
   border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: ${p => p.active ? C.primary : '#fff'};
-  color: ${p => p.active ? '#fff' : '#374151'};
+  background: #fff;
   cursor: pointer;
-  &:disabled {
-    opacity: .45;
-    cursor: default;
-  }
-  &:hover:not(:disabled) {
-    background: ${p => p.active ? C.primary : '#f3f4f6'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: #6b7280;
+  transition: all .15s ease;
+  &:hover {
+    background: #f3f4f6;
+    color: #111827;
+    border-color: #cbd5e1;
   }
 `;
 
-/* ── Three-dot action menu ── */
-const MenuWrap = styled.div`position:relative;display:inline-block;`
-const DotBtn   = styled.button`
-  width:32px;height:32px;border-radius:7px;border:1.5px solid ${C.border};
-  background:#fff;color:${C.muted};font-size:1.1rem;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;
-  transition:background .13s,border-color .13s;
-  &:hover{background:${C.faint};border-color:${C.primary};color:${C.primary};}
-`
-const MenuList = styled.ul`
-  position:absolute;right:0;top:calc(100% + 4px);z-index:9999;
-  min-width:170px;background:#fff;border:1.5px solid ${C.border};
-  border-radius:9px;box-shadow:0 8px 28px rgba(0,0,0,.13);
-  list-style:none;margin:0;padding:5px;
-  ${css`animation:${fadeSlide} .14s ease;`}
-`
-const MenuItem = styled.li`
-  display:flex;align-items:center;gap:8px;
-  padding:8px 12px;border-radius:6px;font-size:.8rem;font-weight:700;
-  cursor:pointer;
-  color:${p => p.$danger ? C.danger : p.$mail ? C.mail : p.$success ? C.success : C.text};
-  transition:background .1s;
-  &:hover{
-    background:${p => p.$danger ? "#fff1f2" : p.$mail ? C.mailL : p.$success ? C.sLight : C.pLight};
-    color:${p => p.$danger ? C.danger : p.$mail ? C.mail : p.$success ? C.success : C.primary};
+const DropMenu = styled.div`
+  position: fixed;
+  ${p => p.placement === "top" ? `bottom: ${p.bottom}px;` : `top: ${p.top}px;`}
+  left: ${p => p.left}px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .16);
+  z-index: 9999;
+  min-width: 190px;
+  max-height: ${p => p.maxHeight || 280}px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  animation: ${fadeIn} .14s ease;
+
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+`;
+
+const DI = styled.button`
+  width: 100%;
+  padding: 9px 14px;
+  text-align: left;
+  font-size: .78rem;
+  font-weight: 500;
+  background: none;
+  border: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: ${p => p.disabled ? '#9ca3af' : p.danger ? '#dc2626' : p.$mail ? '#7c3aed' : p.$success ? '#166534' : '#374151'};
+  cursor: ${p => p.disabled ? 'not-allowed' : 'pointer'};
+  transition: background .12s, color .12s;
+  &:hover:not(:disabled), &:focus:not(:disabled) {
+    background: ${p => p.danger ? '#fff1f2' : p.$mail ? '#f5f3ff' : p.$success ? '#f0fdf4' : '#f0fdf4'};
+    color: ${p => p.danger ? '#dc2626' : p.$mail ? '#6d28d9' : p.$success ? '#166534' : '#0d9488'};
+    box-shadow: inset 3px 0 0 ${p => p.danger ? '#dc2626' : p.$mail ? '#7c3aed' : p.$success ? '#16a34a' : '#0d9488'};
   }
-`
+`;
+
+const Thead = styled.thead`
+  background: #f9fafb;
+`;
 
 /* ── Spinner ── */
 const SpinEl = styled.span`display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;${css`animation:${spin} .65s linear infinite;`}`
@@ -274,112 +258,7 @@ const RejectModal = ({ po, onConfirm, onClose, loading }) => {
   )
 }
 
-/* ── Send Email Modal ── */
-const SendEmailModal = ({ po, onConfirm, onClose, loading }) => {
-  const [toEmail, setToEmail] = useState(po.vendor_email || "")
-  const [touched, setTouched] = useState(false)
 
-  const isValidEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
-
-  const go = () => {
-    setTouched(true)
-    if (!toEmail.trim() || !isValidEmail(toEmail.trim())) return
-    onConfirm(toEmail.trim())
-  }
-
-  const items    = safeItems(po.items)
-  const totalQty = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0)
-
-  return (
-    <MOverlay onClick={onClose}>
-      <MBox onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <div style={{
-            width: 36, height: 36, background: C.mailL, borderRadius: 8,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem"
-          }}>
-            ✉️
-          </div>
-          <MTitle style={{ margin: 0 }}>Send PO to Vendor</MTitle>
-        </div>
-
-        {/* PO Summary */}
-        <div style={{
-          background: C.faint, border: `1px solid ${C.border}`, borderRadius: 8,
-          padding: "10px 14px", marginBottom: 16, fontSize: ".82rem"
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontWeight: 700, color: C.primary, fontFamily: "monospace" }}>{po.po_number}</span>
-            <Badge $s={po.status}>{po.status}</Badge>
-          </div>
-          <div style={{ color: C.muted, fontSize: ".78rem" }}>
-            <strong style={{ color: C.text }}>{po.vendor_name || po.vendor_id}</strong>
-            &nbsp;·&nbsp;{items.length} item{items.length !== 1 ? "s" : ""}
-            &nbsp;·&nbsp;Total Qty: <strong>{totalQty}</strong>
-          </div>
-        </div>
-
-        {/* Medicine items preview */}
-        {items.length > 0 && (
-          <div style={{
-            border: `1px solid ${C.border}`, borderRadius: 7, overflow: "hidden", marginBottom: 16,
-            maxHeight: 160, overflowY: "auto"
-          }}>
-            <ITable style={{ fontSize: ".76rem" }}>
-              <thead>
-                <tr>
-                  <ITh style={{ position: "sticky", top: 0, zIndex: 1 }}>#</ITh>
-                  <ITh style={{ position: "sticky", top: 0, zIndex: 1 }}>Medicine Name</ITh>
-                  <ITh style={{ position: "sticky", top: 0, zIndex: 1, textAlign: "right" }}>Qty</ITh>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it, i) => (
-                  <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : C.faint }}>
-                    <ITd style={{ color: C.muted, fontSize: ".7rem", fontWeight: 700 }}>{i + 1}</ITd>
-                    <ITd style={{ fontWeight: 600 }}>{it.medicine_name || "—"}</ITd>
-                    <ITd style={{ fontWeight: 700, color: C.primary, textAlign: "right" }}>{it.quantity}</ITd>
-                  </tr>
-                ))}
-              </tbody>
-            </ITable>
-          </div>
-        )}
-
-        {/* Email field */}
-        <div style={{ marginBottom: 4 }}>
-          <MLbl>Recipient Email <span style={{ color: C.danger }}>*</span></MLbl>
-          <Inp
-            type="email"
-            $err={touched && (!toEmail.trim() || !isValidEmail(toEmail.trim()))}
-            value={toEmail}
-            onChange={e => setToEmail(e.target.value)}
-            placeholder="vendor@example.com"
-          />
-          {touched && !toEmail.trim() && <Err>Email is required.</Err>}
-          {touched && toEmail.trim() && !isValidEmail(toEmail.trim()) && (
-            <Err>Enter a valid email address.</Err>
-          )}
-        </div>
-        <div style={{ fontSize: ".72rem", color: C.muted, marginBottom: 16 }}>
-          A styled HTML purchase order will be sent to this address.
-        </div>
-
-        <MBtnRow>
-          <SecBtn onClick={onClose} disabled={loading}>Cancel</SecBtn>
-          <MConfB $mail onClick={go} disabled={loading} style={{ background: C.mail }}>
-            {loading
-              ? <><SpinEl /> Sending…</>
-              : <><span>✉️</span> Send PO</>
-            }
-          </MConfB>
-        </MBtnRow>
-      </MBox>
-    </MOverlay>
-  )
-}
 
 /* ════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -403,16 +282,79 @@ export default function PurchaseOrderApproval() {
   const [approvePo, setApprovePo] = useState(null)
   const [rejectPo,  setRejectPo]  = useState(null)
   const [viewPo,    setViewPo]    = useState(null)
-  const [emailPo,   setEmailPo]   = useState(null)   // ← new: PO selected for email
-  const [openMenuId, setOpenMenuId] = useState(null)
+  const [emailPo,   setEmailPo]   = useState(null)
+  const [openMenu,  setOpenMenu]  = useState(null)
+  const [menuPos,   setMenuPos]   = useState({ top: 0, bottom: 0, left: 0, placement: "bottom", maxHeight: 280 })
   const menuRef = useRef(null)
 
-  /* close menu on outside click */
+  /* close menu on outside click, scroll, resize */
   useEffect(() => {
-    const h = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null) }
-    document.addEventListener("mousedown", h)
-    return () => document.removeEventListener("mousedown", h)
-  }, [])
+    const handleClickOutside = e => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null)
+    }
+    const handleScrollOrResize = () => {
+      if (openMenu !== null) setOpenMenu(null)
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    window.addEventListener("scroll", handleScrollOrResize, true)
+    window.addEventListener("resize", handleScrollOrResize)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      window.removeEventListener("scroll", handleScrollOrResize, true)
+      window.removeEventListener("resize", handleScrollOrResize)
+    }
+  }, [openMenu])
+
+  const handleMenuToggle = (poNumber, e) => {
+    if (openMenu === poNumber) {
+      setOpenMenu(null)
+      return
+    }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const mw = 190
+    const windowHeight = window.innerHeight
+    const windowWidth = window.innerWidth
+    const menuEstimatedHeight = 220
+
+    let left = rect.right - mw
+    if (left < 8) left = 8
+    if (left + mw > windowWidth - 8) left = windowWidth - mw - 8
+
+    const spaceBelow = windowHeight - rect.bottom
+    const spaceAbove = rect.top
+
+    let placement = "bottom"
+    let top = rect.bottom + 4
+    let bottom = 0
+    let maxHeight = Math.min(280, spaceBelow - 12)
+
+    if (spaceBelow < menuEstimatedHeight && spaceAbove > spaceBelow) {
+      placement = "top"
+      bottom = windowHeight - rect.top + 4
+      maxHeight = Math.min(280, spaceAbove - 12)
+    } else {
+      maxHeight = Math.max(120, maxHeight)
+    }
+
+    setMenuPos({ top, bottom, left, placement, maxHeight })
+    setOpenMenu(poNumber)
+  }
+
+  const fmtD = d => {
+    try {
+      if (!d) return "—"
+      const dt = new Date(d)
+      return isNaN(dt.getTime()) ? "—" : dt.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+    } catch { return "—" }
+  }
+
+  const fmtT = d => {
+    try {
+      if (!d) return ""
+      const dt = new Date(d)
+      return isNaN(dt.getTime()) ? "" : dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })
+    } catch { return "" }
+  }
 
   /* ── fetch PO list with server-side pagination ── */
   const fetchList = useCallback(async (p = page, size = pageSize, q = searchQ, stat = filterStat, from = fromDate, to = toDate) => {
@@ -520,7 +462,6 @@ export default function PurchaseOrderApproval() {
     try { return d ? new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—" }
     catch { return "—" }
   }
-  const fmtD = d => { try { return d ? new Date(d).toLocaleDateString("en-GB") : "—" } catch { return "—" } }
 
   /* ═══════════════ RENDER ═══════════════ */
   return (
@@ -590,6 +531,7 @@ export default function PurchaseOrderApproval() {
             totalRecords={totalCount}
             customFilters={
               <InvSelect
+                style={{ width: 130, minWidth: 110, height: 30, fontSize: "0.78rem" }}
                 value={filterStat}
                 onChange={(e) => {
                   setFilterStat(e.target.value);
@@ -616,103 +558,127 @@ export default function PurchaseOrderApproval() {
               </div>
             ) : (
               <Tbl>
-                <thead>
+                <Thead>
                   <tr>
-                    <Th>#</Th>
-                    <Th>PO No</Th>
+                    <Th style={{ width: 45 }}>#</Th>
+                    <Th style={{ width: 130 }}>PO No</Th>
                     <Th>Vendor</Th>
-                    <Th>Items</Th>
-                    <Th>Order Date</Th>
-                    <Th>Status</Th>
+                    <Th style={{ width: 110 }}>Medicines</Th>
+                    <Th style={{ width: 130 }}>Order Date</Th>
+                    <Th style={{ width: 110 }}>Status</Th>
                     <Th>Approved / Rejected Info</Th>
-                    <Th style={{ textAlign: "center" }}>Actions</Th>
+                    <Th style={{ textAlign: "center", width: 60 }}>Action</Th>
                   </tr>
-                </thead>
+                </Thead>
                 <tbody>
                   {poList.map((po, idx) => {
-                    const canAct = po.status === "Draft" || po.status === "Verified"
-                    const items  = safeItems(po.items)
+                    const items = safeItems(po.items)
                     return (
                       <Trow key={po.po_number || idx}>
-                        <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
-                        <Td><Pill>{po.po_number}</Pill></Td>
-                        <Td style={{ fontWeight: 700, textTransform: "uppercase" }}>{String(po.vendor_name || po.vendor_id || "—").toUpperCase()}</Td>
+                        <Td style={{ color: "#64748b", fontSize: ".75rem", fontWeight: 600 }}>
+                          {(page - 1) * pageSize + idx + 1}
+                        </Td>
+                        <Td>
+                          <Pill>{po.po_number}</Pill>
+                        </Td>
+                        <Td>
+                          <div style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase" }}>
+                            {String(po.vendor_name || po.vendor_id || "—").toUpperCase()}
+                          </div>
+                          {po.vendor_email && (
+                            <div style={{ fontSize: ".7rem", color: "#64748b", marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}>
+                              <span>✉️</span> {po.vendor_email}
+                            </div>
+                          )}
+                        </Td>
 
                         {/* Item count */}
                         <Td>
-                          <span style={{ background: C.bLight, color: C.blue, padding: "2px 8px", borderRadius: 10, fontSize: ".68rem", fontWeight: 800 }}>
-                            {items.length} item{items.length !== 1 ? "s" : ""}
+                          <span style={{
+                            background: "#eff6ff",
+                            color: "#1d4ed8",
+                            border: "1px solid #bfdbfe",
+                            padding: "3px 9px",
+                            borderRadius: 12,
+                            fontSize: ".72rem",
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4
+                          }}>
+                            💊 {items.length} item{items.length !== 1 ? "s" : ""}
                           </span>
                         </Td>
 
-                        <Td style={{ fontSize: ".76rem", color: C.muted, whiteSpace: "nowrap" }}>{fmtDT(po.created_date)}</Td>
-                        <Td><Badge $s={po.status}>{po.status}</Badge></Td>
+                        <Td style={{ whiteSpace: "nowrap" }}>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontWeight: 600, color: "#334155" }}>{fmtD(po.created_date)}</span>
+                            <span style={{ fontSize: ".7rem", color: "#94a3b8" }}>{fmtT(po.created_date)}</span>
+                          </div>
+                        </Td>
+
+                        <Td>
+                          <Badge $s={po.status}>{po.status}</Badge>
+                        </Td>
 
                         {/* Approved / Rejected info */}
                         <Td style={{ minWidth: 180 }}>
                           {po.status === "Approved" && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                              <span style={{ background: C.sLight, color: C.success, padding: "2px 8px", borderRadius: 4, fontSize: ".7rem", fontWeight: 800 }}>
-                                ✔ {po.approved_by_name || po.approved_by || "—"}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontWeight: 700, color: "#166534", display: "flex", alignItems: "center", gap: 4 }}>
+                                <span>✔</span> {po.approved_by_name || po.approved_by || "—"}
                               </span>
-                              <span style={{ fontSize: ".67rem", color: C.muted }}>{fmtDT(po.approved_date)}</span>
+                              <span style={{ color: "#94a3b8", fontSize: ".7rem" }}>
+                                {fmtD(po.approved_date)} {fmtT(po.approved_date)}
+                              </span>
                             </div>
                           )}
                           {po.status === "Rejected" && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                              <span style={{ background: C.dLight, color: C.danger, padding: "2px 8px", borderRadius: 4, fontSize: ".7rem", fontWeight: 800 }}>
-                                ✕ {po.rejected_by_name || po.rejected_by || "—"}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontWeight: 700, color: "#dc2626", display: "flex", alignItems: "center", gap: 4 }}>
+                                <span>✕</span> {po.rejected_by_name || po.rejected_by || "—"}
                               </span>
-                              <span style={{ fontSize: ".67rem", color: C.muted }}>{fmtDT(po.rejected_date)}</span>
+                              <span style={{ color: "#94a3b8", fontSize: ".7rem" }}>
+                                {fmtD(po.rejected_date)} {fmtT(po.rejected_date)}
+                              </span>
                               {po.rejected_reason && (
                                 <span
                                   title={po.rejected_reason}
-                                  style={{ fontSize: ".7rem", color: C.danger, background: "#fff1f2", border: "1px solid #fecaca", borderRadius: 4, padding: "2px 6px", maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}
+                                  style={{
+                                    fontSize: ".7rem",
+                                    color: "#dc2626",
+                                    background: "#fff1f2",
+                                    border: "1px solid #fecaca",
+                                    borderRadius: 4,
+                                    padding: "2px 6px",
+                                    maxWidth: 160,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    display: "block"
+                                  }}
                                 >
                                   {po.rejected_reason}
                                 </span>
                               )}
                             </div>
                           )}
-                          {canAct && <span style={{ color: "#d1d5db", fontSize: ".74rem" }}>—</span>}
+                          {(po.status === "Draft" || po.status === "Verified") && (
+                            <span style={{ color: "#9ca3af", fontSize: ".75rem" }}>Pending Decision</span>
+                          )}
                         </Td>
 
                         {/* Actions — three-dot menu */}
-                        <Td>
-                          <div style={{ display: "flex", justifyContent: "center" }}>
-                            <MenuWrap ref={openMenuId === po.po_number ? menuRef : null}>
-                              <DotBtn
-                                title="Actions"
-                                onClick={() => setOpenMenuId(prev => prev === po.po_number ? null : po.po_number)}
-                              >
-                                ⋯
-                              </DotBtn>
-                              {openMenuId === po.po_number && (
-                                <MenuList>
-                                  <MenuItem onClick={() => { setViewPo(po); setOpenMenuId(null) }}>
-                                    👁 View
-                                  </MenuItem>
-                                  <MenuItem $mail onClick={() => { setEmailPo(po); setOpenMenuId(null) }}>
-                                    ✉️ Send Mail
-                                  </MenuItem>
-                                  {canAct ? (
-                                    <>
-                                      <MenuItem $success onClick={() => { setApprovePo(po); setOpenMenuId(null) }}>
-                                        ✔ Approve
-                                      </MenuItem>
-                                      <MenuItem $danger onClick={() => { setRejectPo(po); setOpenMenuId(null) }}>
-                                        ✕ Reject
-                                      </MenuItem>
-                                    </>
-                                  ) : (
-                                    <MenuItem style={{ opacity: 0.45, cursor: "not-allowed" }}>
-                                      🔒 {po.status}
-                                    </MenuItem>
-                                  )}
-                                </MenuList>
-                              )}
-                            </MenuWrap>
-                          </div>
+                        <Td style={{ textAlign: "center", width: 60 }}>
+                          <AW>
+                            <DotB
+                              type="button"
+                              title="Actions"
+                              onClick={e => handleMenuToggle(po.po_number, e)}
+                            >
+                              ⋮
+                            </DotB>
+                          </AW>
                         </Td>
                       </Trow>
                     )
@@ -723,14 +689,59 @@ export default function PurchaseOrderApproval() {
           </TblWrap>
 
           <InvPagination
-            currentPage={page}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            totalRecords={totalCount}
-            onPageChange={setPage}
-          />
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalRecords={totalCount}
+              onPageChange={setPage}
+            />
         </Card>
       </Body>
+
+      {/* ══ ACTION DROPDOWN (Admission Style) ══ */}
+      {openMenu !== null && (() => {
+        const po = poList.find(p => p.po_number === openMenu)
+        if (!po) return null
+        const canAct = po.status === "Draft" || po.status === "Verified"
+        return (
+          <DropMenu
+            ref={menuRef}
+            top={menuPos.top}
+            bottom={menuPos.bottom}
+            left={menuPos.left}
+            placement={menuPos.placement}
+            maxHeight={menuPos.maxHeight}
+          >
+            <DI onClick={() => { setViewPo(po); setOpenMenu(null) }}>
+              <span style={{ fontSize: "1rem" }}>👁️</span> View Details
+            </DI>
+            {po.status === "Approved" ? (
+              <DI $mail onClick={() => { setEmailPo(po); setOpenMenu(null) }}>
+                <span style={{ fontSize: "1rem" }}>✉️</span> Send Mail
+              </DI>
+            ) : (
+              <DI disabled title="Email is available only after PO is Approved">
+                <span style={{ fontSize: "1rem" }}>🔒</span> Send Mail (Approval Required)
+              </DI>
+            )}
+            {canAct ? (
+              <>
+                <div style={{ height: 1, background: "#f1f5f9", margin: "4px 0" }} />
+                <DI $success onClick={() => { setApprovePo(po); setOpenMenu(null) }}>
+                  <span style={{ fontSize: "1rem" }}>✔</span> Approve PO
+                </DI>
+                <DI danger onClick={() => { setRejectPo(po); setOpenMenu(null) }}>
+                  <span style={{ fontSize: "1rem" }}>✕</span> Reject PO
+                </DI>
+              </>
+            ) : (
+              <DI disabled title={`PO is already ${po.status}`}>
+                <span style={{ fontSize: "1rem" }}>🔒</span> {po.status}
+              </DI>
+            )}
+          </DropMenu>
+        )
+      })()}
 
       {/* ── Approve Modal ── */}
       {approvePo && (

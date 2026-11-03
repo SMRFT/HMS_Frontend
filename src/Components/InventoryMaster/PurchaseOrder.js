@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString, InvSelect, SearchSelect } from "./InventoryUIHelper"
+import {  InvTopToolbar, getTodayDateString, InvSelect, SearchSelect , InvPagination } from "./InventoryUIHelper"
+import SendEmailModal from "./SendEmailModal"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
 /* ── Animations ── */
 const fadeSlide = keyframes`from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}`
+const fadeIn    = keyframes`from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)}`
 const spin      = keyframes`to{transform:rotate(360deg)}`
 
 /* ── Tokens ── */
@@ -138,111 +140,151 @@ const Btn     = styled.button`
 `
 const PrimBtn  = styled(Btn)`background:${C.primary};color:#fff;&:hover:not(:disabled){background:${C.pDark};}`
 const SecBtn   = styled(Btn)`background:#fff;color:#374151;border:1.5px solid ${C.border};&:hover:not(:disabled){background:${C.faint};}`
-const AmberBtn = styled(Btn)`background:${C.amber};color:#fff;&:hover:not(:disabled){background:${C.amberD};}`
 const BtnRow   = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:6px;`
 
-/* ── Three-dot action menu ── */
-const MenuWrap = styled.div`position:relative;display:inline-block;`
-const DotBtn   = styled.button`
-  width:32px;height:32px;border-radius:7px;border:1.5px solid ${C.border};
-  background:#fff;color:${C.muted};font-size:1.1rem;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;
-  transition:background .13s,border-color .13s;
-  &:hover{background:${C.faint};border-color:${C.primary};color:${C.primary};}
-`
-const MenuList = styled.ul`
-  position:absolute;right:0;top:calc(100% + 4px);z-index:9999;
-  min-width:160px;background:#fff;border:1.5px solid ${C.border};
-  border-radius:9px;box-shadow:0 8px 28px rgba(0,0,0,.13);
-  list-style:none;margin:0;padding:5px;
-  ${css`animation:${fadeSlide} .14s ease;`}
-`
-const MenuItem = styled.li`
-  display:flex;align-items:center;gap:8px;
-  padding:8px 12px;border-radius:6px;font-size:.8rem;font-weight:700;
-  cursor:pointer;color:${p => p.$danger ? C.danger : C.text};
-  transition:background .1s;
-  &:hover{background:${p => p.$danger ? "#fff1f2" : C.pLight};color:${p => p.$danger ? C.danger : C.primary};}
-`
+/* ── Dropdown Action Menu (Matching Admission List) ── */
+const AW = styled.div`
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+`;
+
+const DotB = styled.button`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: #6b7280;
+  transition: all .15s ease;
+  &:hover {
+    background: #f3f4f6;
+    color: #111827;
+    border-color: #cbd5e1;
+  }
+`;
+
+const DropMenu = styled.div`
+  position: fixed;
+  ${p => p.placement === "top" ? `bottom: ${p.bottom}px;` : `top: ${p.top}px;`}
+  left: ${p => p.left}px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .16);
+  z-index: 9999;
+  min-width: 190px;
+  max-height: ${p => p.maxHeight || 280}px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  animation: ${fadeIn} .14s ease;
+
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+`;
+
+const DI = styled.button`
+  width: 100%;
+  padding: 9px 14px;
+  text-align: left;
+  font-size: .78rem;
+  font-weight: 500;
+  background: none;
+  border: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: ${p => p.disabled ? '#9ca3af' : p.danger ? '#dc2626' : p.$mail ? '#7c3aed' : p.$success ? '#166534' : '#374151'};
+  cursor: ${p => p.disabled ? 'not-allowed' : 'pointer'};
+  transition: background .12s, color .12s;
+  &:hover:not(:disabled), &:focus:not(:disabled) {
+    background: ${p => p.danger ? '#fff1f2' : p.$mail ? '#f5f3ff' : p.$success ? '#f0fdf4' : '#f0fdf4'};
+    color: ${p => p.danger ? '#dc2626' : p.$mail ? '#6d28d9' : p.$success ? '#166534' : '#0d9488'};
+    box-shadow: inset 3px 0 0 ${p => p.danger ? '#dc2626' : p.$mail ? '#7c3aed' : p.$success ? '#16a34a' : '#0d9488'};
+  }
+`;
 
 /* ── Badge ── */
 const Badge = styled.span`
-  display:inline-flex;align-items:center;gap:4px;
-  padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:800;
-  background:${p => p.$s === "Approved" ? "#dcfce7" : p.$s === "Rejected" ? "#fee2e2" : p.$s === "Verified" ? "#dbeafe" : "#fef9c3"};
-  color:${p => p.$s === "Approved" ? "#166534" : p.$s === "Rejected" ? "#991b1b" : p.$s === "Verified" ? "#1d4ed8" : "#92400e"};
-  border:1px solid ${p => p.$s === "Approved" ? "#86efac" : p.$s === "Rejected" ? "#fca5a5" : p.$s === "Verified" ? "#93c5fd" : "#fde68a"};
-  &::before{content:'';width:5px;height:5px;border-radius:50%;
-    background:${p => p.$s === "Approved" ? "#16a34a" : p.$s === "Rejected" ? "#dc2626" : p.$s === "Verified" ? "#2563eb" : "#d97706"};}
-`
-const Pill = styled.span`background:${C.pLight};color:${C.pDark};padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;border:1px solid ${C.pBorder};font-family:monospace;`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: .68rem;
+  font-weight: 700;
+  background: ${p => p.$s === "Approved" ? "#dcfce7" : p.$s === "Rejected" ? "#fee2e2" : p.$s === "Verified" ? "#dbeafe" : "#fef9c3"};
+  color: ${p => p.$s === "Approved" ? "#166534" : p.$s === "Rejected" ? "#991b1b" : p.$s === "Verified" ? "#1d4ed8" : "#92400e"};
+  border: 1px solid ${p => p.$s === "Approved" ? "#86efac" : p.$s === "Rejected" ? "#fca5a5" : p.$s === "Verified" ? "#93c5fd" : "#fde68a"};
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: ${p => p.$s === "Approved" ? "#16a34a" : p.$s === "Rejected" ? "#dc2626" : p.$s === "Verified" ? "#2563eb" : "#d97706"};
+  }
+`;
+
+const Pill = styled.span`
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #f0fdf4;
+  color: #0d9488;
+  font-weight: 700;
+  font-size: .78rem;
+  font-family: monospace;
+  border: 1px solid #99f6e4;
+`;
 
 /* ── List table ── */
-const TblWrap = styled.div`overflow-x:auto;`
-const Tbl     = styled.table`width:100%;border-collapse:collapse;font-size:.8rem;`
-const Th      = styled.th`background:${C.faint};color:${C.muted};padding:10px 12px;text-align:left;font-size:.69rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid ${C.border};white-space:nowrap;`
-const Td      = styled.td`padding:10px 12px;border-bottom:1px solid #f1f5f9;color:${C.text};vertical-align:middle;`
-const Trow    = styled.tr`transition:background .1s;&:hover{background:#fafafa;}`
-
-/* ── Filter bar ── */
-const FBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:13px 18px;background:${C.faint};border-bottom:1px solid ${C.border};`
-
-const TTBar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px;
-  border-bottom: 1px solid #e5e7eb;
-  flex-wrap: wrap;
-  gap: 8px;
+const TblWrap = styled.div`
+  overflow-x: auto;
   background: #fff;
-`;
-
-const TableSelect = styled.select`
-  height: 28px;
-  width: 72px;
-  padding: 0 6px;
-  font-size: .75rem;
-  font-weight: 600;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
-  color: #1f2937;
-  cursor: pointer;
-  outline: none;
-  &:focus {
-    border-color: ${C.primary};
-  }
-`;
-
-const Pager = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 18px;
-  border-top: 1px solid #e5e7eb;
-  font-size: .75rem;
-  color: #6b7280;
-  flex-wrap: wrap;
-  gap: 6px;
-  background: #fff;
-`;
-
-const PB = styled.button`
-  height: 28px;
-  padding: 0 13px;
-  font-size: .75rem;
   border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: ${p => p.active ? C.primary : '#fff'};
-  color: ${p => p.active ? '#fff' : '#374151'};
-  cursor: pointer;
-  &:disabled {
-    opacity: .45;
-    cursor: default;
-  }
-  &:hover:not(:disabled) {
-    background: ${p => p.active ? C.primary : '#f3f4f6'};
+  border-radius: 8px;
+`;
+const Tbl = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .82rem;
+`;
+const Thead = styled.thead`
+  background: #f9fafb;
+`;
+const Th = styled.th`
+  padding: 10px 14px;
+  text-align: left;
+  font-size: .72rem;
+  font-weight: 700;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+`;
+const Td = styled.td`
+  padding: 11px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+  font-size: .8rem;
+`;
+const Trow = styled.tr`
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.15s ease;
+  &:hover {
+    background-color: #f8fafc;
   }
 `;
 
@@ -309,8 +351,12 @@ export default function PurchaseOrder() {
   const [showReason,  setShowReason]  = useState(false)
   const [pendingSave, setPendingSave] = useState(null)
   const [viewPo,      setViewPo]      = useState(null)
-  const [openMenuId,  setOpenMenuId]  = useState(null)
+  const [openMenu,    setOpenMenu]    = useState(null)
+  const [menuPos,     setMenuPos]     = useState({ top: 0, bottom: 0, left: 0, placement: "bottom", maxHeight: 280 })
   const menuRef = useRef(null)
+
+  const [emailPo,      setEmailPo]      = useState(null)
+  const [emailLoading, setEmailLoading] = useState(false)
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -334,15 +380,96 @@ export default function PurchaseOrder() {
   const [showDrop,   setShowDrop]   = useState({})   // { [lineId]: bool }
   const dropRef = useRef(null)
 
-  /* close dropdowns on outside click */
+  /* close dropdowns on outside click / scroll / resize */
   useEffect(() => {
-    const h = e => {
+    const handleClickOutside = e => {
       if (dropRef.current && !dropRef.current.contains(e.target)) setShowDrop({})
-      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null)
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null)
     }
-    document.addEventListener("mousedown", h)
-    return () => document.removeEventListener("mousedown", h)
-  }, [])
+    const handleScrollOrResize = () => {
+      if (openMenu !== null) setOpenMenu(null)
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    window.addEventListener("scroll", handleScrollOrResize, true)
+    window.addEventListener("resize", handleScrollOrResize)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      window.removeEventListener("scroll", handleScrollOrResize, true)
+      window.removeEventListener("resize", handleScrollOrResize)
+    }
+  }, [openMenu])
+
+  const handleMenuToggle = (poNumber, e) => {
+    if (openMenu === poNumber) {
+      setOpenMenu(null)
+      return
+    }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const mw = 190
+    const windowHeight = window.innerHeight
+    const windowWidth = window.innerWidth
+    const menuEstimatedHeight = 180
+
+    let left = rect.right - mw
+    if (left < 8) left = 8
+    if (left + mw > windowWidth - 8) left = windowWidth - mw - 8
+
+    const spaceBelow = windowHeight - rect.bottom
+    const spaceAbove = rect.top
+
+    let placement = "bottom"
+    let top = rect.bottom + 4
+    let bottom = 0
+    let maxHeight = Math.min(280, spaceBelow - 12)
+
+    if (spaceBelow < menuEstimatedHeight && spaceAbove > spaceBelow) {
+      placement = "top"
+      bottom = windowHeight - rect.top + 4
+      maxHeight = Math.min(280, spaceAbove - 12)
+    } else {
+      maxHeight = Math.max(120, maxHeight)
+    }
+
+    setMenuPos({ top, bottom, left, placement, maxHeight })
+    setOpenMenu(poNumber)
+  }
+
+  const handleEmailConfirm = async toEmail => {
+    setEmailLoading(true)
+    try {
+      const r = await apiRequest(`${BASE}purchase-order-email/`, "POST", {
+        po_number: emailPo.po_number,
+        to_email: toEmail,
+      })
+      if (r?.success) {
+        toast.success(`PO ${emailPo.po_number} sent to ${r?.data?.sent_to || toEmail}`)
+        setEmailPo(null)
+      } else {
+        const err = r?.error || r?.data?.error
+        toast.error(typeof err === "string" ? err : "Failed to send email")
+      }
+    } catch {
+      toast.error("Network error while sending email")
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
+  const fmtD = d => {
+    try {
+      if (!d) return "—"
+      const dt = new Date(d)
+      return isNaN(dt.getTime()) ? "—" : dt.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+    } catch { return "—" }
+  }
+
+  const fmtT = d => {
+    try {
+      if (!d) return ""
+      const dt = new Date(d)
+      return isNaN(dt.getTime()) ? "" : dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })
+    } catch { return "" }
+  }
 
   /* ── fetch vendors ── */
   const fetchVendors = useCallback(async () => {
@@ -753,6 +880,7 @@ export default function PurchaseOrder() {
               totalRecords={totalCount}
               customFilters={
                 <InvSelect
+                  style={{ width: 130, minWidth: 110, height: 30, fontSize: "0.78rem" }}
                   value={filterStat}
                   onChange={(e) => {
                     setFilterStat(e.target.value);
@@ -769,99 +897,142 @@ export default function PurchaseOrder() {
 
             <TblWrap>
               {loading ? (
-                <div style={{ textAlign: "center", padding: "44px", color: C.muted, fontSize: ".85rem" }}>Loading…</div>
+                <div style={{ textAlign: "center", padding: "48px", color: C.muted, fontSize: ".85rem" }}>
+                  <span style={{ display: "inline-block", marginRight: 8 }}>⏳</span> Loading purchase orders…
+                </div>
               ) : poList.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "44px", color: C.muted, fontSize: ".85rem" }}>📭 No purchase orders found</div>
+                <div style={{ textAlign: "center", padding: "48px", color: C.muted, fontSize: ".85rem" }}>
+                  📭 No purchase orders found
+                </div>
               ) : (
                 <Tbl>
-                  <thead>
+                  <Thead>
                     <tr>
-                      <Th>#</Th>
-                      <Th>PO No</Th>
+                      <Th style={{ width: 45 }}>#</Th>
+                      <Th style={{ width: 130 }}>PO No</Th>
                       <Th>Vendor</Th>
-                      <Th>Medicines</Th>
-                      <Th>Order Date</Th>
-                      <Th>Status</Th>
+                      <Th style={{ width: 110 }}>Medicines</Th>
+                      <Th style={{ width: 130 }}>Order Date</Th>
+                      <Th style={{ width: 110 }}>Status</Th>
                       <Th>Approved By</Th>
                       <Th>Rejected By</Th>
-                      <Th style={{ textAlign: "center" }}>Action</Th>
+                      <Th style={{ textAlign: "center", width: 60 }}>Action</Th>
                     </tr>
-                  </thead>
+                  </Thead>
                   <tbody>
                     {poList.map((po, idx) => {
-                      const canEdit = po.status === "Draft" || po.status === "Verified"
-                      const items   = safeItems(po.items)
+                      const items = safeItems(po.items)
                       return (
                         <Trow key={po.po_number || idx}>
-                          <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
-                          <Td><Pill>{po.po_number}</Pill></Td>
-                          <Td style={{ fontWeight: 700, textTransform: "uppercase" }}>{String(po.vendor_name || po.vendor_id || "—").toUpperCase()}</Td>
+                          <Td style={{ color: "#64748b", fontSize: ".75rem", fontWeight: 600 }}>
+                            {(page - 1) * pageSize + idx + 1}
+                          </Td>
+                          <Td>
+                            <Pill>{po.po_number}</Pill>
+                          </Td>
+                          <Td>
+                            <div style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase" }}>
+                              {String(po.vendor_name || po.vendor_id || "—").toUpperCase()}
+                            </div>
+                            {po.vendor_email && (
+                              <div style={{ fontSize: ".7rem", color: "#64748b", marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}>
+                                <span>✉️</span> {po.vendor_email}
+                              </div>
+                            )}
+                          </Td>
 
                           {/* Item count badge */}
                           <Td>
-                            <span style={{ background: "#dbeafe", color: "#1d4ed8", padding: "2px 9px", borderRadius: 10, fontSize: ".7rem", fontWeight: 800 }}>
-                              {items.length} item{items.length !== 1 ? "s" : ""}
+                            <span style={{
+                              background: "#eff6ff",
+                              color: "#1d4ed8",
+                              border: "1px solid #bfdbfe",
+                              padding: "3px 9px",
+                              borderRadius: 12,
+                              fontSize: ".72rem",
+                              fontWeight: 700,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4
+                            }}>
+                              💊 {items.length} item{items.length !== 1 ? "s" : ""}
                             </span>
                           </Td>
 
-                          <Td style={{ fontSize: ".78rem", color: C.muted, whiteSpace: "nowrap" }}>{fmtDT(po.created_date)}</Td>
-                          <Td><Badge $s={po.status}>{po.status}</Badge></Td>
+                          <Td style={{ whiteSpace: "nowrap" }}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontWeight: 600, color: "#334155" }}>{fmtD(po.created_date)}</span>
+                              <span style={{ fontSize: ".7rem", color: "#94a3b8" }}>{fmtT(po.created_date)}</span>
+                            </div>
+                          </Td>
+
+                          <Td>
+                            <Badge $s={po.status}>{po.status}</Badge>
+                          </Td>
 
                           {/* Approved by */}
                           <Td style={{ fontSize: ".78rem" }}>
                             {po.status === "Approved" ? (
                               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <span style={{ fontWeight: 700, color: "#166534" }}>
-                                  ✔ {po.approved_by_name || po.approved_by || "—"}
+                                <span style={{ fontWeight: 700, color: "#166534", display: "flex", alignItems: "center", gap: 4 }}>
+                                  <span>✔</span> {po.approved_by_name || po.approved_by || "—"}
                                 </span>
-                                <span style={{ color: C.muted, fontSize: ".72rem" }}>{fmtDT(po.approved_date)}</span>
+                                <span style={{ color: "#94a3b8", fontSize: ".7rem" }}>
+                                  {fmtD(po.approved_date)} {fmtT(po.approved_date)}
+                                </span>
                               </div>
-                            ) : "—"}
+                            ) : (
+                              <span style={{ color: "#9ca3af", fontSize: ".75rem" }}>—</span>
+                            )}
                           </Td>
 
                           {/* Rejected by */}
                           <Td style={{ fontSize: ".78rem" }}>
                             {po.status === "Rejected" ? (
                               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <span style={{ fontWeight: 700, color: C.danger }}>
-                                  ✕ {po.rejected_by_name || po.rejected_by || "—"}
+                                <span style={{ fontWeight: 700, color: "#dc2626", display: "flex", alignItems: "center", gap: 4 }}>
+                                  <span>✕</span> {po.rejected_by_name || po.rejected_by || "—"}
                                 </span>
-                                <span style={{ color: C.muted, fontSize: ".72rem" }}>{fmtDT(po.rejected_date)}</span>
+                                <span style={{ color: "#94a3b8", fontSize: ".7rem" }}>
+                                  {fmtD(po.rejected_date)} {fmtT(po.rejected_date)}
+                                </span>
                                 {po.rejected_reason && (
-                                  <span title={po.rejected_reason} style={{ fontSize: ".7rem", color: C.danger, background: "#fff1f2", border: "1px solid #fecaca", borderRadius: 4, padding: "2px 6px", maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
+                                  <span
+                                    title={po.rejected_reason}
+                                    style={{
+                                      fontSize: ".7rem",
+                                      color: "#dc2626",
+                                      background: "#fff1f2",
+                                      border: "1px solid #fecaca",
+                                      borderRadius: 4,
+                                      padding: "2px 6px",
+                                      maxWidth: 150,
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      display: "block"
+                                    }}
+                                  >
                                     {po.rejected_reason}
                                   </span>
                                 )}
                               </div>
-                            ) : "—"}
+                            ) : (
+                              <span style={{ color: "#9ca3af", fontSize: ".75rem" }}>—</span>
+                            )}
                           </Td>
 
                           {/* Actions — three-dot menu */}
-                          <Td style={{ textAlign: "center" }}>
-                            <MenuWrap ref={openMenuId === po.po_number ? menuRef : null}>
-                              <DotBtn
+                          <Td style={{ textAlign: "center", width: 60 }}>
+                            <AW>
+                              <DotB
+                                type="button"
                                 title="Actions"
-                                onClick={() => setOpenMenuId(prev => prev === po.po_number ? null : po.po_number)}
+                                onClick={e => handleMenuToggle(po.po_number, e)}
                               >
-                                ⋯
-                              </DotBtn>
-                              {openMenuId === po.po_number && (
-                                <MenuList>
-                                  <MenuItem onClick={() => { setViewPo(po); setOpenMenuId(null) }}>
-                                    👁 View
-                                  </MenuItem>
-                                  {canEdit ? (
-                                    <MenuItem onClick={() => { handleEdit(po); setOpenMenuId(null) }}>
-                                      ✏️ Edit
-                                    </MenuItem>
-                                  ) : (
-                                    <MenuItem style={{ opacity: 0.45, cursor: "not-allowed" }}>
-                                      🔒 {po.status}
-                                    </MenuItem>
-                                  )}
-                                </MenuList>
-                              )}
-                            </MenuWrap>
+                                ⋮
+                              </DotB>
+                            </AW>
                           </Td>
                         </Trow>
                       )
@@ -887,6 +1058,56 @@ export default function PurchaseOrder() {
         <EditReasonModal
           onConfirm={handleReasonConfirm}
           onClose={() => { setShowReason(false); setPendingSave(null) }}
+        />
+      )}
+
+      {/* ══ ACTION DROPDOWN (Admission Style) ══ */}
+      {openMenu !== null && (() => {
+        const po = poList.find(p => p.po_number === openMenu)
+        if (!po) return null
+        const canEdit = po.status === "Draft" || po.status === "Verified"
+        return (
+          <DropMenu
+            ref={menuRef}
+            top={menuPos.top}
+            bottom={menuPos.bottom}
+            left={menuPos.left}
+            placement={menuPos.placement}
+            maxHeight={menuPos.maxHeight}
+          >
+            <DI onClick={() => { setViewPo(po); setOpenMenu(null) }}>
+              <span style={{ fontSize: "1rem" }}>👁️</span> View Details
+            </DI>
+            {po.status === "Approved" ? (
+              <DI $mail onClick={() => { setEmailPo(po); setOpenMenu(null) }}>
+                <span style={{ fontSize: "1rem" }}>✉️</span> Send Mail
+              </DI>
+            ) : (
+              <DI disabled title="Email is available only after PO is Approved">
+                <span style={{ fontSize: "1rem" }}>🔒</span> Send Mail (Approval Required)
+              </DI>
+            )}
+            {canEdit ? (
+              <DI onClick={() => { handleEdit(po); setOpenMenu(null) }}>
+                <span style={{ fontSize: "1rem" }}>✏️</span> Edit PO
+              </DI>
+            ) : (
+              <DI disabled title={`Cannot edit ${po.status} PO`}>
+                <span style={{ fontSize: "1rem" }}>🔒</span> Edit (Locked - {po.status})
+              </DI>
+            )}
+          </DropMenu>
+        )
+      })()}
+
+      {/* Send Email Modal */}
+      {emailPo && (
+        <SendEmailModal
+          po={emailPo}
+          vendors={vendors}
+          onConfirm={handleEmailConfirm}
+          onClose={() => setEmailPo(null)}
+          loading={emailLoading}
         />
       )}
 

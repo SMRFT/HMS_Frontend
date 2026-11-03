@@ -21,6 +21,41 @@ import { createPortal } from "react-dom";
  * - `height`: Custom trigger height (default: 34px)
  * - `style`: Additional styles
  */
+const focusNextElement = (currentEl, reverse = false) => {
+  if (!currentEl || typeof document === "undefined") return;
+
+  const focusables = Array.from(
+    document.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"]):not([disabled])'
+    )
+  ).filter((el) => {
+    if (el.offsetWidth === 0 && el.offsetHeight === 0 && el.getClientRects().length === 0) return false;
+    if (el.getAttribute("data-search-select-input") === "true") return false;
+    if (el.getAttribute("tabindex") === "-1") return false;
+    return true;
+  });
+
+  const curIdx = focusables.indexOf(currentEl);
+  if (curIdx >= 0) {
+    const nextIdx = reverse ? curIdx - 1 : curIdx + 1;
+    if (nextIdx >= 0 && nextIdx < focusables.length) {
+      focusables[nextIdx].focus();
+      return;
+    }
+  } else {
+    for (let i = 0; i < focusables.length; i++) {
+      const pos = currentEl.compareDocumentPosition(focusables[i]);
+      if (pos & (typeof Node !== "undefined" ? Node.DOCUMENT_POSITION_FOLLOWING : 4)) {
+        const target = reverse ? Math.max(0, i - 1) : i;
+        if (target >= 0 && target < focusables.length) {
+          focusables[target].focus();
+          return;
+        }
+      }
+    }
+  }
+};
+
 export default function SearchSelect({
   options = [],
   children,
@@ -37,10 +72,12 @@ export default function SearchSelect({
   ...props
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0, dropUp: false });
   const wrapRef = useRef(null);
+  const triggerRef = useRef(null);
   const dropPanelRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -165,7 +202,14 @@ export default function SearchSelect({
       const targetIdx = idx >= 0 ? idx : (filtered.length > 0 ? 0 : -1);
       setHighlightedIndex(targetIdx);
       setTimeout(() => {
-        if (inputRef.current) inputRef.current.focus();
+        if (inputRef.current) {
+          inputRef.current.focus();
+          if (query) {
+            try {
+              inputRef.current.setSelectionRange(query.length, query.length);
+            } catch (e) {}
+          }
+        }
         if (listRef.current && targetIdx >= 0 && itemRefs.current[targetIdx]) {
           try {
             itemRefs.current[targetIdx].scrollIntoView({ block: "nearest", behavior: "auto" });
@@ -240,11 +284,18 @@ export default function SearchSelect({
     }
   };
 
-  const handleChoose = (opt) => {
+  const handleChoose = (opt, refocus = true) => {
     if (disabled || !opt) return;
     fireChange(opt.value);
     setIsOpen(false);
     setQuery("");
+    if (refocus) {
+      setTimeout(() => {
+        if (triggerRef.current) {
+          triggerRef.current.focus();
+        }
+      }, 30);
+    }
   };
 
   const handleClear = (e) => {
@@ -252,6 +303,11 @@ export default function SearchSelect({
     if (disabled) return;
     fireChange("");
     setQuery("");
+    setTimeout(() => {
+      if (triggerRef.current) {
+        triggerRef.current.focus();
+      }
+    }, 10);
   };
 
   // Keyboard navigation handler for both input and trigger container
@@ -279,6 +335,17 @@ export default function SearchSelect({
         setQuery("");
         const idx = filtered.findIndex((o) => String(o.value) === String(value));
         setHighlightedIndex(idx >= 0 ? idx : (filtered.length > 0 ? 0 : -1));
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        const curTrigger = triggerRef.current;
+        focusNextElement(curTrigger, e.shiftKey);
+        return;
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Direct type-to-open: opens dropdown and initializes search with typed character
+        e.preventDefault();
+        updatePos();
+        setIsOpen(true);
+        setQuery(e.key);
       }
       return;
     }
@@ -302,19 +369,34 @@ export default function SearchSelect({
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
-        handleChoose(filtered[highlightedIndex]);
+        handleChoose(filtered[highlightedIndex], true);
+      } else if (filtered.length > 0) {
+        handleChoose(filtered[0], true);
+      } else {
+        setIsOpen(false);
+        setQuery("");
+        if (triggerRef.current) triggerRef.current.focus();
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
       setIsOpen(false);
       setQuery("");
+      if (triggerRef.current) triggerRef.current.focus();
     } else if (e.key === "Tab") {
+      e.preventDefault();
+      e.stopPropagation();
       if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
-        handleChoose(filtered[highlightedIndex]);
+        handleChoose(filtered[highlightedIndex], false);
+      } else if (filtered.length > 0) {
+        handleChoose(filtered[0], false);
       } else {
         setIsOpen(false);
         setQuery("");
       }
+      const curTrigger = triggerRef.current;
+      setTimeout(() => {
+        focusNextElement(curTrigger, e.shiftKey);
+      }, 20);
     }
   };
 
@@ -367,6 +449,7 @@ export default function SearchSelect({
       >
         <input
           ref={inputRef}
+          data-search-select-input="true"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -523,8 +606,12 @@ export default function SearchSelect({
       >
         {/* ── Trigger Box ── */}
         <div
+          ref={triggerRef}
           tabIndex={disabled ? -1 : 0}
+          data-search-select-trigger="true"
           onClick={handleToggle}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           onKeyDown={handleKeyDown}
           style={{
             height: finalHeight,
@@ -532,7 +619,11 @@ export default function SearchSelect({
             boxSizing: "border-box",
             padding: "0 10px",
             fontSize: style.fontSize || ".81rem",
-            border: isError ? "1.5px solid #ef4444" : isOpen ? "1.5px solid #0d9488" : "1px solid #d1d5db",
+            border: isError
+              ? "1.5px solid #ef4444"
+              : (isOpen || isFocused)
+              ? "1.5px solid #0d9488"
+              : "1px solid #d1d5db",
             borderRadius: style.borderRadius || "6px",
             background: disabled ? "#f3f4f6" : "#ffffff",
             color: disabled ? "#6b7280" : selectedOpt ? "#111827" : "#9ca3af",
@@ -540,7 +631,7 @@ export default function SearchSelect({
             alignItems: "center",
             justifyContent: "space-between",
             cursor: disabled ? "not-allowed" : "pointer",
-            boxShadow: isOpen ? "0 0 0 2px #ccfbf1" : "none",
+            boxShadow: (isOpen || isFocused) ? "0 0 0 2px #0d9488, 0 0 0 4px #ccfbf1" : "none",
             userSelect: "none",
             outline: "none",
             transition: "border-color 0.15s, box-shadow 0.15s",

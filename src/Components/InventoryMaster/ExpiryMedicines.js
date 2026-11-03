@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
-import { InvTopToolbar, InvPagination, getTodayDateString } from "./InventoryUIHelper";
+import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper";
 import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
@@ -705,7 +705,7 @@ const DetailsModal = ({ record, getOutletName, onClose }) => {
         <div style={{ fontSize: "0.82rem", color: "#4b5563", marginBottom: 16 }}>
           <strong>Outlet:</strong> {getOutletName(record.outlet_code)} |{" "}
           <strong>Date:</strong> {fmtDateTime(record.created_date)} |{" "}
-          <strong>Created By:</strong> {record.created_by || "system"}
+          <strong>Created By:</strong> {record.created_by_name || record.created_by || "system"}
         </div>
         {record.remarks && (
           <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: 6, fontSize: "0.82rem", marginBottom: 14 }}>
@@ -844,10 +844,10 @@ const PrintModal = ({ record, getOutletName, onClose }) => {
               <div style={{ textAlign: "right" }}><strong>Status:</strong> {record.is_verified || "Draft"}</div>
               <div><strong>Outlet / Location:</strong> {getOutletName(record.outlet_code)}</div>
               <div style={{ textAlign: "right" }}><strong>Date:</strong> {fmtDateTime(record.created_date)}</div>
-              <div><strong>Recorded By:</strong> {record.created_by || "system"}</div>
+              <div><strong>Recorded By:</strong> {record.created_by_name || record.created_by || "system"}</div>
               <div style={{ textAlign: "right" }}>
                 {record.approved_by && (
-                  <span><strong>Approved By:</strong> {record.approved_by} ({fmtDateTime(record.approved_date)})</span>
+                  <span><strong>Approved By:</strong> {record.approved_by_name || record.approved_by} ({fmtDateTime(record.approved_date)})</span>
                 )}
               </div>
             </div>
@@ -987,6 +987,7 @@ function getAuthContext() {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 const ExpiryMedicines = () => {
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "http://127.0.0.1:2609/_b_a_c_k_e_n_d/HMS/";
   const { outletCode: loggedOutlet, isDrugPurchase } = getAuthContext();
 
@@ -1797,108 +1798,71 @@ const ExpiryMedicines = () => {
           </FormPanel>
         )}
 
-        {/* ── Filters Bar ── */}
-        <FilterRow>
-          {/* Status Filter */}
-          <FilterGroup>
-            <FilterLabel>Status</FilterLabel>
-            <SearchSelect
-              value={filterStatus}
-              onChange={(val) => setFilterStatus(val)}
-              options={[
-                { value: "ALL", label: "All Statuses" },
-                { value: "Draft", label: "Draft (Pending)" },
-                { value: "Approved", label: "Approved" },
-                { value: "Rejected", label: "Rejected" },
-              ]}
-              placeholder="Status"
-            />
-          </FilterGroup>
-
-          {/* Outlet Filter */}
-          <FilterGroup style={{ minWidth: 180 }}>
-            <FilterLabel>Outlet</FilterLabel>
-            <SearchSelect
-              value={filterOutlet === "" ? DRUG_PURCHASE_VALUE : filterOutlet}
-              onChange={(val) => setFilterOutlet(val === DRUG_PURCHASE_VALUE ? "" : val)}
-              options={[
-                { value: "ALL", label: "All Outlets" },
-                { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
-                ...outlets.map((o) => ({
-                  value: o.outlet_code,
-                  label: `${o.outlet_name} (${o.outlet_code})`,
-                })),
-              ]}
-              placeholder="All Outlets"
-            />
-          </FilterGroup>
-
-          {/* Date range */}
-          <FilterGroup>
-            <FilterLabel>From Date</FilterLabel>
-            <FilterInput
-              type="date"
-              value={filterFromDate}
-              onChange={(e) => setFilterFromDate(e.target.value)}
-            />
-          </FilterGroup>
-
-          <FilterGroup>
-            <FilterLabel>To Date</FilterLabel>
-            <FilterInput
-              type="date"
-              value={filterToDate}
-              onChange={(e) => setFilterToDate(e.target.value)}
-            />
-          </FilterGroup>
-
-          {/* Search box */}
-          <FilterGroup style={{ flex: 1, minWidth: 200 }}>
-            <FilterLabel>Search</FilterLabel>
-            <FilterInput
-              type="text"
-              placeholder="Ref No, Medicine, Batch, Remarks…"
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  fetchRecords(1, pageSize, searchQ, filterStatus, filterOutlet, filterFromDate, filterToDate);
-                }
-              }}
-            />
-          </FilterGroup>
-
-          <SearchBtn
-            onClick={() =>
-              fetchRecords(1, pageSize, searchQ, filterStatus, filterOutlet, filterFromDate, filterToDate)
-            }
-          >
-            Search
-          </SearchBtn>
-
-          <ClearFilterBtn
-            onClick={() => {
-              setFilterStatus("ALL");
-              setFilterOutlet("ALL");
-              setFilterFromDate("");
-              setFilterToDate("");
-              setSearchQ("");
-              fetchRecords(1, pageSize, "", "ALL", "ALL", "", "");
-            }}
-          >
-            Reset
-          </ClearFilterBtn>
-        </FilterRow>
-
-        {/* ── Table Toolbar (Items per page) ── */}
+        {/* ── Compact Unified Toolbar ── */}
         <InvTopToolbar
           pageSize={pageSize}
           onPageSizeChange={(sz) => {
             setPageSize(sz);
             setPage(1);
           }}
+          fromDate={filterFromDate}
+          toDate={filterToDate}
+          onFromDateChange={(d) => {
+            setFilterFromDate(d);
+            setPage(1);
+          }}
+          onToDateChange={(d) => {
+            setFilterToDate(d);
+            setPage(1);
+          }}
+          onClearDate={() => {
+            setFilterFromDate("");
+            setFilterToDate("");
+            setPage(1);
+          }}
+          customFilters={
+            <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <SearchSelect
+                style={{ width: 130, minWidth: 110, height: 30, fontSize: "0.78rem" }}
+                value={filterStatus}
+                onChange={(val) => {
+                  setFilterStatus(val);
+                  setPage(1);
+                }}
+                options={[
+                  { value: "ALL", label: "All Statuses" },
+                  { value: "Draft", label: "Draft (Pending)" },
+                  { value: "Approved", label: "Approved" },
+                  { value: "Rejected", label: "Rejected" },
+                ]}
+                placeholder="Status"
+              />
+              <SearchSelect
+                style={{ width: 155, minWidth: 130, height: 30, fontSize: "0.78rem" }}
+                value={filterOutlet === "" ? DRUG_PURCHASE_VALUE : filterOutlet}
+                onChange={(val) => {
+                  setFilterOutlet(val === DRUG_PURCHASE_VALUE ? "" : val);
+                  setPage(1);
+                }}
+                options={[
+                  { value: "ALL", label: "All Outlets" },
+                  { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
+                  ...outlets.map((o) => ({
+                    value: o.outlet_code,
+                    label: `${o.outlet_name} (${o.outlet_code})`,
+                  })),
+                ]}
+                placeholder="All Outlets"
+              />
+            </div>
+          }
+          search={searchQ}
+          onSearchChange={(q) => {
+            setSearchQ(q);
+            setPage(1);
+          }}
+          searchPlaceholder="Search ref, medicine, batch…"
           totalRecords={totalCount}
-          showTotal
         />
 
         {/* ── Expiry Records Table ── */}
@@ -1994,7 +1958,7 @@ const ExpiryMedicines = () => {
 
                       <Td style={{ minWidth: 140 }}>
                         <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "#374151" }}>
-                          {r.created_by || "system"}
+                          {r.created_by_name || r.created_by || "system"}
                         </div>
                         <div style={{ fontSize: "0.72rem", color: "#6b7280" }}>
                           {fmtDateTime(r.created_date)}
@@ -2005,7 +1969,7 @@ const ExpiryMedicines = () => {
                         {status === "Approved" && (
                           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                             <InfoChip $color="#166534" $bg="#dcfce7" $border="#86efac">
-                              ✓ {r.approved_by || "Approved"}
+                              ✓ {r.approved_by_name || r.approved_by || "Approved"}
                             </InfoChip>
                             <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
                               {fmtDateTime(r.approved_date)}
@@ -2015,7 +1979,7 @@ const ExpiryMedicines = () => {
                         {status === "Rejected" && (
                           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                             <InfoChip $color="#991b1b" $bg="#fee2e2" $border="#fca5a5">
-                              ✕ {r.rejected_by || "Rejected"}
+                              ✕ {r.rejected_by_name || r.rejected_by || "Rejected"}
                             </InfoChip>
                             <span style={{ fontSize: "0.72rem", color: "#dc2626" }} title={r.rejected_reason}>
                               Reason: {r.rejected_reason || "-"}
@@ -2034,7 +1998,9 @@ const ExpiryMedicines = () => {
                       </Td>
 
                       <Td style={{ textAlign: "center" }}>
-                        <RowActions record={r} />
+                        <InvDropBtn onClick={(e) => openMenu(e, r._id || r.stock_id || r.batch_number)} title="Actions">
+                          ⋮
+                        </InvDropBtn>
                       </Td>
                     </Tr>
                   );
@@ -2091,7 +2057,45 @@ const ExpiryMedicines = () => {
             onClose={() => setPrintRecord(null)}
           />
         )}
-      </Container>
+        {/* ══ Action Dropdown (Admission / PO style) ══ */}
+        {menuOpenId && (() => {
+          const rec = records.find((r) => (r._id || r.stock_id || r.batch_number) === menuOpenId);
+          if (!rec) return null;
+          const status = rec.is_verified || "Draft";
+          const isDraft = status === "Draft";
+          return (
+            <InvDropMenu {...menuPos}>
+              <InvMenuItem onClick={() => { closeMenu(); setDetailsRecord(rec); }}>
+                👁 View Details
+              </InvMenuItem>
+              <InvMenuItem onClick={() => { closeMenu(); setPrintRecord(rec); }}>
+                🖨️ Print Voucher
+              </InvMenuItem>
+              {isDraft && (
+                <>
+                  <InvMenuItem
+                    $success
+                    onClick={() => {
+                      closeMenu();
+                      setConfirmModal({ type: "approve", record: rec });
+                    }}
+                  >
+                    ✔ Approve Write-Off
+                  </InvMenuItem>
+                  <InvMenuItem
+                    danger
+                    onClick={() => {
+                      closeMenu();
+                      setRejectModalRecord(rec);
+                    }}
+                  >
+                    ✕ Cancel / Reject
+                  </InvMenuItem>
+                </>
+              )}
+            </InvDropMenu>
+          );
+        })()}</Container>
     </PageWrapper>
   );
 };

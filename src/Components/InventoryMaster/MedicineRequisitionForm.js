@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import { InvTopToolbar, InvPagination, getTodayDateString, SearchSelect } from "./InventoryUIHelper"
+import {  InvTopToolbar, InvPagination, getTodayDateString, SearchSelect , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -282,7 +282,7 @@ const ViewModal = ({ pr, onClose }) => {
             <>
               <DSec>✔ Approval Info</DSec>
               <DRow>
-                <DField><DLbl>Approved By</DLbl><DVal style={{ color: "#166534" }}>{pr.approved_by || "—"}</DVal></DField>
+                <DField><DLbl>Approved By</DLbl><DVal style={{ color: "#166534" }}>{pr.approved_by_name || pr.approved_by || "-"}</DVal></DField>
                 <DField><DLbl>Approved Date</DLbl><DVal>{fmtDT(pr.approved_date)}</DVal></DField>
               </DRow>
             </>
@@ -291,7 +291,7 @@ const ViewModal = ({ pr, onClose }) => {
             <>
               <DSec>✕ Rejection Info</DSec>
               <DRow>
-                <DField><DLbl>Rejected By</DLbl><DVal style={{ color: C.danger }}>{pr.rejected_by || "—"}</DVal></DField>
+                <DField><DLbl>Rejected By</DLbl><DVal style={{ color: C.danger }}>{pr.rejected_by_name || pr.rejected_by || "-"}</DVal></DField>
                 <DField><DLbl>Rejected Date</DLbl><DVal>{fmtDT(pr.rejected_date)}</DVal></DField>
               </DRow>
               <DRow>
@@ -303,7 +303,7 @@ const ViewModal = ({ pr, onClose }) => {
             <>
               <DSec>✏️ Last Edit</DSec>
               <DRow>
-                <DField><DLbl>Edited By</DLbl><DVal>{pr.edited_by}</DVal></DField>
+                <DField><DLbl>Edited By</DLbl><DVal>{pr.edited_by_name || pr.edited_by}</DVal></DField>
                 <DField><DLbl>Edited Date</DLbl><DVal>{fmtDT(pr.edited_date)}</DVal></DField>
               </DRow>
               <DRow>
@@ -313,7 +313,7 @@ const ViewModal = ({ pr, onClose }) => {
           )}
           <DSec>📅 Audit Trail</DSec>
           <DRow>
-            <DField><DLbl>Created By</DLbl><DVal>{pr.created_by || "—"}</DVal></DField>
+            <DField><DLbl>Created By</DLbl><DVal>{pr.created_by_name || pr.created_by || "-"}</DVal></DField>
             <DField><DLbl>Created Date</DLbl><DVal>{fmtDT(pr.created_date)}</DVal></DField>
           </DRow>
           <BtnRow style={{ marginTop: 14 }}>
@@ -332,6 +332,7 @@ const todayStr = () => new Date().toISOString().slice(0, 10)
    MAIN COMPONENT
 ══════════════════════════════════════════════════════ */
 export default function MedicineRequisition() {
+  const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const [tab,         setTab]         = useState("form")
   const [prList,      setPrList]      = useState([])
   const [editPr,      setEditPr]      = useState(null)
@@ -659,47 +660,26 @@ export default function MedicineRequisition() {
                       return (
                         <Trow key={r.mr_number || idx}>
                           <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
-                          <Td><Pill>{r.mr_number}</Pill></Td>
+                          <Td><InvCodePill>{r.mr_number}</InvCodePill></Td>
                           <Td style={{ fontWeight: 700, maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textTransform: "uppercase" }}>{String(r.medicine_name || "").toUpperCase()}</Td>
                           <Td style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: C.muted, fontSize: ".78rem", textTransform: "uppercase" }}>{String(r.chemical_composition || "—").toUpperCase()}</Td>
                           <Td style={{ whiteSpace: "nowrap" }}>{r.consultant_name || "—"}</Td>
                           <Td style={{ whiteSpace: "nowrap", fontSize: ".78rem" }}>{fmtDT(r.request_date)}</Td>
-                          <Td><Badge $s={r.status}>{r.status}</Badge></Td>
+                          <Td><InvStatusBadge status={r.status}>{r.status}</InvStatusBadge></Td>
                           <Td style={{ maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: ".78rem", color: C.muted }}>{r.remarks || "—"}</Td>
 
                           {/* Three-dot menu */}
                           <Td style={{ textAlign: "center" }}>
-                            <MenuWrap ref={openMenuId === r.mr_number ? menuRef : null}>
-                              <DotBtn
-                                title="Actions"
-                                onClick={() => setOpenMenuId(prev => prev === r.mr_number ? null : r.mr_number)}
-                              >
-                                ⋯
-                              </DotBtn>
-                              {openMenuId === r.mr_number && (
-                                <MenuList>
-                                  <MenuItem onClick={() => { setViewPr(r); setOpenMenuId(null) }}>
-                                    👁 View
-                                  </MenuItem>
-                                  {canEdit ? (
-                                    <MenuItem onClick={() => { handleEdit(r); setOpenMenuId(null) }}>
-                                      ✏️ Edit
-                                    </MenuItem>
-                                  ) : (
-                                    <MenuItem style={{ opacity: 0.45, cursor: "not-allowed" }}>
-                                      🔒 {r.status}
-                                    </MenuItem>
-                                  )}
-                                </MenuList>
-                              )}
-                            </MenuWrap>
+                            <InvDropBtn onClick={(e) => openMenu(e, r.mr_number)} title="Actions">
+                              ⋮
+                            </InvDropBtn>
                           </Td>
                         </Trow>
                       )
                     })}
                   </tbody>
                 </Tbl>
-              )}
+            )}
             </TblWrap>
 
             <InvPagination
@@ -712,6 +692,25 @@ export default function MedicineRequisition() {
           </Card>
         )}
       </Body>
+
+            {/* ══ Action Dropdown (Admission / PO style) ══ */}
+      {menuOpenId && (() => {
+        const selectedPr = prList.find((p) => p.mr_number === menuOpenId);
+        if (!selectedPr) return null;
+        const canEdit = selectedPr.status === "Draft" || selectedPr.status === "Verified";
+        return (
+          <InvDropMenu {...menuPos}>
+            <InvMenuItem onClick={() => { closeMenu(); setViewPr(selectedPr); }}>
+              👁 View Details
+            </InvMenuItem>
+            {canEdit && (
+              <InvMenuItem onClick={() => { closeMenu(); handleEdit(selectedPr); }}>
+                ✏️ Edit Requisition
+              </InvMenuItem>
+            )}
+          </InvDropMenu>
+        );
+      })()}
 
       {/* Edit-reason modal */}
       {showReason && (
