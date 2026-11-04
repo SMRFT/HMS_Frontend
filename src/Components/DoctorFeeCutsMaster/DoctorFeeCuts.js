@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Table, Button, Select, Input, Space, message, Row, Col, Card, Checkbox
 } from "antd";
@@ -85,6 +85,16 @@ const DoctorFeeCuts = () => {
     const [filterCompany, setFilterCompany] = useState("ALL");
     const [filterStatus, setFilterStatus] = useState("ALL");
     const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+    const requestSeqRef = useRef(0);
+
+    // Debounce search input to avoid redundant API hits while typing
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     // Fetch Providers Master
     const fetchProviders = useCallback(async () => {
@@ -99,11 +109,17 @@ const DoctorFeeCuts = () => {
     }, [HmsBaseUrl]);
 
     // Fetch Admitted Patients (is_admitted = True)
-    const fetchAdmittedPatients = useCallback(async () => {
+    const fetchAdmittedPatients = useCallback(async (overrideSearch = null) => {
         setLoading(true);
+        const currentSeq = ++requestSeqRef.current;
         try {
-            const url = `${HmsBaseUrl}doctor-fee-admitted-patients/?from_date=${fromDate}&to_date=${toDate}&customer_type=${encodeURIComponent(filterCustomerType)}&company=${encodeURIComponent(filterCompany)}&status=${encodeURIComponent(filterStatus)}&search=${encodeURIComponent(searchQuery)}`;
+            const activeSearch = overrideSearch !== null ? overrideSearch : debouncedSearchQuery;
+            const url = `${HmsBaseUrl}doctor-fee-admitted-patients/?from_date=${fromDate}&to_date=${toDate}&customer_type=${encodeURIComponent(filterCustomerType)}&company=${encodeURIComponent(filterCompany)}&status=${encodeURIComponent(filterStatus)}&search=${encodeURIComponent(activeSearch)}`;
             const res = await apiRequest(url, "GET");
+            if (currentSeq !== requestSeqRef.current) {
+                // Ignore stale response
+                return;
+            }
             let rawData = [];
             if (res.success && Array.isArray(res.data)) {
                 rawData = res.data;
@@ -120,12 +136,16 @@ const DoctorFeeCuts = () => {
             });
             setAdmittedPatients(mapped);
         } catch (error) {
-            message.error("Failed to fetch admitted patients");
-            console.error(error);
+            if (currentSeq === requestSeqRef.current) {
+                message.error("Failed to fetch admitted patients");
+                console.error(error);
+            }
         } finally {
-            setLoading(false);
+            if (currentSeq === requestSeqRef.current) {
+                setLoading(false);
+            }
         }
-    }, [HmsBaseUrl, fromDate, toDate, filterCustomerType, filterCompany, filterStatus, searchQuery]);
+    }, [HmsBaseUrl, fromDate, toDate, filterCustomerType, filterCompany, filterStatus, debouncedSearchQuery]);
 
     useEffect(() => {
         fetchProviders();
@@ -840,7 +860,10 @@ const DoctorFeeCuts = () => {
                                 placeholder="Search by IP Number, UHID, Name…"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                onPressEnter={fetchAdmittedPatients}
+                                onPressEnter={() => {
+                                    setDebouncedSearchQuery(searchQuery);
+                                    fetchAdmittedPatients(searchQuery);
+                                }}
                                 prefix={<FaSearch style={{ color: '#94a3b8' }} />}
                                 allowClear
                                 style={{ height: 38, borderRadius: 6 }}
@@ -850,7 +873,7 @@ const DoctorFeeCuts = () => {
                             <ActionButton
                                 type="primary"
                                 icon={<FaSync />}
-                                onClick={fetchAdmittedPatients}
+                                onClick={() => fetchAdmittedPatients()}
                                 loading={loading}
                                 style={{ width: '100%', background: colors.primary }}
                             >
