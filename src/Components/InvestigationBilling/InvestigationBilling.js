@@ -1850,8 +1850,8 @@ const InvestigationBilling = () => {
                   }}
                 >
                   <option value="">Select Payment Method</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Credit">Credit</option>
+                  <option value="Cash">Pay Now</option>
+                  <option value="Credit">Pay Later</option>
                 </Select>
               </InputWrapper>
             </SummaryGrid>

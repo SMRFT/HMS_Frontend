@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import PatientSearchModal from "../Common/PatientSearchModal";
 import {
   PageWrapper,
   FormRow,
@@ -439,6 +440,8 @@ const Vaccination = () => {
   const [searchUhid, setSearchUhid] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [showPatientDetailModal, setShowPatientDetailModal] = useState(false);
 
   // Patient Info from op-patient endpoint
   const [patientData, setPatientData] = useState(null);
@@ -938,8 +941,18 @@ const Vaccination = () => {
   };
 
   const handleSearch = (e) => {
-    if (e) e.preventDefault();
-    handleSearchByUhid(searchUhid);
+    if (e && e.preventDefault) e.preventDefault();
+    setShowPatientModal(true);
+  };
+
+  const handlePatientModalSelect = (patientItem) => {
+    setShowPatientModal(false);
+    if (!patientItem) return;
+    const uhid = (patientItem.uhid || patientItem.UHID || "").trim();
+    if (uhid) {
+      setSearchUhid(uhid);
+      handleSearchByUhid(uhid);
+    }
   };
 
   // 3. Add or Update Vaccine from Dropdown Selection
@@ -1132,6 +1145,7 @@ const Vaccination = () => {
     setSelectedVaccineId("");
     setSelectedVaccineDate(new Date().toISOString().split("T")[0]);
     setSelectedIsVaccination(true);
+    setShowPatientDetailModal(false);
   };
 
   return (
@@ -1151,9 +1165,15 @@ const Vaccination = () => {
               <Label>UHID Search *</Label>
               <Input
                 type="text"
-                placeholder="Enter Patient UHID (e.g. S026/0001)"
+                placeholder="Search UHID / Patient Name / Mobile (e.g. S026/0001)"
                 value={searchUhid}
                 onChange={(e) => setSearchUhid(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    setShowPatientModal(true);
+                  }
+                }}
               />
             </InputWrapper>
             <Button
@@ -1164,9 +1184,13 @@ const Vaccination = () => {
                 height: "36px",
                 padding: "0 22px",
                 fontWeight: "600",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                whiteSpace: "nowrap",
               }}
             >
-              {loading ? "Searching..." : "Search UHID"}
+              🔍 Search Patient
             </Button>
             {patientData && (
               <Button
@@ -1463,28 +1487,71 @@ const Vaccination = () => {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "8px",
+              marginBottom: "12px",
+              flexWrap: "wrap",
+              gap: "10px",
             }}
           >
-            <h2
-              style={{
-                fontSize: "1rem",
-                fontWeight: 700,
-                color: colors.primary,
-                margin: 0,
-              }}
-            >
-              Patient & Newborn Profile Details
-            </h2>
-            <span
-              style={{
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                color: "#475569",
-              }}
-            >
-              UHID: <strong style={{ color: colors.primary }}>{patientData.uhid}</strong>
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <h2
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  color: colors.primary,
+                  margin: 0,
+                }}
+              >
+                Patient & Newborn Profile Details
+              </h2>
+              <span
+                style={{
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  color: "#475569",
+                }}
+              >
+                UHID: <strong style={{ color: colors.primary }}>{patientData.uhid}</strong>
+              </span>
+            </div>
+
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <Button
+                type="button"
+                onClick={() => setShowPatientDetailModal(true)}
+                style={{
+                  background: "#0891b2",
+                  height: "30px",
+                  padding: "0 12px",
+                  fontSize: "0.78rem",
+                  fontWeight: "600",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  color: "#ffffff",
+                }}
+                title="View full patient & newborn details in modal"
+              >
+                👁️ View in Modal
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setShowPatientModal(true)}
+                style={{
+                  background: colors.primary,
+                  height: "30px",
+                  padding: "0 12px",
+                  fontSize: "0.78rem",
+                  fontWeight: "600",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  color: "#ffffff",
+                }}
+                title="Search / switch patient using PatientSearchModal"
+              >
+                🔍 Switch Patient
+              </Button>
+            </div>
           </div>
 
           <PatientInfoGrid>
@@ -2095,6 +2162,182 @@ const Vaccination = () => {
           </ModalCard>
         </ModalOverlay>
       )}
+      {/* ── Patient Details Modal ── */}
+      {showPatientDetailModal && patientData && (
+        <ModalOverlay onClick={() => setShowPatientDetailModal(false)}>
+          <ModalCard
+            style={{ maxWidth: "680px", width: "95%", maxHeight: "90vh", overflowY: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalHeader>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <h3 style={{ margin: 0, color: colors.primary, fontSize: "1.1rem", fontWeight: 700 }}>
+                  👤 Patient & Newborn Details
+                </h3>
+                <span
+                  style={{
+                    background: "#e0f2fe",
+                    color: "#0369a1",
+                    padding: "3px 10px",
+                    borderRadius: "12px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  UHID: {patientData.uhid}
+                </span>
+              </div>
+              <CloseBtn onClick={() => setShowPatientDetailModal(false)}>✕</CloseBtn>
+            </ModalHeader>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Basic Patient Info */}
+              <div>
+                <h4
+                  style={{
+                    fontSize: "0.88rem",
+                    color: "#0f766e",
+                    margin: "0 0 10px 0",
+                    fontWeight: 700,
+                    borderBottom: "1px solid #e2e8f0",
+                    paddingBottom: "4px",
+                  }}
+                >
+                  Patient Profile
+                </h4>
+                <PatientInfoGrid>
+                  <InfoBox>
+                    <span className="label">Full Name</span>
+                    <span className="value highlight">
+                      {patientData.salutation ? `${patientData.salutation} ` : ""}
+                      {patientData.firstName || ""} {patientData.lastName || ""}
+                    </span>
+                  </InfoBox>
+                  <InfoBox>
+                    <span className="label">UHID</span>
+                    <span className="value" style={{ fontWeight: 700, color: colors.primary }}>
+                      {patientData.uhid || "N/A"}
+                    </span>
+                  </InfoBox>
+                  <InfoBox>
+                    <span className="label">Gender / Age</span>
+                    <span className="value">
+                      {patientData.gender || "N/A"} / {patientData.age ?? "N/A"} Yrs
+                    </span>
+                  </InfoBox>
+                  <InfoBox>
+                    <span className="label">Mobile Phone</span>
+                    <span className="value">{patientData.mobilePhone || "N/A"}</span>
+                  </InfoBox>
+                  {patientData.dob && (
+                    <InfoBox>
+                      <span className="label">Date of Birth</span>
+                      <span className="value">{patientData.dob}</span>
+                    </InfoBox>
+                  )}
+                  {patientData.bloodGroup && (
+                    <InfoBox>
+                      <span className="label">Blood Group</span>
+                      <span className="value">{patientData.bloodGroup}</span>
+                    </InfoBox>
+                  )}
+                </PatientInfoGrid>
+              </div>
+
+              {/* Newborn Details */}
+              <div>
+                <h4
+                  style={{
+                    fontSize: "0.88rem",
+                    color: "#0f766e",
+                    margin: "0 0 10px 0",
+                    fontWeight: 700,
+                    borderBottom: "1px solid #e2e8f0",
+                    paddingBottom: "4px",
+                  }}
+                >
+                  Newborn Information
+                </h4>
+                <PatientInfoGrid>
+                  <InfoBox>
+                    <span className="label">Birth Time</span>
+                    <span className="value badge-time">
+                      {patientData.birth_time || "N/A"}{" "}
+                      {patientData.birth_time_am_pm ? `(${patientData.birth_time_am_pm})` : ""}
+                    </span>
+                  </InfoBox>
+                  <InfoBox>
+                    <span className="label">Birth Weight</span>
+                    <span className="value highlight">
+                      {patientData.weight ? `${patientData.weight} kg` : "N/A"}
+                    </span>
+                  </InfoBox>
+                  <InfoBox>
+                    <span className="label">Mother's UHID</span>
+                    <span className="value">{patientData.mothers_uhid_no || "N/A"}</span>
+                  </InfoBox>
+                </PatientInfoGrid>
+              </div>
+
+              {/* Action Footer */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  borderTop: "1px solid #e2e8f0",
+                  paddingTop: "12px",
+                  marginTop: "8px",
+                }}
+              >
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowPatientDetailModal(false);
+                    setShowPatientModal(true);
+                  }}
+                  style={{
+                    background: "#0f766e",
+                    color: "#ffffff",
+                    height: "34px",
+                    padding: "0 16px",
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  🔍 Search / Switch Patient
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setShowPatientDetailModal(false)}
+                  style={{
+                    background: "#64748b",
+                    color: "#ffffff",
+                    height: "34px",
+                    padding: "0 18px",
+                    fontSize: "0.8rem",
+                  }}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </ModalCard>
+        </ModalOverlay>
+      )}
+
+      {/* ── PatientSearchModal for searching UHID / Patient ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientModalSelect}
+        initialQuery={searchUhid}
+        mode="uhid"
+        title="Search Patient UHID for Vaccination"
+      />
     </Container>
   );
 };
