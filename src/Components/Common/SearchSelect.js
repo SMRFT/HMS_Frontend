@@ -594,7 +594,7 @@ export default function SearchSelect({
     <>
       <div
         ref={wrapRef}
-        className={className}
+        className={`search-select-wrapper ${className || ""}`.trim()}
         style={{
           position: "relative",
           width: style.width || "100%",
