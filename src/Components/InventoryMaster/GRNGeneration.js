@@ -409,7 +409,7 @@ const MONTHS = [
 const getYears = () => { const y = new Date().getFullYear(); return Array.from({length:10},(_,i)=>String(y+i)) }
 const todayStr = () => new Date().toISOString().split("T")[0]
 
-const FIXED_PURCHASE_CATEGORIES = ["DRUG PURCHASE"]
+// Outlets loaded dynamically from get_active_outlets
 
 const EMPTY_GRN = {
   purchase_category:"",vendor_id:"",date:todayStr(),
@@ -923,10 +923,7 @@ const GRNGeneration = () => {
     try {
       const r = await apiRequest(`${baseUrl}get_active_outlets/`, "GET")
       if (r?.success && Array.isArray(r?.data?.data)) {
-        const filtered = r.data.data.filter(
-          (o) => (o.outlet_name || "").trim().toLowerCase() !== "drug purchase"
-        )
-        setOutlets(filtered)
+        setOutlets(r.data.data)
         setGrnData(prev => ({ ...prev, purchase_category: "" }))
       } else {
         setOutlets([])
@@ -1442,9 +1439,8 @@ const GRNGeneration = () => {
                         style={{fontSize:"0.8rem"}}
                       >
                         <option value="">-- Select Category --</option>
-                        <option value="DRUG PURCHASE">DRUG PURCHASE</option>
                         {outlets.map((o, i) => (
-                          <option key={o.outlet_id || i} value={o.outlet_name || o.outlet || o.name || ""}>
+                          <option key={o.outlet_code || o.outlet_id || i} value={o.outlet_name || o.outlet || o.name || ""}>
                             {o.outlet_name || o.outlet || o.name || "Unnamed Outlet"}
                           </option>
                         ))}

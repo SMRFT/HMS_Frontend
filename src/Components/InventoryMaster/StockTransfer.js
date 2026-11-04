@@ -634,12 +634,12 @@ const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, o
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DRUG_PURCHASE_LABEL = "Drug Purchase";
-const DRUG_PURCHASE_VALUE = "__DRUG_PURCHASE__";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const isDrugPurchaseOutlet = (outlet) => {
   const name = (outlet?.outlet_name || "").trim().toLowerCase();
-  return name === "drug purchase";
+  const code = (outlet?.outlet_code || "").trim();
+  return name === "drug purchase" || code === "OLET006";
 };
 
 const normalizeTransferItems = (raw) => {
@@ -693,7 +693,7 @@ function getAuthContext() {
       ? ""
       : raw.trim();
 
-  const isDrugPurchase = outletCode === "";
+  const isDrugPurchase = outletCode === "" || outletCode === "OLET006";
 
   return { outletCode, isDrugPurchase };
 }
@@ -705,7 +705,7 @@ function filterTransfersByOutlet(transfers, outletCode, isDrugPurchase) {
   if (isDrugPurchase) {
     return transfers.filter((t) => {
       const to = t.to_outlet ?? "";
-      return to === "" || to === null || to === undefined;
+      return to === "" || to === null || to === undefined || to === "OLET006";
     });
   }
   return transfers.filter((t) => t.to_outlet === outletCode);
@@ -1109,7 +1109,9 @@ const StockTransfer = () => {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const getOutletName = useCallback((code) => {
-    if (code === null || code === undefined || code === "" || code === "null")
+    if (code === null || code === undefined || code === "null")
+      return "";
+    if (code === "" || code === "OLET006")
       return DRUG_PURCHASE_LABEL;
     const dept = stockDepartments.find((d) => d.department_id === code || d.department_name === code);
     if (dept) return dept.department_name;
@@ -1123,7 +1125,7 @@ const StockTransfer = () => {
       const r = await apiRequest(`${HmsBaseUrl}get_active_outlets/`, "GET");
       const list = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : []);
       const filtered = Array.isArray(list)
-        ? list.filter((o) => o.outlet_name && !isDrugPurchaseOutlet(o))
+        ? list.filter((o) => o.outlet_name && o.outlet_code)
         : [];
       setOutlets(filtered);
     } catch {
@@ -1304,16 +1306,11 @@ const StockTransfer = () => {
 
   const toSelectVal = (code) => {
     if (code === null || code === undefined) return "";
-    if (code === "") return DRUG_PURCHASE_VALUE;
     return code;
   };
 
   const handleFromOutletChange = (selectVal) => {
-    const code = selectVal === ""
-      ? null
-      : selectVal === DRUG_PURCHASE_VALUE
-        ? ""
-        : selectVal;
+    const code = selectVal === "" ? null : selectVal;
     setFromOutlet(code);
     setMedicineSearch(""); setSelectedMedicine(null);
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
@@ -1321,8 +1318,7 @@ const StockTransfer = () => {
 
   const handleToOutletChange = (selectVal) => {
     if (selectVal === "") { setToOutlet(null); return; }
-    const code = selectVal === DRUG_PURCHASE_VALUE ? "" : selectVal;
-    setToOutlet(code);
+    setToOutlet(selectVal);
   };
 
   const handleAddItem = () => {
@@ -1492,27 +1488,19 @@ const StockTransfer = () => {
   };
 
   // ── Dropdown options ───────────────────────────────────────────────────────
-  const fromOutletOptions = [
-    { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
-    ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
-  ];
+  const fromOutletOptions = outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name }));
 
   const toOutletOptions = useMemo(() => {
     const options = [];
     const currentFrom = fromOutlet ?? outletCode;
 
-    // 1. Drug Purchase (unless current source is Drug Purchase)
-    if (currentFrom !== "" && currentFrom !== null && currentFrom !== undefined) {
-      options.push({
-        value: DRUG_PURCHASE_VALUE,
-        label: DRUG_PURCHASE_LABEL,
-      });
-    }
-
-    // 2. Active stock outlets (excluding current from outlet)
+    // 1. Active stock outlets (excluding current from outlet)
     const activeOutlets = outlets
       .filter((o) => {
         if (!o.outlet_code) return false;
+        if (currentFrom === "OLET006" || currentFrom === "") {
+          return o.outlet_code !== "OLET006" && o.outlet_code !== "";
+        }
         return o.outlet_code !== currentFrom;
       })
       .map((o) => ({

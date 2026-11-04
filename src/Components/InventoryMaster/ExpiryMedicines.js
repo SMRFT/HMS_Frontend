@@ -959,8 +959,7 @@ const isExpiringSoonDate = (expDate, days = 90) => {
   }
 };
 
-const DRUG_PURCHASE_LABEL = "Drug Purchase (Main Store)";
-const DRUG_PURCHASE_VALUE = "__DRUG_PURCHASE__";
+const DRUG_PURCHASE_LABEL = "DRUG PURCHASE";
 
 function getAuthContext() {
   const raw =
@@ -1038,7 +1037,7 @@ const ExpiryMedicines = () => {
       const res = await apiRequest(`${HmsBaseUrl}get_active_outlets/`, "GET");
       const list = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
       const filtered = Array.isArray(list)
-        ? list.filter((o) => o.outlet_name && o.outlet_name.trim().toLowerCase() !== "drug purchase")
+        ? list.filter((o) => o.outlet_name && o.outlet_code)
         : [];
       setOutlets(filtered);
     } catch {
@@ -1082,7 +1081,7 @@ const ExpiryMedicines = () => {
         if (q && q.trim()) params.append("search", q.trim());
         if (status && status !== "ALL") params.append("status", status);
         if (outlet !== undefined && outlet !== null && outlet !== "ALL") {
-          params.append("outlet_code", outlet === DRUG_PURCHASE_VALUE ? "" : outlet);
+          params.append("outlet_code", outlet);
         }
         if (from) params.append("from_date", from);
         if (to) params.append("to_date", to);
@@ -1113,7 +1112,8 @@ const ExpiryMedicines = () => {
   // ── Helper: Get Outlet Name ────────────────────────────────────────────────
   const getOutletName = useCallback(
     (code) => {
-      if (!code || code === DRUG_PURCHASE_VALUE) return DRUG_PURCHASE_LABEL;
+      if (!code) return "-";
+      if (code === "" || code === "OLET006") return DRUG_PURCHASE_LABEL;
       const found = outlets.find((o) => o.outlet_code === code);
       return found ? found.outlet_name : code;
     },
@@ -1131,7 +1131,7 @@ const ExpiryMedicines = () => {
       try {
         const cleanQ = query.trim().toUpperCase();
         const params = new URLSearchParams({ search: query.trim(), page: "1", page_size: "100" });
-        params.append("outlet_code", entryOutlet === DRUG_PURCHASE_VALUE ? "" : entryOutlet);
+        params.append("outlet_code", entryOutlet);
         const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
         const payload = res?.data;
         const raw = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(res) ? res : []));
@@ -1162,7 +1162,7 @@ const ExpiryMedicines = () => {
     async (itemId) => {
       try {
         const params = new URLSearchParams({ item_id: itemId, page: "all" });
-        params.append("outlet_code", entryOutlet === DRUG_PURCHASE_VALUE ? "" : entryOutlet);
+        params.append("outlet_code", entryOutlet);
         const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
         const payload = res?.data;
         const stocks = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(res) ? res : []));
@@ -1193,7 +1193,7 @@ const ExpiryMedicines = () => {
     try {
       toast.info("Scanning outlet for expired batches…");
       const params = new URLSearchParams({ page: "all" });
-      params.append("outlet_code", entryOutlet === DRUG_PURCHASE_VALUE ? "" : entryOutlet);
+      params.append("outlet_code", entryOutlet);
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
       const payload = res?.data;
       const stocks = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(res) ? res : []));
@@ -1321,7 +1321,7 @@ const ExpiryMedicines = () => {
     }
 
     const payload = {
-      outlet_code: entryOutlet === DRUG_PURCHASE_VALUE ? "" : entryOutlet,
+      outlet_code: entryOutlet,
       remarks: remarks.trim(),
       items: addedItems.map((it) => ({
         stock_id: it.stock_id,
@@ -1536,23 +1536,19 @@ const ExpiryMedicines = () => {
                     Outlet / Location <span style={{ color: "#dc2626" }}>*</span>
                   </Label>
                   <SearchSelect
-                    value={entryOutlet === "" ? DRUG_PURCHASE_VALUE : entryOutlet}
+                    value={entryOutlet}
                     onChange={(val) => {
-                      const sel = val === DRUG_PURCHASE_VALUE ? "" : val;
-                      setEntryOutlet(sel);
+                      setEntryOutlet(val);
                       setMedicineSearch("");
                       setSelectedMedicine(null);
                       setAvailableBatches([]);
                       setSelectedBatchIdx("");
                       setAddedItems([]);
                     }}
-                    options={[
-                      { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
-                      ...outlets.map((o) => ({
-                        value: o.outlet_code,
-                        label: `${o.outlet_name} (${o.outlet_code})`,
-                      })),
-                    ]}
+                    options={outlets.map((o) => ({
+                      value: o.outlet_code,
+                      label: `${o.outlet_name} (${o.outlet_code})`,
+                    }))}
                     placeholder="Select Outlet"
                   />
                 </InputWrapper>
@@ -1839,14 +1835,13 @@ const ExpiryMedicines = () => {
               />
               <SearchSelect
                 style={{ width: 155, minWidth: 130, height: 30, fontSize: "0.78rem" }}
-                value={filterOutlet === "" ? DRUG_PURCHASE_VALUE : filterOutlet}
+                value={filterOutlet}
                 onChange={(val) => {
-                  setFilterOutlet(val === DRUG_PURCHASE_VALUE ? "" : val);
+                  setFilterOutlet(val);
                   setPage(1);
                 }}
                 options={[
                   { value: "ALL", label: "All Outlets" },
-                  { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
                   ...outlets.map((o) => ({
                     value: o.outlet_code,
                     label: `${o.outlet_name} (${o.outlet_code})`,
