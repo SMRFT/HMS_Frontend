@@ -1,5 +1,5 @@
 import { toast } from "react-toastify";
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import LabWardRequest from "./LabWardRequest";
@@ -217,6 +217,34 @@ const ControlsBar = styled.div`
         border-color: #0d9488;
         box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
       }
+    }
+  }
+
+  .ns-select-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 3px 10px;
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    select {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0f172a;
+      cursor: pointer;
+      padding: 4px 2px;
     }
   }
 
@@ -976,6 +1004,7 @@ const WardRequest = () => {
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState("ALL");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [selectedNursingStation, setSelectedNursingStation] = useState("ALL");
   const [selectedDoctor, setSelectedDoctor] = useState("ALL");
   const [selectedPayment, setSelectedPayment] = useState("ALL");
   const [selectedWardStatus, setSelectedWardStatus] = useState("ALL");
@@ -1084,7 +1113,35 @@ const WardRequest = () => {
     return { bg: "#eff6ff", border: "#bfdbfe", textColor: "#2563eb", dot: "#3b82f6", label: "Admitted" };
   };
 
+  // Resolve Nursing Station from admission or fallback to location mapping
+  const getAdmNursingStation = useCallback((adm) => {
+    let ns = getField(adm, "nursing_station") || adm.nursing_station || adm.nursingStation;
+    if (!ns || !String(ns).trim()) {
+      const rNo = String(getField(adm, "room_no") || adm.room_no || "").trim();
+      if (rNo && Array.isArray(locationMapping)) {
+        const matchLoc = locationMapping.find(l => String(l.room_no || l.room_number || "").trim() === rNo);
+        if (matchLoc && (matchLoc.nursing_station || matchLoc.nursingStation)) {
+          ns = matchLoc.nursing_station || matchLoc.nursingStation;
+        }
+      }
+    }
+    return String(ns || "").trim();
+  }, [locationMapping]);
+
   // Dynamic options for Filter Drawer derived from actual data
+  const availableNursingStations = useMemo(() => {
+    const set = new Set(["ALL"]);
+    admissions.forEach(a => {
+      const ns = getAdmNursingStation(a);
+      if (ns && String(ns).trim()) set.add(String(ns).trim());
+    });
+    locationMapping.forEach(l => {
+      const ns = l.nursing_station || l.nursingStation;
+      if (ns && String(ns).trim()) set.add(String(ns).trim());
+    });
+    return Array.from(set);
+  }, [admissions, locationMapping, getAdmNursingStation]);
+
   const availableBlocks = useMemo(() => {
     const set = new Set(["ALL"]);
     admissions.forEach(a => {
@@ -1164,6 +1221,11 @@ const WardRequest = () => {
       if (statusFilter === "discharged" && !isDischarged) return false;
 
       // 3. Advanced Filter drawer matching
+      if (selectedNursingStation !== "ALL") {
+        const ns = getAdmNursingStation(item);
+        if (String(ns).toLowerCase().trim() !== String(selectedNursingStation).toLowerCase().trim()) return false;
+      }
+
       if (selectedBlock !== "ALL") {
         const b = getField(item, "block") || getField(item, "block_id") || "Main Block";
         if (String(b).toLowerCase().trim() !== String(selectedBlock).toLowerCase().trim()) return false;
@@ -1196,19 +1258,21 @@ const WardRequest = () => {
 
       return true;
     });
-  }, [admissions, search, statusFilter, selectedBlock, selectedCategory, selectedDoctor, selectedPayment, selectedWardStatus]);
+  }, [admissions, search, statusFilter, selectedNursingStation, selectedBlock, selectedCategory, selectedDoctor, selectedPayment, selectedWardStatus, getAdmNursingStation]);
 
   // Group Rooms for Grid View
   const roomGroups = useMemo(() => {
     const groupsMap = new Map();
 
-    const getOrCreateRoom = (roomNum, roomCat, blockName) => {
+    const getOrCreateRoom = (roomNum, roomCat, blockName, nsName) => {
       const key = String(roomNum || "101").trim();
       if (!groupsMap.has(key)) {
         groupsMap.set(key, {
           room_no: key,
           room_category: roomCat || "General",
           block: blockName || "Main Block",
+          nursing_station: nsName || "",
+          total_capacity: 0,
           beds: []
         });
       }
@@ -1221,10 +1285,27 @@ const WardRequest = () => {
         const roomNum = loc.room_no || loc.room_number || loc.roomNo || "101";
         const roomCat = loc.room_category || loc.category || "General";
         const blockName = loc.block || loc.block_name || "Main Block";
+        const nsName = loc.nursing_station || loc.nursingStation || "";
+
+        // Advanced Filter Drawer and Controls filtering
+        if (selectedBlock !== "ALL") {
+          const b = blockName || "Main Block";
+          if (String(b).toLowerCase().trim() !== String(selectedBlock).toLowerCase().trim()) return;
+        }
+        if (selectedCategory !== "ALL") {
+          const c = roomCat || "";
+          if (String(c).toLowerCase().trim() !== String(selectedCategory).toLowerCase().trim()) return;
+        }
+        if (selectedNursingStation !== "ALL") {
+          if (String(nsName).toLowerCase().trim() !== String(selectedNursingStation).toLowerCase().trim()) return;
+        }
+
         const isRoomBlocked = Boolean(loc.is_blocked || String(loc.room_status || loc.status).toLowerCase() === "blocked");
-        const roomObj = getOrCreateRoom(roomNum, roomCat, blockName);
+        const roomObj = getOrCreateRoom(roomNum, roomCat, blockName, nsName);
 
         const rawBeds = Array.isArray(loc.beds) && loc.beds.length > 0 ? loc.beds : [loc];
+        roomObj.total_capacity = Math.max(roomObj.total_capacity, rawBeds.length);
+
         rawBeds.forEach((bedItem, bIdx) => {
           let bedNum = `Bed ${bIdx + 1}`;
           let isBedBlocked = isRoomBlocked;
@@ -1265,8 +1346,9 @@ const WardRequest = () => {
       const bedNum = String(getField(adm, "bed_no") || "1").trim();
       const roomCat = getField(adm, "room_category") || "General";
       const blockName = getField(adm, "block") || "Main Block";
+      const nsName = getAdmNursingStation(adm);
 
-      const roomObj = getOrCreateRoom(roomNum, roomCat, blockName);
+      const roomObj = getOrCreateRoom(roomNum, roomCat, blockName, nsName);
 
       const existingBed = roomObj.beds.find(b =>
         String(b.bed_no).trim() === bedNum ||
@@ -1287,19 +1369,59 @@ const WardRequest = () => {
       }
     });
 
-    return Array.from(groupsMap.values()).sort((a, b) =>
+    let rooms = Array.from(groupsMap.values()).sort((a, b) =>
       String(a.room_no).localeCompare(String(b.room_no), undefined, { numeric: true })
     );
-  }, [locationMapping, filteredAdmissions]);
+
+    // CRITICAL USER REQUIREMENT:
+    // When "admitted" filter is clicked: show ONLY admitted beds, NOT all beds (exclude vacant/free beds)
+    if (statusFilter === "admitted") {
+      rooms = rooms
+        .map(room => ({
+          ...room,
+          beds: room.beds.filter(b => b.admission && !getField(b.admission, "is_discharged"))
+        }))
+        .filter(room => room.beds.length > 0);
+    } else if (statusFilter === "discharged") {
+      rooms = rooms
+        .map(room => ({
+          ...room,
+          beds: room.beds.filter(b => b.admission && getField(b.admission, "is_discharged"))
+        }))
+        .filter(room => room.beds.length > 0);
+    }
+
+    return rooms;
+  }, [locationMapping, filteredAdmissions, selectedBlock, selectedCategory, selectedNursingStation, statusFilter, getAdmNursingStation]);
 
   // Compute KPI Summary Metrics
   const kpiRoomsCount = roomGroups.length;
   const kpiPatientsCount = filteredAdmissions.filter(a => !getField(a, "is_discharged")).length;
-  const totalBedsCount = useMemo(() => {
-    return roomGroups.reduce((acc, r) => acc + (r.beds?.length || 1), 0);
-  }, [roomGroups]);
-  const kpiFreeBedsCount = totalBedsCount - kpiPatientsCount;
-  const kpiOpenRequestsCount = filteredAdmissions.filter(a => getField(a, "ward_status") === "Mark for discharge" || getField(a, "ward_status") === "Sent for billing").length || 5;
+
+  const allMasterBedsCount = useMemo(() => {
+    if (!Array.isArray(locationMapping) || locationMapping.length === 0) return 0;
+    return locationMapping.reduce((acc, loc) => {
+      const bName = loc.block || loc.block_name || "Main Block";
+      const cName = loc.room_category || loc.category || "General";
+      const nsName = loc.nursing_station || loc.nursingStation || "";
+
+      if (selectedBlock !== "ALL" && String(bName).toLowerCase().trim() !== String(selectedBlock).toLowerCase().trim()) return acc;
+      if (selectedCategory !== "ALL" && String(cName).toLowerCase().trim() !== String(selectedCategory).toLowerCase().trim()) return acc;
+      if (selectedNursingStation !== "ALL" && String(nsName).toLowerCase().trim() !== String(selectedNursingStation).toLowerCase().trim()) return acc;
+
+      const beds = Array.isArray(loc.beds) && loc.beds.length > 0 ? loc.beds.length : 1;
+      return acc + beds;
+    }, 0);
+  }, [locationMapping, selectedBlock, selectedCategory, selectedNursingStation]);
+
+  const totalBedsCount = allMasterBedsCount > 0
+    ? allMasterBedsCount
+    : roomGroups.reduce((acc, r) => acc + (r.total_capacity || r.beds?.length || 1), 0);
+
+  const kpiFreeBedsCount = Math.max(0, totalBedsCount - kpiPatientsCount);
+  const kpiOpenRequestsCount = filteredAdmissions.filter(a =>
+    getField(a, "ward_status") === "Mark for discharge" || getField(a, "ward_status") === "Sent for billing"
+  ).length;
 
   // Patient click handler -> Opens Action Modal (Image 2)
   const handleOpenActionModal = (patientObj) => {
@@ -1394,8 +1516,8 @@ const WardRequest = () => {
         <KpiCard color="#10b981">
           <span className="kpi-title">Beds Free</span>
           <div className="kpi-value-row">
-            <span className="val" style={{ color: "#10b981" }}>{kpiFreeBedsCount > 0 ? kpiFreeBedsCount : 11}</span>
-            <span className="sub">of {totalBedsCount > 0 ? totalBedsCount : 27}</span>
+            <span className="val" style={{ color: "#10b981" }}>{kpiFreeBedsCount}</span>
+            <span className="sub">of {totalBedsCount}</span>
           </div>
         </KpiCard>
 
@@ -1414,6 +1536,20 @@ const WardRequest = () => {
           <button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}>All</button>
           <button className={statusFilter === "admitted" ? "active" : ""} onClick={() => setStatusFilter("admitted")}>Admitted</button>
           <button className={statusFilter === "discharged" ? "active" : ""} onClick={() => setStatusFilter("discharged")}>Discharged</button>
+        </div>
+
+        <div className="ns-select-wrapper">
+          <label htmlFor="ns-filter-select">Station:</label>
+          <select
+            id="ns-filter-select"
+            value={selectedNursingStation}
+            onChange={e => setSelectedNursingStation(e.target.value)}
+          >
+            <option value="ALL">All Stations</option>
+            {availableNursingStations.filter(ns => ns !== "ALL").map(ns => (
+              <option key={ns} value={ns}>{ns}</option>
+            ))}
+          </select>
         </div>
 
         <div className="search-wrapper">
@@ -1455,9 +1591,15 @@ const WardRequest = () => {
       {/* MAIN VIEW: Beds Grid (Image 1) OR Patients List (Image 3) */}
       {viewMode === "grid" ? (
         <RoomsContainer>
-          {roomGroups.map(room => {
+          {roomGroups.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "48px 16px", color: "#64748b", width: "100%", gridColumn: "1 / -1" }}>
+              <div style={{ fontSize: "16px", fontWeight: "700", color: "#334155", marginBottom: "6px" }}>No rooms or beds found</div>
+              <div style={{ fontSize: "13px" }}>No beds match the current filter criteria ({statusFilter !== "all" ? `Status: ${statusFilter}` : ""}{selectedNursingStation !== "ALL" ? `, Station: ${selectedNursingStation}` : ""}).</div>
+            </div>
+          ) : (
+            roomGroups.map(room => {
             const usedBeds = room.beds.filter(b => b.admission).length;
-            const totalBeds = room.beds.length || 1;
+            const totalBeds = room.total_capacity || room.beds.length || 1;
 
             return (
               <RoomCard key={room.room_no}>
@@ -1514,7 +1656,7 @@ const WardRequest = () => {
                 </div>
               </RoomCard>
             );
-          })}
+          }))}
         </RoomsContainer>
       ) : (
         /* List View Table (Image 3) */
@@ -1726,6 +1868,21 @@ const WardRequest = () => {
 
             <div className="drawer-body">
               <div className="filter-group">
+                <div className="group-title">NURSING STATION</div>
+                <div className="chip-wrap">
+                  {availableNursingStations.map(ns => (
+                    <button
+                      key={ns}
+                      className={`chip ${selectedNursingStation === ns ? "selected" : ""}`}
+                      onClick={() => setSelectedNursingStation(ns)}
+                    >
+                      {ns === "ALL" ? "All Stations" : ns}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="filter-group">
                 <div className="group-title">BLOCK</div>
                 <div className="chip-wrap">
                   {availableBlocks.map(b => (
@@ -1805,6 +1962,7 @@ const WardRequest = () => {
               <button
                 className="btn-reset"
                 onClick={() => {
+                  setSelectedNursingStation("ALL");
                   setSelectedBlock("ALL");
                   setSelectedCategory("ALL");
                   setSelectedDoctor("ALL");
