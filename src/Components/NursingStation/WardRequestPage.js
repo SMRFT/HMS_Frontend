@@ -1602,9 +1602,15 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   };
 
   const handleCancelRequest = async (billId) => {
-    if (!window.confirm("Are you sure you want to cancel this medicine ward request?")) return;
+    const reason = window.prompt("Enter reason for cancelling this medicine ward request:");
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      alert("Cancellation reason is required.");
+      return;
+    }
     try {
-      const res = await apiRequest(`${HmsBaseUrl}cancel_medicine_ward_request/`, "POST", { id: billId });
+      const res = await apiRequest(`${HmsBaseUrl}cancel_medicine_ward_request/`, "POST", { id: billId, cancel_reason: trimmedReason });
       if (res.success) {
         alert("Medicine ward request cancelled successfully!");
         fetchRequests();

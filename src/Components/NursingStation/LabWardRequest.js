@@ -1104,9 +1104,15 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
     }
   };
   const handleCancelRequest = async (requestId) => {
-    if (!window.confirm("Are you sure you want to cancel this request?")) return;
+    const reason = window.prompt("Enter reason for cancelling this lab request:");
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      alert("Cancellation reason is required.");
+      return;
+    }
     try {
-      const res = await apiRequest(`${HmsBaseUrl}cancel_lab_ward_request/`, "POST", { id: requestId });
+      const res = await apiRequest(`${HmsBaseUrl}cancel_lab_ward_request/`, "POST", { id: requestId, cancel_reason: trimmedReason });
       if (res.success) {
         alert("Request cancelled successfully!");
         fetchLabRequests();

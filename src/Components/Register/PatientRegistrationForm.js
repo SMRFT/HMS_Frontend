@@ -551,8 +551,10 @@ const PatientRegistrationForm = () => {
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
     iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
+    iframe.style.width = '97.5mm';
+    iframe.style.height = '51mm';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
     iframe.style.border = '0';
     document.body.appendChild(iframe);
 
@@ -2926,9 +2928,7 @@ const PatientRegistrationForm = () => {
                   $variant="payNow"
                   onClick={() => {
                     setPaymentTiming("pay_now");
-                    if (paymentMethod === "Insurance Credit" || paymentMethod === "Pay Later") {
-                      setPaymentMethod("Cash");
-                    }
+                    setPaymentMethod("Cash");
                   }}
                   title="Collect payment now at counter"
                 >
@@ -2955,21 +2955,6 @@ const PatientRegistrationForm = () => {
                 </TimingButton>
               </PaymentTimingButtonGroup>
 
-              {/* PAYMENT MODE SELECTOR (WHEN PAY NOW IS ACTIVE) */}
-              {paymentTiming === "pay_now" && (
-                <PaymentModeSelector>
-                  {["Cash", "UPI", "Card"].map((mode) => (
-                    <PaymentModePill
-                      key={mode}
-                      type="button"
-                      $isSelected={paymentMethod === mode}
-                      onClick={() => setPaymentMethod(mode)}
-                    >
-                      {mode}
-                    </PaymentModePill>
-                  ))}
-                </PaymentModeSelector>
-              )}
 
               {/* DYNAMIC HELPER NOTICE */}
               <PaymentStatusNotice $isPayLater={paymentTiming === "pay_later"}>
@@ -4215,37 +4200,6 @@ const TimingButton = styled.button`
       }
     `;
   }}
-`
-
-const PaymentModeSelector = styled.div`
-  display: flex;
-  gap: 4px;
-  margin-top: 2px;
-`
-
-const PaymentModePill = styled.button`
-  flex: 1;
-  padding: 4px 6px;
-  font-size: 10px;
-  font-weight: 600;
-  border-radius: 4px;
-  cursor: pointer;
-  border: 1px solid;
-  transition: all 0.15s ease;
-
-  ${props => props.$isSelected ? `
-    background: #047857;
-    color: #ffffff;
-    border-color: #10b981;
-  ` : `
-    background: #111827;
-    color: #9ca3af;
-    border-color: #374151;
-    &:hover {
-      background: #1f2937;
-      color: #e5e7eb;
-    }
-  `}
 `
 
 const PaymentStatusNotice = styled.div`

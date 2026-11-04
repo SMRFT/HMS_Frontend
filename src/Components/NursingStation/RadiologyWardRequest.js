@@ -992,14 +992,22 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   };
 
   const handleCancelRequest = async (billId) => {
-    if (!window.confirm("Are you sure you want to cancel this entire request?")) return;
+    const reason = window.prompt("Enter reason for cancelling this radiology request:");
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      alert("Cancellation reason is required.");
+      return;
+    }
     try {
-      const res = await apiRequest(`${HmsBaseUrl}cancel_radiology_ward_request/`, "POST", { id: billId });
+      const res = await apiRequest(`${HmsBaseUrl}cancel_radiology_ward_request/`, "POST", { id: billId, cancel_reason: trimmedReason });
       if (res.success) {
         alert("Request cancelled successfully");
         fetchRequests();
+      } else {
+        alert("Failed to cancel: " + (res.data?.error || res.error || res.message || "Unknown error"));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); alert("An error occurred while cancelling."); }
   };
 
   const handleRemoveIndividualTest = async (billId, test) => {
