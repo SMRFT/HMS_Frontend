@@ -631,7 +631,6 @@ const ViewDetailsModal = ({ record, outlets, onClose }) => {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DRUG_PURCHASE_LABEL = "Drug Purchase";
-const DRUG_PURCHASE_VALUE = "__DRUG_PURCHASE__";
 
 const CAUSE_OPTIONS = [
   "Broken", "Damage", "Nearing Expiry", "Non Moving",
@@ -639,7 +638,7 @@ const CAUSE_OPTIONS = [
 ];
 
 const isDrugPurchaseOutlet = (outlet) =>
-  (outlet?.outlet_name || "").trim().toLowerCase() === "drug purchase";
+  (outlet?.outlet_name || "").trim().toLowerCase() === "drug purchase" || outlet?.outlet_code === "OLET006";
 
 // ─── Auth context ─────────────────────────────────────────────────────────────
 function getAuthContext() {
@@ -653,7 +652,7 @@ function getAuthContext() {
   const outletCode =
     !raw || raw === "null" || raw === "None" || raw === "system" || raw === "undefined"
       ? "" : raw.trim();
-  const isDrugPurchase = outletCode === "";
+  const isDrugPurchase = outletCode === "" || outletCode === "OLET006";
   return { outletCode, isDrugPurchase };
 }
 
@@ -714,7 +713,7 @@ const PurchaseReturn = () => {
       const r = await apiRequest(`${HmsBaseUrl}get_active_outlets/`, "GET");
       const list = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : []);
       const filtered = Array.isArray(list)
-        ? list.filter((o) => o.outlet_name && !isDrugPurchaseOutlet(o))
+        ? list.filter((o) => o.outlet_name && o.outlet_code)
         : [];
       setOutlets(filtered);
     } catch { toast.error("Failed to fetch outlets"); }
@@ -772,7 +771,8 @@ const PurchaseReturn = () => {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const getOutletName = (code) => {
-    if (code === null || code === undefined || code === "" || code === "null") return DRUG_PURCHASE_LABEL;
+    if (code === null || code === undefined || code === "null") return "-";
+    if (code === "" || code === "OLET006") return DRUG_PURCHASE_LABEL;
     const o = outlets.find((x) => x.outlet_code === code);
     return o ? o.outlet_name : code;
   };
@@ -784,14 +784,10 @@ const PurchaseReturn = () => {
 
   const toSelectVal = (code) => {
     if (code === null || code === undefined) return "";
-    if (code === "") return DRUG_PURCHASE_VALUE;
     return code;
   };
 
-  const outletOptions = [
-    { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
-    ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
-  ];
+  const outletOptions = outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name }));
 
   // ── GRN Search ─────────────────────────────────────────────────────────────
   const handleGrnSearch = async () => {
@@ -844,7 +840,7 @@ const PurchaseReturn = () => {
 
   // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    const outletVal = selectedOutlet === DRUG_PURCHASE_VALUE ? "" : selectedOutlet;
+    const outletVal = selectedOutlet || "";
     if (!outletVal) { toast.error("Please select an outlet"); return; }
     if (!selectedVendor) { toast.error("Please select a vendor"); return; }
     if (addedItems.length === 0) { toast.error("Add at least one item for return"); return; }
@@ -951,7 +947,7 @@ const PurchaseReturn = () => {
                       <label style={{ fontSize: "0.68rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Outlet <span style={{ color: "#ef4444" }}>*</span></label>
                       <FilterSelect style={{ width: "100%", padding: "7px 10px", fontSize: "0.82rem", borderRadius: 7 }}
                         value={toSelectVal(selectedOutlet)}
-                        onChange={(e) => { const v = e.target.value; const code = v === DRUG_PURCHASE_VALUE ? "" : v; setSelectedOutlet(code); setGrnNumber(""); setGrnSearched(false); setGrnItems([]); setAddedItems([]); }}
+                        onChange={(e) => { const v = e.target.value; const code = v; setSelectedOutlet(code); setGrnNumber(""); setGrnSearched(false); setGrnItems([]); setAddedItems([]); }}
                       >
                         <option value="">-- Select Outlet --</option>
                         {outletOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
