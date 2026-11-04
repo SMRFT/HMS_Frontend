@@ -25,7 +25,15 @@ import {
   FaInfoCircle,
 } from "react-icons/fa";
 
-const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "http://127.0.0.1:2609/_b_a_c_k_e_n_d/HMS/";
+const getBaseUrl = () => {
+  const envUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  if (envUrl && envUrl.startsWith("http")) return envUrl;
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    return "http://127.0.0.1:2609/_b_a_c_k_e_n_d/HMS/";
+  }
+  return envUrl || "/_b_a_c_k_e_n_d/HMS/";
+};
+const HmsBaseUrl = getBaseUrl();
 
 // ─── Animations ─────────────────────────────────────────────────────────────
 const fadeIn = keyframes`

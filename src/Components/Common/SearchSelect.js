@@ -85,6 +85,7 @@ export default function SearchSelect({
   const itemRefs = useRef([]);
   const isKeyboardNav = useRef(false);
   const lastMousePos = useRef({ x: -1, y: -1 });
+  const skipOpenOnFocus = useRef(false);
 
   const isError = Boolean(error || $err);
 
@@ -309,8 +310,9 @@ export default function SearchSelect({
     }
   };
 
-  const handleChoose = (opt, refocus = true) => {
+  const handleChoose = (opt, refocus = false) => {
     if (disabled || !opt) return;
+    skipOpenOnFocus.current = true;
     fireChange(opt.value);
     setInputValue(opt.label);
     setQuery("");
@@ -359,6 +361,10 @@ export default function SearchSelect({
   const handleInputFocus = () => {
     if (disabled) return;
     setIsFocused(true);
+    if (skipOpenOnFocus.current) {
+      skipOpenOnFocus.current = false;
+      return;
+    }
     updatePos();
     setIsOpen(true);
     setTimeout(() => {
@@ -374,6 +380,7 @@ export default function SearchSelect({
 
   const handleInputClick = () => {
     if (disabled) return;
+    skipOpenOnFocus.current = false;
     if (!isOpen) {
       updatePos();
       setIsOpen(true);
@@ -441,9 +448,9 @@ export default function SearchSelect({
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
-        handleChoose(filtered[highlightedIndex], true);
+        handleChoose(filtered[highlightedIndex], false);
       } else if (filtered.length === 1) {
-        handleChoose(filtered[0], true);
+        handleChoose(filtered[0], false);
       } else {
         setIsOpen(false);
         setQuery("");
@@ -615,8 +622,13 @@ export default function SearchSelect({
                 ref={(el) => { itemRefs.current[idx] = el; }}
                 onMouseDown={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
+                  handleChoose(opt, false);
                 }}
-                onClick={() => handleChoose(opt)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleChoose(opt, false);
+                }}
                 onMouseMove={(e) => handleItemMouseMove(idx, e)}
                 style={{
                   padding: "8px 10px",

@@ -29,7 +29,15 @@ import {
   Eye
 } from "lucide-react";
 
-const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+const getBaseUrl = () => {
+  const envUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  if (envUrl && envUrl.startsWith("http")) return envUrl;
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    return "http://127.0.0.1:2609/_b_a_c_k_e_n_d/HMS/";
+  }
+  return envUrl || "/_b_a_c_k_e_n_d/HMS/";
+};
+const Hmsbaseurl = getBaseUrl();
 
 // --------- Global Font ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const GlobalStyle = createGlobalStyle`
@@ -1558,20 +1566,38 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     }, 0);
 
     const advance = Number(patient?.total_ip_advance || 0);
-    const remaining = advance - prescriptionTotal;
+    const isInsurance = Boolean(
+      patient?.is_insurance ||
+      String(patient?.customer_type || "").toLowerCase() === "insurance" ||
+      patient?.insurance_company ||
+      patient?.patient_details?.is_insurance ||
+      String(patient?.patient_details?.customer_type || "").toLowerCase() === "insurance" ||
+      patient?.patient_details?.insurance_company
+    );
+    // Requirement: Do not deduct consumable bills amount from advance.
+    // For Insurance patients, advance is not deducted (all covered by insurance).
+    const remaining = isInsurance ? advance : Math.max(0, advance - prescriptionTotal);
 
     return {
       itemsCount: items.length,
       prescriptionTotal,
       advance,
       remaining,
+      isInsurance,
     };
   };
+
+  const isConsumableItem = (item) => Boolean(
+    item?.is_consumable_items === true ||
+    item?.is_consumable_items === "true" ||
+    item?.is_consumable_items === 1 ||
+    item?.consumable
+  );
 
   const getItemDotColor = (item) => {
     if (item?.is_substitute) return "#2563eb";
     if (item?.is_emergency) return "#dc2626";
-    if (item?.is_consumable_items) return "#ea580c";
+    if (isConsumableItem(item)) return "#ea580c";
     if (item?.is_insurance_covered) return "#16a34a";
     return "#6b7280";
   };
@@ -1579,7 +1605,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const getItemTypeName = (item) => {
     if (item?.is_substitute) return "Substitute";
     if (item?.is_emergency) return "Emergency";
-    if (item?.is_consumable_items) return "Consumable";
+    if (isConsumableItem(item)) return "Consumable";
     return "Regular";
   };
 
@@ -1689,18 +1715,29 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       if (fromDate) payload.from_date = fromDate;
       if (toDate) payload.to_date = toDate;
 
+      console.log("fetchMedicineChart calling:", `${Hmsbaseurl}pharmacy_medicinechart/`, payload);
       const response = await apiRequest(
         `${Hmsbaseurl}pharmacy_medicinechart/`,
         "POST",
         payload
       );
+      console.log("fetchMedicineChart received response:", response);
 
       if (!response.success) {
+        console.error("fetchMedicineChart failed:", response.error);
         if (!silent) setError(response.error || "Failed to load data.");
         return;
       }
 
-      const rawList = response.data?.data || [];
+      const resBody = response.data;
+      const rawList = Array.isArray(resBody)
+        ? resBody
+        : Array.isArray(resBody?.data)
+          ? resBody.data
+          : Array.isArray(resBody?.data?.data)
+            ? resBody.data.data
+            : [];
+      console.log("fetchMedicineChart rawList count:", rawList.length, rawList);
       setMedicineData(rawList);
       if (typeof onCountChange === "function") {
         onCountChange(rawList.length);
@@ -2298,8 +2335,21 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     <CardItemsTitle>
                       {itemsCount} {itemsCount === 1 ? "item" : "items"} • ₹{formatCurrency(prescriptionTotal)}
                     </CardItemsTitle>
-                    <CardAdvanceSubtext>
-                      {custType} • Adv ₹{formatCurrency(advance)}
+                    <CardAdvanceSubtext style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 2 }}>
+                      <span>{custType} • Adv ₹{formatCurrency(advance)}</span>
+                      {Array.isArray(patient?.medicine_items) && patient.medicine_items.some(isConsumableItem) && (
+                        <span style={{
+                          background: "#ffedd5",
+                          color: "#c2410c",
+                          padding: "1px 5px",
+                          borderRadius: 3,
+                          fontSize: "0.62rem",
+                          fontWeight: 700,
+                          border: "1px solid #fed7aa"
+                        }}>
+                          CONSUMABLES
+                        </span>
+                      )}
                     </CardAdvanceSubtext>
                   </div>
 
@@ -2355,7 +2405,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
             <span className="dot" style={{ background: "#16a34a" }} /> Insurance covered
           </LegendEntry>
           <LegendEntry>
-            <span className="dot" style={{ background: "#ea580c" }} /> Consumable (patient payable)
+            <span className="dot" style={{ background: "#ea580c" }} /> Consumable Item
           </LegendEntry>
         </BottomLegendWrap>
       </PageContainer>
@@ -2466,10 +2516,17 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <StripLabel>Available IP advance</StripLabel>
                       <StripVal>₹{formatCurrency(advance)}</StripVal>
                     </StripCell>
-                    <StripCell>
-                      <StripLabel style={{ color: "#0f766e" }}>Remaining after deduction</StripLabel>
-                      <StripVal $color="#0f766e">₹{formatCurrency(remaining)}</StripVal>
-                    </StripCell>
+                    {isModalInsurance ? (
+                      <StripCell>
+                        <StripLabel style={{ color: "#047857" }}>Billing Coverage</StripLabel>
+                        <StripVal $color="#047857">100% Insurance Covered</StripVal>
+                      </StripCell>
+                    ) : (
+                      <StripCell>
+                        <StripLabel style={{ color: "#0f766e" }}>Remaining after deduction</StripLabel>
+                        <StripVal $color="#0f766e">₹{formatCurrency(remaining)}</StripVal>
+                      </StripCell>
+                    )}
                   </PatientSummaryStrip>
 
                   <ModalTableContainer>
@@ -2513,6 +2570,20 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                                     <span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase" }}>
                                       {item.item_name || item.medicine_name || `Item #${idx + 1}`}
                                     </span>
+                                    {isConsumableItem(item) && (
+                                      <span style={{
+                                        background: "#ffedd5",
+                                        color: "#c2410c",
+                                        padding: "1px 6px",
+                                        borderRadius: 4,
+                                        fontSize: "0.68rem",
+                                        fontWeight: 700,
+                                        border: "1px solid #fed7aa",
+                                        letterSpacing: "0.02em"
+                                      }}>
+                                        CONSUMABLE
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                                 <td style={{ color: "#475569" }}>{typeName}</td>
@@ -2536,7 +2607,18 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                                     <span style={{ color: "#94a3b8" }}>—</span>
                                   )}
                                 </td>
-                                <td style={{ color: "#475569" }}>{item.dosage || item.dose || "—"}</td>
+                                <td style={{ color: "#475569" }}>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                    <span style={{ fontWeight: 600, color: item.dosage ? "#15803d" : "#475569" }}>
+                                      {item.dosage || item.dose || "—"}
+                                    </span>
+                                    {item.noOfDays && (
+                                      <span style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                                        {item.noOfDays} Days
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
                                 <td style={{ fontSize: "0.73rem", color: "#64748b" }}>{requestedTime}</td>
                                 <td style={{ textAlign: "center" }}>
                                   <button
@@ -2753,28 +2835,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           return acc + (q * pr);
         }, 0);
 
-        const consumablePayableAmount = items.reduce((acc, it) => {
-          if (Boolean(it.is_consumable_items)) {
-            const q = Number(it.qty ?? it.quantity ?? 0);
-            const pr = getUnitPrice(it);
-            return acc + (q * pr);
-          }
-          return acc;
-        }, 0);
-
-        const insuranceCoveredAmount = totalPrescriptionAmount - consumablePayableAmount;
         const availableIpAdvance = Number(p.total_ip_advance || 0);
-        const amountDeductedFromAdvance = isInsurance
-          ? Math.min(consumablePayableAmount, availableIpAdvance)
-          : Math.min(totalPrescriptionAmount, availableIpAdvance);
-
-        const remainingIpAdvance = isInsurance
-          ? Math.max(0, availableIpAdvance - consumablePayableAmount)
-          : Math.max(0, availableIpAdvance - totalPrescriptionAmount);
-
-        const patientExcessToPay = isInsurance
-          ? Math.max(0, consumablePayableAmount - availableIpAdvance)
-          : Math.max(0, totalPrescriptionAmount - availableIpAdvance);
 
         const handlePrint = () => {
           const printWindow = window.open("", "_blank", "width=900,height=640");

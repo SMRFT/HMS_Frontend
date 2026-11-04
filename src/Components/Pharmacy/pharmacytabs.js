@@ -217,7 +217,15 @@ const OPPharmacyTabs = () => {
     }
   }, [selectedOutlet, activeTab]);
 
-  const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const getBaseUrl = () => {
+    const envUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+    if (envUrl && envUrl.startsWith("http")) return envUrl;
+    if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      return "http://127.0.0.1:2609/_b_a_c_k_e_n_d/HMS/";
+    }
+    return envUrl || "/_b_a_c_k_e_n_d/HMS/";
+  };
+  const Hmsbaseurl = getBaseUrl();
 
   const handleConvertPrescription = (prescription) => {
     setPrescriptionToLoad(prescription);
@@ -364,7 +372,11 @@ const OPPharmacyTabs = () => {
           qty:                 item.qty             ?? item.quantity ?? 0,
           quantity:            item.qty             ?? item.quantity ?? 0,
           dosage:              item.dosage          || "",
-          noOfDays:            item.noOfDays        || "",
+          noOfDays:            item.noOfDays        || item.no_of_days || "",
+          dose:                item.dose            || "",
+          doseunit:            item.doseunit        || item.doseUnit || "",
+          instruction:         item.instruction     || "",
+          route:               item.route           || "",
           available_stock:     item.available_stock ?? 0,
           CGST_Percentage:     item.CGST_Percentage ?? 0,
           SGST_Percentage:     item.SGST_Percentage ?? 0,

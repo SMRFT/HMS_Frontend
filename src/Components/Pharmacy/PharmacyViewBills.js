@@ -1791,7 +1791,14 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                       const sgstAmt  = parseFloat(med.SGST_Amt ?? med.sgst_amount ?? (amt * sgstPct / 100).toFixed(2));
                       return (
                         <tr key={i}>
-                          <td style={{ padding: "2.5px 4px", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>{(med.item_name && med.item_name.trim()) || (med.medicine_name && med.medicine_name.trim()) || (med.name && med.name.trim()) || `Item #${med.item_id || i + 1}`}</td>
+                          <td style={{ padding: "2.5px 4px", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>
+                            <div>{(med.item_name && med.item_name.trim()) || (med.medicine_name && med.medicine_name.trim()) || (med.name && med.name.trim()) || `Item #${med.item_id || i + 1}`}</div>
+                            {med.dosage && (
+                              <div style={{ fontSize: 9.5, color: "#166534", fontWeight: 600 }}>
+                                Dosage: {med.dosage} {med.noOfDays ? `(${med.noOfDays} Days)` : ""}
+                              </div>
+                            )}
+                          </td>
                           <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.hsn_code ?? "—"}</td>
                           <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.batch_number ?? med.batch ?? "—"}</td>
                           <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryForBill(med.expiry_date ?? med.expiry)}</td>

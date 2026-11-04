@@ -185,17 +185,17 @@ const FilterBar = styled.div`
   background: ${colors.surface};
   border: 1px solid ${colors.border};
   border-radius: 10px;
-  padding: 14px 18px;
+  padding: 12px 16px;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 
   .search-wrap {
     flex: 1;
-    min-width: 260px;
+    min-width: 220px;
     position: relative;
     display: flex;
     align-items: center;
@@ -208,10 +208,10 @@ const FilterBar = styled.div`
 
     input {
       width: 100%;
-      padding: 9px 12px 9px 38px;
+      padding: 8px 12px 8px 36px;
       border: 1.5px solid ${colors.border};
       border-radius: 8px;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       outline: none;
       transition: border 0.2s;
 
@@ -224,7 +224,8 @@ const FilterBar = styled.div`
   .date-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    white-space: nowrap;
 
     label {
       font-size: 0.85rem;
@@ -233,10 +234,10 @@ const FilterBar = styled.div`
     }
 
     input[type="date"] {
-      padding: 8px 12px;
+      padding: 7px 10px;
       border: 1.5px solid ${colors.border};
       border-radius: 8px;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
       outline: none;
       color: ${colors.textPrimary};
 
@@ -475,9 +476,11 @@ export default function WardReturnApprovals() {
     try {
       const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
       let url = `${HmsBaseUrl}get_ward_return_details/`;
+      const effFrom = fromDate || getTodayDate();
+      const effTo = toDate || getTodayDate();
       const params = [];
-      if (fromDate) params.push(`from_date=${fromDate}`);
-      if (toDate) params.push(`to_date=${toDate}`);
+      if (effFrom) params.push(`from_date=${effFrom}`);
+      if (effTo) params.push(`to_date=${effTo}`);
       if (params.length) url += `?${params.join("&")}`;
 
       const res = await apiRequest(url, "GET");
@@ -615,15 +618,8 @@ export default function WardReturnApprovals() {
     }
   };
 
-  // Summary Metrics
-  const totalPendingCount = pendingList.length;
-  const totalApprovedCount = approvedList.length;
-  const totalApprovedReturnValue = approvedList.reduce((acc, curr) => acc + (parseFloat(curr.return_amount) || 0), 0);
-  const totalOriginalBillValue = approvedList.reduce((acc, curr) => acc + (parseFloat(curr.original_bill_amount) || 0), 0);
-  const totalNetRetainedValue = Math.max(0, totalOriginalBillValue - totalApprovedReturnValue);
-
-  // Filtered lists
-  const filterList = (list) => {
+  // Filtered lists with strict date range filtering
+  const filterList = (list, type = "approved") => {
     return list.filter((item) => {
       let match = true;
       if (searchQuery) {
@@ -636,12 +632,37 @@ export default function WardReturnApprovals() {
         const ward = (item.ward_name || item.room_no || "").toLowerCase();
         match = pName.includes(q) || uhid.includes(q) || ip.includes(q) || bNo.includes(q) || retNo.includes(q) || ward.includes(q);
       }
-      return match;
+      if (!match) return false;
+
+      // Filter by date: strictly display records that fall within the selected date range
+      const effFrom = fromDate || getTodayDate();
+      const effTo = toDate || getTodayDate();
+
+      let itemDateStr = "";
+      if (type === "approved") {
+        itemDateStr = (item.ward_return_bill_date || item.bill_date || "").slice(0, 10);
+      } else {
+        itemDateStr = (item.requested_at || item.bill_date || "").slice(0, 10);
+      }
+
+      if (itemDateStr) {
+        if (effFrom && itemDateStr < effFrom) return false;
+        if (effTo && itemDateStr > effTo) return false;
+      }
+
+      return true;
     });
   };
 
-  const filteredPending = filterList(pendingList);
-  const filteredApproved = filterList(approvedList);
+  const filteredPending = filterList(pendingList, "pending");
+  const filteredApproved = filterList(approvedList, "approved");
+
+  // Summary Metrics based on filtered records
+  const totalPendingCount = filteredPending.length;
+  const totalApprovedCount = filteredApproved.length;
+  const totalApprovedReturnValue = filteredApproved.reduce((acc, curr) => acc + (parseFloat(curr.return_amount) || 0), 0);
+  const totalOriginalBillValue = filteredApproved.reduce((acc, curr) => acc + (parseFloat(curr.original_bill_amount) || 0), 0);
+  const totalNetRetainedValue = Math.max(0, totalOriginalBillValue - totalApprovedReturnValue);
 
   return (
     <PageContainer>
@@ -690,12 +711,12 @@ export default function WardReturnApprovals() {
         <NavTab $active={activeTab === "pending"} onClick={() => setActiveTab("pending")}>
           <Clock size={16} />
           Pending Approvals
-          <Badge $variant="accent">{pendingList.length}</Badge>
+          <Badge $variant="accent">{filteredPending.length}</Badge>
         </NavTab>
         <NavTab $active={activeTab === "report"} onClick={() => setActiveTab("report")}>
           <FileText size={16} />
           Approved Returns Report &amp; Print
-          <Badge $variant="primary">{approvedList.length}</Badge>
+          <Badge $variant="primary">{filteredApproved.length}</Badge>
         </NavTab>
       </NavTabs>
 
@@ -717,6 +738,7 @@ export default function WardReturnApprovals() {
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
+            onBlur={(e) => { if (!e.target.value) setFromDate(getTodayDate()); }}
           />
         </div>
 
@@ -726,24 +748,45 @@ export default function WardReturnApprovals() {
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
+            onBlur={(e) => { if (!e.target.value) setToDate(getTodayDate()); }}
           />
         </div>
 
         <button
           onClick={() => { setFromDate(getTodayDate()); setToDate(getTodayDate()); }}
-          style={{ padding: "8px 14px", border: `1.5px solid ${colors.primary}`, background: colors.primaryLight, color: colors.primary, borderRadius: "6px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 700 }}
+          style={{
+            padding: "8px 14px",
+            border: `1.5px solid ${colors.primary}`,
+            background: colors.primaryLight,
+            color: colors.primary,
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "0.85rem",
+            fontWeight: 700,
+            whiteSpace: "nowrap"
+          }}
           title="Reset to today's date"
         >
           Today
         </button>
 
-        {(fromDate || toDate || searchQuery) && (
+        {(fromDate !== getTodayDate() || toDate !== getTodayDate() || searchQuery) && (
           <button
-            onClick={() => { setFromDate(""); setToDate(""); setSearchQuery(""); }}
-            style={{ padding: "8px 14px", border: "none", background: "#E2E8F0", borderRadius: "6px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}
-            title="View all records without date filter"
+            onClick={() => { setFromDate(getTodayDate()); setToDate(getTodayDate()); setSearchQuery(""); }}
+            style={{
+              padding: "8px 14px",
+              border: "1px solid #CBD5E1",
+              background: "#F1F5F9",
+              color: colors.textSecondary,
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              whiteSpace: "nowrap"
+            }}
+            title="Reset filters to today's date"
           >
-            All Records
+            Reset Filters
           </button>
         )}
       </FilterBar>

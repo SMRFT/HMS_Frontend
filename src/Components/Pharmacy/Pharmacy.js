@@ -678,12 +678,10 @@ const buildPrintBillHtml = (data) => {
     if (!raw || raw === "—" || raw === "N/A") return "—";
     try {
       const s = String(raw).trim();
-      const d = new Date(s.includes("T") && !s.endsWith("Z") ? s + "Z" : s);
+      const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
+      const d = new Date(iso);
       if (!isNaN(d.getTime())) {
-        const day = String(d.getDate()).padStart(2, "0");
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
+        return d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
       }
     } catch (e) {}
     return String(raw).split(" ")[0];
@@ -693,9 +691,11 @@ const buildPrintBillHtml = (data) => {
     if (!raw || raw === "—" || raw === "N/A") return "—";
     try {
       const s = String(raw).trim();
-      const timeMatch = s.match(/(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)/);
-      if (timeMatch) return timeMatch[1];
-      const d = new Date(s.includes("T") && !s.endsWith("Z") ? s + "Z" : s);
+      if (/^\d{1,2}:\d{2}(?::\d{2})?(\s*[AaPp][Mm])?$/.test(s)) {
+        return s;
+      }
+      const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
+      const d = new Date(iso);
       if (!isNaN(d.getTime())) {
         return d.toLocaleTimeString("en-IN", {
           timeZone: "Asia/Kolkata",
@@ -707,7 +707,7 @@ const buildPrintBillHtml = (data) => {
       }
     } catch (e) {}
     const now = new Date();
-    return now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+    return now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   };
 
   const overallDiscAmt = overallDiscountType === "amount"
@@ -2231,6 +2231,15 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     // For Direct bill → show payment mode modal first
     if (intentStatus !== "Estimate") {
       setPendingBillIntent(intentStatus);
+      const isInsurancePatient =
+        String(patientType || "").toLowerCase() === "insurance" ||
+        Boolean(formData.is_insurance) ||
+        String(formData.customer_type || "").toLowerCase() === "insurance";
+      if (isInsurancePatient) {
+        // Insurance patient does not pay cash — covered under insurance credit
+        await executeSave(intentStatus, "credit");
+        return;
+      }
       const currentOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
       if (currentOutlet === "OLET002") {
         setSelectedPaymentMode("cash");
@@ -2295,7 +2304,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             CGST_Amt:         m.cgst_amount  || 0,
             SGST_Amt:         m.sgst_amount  || 0,
             discount:         m.discount     || 0,
-            expiry_date:      m.expiry_date  || "",
+            dosage:           m.dosage       || "",
+            noOfDays:         m.noOfDays     || m.no_of_days || "",
+            dose:             m.dose         || "",
+            doseunit:         m.doseunit     || m.doseUnit   || "",
+            instruction:      m.instruction  || "",
+            route:            m.route        || "",
             ...(m.is_consumable_items ? { is_consumable_items: true } : {}),
           };
         });
@@ -2320,6 +2334,11 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           "| updatedNetAmount:", updatedNetAmount
         );
 
+        const isInsuranceFinal =
+          String(patientType || "").toLowerCase() === "insurance" ||
+          Boolean(formData.is_insurance) ||
+          String(formData.customer_type || "").toLowerCase() === "insurance";
+
         const finalizeRes = await apiRequest(`${HmsBaseUrl}finalize_bill/`, "POST", {
           Bill_id:              parseInt(recordId),
 
@@ -2331,8 +2350,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                        ? overallDiscountType : null,
           overall_discount_value:    parseFloat(overallDiscountValue || 0),
           overall_discount_amount:   parseFloat(overallDiscAmtFinal.toFixed(2)),
-          payment_mode:              resolvedPaymentMode,
-          paymentMode:               resolvedPaymentMode,
+          payment_mode:              isInsuranceFinal ? "Credit" : resolvedPaymentMode,
+          paymentMode:               isInsuranceFinal ? "Credit" : resolvedPaymentMode,
+          customer_type:             isInsuranceFinal ? "Insurance" : (patientType || formData.customer_type || "General"),
+          is_insurance:              Boolean(isInsuranceFinal),
         });
 
         console.log("finalize_bill RESPONSE:", finalizeRes);
@@ -2914,7 +2935,15 @@ const loadedMedicines = rawMeds.map((item) => {
       billType:     wardReq.bill_type        || "",
       billTypeName: wardReq.bill_name        || "",
       billDate:     billDateStr,
+      is_insurance: Boolean(wardReq.is_insurance),
+      customer_type: wardReq.customer_type   || "",
     }));
+
+    if (wardReq.customer_type) {
+      setPatientType(wardReq.customer_type);
+    } else if (wardReq.is_insurance) {
+      setPatientType("Insurance");
+    }
 
     // ── 2. Fetch full patient details from API (same as convertEstimate) ──
     // This guarantees all Additional-Details fields are populated from the
@@ -2948,7 +2977,7 @@ const loadedMedicines = rawMeds.map((item) => {
             dob: p.dob || "",
           }));
 
-          setPatientType(p.customer_type || "");
+          setPatientType(p.customer_type || wardReq.customer_type || (wardReq.is_insurance ? "Insurance" : ""));
           setAddress(p.permanent_address || p.area || "");
           setPlace(p.area || "");
           setMobilePhone(p.mobilePhone || p.mobile || "");
@@ -2979,12 +3008,18 @@ const loadedMedicines = rawMeds.map((item) => {
 
     // ── 2. Map medicine_items to addedMedicines format ─────────────────────
     // ✅ FIX: Always default to [] and filter out any null/undefined entries
-    const items = Array.isArray(wardReq.medicine_items)
+    const items = (Array.isArray(wardReq.medicine_items) && wardReq.medicine_items.length > 0)
       ? wardReq.medicine_items.filter(Boolean)
-      : [];
+      : (Array.isArray(wardReq.medicine_particulars) && wardReq.medicine_particulars.length > 0)
+        ? wardReq.medicine_particulars.filter(Boolean)
+        : [];
 
     const loadedMedicines = items.map((item) => {
       // ✅ FIX: item is guaranteed non-null due to .filter(Boolean) above
+      const rawPartMatch = Array.isArray(wardReq.medicine_particulars)
+        ? wardReq.medicine_particulars.find(p => String(p.item_id) === String(item.item_id))
+        : null;
+
       // Try to find full stock info from already-fetched medicines list
       const stockMatch =
         medicines.find(
@@ -3071,8 +3106,12 @@ const loadedMedicines = rawMeds.map((item) => {
         sgst_amount:         sgstAmt,
         expiry_date:         stockMatch?.expiry_date  || item.expiry_date || "—",
         available_stock:     item.available_stock != null ? Number(item.available_stock) : (stockMatch?.available_stock ?? 0),
-        dosage:              item.dosage              || stockMatch?.dosage || "",
-        noOfDays:            item.noOfDays            || "",
+        dosage:              item.dosage              || rawPartMatch?.dosage || stockMatch?.dosage || "",
+        noOfDays:            item.noOfDays            || item.no_of_days || rawPartMatch?.noOfDays || rawPartMatch?.no_of_days || "",
+        dose:                item.dose                || rawPartMatch?.dose || "",
+        doseunit:            item.doseunit            || item.doseUnit || rawPartMatch?.doseunit || rawPartMatch?.doseUnit || "",
+        instruction:         item.instruction         || rawPartMatch?.instruction || "",
+        route:               item.route               || rawPartMatch?.route || "",
         total:               gross,
         discount_type:       item.discount_type || "percent",
         discount_value:      item.discount_value || 0,
@@ -3936,16 +3975,54 @@ const loadedMedicines = rawMeds.map((item) => {
                   return (
                     <Tr key={index}>
                       <Td>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-                          <span style={{ color: addedNameColor, fontWeight: addedNameColor ? 700 : 500 }}>{medicine.name}</span>
-                          {Number(medicine.available_stock) <= 0 && (
-                            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#b91c1c" }}>(NIL)</span>
-                          )}
-                          {medicine.is_low_stock && Number(medicine.available_stock) > 0 && (
-                            <>
-                              <BlinkDot />
-                              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#b45309" }}>(LOW)</span>
-                            </>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                            <span style={{ color: addedNameColor, fontWeight: addedNameColor ? 700 : 500 }}>{medicine.name}</span>
+                            {Number(medicine.available_stock) <= 0 && (
+                              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#b91c1c" }}>(NIL)</span>
+                            )}
+                            {medicine.is_low_stock && Number(medicine.available_stock) > 0 && (
+                              <>
+                                <BlinkDot />
+                                <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#b45309" }}>(LOW)</span>
+                              </>
+                            )}
+                          </div>
+                          {(medicine.dosage || medicine.dose || medicine.instruction) && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                              {medicine.dosage && (
+                                <span style={{
+                                  background: "#f0fdf4",
+                                  color: "#15803d",
+                                  padding: "1px 6px",
+                                  borderRadius: 4,
+                                  fontSize: "0.7rem",
+                                  fontWeight: 700,
+                                  border: "1px solid #bbf7d0",
+                                  letterSpacing: "0.02em"
+                                }}>
+                                  Dosage: {medicine.dosage}
+                                </span>
+                              )}
+                              {medicine.noOfDays && (
+                                <span style={{
+                                  background: "#f8fafc",
+                                  color: "#475569",
+                                  padding: "1px 6px",
+                                  borderRadius: 4,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 600,
+                                  border: "1px solid #e2e8f0"
+                                }}>
+                                  {medicine.noOfDays} Days
+                                </span>
+                              )}
+                              {medicine.instruction && (
+                                <span style={{ fontSize: "0.68rem", color: "#64748b", fontStyle: "italic" }}>
+                                  ({medicine.instruction})
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                       </Td>
@@ -4972,9 +5049,10 @@ const loadedMedicines = rawMeds.map((item) => {
                       if (!raw || raw === "—") return "—";
                       try {
                         const s = String(raw).trim();
-                        const d = new Date(s.includes("T") && !s.endsWith("Z") ? s + "Z" : s);
+                        const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
+                        const d = new Date(iso);
                         if (!isNaN(d.getTime())) {
-                          return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+                          return d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
                         }
                       } catch (e) {}
                       return String(raw).split(" ")[0];
@@ -4984,14 +5062,20 @@ const loadedMedicines = rawMeds.map((item) => {
                       if (!raw || raw === "—") return "—";
                       try {
                         const s = String(raw).trim();
-                        const timeMatch = s.match(/(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)/);
-                        if (timeMatch) return timeMatch[1];
-                        const d = new Date(s.includes("T") && !s.endsWith("Z") ? s + "Z" : s);
+                        if (/^\d{1,2}:\d{2}(?::\d{2})?(\s*[AaPp][Mm])?$/.test(s)) return s;
+                        const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
+                        const d = new Date(iso);
                         if (!isNaN(d.getTime())) {
-                          return d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+                          return d.toLocaleTimeString("en-IN", {
+                            timeZone: "Asia/Kolkata",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                            hour12: false
+                          });
                         }
                       } catch (e) {}
-                      return new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+                      return new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
                     })()}</span>
                     {printBillData.roomNo && (
                       <>
