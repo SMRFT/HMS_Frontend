@@ -1144,7 +1144,7 @@ const EMPTY = {
 };
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
+const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
   const location = useLocation();
 
@@ -1335,11 +1335,34 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved }) => {
 
         {/* ── Header with Tabs ── */}
         <PageHeader>
-          <div>
-            <PageTitle>🏥 Room Shifting</PageTitle>
-            <PageSubtitle>Patient Room &amp; Bed Shifting Management</PageSubtitle>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                style={{
+                  background: "rgba(255, 255, 255, 0.2)",
+                  border: "1px solid rgba(255, 255, 255, 0.4)",
+                  borderRadius: 6,
+                  color: "white",
+                  padding: "6px 14px",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6
+                }}
+              >
+                ← Back to Actions
+              </button>
+            )}
+            <div>
+              <PageTitle>🏥 Room Shifting</PageTitle>
+              <PageSubtitle>Patient Room &amp; Bed Shifting Management</PageSubtitle>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             {[
               { id: "create", label: "+ Shift Room" },
               { id: "list", label: "📋 Shifting List" }

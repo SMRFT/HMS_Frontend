@@ -377,7 +377,10 @@ export default function ImplantWardRequest({ patient, onClose }) {
       patient?.lastName ?? pd.lastName,
     ].filter(Boolean).join(" ") || "Patient",
     doctor: patient?.doctorName || pd.doctorName || patient?.admittingDoctor || pd.admittingDoctor || "-",
-    roomBed: `${patient?.roomNo || "-"} | ${patient?.bedNo || "-"}`,
+    room: patient?.roomNo || pd.roomNo || patient?.room_no || pd.room_no || patient?.room || pd.room || "",
+    bed: patient?.bedNo || pd.bedNo || patient?.bed_no || pd.bed_no || patient?.bed || pd.bed || "",
+    ward: patient?.wardName || pd.wardName || patient?.ward_name || pd.ward_name || "",
+    roomBed: `${patient?.roomNo || pd.roomNo || patient?.room_no || "-"} | ${patient?.bedNo || pd.bedNo || patient?.bed_no || "-"}`,
     customerType: patient?.customerType || pd.customer_type || "Normal",
     companyName: patient?.companyName || pd.company_code || pd.insuranceCompanyName || "-",
   };
@@ -570,13 +573,24 @@ export default function ImplantWardRequest({ patient, onClose }) {
           alert(res.error || "Failed to update implant request.");
         }
       } else {
+        let surgeonId = patient?.doctor || pd.doctor || "";
+        if (!surgeonId || !/^\d+$/.test(String(surgeonId))) {
+          const docName = patient?.doctorName || pd.doctorName || patient?.admittingDoctor || pd.admittingDoctor || rp.doctor;
+          const cleanDoc = String(docName || "").replace(/^Dr\.?\s*/i, "").trim().toLowerCase();
+          const matched = doctors.find(d => {
+            const eName = String(d.employeeName || "").replace(/^Dr\.?\s*/i, "").trim().toLowerCase();
+            return eName === cleanDoc || eName.includes(cleanDoc) || cleanDoc.includes(eName);
+          });
+          surgeonId = (matched && matched.employeeId) ? String(matched.employeeId) : (patient?.doctor || pd.doctor || docName || "");
+        }
+
         const res = await apiRequest(
           `${HmsBaseUrl}save_implant_request/`,
           "POST",
           {
             uhid: rp.uhid,
             ipNumber: rp.ipNo,
-            surgeon_id: rp.doctor !== "-" ? rp.doctor : "",
+            surgeon_id: surgeonId,
             surgeryRef: "",
             items: selectedItems,
           }

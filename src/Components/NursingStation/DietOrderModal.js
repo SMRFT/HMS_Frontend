@@ -356,7 +356,7 @@ const MEAL_SESSIONS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 // ─── Component ────────────────────────────────────────────────────────────────
-const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
+const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
   const [dietMasters, setDietMasters] = useState([]);
   const [extraMasters, setExtraMasters] = useState([]);
   const [selectedDiet, setSelectedDiet] = useState("");
@@ -439,10 +439,10 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
       patient?.firstName ?? pd.firstName,
       patient?.lastName ?? pd.lastName,
     ].filter(Boolean).join(" ") || "Patient",
-    room: patient?.roomNo || pd.roomNo || patient?.room_no || "-",
-    bed: patient?.bedNo || pd.bedNo || "-",
-    ward: patient?.ward_name || pd.ward_name || "-",
-    roomBed: `${patient?.roomNo || "-"} | ${patient?.bedNo || "-"}`,
+    room: patient?.roomNo || pd.roomNo || patient?.room_no || pd.room_no || patient?.room || pd.room || "",
+    bed: patient?.bedNo || pd.bedNo || patient?.bed_no || pd.bed_no || patient?.bed || pd.bed || "",
+    ward: patient?.wardName || pd.wardName || patient?.ward_name || pd.ward_name || (patient?.roomBed ? patient.roomBed.split("|")[0].trim() : ""),
+    roomBed: `${patient?.roomNo || pd.roomNo || patient?.room_no || "-"} | ${patient?.bedNo || pd.bedNo || patient?.bed_no || "-"}`,
   };
 
   useEffect(() => {
@@ -482,6 +482,32 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   };
 
   const currentDietData = dietMasters.find(d => d.diet_name === selectedDiet);
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm("Are you sure you want to cancel this diet order?")) return;
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}update_diet_status/`, "POST", {
+        diet_id: orderId,
+        status: "Cancelled"
+      });
+      if (res.success || res.data?.success) {
+        alert("Diet order cancelled successfully");
+        if (editingOrderId === orderId) {
+          setEditingOrderId(null);
+          setSelectedDiet("");
+          setExtras({});
+          setInstructions("");
+          setSpecialNote("");
+        }
+        fetchHistory();
+        onSaved && onSaved();
+      } else {
+        alert(res.data?.error || res.error || "Failed to cancel diet order");
+      }
+    } catch (err) {
+      console.error("Cancel Diet Order Error:", err);
+    }
+  };
 
   const handlePlaceOrder = async () => {
     if (!selectedDiet) return alert("Please pick a Diet type.");
@@ -529,7 +555,11 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
       const res = await apiRequest(`${HmsBaseUrl}save_diet_order/`, "POST", payload);
       if (res.success) {
         onSaved && onSaved();
-        onClose();
+        if (onBack) {
+          onBack();
+        } else {
+          onClose();
+        }
       } else {
         alert(res.error || "Order failed");
       }
@@ -545,7 +575,30 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
       <GlobalModalStyle />
       <ModalContainer>
         <Header>
-          <Title>🥗 {isReadOnly ? "View Diet Order" : editingOrderId ? "Update Diet Order" : "Premium Diet Concierge"}</Title>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                style={{
+                  background: "rgba(16, 185, 129, 0.15)",
+                  border: "1px solid rgba(16, 185, 129, 0.35)",
+                  borderRadius: "8px",
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  fontSize: "12.5px",
+                  fontWeight: "700",
+                  color: "#059669",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+              >
+                ← Back to Actions
+              </button>
+            )}
+            <Title>🥗 {isReadOnly ? "View Diet Order" : editingOrderId ? "Update Diet Order" : "Premium Diet Concierge"}</Title>
+          </div>
           <CloseBtn onClick={onClose}>✕</CloseBtn>
         </Header>
 
@@ -774,19 +827,37 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
                           <td style={{ padding: "12px 15px" }}>{h.order_date.split("-").slice(0,2).join("-")} <small>{h.order_time}</small></td>
                           <td style={{ padding: "12px 15px", fontWeight: 700 }}>{h.diet_type}</td>
                           <td style={{ padding: "12px 15px" }}>
-                            <span style={{ padding: "3px 8px", borderRadius: "6px", background: h.status === "Delivered" ? "#dcfce7" : h.status === "Ordered" ? "#eff6ff" : "#f1f5f9", color: h.status === "Delivered" ? "#166534" : h.status === "Ordered" ? "#2563eb" : "#475569", fontWeight: 800 }}>
+                            <span style={{
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              background: h.status === "Delivered" ? "#dcfce7" : h.status === "Ordered" ? "#eff6ff" : h.status === "Cancelled" ? "#fee2e2" : "#f1f5f9",
+                              color: h.status === "Delivered" ? "#166534" : h.status === "Ordered" ? "#2563eb" : h.status === "Cancelled" ? "#b91c1c" : "#475569",
+                              fontWeight: 800,
+                              border: h.status === "Cancelled" ? "1px solid #fca5a5" : "none"
+                            }}>
                               {h.status}
                             </span>
                           </td>
                           <td style={{ padding: "12px 15px", textAlign: "center" }}>
-                            {h.status === "Ordered" && (
+                            <div style={{ display: "flex", gap: "6px", justifyContent: "center", alignItems: "center" }}>
+                              {h.status === "Ordered" && (
                                 <button 
-                                    onClick={() => loadOrderForEditing(h)}
-                                    style={{ background: C.primaryLight, color: C.primary, border: "none", padding: "4px 8px", borderRadius: "6px", fontWeight: 800, cursor: "pointer", fontSize: "0.75rem" }}
+                                  onClick={() => loadOrderForEditing(h)}
+                                  style={{ background: C.primaryLight, color: C.primary, border: "none", padding: "4px 8px", borderRadius: "6px", fontWeight: 800, cursor: "pointer", fontSize: "0.75rem" }}
                                 >
-                                    Edit
+                                  Edit
                                 </button>
-                            )}
+                              )}
+                              {(h.status === "Ordered" || h.status === "Received") && (
+                                <button 
+                                  onClick={() => handleCancelOrder(h.diet_id)}
+                                  style={{ background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5", padding: "4px 8px", borderRadius: "6px", fontWeight: 800, cursor: "pointer", fontSize: "0.75rem" }}
+                                  title="Cancel this diet order"
+                                >
+                                  ✕ Cancel
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
