@@ -545,7 +545,7 @@ const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 const EMPTY_FORM = {
-  advance_amount: "", sales_return: "", medicines: "", taxable: "", non_tax: "",
+  advance_amount: "", sales_return: "", medicines: "", implant_amount: "", taxable: "", non_tax: "",
   gst_amount: "", room_tax: "",
   discount_percent: "", discount_amount: "", disc_reason: "", remarks: "",
   next_visit_date: "",
@@ -598,14 +598,15 @@ const calcTotals = (items, f) => {
   const totalDisc = discAmt;
 
   const medicines = parseFloat(f.medicines) || 0;
+  const implantAmount = parseFloat(f.implant_amount) || 0;
   const gstAmount = parseFloat(f.gst_amount) || 0;
   const roomTax = parseFloat(f.room_tax) || 0;
   const taxable = parseFloat(f.taxable) || 0;
   const advanceAmount = parseFloat(f.advance_amount) || 0;
   const salesReturn = parseFloat(f.sales_return) || 0;
 
-  // Total Charges = (Total Items + Medicines + GST + Room Tax + Taxable) - Total Disc
-  const totalCharges = totalAmount + medicines + gstAmount + roomTax + taxable - totalDisc;
+  // Total Charges = (Total Items + Medicines + Implants + GST + Room Tax + Taxable) - Total Disc
+  const totalCharges = totalAmount + medicines + implantAmount + gstAmount + roomTax + taxable - totalDisc;
 
   // Net Amount = totalCharges - advanceAmount - salesReturn
   // (If advance > totalCharges, netAmount will be negative -> Net Amount(Refund))
@@ -634,6 +635,7 @@ const buildPayload = (items, f, totals, status, patient, editReason = "", insura
   advance_amount: parseFloat(f.advance_amount) || 0,
   sales_return: parseFloat(f.sales_return) || 0,
   medicines_amount: parseFloat(f.medicines) || 0,
+  implant_amount: parseFloat(f.implant_amount) || 0,
   taxable_amount: parseFloat(f.taxable) || 0,
   non_tax_amount: parseFloat(f.non_tax) || totals.totalAmount,
   gst_amount: parseFloat(f.gst_amount) || 0,
@@ -706,6 +708,7 @@ const estToForm = e => ({
   advance_amount: String(parseFloat(e.advance_amount) || ""),
   sales_return: String(parseFloat(e.sales_return) || ""),
   medicines: String(parseFloat(e.medicines_amount) || ""),
+  implant_amount: String(parseFloat(e.implant_amount) || ""),
   taxable: String(parseFloat(e.taxable_amount) || ""),
   non_tax: String(parseFloat(e.non_tax_amount) || ""),
   gst_amount: String(parseFloat(e.gst_amount) || ""),
@@ -1074,6 +1077,15 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           <FinIn
             value={f.medicines}
             onChange={e => onChange("medicines", e.target.value)}
+            placeholder="0.00"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl title="Implant charges for surgery">Implants</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            value={f.implant_amount}
+            onChange={e => onChange("implant_amount", e.target.value)}
             placeholder="0.00"
           />
         </FinRow>
@@ -1991,6 +2003,9 @@ const DischargeBilling = () => {
         }
         if (norm.medicines_amount != null && norm.medicines_amount !== "") {
           setForm("medicines", String(norm.medicines_amount));
+        }
+        if (norm.implant_amount != null && norm.implant_amount !== "") {
+          setForm("implant_amount", String(norm.implant_amount));
         }
         if (Array.isArray(res.invest_items) && res.invest_items.length)
           setItems(res.invest_items.map((it, idx) => investToRow(it, idx, "SEMI-PRIVATE WARD")));

@@ -237,6 +237,18 @@ export const PrintSheet = React.forwardRef(({
     });
   }
 
+  const impAmt = parseFloat(bill.implant_amount) || 0;
+  if (impAmt > 0 && !groups["SPECIALISED SERVICES / PROCEDURES / SURGERY"].some(i => i.itemName && i.itemName.includes("IMPLANT"))) {
+    groups["SPECIALISED SERVICES / PROCEDURES / SURGERY"].push({
+      itemName: "IMPLANT CHARGES",
+      nabh_code: "-",
+      doctor: "",
+      amount: impAmt,
+      quantity: 1,
+      rate: impAmt
+    });
+  }
+
   const groupTotals = {};
   IP_CATEGORIES.forEach(cat => {
     groupTotals[cat] = (groups[cat] || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
@@ -706,6 +718,12 @@ export const PrintSheet = React.forwardRef(({
                       <tr>
                         <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>MEDICINES CHARGES :</td>
                         <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.medicines_amount)}</td>
+                      </tr>
+                    )}
+                    {parseFloat(bill.implant_amount) > 0 && (
+                      <tr>
+                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>IMPLANT CHARGES :</td>
+                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.implant_amount)}</td>
                       </tr>
                     )}
                     {parseFloat(bill.gst_amount) > 0 && (
