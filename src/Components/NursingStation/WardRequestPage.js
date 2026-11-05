@@ -887,7 +887,7 @@ const SearchableDropdown = ({
   );
 };
 
-const MedicineWardRequest = ({ patient, onClose }) => {
+const MedicineWardRequest = ({ patient, onClose, onBack }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   // Map incoming patient prop to display fields
@@ -1405,10 +1405,13 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         payload,
       );
       if (res.success) {
-        alert("Ward Request saved successfully");
         setSelectedMedicines([]);
         setIsDischarge(false);
         fetchRequests();
+        const goBack = window.confirm("Ward Request saved successfully!\n\nDo you want to return to the Actions Menu?");
+        if (goBack && onBack) {
+          onBack();
+        }
       }
     } catch (e) {
       console.error("Save error", e);
@@ -1698,8 +1701,32 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         </PatientPanel>
 
         <TopActionBar>
-          <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#64748b" }}>
-            {showForm ? "📝 Fill in medicine details below" : `💊 Pharmacy Medicine Requests (${requests.length} record${requests.length === 1 ? "" : "s"})`}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                style={{
+                  background: "#f1f5f9",
+                  border: "1.5px solid #cbd5e1",
+                  padding: "7px 14px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "700",
+                  fontSize: "13px",
+                  color: "#1e293b",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+                }}
+              >
+                <i className="bi bi-arrow-left"></i> Back to Actions
+              </button>
+            )}
+            <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#64748b" }}>
+              {showForm ? "📝 Fill in medicine details below" : `💊 Pharmacy Medicine Requests (${requests.length} record${requests.length === 1 ? "" : "s"})`}
+            </div>
           </div>
           <RequestBtn onClick={() => setShowForm(!showForm)}>
             {showForm ? "✕ Close Form" : "＋ New Medicine Request"}

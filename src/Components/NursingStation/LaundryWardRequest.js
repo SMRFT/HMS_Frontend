@@ -122,7 +122,7 @@ const getIconForName = (name) => {
   return "🧺";
 };
 
-const LaundryWardRequest = ({ patient, onClose, onSaved }) => {
+const LaundryWardRequest = ({ patient, onClose, onSaved, onBack }) => {
   const [laundryItems, setLaundryItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState({});
   const [selectedItemName, setSelectedItemName] = useState("");
@@ -142,9 +142,9 @@ const LaundryWardRequest = ({ patient, onClose, onSaved }) => {
       patient?.firstName ?? pd.firstName,
       patient?.lastName ?? pd.lastName,
     ].filter(Boolean).join(" ") || "Patient",
-    room: patient?.roomNo || pd.roomNo || patient?.room_no || "-",
-    bed: patient?.bedNo || pd.bedNo || "-",
-    ward: patient?.ward_name || pd.ward_name || "-",
+    room: patient?.roomNo || pd.roomNo || patient?.room_no || pd.room_no || patient?.room || pd.room || "",
+    bed: patient?.bedNo || pd.bedNo || patient?.bed_no || pd.bed_no || patient?.bed || pd.bed || "",
+    ward: patient?.wardName || pd.wardName || patient?.ward_name || pd.ward_name || "",
   };
 
   useEffect(() => {
@@ -209,6 +209,25 @@ const LaundryWardRequest = ({ patient, onClose, onSaved }) => {
       delete next[name];
       return next;
     });
+  };
+
+  const handleCancelRequest = async (requestId) => {
+    if (!window.confirm("Are you sure you want to cancel this laundry request?")) return;
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}update_laundry_status/`, "PATCH", {
+        id: requestId,
+        status: "Cancelled"
+      });
+      if (res.success || res.data?.success) {
+        alert("Laundry request cancelled successfully");
+        fetchHistory();
+        onSaved && onSaved();
+      } else {
+        alert("Failed to cancel: " + (res.data?.error || res.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Cancel Laundry Request Error:", err);
+    }
   };
 
   const handleSubmit = async () => {
@@ -403,6 +422,7 @@ const LaundryWardRequest = ({ patient, onClose, onSaved }) => {
                   <Th>Items</Th>
                   <Th style={{ textAlign: "right" }}>Total Amount</Th>
                   <Th>Status</Th>
+                  <Th style={{ textAlign: "center" }}>Action</Th>
                 </Tr>
               </thead>
               <tbody>
@@ -418,9 +438,38 @@ const LaundryWardRequest = ({ patient, onClose, onSaved }) => {
                       ₹{h.total_amount ? Number(h.total_amount).toFixed(2) : "0.00"}
                     </Td>
                     <Td>
-                      <span style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "0.75rem", background: h.status === "Completed" ? colors.success + "15" : h.status === "Pending" ? "#fff7ed" : colors.primary + "15", color: h.status === "Completed" ? colors.success : h.status === "Pending" ? "#ea580c" : colors.primary, fontWeight: 700, border: `1px solid ${h.status === "Completed" ? colors.success + "30" : h.status === "Pending" ? "#ffedd5" : colors.primary + "30"}` }}>
+                      <span style={{
+                        padding: "4px 10px",
+                        borderRadius: "20px",
+                        fontSize: "0.75rem",
+                        background: h.status === "Completed" ? colors.success + "15" : h.status === "Pending" ? "#fff7ed" : h.status === "Cancelled" ? "#fee2e2" : colors.primary + "15",
+                        color: h.status === "Completed" ? colors.success : h.status === "Pending" ? "#ea580c" : h.status === "Cancelled" ? "#b91c1c" : colors.primary,
+                        fontWeight: 700,
+                        border: `1px solid ${h.status === "Completed" ? colors.success + "30" : h.status === "Pending" ? "#ffedd5" : h.status === "Cancelled" ? "#fca5a5" : colors.primary + "30"}`
+                      }}>
                         {h.status}
                       </span>
+                    </Td>
+                    <Td style={{ textAlign: "center" }}>
+                      {h.status === "Pending" && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelRequest(h.id)}
+                          style={{
+                            background: "#fee2e2",
+                            color: "#b91c1c",
+                            border: "1px solid #fca5a5",
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            fontWeight: 700,
+                            fontSize: "0.75rem",
+                            cursor: "pointer"
+                          }}
+                          title="Cancel this laundry request"
+                        >
+                          ✕ Cancel
+                        </button>
+                      )}
                     </Td>
                   </Tr>
                 ))}
