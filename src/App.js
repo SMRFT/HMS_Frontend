@@ -125,6 +125,7 @@ import StoresGRNGeneralReport from "./Components/Stores_report/StoresGRNGeneralR
 import StoresIntentReturnReport from "./Components/Stores_report/StoresIntentReturnReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
+import StoresIntentHODApproval from "./Components/Stores/StoresIntentHODApproval";
 import Generalstorevendor from "./Components/Stores/Generalstorevendor";
 import LabDailyUsage from "./Components/Stores/Labdailyusage";
 import LabInventoryReport from "./Components/Stores/LabInventoryReport";
@@ -496,6 +497,7 @@ function App() {
       "/StoresRackClassificationReport": "Barcode Entry & Rack Classification Report",
       "/StoresIntent": "Stores Intent",
       "/StoresIntentApproval": "Store Intent Approval",
+      "/StoresIntentHODApproval": "Department Intent Admin Approval",
       "/Generalstorevendor": "General Store Vendor",
       "/GeneralStoresVendor": "General Store Vendor",
       "/StoresAbcVedReport": "Stores ABC & VED Analysis Report",
@@ -1654,6 +1656,10 @@ function App() {
                   element={<StoreIntentApproval />}
                 />
               )}
+              <Route
+                path="/StoresIntentHODApproval"
+                element={<StoresIntentHODApproval />}
+              />
               {hasPagePermission("/Generalstorevendor", allowedActions) && (
                 <Route
                   path="/Generalstorevendor"
