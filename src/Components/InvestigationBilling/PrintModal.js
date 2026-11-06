@@ -226,7 +226,7 @@ const resolveDoctor = (idOrName, doctors) => {
 
 // ── Build HTML document for the iframe ───────────────────────────────────────
 
-function buildBillHtml(bill, doctors, size, isEstimate = false) {
+function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = false) {
   const items = resolveItems(bill.item || bill.items);
   const doctorName = resolveDoctor(bill.doctor, doctors);
   const patientName = fmtName(bill.salutation, bill.firstName, bill.lastName);
@@ -290,7 +290,7 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
 <html>
 <head>
 <meta charset="UTF-8"/>
-<title>${isEstimate ? "Estimate" : "Bill"} - ${billNo}</title>
+<title>${isEstimate ? "Estimate" : (isDuplicate || bill?.isDuplicate) ? "Bill (Duplicate)" : "Bill"} - ${billNo}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; color: #111; background: #fff; }
@@ -326,6 +326,7 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
   .net-row { font-weight: 800; font-size: 1.05em; border-top: 1px solid #111; padding-top: 4px; margin-top: 2px; }
   .signature { display: flex; justify-content: space-between; margin-top: 28px; font-size: 0.85em; }
   .note { margin-top: 10px; padding: 6px 8px; background: #fffbeb; border-left: 3px solid #d97706; font-style: italic; font-size: 0.82em; }
+  .gst-disclaimer { margin-top: 14px; font-size: 0.8em; font-style: italic; color: #111; line-height: 1.35; text-align: left; }
 
   @media print {
     html, body { height: auto; }
@@ -341,10 +342,28 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
 
   ${isEstimate
       ? `<div class="est-banner">*** ESTIMATE BILL ***</div>`
-      : `
-  <div style="text-align:center;font-weight:700;margin-bottom:6px;">
-    ${bill.paymentMethod || ""} &nbsp;—&nbsp; ${bill.billType || ""}
-  </div>`
+      : (() => {
+          const isDup = Boolean(isDuplicate || bill?.isDuplicate);
+          const rawType = (bill.billType || bill.bill_name || bill.billTypeNo || "").trim();
+          const hasDupInName = /\(duplicate\)/i.test(rawType);
+          const dupText = isDup && !hasDupInName ? "(Duplicate)" : "";
+
+          let titleLine = "";
+          if (bill.paymentMethod && rawType) {
+            titleLine = `${bill.paymentMethod} &nbsp;—&nbsp; ${rawType}${dupText ? ` &nbsp;${dupText}` : ""}`.trim();
+          } else if (rawType) {
+            titleLine = `${rawType}${dupText ? ` &nbsp;${dupText}` : ""}`.trim();
+          } else if (bill.paymentMethod) {
+            titleLine = `${bill.paymentMethod} Bill${dupText ? ` &nbsp;${dupText}` : ""}`.trim();
+          } else {
+            titleLine = dupText || "Bill Receipt";
+          }
+
+          return `
+  <div style="text-align:center;font-weight:700;margin-bottom:6px;font-size:1.05em;letter-spacing:0.3px;">
+    ${titleLine}
+  </div>`;
+        })()
     }
 
   <div class="bill-meta">
@@ -386,6 +405,10 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
     <div>____________________<br/><small>${preparedByName ? `Prepared by: ${preparedByName}` : "Prepared by"}</small></div>
     <div style="text-align:right">____________________<br/><small>Authorized Signature</small></div>
   </div>
+
+  <div class="gst-disclaimer">
+    Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST-Exempt Invoice
+  </div>
 </body>
 </html>`;
 }
@@ -397,6 +420,7 @@ export default function PrintModal({
   doctors = [],
   onClose,
   isEstimate = false,
+  isDuplicate = false,
   toastMsg = "",
 }) {
   const [size, setSize] = useState("thermal");
@@ -406,7 +430,13 @@ export default function PrintModal({
   // Write HTML into iframe immediately when bill/size changes — no setTimeout needed
   useEffect(() => {
     if (!bill || !iframeRef.current) return;
-    const html = buildBillHtml(bill, doctors, size, isEstimate);
+    const html = buildBillHtml(
+      bill,
+      doctors,
+      size,
+      isEstimate,
+      Boolean(isDuplicate || bill?.isDuplicate)
+    );
     const doc =
       iframeRef.current.contentDocument ||
       iframeRef.current.contentWindow?.document;
@@ -415,7 +445,7 @@ export default function PrintModal({
       doc.write(html);
       doc.close();
     }
-  }, [bill, doctors, size, isEstimate]);
+  }, [bill, doctors, size, isEstimate, isDuplicate]);
 
   // Show the toast banner when a new message arrives, then auto-hide it
   // after a few seconds — like a normal toast. This only hides the banner;

@@ -377,9 +377,13 @@ const SearchableDropdown = ({
 }) => {
   const getLabel = (val) => {
     if (!val) return "";
-    const found = options.find((o) =>
-      typeof o === "string" ? o === val : o[valueKey] === val,
-    );
+    const cleanVal = String(val).trim().toLowerCase();
+    const found = options.find((o) => {
+      if (typeof o === "string") return o.trim().toLowerCase() === cleanVal;
+      if (o[valueKey] && String(o[valueKey]).trim().toLowerCase() === cleanVal) return true;
+      if (o[displayKey] && String(o[displayKey]).trim().toLowerCase() === cleanVal) return true;
+      return false;
+    });
     return found
       ? typeof found === "string"
         ? found
@@ -632,7 +636,7 @@ const InvestigationBilling = () => {
     discountRemarks: "",
     total: 0,
     finalPrice: 0,
-    paymentMethod: "Cash",
+    paymentMethod: "",
     paymentStatus: "Pending",
     customer_type: "",
     company_name: "",
@@ -756,7 +760,7 @@ const InvestigationBilling = () => {
       discountRemarks: data.discountRemarks || "",
       total: data.total || 0,
       finalPrice: data.finalPrice || 0,
-      paymentMethod: data.paymentMethod || "Cash",
+      paymentMethod: data.paymentMethod || "",
       paymentStatus: "Pending",
       item: JSON.stringify(itemsArray),
       EstBillNo: data.EstBillNo || "",
@@ -1000,6 +1004,49 @@ const InvestigationBilling = () => {
     setShowPatientModal(true);
   };
 
+  // Helper to match doctor string (from UHID / IP record) to doctor employee list
+  const resolveDoctorId = (docVal, doctorList = []) => {
+    if (!docVal) return "";
+    const clean = String(docVal).trim();
+    if (!clean) return "";
+    if (clean.toUpperCase() === "SELF") return "SELF";
+
+    // 1. Direct match by employeeId
+    const byId = doctorList.find(
+      (d) => String(d.employeeId).trim().toLowerCase() === clean.toLowerCase()
+    );
+    if (byId) return byId.employeeId;
+
+    // 2. Exact match by employeeName
+    const byName = doctorList.find(
+      (d) => (d.employeeName || "").trim().toLowerCase() === clean.toLowerCase()
+    );
+    if (byName) return byName.employeeId;
+
+    // 3. Normalized comparison (ignoring "Dr.", dots, special characters)
+    const normalize = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .replace(/^dr\.?\s*/i, "")
+        .replace(/[^a-z0-9]/g, "");
+
+    const cleanNorm = normalize(clean);
+    if (cleanNorm) {
+      const byNorm = doctorList.find((d) => {
+        const dNorm = normalize(d.employeeName || "");
+        return (
+          dNorm === cleanNorm ||
+          dNorm.includes(cleanNorm) ||
+          cleanNorm.includes(dNorm)
+        );
+      });
+      if (byNorm) return byNorm.employeeId;
+    }
+
+    // 4. Return as-is if no ID match (will display as raw doctor name)
+    return clean;
+  };
+
   const handlePatientSelect = (data) => {
     let { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
     if (!calculatedAge && (data.age || data.calculatedAge)) {
@@ -1018,10 +1065,19 @@ const InvestigationBilling = () => {
     const patientCompCode = data.company_code || "";
     const patientRoomNo = data.roomNo || data.room_no || "";
 
+    // For IP search: prioritize admittingDoctor; for UHID: prioritize doctorName
+    const rawDoctor =
+      patientSearchMode === "ip"
+        ? (data.admittingDoctor || data.doctorName || data.doctor || data.consultingDoctor || "")
+        : (data.doctorName || data.admittingDoctor || data.doctor || data.consultingDoctor || "");
+
+    const matchedDoctor = resolveDoctorId(rawDoctor, doctors);
+
     setFormData((prev) => ({
       ...prev,
       uhid: patientUhid || prev.uhid,
       ipNumber: patientIp || prev.ipNumber,
+      doctor: matchedDoctor || prev.doctor,
       salutation: patientSalutation,
       firstName: patientFirstName,
       lastName: patientLastName,
@@ -1075,7 +1131,9 @@ const InvestigationBilling = () => {
       return false;
     }
     if (!formData.paymentMethod?.trim()) {
-      toast.warning("Payment Method is required!");
+      toast.warning("Please select a Payment Method!");
+      const pmSelect = document.querySelector('select[name="paymentMethod"]');
+      if (pmSelect) pmSelect.focus();
       return false;
     }
     if (!productList?.length) {
@@ -1618,13 +1676,27 @@ const InvestigationBilling = () => {
                 onChange={(value) =>
                   setFormData((prev) => ({ ...prev, doctor: value }))
                 }
-                options={[
-                  { id: "SELF", name: "SELF" },
-                  ...doctors.map((d) => ({
-                    id: d.employeeId,
-                    name: d.employeeName.trim(),
-                  })),
-                ]}
+                options={(() => {
+                  const opts = [
+                    { id: "SELF", name: "SELF" },
+                    ...doctors.map((d) => ({
+                      id: d.employeeId,
+                      name: d.employeeName.trim(),
+                    })),
+                  ];
+                  if (
+                    formData.doctor &&
+                    formData.doctor !== "SELF" &&
+                    !opts.some(
+                      (o) =>
+                        o.id === formData.doctor ||
+                        o.name?.toLowerCase() === formData.doctor?.toLowerCase()
+                    )
+                  ) {
+                    opts.push({ id: formData.doctor, name: formData.doctor });
+                  }
+                  return opts;
+                })()}
                 displayKey="name"
                 valueKey="id"
                 placeholder="Select doctor..."
@@ -1900,6 +1972,7 @@ const InvestigationBilling = () => {
           bill={printJob.bill}
           doctors={doctors}
           isEstimate={printJob.isEstimate}
+          isDuplicate={printJob.isDuplicate ?? false}
           toastMsg={printJob.toastMsg}
           onClose={() => {
             setPrintJob(null);
