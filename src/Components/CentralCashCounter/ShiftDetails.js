@@ -239,6 +239,19 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       );
       console.log("🔍 [ShiftDetails] get_active_shift:", res);
       
+      // Check if counter is allocated in employee profile
+      if (res?.data?.counter_allocated === false) {
+        addAlert("error", res?.data?.message || "No cash counter is allocated to your profile. Please assign a cash counter in Employee Master before starting a shift.");
+        setIsActive(false);
+        setCurrentShiftId(null);
+        setShiftStartISO(null);
+        setShiftEndISO(null);
+        setStartClock("");
+        setClosingClock("");
+        stopTimer();
+        return null;
+      }
+
       // We apply data if we get a record OR if we get the 'expected' values
       if (res?.success && res?.data?.data) {
         applyShiftData(res.data.data);
@@ -351,7 +364,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
         }, 600);
 
       } else {
-        addAlert("error", res?.data?.message || res?.message || "Failed to start shift.");
+        addAlert("error", res?.data?.message || res?.error || res?.message || "Failed to start shift.");
       }
     } catch (err) {
       console.error("❌ [ShiftDetails] Start error:", err);
