@@ -775,14 +775,15 @@ const BillsReport = () => {
       time: timeOnly,
       firstName: [bill.firstName, bill.middleName].filter(Boolean).join(" "),
       ageType: bill.age_type || bill.ageType || "Y",
-      billType: bill.bill_name || bill.billType || "",
+      billType: bill.bill_name || bill.billType || bill.billTypeNo || "",
       item: Array.isArray(bill.item) ? bill.item : [],
+      isDuplicate: true,
     };
   };
 
   const handlePrint = (bill) => {
     const isEstimate = !bill.investBillNo && !!bill.EstBillNo;
-    setPrintJob({ bill: toPrintBill(bill), isEstimate });
+    setPrintJob({ bill: toPrintBill(bill), isEstimate, isDuplicate: true });
   };
 
   // ── Edit ─────────────────────────────────────────────────────────────────────
@@ -1657,6 +1658,7 @@ const BillsReport = () => {
           bill={printJob.bill}
           doctors={doctors}
           isEstimate={printJob.isEstimate}
+          isDuplicate={printJob.isDuplicate ?? true}
           onClose={() => setPrintJob(null)}
         />
       )}

@@ -497,6 +497,10 @@ export const generateLabOverallPrintHtml = ({ patient, billedItems = [], totalAm
     </div>
   </div>
 
+  <div style="margin-top: 16px; padding-top: 8px; font-size: 10px; font-style: italic; color: #1e293b; line-height: 1.4; text-align: left;">
+    Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST-Exempt Invoice
+  </div>
+
   <div class="print-footer">
     <span>Printed On: ${printedAt}</span>
     <span>Hospital Management System — OT Module</span>
@@ -680,6 +684,10 @@ export const generateMedicineOverallPrintHtml = ({ patient, requests = [], size 
       <div class="sig-line"></div>
       <div class="sig-title">Dispensed By (Pharmacist)</div>
     </div>
+  </div>
+
+  <div style="margin-top: 16px; padding-top: 8px; font-size: 10px; font-style: italic; color: #1e293b; line-height: 1.4; text-align: left;">
+    Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST-Exempt Invoice
   </div>
 
   <div class="print-footer">
