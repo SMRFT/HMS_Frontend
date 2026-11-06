@@ -230,6 +230,61 @@ const getCommonPdfStyle = (orientation = "portrait") => `
         text-align: left !important;
     }
 
+        /* Report Filter Subtitle */
+    .report-filter-subtitle {
+        font-size: 8.5pt !important;
+        font-weight: bold !important;
+        color: #1e293b !important;
+        margin-top: 2px !important;
+        text-align: center !important;
+    }
+
+    /* End-of-Report Summary Section */
+    .report-summary-end {
+        margin-top: 18px !important;
+        page-break-inside: avoid !important;
+        width: 100% !important;
+    }
+    .summary-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 8.5pt !important;
+        margin-top: 4px !important;
+    }
+    .summary-header {
+        border-top: 1.5px solid #000000 !important;
+        border-bottom: 1.5px solid #000000 !important;
+        font-size: 9pt !important;
+        font-weight: bold !important;
+        color: #800000 !important;
+        text-transform: uppercase !important;
+        padding: 5px 6px !important;
+        background: #ffffff !important;
+        text-align: left !important;
+    }
+    .summary-label {
+        width: 32% !important;
+        font-weight: bold !important;
+        color: #334155 !important;
+        padding: 4px 6px !important;
+        border-top: 1px solid #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        font-size: 8.2pt !important;
+        text-transform: uppercase !important;
+        background: transparent !important;
+    }
+    .summary-val {
+        width: 18% !important;
+        font-weight: 800 !important;
+        color: #000000 !important;
+        text-align: right !important;
+        padding: 4px 6px !important;
+        border-top: 1px solid #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        font-size: 8.8pt !important;
+        background: transparent !important;
+    }
+
     /* Remove web badges / shadows / icons / buttons */
     button, input, select, form, svg, .no-print, [class*='Pagination'], [class*='ControlsContainer'], nav {
         display: none !important;
@@ -373,24 +428,141 @@ export const generateFramedGeneralReportHTML = (clonedElement, options = {}) => 
     let toDateStr = options.toDate ? formatDate(options.toDate) : null;
 
     if (!fromDateStr || !toDateStr) {
-        const dateInputs = clonedElement.querySelectorAll("input[type='date'], .ant-picker-input input");
+        const dateInputs = Array.from(clonedElement.querySelectorAll("input[type='date'], .ant-picker-input input, input[name*='date'], input[id*='date']"));
         if (dateInputs.length >= 2) {
             if (!fromDateStr && dateInputs[0].value) fromDateStr = formatDate(dateInputs[0].value);
             if (!toDateStr && dateInputs[1].value) toDateStr = formatDate(dateInputs[1].value);
+        } else if (dateInputs.length === 1 && !fromDateStr && dateInputs[0].value) {
+            fromDateStr = formatDate(dateInputs[0].value);
         }
     }
 
-    const subtitleDateRange = (fromDateStr && toDateStr)
-        ? `From ${fromDateStr} to ${toDateStr}`
-        : (fromDateStr ? `As On ${fromDateStr}` : `As On ${dayjs().format('DD/MM/YYYY')}`);
+    // Also check text content for date ranges like 'From 05/10/2026 to 05/11/2026'
+    if (!fromDateStr || !toDateStr) {
+        const fullText = clonedElement.textContent || '';
+        const match = fullText.match(/(?:From|from)[:\s]+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\s+(?:To|to)[:\s]+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})/);
+        if (match) {
+            if (!fromDateStr) fromDateStr = formatDate(match[1]);
+            if (!toDateStr) toDateStr = formatDate(match[2]);
+        }
+    }
 
-    // 2. Remove all interactive web elements, search boxes, forms, buttons, pagination, and overall summary cards
+    const filterSubtitle = (fromDateStr && toDateStr)
+        ? `(From Date: ${fromDateStr}, To Date: ${toDateStr})`
+        : (fromDateStr ? `(From Date: ${fromDateStr})` : `(Filter Date: ${dayjs().format('DD/MM/YYYY')})`);
+
+    // 2. Extract Key Metrics and KPI cards BEFORE removing DOM elements
+    // Captures all metrics requested by user:
+    // TOTAL PURCHASE SPEND, TOTAL TAX PAID (GST), TOTAL GRN INVOICES, AVERAGE GRN VALUE,
+    // Total Return Records, Total Return Debit Value, Total Returned Units,
+    // TOTAL ITEMS, OPENING STOCK, INWARD (GRN), OUTWARD (INDENT), CLOSING STOCK, STOCK VALUATION,
+    // plus Total Invoices, Net Total Value, Total Outstanding, Approved GRNs, Total Intents, etc.
+    const extractedMetrics = [];
+
+    // Helper to test if a string represents a KPI or summary metric label
+    const isSummaryMetricLabel = (txt) => {
+        const t = (txt || "").toUpperCase().trim();
+        return (
+            t.includes("PURCHASE SPEND") ||
+            t.includes("TAX PAID") ||
+            t.includes("GRN INVOICE") ||
+            t.includes("AVERAGE GRN") ||
+            t.includes("RETURN RECORD") ||
+            t.includes("RETURN DEBIT") ||
+            t.includes("RETURNED UNIT") ||
+            t.includes("TOTAL ITEM") ||
+            t.includes("OPENING STOCK") ||
+            t.includes("INWARD (GRN)") ||
+            t.includes("INWARD") ||
+            t.includes("OUTWARD (INDENT)") ||
+            t.includes("OUTWARD") ||
+            t.includes("CLOSING STOCK") ||
+            t.includes("STOCK VALUATION") ||
+            t.includes("TOTAL INVOICE") ||
+            t.includes("NET TOTAL VALUE") ||
+            t.includes("TOTAL OUTSTANDING") ||
+            t.includes("APPROVED GRN") ||
+            t.includes("TOTAL INTENT") ||
+            t.includes("PENDING REVIEW") ||
+            t.includes("APPROVED REQUEST") ||
+            t.includes("PARTIALLY APPROVED") ||
+            t.includes("ACTIVE REQUISITION") ||
+            t.includes("REQUISITIONS RAISED") ||
+            t.includes("ITEM UNITS DEMANDED") ||
+            t.includes("ESTIMATED MARGIN") ||
+            t.includes("CATALOG ITEM") ||
+            t.includes("ASSIGNED TO RACK") ||
+            t.includes("UNASSIGNED")
+        );
+    };
+
+    // If options.summary was passed directly
+    if (options.summary && typeof options.summary === 'object') {
+        Object.entries(options.summary).forEach(([k, v]) => {
+            if (v !== undefined && v !== null && typeof v !== 'object') {
+                const label = k.replace(/_/g, ' ').toUpperCase();
+                extractedMetrics.push({ label, value: String(v) });
+            }
+        });
+    }
+
+    // Scan for card containers
+    const cardSelectors = "[class*='StatsCard'], .StatsCard, .stats-card, .summary-card, .metric-box, [class*='StatsGrid'] > div, [class*='KpiGrid'] > div";
+    const foundCards = clonedElement.querySelectorAll(cardSelectors);
+
+    foundCards.forEach(card => {
+        let label = '';
+        let value = '';
+
+        const labelEl = card.querySelector(".label, [class*='label'], [class*='Label'], div:first-child");
+        const valEl = card.querySelector(".value, [class*='value'], [class*='Value'], div:nth-child(2)");
+
+        if (labelEl && valEl) {
+            label = labelEl.textContent.trim();
+            value = valEl.textContent.trim();
+        } else {
+            const divs = Array.from(card.querySelectorAll("div")).filter(d => d.children.length === 0 && d.textContent.trim());
+            if (divs.length >= 2) {
+                label = divs[0].textContent.trim();
+                value = divs[1].textContent.trim();
+            }
+        }
+
+        if (label && value && isSummaryMetricLabel(label)) {
+            if (!extractedMetrics.some(m => m.label.toUpperCase() === label.toUpperCase())) {
+                extractedMetrics.push({ label: label.toUpperCase(), value });
+            }
+        }
+    });
+
+    // Also scan all direct key-metric divs styled with flex/grid before the table
+    const allDivs = clonedElement.querySelectorAll("div");
+    allDivs.forEach(div => {
+        if (div.children.length === 2 && !div.querySelector("table")) {
+            const first = div.children[0].textContent.trim();
+            const second = div.children[1].textContent.trim();
+            if (isSummaryMetricLabel(first) && second && second.length < 35) {
+                if (!extractedMetrics.some(m => m.label.toUpperCase() === first.toUpperCase())) {
+                    extractedMetrics.push({ label: first.toUpperCase(), value: second });
+                }
+            }
+        }
+    });
+
+    // 3. Remove all interactive web elements, search boxes, forms, buttons, pagination, and overall summary cards from the top
     const elementsToRemove = clonedElement.querySelectorAll(
-        "button, input, select, .no-print, [class*='Pagination'], [class*='ControlsContainer'], form, svg, [title*='Search'], nav, .ant-picker, [class*='ModalHeader'], [class*='CloseButton'], [class*='StatsGrid'], [class*='KpiGrid'], [class*='summary'], [class*='Summary'], .summary-card, .metric-box"
+        "button, input, select, .no-print, [class*='Pagination'], [class*='ControlsContainer'], form, svg, [title*='Search'], nav, .ant-picker, [class*='ModalHeader'], [class*='CloseButton'], [class*='StatsGrid'], [class*='KpiGrid'], [class*='StatsCard'], [class*='summary'], [class*='Summary'], .summary-card, .metric-box, [style*='grid-template-columns']"
     );
     elementsToRemove.forEach(el => el.remove());
 
-    // 3. Process tables to match monthly supplier report layout
+    // Also remove any stray card containers before the table that contain metric labels
+    clonedElement.querySelectorAll("div").forEach(d => {
+        if (!d.querySelector("table") && isSummaryMetricLabel(d.textContent)) {
+            d.remove();
+        }
+    });
+
+    // 4. Process tables to match monthly supplier report layout
     const tables = clonedElement.querySelectorAll("table");
     let totalCols = 0;
 
@@ -406,7 +578,6 @@ export const generateFramedGeneralReportHTML = (clonedElement, options = {}) => 
         headers.forEach((th, idx) => {
             const txt = (th.textContent || "").trim().toLowerCase();
             if (txt === "action" || txt === "actions" || txt === "operation" || txt === "print" || txt === "export" || txt === "") {
-                // If it's an action or empty icon column
                 actionColIndices.push(idx);
             } else if (idx === 0 && (txt === "#" || txt.includes("sl") || txt.includes("s.no"))) {
                 th.style.width = "45px";
@@ -508,6 +679,45 @@ export const generateFramedGeneralReportHTML = (clonedElement, options = {}) => 
     // Auto-choose orientation: landscape for wide reports (> 7 columns), otherwise portrait
     const orientation = options.orientation || (totalCols > 7 ? "landscape" : "portrait");
 
+    // 5. Build End-of-Report Summary Section (placed at the bottom below the table)
+    let summaryHtml = '';
+    if (extractedMetrics.length > 0) {
+        let rows = '';
+        for (let i = 0; i < extractedMetrics.length; i += 2) {
+            const item1 = extractedMetrics[i];
+            const item2 = extractedMetrics[i + 1];
+
+            rows += `
+                <tr>
+                    <td class="summary-label">${item1.label}</td>
+                    <td class="summary-val">${item1.value}</td>
+                    ${item2 ? `
+                        <td class="summary-label" style="border-left: 14px solid #ffffff;">${item2.label}</td>
+                        <td class="summary-val">${item2.value}</td>
+                    ` : `
+                        <td class="summary-label" style="border-left: 14px solid #ffffff;"></td>
+                        <td class="summary-val"></td>
+                    `}
+                </tr>
+            `;
+        }
+
+        summaryHtml = `
+            <div class="report-summary-end">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th colspan="4" class="summary-header">SUMMARY METRICS & TOTALS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
     return `
 <!DOCTYPE html>
 <html>
@@ -524,12 +734,17 @@ export const generateFramedGeneralReportHTML = (clonedElement, options = {}) => 
     <div class="document-wrapper">
         <div class="report-header">
             <div class="hospital-name">${hospitalName}</div>
-            <div class="report-subtitle">${reportTitle} ${subtitleDateRange}</div>
+            <div class="report-subtitle">${reportTitle}</div>
+            <div class="report-filter-subtitle">
+                ${filterSubtitle}${departmentName && departmentName !== 'ALL DEPARTMENTS' && departmentName !== 'ALL' ? ` | Department: ${departmentName}` : ''}
+            </div>
         </div>
 
         <div class="report-content">
             ${clonedElement.innerHTML}
         </div>
+
+        ${summaryHtml}
     </div>
 </body>
 </html>

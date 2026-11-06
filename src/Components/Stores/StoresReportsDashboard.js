@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
-import ReactSelect from 'react-select';
 import apiRequest from '../../Auth/apiRequest';
-import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import { fetchMyReportPermissions } from '../../Auth/reportConfigApi';
+import { getSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
 import { printStoresReport } from './printStoresReport';
-import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
+import { DepartmentFilterControl } from './DepartmentSelectionModal';
 import { useNavigate } from 'react-router-dom';
 import { 
     FileText, Building2, ClipboardList, ShoppingCart, BarChart3, 
-    CheckCircle, Search, ArrowRight, Maximize2, X, RefreshCw, Layers, Printer,
+    Search, ArrowRight, Maximize2, X, RefreshCw, Layers, Printer,
     ShoppingBag, RotateCcw, TrendingUp, Clock, AlertTriangle, AlertCircle, Grid, ShieldCheck
 } from 'lucide-react';
 import {
@@ -22,172 +22,62 @@ import {
     colors
 } from '../GlobalStyles';
 
-// Lazy-loaded report components for modal viewing
-const StoresSupplierGrnReport = lazy(() => import('./StoresSupplierGrnReport'));
-const StoresDepartmentIndentReport = lazy(() => import('./StoresDepartmentIndentReport'));
-const VendingMachineReport = lazy(() => import('./VendingMachineReport'));
-const StoresGRNReport = lazy(() => import('./StoresGRNReport'));
-const StoreIntentApproval = lazy(() => import('./StoreIntentApproval'));
-const StoresAbcVedReport = lazy(() => import('./StoresAbcVedReport'));
+// Lazy-loaded report components from Stores_report
+const StoresPurchaseOrderReport = lazy(() => import('../Stores_report/StoresPurchaseOrderReport'));
+const StoresPurchaseReturnReport = lazy(() => import('../Stores_report/StoresPurchaseReturnReport'));
+const StoresPurchaseAnalysisReport = lazy(() => import('../Stores_report/StoresPurchaseAnalysisReport'));
+const StoresPreviousDayStockReport = lazy(() => import('../Stores_report/StoresPreviousDayStockReport'));
+const StoresSupplierWiseReport = lazy(() => import('../Stores_report/StoresSupplierWiseReport'));
+const StoresNonMovingReport = lazy(() => import('../Stores_report/StoresNonMovingReport'));
+const StoresShortExpiryReport = lazy(() => import('../Stores_report/StoresShortExpiryReport'));
+const StoresReorderLevelReport = lazy(() => import('../Stores_report/StoresReorderLevelReport'));
+const StoresRackClassificationReport = lazy(() => import('../Stores_report/StoresRackClassificationReport'));
+const StoresSupplierGrnReport = lazy(() => import('../Stores_report/StoresSupplierGrnReport'));
+const StoresDepartmentIndentReport = lazy(() => import('../Stores_report/StoresDepartmentIndentReport'));
+const VendingMachineReport = lazy(() => import('../Stores_report/VendingMachineReport'));
+const StoresGRNGeneralReport = lazy(() => import('../Stores_report/StoresGRNGeneralReport'));
+const StoresIntentReturnReport = lazy(() => import('../Stores_report/StoresIntentReturnReport'));
+const StoresAbcVedReport = lazy(() => import('../Stores_report/StoresAbcVedReport'));
+const StoresOpeningStockReport = lazy(() => import('../Stores_report/StoresOpeningStockReport'));
 
-// New Stores Reports & Operational Features
-const StoresPurchaseOrderFormat = lazy(() => import('./StoresPurchaseOrderFormat'));
-const StoresPurchaseReturn = lazy(() => import('./StoresPurchaseReturn'));
-const StoresPurchaseAnalysisReport = lazy(() => import('./StoresPurchaseAnalysisReport'));
-const StoresPreviousDayStockReport = lazy(() => import('./StoresPreviousDayStockReport'));
-const StoresSupplierWiseReport = lazy(() => import('./StoresSupplierWiseReport'));
-const StoresNonMovingReport = lazy(() => import('./StoresNonMovingReport'));
-const StoresShortExpiryReport = lazy(() => import('./StoresShortExpiryReport'));
-const StoresReorderLevelReport = lazy(() => import('./StoresReorderLevelReport'));
-const StoresRackClassification = lazy(() => import('./StoresRackClassification'));
-const StoresOpeningStockReport = lazy(() => import('./StoresOpeningStockReport'));
+// Component mapping for dynamically loaded routes
+const componentMap = {
+    '/StoresPurchaseOrderReport': StoresPurchaseOrderReport,
+    '/StoresPurchaseReturnReport': StoresPurchaseReturnReport,
+    '/StoresPurchaseAnalysisReport': StoresPurchaseAnalysisReport,
+    '/StoresPreviousDayStockReport': StoresPreviousDayStockReport,
+    '/StoresSupplierWiseReport': StoresSupplierWiseReport,
+    '/StoresNonMovingReport': StoresNonMovingReport,
+    '/StoresShortExpiryReport': StoresShortExpiryReport,
+    '/StoresReorderLevelReport': StoresReorderLevelReport,
+    '/StoresRackClassificationReport': StoresRackClassificationReport,
+    '/StoresSupplierGrnReport': StoresSupplierGrnReport,
+    '/StoresDepartmentIndentReport': StoresDepartmentIndentReport,
+    '/VendingMachineReport': VendingMachineReport,
+    '/StoresGRNGeneralReport': StoresGRNGeneralReport,
+    '/StoresIntentReturnReport': StoresIntentReturnReport,
+    '/StoresAbcVedReport': StoresAbcVedReport,
+    '/StoresOpeningStockReport': StoresOpeningStockReport,
+    '/storesopeningstockreport': StoresOpeningStockReport
+};
 
-const reportsConfig = [
-    {
-        id: 'purchase-order-format',
-        title: 'Purchase Order Format (PO)',
-        description: 'Generate, manage, and print standardized Hospital Purchase Orders with vendor terms and item tax lines.',
-        icon: ShoppingBag,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresPurchaseOrderFormat',
-        component: StoresPurchaseOrderFormat
-    },
-    {
-        id: 'purchase-return-option',
-        title: 'Purchase Return & Debit Notes',
-        description: 'Return defective or excess goods to suppliers with automatic stock deduction and printable Debit Notes.',
-        icon: RotateCcw,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresPurchaseReturn',
-        component: StoresPurchaseReturn
-    },
-    {
-        id: 'purchase-analysis',
-        title: 'Purchase Analysis Report',
-        description: 'Analyze monthly purchase trends, vendor spend shares, top purchased goods, and price fluctuations over time.',
-        icon: TrendingUp,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresPurchaseAnalysisReport',
-        component: StoresPurchaseAnalysisReport
-    },
-    {
-        id: 'previous-day-stock',
-        title: 'Previous Day / Daily Stock Report',
-        description: 'Daily opening stock balance, GRN inward receipts, Indent outward issues, returns, and closing valuation.',
-        icon: Layers,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresPreviousDayStockReport',
-        component: StoresPreviousDayStockReport
-    },
-    {
-        id: 'supplier-wise-list',
-        title: 'Supplier-Wise List & Ledger',
-        description: 'Comprehensive directory of suppliers with cumulative order values, total payments made, and pending dues.',
-        icon: Building2,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresSupplierWiseReport',
-        component: StoresSupplierWiseReport
-    },
-    {
-        id: 'non-moving-items',
-        title: 'Non-Moving Items Report (Dead Stock)',
-        description: 'Identify slow-moving and idle items with zero indents over 30 / 60 / 90 / 180+ days to prevent dead capital.',
-        icon: Clock,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresNonMovingReport',
-        component: StoresNonMovingReport
-    },
-    {
-        id: 'short-expiry-list',
-        title: 'Short Expiry & Expired List',
-        description: 'Early warning alert report tracking pharmaceutical and medical items nearing expiry within 30, 60, or 90 days.',
-        icon: AlertTriangle,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresShortExpiryReport',
-        component: StoresShortExpiryReport
-    },
-    {
-        id: 'reorder-level-indication',
-        title: 'Reorder Level Indication',
-        description: 'Real-time stock threshold monitoring, identifying out-of-stock and low-stock items with suggested reorder quantities.',
-        icon: AlertCircle,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresReorderLevelReport',
-        component: StoresReorderLevelReport
-    },
-    {
-        id: 'barcode-rack-classification',
-        title: 'Barcode Entry & Rack Classification',
-        description: 'Spatial inventory mapping to manage Racks, Shelves, and Bins with barcode scanner integration.',
-        icon: Grid,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresRackClassification',
-        component: StoresRackClassification
-    },
-    {
-        id: 'supplier-grn',
-        title: 'Supplier-Based GRN Report',
-        description: 'Goods Received Note (GRN) report categorized by Supplier / Vendor with tax details and payment status.',
-        icon: Building2,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresSupplierGrnReport',
-        component: StoresSupplierGrnReport
-    },
-    {
-        id: 'department-indent',
-        title: 'Department-Based Indent Report',
-        description: 'Store item requisitions (indents) grouped by Department with approval status and item quantities.',
-        icon: ClipboardList,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresDepartmentIndentReport',
-        component: StoresDepartmentIndentReport
-    },
-    {
-        id: 'vending-machine',
-        title: 'Vending Machine Sales & Stock Report',
-        description: 'Track Vending Machine sales, compare revenue against GRN costs, and calculate stock reconciliation.',
-        icon: ShoppingCart,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/VendingMachineReport',
-        component: VendingMachineReport
-    },
-    {
-        id: 'general-grn',
-        title: 'Stores GRN General Report',
-        description: 'Comprehensive general GRN report with invoice details, vendor mapping, and payment tracking.',
-        icon: FileText,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresGRNReport',
-        component: StoresGRNReport
-    },
-    {
-        id: 'stores-intent-approval',
-        title: 'Stores Intent Approval Report',
-        description: 'Review, approve, and track department store intent requisitions.',
-        icon: CheckCircle,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoreIntentApproval',
-        component: StoreIntentApproval
-    },
-    {
-        id: 'abc-ved',
-        title: 'Stores ABC & VED Analysis Report',
-        description: 'Analysis report categorizing inventory items based on ABC value and VED criticality.',
-        icon: BarChart3,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresAbcVedReport',
-        component: StoresAbcVedReport
-    },
-    {
-        id: 'opening-stock-audit',
-        title: 'Opening Stock Audit Report',
-        description: 'Complete audit trail of Item Master opening stock values, adjustments, audit remarks, and user history.',
-        icon: ShieldCheck,
-        color: '#059669', bg: '#ecfdf5',
-        route: '/StoresOpeningStockReport',
-        component: StoresOpeningStockReport
-    }
-];
+// Icon map for dynamically rendering Lucide icons
+const iconMap = {
+    ShoppingBag,
+    RotateCcw,
+    TrendingUp,
+    Layers,
+    Building2,
+    Clock,
+    AlertTriangle,
+    AlertCircle,
+    Grid,
+    ClipboardList,
+    ShoppingCart,
+    FileText,
+    BarChart3,
+    ShieldCheck
+};
 
 const StoresReportsDashboard = () => {
     const navigate = useNavigate();
@@ -197,8 +87,29 @@ const StoresReportsDashboard = () => {
     const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
     const departmentFilterRef = useRef(null);
 
+    // Dynamic reports loaded strictly from the database (no hardcoded fallback)
+    const [dbReports, setDbReports] = useState([]);
+    const [loadingReports, setLoadingReports] = useState(true);
+
+    // User report permissions used strictly for displaying report cards inside this page
+    const [userReportPerms, setUserReportPerms] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("report_permissions") || "null");
+        } catch {
+            return null;
+        }
+    });
+    const [hasCustomConfig, setHasCustomConfig] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("has_custom_report_config") || "false");
+        } catch {
+            return false;
+        }
+    });
+
     useStoresDepartment((newDept) => setSelectedDepartment(newDept || ''));
 
+    // Fetch department list
     useEffect(() => {
         const fetchDepts = async () => {
             try {
@@ -214,6 +125,70 @@ const StoresReportsDashboard = () => {
         fetchDepts();
     }, []);
 
+    // Load user report permissions for internal display
+    useEffect(() => {
+        const loadUserPermissions = async () => {
+            const empId = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || localStorage.getItem("auth-user-id");
+            if (!empId) return;
+            try {
+                const res = await fetchMyReportPermissions(empId);
+                if (res && res.success) {
+                    setUserReportPerms(res.report_permissions || {});
+                    setHasCustomConfig(Boolean(res.has_custom_config));
+                    localStorage.setItem("report_permissions", JSON.stringify(res.report_permissions || {}));
+                    localStorage.setItem("has_custom_report_config", JSON.stringify(Boolean(res.has_custom_config)));
+                }
+            } catch (err) {
+                console.error("Error loading user report permissions:", err);
+            }
+        };
+        loadUserPermissions();
+    }, []);
+
+    // Load Stores Reports strictly from DB via Report Master API
+    useEffect(() => {
+        const loadStoresReportsFromDb = async () => {
+            try {
+                setLoadingReports(true);
+                const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
+                const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/report-master/?group=Stores`);
+                let groups = [];
+                if (res && res.success && res.data) {
+                    groups = Array.isArray(res.data) ? res.data : (res.data.data || []);
+                }
+
+                // Extract pages strictly from database documents
+                const pages = [];
+                for (const g of groups) {
+                    if (Array.isArray(g.pages)) {
+                        for (const page of g.pages) {
+                            const iconName = page.icon || 'Layers';
+                            const IconComponent = iconMap[iconName] || Layers;
+                            pages.push({
+                                id: page.page_id || page.route,
+                                title: page.name || page.title || page.route,
+                                description: page.description || '',
+                                route: page.route,
+                                icon: IconComponent,
+                                color: '#059669',
+                                bg: '#ecfdf5',
+                                component: componentMap[page.route] || null
+                            });
+                        }
+                    }
+                }
+                setDbReports(pages);
+            } catch (err) {
+                console.error("Error fetching stores reports from DB:", err);
+                setDbReports([]);
+            } finally {
+                setLoadingReports(false);
+            }
+        };
+
+        loadStoresReportsFromDb();
+    }, []);
+
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'F10') {
@@ -225,10 +200,38 @@ const StoresReportsDashboard = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    const filteredReports = reportsConfig.filter(rep => 
-        rep.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rep.description.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Filter reports dynamically by user report permissions strictly for display inside this page
+    const filteredReports = dbReports.filter(rep => {
+        // Evaluate permissions strictly for displaying reports inside this dashboard
+        if (hasCustomConfig && userReportPerms && typeof userReportPerms === "object") {
+            const norm = rep.route?.startsWith("/") ? rep.route : `/${rep.route}`;
+            const isAllowed = Boolean(
+                userReportPerms[rep.route] ||
+                userReportPerms[norm] ||
+                userReportPerms[rep.title] ||
+                (rep.id != null && userReportPerms[String(rep.id)])
+            );
+            if (!isAllowed) return false;
+        } else if (userReportPerms && typeof userReportPerms === "object" && Object.keys(userReportPerms).length > 0) {
+            const norm = rep.route?.startsWith("/") ? rep.route : `/${rep.route}`;
+            const isAllowed = Boolean(
+                userReportPerms[rep.route] ||
+                userReportPerms[norm] ||
+                userReportPerms[rep.title] ||
+                (rep.id != null && userReportPerms[String(rep.id)])
+            );
+            if (!isAllowed) return false;
+        }
+
+        const term = (searchTerm || '').trim().toLowerCase();
+        if (!term) return true;
+
+        return (
+            (rep.title || '').toLowerCase().includes(term) ||
+            (rep.description || '').toLowerCase().includes(term) ||
+            (rep.route || '').toLowerCase().includes(term)
+        );
+    });
 
     const openReportModal = (report) => {
         setActiveModalReport(report);
@@ -272,132 +275,155 @@ const StoresReportsDashboard = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                         {/* Active Department Selector */}
                         <DepartmentFilterControl
-                                departments={departments}
-                                onDepartmentChange={(dept) => {
-                                    setSelectedDepartment(dept || '');
-                                }}
-                            />
+                            departments={departments}
+                            onDepartmentChange={(dept) => {
+                                setSelectedDepartment(dept || '');
+                            }}
+                        />
 
                         {/* Quick Search */}
                         <div style={{ position: 'relative', width: '280px' }}>
-                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: colors.textMuted }} />
-                        <input
-                            type="text"
-                            placeholder="Search store reports..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{
-                                width: '100%',
-                                height: '42px',
-                                paddingLeft: '38px',
-                                paddingRight: '12px',
-                                borderRadius: '10px',
-                                border: `1px solid ${colors.border}`,
-                                outline: 'none',
-                                background: '#ffffff',
-                                fontSize: '0.9rem'
-                            }}
-                        />
+                            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: colors.textMuted }} />
+                            <input
+                                type="text"
+                                placeholder="Search store reports..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    height: '42px',
+                                    paddingLeft: '38px',
+                                    paddingRight: '12px',
+                                    borderRadius: '10px',
+                                    border: `1px solid ${colors.border}`,
+                                    outline: 'none',
+                                    background: '#ffffff',
+                                    fontSize: '0.9rem'
+                                }}
+                            />
                         </div>
                     </div>
                 </div>
 
-                {/* Reports Navigation Cards Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-                    {filteredReports.map((report) => {
-                        const IconComponent = report.icon;
-                        return (
-                            <div
-                                key={report.id}
-                                style={{
-                                    background: '#ffffff',
-                                    borderRadius: '14px',
-                                    border: `1px solid ${colors.border}`,
-                                    padding: '24px',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justify: 'space-between',
-                                    transition: 'all 0.25s ease',
-                                    cursor: 'pointer'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(-4px)';
-                                    e.currentTarget.style.boxShadow = '0 10px 20px rgba(5, 150, 105, 0.08)';
-                                    e.currentTarget.style.borderColor = '#059669';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
-                                    e.currentTarget.style.borderColor = colors.border;
-                                }}
-                            >
-                                <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                        <div style={{ background: report.bg, width: '52px', height: '52px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <IconComponent size={26} color={report.color} />
+                {/* Loading State */}
+                {loadingReports ? (
+                    <div style={{ textAlign: 'center', padding: '80px 20px', color: '#64748b' }}>
+                        <RefreshCw size={36} style={{ animation: 'spin 1s linear infinite', color: '#059669' }} />
+                        <p style={{ marginTop: '14px', fontWeight: '700', fontSize: '1rem' }}>
+                            Loading Stores Reports from Database...
+                        </p>
+                    </div>
+                ) : filteredReports.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '80px 20px', background: '#ffffff', borderRadius: '14px', border: `1px solid ${colors.border}` }}>
+                        <Layers size={48} color="#94a3b8" style={{ marginBottom: '12px' }} />
+                        <h3 style={{ margin: '0 0 6px 0', color: colors.textMain, fontWeight: '700' }}>
+                            No Reports Available
+                        </h3>
+                        <p style={{ margin: 0, color: colors.textMuted, fontSize: '0.9rem' }}>
+                            {searchTerm 
+                                ? `No reports matched "${searchTerm}".` 
+                                : hasCustomConfig
+                                    ? "You do not have access to any store reports. Please contact an administrator to allocate report permissions in Employee Master."
+                                    : "No stores reports configured in the database."
+                            }
+                        </p>
+                    </div>
+                ) : (
+                    /* Reports Navigation Cards Grid */
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+                        {filteredReports.map((report) => {
+                            const IconComponent = report.icon || Layers;
+                            return (
+                                <div
+                                    key={report.id}
+                                    style={{
+                                        background: '#ffffff',
+                                        borderRadius: '14px',
+                                        border: `1px solid ${colors.border}`,
+                                        padding: '24px',
+                                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'space-between',
+                                        transition: 'all 0.25s ease',
+                                        cursor: 'pointer'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(-4px)';
+                                        e.currentTarget.style.boxShadow = '0 10px 20px rgba(5, 150, 105, 0.08)';
+                                        e.currentTarget.style.borderColor = '#059669';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                        e.currentTarget.style.borderColor = colors.border;
+                                    }}
+                                >
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                            <div style={{ background: report.bg, width: '52px', height: '52px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <IconComponent size={26} color={report.color} />
+                                            </div>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: '700', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: '12px' }}>
+                                                STORES REPORT
+                                            </span>
                                         </div>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: '700', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: '12px' }}>
-                                            STORES REPORT
-                                        </span>
+
+                                        <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', color: colors.textMain, fontWeight: '700' }}>
+                                            {report.title}
+                                        </h3>
+                                        <p style={{ margin: 0, color: colors.textMuted, fontSize: '0.85rem', lineHeight: '1.5' }}>
+                                            {report.description}
+                                        </p>
                                     </div>
 
-                                    <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', color: colors.textMain, fontWeight: '700' }}>
-                                        {report.title}
-                                    </h3>
-                                    <p style={{ margin: 0, color: colors.textMuted, fontSize: '0.85rem', lineHeight: '1.5' }}>
-                                        {report.description}
-                                    </p>
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+                                        <button
+                                            onClick={() => openReportModal(report)}
+                                            style={{
+                                                flex: '1 1 auto',
+                                                padding: '9px 12px',
+                                                borderRadius: '8px',
+                                                border: `1px solid ${report.color}`,
+                                                background: report.bg,
+                                                color: report.color,
+                                                fontWeight: '700',
+                                                fontSize: '0.85rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '6px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <Maximize2 size={16} /> Open Modal
+                                        </button>
+
+                                        <button
+                                            onClick={() => navigate(report.route)}
+                                            style={{
+                                                padding: '9px 12px',
+                                                borderRadius: '8px',
+                                                border: '1px solid #cbd5e1',
+                                                background: '#ffffff',
+                                                color: colors.textMain,
+                                                fontWeight: '600',
+                                                fontSize: '0.85rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer'
+                                            }}
+                                            title="Navigate to full page"
+                                        >
+                                            <ArrowRight size={16} />
+                                        </button>
+                                    </div>
                                 </div>
-
-                                <div style={{ display: 'flex', gap: '8px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
-                                    <button
-                                        onClick={() => openReportModal(report)}
-                                        style={{
-                                            flex: '1 1 auto',
-                                            padding: '9px 12px',
-                                            borderRadius: '8px',
-                                            border: `1px solid ${report.color}`,
-                                            background: report.bg,
-                                            color: report.color,
-                                            fontWeight: '700',
-                                            fontSize: '0.85rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '6px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <Maximize2 size={16} /> Open Modal
-                                    </button>
-
-                                    
-
-                                    <button
-                                        onClick={() => navigate(report.route)}
-                                        style={{
-                                            padding: '9px 12px',
-                                            borderRadius: '8px',
-                                            border: '1px solid #cbd5e1',
-                                            background: '#ffffff',
-                                            color: colors.textMain,
-                                            fontWeight: '600',
-                                            fontSize: '0.85rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            cursor: 'pointer'
-                                        }}
-                                        title="Navigate to full page"
-                                    >
-                                        <ArrowRight size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Open Modal Account-Style Report Viewer */}
                 {activeModalReport && (
@@ -405,7 +431,7 @@ const StoresReportsDashboard = () => {
                         <ModalContainer style={{ maxWidth: '1350px', width: '95vw', height: '90vh', display: 'flex', flexDirection: 'column' }}>
                             <ModalHeader style={{ background: '#ecfdf5', padding: '16px 24px', borderBottom: '1px solid #a7f3d0' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <activeModalReport.icon size={24} color={activeModalReport.color} />
+                                    {activeModalReport.icon && React.createElement(activeModalReport.icon, { size: 24, color: activeModalReport.color })}
                                     <ModalTitle style={{ color: colors.textMain, fontSize: '1.25rem' }}>
                                         {activeModalReport.title}
                                     </ModalTitle>
@@ -456,7 +482,19 @@ const StoresReportsDashboard = () => {
                                             <p style={{ marginTop: '12px', fontWeight: '600' }}>Loading Report Modal Data...</p>
                                         </div>
                                     }>
-                                        <activeModalReport.component />
+                                        {activeModalReport.component ? (
+                                            <activeModalReport.component />
+                                        ) : (
+                                            <div style={{ textAlign: 'center', padding: '60px', color: colors.textMuted }}>
+                                                <p>No preview available for this report.</p>
+                                                <button
+                                                    onClick={() => navigate(activeModalReport.route)}
+                                                    style={{ padding: '8px 16px', background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700' }}
+                                                >
+                                                    Open Report Page
+                                                </button>
+                                            </div>
+                                        )}
                                     </Suspense>
                                 </div>
                             </ModalBody>

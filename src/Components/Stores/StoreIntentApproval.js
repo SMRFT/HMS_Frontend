@@ -665,7 +665,7 @@ const StoresApprovalManager = () => {
                     <div class="info-grid">
                         <div><strong>Intent No:</strong> ${intent.intent_id}</div>
                         <div><strong>Date:</strong> ${new Date(intent.date).toLocaleDateString()}</div>
-                        <div><strong>Department:</strong> ${intent.department_name}</div>
+                        <div><strong>Department:</strong> ${intent.department_name}${intent.nursing_station_name || intent.nursing_station ? ` (🏥 ${intent.nursing_station_name || intent.nursing_station})` : ''}</div>
                         <div><strong>Status:</strong> ${intent.is_approved ? 'Verified' : 'Pending'}</div>
                     </div>
                     <table>
@@ -1415,7 +1415,25 @@ const StoresApprovalManager = () => {
                                                         <span>Created By: <strong>{item.created_by_name || item.created_by || 'Department User'}</strong></span>
                                                     </div>
                                                 </S.Td>
-                                                <S.Td style={{ fontWeight: '700', color: '#334155' }}>{item.department_name}</S.Td>
+                                                <S.Td style={{ fontWeight: '700', color: '#334155' }}>
+                                                    <div>{item.department_name}</div>
+                                                    {(item.nursing_station_name || item.nursing_station) && (
+                                                        <div style={{ marginTop: '3px' }}>
+                                                            <span style={{ 
+                                                                display: 'inline-block',
+                                                                fontSize: '0.72rem', 
+                                                                color: '#0d9488', 
+                                                                fontWeight: 700, 
+                                                                background: '#ccfbf1', 
+                                                                padding: '2px 8px', 
+                                                                borderRadius: '4px',
+                                                                border: '1px solid #99f6e4'
+                                                            }}>
+                                                                🏥 {item.nursing_station_name || item.nursing_station}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </S.Td>
                                                 <S.Td>
                                                     <div style={{ fontSize: '0.85rem' }}>
                                                         {(item.items || []).map((it, idx) => (
@@ -2063,8 +2081,13 @@ const StoresApprovalManager = () => {
                                     }}>
                                         <div>
                                             <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Department</div>
-                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px' }}>
-                                                {selectedIntentForView.department_name || selectedIntentForView.department || '-'}
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <span>{selectedIntentForView.department_name || selectedIntentForView.department || '-'}</span>
+                                                {(selectedIntentForView.nursing_station_name || selectedIntentForView.nursing_station) && (
+                                                    <span style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: '700', background: '#ccfbf1', padding: '2px 8px', borderRadius: '4px', border: '1px solid #99f6e4' }}>
+                                                        🏥 {selectedIntentForView.nursing_station_name || selectedIntentForView.nursing_station}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <div>

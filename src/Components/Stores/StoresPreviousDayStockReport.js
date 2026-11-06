@@ -30,6 +30,8 @@ const StoresPreviousDayStockReport = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [stockData, setStockData] = useState([]);
+    const [groupMap, setGroupMap] = useState({});
+    const [categoryMap, setCategoryMap] = useState({});
     const [summary, setSummary] = useState({
         total_items: 0,
         total_opening_qty: 0,
@@ -42,7 +44,49 @@ const StoresPreviousDayStockReport = () => {
 
     useEffect(() => {
         fetchStockReport();
+        fetchMasters();
     }, []);
+
+    const fetchMasters = async () => {
+        try {
+            const [gRes, cRes] = await Promise.all([
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-master/`),
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/category-master/`)
+            ]);
+            const gList = (gRes && (Array.isArray(gRes) ? gRes : (gRes.data || []))) || [];
+            const cList = (cRes && (Array.isArray(cRes) ? cRes : (cRes.data || []))) || [];
+
+            const gMap = {};
+            gList.forEach(g => {
+                const id = g.group_id || g.id;
+                const name = g.group_name || g.name;
+                if (id && name) gMap[id] = name;
+            });
+            setGroupMap(gMap);
+
+            const cMap = {};
+            cList.forEach(c => {
+                const id = c.category_id || c.id;
+                const name = c.category_name || c.name;
+                if (id && name) cMap[id] = name;
+            });
+            setCategoryMap(cMap);
+        } catch (err) {
+            console.error('Error fetching masters:', err);
+        }
+    };
+
+    const getGroupName = (item) => {
+        const raw = item.group_name || item.group || '';
+        const code = item.group_code || item.group || '';
+        return groupMap[code] || groupMap[raw] || item.group_name || item.group || '-';
+    };
+
+    const getCategoryName = (item) => {
+        const raw = item.category_name || item.category || '';
+        const code = item.category_code || item.category || '';
+        return categoryMap[code] || categoryMap[raw] || item.category_name || item.category || '';
+    };
 
     const fetchStockReport = async () => {
         try {
@@ -70,10 +114,10 @@ const StoresPreviousDayStockReport = () => {
     const exportToExcel = () => {
         if (!stockData || stockData.length === 0) return;
         const excelData = stockData.map(item => ({
-            'Item ID': item.item_id,
             'Item Name': item.item_name,
+            'Group': getGroupName(item),
+            'Category': getCategoryName(item),
             'Department': item.department,
-            'Group': item.group,
             'Rack / Shelf': `${item.rack_no || '-'} / ${item.shelf_no || '-'}`,
             'Opening Stock': item.opening_stock,
             'Inward Qty (GRN)': item.inward_qty,
@@ -213,11 +257,12 @@ const StoresPreviousDayStockReport = () => {
                                         <Td>{idx + 1}</Td>
                                         <Td>
                                             <div style={{ fontWeight: '700', color: colors.textMain }}>{item.item_name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {item.item_id}</div>
                                         </Td>
                                         <Td>
-                                            <div>{item.group || '-'}</div>
-                                            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>{item.category || ''}</div>
+                                            <div style={{ fontWeight: '600', color: colors.textMain }}>{getGroupName(item)}</div>
+                                            {getCategoryName(item) && (
+                                                <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>{getCategoryName(item)}</div>
+                                            )}
                                         </Td>
                                         <Td>
                                             {item.rack_no ? `${item.rack_no}${item.shelf_no ? ' - ' + item.shelf_no : ''}` : '-'}

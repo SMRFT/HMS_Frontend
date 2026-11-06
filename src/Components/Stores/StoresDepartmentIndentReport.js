@@ -267,7 +267,6 @@ const StoresDepartmentIndentReport = () => {
                                                         </Td>
                                                         <Td style={{ fontWeight: '700' }}>
                                                             <div style={{ color: colors.primary, fontSize: '0.95rem' }}>{dept.department_name}</div>
-                                                            <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {dept.department_id}</span>
                                                         </Td>
                                                         <Td style={{ textAlign: 'center', fontWeight: '700', color: '#2563eb' }}>
                                                             {dept.total_indents}
