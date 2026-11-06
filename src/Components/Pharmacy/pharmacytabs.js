@@ -174,6 +174,7 @@ const OPPharmacyTabs = () => {
   const [billToEdit, setBillToEdit] = useState(null);
   const [estimateRefreshKey, setEstimateRefreshKey] = useState(0);
   const [medichartRefreshKey, setMedichartRefreshKey] = useState(0);
+  const [viewBillsRefreshKey, setViewBillsRefreshKey] = useState(0);
 
   // ── Ward request state (used for MedicineChart → Convert to Bill flow) ──
   const [wardRequestToLoad, setWardRequestToLoad] = useState(null);
@@ -217,7 +218,15 @@ const OPPharmacyTabs = () => {
     }
   }, [selectedOutlet, activeTab]);
 
-  const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const getBaseUrl = () => {
+    const envUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+    if (envUrl && envUrl.startsWith("http")) return envUrl;
+    if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      return "http://127.0.0.1:2609/_b_a_c_k_e_n_d/HMS/";
+    }
+    return envUrl || "/_b_a_c_k_e_n_d/HMS/";
+  };
+  const Hmsbaseurl = getBaseUrl();
 
   const handleConvertPrescription = (prescription) => {
     setPrescriptionToLoad(prescription);
@@ -238,9 +247,10 @@ const OPPharmacyTabs = () => {
     setEstimateRefreshKey(prev => prev + 1);
   };
 
-  // Called by OPPharmacy after a successful Bill save/finalize — signals MedicineChart to re-fetch
+  // Called by OPPharmacy after a successful Bill save/finalize — signals MedicineChart and ViewBills to re-fetch
   const handleBillSaved = useCallback((info) => {
     setMedichartRefreshKey((prev) => prev + 1);
+    setViewBillsRefreshKey((prev) => prev + 1);
     if (info?.isWardRequest) {
       setMedichartCount((prev) => Math.max(0, prev - 1));
     }
@@ -364,7 +374,11 @@ const OPPharmacyTabs = () => {
           qty:                 item.qty             ?? item.quantity ?? 0,
           quantity:            item.qty             ?? item.quantity ?? 0,
           dosage:              item.dosage          || "",
-          noOfDays:            item.noOfDays        || "",
+          noOfDays:            item.noOfDays        || item.no_of_days || "",
+          dose:                item.dose            || "",
+          doseunit:            item.doseunit        || item.doseUnit || "",
+          instruction:         item.instruction     || "",
+          route:               item.route           || "",
           available_stock:     item.available_stock ?? 0,
           CGST_Percentage:     item.CGST_Percentage ?? 0,
           SGST_Percentage:     item.SGST_Percentage ?? 0,
@@ -433,6 +447,9 @@ const OPPharmacyTabs = () => {
     if (key === "medichart") {
       setMedichartRefreshKey((prev) => prev + 1);
     }
+    if (key === "view_bills") {
+      setViewBillsRefreshKey((prev) => prev + 1);
+    }
     setActiveTab(key);
     setVisitedTabs((prev) => new Set(prev).add(key));
   };
@@ -495,6 +512,8 @@ const OPPharmacyTabs = () => {
           <PharmacyViewBills
             onEditBill={handleEditBill}
             onSwitchToPharmacy={handleSwitchToPharmacy}
+            activeTab={activeTab}
+            refreshTrigger={viewBillsRefreshKey}
           />
         </TabPanel>
       )}

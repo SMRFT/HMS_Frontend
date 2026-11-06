@@ -436,9 +436,11 @@ const MHCList = () => {
   const [loadingPrint, setLoadingPrint] = useState(false);
 
   const barcodeRef = useRef(null);
+  const reqSeqRef = useRef(0);
 
   // ── Fetch Investigations ─────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
+    const seq = ++reqSeqRef.current;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -449,6 +451,7 @@ const MHCList = () => {
         `${HMSURL}mhc-investigations/?${params.toString()}`,
         "GET",
       );
+      if (seq !== reqSeqRef.current) return;
       if (result.success && Array.isArray(result.data)) {
         setRows(result.data);
       } else {
@@ -456,9 +459,13 @@ const MHCList = () => {
         if (result.error) toast.error(result.error);
       }
     } catch {
-      toast.error("Failed to load MHC investigations");
+      if (seq === reqSeqRef.current) {
+        toast.error("Failed to load MHC investigations");
+      }
     } finally {
-      setLoading(false);
+      if (seq === reqSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [HMSURL, fromDate, toDate]);
 

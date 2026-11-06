@@ -24,18 +24,18 @@ const MainContent = styled.div`
 
 const TopSection = styled.div`
   background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  transition: box-shadow 0.2s ease;
+  border-radius: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  transition: all 0.25s ease;
 `;
 
 const TopGrid = styled.div`
   display: grid;
   grid-template-columns: 1.15fr 1fr 1.15fr;
-  gap: 16px;
+  gap: 20px;
   align-items: stretch;
 
   @media (max-width: 1024px) {
@@ -44,43 +44,52 @@ const TopGrid = styled.div`
 `;
 
 const ShiftCard = styled.div`
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.03);
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  }
 `;
 
 const ShiftCardHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #edf2f7;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
 `;
 
 const ShiftRefBadge = styled.span`
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: #0f172a;
-  color: #ffffff;
+  gap: 6px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #38bdf8;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
-  letter-spacing: 0.02em;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
 `;
 
 const ShiftDataRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 2px 0;
+  padding: 3px 0;
 `;
 
 const ShiftDataLabel = styled.span`
@@ -88,92 +97,108 @@ const ShiftDataLabel = styled.span`
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 `;
 
 const ShiftDataValue = styled.span`
-  color: #1e293b;
+  color: #0f172a;
   font-weight: 600;
-  font-size: 12.5px;
+  font-size: 13px;
 `;
 
 const BalancesCard = styled.div`
-  background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 100%);
-  border: 1px solid #ccfbf1;
-  border-radius: 12px;
-  padding: 12px 16px;
+  background: linear-gradient(135deg, #f0fdfa 0%, #ecfdf5 45%, #ffffff 100%);
+  border: 1.5px solid #99f6e4;
+  border-radius: 16px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
+  box-shadow: 0 6px 20px -4px rgba(13, 148, 136, 0.1);
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #5eead4;
+    box-shadow: 0 8px 24px -4px rgba(13, 148, 136, 0.16);
+  }
 `;
 
 const BalancesHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 4px;
+  padding-bottom: 8px;
   border-bottom: 1px dashed #99f6e4;
 `;
 
 const BalancesGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
 `;
 
 const BalanceTile = styled.div`
   background: #ffffff;
-  border: 1px solid ${(props) => (props.$highlight ? "#99f6e4" : "#e2e8f0")};
-  border-radius: 8px;
-  padding: 8px 12px;
+  border: 1.5px solid ${(props) => (props.$highlight ? "#0d9488" : "#e2e8f0")};
+  border-radius: 12px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  gap: 3px;
+  box-shadow: ${(props) => (props.$highlight ? "0 4px 14px rgba(13, 148, 136, 0.12)" : "0 2px 6px rgba(15, 23, 42, 0.03)")};
+  transition: all 0.2s ease;
 `;
 
 const BalanceTileLabel = styled.span`
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 700;
   color: ${(props) => (props.$highlight ? "#0f766e" : "#64748b")};
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 `;
 
 const BalanceTileAmount = styled.span`
-  font-size: 16.5px;
+  font-size: 17.5px;
   font-weight: 800;
   color: ${(props) => (props.$highlight ? "#0f766e" : "#0f172a")};
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 `;
 
 const StatusChip = styled.span`
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
+  gap: 6px;
+  padding: 3px 10px;
   border-radius: 9999px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   text-transform: capitalize;
   background: ${(props) => (props.$active ? "#d1fae5" : "#f1f5f9")};
   color: ${(props) => (props.$active ? "#065f46" : "#64748b")};
   border: 1px solid ${(props) => (props.$active ? "#a7f3d0" : "#e2e8f0")};
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.08);
 `;
 
 const CounterCard = styled.div`
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.03);
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  }
 `;
 
 // Legacy Label / Amount for backward compatibility if referenced elsewhere
@@ -199,11 +224,11 @@ const Value = styled.span`
 `;
 
 const Button = styled.button`
-  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
   color: white;
   padding: 9px 20px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -212,16 +237,23 @@ const Button = styled.button`
   font-size: 13.5px;
   font-weight: 600;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
+  box-shadow: 0 3px 10px rgba(13, 148, 136, 0.25);
   width: fit-content;
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
+    box-shadow: 0 6px 18px rgba(13, 148, 136, 0.35);
+    filter: brightness(1.04);
   }
 
   &:active {
     transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
   }
 `;
 
@@ -239,33 +271,34 @@ const Sidebar = styled.div`
   width: 250px;
   flex-shrink: 0;
   background-color: white;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
-  padding: 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04);
+  padding: 14px;
 `;
 
 const SidebarButton = styled.button`
   width: 100%;
   text-align: left;
-  padding: 11px 16px;
-  margin-bottom: 6px;
+  padding: 12px 18px;
+  margin-bottom: 8px;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13.5px;
+  gap: 12px;
+  font-size: 14px;
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   ${(props) =>
     props.active
       ? `
-    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
     color: white;
-    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
+    box-shadow: 0 6px 20px rgba(15, 118, 110, 0.28);
+    transform: translateX(2px);
   `
       : `
     background-color: transparent;
@@ -274,6 +307,7 @@ const SidebarButton = styled.button`
     &:hover {
       background-color: #f1f5f9;
       color: #0f172a;
+      transform: translateX(2px);
     }
   `}
 `;
@@ -282,22 +316,22 @@ const MainPanel = styled.div`
   flex: 1;
   min-width: 0;
   background-color: white;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  border-radius: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04);
   overflow: hidden;
 `;
 
 const PanelContent = styled.div`
-  padding: 24px 28px;
+  padding: 26px 30px;
 `;
 
 const Title = styled.h2`
-  font-size: 19px;
-  font-weight: 700;
+  font-size: 21px;
+  font-weight: 800;
   color: #0f172a;
   margin-bottom: 20px;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 `;
 
 const ControlsWrapper = styled.div`
@@ -307,34 +341,36 @@ const ControlsWrapper = styled.div`
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 22px;
-  padding: 14px 18px;
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  padding: 14px 20px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
 `;
 
 const ControlGroup = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 `;
 
 const Select = styled.select`
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
   padding: 8px 14px;
-  min-width: 128px;
+  min-width: 110px;
   font-size: 13.5px;
-  font-weight: 500;
+  font-weight: 600;
   color: #1e293b;
   background-color: #ffffff;
   outline: none;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 
   &:focus {
     border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
   }
 `;
 
@@ -344,17 +380,28 @@ const RadioLabel = styled.label`
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #334155;
   cursor: pointer;
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  transition: all 0.2s;
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 
   &:hover {
-    border-color: #cbd5e1;
-    background: #f8fafc;
+    border-color: #0d9488;
+    background: #f0fdfa;
+    color: #0f766e;
+  }
+
+  &:has(input:checked) {
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+    border-color: #0f766e;
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.28);
+    font-weight: 700;
   }
 `;
 
@@ -362,18 +409,20 @@ const RadioInput = styled.input`
   margin: 0;
   accent-color: #0d9488;
   cursor: pointer;
+  width: 15px;
+  height: 15px;
 `;
 
 const TableControls = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   gap: 16px;
   flex-wrap: wrap;
   font-size: 13.5px;
   color: #64748b;
-  font-weight: 500;
+  font-weight: 600;
 `;
 
 const SearchWrapper = styled.div`
@@ -392,19 +441,20 @@ const SearchInputWrapper = styled.div`
 `;
 
 const SearchInput = styled.input`
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 14px 8px 36px;
-  min-width: 270px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 9px 40px 9px 38px;
+  min-width: 320px;
   font-size: 13.5px;
   color: #0f172a;
   outline: none;
   background: #ffffff;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
 
   &:focus {
     border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
   }
 
   &::placeholder {
@@ -439,30 +489,32 @@ const Table = styled.table`
   border-collapse: separate;
   border-spacing: 0;
   margin-bottom: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
   overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 4px 18px -4px rgba(15, 23, 42, 0.04);
 `;
 
 const TableHeader = styled.th`
   border: none;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 8px 10px;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 12px 14px;
   text-align: ${(props) => (props.align ? props.align : props.center ? "center" : props.right ? "right" : "left")};
-  background-color: #f8fafc;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   font-weight: 700;
   font-size: 11.5px;
   color: #475569;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
   white-space: nowrap;
   vertical-align: middle;
 
   &:last-child {
     position: sticky;
     right: 0;
-    background-color: #f8fafc;
-    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.04);
+    background: #f1f5f9;
+    box-shadow: -3px 0 8px rgba(0, 0, 0, 0.04);
     z-index: 2;
   }
 `;
@@ -470,31 +522,32 @@ const TableHeader = styled.th`
 const TableCell = styled.td`
   border: none;
   border-bottom: 1px solid #f1f5f9;
-  padding: 8px 10px;
+  padding: 11px 14px;
   text-align: ${(props) => (props.align ? props.align : props.center ? "center" : props.right ? "right" : "left")};
   color: ${(props) => (props.muted ? "#64748b" : "#1e293b")};
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   vertical-align: middle;
+  transition: background-color 0.15s ease;
 
   tr:last-child & {
     border-bottom: none;
   }
 
   tr:hover & {
-    background-color: #fbfcfe;
+    background-color: #f0fdfa;
   }
 
   &:last-child {
     position: sticky;
     right: 0;
     background-color: #ffffff;
-    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.04);
+    box-shadow: -3px 0 8px rgba(0, 0, 0, 0.04);
     z-index: 1;
 
     tr:hover & {
-      background-color: #fbfcfe;
+      background-color: #f0fdfa;
     }
   }
 `;
@@ -503,33 +556,36 @@ const Pagination = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid #f1f5f9;
-  font-size: 13px;
+  font-size: 13.5px;
   color: #64748b;
-  font-weight: 500;
+  font-weight: 600;
 `;
 
 const PaginationButton = styled.button`
-  padding: 7px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  padding: 8px 18px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
   background-color: white;
   color: #334155;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   font-size: 13px;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
 
   &:hover:not(:disabled) {
     border-color: #0d9488;
     color: #0d9488;
     background-color: #f0fdfa;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(13, 148, 136, 0.15);
   }
 
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
   }
 `;
@@ -869,24 +925,25 @@ const CancelButton = styled.button`
 `;
 
 const ShiftRunningBanner = styled.div`
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-  border: 1px solid #86efac;
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #166534;
-  margin-top: 12px;
+  gap: 8px;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1.5px solid #a7f3d0;
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #047857;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.08);
 
   span.dot {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: #16a34a;
-    animation: pulse 1.5s ease-in-out infinite;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: pulse 1.6s ease-in-out infinite;
     display: inline-block;
     flex-shrink: 0;
   }
@@ -898,8 +955,8 @@ const ShiftRunningBanner = styled.div`
       transform: scale(1);
     }
     50% {
-      opacity: 0.5;
-      transform: scale(1.3);
+      opacity: 0.45;
+      transform: scale(1.35);
     }
   }
 `;
@@ -913,6 +970,7 @@ export default function CentralCashCounter() {
   const [activeMenuItem, setActiveMenuItem] = useState("Pending Bills");
   const [showShiftDetails, setShowShiftDetails] = useState(false);
   const [pendingBills, setPendingBills] = useState([]);
+  const [unpaidBills, setUnpaidBills] = useState([]);
   const [receivedBills, setReceivedBills] = useState([]);
   const [ipAdvancePendingBills, setIpAdvancePendingBills] = useState([]);
   const [ipAdvanceReceivedBills, setIpAdvanceReceivedBills] = useState([]);
@@ -949,12 +1007,12 @@ export default function CentralCashCounter() {
   const showToast = (type, message) => {
     const text = type === "error" ? extractErrorMessage(message) : (typeof message === "string" ? message : JSON.stringify(message));
     if (type === "success") {
-      toast.success(text);
+      toast.success(text, { autoClose: 2000, pauseOnHover: false });
     } else {
-      toast.error(text);
+      toast.error(text, { autoClose: 2500, pauseOnHover: false });
     }
     setToastState({ visible: true, type, message: text });
-    setTimeout(() => setToastState({ visible: false, type: "", message: "" }), 4000);
+    setTimeout(() => setToastState({ visible: false, type: "", message: "" }), 2000);
   };
 
   const [filteredBills, setFilteredBills] = useState([]);
@@ -1556,6 +1614,65 @@ export default function CentralCashCounter() {
     }
   }, []);
 
+  // ── Fetch unpaid bills ───────────────────────────────────────────────────────
+  const fetchUnpaidBills = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}get_mainblock_pendingbills/?status=unpaid`, "GET");
+      if (!response?.success) {
+        if (!silent) {
+          console.error("Unpaid bills error:", response);
+          showToast("error", response?.error || "Unable to connect to HMS server. Please try again.");
+        }
+        return;
+      }
+
+      const billsArray = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+      const formatted = billsArray.map((item, index) => {
+        const dateObj = item.date ? new Date(item.date) : null;
+        const billDate = dateObj
+          ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
+          : "-";
+        const billTime = dateObj
+          ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+          : "-";
+
+        return {
+          id: `${item.type}-${item.bill_no}-${index}`,
+          date: billDate,
+          time: billTime,
+          bill_no: item.bill_no || "-",
+          raw_bill_no: item.bill_no || null,
+          bill_type: item.type || "-",
+          raw_bill_type: item.type || null,
+          uhid_no: item.uhid || "-",
+          patient: item.patient_name || "-",
+          amount: parseFloat(item.amount || 0),
+          status: item.status || "-",
+          raw: item.raw || {},
+          Bill_id: item.raw?.patient_id || null,
+          uhid: item.uhid || "-",
+          total: parseFloat(item.amount || 0),
+          source: item.type === "Discharge" ? "IP" : "OP",
+        };
+      });
+
+      setUnpaidBills(formatted);
+    } catch (err) {
+      if (!silent) {
+        console.error("Unpaid bills error:", err);
+        showToast("error", "Unable to connect to HMS server. Please try again.");
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
+
   // ── Fetch received bills ─────────────────────────────────────────────────────
   const fetchReceivedBills = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -2008,8 +2125,10 @@ export default function CentralCashCounter() {
         const paidBillNo = selectedBill.raw_bill_no || selectedBill.bill_no;
         // Immediate local state removal for instant UI feedback
         setPendingBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+        setUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         setOpPharmacyBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         await fetchPendingBills();
+        await fetchUnpaidBills();
         await fetchOpPharmacyPendingBills();
         await fetchReceivedBills();
         refreshActiveShift();
@@ -2155,19 +2274,21 @@ export default function CentralCashCounter() {
     if (activeMenuItem === "Pending Bills") {
       if (isOp) {
         // Outlet 2 / CC0002: strictly OP Pharmacy bills only (bill type 42)
-        bills = selectedType === "pending" ? opPharmacyBills : opPharmacyReceivedBills;
+        bills = selectedType === "pending" ? opPharmacyBills : selectedType === "unpaid" ? [] : opPharmacyReceivedBills;
       } else {
         // Main block front office (CC0001 / OLET003)
-        bills = selectedType === "pending" ? pendingBills : receivedBills;
+        bills = selectedType === "pending" ? pendingBills : selectedType === "unpaid" ? unpaidBills : receivedBills;
       }
     } else if (activeMenuItem === "IP Advance") {
       bills =
         selectedType === "pending"
           ? ipAdvancePendingBills
+          : selectedType === "unpaid"
+          ? []
           : ipAdvanceReceivedBills;
     } else if (activeMenuItem === "Returns Bills") {
       bills =
-        selectedType === "pending" ? returnPendingBills : returnReceivedBills;
+        selectedType === "pending" ? returnPendingBills : selectedType === "unpaid" ? [] : returnReceivedBills;
     }
 
     let filtered = bills;
@@ -2196,6 +2317,7 @@ export default function CentralCashCounter() {
     activeMenuItem,
     selectedType,
     pendingBills,
+    unpaidBills,
     opPharmacyBills,
     opPharmacyReceivedBills,
     receivedBills,
@@ -2252,6 +2374,8 @@ export default function CentralCashCounter() {
       } else {
         if (selectedType === "pending") {
           fetchPendingBills();
+        } else if (selectedType === "unpaid") {
+          fetchUnpaidBills();
         } else {
           fetchReceivedBills();
         }
@@ -2287,6 +2411,8 @@ export default function CentralCashCounter() {
       } else {
         if (type === "pending") {
           fetchPendingBills();
+        } else if (type === "unpaid") {
+          fetchUnpaidBills();
         } else {
           fetchReceivedBills();
         }
@@ -2329,6 +2455,8 @@ export default function CentralCashCounter() {
       } else {
         if (selectedType === "pending") {
           fetchPendingBills(silent);
+        } else if (selectedType === "unpaid") {
+          fetchUnpaidBills(silent);
         } else {
           fetchReceivedBills(silent);
         }
@@ -2349,6 +2477,7 @@ export default function CentralCashCounter() {
     activeShift?.shiftno,
     cashCounterId,
     fetchPendingBills,
+    fetchUnpaidBills,
     fetchOpPharmacyPendingBills,
     fetchReceivedBills,
     fetchIpAdvancePendingBills,
@@ -2381,6 +2510,8 @@ export default function CentralCashCounter() {
         } else {
           if (selectedType === "pending") {
             fetchPendingBills(true);
+          } else if (selectedType === "unpaid") {
+            fetchUnpaidBills(true);
           } else {
             fetchReceivedBills(true);
           }
@@ -3132,6 +3263,16 @@ export default function CentralCashCounter() {
                         <RadioInput
                           type="radio"
                           name="billStatus"
+                          value="unpaid"
+                          checked={selectedType === "unpaid"}
+                          onChange={(e) => handleTypeChange(e.target.value)}
+                        />
+                        Unpaid Bills
+                      </RadioLabel>
+                      <RadioLabel>
+                        <RadioInput
+                          type="radio"
+                          name="billStatus"
                           value="received"
                           checked={selectedType === "received"}
                           onChange={(e) => handleTypeChange(e.target.value)}
@@ -3145,32 +3286,33 @@ export default function CentralCashCounter() {
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: "6px",
-                          padding: "4px 10px",
-                          borderRadius: "16px",
-                          background: "#e6f7ed",
-                          color: "#0e7039",
+                          gap: "7px",
+                          padding: "5px 12px",
+                          borderRadius: "20px",
+                          background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
+                          color: "#15803d",
                           fontSize: "12px",
-                          fontWeight: "600",
-                          border: "1px solid #b7ebc7",
+                          fontWeight: "650",
+                          border: "1px solid #bbf7d0",
+                          boxShadow: "0 1px 3px rgba(34, 197, 94, 0.12)",
                           userSelect: "none",
                         }}
                         title="Continuous live data sync active. New bills are fetched automatically via API call without needing manual refresh."
                       >
                         <span
                           style={{
-                            width: "8px",
-                            height: "8px",
+                            width: "7px",
+                            height: "7px",
                             borderRadius: "50%",
-                            background: "#22c55e",
-                            boxShadow: "0 0 6px #22c55e",
+                            background: "#16a34a",
+                            boxShadow: "0 0 6px rgba(22, 163, 74, 0.8)",
                             display: "inline-block",
                           }}
                         />
                         Live Auto-Sync
                       </div>
-                      <Button onClick={handleRefresh} disabled={loading} title="Manual Refresh (optional)">
-                        {loading ? <LoadingSpinner /> : <RotateCcw size={16} />}
+                      <Button onClick={handleRefresh} disabled={loading} title="Manual Refresh (optional)" style={{ padding: "8px 16px" }}>
+                        {loading ? <LoadingSpinner /> : <RotateCcw size={15} />}
                         Refresh
                       </Button>
                     </div>
@@ -3254,7 +3396,7 @@ export default function CentralCashCounter() {
                             )}
                           </>
                         )}
-                        {selectedType === "pending" && <TableHeader center>Action</TableHeader>}
+                        {(selectedType === "pending" || selectedType === "unpaid") && <TableHeader center>Action</TableHeader>}
                       </tr>
                     </thead>
                     <tbody>
@@ -3287,13 +3429,24 @@ export default function CentralCashCounter() {
                                 <TableCell center>{bill.ipserial_number}</TableCell>
                                 <TableCell center>
                                   <span style={{
-                                    padding: "2px 8px",
-                                    borderRadius: "10px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    padding: "3px 10px",
+                                    borderRadius: "12px",
                                     fontSize: "11.5px",
-                                    fontWeight: 600,
-                                    background: bill.status?.toLowerCase() === "pending" ? "#fef3c7" : "#d1fae5",
-                                    color: bill.status?.toLowerCase() === "pending" ? "#b45309" : "#065f46",
+                                    fontWeight: 650,
+                                    letterSpacing: "0.01em",
+                                    background: bill.status?.toLowerCase() === "pending" ? "#fffbeb" : "#ecfdf5",
+                                    color: bill.status?.toLowerCase() === "pending" ? "#b45309" : "#047857",
+                                    border: `1px solid ${bill.status?.toLowerCase() === "pending" ? "#fde68a" : "#a7f3d0"}`
                                   }}>
+                                    <span style={{
+                                      width: "5px",
+                                      height: "5px",
+                                      borderRadius: "50%",
+                                      background: bill.status?.toLowerCase() === "pending" ? "#f59e0b" : "#10b981"
+                                    }} />
                                     {bill.status}
                                   </span>
                                 </TableCell>
@@ -3312,10 +3465,24 @@ export default function CentralCashCounter() {
                                 <TableCell style={{ fontWeight: 600 }}>₹{(bill.return_amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
                                 <TableCell center>
                                   <span style={{
-                                    padding: "2px 8px", borderRadius: "10px", fontSize: "11.5px", fontWeight: 600,
-                                    background: bill.document_status?.toLowerCase() === "pending" ? "#fef3c7" : "#d1fae5",
-                                    color: bill.document_status?.toLowerCase() === "pending" ? "#b45309" : "#065f46",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    padding: "3px 10px",
+                                    borderRadius: "12px",
+                                    fontSize: "11.5px",
+                                    fontWeight: 650,
+                                    letterSpacing: "0.01em",
+                                    background: bill.document_status?.toLowerCase() === "pending" ? "#fffbeb" : "#ecfdf5",
+                                    color: bill.document_status?.toLowerCase() === "pending" ? "#b45309" : "#047857",
+                                    border: `1px solid ${bill.document_status?.toLowerCase() === "pending" ? "#fde68a" : "#a7f3d0"}`
                                   }}>
+                                    <span style={{
+                                      width: "5px",
+                                      height: "5px",
+                                      borderRadius: "50%",
+                                      background: bill.document_status?.toLowerCase() === "pending" ? "#f59e0b" : "#10b981"
+                                    }} />
                                     {bill.document_status}
                                   </span>
                                 </TableCell>
@@ -3331,17 +3498,32 @@ export default function CentralCashCounter() {
                                 <TableCell style={{ fontWeight: 600 }}>₹{(bill.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
                                 <TableCell center>
                                   <span style={{
-                                    padding: "2px 8px",
-                                    borderRadius: "10px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    padding: "3px 10px",
+                                    borderRadius: "12px",
                                     fontSize: "11.5px",
-                                    fontWeight: 600,
-                                    background: bill.status?.toLowerCase() === "pending" ? "#fef3c7"
-                                      : bill.status?.toLowerCase() === "billed" ? "#dbeafe"
-                                      : "#d1fae5",
+                                    fontWeight: 650,
+                                    letterSpacing: "0.01em",
+                                    background: bill.status?.toLowerCase() === "pending" ? "#fffbeb"
+                                      : bill.status?.toLowerCase() === "billed" ? "#eff6ff"
+                                      : "#ecfdf5",
                                     color: bill.status?.toLowerCase() === "pending" ? "#b45309"
                                       : bill.status?.toLowerCase() === "billed" ? "#1d4ed8"
-                                      : "#065f46",
+                                      : "#047857",
+                                    border: `1px solid ${bill.status?.toLowerCase() === "pending" ? "#fde68a"
+                                      : bill.status?.toLowerCase() === "billed" ? "#bfdbfe"
+                                      : "#a7f3d0"}`
                                   }}>
+                                    <span style={{
+                                      width: "5px",
+                                      height: "5px",
+                                      borderRadius: "50%",
+                                      background: bill.status?.toLowerCase() === "pending" ? "#f59e0b"
+                                        : bill.status?.toLowerCase() === "billed" ? "#3b82f6"
+                                        : "#10b981"
+                                    }} />
                                     {bill.status}
                                   </span>
                                 </TableCell>
@@ -3363,20 +3545,30 @@ export default function CentralCashCounter() {
                                     </TableCell>
                                     <TableCell center>
                                       <span style={{
-                                        padding: "2px 8px",
-                                        borderRadius: "10px",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        padding: "3px 10px",
+                                        borderRadius: "12px",
                                         fontSize: "11.5px",
-                                        fontWeight: 600,
-                                        background: bill.payment_method === "Multiple Payment" ? "#ede9fe"
-                                          : bill.payment_method === "Cash" ? "#d1fae5"
-                                          : bill.payment_method === "Card" ? "#dbeafe"
-                                          : bill.payment_method === "Cheque" ? "#fef3c7"
-                                          : "#f3f4f6",
+                                        fontWeight: 650,
+                                        letterSpacing: "0.01em",
+                                        background: bill.payment_method === "Multiple Payment" ? "#f5f3ff"
+                                          : bill.payment_method === "Cash" ? "#ecfdf5"
+                                          : bill.payment_method === "Card" ? "#eff6ff"
+                                          : bill.payment_method === "Cheque" ? "#fffbeb"
+                                          : "#f8fafc",
                                         color: bill.payment_method === "Multiple Payment" ? "#6d28d9"
-                                          : bill.payment_method === "Cash" ? "#065f46"
+                                          : bill.payment_method === "Cash" ? "#047857"
                                           : bill.payment_method === "Card" ? "#1d4ed8"
                                           : bill.payment_method === "Cheque" ? "#b45309"
-                                          : "#374151",
+                                          : "#475569",
+                                        border: `1px solid ${
+                                          bill.payment_method === "Multiple Payment" ? "#ddd6fe"
+                                          : bill.payment_method === "Cash" ? "#a7f3d0"
+                                          : bill.payment_method === "Card" ? "#bfdbfe"
+                                          : bill.payment_method === "Cheque" ? "#fde68a"
+                                          : "#e2e8f0"
+                                        }`
                                       }}>
                                         {bill.payment_method}
                                       </span>
@@ -3387,27 +3579,35 @@ export default function CentralCashCounter() {
                             )}
 
                             <TableCell center>
-                              {selectedType === "pending" && (
+                              {(selectedType === "pending" || selectedType === "unpaid") && (
                                 <button
                                   title="Collect Payment"
                                   onClick={() => openPaymentModal(bill)}
                                   style={{
-                                    background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
-                                    color: "white",
-                                    border: "none",
-                                    padding: "5px 10px",
-                                    borderRadius: "6px",
+                                    background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+                                    color: "#ffffff",
+                                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                                    padding: "5px 12px",
+                                    borderRadius: "8px",
                                     cursor: "pointer",
                                     display: "inline-flex",
                                     alignItems: "center",
                                     gap: "5px",
-                                    boxShadow: "0 2px 4px rgba(13, 148, 136, 0.2)",
-                                    transition: "all 0.2s",
+                                    boxShadow: "0 2px 6px rgba(15, 118, 110, 0.28)",
+                                    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                                     whiteSpace: "nowrap"
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = "translateY(-1px)";
+                                    e.currentTarget.style.boxShadow = "0 4px 10px rgba(15, 118, 110, 0.35)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = "none";
+                                    e.currentTarget.style.boxShadow = "0 2px 6px rgba(15, 118, 110, 0.28)";
                                   }}
                                 >
                                   <CreditCard size={13} />
-                                  <span style={{ fontSize: "11.5px", fontWeight: 600 }}>Collect</span>
+                                  <span style={{ fontSize: "11.5px", fontWeight: 650, letterSpacing: "0.01em" }}>Collect</span>
                                 </button>
                               )}
                             </TableCell>
@@ -3446,7 +3646,7 @@ export default function CentralCashCounter() {
                       ) : (
                         <tr>
                           <TableCell center muted colSpan={colSpan}>
-                            {selectedType === "pending" ? "No pending bills found" : "No received bills found"}
+                            {selectedType === "pending" ? "No pending bills found" : selectedType === "unpaid" ? "No unpaid bills found" : "No received bills found"}
                           </TableCell>
                         </tr>
                       )}

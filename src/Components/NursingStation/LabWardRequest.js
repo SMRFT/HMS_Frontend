@@ -161,22 +161,43 @@ const ActionsBar = styled.div`
 const StatusBadge = styled.span`
   display: inline-block;
   background: ${({ status }) =>
-    status === "Result Pending"
-      ? colors.secondary + "15"
-      : status === "Result Entered"
-        ? "#136A6315"
-        : colors.textMuted + "10"};
+    status === "Cancelled"
+      ? "#fee2e2"
+      : (status === "Completed" || status === "Result Entered")
+        ? "#dcfce7"
+        : status === "Partially Completed"
+          ? "#ffedd5"
+          : status === "Sample Collected"
+            ? "#e0f2fe"
+            : status === "Result Pending"
+              ? colors.secondary + "15"
+              : colors.textMuted + "10"};
   color: ${({ status }) =>
-    status === "Result Pending"
-      ? colors.secondary
-      : status === "Result Entered"
-        ? "#136A63"
-        : colors.textMuted};
-  border: 1px solid currentColor;
+    status === "Cancelled"
+      ? "#b91c1c"
+      : (status === "Completed" || status === "Result Entered")
+        ? "#15803d"
+        : status === "Partially Completed"
+          ? "#c2410c"
+          : status === "Sample Collected"
+            ? "#0284c7"
+            : status === "Result Pending"
+              ? colors.secondary
+              : colors.textMuted};
+  border: 1px solid ${({ status }) =>
+    status === "Cancelled"
+      ? "#fca5a5"
+      : (status === "Completed" || status === "Result Entered")
+        ? "#86efac"
+        : status === "Partially Completed"
+          ? "#fed7aa"
+          : status === "Sample Collected"
+            ? "#7dd3fc"
+            : "currentColor"};
   border-radius: 20px;
-  padding: 4px 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
   white-space: nowrap;
 `;
 
@@ -759,7 +780,7 @@ const SearchableDropdown = ({ value, onChange, options, placeholder = "Select...
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function LabWardRequest({ patient: patientProp, onClose }) {
+export default function LabWardRequest({ patient: patientProp, onClose, onBack }) {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   // Map incoming patient prop (from WardRequest row) to display fields
@@ -782,7 +803,9 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
       })
       : "-",
     admittingDr: patientProp?.admittingDoctor || pd?.admittingDoctor || "-",
-    roomBed: `${patientProp?.roomNo || "-"} | ${patientProp?.bedNo || "-"}`,
+    roomNo: (patientProp?.roomNo || patientProp?.room_no || "").toString().trim(),
+    bedNo: (patientProp?.bedNo || patientProp?.bed_no || "").toString().trim(),
+    roomBed: `${patientProp?.roomNo || patientProp?.room_no || "-"} | ${patientProp?.bedNo || patientProp?.bed_no || "-"}`,
     customerType: patientProp?.customerType || pd.customer_type || "-",
     companyName: patientProp?.companyName || pd.company_code || "-",
   };
@@ -833,9 +856,23 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
 
   useEffect(() => {
     if (patientProp?.admittingDoctor) {
-      setDoctor(patientProp.admittingDoctor);
+      const admDoc = patientProp.admittingDoctor;
+      if (doctors.length > 0) {
+        const match = doctors.find(
+          (dr) =>
+            dr.employeeName?.trim().toLowerCase() === admDoc?.trim().toLowerCase() ||
+            String(dr.employeeId) === String(admDoc)
+        );
+        if (match) {
+          setDoctor(match.employeeId);
+        } else {
+          setDoctor(admDoc);
+        }
+      } else {
+        setDoctor(admDoc);
+      }
     }
-  }, [patientProp]);
+  }, [patientProp, doctors]);
 
   useEffect(() => {
     console.log("LabWardRequest mounted for patient:", resolvedPatient.uhid);
@@ -1077,11 +1114,13 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
       is_emergency: emergency
     }));
 
+    const resolvedRoom = (resolvedPatient.roomNo || patientProp?.roomNo || patientProp?.room_no || (resolvedPatient.roomBed ? resolvedPatient.roomBed.split("|")[0].trim() : "")).replace(/^-\s*$/, "").trim();
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
       doctor: doctor,
-      wardName: resolvedPatient.roomBed.split("|")[0].trim() || "SUITE",
+      roomNo: resolvedRoom,
+      wardName: resolvedRoom || "SUITE",
       bill_type: billtype,
       billTypeNo: billTypeNo || "LAB01",
       item: mappedTests,
@@ -1091,10 +1130,13 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
     try {
       const res = await apiRequest(`${HmsBaseUrl}save_lab_ward_request/`, "POST", payload);
       if (res.success) {
-        alert("Lab Ward Request Saved Successfully!");
         setSelectedTests([]);
         setShowRequestForm(false);
         fetchLabRequests();
+        const goBack = window.confirm("Lab Ward Request Saved Successfully!\n\nDo you want to return to the Actions Menu?");
+        if (goBack && onBack) {
+          onBack();
+        }
       } else {
         alert("Failed to save: " + (res.error || res.data?.message));
       }
@@ -1104,9 +1146,15 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
     }
   };
   const handleCancelRequest = async (requestId) => {
-    if (!window.confirm("Are you sure you want to cancel this request?")) return;
+    const reason = window.prompt("Enter reason for cancelling this lab request:");
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      alert("Cancellation reason is required.");
+      return;
+    }
     try {
-      const res = await apiRequest(`${HmsBaseUrl}cancel_lab_ward_request/`, "POST", { id: requestId });
+      const res = await apiRequest(`${HmsBaseUrl}cancel_lab_ward_request/`, "POST", { id: requestId, cancel_reason: trimmedReason });
       if (res.success) {
         alert("Request cancelled successfully!");
         fetchLabRequests();
@@ -1129,11 +1177,11 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
         test_name: test.name
       };
       const res = await apiRequest(`${HmsBaseUrl}remove_individual_test/`, "POST", payload);
-      if (res.success) {
+      if (res.success || res.data?.success) {
         alert("Test removed successfully!");
         fetchLabRequests();
       } else {
-        alert("Failed to remove test: " + (res.data?.error || res.data?.message || res.error));
+        alert(res.data?.error || res.error || res.message || "Failed to remove test");
       }
     } catch (error) {
       console.error("Remove Individual Test Error:", error);
@@ -1184,7 +1232,30 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
 
       {/* ── Actions Bar ── */}
       <ActionsBar>
-        <LegendGroup>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              style={{
+                background: "#f1f5f9",
+                border: "1.5px solid #cbd5e1",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "700",
+                fontSize: "13px",
+                color: "#1e293b",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+              }}
+            >
+              <i className="bi bi-arrow-left"></i> Back to Actions
+            </button>
+          )}
+          <LegendGroup>
           <LegendBadge bg={colors.secondary}>
             <LegendDot color={colors.secondary} />
             Result Pending
@@ -1197,7 +1268,8 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
             <LegendDot color={colors.textMuted} />
             Cancelled Request
           </LegendBadge>
-        </LegendGroup>
+          </LegendGroup>
+        </div>
         <Button onClick={() => setShowRequestForm((v) => !v)}>
           {showRequestForm ? "− Request" : "+ Request"}
         </Button>
@@ -1223,7 +1295,7 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                   <SearchableDropdown
                     value={doctor}
                     onChange={(val) => setDoctor(val)}
-                    options={doctors.map((dr) => ({ id: dr.employeeName, name: dr.employeeName }))}
+                    options={doctors.map((dr) => ({ id: dr.employeeId, name: dr.employeeName }))}
                     placeholder="Search or Select Doctor"
                     displayKey="name"
                     valueKey="id"
@@ -1512,7 +1584,7 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                     style={{ cursor: "pointer", color: colors.primary, fontWeight: 600 }}
                     onClick={() => toggleRow(req.id)}
                   >
-                    {req.doctorName}
+                    {doctors.find((d) => String(d.employeeId) === String(req.doctorName || req.doctor))?.employeeName || req.doctorName || req.doctor || "-"}
                   </Td>
                   <Td style={{ textAlign: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
@@ -1564,48 +1636,85 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                           <thead>
                             <Tr>
                               <Th>Test Name</Th>
-                              <Th>Collection Time</Th>
-                              <Th>Action</Th>
+                              <Th>Bill Type</Th>
+                              <Th>Price</Th>
+                              <Th>Status</Th>
+                              <Th style={{ textAlign: "center" }}>Action</Th>
                             </Tr>
                           </thead>
                           <tbody>
                             {req.tests.length === 0 ? (
                               <Tr>
                                 <Td
-                                  colSpan={3}
+                                  colSpan={5}
                                   style={{ textAlign: "center", color: colors.textMuted }}
                                 >
                                   No tests found
                                 </Td>
                               </Tr>
                             ) : (
-                              req.tests.map((t, i) => (
-                                <Tr key={i}>
-                                  <Td>{t.name}</Td>
-                                  <Td>{t.collectionTime}</Td>
-                                  <Td style={{ textAlign: "center" }}>
-                                    {req.status === "Result Pending" && (
-                                      <button
-                                        onClick={() => handleRemoveIndividualTest(req.id, t)}
-                                        style={{
-                                          background: "none",
-                                          border: "none",
-                                          color: colors.danger,
-                                          cursor: "pointer",
-                                          fontSize: "0.9rem",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                          width: "100%"
-                                        }}
-                                        title="Remove this test"
-                                      >
-                                        ✕
-                                      </button>
-                                    )}
-                                  </Td>
-                                </Tr>
-                              ))
+                              req.tests.map((t, i) => {
+                                const itemStatus = t.status || req.status || "Result Pending";
+                                const isPending = itemStatus === "Result Pending" || itemStatus === "Pending";
+                                const isDone = itemStatus === "Completed" || itemStatus === "Result Entered";
+                                return (
+                                  <Tr key={i}>
+                                    <Td>
+                                      <span style={{ fontWeight: "700", color: colors.textDark }}>
+                                        {t.name}
+                                      </span>
+                                    </Td>
+                                    <Td>
+                                      <span style={{ fontSize: "0.78rem", fontWeight: "600", color: "#475569" }}>
+                                        {t.billTypeNo || "LAB01"}
+                                      </span>
+                                    </Td>
+                                    <Td>
+                                      <span style={{ fontWeight: "700", color: "#0f172a" }}>
+                                        Rs. {Number(t.price || 0).toLocaleString("en-IN")}
+                                      </span>
+                                    </Td>
+                                    <Td>
+                                      <StatusBadge status={itemStatus}>
+                                        {itemStatus}
+                                      </StatusBadge>
+                                    </Td>
+                                    <Td style={{ textAlign: "center" }}>
+                                      {isPending ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveIndividualTest(req.id, t)}
+                                          style={{
+                                            background: "#fee2e2",
+                                            border: "1px solid #fca5a5",
+                                            color: "#b91c1c",
+                                            cursor: "pointer",
+                                            fontSize: "0.75rem",
+                                            fontWeight: "700",
+                                            padding: "3px 9px",
+                                            borderRadius: "6px",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                            transition: "all 0.15s"
+                                          }}
+                                          title={`Remove test ${t.name}`}
+                                        >
+                                          ✕ Remove
+                                        </button>
+                                      ) : isDone ? (
+                                        <span style={{ fontSize: "0.74rem", color: "#16a34a", fontWeight: "700" }}>
+                                          ✓ Completed
+                                        </span>
+                                      ) : (
+                                        <span style={{ fontSize: "0.74rem", color: "#64748b", fontWeight: "600" }}>
+                                          -
+                                        </span>
+                                      )}
+                                    </Td>
+                                  </Tr>
+                                );
+                              })
                             )}
                           </tbody>
                         </SubTable>

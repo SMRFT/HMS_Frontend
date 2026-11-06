@@ -1,5 +1,5 @@
 import { toast } from "react-toastify";
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import LabWardRequest from "./LabWardRequest";
@@ -217,6 +217,34 @@ const ControlsBar = styled.div`
         border-color: #0d9488;
         box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
       }
+    }
+  }
+
+  .ns-select-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 3px 10px;
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    select {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0f172a;
+      cursor: pointer;
+      padding: 4px 2px;
     }
   }
 
@@ -735,10 +763,30 @@ const RequestSubModalCard = styled.div`
   .submodal-header {
     background: #0d8a7a;
     color: white;
-    padding: 16px 24px;
+    padding: 14px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+
+    .back-btn {
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      padding: 6px 14px;
+      border-radius: 8px;
+      color: white;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      &:hover {
+        background: rgba(255, 255, 255, 0.32);
+        border-color: rgba(255, 255, 255, 0.6);
+      }
+    }
 
     .title-group {
       display: flex;
@@ -976,6 +1024,7 @@ const WardRequest = () => {
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState("ALL");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [selectedNursingStation, setSelectedNursingStation] = useState("ALL");
   const [selectedDoctor, setSelectedDoctor] = useState("ALL");
   const [selectedPayment, setSelectedPayment] = useState("ALL");
   const [selectedWardStatus, setSelectedWardStatus] = useState("ALL");
@@ -996,6 +1045,8 @@ const WardRequest = () => {
   const [showDoctorNotesModal, setShowDoctorNotesModal] = useState(false);
   const [showNursingNotesModal, setShowNursingNotesModal] = useState(false);
   const [statusToUpdate, setStatusToUpdate] = useState("");
+  const [clearanceLoading, setClearanceLoading] = useState(false);
+  const [clearanceData, setClearanceData] = useState(null);
 
   const fetchLocationMapping = async () => {
     try {
@@ -1038,17 +1089,56 @@ const WardRequest = () => {
     fetchLocationMapping();
   }, []);
 
+  const fetchBillingClearance = useCallback(async (ipNumber, uhid) => {
+    if (!ipNumber && !uhid) return;
+    setClearanceLoading(true);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}check-patient-billing-clearance/?ipNumber=${encodeURIComponent(ipNumber || "")}&uhid=${encodeURIComponent(uhid || "")}`,
+        "GET"
+      );
+      if (res && res.success) {
+        const payload = res.data?.streams ? res.data : (res.streams ? res : res.data);
+        setClearanceData(payload);
+      } else {
+        setClearanceData(null);
+      }
+    } catch (err) {
+      console.error("Failed to check billing clearance", err);
+      setClearanceData(null);
+    } finally {
+      setClearanceLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showStatusModal && selectedPatient) {
+      const ip = getField(selectedPatient, "ipNumber") || selectedPatient?.ipNumber || "";
+      const uhid = getField(selectedPatient, "uhid") || selectedPatient?.uhid || "";
+      fetchBillingClearance(ip, uhid);
+    } else {
+      setClearanceData(null);
+      setClearanceLoading(false);
+    }
+  }, [showStatusModal, selectedPatient, fetchBillingClearance]);
+
   const handleUpdateStatus = async () => {
     if (!statusToUpdate || !selectedPatient) return toast.warning("Please select a status");
+    const isCleared = clearanceData?.is_clear_for_billing ?? clearanceData?.data?.is_clear_for_billing;
+    if (statusToUpdate === "Sent for billing" && isCleared === false) {
+      return toast.error("Cannot send for billing. Please complete or cancel pending items first.");
+    }
     try {
+      const ip = getField(selectedPatient, "ipNumber") || selectedPatient?.ipNumber || "";
       const res = await apiRequest(`${HmsBaseUrl}update_admission_status/`, "POST", {
-        ip_number: selectedPatient.ipNumber,
+        ip_number: ip,
         status: statusToUpdate
       });
       if (res.success || res.message) {
         toast.success("Status updated successfully");
         setShowStatusModal(false);
         setStatusToUpdate("");
+        setClearanceData(null);
         fetchAdmissions();
       } else {
         toast.error(res.error || "Failed to update status");
@@ -1084,7 +1174,35 @@ const WardRequest = () => {
     return { bg: "#eff6ff", border: "#bfdbfe", textColor: "#2563eb", dot: "#3b82f6", label: "Admitted" };
   };
 
+  // Resolve Nursing Station from admission or fallback to location mapping
+  const getAdmNursingStation = useCallback((adm) => {
+    let ns = getField(adm, "nursing_station") || adm.nursing_station || adm.nursingStation;
+    if (!ns || !String(ns).trim()) {
+      const rNo = String(getField(adm, "room_no") || adm.room_no || "").trim();
+      if (rNo && Array.isArray(locationMapping)) {
+        const matchLoc = locationMapping.find(l => String(l.room_no || l.room_number || "").trim() === rNo);
+        if (matchLoc && (matchLoc.nursing_station || matchLoc.nursingStation)) {
+          ns = matchLoc.nursing_station || matchLoc.nursingStation;
+        }
+      }
+    }
+    return String(ns || "").trim();
+  }, [locationMapping]);
+
   // Dynamic options for Filter Drawer derived from actual data
+  const availableNursingStations = useMemo(() => {
+    const set = new Set(["ALL"]);
+    admissions.forEach(a => {
+      const ns = getAdmNursingStation(a);
+      if (ns && String(ns).trim()) set.add(String(ns).trim());
+    });
+    locationMapping.forEach(l => {
+      const ns = l.nursing_station || l.nursingStation;
+      if (ns && String(ns).trim()) set.add(String(ns).trim());
+    });
+    return Array.from(set);
+  }, [admissions, locationMapping, getAdmNursingStation]);
+
   const availableBlocks = useMemo(() => {
     const set = new Set(["ALL"]);
     admissions.forEach(a => {
@@ -1164,6 +1282,11 @@ const WardRequest = () => {
       if (statusFilter === "discharged" && !isDischarged) return false;
 
       // 3. Advanced Filter drawer matching
+      if (selectedNursingStation !== "ALL") {
+        const ns = getAdmNursingStation(item);
+        if (String(ns).toLowerCase().trim() !== String(selectedNursingStation).toLowerCase().trim()) return false;
+      }
+
       if (selectedBlock !== "ALL") {
         const b = getField(item, "block") || getField(item, "block_id") || "Main Block";
         if (String(b).toLowerCase().trim() !== String(selectedBlock).toLowerCase().trim()) return false;
@@ -1196,19 +1319,21 @@ const WardRequest = () => {
 
       return true;
     });
-  }, [admissions, search, statusFilter, selectedBlock, selectedCategory, selectedDoctor, selectedPayment, selectedWardStatus]);
+  }, [admissions, search, statusFilter, selectedNursingStation, selectedBlock, selectedCategory, selectedDoctor, selectedPayment, selectedWardStatus, getAdmNursingStation]);
 
   // Group Rooms for Grid View
   const roomGroups = useMemo(() => {
     const groupsMap = new Map();
 
-    const getOrCreateRoom = (roomNum, roomCat, blockName) => {
+    const getOrCreateRoom = (roomNum, roomCat, blockName, nsName) => {
       const key = String(roomNum || "101").trim();
       if (!groupsMap.has(key)) {
         groupsMap.set(key, {
           room_no: key,
           room_category: roomCat || "General",
           block: blockName || "Main Block",
+          nursing_station: nsName || "",
+          total_capacity: 0,
           beds: []
         });
       }
@@ -1221,10 +1346,27 @@ const WardRequest = () => {
         const roomNum = loc.room_no || loc.room_number || loc.roomNo || "101";
         const roomCat = loc.room_category || loc.category || "General";
         const blockName = loc.block || loc.block_name || "Main Block";
+        const nsName = loc.nursing_station || loc.nursingStation || "";
+
+        // Advanced Filter Drawer and Controls filtering
+        if (selectedBlock !== "ALL") {
+          const b = blockName || "Main Block";
+          if (String(b).toLowerCase().trim() !== String(selectedBlock).toLowerCase().trim()) return;
+        }
+        if (selectedCategory !== "ALL") {
+          const c = roomCat || "";
+          if (String(c).toLowerCase().trim() !== String(selectedCategory).toLowerCase().trim()) return;
+        }
+        if (selectedNursingStation !== "ALL") {
+          if (String(nsName).toLowerCase().trim() !== String(selectedNursingStation).toLowerCase().trim()) return;
+        }
+
         const isRoomBlocked = Boolean(loc.is_blocked || String(loc.room_status || loc.status).toLowerCase() === "blocked");
-        const roomObj = getOrCreateRoom(roomNum, roomCat, blockName);
+        const roomObj = getOrCreateRoom(roomNum, roomCat, blockName, nsName);
 
         const rawBeds = Array.isArray(loc.beds) && loc.beds.length > 0 ? loc.beds : [loc];
+        roomObj.total_capacity = Math.max(roomObj.total_capacity, rawBeds.length);
+
         rawBeds.forEach((bedItem, bIdx) => {
           let bedNum = `Bed ${bIdx + 1}`;
           let isBedBlocked = isRoomBlocked;
@@ -1265,8 +1407,9 @@ const WardRequest = () => {
       const bedNum = String(getField(adm, "bed_no") || "1").trim();
       const roomCat = getField(adm, "room_category") || "General";
       const blockName = getField(adm, "block") || "Main Block";
+      const nsName = getAdmNursingStation(adm);
 
-      const roomObj = getOrCreateRoom(roomNum, roomCat, blockName);
+      const roomObj = getOrCreateRoom(roomNum, roomCat, blockName, nsName);
 
       const existingBed = roomObj.beds.find(b =>
         String(b.bed_no).trim() === bedNum ||
@@ -1287,19 +1430,59 @@ const WardRequest = () => {
       }
     });
 
-    return Array.from(groupsMap.values()).sort((a, b) =>
+    let rooms = Array.from(groupsMap.values()).sort((a, b) =>
       String(a.room_no).localeCompare(String(b.room_no), undefined, { numeric: true })
     );
-  }, [locationMapping, filteredAdmissions]);
+
+    // CRITICAL USER REQUIREMENT:
+    // When "admitted" filter is clicked: show ONLY admitted beds, NOT all beds (exclude vacant/free beds)
+    if (statusFilter === "admitted") {
+      rooms = rooms
+        .map(room => ({
+          ...room,
+          beds: room.beds.filter(b => b.admission && !getField(b.admission, "is_discharged"))
+        }))
+        .filter(room => room.beds.length > 0);
+    } else if (statusFilter === "discharged") {
+      rooms = rooms
+        .map(room => ({
+          ...room,
+          beds: room.beds.filter(b => b.admission && getField(b.admission, "is_discharged"))
+        }))
+        .filter(room => room.beds.length > 0);
+    }
+
+    return rooms;
+  }, [locationMapping, filteredAdmissions, selectedBlock, selectedCategory, selectedNursingStation, statusFilter, getAdmNursingStation]);
 
   // Compute KPI Summary Metrics
   const kpiRoomsCount = roomGroups.length;
   const kpiPatientsCount = filteredAdmissions.filter(a => !getField(a, "is_discharged")).length;
-  const totalBedsCount = useMemo(() => {
-    return roomGroups.reduce((acc, r) => acc + (r.beds?.length || 1), 0);
-  }, [roomGroups]);
-  const kpiFreeBedsCount = totalBedsCount - kpiPatientsCount;
-  const kpiOpenRequestsCount = filteredAdmissions.filter(a => getField(a, "ward_status") === "Mark for discharge" || getField(a, "ward_status") === "Sent for billing").length || 5;
+
+  const allMasterBedsCount = useMemo(() => {
+    if (!Array.isArray(locationMapping) || locationMapping.length === 0) return 0;
+    return locationMapping.reduce((acc, loc) => {
+      const bName = loc.block || loc.block_name || "Main Block";
+      const cName = loc.room_category || loc.category || "General";
+      const nsName = loc.nursing_station || loc.nursingStation || "";
+
+      if (selectedBlock !== "ALL" && String(bName).toLowerCase().trim() !== String(selectedBlock).toLowerCase().trim()) return acc;
+      if (selectedCategory !== "ALL" && String(cName).toLowerCase().trim() !== String(selectedCategory).toLowerCase().trim()) return acc;
+      if (selectedNursingStation !== "ALL" && String(nsName).toLowerCase().trim() !== String(selectedNursingStation).toLowerCase().trim()) return acc;
+
+      const beds = Array.isArray(loc.beds) && loc.beds.length > 0 ? loc.beds.length : 1;
+      return acc + beds;
+    }, 0);
+  }, [locationMapping, selectedBlock, selectedCategory, selectedNursingStation]);
+
+  const totalBedsCount = allMasterBedsCount > 0
+    ? allMasterBedsCount
+    : roomGroups.reduce((acc, r) => acc + (r.total_capacity || r.beds?.length || 1), 0);
+
+  const kpiFreeBedsCount = Math.max(0, totalBedsCount - kpiPatientsCount);
+  const kpiOpenRequestsCount = filteredAdmissions.filter(a =>
+    getField(a, "ward_status") === "Mark for discharge" || getField(a, "ward_status") === "Sent for billing"
+  ).length;
 
   // Patient click handler -> Opens Action Modal (Image 2)
   const handleOpenActionModal = (patientObj) => {
@@ -1341,13 +1524,13 @@ const WardRequest = () => {
         setShowStatusModal(true);
         break;
       case "shift":
-        navigate("/RoomShifting", { state: patientState });
+        setShowRoomShiftModal(true);
         break;
       case "discharge_summary":
         navigate("/Summary", { state: patientState });
         break;
       case "doctor_notes":
-        navigate("/IPEMRDesk", { state: patientState });
+        setShowDoctorNotesModal(true);
         break;
       case "nursing_notes":
         setShowNursingNotesModal(true);
@@ -1394,8 +1577,8 @@ const WardRequest = () => {
         <KpiCard color="#10b981">
           <span className="kpi-title">Beds Free</span>
           <div className="kpi-value-row">
-            <span className="val" style={{ color: "#10b981" }}>{kpiFreeBedsCount > 0 ? kpiFreeBedsCount : 11}</span>
-            <span className="sub">of {totalBedsCount > 0 ? totalBedsCount : 27}</span>
+            <span className="val" style={{ color: "#10b981" }}>{kpiFreeBedsCount}</span>
+            <span className="sub">of {totalBedsCount}</span>
           </div>
         </KpiCard>
 
@@ -1414,6 +1597,20 @@ const WardRequest = () => {
           <button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}>All</button>
           <button className={statusFilter === "admitted" ? "active" : ""} onClick={() => setStatusFilter("admitted")}>Admitted</button>
           <button className={statusFilter === "discharged" ? "active" : ""} onClick={() => setStatusFilter("discharged")}>Discharged</button>
+        </div>
+
+        <div className="ns-select-wrapper">
+          <label htmlFor="ns-filter-select">Station:</label>
+          <select
+            id="ns-filter-select"
+            value={selectedNursingStation}
+            onChange={e => setSelectedNursingStation(e.target.value)}
+          >
+            <option value="ALL">All Stations</option>
+            {availableNursingStations.filter(ns => ns !== "ALL").map(ns => (
+              <option key={ns} value={ns}>{ns}</option>
+            ))}
+          </select>
         </div>
 
         <div className="search-wrapper">
@@ -1455,9 +1652,15 @@ const WardRequest = () => {
       {/* MAIN VIEW: Beds Grid (Image 1) OR Patients List (Image 3) */}
       {viewMode === "grid" ? (
         <RoomsContainer>
-          {roomGroups.map(room => {
+          {roomGroups.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "48px 16px", color: "#64748b", width: "100%", gridColumn: "1 / -1" }}>
+              <div style={{ fontSize: "16px", fontWeight: "700", color: "#334155", marginBottom: "6px" }}>No rooms or beds found</div>
+              <div style={{ fontSize: "13px" }}>No beds match the current filter criteria ({statusFilter !== "all" ? `Status: ${statusFilter}` : ""}{selectedNursingStation !== "ALL" ? `, Station: ${selectedNursingStation}` : ""}).</div>
+            </div>
+          ) : (
+            roomGroups.map(room => {
             const usedBeds = room.beds.filter(b => b.admission).length;
-            const totalBeds = room.beds.length || 1;
+            const totalBeds = room.total_capacity || room.beds.length || 1;
 
             return (
               <RoomCard key={room.room_no}>
@@ -1514,7 +1717,7 @@ const WardRequest = () => {
                 </div>
               </RoomCard>
             );
-          })}
+          }))}
         </RoomsContainer>
       ) : (
         /* List View Table (Image 3) */
@@ -1726,6 +1929,21 @@ const WardRequest = () => {
 
             <div className="drawer-body">
               <div className="filter-group">
+                <div className="group-title">NURSING STATION</div>
+                <div className="chip-wrap">
+                  {availableNursingStations.map(ns => (
+                    <button
+                      key={ns}
+                      className={`chip ${selectedNursingStation === ns ? "selected" : ""}`}
+                      onClick={() => setSelectedNursingStation(ns)}
+                    >
+                      {ns === "ALL" ? "All Stations" : ns}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="filter-group">
                 <div className="group-title">BLOCK</div>
                 <div className="chip-wrap">
                   {availableBlocks.map(b => (
@@ -1805,6 +2023,7 @@ const WardRequest = () => {
               <button
                 className="btn-reset"
                 onClick={() => {
+                  setSelectedNursingStation("ALL");
                   setSelectedBlock("ALL");
                   setSelectedCategory("ALL");
                   setSelectedDoctor("ALL");
@@ -1827,14 +2046,34 @@ const WardRequest = () => {
         <ModalOverlayContainer onClick={() => setShowLabModal(false)}>
           <RequestSubModalCard onClick={e => e.stopPropagation()}>
             <div className="submodal-header">
-              <div className="title-group">
-                <h3>Lab Ward Request</h3>
-                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <button
+                  type="button"
+                  className="back-btn"
+                  onClick={() => {
+                    setShowLabModal(false);
+                    setShowActionModal(true);
+                  }}
+                  title="Return to Actions Menu"
+                >
+                  <i className="bi bi-arrow-left"></i> Back to Actions
+                </button>
+                <div className="title-group">
+                  <h3>Lab Ward Request</h3>
+                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                </div>
               </div>
-              <button className="close-btn" onClick={() => setShowLabModal(false)}>✕</button>
+              <button className="close-btn" onClick={() => setShowLabModal(false)} title="Close">✕</button>
             </div>
             <div className="submodal-body">
-              <LabWardRequest patient={selectedPatient} onClose={() => setShowLabModal(false)} />
+              <LabWardRequest
+                patient={selectedPatient}
+                onClose={() => setShowLabModal(false)}
+                onBack={() => {
+                  setShowLabModal(false);
+                  setShowActionModal(true);
+                }}
+              />
             </div>
           </RequestSubModalCard>
         </ModalOverlayContainer>
@@ -1844,14 +2083,34 @@ const WardRequest = () => {
         <ModalOverlayContainer onClick={() => setShowMedicineModal(false)}>
           <RequestSubModalCard onClick={e => e.stopPropagation()} style={{ maxWidth: "1280px" }}>
             <div className="submodal-header">
-              <div className="title-group">
-                <h3>Medicine / Pharmacy Ward Request</h3>
-                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <button
+                  type="button"
+                  className="back-btn"
+                  onClick={() => {
+                    setShowMedicineModal(false);
+                    setShowActionModal(true);
+                  }}
+                  title="Return to Actions Menu"
+                >
+                  <i className="bi bi-arrow-left"></i> Back to Actions
+                </button>
+                <div className="title-group">
+                  <h3>Medicine / Pharmacy Ward Request</h3>
+                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                </div>
               </div>
-              <button className="close-btn" onClick={() => setShowMedicineModal(false)}>✕</button>
+              <button className="close-btn" onClick={() => setShowMedicineModal(false)} title="Close">✕</button>
             </div>
             <div className="submodal-body">
-              <MedicineWardRequest patient={selectedPatient} onClose={() => setShowMedicineModal(false)} />
+              <MedicineWardRequest
+                patient={selectedPatient}
+                onClose={() => setShowMedicineModal(false)}
+                onBack={() => {
+                  setShowMedicineModal(false);
+                  setShowActionModal(true);
+                }}
+              />
             </div>
           </RequestSubModalCard>
         </ModalOverlayContainer>
@@ -1861,14 +2120,34 @@ const WardRequest = () => {
         <ModalOverlayContainer onClick={() => setShowRadiologyModal(false)}>
           <RequestSubModalCard onClick={e => e.stopPropagation()}>
             <div className="submodal-header">
-              <div className="title-group">
-                <h3>Radiology Ward Request</h3>
-                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <button
+                  type="button"
+                  className="back-btn"
+                  onClick={() => {
+                    setShowRadiologyModal(false);
+                    setShowActionModal(true);
+                  }}
+                  title="Return to Actions Menu"
+                >
+                  <i className="bi bi-arrow-left"></i> Back to Actions
+                </button>
+                <div className="title-group">
+                  <h3>Radiology Ward Request</h3>
+                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                </div>
               </div>
-              <button className="close-btn" onClick={() => setShowRadiologyModal(false)}>✕</button>
+              <button className="close-btn" onClick={() => setShowRadiologyModal(false)} title="Close">✕</button>
             </div>
             <div className="submodal-body">
-              <RadiologyWardRequest patient={selectedPatient} onClose={() => setShowRadiologyModal(false)} />
+              <RadiologyWardRequest
+                patient={selectedPatient}
+                onClose={() => setShowRadiologyModal(false)}
+                onBack={() => {
+                  setShowRadiologyModal(false);
+                  setShowActionModal(true);
+                }}
+              />
             </div>
           </RequestSubModalCard>
         </ModalOverlayContainer>
@@ -1878,14 +2157,34 @@ const WardRequest = () => {
         <ModalOverlayContainer onClick={() => setShowLaundryModal(false)}>
           <RequestSubModalCard onClick={e => e.stopPropagation()}>
             <div className="submodal-header">
-              <div className="title-group">
-                <h3>Laundry Ward Request</h3>
-                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <button
+                  type="button"
+                  className="back-btn"
+                  onClick={() => {
+                    setShowLaundryModal(false);
+                    setShowActionModal(true);
+                  }}
+                  title="Return to Actions Menu"
+                >
+                  <i className="bi bi-arrow-left"></i> Back to Actions
+                </button>
+                <div className="title-group">
+                  <h3>Laundry Ward Request</h3>
+                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                </div>
               </div>
-              <button className="close-btn" onClick={() => setShowLaundryModal(false)}>✕</button>
+              <button className="close-btn" onClick={() => setShowLaundryModal(false)} title="Close">✕</button>
             </div>
             <div className="submodal-body">
-              <LaundryWardRequest patient={selectedPatient} onClose={() => setShowLaundryModal(false)} />
+              <LaundryWardRequest
+                patient={selectedPatient}
+                onClose={() => setShowLaundryModal(false)}
+                onBack={() => {
+                  setShowLaundryModal(false);
+                  setShowActionModal(true);
+                }}
+              />
             </div>
           </RequestSubModalCard>
         </ModalOverlayContainer>
@@ -1895,14 +2194,34 @@ const WardRequest = () => {
         <ModalOverlayContainer onClick={() => setShowImplantModal(false)}>
           <RequestSubModalCard onClick={e => e.stopPropagation()}>
             <div className="submodal-header">
-              <div className="title-group">
-                <h3>Implant Ward Request</h3>
-                <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <button
+                  type="button"
+                  className="back-btn"
+                  onClick={() => {
+                    setShowImplantModal(false);
+                    setShowActionModal(true);
+                  }}
+                  title="Return to Actions Menu"
+                >
+                  <i className="bi bi-arrow-left"></i> Back to Actions
+                </button>
+                <div className="title-group">
+                  <h3>Implant Ward Request</h3>
+                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                </div>
               </div>
-              <button className="close-btn" onClick={() => setShowImplantModal(false)}>✕</button>
+              <button className="close-btn" onClick={() => setShowImplantModal(false)} title="Close">✕</button>
             </div>
             <div className="submodal-body">
-              <ImplantWardRequest patient={selectedPatient} onClose={() => setShowImplantModal(false)} />
+              <ImplantWardRequest
+                patient={selectedPatient}
+                onClose={() => setShowImplantModal(false)}
+                onBack={() => {
+                  setShowImplantModal(false);
+                  setShowActionModal(true);
+                }}
+              />
             </div>
           </RequestSubModalCard>
         </ModalOverlayContainer>
@@ -1913,77 +2232,360 @@ const WardRequest = () => {
           patient={selectedPatient}
           HmsBaseUrl={HmsBaseUrl}
           onClose={() => setShowDietModal(false)}
-          onSaved={() => setShowDietModal(false)}
-        />
-      )}
-
-      {showRoomShiftModal && selectedPatient && (
-        <RoomShifting
-          patient={selectedPatient}
-          onClose={() => setShowRoomShiftModal(false)}
           onSaved={() => {
-            fetchAdmissions();
-            setShowRoomShiftModal(false);
+            setShowDietModal(false);
+            setShowActionModal(true);
+          }}
+          onBack={() => {
+            setShowDietModal(false);
+            setShowActionModal(true);
           }}
         />
       )}
 
+      {showRoomShiftModal && selectedPatient && (
+        <ModalOverlayContainer onClick={() => setShowRoomShiftModal(false)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#ffffff",
+              borderRadius: "16px",
+              width: "95vw",
+              maxWidth: "1280px",
+              maxHeight: "92vh",
+              overflowY: "auto",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              position: "relative"
+            }}
+          >
+            <RoomShifting
+              patient={selectedPatient}
+              onClose={() => setShowRoomShiftModal(false)}
+              onSaved={() => {
+                fetchAdmissions();
+                setShowRoomShiftModal(false);
+                setShowActionModal(true);
+              }}
+              onBack={() => {
+                setShowRoomShiftModal(false);
+                setShowActionModal(true);
+              }}
+            />
+          </div>
+        </ModalOverlayContainer>
+      )}
+
       {showStatusModal && selectedPatient && (
-        <ModalOverlayContainer onClick={() => setShowStatusModal(false)}>
-          <ActionModalCard onClick={e => e.stopPropagation()} style={{ maxWidth: "520px" }}>
-            <div className="modal-banner" style={{ background: "#0d9488" }}>
-              <div className="patient-header">
-                <div className="circle-avatar">
-                  {getPatientFullName(selectedPatient).split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2) || "P"}
-                </div>
-                <div className="info">
-                  <div className="name">Update Status</div>
-                  <div className="bed-details">
-                    {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} Bed {getField(selectedPatient, "bed_no") || "-"}
+        <ModalOverlayContainer onClick={() => { setShowStatusModal(false); setClearanceData(null); }}>
+          <ActionModalCard onClick={e => e.stopPropagation()} style={{ maxWidth: "760px", width: "95%", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+            <div className="modal-banner" style={{ background: "#0d9488", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStatusModal(false);
+                    setClearanceData(null);
+                    setShowActionModal(true);
+                  }}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.2)",
+                    border: "1px solid rgba(255, 255, 255, 0.4)",
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    color: "white",
+                    fontSize: "12.5px",
+                    fontWeight: "700",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                  }}
+                  title="Return to Actions Menu"
+                >
+                  <i className="bi bi-arrow-left"></i> Back to Actions
+                </button>
+                <div className="patient-header">
+                  <div className="circle-avatar">
+                    {getPatientFullName(selectedPatient).split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2) || "P"}
+                  </div>
+                  <div className="info">
+                    <div className="name">Update Status</div>
+                    <div className="bed-details">
+                      {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} Bed {getField(selectedPatient, "bed_no") || "-"}
+                    </div>
                   </div>
                 </div>
               </div>
-              <button className="close-btn" onClick={() => setShowStatusModal(false)}>✕</button>
+              <button className="close-btn" onClick={() => { setShowStatusModal(false); setClearanceData(null); }}>✕</button>
             </div>
-            <div className="modal-body" style={{ padding: "24px" }}>
-              <div style={{ marginBottom: "20px", padding: "14px 16px", background: "#f0fdf4", borderRadius: "10px", border: "1px solid #bbf7d0" }}>
-                <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
-                  Current Status
+            <div className="modal-body" style={{ padding: "20px", overflowY: "auto" }}>
+              {/* Patient Info & Current Status */}
+              <div style={{ marginBottom: "16px", padding: "12px 16px", background: "#f0fdf4", borderRadius: "10px", border: "1px solid #bbf7d0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px" }}>
+                    Current Status
+                  </div>
+                  <div style={{ fontSize: "15px", fontWeight: "800", color: "#047857" }}>
+                    {getField(selectedPatient, "ward_status") || (getField(selectedPatient, "is_discharged") ? "Discharged" : "Admitted")}
+                  </div>
                 </div>
-                <div style={{ fontSize: "15px", fontWeight: "800", color: "#047857" }}>
-                  {getField(selectedPatient, "ward_status") || (getField(selectedPatient, "is_discharged") ? "Discharged" : "Admitted")}
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "11px", color: "#64748b" }}>IP NUMBER</div>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>
+                    {getField(selectedPatient, "ipNumber") || "-"}
+                  </div>
                 </div>
               </div>
 
-              <div style={{ marginBottom: "24px" }}>
+              {/* Billing Clearance Status Section */}
+              {(() => {
+                const clearance = clearanceData?.streams ? clearanceData : (clearanceData?.data?.streams ? clearanceData.data : clearanceData);
+                return (
+                  <>
+                    <div style={{ marginBottom: "18px", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "14px", background: "#f8fafc" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <i className="bi bi-shield-check" style={{ fontSize: "16px", color: "#0d9488" }}></i>
+                          <span style={{ fontSize: "12px", fontWeight: "800", color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                            Billing & Service Clearance Check
+                          </span>
+                        </div>
+                        {clearanceLoading ? (
+                          <span style={{ fontSize: "11px", color: "#0d9488", fontWeight: "700" }}>
+                            <i className="bi bi-arrow-repeat spin" style={{ marginRight: "4px" }}></i> Verifying...
+                          </span>
+                        ) : clearance ? (
+                          clearance.is_clear_for_billing ? (
+                            <span style={{ fontSize: "11px", fontWeight: "800", background: "#dcfce7", color: "#15803d", padding: "3px 8px", borderRadius: "20px", border: "1px solid #86efac", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <i className="bi bi-check-circle-fill"></i> Ready for Billing
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "11px", fontWeight: "800", background: "#fee2e2", color: "#b91c1c", padding: "3px 8px", borderRadius: "20px", border: "1px solid #fca5a5", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <i className="bi bi-exclamation-triangle-fill"></i> {clearance.pending_total || 0} Item{Number(clearance.pending_total) === 1 ? "" : "s"} Pending
+                            </span>
+                          )
+                        ) : null}
+                      </div>
+
+                {clearanceLoading ? (
+                  <div style={{ padding: "16px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
+                    <span className="spinner-border spinner-border-sm text-primary" role="status" style={{ marginRight: "8px" }}></span>
+                    Checking Lab, Radiology, Pharmacy, Implants, Diet & Laundry...
+                  </div>
+                ) : clearance && clearance.streams ? (
+                  <>
+                    {/* 6 Streams Grid with Rich In-Place Bills & Items */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
+                      {Object.entries(clearance.streams).map(([key, info]) => {
+                        const isOk = info.is_cleared;
+                        const hasBills = Array.isArray(info.bills) && info.bills.length > 0;
+                        const hasItems = Array.isArray(info.items) && info.items.length > 0;
+                        return (
+                          <div
+                            key={key}
+                            style={{
+                              padding: "10px 12px",
+                              borderRadius: "10px",
+                              background: isOk ? "#ffffff" : "#fff1f2",
+                              border: `1.5px solid ${isOk ? "#e2e8f0" : "#fecdd3"}`,
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "flex-start",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                              gridColumn: isOk ? "span 1" : "span 2"
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <i className={`bi ${info.icon || "bi-dot"}`} style={{ fontSize: "15px", color: isOk ? "#059669" : "#e11d48" }}></i>
+                                <span style={{ fontSize: "12.5px", fontWeight: "800", color: isOk ? "#334155" : "#991b1b" }}>
+                                  {info.name}
+                                </span>
+                              </div>
+                              {isOk ? (
+                                <span style={{ fontSize: "11px", fontWeight: "700", color: "#059669", display: "flex", alignItems: "center", gap: "2px", background: "#f0fdf4", padding: "2px 7px", borderRadius: "6px" }}>
+                                  <i className="bi bi-check2"></i> Cleared
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: "10.5px", fontWeight: "800", color: "#b91c1c", background: "#fee2e2", padding: "2px 7px", borderRadius: "6px", border: "1px solid #fca5a5" }}>
+                                  {info.pending_count} Pending
+                                </span>
+                              )}
+                            </div>
+
+                            {/* In-place pending bills & items */}
+                            {!isOk && (
+                              <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px dashed #fca5a5" }}>
+                                {hasBills ? (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                    {info.bills.map((bill, bIdx) => (
+                                      <div
+                                        key={bIdx}
+                                        style={{
+                                          background: "#ffffff",
+                                          borderRadius: "8px",
+                                          border: "1px solid #fed7aa",
+                                          padding: "8px 10px",
+                                          boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
+                                        }}
+                                      >
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+                                          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                            <span style={{ fontWeight: "800", color: "#9a3412", fontSize: "12px" }}>
+                                              📄 {bill.bill_no}
+                                            </span>
+                                            {bill.status && (
+                                              <span style={{ fontSize: "9.5px", fontWeight: "700", background: "#ffedd5", color: "#c2410c", padding: "1px 5px", borderRadius: "4px", border: "1px solid #fed7aa" }}>
+                                                {bill.status}
+                                              </span>
+                                            )}
+                                          </div>
+                                          {bill.total && (
+                                            <span style={{ fontSize: "11px", fontWeight: "800", color: "#0f172a", background: "#f8fafc", padding: "1px 6px", borderRadius: "4px", border: "1px solid #e2e8f0" }}>
+                                              {bill.total}
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {bill.date && (
+                                          <div style={{ fontSize: "10px", color: "#64748b", marginBottom: "4px" }}>
+                                            <i className="bi bi-clock" style={{ marginRight: "3px" }}></i>{bill.date}
+                                          </div>
+                                        )}
+
+                                        {bill.items && bill.items.length > 0 && (
+                                          <div style={{ background: "#fff7ed", borderRadius: "6px", padding: "5px 8px", border: "1px solid #ffedd5" }}>
+                                            <div style={{ fontSize: "9.5px", fontWeight: "800", color: "#c2410c", textTransform: "uppercase", letterSpacing: "0.2px", marginBottom: "2px" }}>
+                                              Pending Items ({bill.items.length}):
+                                            </div>
+                                            <div style={{ maxHeight: "85px", overflowY: "auto", paddingRight: "4px" }}>
+                                              {bill.items.map((it, itIdx) => {
+                                                const match = typeof it === "string" ? it.match(/^(.*?)\s*\[(.*?)\]$/) : null;
+                                                const itemNamePart = match ? match[1] : it;
+                                                const statusPart = match ? match[2] : null;
+                                                return (
+                                                  <div key={itIdx} style={{ fontSize: "11px", color: "#334155", lineHeight: "1.35", marginBottom: "3px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
+                                                    <div style={{ display: "flex", alignItems: "flex-start", gap: "4px", minWidth: 0 }}>
+                                                      <span style={{ color: "#ea580c", fontWeight: "800", flexShrink: 0 }}>•</span>
+                                                      <span style={{ wordBreak: "break-word" }}>{itemNamePart}</span>
+                                                    </div>
+                                                    {statusPart && (
+                                                      <span style={{ fontSize: "9px", fontWeight: "700", background: statusPart === "Result Pending" ? "#fef3c7" : "#ffedd5", color: statusPart === "Result Pending" ? "#b45309" : "#c2410c", padding: "1px 5px", borderRadius: "4px", border: "1px solid #fed7aa", whiteSpace: "nowrap", flexShrink: 0 }}>
+                                                        {statusPart}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : hasItems ? (
+                                  <div style={{ maxHeight: "75px", overflowY: "auto", paddingRight: "4px" }}>
+                                    {info.items.map((it, idx) => (
+                                      <div key={idx} style={{ fontSize: "11px", color: "#334155", lineHeight: "1.35", marginBottom: "3px", display: "flex", alignItems: "flex-start", gap: "4px" }}>
+                                        <span style={{ color: "#e11d48", fontWeight: "800" }}>•</span>
+                                        <span style={{ wordBreak: "break-word" }}>{it}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Pending Items Breakdown Alert */}
+                    {!clearance.is_clear_for_billing && (
+                      <div style={{ marginTop: "12px", padding: "10px 12px", background: "#fff1f2", borderRadius: "8px", border: "1px solid #fecdd3" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: "700", color: "#be123c" }}>
+                          <i className="bi bi-exclamation-octagon-fill"></i>
+                          <span>{clearance.pending_total} item(s) pending across departments. Status cannot be set to "Sent for billing".</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </div>
+
+              {/* Status Selector */}
+              <div style={{ marginBottom: "20px" }}>
                 <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#0f172a" }}>
                   Select New Status
                 </label>
                 <select
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", outline: "none", background: "#f8fafc" }}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    border: "1px solid #cbd5e1",
+                    fontSize: "14px",
+                    outline: "none",
+                    background: "#f8fafc"
+                  }}
                   value={statusToUpdate}
                   onChange={(e) => setStatusToUpdate(e.target.value)}
                 >
                   <option value="">Select status...</option>
                   <option value="Mark for discharge">Mark for discharge</option>
                   <option value="Discharge confirmation">Discharge confirmation</option>
-                  <option value="Sent for billing">Sent for billing</option>
+                  <option
+                    value="Sent for billing"
+                    disabled={clearanceLoading || (clearance && !clearance.is_clear_for_billing)}
+                    style={{
+                      color: (!clearanceLoading && clearance && !clearance.is_clear_for_billing) ? "#94a3b8" : "inherit"
+                    }}
+                  >
+                    Sent for billing {!clearanceLoading && clearance && !clearance.is_clear_for_billing ? "🔒 (Blocked: Pending Items)" : ""}
+                  </option>
                 </select>
+                {!clearanceLoading && clearance && !clearance.is_clear_for_billing && (
+                  <div style={{ marginTop: "4px", fontSize: "11px", color: "#e11d48", fontWeight: "600" }}>
+                    * "Sent for billing" is locked until all pending requests are completed or cancelled.
+                  </div>
+                )}
               </div>
+                  </>
+                );
+              })()}
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
                 <button
-                  onClick={() => setShowStatusModal(false)}
-                  style={{ padding: "10px 20px", borderRadius: "8px", border: "1px solid #cbd5e1", background: "#f8fafc", cursor: "pointer", fontWeight: "700", color: "#475569", fontSize: "13px" }}
+                  type="button"
+                  onClick={() => { setShowStatusModal(false); setClearanceData(null); setShowActionModal(true); }}
+                  style={{ padding: "10px 16px", borderRadius: "8px", border: "1px solid #cbd5e1", background: "#f1f5f9", cursor: "pointer", fontWeight: "700", color: "#334155", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px" }}
                 >
-                  Cancel
+                  <i className="bi bi-arrow-left"></i> Back to Actions
                 </button>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={() => { setShowStatusModal(false); setClearanceData(null); }}
+                    style={{ padding: "10px 20px", borderRadius: "8px", border: "1px solid #cbd5e1", background: "#f8fafc", cursor: "pointer", fontWeight: "700", color: "#475569", fontSize: "13px" }}
+                  >
+                    Cancel
+                  </button>
                 <button
                   onClick={handleUpdateStatus}
-                  style={{ padding: "10px 20px", borderRadius: "8px", border: "none", background: "#0d9488", color: "#fff", cursor: "pointer", fontWeight: "700", fontSize: "13px" }}
+                  disabled={statusToUpdate === "Sent for billing" && ((clearanceData?.is_clear_for_billing === false) || (clearanceData?.data?.is_clear_for_billing === false))}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: (statusToUpdate === "Sent for billing" && ((clearanceData?.is_clear_for_billing === false) || (clearanceData?.data?.is_clear_for_billing === false))) ? "#94a3b8" : "#0d9488",
+                    color: "#fff",
+                    cursor: (statusToUpdate === "Sent for billing" && ((clearanceData?.is_clear_for_billing === false) || (clearanceData?.data?.is_clear_for_billing === false))) ? "not-allowed" : "pointer",
+                    fontWeight: "700",
+                    fontSize: "13px"
+                  }}
                 >
                   Save Status
                 </button>
+                </div>
               </div>
             </div>
           </ActionModalCard>
@@ -1994,7 +2596,10 @@ const WardRequest = () => {
       {showDoctorNotesModal && selectedPatient && (
         <IPClinicalNotesModal
           patient={selectedPatient}
-          onClose={() => setShowDoctorNotesModal(false)}
+          onClose={() => {
+            setShowDoctorNotesModal(false);
+            setShowActionModal(true);
+          }}
         />
       )}
 
@@ -2002,7 +2607,10 @@ const WardRequest = () => {
       {showNursingNotesModal && selectedPatient && (
         <IPNursingNotesModal
           patient={selectedPatient}
-          onClose={() => setShowNursingNotesModal(false)}
+          onClose={() => {
+            setShowNursingNotesModal(false);
+            setShowActionModal(true);
+          }}
         />
       )}
     </PageWrapper>

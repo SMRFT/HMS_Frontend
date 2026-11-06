@@ -13,7 +13,9 @@ import {
   Select,
   Label,
   InputWrapper,
-  Button
+  Button,
+  ModalOverlay,
+  ModalContainer
 } from "../GlobalStyles";
 
 // ─── Styled Components ────────────────────────────────────────────────────────
@@ -177,21 +179,42 @@ const StatusBadge = styled.span`
   display: inline-block;
   background: ${({ status }) =>
     status === "Cancelled"
-      ? colors.danger + "20"
-      : status === "Result Pending"
-        ? colors.secondary + "15"
-        : "#136A6315"};
+      ? "#fee2e2"
+      : (status === "Completed" || status === "Result Entered")
+        ? "#dcfce7"
+        : status === "Partially Completed"
+          ? "#ffedd5"
+          : status === "Sample Collected"
+            ? "#e0f2fe"
+            : status === "Result Pending"
+              ? colors.secondary + "15"
+              : colors.textMuted + "10"};
   color: ${({ status }) =>
     status === "Cancelled"
-      ? colors.danger
-      : status === "Result Pending"
-        ? colors.secondary
-        : "#136A63"};
-  border: 1px solid currentColor;
+      ? "#b91c1c"
+      : (status === "Completed" || status === "Result Entered")
+        ? "#15803d"
+        : status === "Partially Completed"
+          ? "#c2410c"
+          : status === "Sample Collected"
+            ? "#0284c7"
+            : status === "Result Pending"
+              ? colors.secondary
+              : colors.textMuted};
+  border: 1px solid ${({ status }) =>
+    status === "Cancelled"
+      ? "#fca5a5"
+      : (status === "Completed" || status === "Result Entered")
+        ? "#86efac"
+        : status === "Partially Completed"
+          ? "#fed7aa"
+          : status === "Sample Collected"
+            ? "#7dd3fc"
+            : "currentColor"};
   border-radius: 20px;
-  padding: 4px 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
   white-space: nowrap;
 `;
 
@@ -714,7 +737,7 @@ const SearchableDropdown = ({ value, onChange, options, placeholder = "Select...
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function RadiologyWardRequest({ patient, onClose }) {
+export default function RadiologyWardRequest({ patient, onClose, onBack }) {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requests, setRequests] = useState([]);
@@ -804,17 +827,32 @@ export default function RadiologyWardRequest({ patient, onClose }) {
     address: patient?.address || pd.permanent_address || "-",
     admitting: formatAdmitDate(patient?.admissionDateTime || pd?.admissionDateTime),
     admittingDr: patient?.admittingDoctor || patient?.doctor_name || patient?.doctorName || pd?.admittingDoctor || "-",
+    roomNo: (patient?.roomNo || patient?.room_no || "").toString().trim(),
+    bedNo: (patient?.bedNo || patient?.bed_no || "").toString().trim(),
     roomBed: `${patient?.roomNo || patient?.room_no || "-"} | ${patient?.bedNo || patient?.bed_no || "-"}`,
     customerType: patient?.customerType || patient?.customer_type || pd.customer_type || "-",
-    wardName: patient?.wardName || patient?.ward_name || "-",
+    wardName: patient?.wardName || patient?.ward_name || patient?.roomNo || patient?.room_no || "-",
   };
 
   useEffect(() => {
     const doc = patient?.admittingDoctor || patient?.doctor_name || patient?.doctorName;
     if (doc) {
-      setDoctor(doc);
+      if (doctors.length > 0) {
+        const match = doctors.find(
+          (dr) =>
+            dr.employeeName?.trim().toLowerCase() === doc?.trim().toLowerCase() ||
+            String(dr.employeeId) === String(doc)
+        );
+        if (match) {
+          setDoctor(match.employeeId);
+        } else {
+          setDoctor(doc);
+        }
+      } else {
+        setDoctor(doc);
+      }
     }
-  }, [patient]);
+  }, [patient, doctors]);
 
   useEffect(() => {
     fetchBillTypes();
@@ -968,6 +1006,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
       type: t.type || "individual"
     }));
 
+    const resolvedRoom = (resolvedPatient.roomNo || patient?.roomNo || patient?.room_no || (resolvedPatient.roomBed ? resolvedPatient.roomBed.split("|")[0].trim() : "")).replace(/^-\s*$/, "").trim();
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
@@ -976,44 +1015,63 @@ export default function RadiologyWardRequest({ patient, onClose }) {
       bill_type: selectedBT?.bill_type,
       billTypeNo: selectedBT?.billTypeNo || "RAD",
       item: mappedTests,
-      wardName: resolvedPatient.wardName,
+      roomNo: resolvedRoom,
+      wardName: resolvedRoom || (resolvedPatient.wardName !== "-" ? resolvedPatient.wardName : "RAD"),
       total_amount: selectedTests.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0)
     };
 
     try {
       const res = await apiRequest(`${HmsBaseUrl}save_radiology_ward_request/`, "POST", payload);
       if (res.success) {
-        alert("Radiology request saved successfully");
         setShowRequestForm(false);
         setSelectedTests([]);
         fetchRequests();
+        const goBack = window.confirm("Radiology request saved successfully!\n\nDo you want to return to the Actions Menu?");
+        if (goBack && onBack) {
+          onBack();
+        }
       }
     } catch (e) { console.error(e); }
   };
 
   const handleCancelRequest = async (billId) => {
-    if (!window.confirm("Are you sure you want to cancel this entire request?")) return;
+    const reason = window.prompt("Enter reason for cancelling this radiology request:");
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      alert("Cancellation reason is required.");
+      return;
+    }
     try {
-      const res = await apiRequest(`${HmsBaseUrl}cancel_radiology_ward_request/`, "POST", { id: billId });
+      const res = await apiRequest(`${HmsBaseUrl}cancel_radiology_ward_request/`, "POST", { id: billId, cancel_reason: trimmedReason });
       if (res.success) {
         alert("Request cancelled successfully");
         fetchRequests();
+      } else {
+        alert("Failed to cancel: " + (res.data?.error || res.error || res.message || "Unknown error"));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); alert("An error occurred while cancelling."); }
   };
 
   const handleRemoveIndividualTest = async (billId, test) => {
-    if (!window.confirm(`Are you sure you want to remove ${test.name}?`)) return;
+    if (!window.confirm(`Are you sure you want to remove the test "${test.name}"?`)) return;
     try {
-      const res = await apiRequest(`${HmsBaseUrl}remove_individual_radiology/`, "POST", {
+      const payload = {
         id: billId,
-        test_id: test.test_id
-      });
-      if (res.success) {
-        alert("Test removed from request");
+        test_id: test.test_id,
+        test_name: test.name
+      };
+      const res = await apiRequest(`${HmsBaseUrl}remove_individual_radiology/`, "POST", payload);
+      if (res.success || res.data?.success) {
+        alert("Test removed successfully!");
         fetchRequests();
+      } else {
+        alert(res.data?.error || res.error || res.message || "Failed to remove test");
       }
-    } catch (e) { console.error(e); }
+    } catch (error) {
+      console.error("Remove Individual Test Error:", error);
+      alert("An error occurred while removing the test.");
+    }
   };
 
   const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
@@ -1064,7 +1122,31 @@ export default function RadiologyWardRequest({ patient, onClose }) {
       </PatientPanel>
 
       <ActionsBar>
-        <span className="history-count">{requests.length} previous radiology request(s)</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              style={{
+                background: "#f1f5f9",
+                border: "1.5px solid #cbd5e1",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "700",
+                fontSize: "13px",
+                color: "#1e293b",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+              }}
+            >
+              <i className="bi bi-arrow-left"></i> Back to Actions
+            </button>
+          )}
+          <span className="history-count">{requests.length} previous radiology request(s)</span>
+        </div>
         <ViewHistoryBtn onClick={() => { setShowRequestForm(!showRequestForm); if (!showRequestForm) setExpandedRow(null); }}>
           {showRequestForm ? "View History" : "+ New Other Request"}
         </ViewHistoryBtn>
@@ -1093,7 +1175,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                 <SearchableDropdown
                   value={doctor}
                   onChange={setDoctor}
-                  options={doctors.map(d => ({ id: d.employeeName, name: d.employeeName }))}
+                  options={doctors.map(d => ({ id: d.employeeId, name: d.employeeName }))}
                   displayKey="name"
                   valueKey="id"
                   placeholder="Select Doctor"
@@ -1348,7 +1430,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                           style={{ cursor: "pointer", color: colors.primary, fontWeight: 600 }}
                           onClick={() => toggleRow(req.id)}
                         >
-                          {req.doctorName}
+                          {doctors.find((d) => String(d.employeeId) === String(req.doctorName || req.doctor))?.employeeName || req.doctorName || req.doctor || "-"}
                         </Td>
                         <Td>
                           <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
@@ -1373,27 +1455,75 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                                 <thead>
                                   <Tr>
                                     <Th>Test Name</Th>
-                                    <Th>Type</Th>
-                                    <Th>Action</Th>
+                                    <Th>Bill Type / Modality</Th>
+                                    <Th>Price</Th>
+                                    <Th>Status</Th>
+                                    <Th style={{ textAlign: "center" }}>Action</Th>
                                   </Tr>
                                 </thead>
                                 <tbody>
-                                  {req.tests.map((t, idx) => (
-                                    <Tr key={idx}>
-                                      <Td>{t.name}</Td>
-                                      <Td>{t.packageName ? `Package (${t.packageName})` : "Individual"}</Td>
-                                      <Td>
-                                        {req.status === "Result Pending" && (
-                                          <button
-                                            onClick={() => handleRemoveIndividualTest(req.id, t)}
-                                            style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer" }}
-                                          >
-                                            ✕ Remove
-                                          </button>
-                                        )}
-                                      </Td>
-                                    </Tr>
-                                  ))}
+                                  {req.tests.map((t, idx) => {
+                                    const itemStatus = t.status || req.status || "Result Pending";
+                                    const isPending = itemStatus === "Result Pending" || itemStatus === "Pending";
+                                    const isDone = itemStatus === "Completed" || itemStatus === "Result Entered";
+                                    return (
+                                      <Tr key={idx}>
+                                        <Td>
+                                          <span style={{ fontWeight: "700", color: colors.textDark }}>
+                                            {t.name}
+                                          </span>
+                                        </Td>
+                                        <Td>
+                                          <span style={{ fontSize: "0.78rem", fontWeight: "600", color: "#475569" }}>
+                                            {t.billTypeNo || (t.packageName ? `Package (${t.packageName})` : (req.billType || "Radiology"))}
+                                          </span>
+                                        </Td>
+                                        <Td>
+                                          <span style={{ fontWeight: "700", color: "#0f172a" }}>
+                                            Rs. {Number(t.price || 0).toLocaleString("en-IN")}
+                                          </span>
+                                        </Td>
+                                        <Td>
+                                          <StatusBadge status={itemStatus}>
+                                            {itemStatus}
+                                          </StatusBadge>
+                                        </Td>
+                                        <Td style={{ textAlign: "center" }}>
+                                          {isPending ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveIndividualTest(req.id, t)}
+                                              style={{
+                                                background: "#fee2e2",
+                                                border: "1px solid #fca5a5",
+                                                color: "#b91c1c",
+                                                cursor: "pointer",
+                                                fontSize: "0.75rem",
+                                                fontWeight: "700",
+                                                padding: "3px 9px",
+                                                borderRadius: "6px",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "4px",
+                                                transition: "all 0.15s"
+                                              }}
+                                              title={`Remove test ${t.name}`}
+                                            >
+                                              ✕ Remove
+                                            </button>
+                                          ) : isDone ? (
+                                            <span style={{ fontSize: "0.74rem", color: "#16a34a", fontWeight: "700" }}>
+                                              ✓ Completed
+                                            </span>
+                                          ) : (
+                                            <span style={{ fontSize: "0.74rem", color: "#64748b", fontWeight: "600" }}>
+                                              -
+                                            </span>
+                                          )}
+                                        </Td>
+                                      </Tr>
+                                    );
+                                  })}
                                 </tbody>
                               </SubTable>
                             </SubTableWrapper>
