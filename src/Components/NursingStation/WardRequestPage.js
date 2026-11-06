@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { Search, Plus, X, ChevronDown } from "lucide-react";
@@ -1004,9 +1004,73 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     }
   }, [patient, pd, doctors]);
 
+  const fetchRequests = useCallback(async () => {
+    const safeIp = resolvedPatient.ipNo && resolvedPatient.ipNo !== "-" ? resolvedPatient.ipNo : "";
+    const safeUhid = resolvedPatient.uhid && resolvedPatient.uhid !== "-" ? resolvedPatient.uhid : "";
+    if (!safeUhid) return;
+    try {
+      const url = `${HmsBaseUrl}get_medicine_ward_requests/?uhid=${encodeURIComponent(safeUhid)}${safeIp ? `&ipNumber=${encodeURIComponent(safeIp)}` : ""}`;
+      const res = await apiRequest(url, "GET");
+      if (res.success) {
+        const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        setRequests(list);
+      }
+    } catch (e) {
+      console.error("Error fetching requests:", e);
+    }
+  }, [HmsBaseUrl, resolvedPatient.uhid, resolvedPatient.ipNo]);
+
   useEffect(() => {
     fetchRequests();
-  }, [pharmacyDept]);
+  }, [fetchRequests, pharmacyDept]);
+
+  // ── Auto-Refresh & Real-time BroadcastChannel sync ─────────────────
+  useEffect(() => {
+    let bc;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        bc = new BroadcastChannel("hms_billing_channel");
+        bc.onmessage = (event) => {
+          const data = event?.data;
+          if (
+            data?.type === "BILL_SAVED" ||
+            data?.type === "BILL_PROCESSING" ||
+            data?.type === "WARD_RETURN_APPROVED" ||
+            data?.isWardRequest ||
+            data?.billNo
+          ) {
+            fetchRequests();
+          }
+        };
+      } catch (err) {
+        console.warn("BroadcastChannel error:", err);
+      }
+    }
+
+    const handleStorage = (e) => {
+      if (
+        e.key === "hms_last_billing_update" ||
+        e.key === "hms_last_medichart_update" ||
+        e.key === "hms_ward_request_updated"
+      ) {
+        fetchRequests();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    const handleFocus = () => {
+      fetchRequests();
+    };
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      if (bc) {
+        try { bc.close(); } catch (e) {}
+      }
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [fetchRequests]);
 
   useEffect(() => {
     fetchDoctors();
@@ -1153,20 +1217,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     }
   };
 
-  const fetchRequests = async () => {
-    try {
-      const res = await apiRequest(
-        `${HmsBaseUrl}get_medicine_ward_requests/?uhid=${resolvedPatient.uhid}&ipNumber=${resolvedPatient.ipNo}`,
-        "GET",
-      );
-      if (res.success) {
-        const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
-        setRequests(list);
-      }
-    } catch (e) {
-      console.error("Error fetching requests:", e);
-    }
-  };
+
 
   const fetchDoctors = async () => {
     try {
@@ -1648,11 +1699,12 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     }
   };
 
-  const getStatusColor = (status, isDischarge) => {
-    if (isDischarge) return colors.legDischarge;
-    if (status === "Pending") return colors.legPending;
-    if (status === "Cancelled") return colors.legCancelled;
-    if (status === "Billed") return colors.legBilled;
+  const getStatusColor = (status) => {
+    const s = String(status || "Pending").trim().toLowerCase();
+    if (s === "billed" || s === "completed" || s === "paid") return colors.legBilled;
+    if (s === "processing") return "#f59e0b";
+    if (s === "cancelled") return colors.legCancelled;
+    if (s === "pending") return colors.legPending;
     return colors.legRegular;
   };
 
@@ -2098,8 +2150,16 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
           </RequestFormWrapper>
         )}
 
-        <TabsBar>
+        <TabsBar style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Tab active={true}>💊 Medicine Request History</Tab>
+          <button
+            type="button"
+            onClick={() => fetchRequests()}
+            style={{ background: "#ffffff", border: `1.5px solid ${colors.primary}`, color: colors.primary, padding: "5px 12px", borderRadius: "6px", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", marginRight: "10px" }}
+            title="Refresh Request Status"
+          >
+            <span style={{ fontSize: "1rem" }}>⟳</span> Refresh Status
+          </button>
         </TabsBar>
 
         {/* ── Medicine History Table (Collapsible Accordion Design) ── */}
@@ -2216,11 +2276,18 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                           </span>
                         </td>
                         <td style={{ textAlign: "center" }}>
-                          <LegendItem
-                            color={getStatusColor(req.status || "Pending", req.isDischarge)}
-                          >
-                            {req.isDischarge ? "Discharge Medicine" : (req.status || "Pending")}
-                          </LegendItem>
+                          <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
+                            <LegendItem color={getStatusColor(req.status)}>
+                              {req.status === "Billed" ? "✓ Billed" : (req.status || "Pending")}
+                            </LegendItem>
+                            {req.isDischarge && (
+                              <span
+                                style={{ fontSize: "0.68rem", fontWeight: 700, background: "#ecfeff", color: "#0891b2", padding: "1px 6px", borderRadius: "4px", border: "1px solid #a5f3fc", whiteSpace: "nowrap" }}
+                              >
+                                Discharge Med
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
                           <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
@@ -2329,13 +2396,14 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                     <th style={{ textAlign: "center" }}>Qty</th>
                                     <th>Route</th>
                                     <th>Batch No</th>
+                                    <th style={{ textAlign: "center" }}>Item Status</th>
                                     {canCancel && <th style={{ textAlign: "center", width: "70px" }}>Action</th>}
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {activeMeds.length === 0 ? (
                                     <tr>
-                                      <td colSpan={canCancel ? 8 : 7} style={{ textAlign: "center", color: "#94a3b8", padding: "16px" }}>
+                                      <td colSpan={canCancel ? 9 : 8} style={{ textAlign: "center", color: "#94a3b8", padding: "16px" }}>
                                         No medicines found in this request.
                                       </td>
                                     </tr>
@@ -2355,6 +2423,13 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                         </td>
                                         <td style={{ color: "#475569" }}>{m.route || "-"}</td>
                                         <td style={{ color: "#64748b", fontSize: "0.8rem" }}>{m.batch_number || "-"}</td>
+                                        <td style={{ textAlign: "center" }}>
+                                          <span
+                                            style={{ display: "inline-block", padding: "2px 8px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: 700, background: (m.status || req.status) === "Billed" || (m.status || req.status) === "Completed" ? "#dcfce7" : (m.status || req.status) === "Processing" ? "#fef3c7" : (m.status || req.status) === "Cancelled" ? "#f1f5f9" : "#fef9c3", color: (m.status || req.status) === "Billed" || (m.status || req.status) === "Completed" ? "#15803d" : (m.status || req.status) === "Processing" ? "#b45309" : (m.status || req.status) === "Cancelled" ? "#64748b" : "#854d0e", border: `1px solid ${ (m.status || req.status) === "Billed" || (m.status || req.status) === "Completed" ? "#86efac" : (m.status || req.status) === "Processing" ? "#fcd34d" : (m.status || req.status) === "Cancelled" ? "#cbd5e1" : "#fde047" }` }}
+                                          >
+                                            {(m.status || req.status) === "Billed" ? "✓ Dispensed / Billed" : (m.status || req.status || "Pending")}
+                                          </span>
+                                        </td>
                                         {canCancel && (
                                           <td style={{ textAlign: "center" }}>
                                             <button

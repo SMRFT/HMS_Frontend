@@ -1122,6 +1122,25 @@ const WardRequest = () => {
     }
   }, [showStatusModal, selectedPatient, fetchBillingClearance]);
 
+  useEffect(() => {
+    let bc;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        bc = new BroadcastChannel("hms_billing_channel");
+        bc.onmessage = () => {
+          if (showStatusModal && selectedPatient) {
+            const ip = getField(selectedPatient, "ipNumber") || selectedPatient?.ipNumber || "";
+            const uhid = getField(selectedPatient, "uhid") || selectedPatient?.uhid || "";
+            if (ip || uhid) fetchBillingClearance(ip, uhid);
+          }
+        };
+      } catch (e) {}
+    }
+    return () => {
+      if (bc) try { bc.close(); } catch (e) {}
+    };
+  }, [showStatusModal, selectedPatient, fetchBillingClearance]);
+
   const handleUpdateStatus = async () => {
     if (!statusToUpdate || !selectedPatient) return toast.warning("Please select a status");
     const isCleared = clearanceData?.is_clear_for_billing ?? clearanceData?.data?.is_clear_for_billing;

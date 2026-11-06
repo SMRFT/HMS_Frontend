@@ -534,6 +534,18 @@ export default function WardReturnApprovals() {
 
       if (res.success && backendResponse.success !== false) {
         showToast(backendResponse.message || `Return ${action}d successfully`, "success");
+        try {
+          localStorage.setItem("hms_last_billing_update", Date.now().toString());
+          if (typeof BroadcastChannel !== "undefined") {
+            new BroadcastChannel("hms_billing_channel").postMessage({
+              type: "WARD_RETURN_APPROVED",
+              billId,
+              returnRequestId,
+              action,
+              isWardRequest: true,
+            });
+          }
+        } catch (e) {}
         await loadAll();
         if (action === "Approve" && backendResponse.ward_return_details) {
           setSelectedPrintBill(backendResponse.ward_return_details);
