@@ -493,6 +493,19 @@ const IndicatorPill = styled.span`
   border: 1px solid ${({ val }) => (val === "Yes" ? "#bae6fd" : "#e2e8f0")};
 `;
 
+const PillBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  background: ${({ $bg }) => $bg || "#f1f5f9"};
+  color: ${({ $color }) => $color || "#334155"};
+  white-space: nowrap;
+`;
+
 const ActionIconButton = styled.button`
   border: none;
   background: #f1f5f9;

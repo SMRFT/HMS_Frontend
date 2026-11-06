@@ -499,33 +499,25 @@ const Table = styled.table`
 const TableHeader = styled.th`
   border: none;
   border-bottom: 2px solid #e2e8f0;
-  padding: 12px 14px;
+  padding: 10px 10px;
   text-align: ${(props) => (props.align ? props.align : props.center ? "center" : props.right ? "right" : "left")};
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   font-weight: 700;
-  font-size: 11.5px;
+  font-size: 11px;
   color: #475569;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   white-space: nowrap;
   vertical-align: middle;
-
-  &:last-child {
-    position: sticky;
-    right: 0;
-    background: #f1f5f9;
-    box-shadow: -3px 0 8px rgba(0, 0, 0, 0.04);
-    z-index: 2;
-  }
 `;
 
 const TableCell = styled.td`
   border: none;
   border-bottom: 1px solid #f1f5f9;
-  padding: 11px 14px;
+  padding: 9px 10px;
   text-align: ${(props) => (props.align ? props.align : props.center ? "center" : props.right ? "right" : "left")};
   color: ${(props) => (props.muted ? "#64748b" : "#1e293b")};
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   white-space: nowrap;
   vertical-align: middle;
@@ -537,18 +529,6 @@ const TableCell = styled.td`
 
   tr:hover & {
     background-color: #f0fdfa;
-  }
-
-  &:last-child {
-    position: sticky;
-    right: 0;
-    background-color: #ffffff;
-    box-shadow: -3px 0 8px rgba(0, 0, 0, 0.04);
-    z-index: 1;
-
-    tr:hover & {
-      background-color: #f0fdfa;
-    }
   }
 `;
 
@@ -1120,6 +1100,7 @@ export default function CentralCashCounter() {
       let list = [];
       if (Array.isArray(res)) list = res;
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
+      else if (Array.isArray(res?.data)) list = res.data;
       else if (Array.isArray(res?.results)) list = res.results;
       setRpRecords(list);
     } catch (err) {
@@ -1589,16 +1570,20 @@ export default function CentralCashCounter() {
           time: billTime,
           bill_no: item.bill_no || "-",
           raw_bill_no: item.bill_no || null,
-          bill_type: item.type || "-",
+          bill_type: item.bill_type || item.bill_type_name || item.type || "-",
           raw_bill_type: item.type || null,
-          uhid_no: item.uhid || "-",
-          patient: item.patient_name || "-",
+          bill_type_id: item.bill_type_id || item.raw?.bill_type,
+          uhid_no: item.uhid || item.raw?.uhid || "-",
+          patient: item.patient_name || item.raw?.patient_name || item.raw?.patient || "-",
           amount: parseFloat(item.amount || 0),
           status: item.status || "-",
+          doctor: item.doctor || item.doctor_name || item.raw?.doctor_name || item.raw?.doctor || "-",
+          total: parseFloat(item.total || item.amount || 0),
+          payment_method: item.payment_method || item.raw?.payment_method || item.raw?.payment_details?.method || "-",
+          payment_breakdown: item.payment_breakdown || null,
           raw: item.raw || {},
           Bill_id: item.raw?.patient_id || null,
-          uhid: item.uhid || "-",
-          total: parseFloat(item.amount || 0),
+          uhid: item.uhid || item.raw?.uhid || "-",
           source: item.type === "Discharge" ? "IP" : "OP",
         };
       });
@@ -1648,16 +1633,20 @@ export default function CentralCashCounter() {
           time: billTime,
           bill_no: item.bill_no || "-",
           raw_bill_no: item.bill_no || null,
-          bill_type: item.type || "-",
+          bill_type: item.bill_type || item.bill_type_name || item.type || "-",
           raw_bill_type: item.type || null,
-          uhid_no: item.uhid || "-",
-          patient: item.patient_name || "-",
+          bill_type_id: item.bill_type_id || item.raw?.bill_type,
+          uhid_no: item.uhid || item.raw?.uhid || "-",
+          patient: item.patient_name || item.raw?.patient_name || item.raw?.patient || "-",
           amount: parseFloat(item.amount || 0),
           status: item.status || "-",
+          doctor: item.doctor || item.doctor_name || item.raw?.doctor_name || item.raw?.doctor || "-",
+          total: parseFloat(item.total || item.amount || 0),
+          payment_method: item.payment_method || item.raw?.payment_method || item.raw?.payment_details?.method || "-",
+          payment_breakdown: item.payment_breakdown || null,
           raw: item.raw || {},
           Bill_id: item.raw?.patient_id || null,
-          uhid: item.uhid || "-",
-          total: parseFloat(item.amount || 0),
+          uhid: item.uhid || item.raw?.uhid || "-",
           source: item.type === "Discharge" ? "IP" : "OP",
         };
       });
@@ -1700,16 +1689,20 @@ export default function CentralCashCounter() {
             time: billTime,
             bill_no: item.bill_no || "-",
             raw_bill_no: item.bill_no || null,
-            bill_type: item.type || "-",
+            bill_type: item.bill_type || item.bill_type_name || item.type || "-",
             raw_bill_type: item.type || null,
-            uhid_no: item.uhid || "-",
-            patient: item.patient_name || "-",
+            bill_type_id: item.bill_type_id || item.raw?.bill_type,
+            uhid_no: item.uhid || item.raw?.uhid || "-",
+            patient: item.patient_name || item.raw?.patient_name || item.raw?.patient || "-",
             amount: parseFloat(item.amount || 0),
             status: item.status || "-",
+            doctor: item.doctor || item.doctor_name || item.raw?.doctor_name || item.raw?.doctor || "-",
+            total: parseFloat(item.total || item.amount || 0),
+            payment_method: item.payment_method || item.raw?.payment_method || item.raw?.payment_details?.method || "-",
+            payment_breakdown: item.payment_breakdown || null,
             raw: item.raw || {},
             Bill_id: item.raw?.patient_id || null,
-            uhid: item.uhid || "-",
-            total: parseFloat(item.amount || 0),
+            uhid: item.uhid || item.raw?.uhid || "-",
             source: item.type === "Discharge" ? "IP" : "OP",
           };
         });
@@ -2033,7 +2026,6 @@ export default function CentralCashCounter() {
           await fetchIpAdvancePendingBills();
           await fetchIpAdvanceReceivedBills();
           refreshActiveShift();
-          setSelectedType("received");
           showToast("success", "Payment collected successfully!");
         } else {
           const errMsg = extractErrorMessage(ipRes?.message || ipRes?.error || "Payment failed. Please try again.");
@@ -2075,7 +2067,6 @@ export default function CentralCashCounter() {
           await fetchOpPharmacyPendingBills();
           await fetchPendingBills();
           refreshActiveShift();
-          setSelectedType("received");
           showToast("success", "Pharmacy payment collected successfully!");
         } else {
           const errMsg = extractErrorMessage(result?.error || result?.message || "Payment failed. Please try again.");
@@ -2093,22 +2084,22 @@ export default function CentralCashCounter() {
       return;
     }
 
-    const currentBillType = selectedBill.raw_bill_type || selectedBill.bill_type || selectedBill.type || "";
+    const billCategory = selectedBill.type || selectedBill.raw_bill_type || selectedBill.bill_type || "";
     let statusFields = {};
-    if (currentBillType === "Discharge") {
+    if (billCategory === "Discharge") {
       statusFields = { status: "Paid" };
-    } else if (currentBillType === "Investigation") {
+    } else if (billCategory === "Investigation") {
       statusFields = { paymentStatus: "Paid" };
-    } else if (currentBillType === "Billing") {
-      statusFields = { payment_status: "Paid" };
     } else {
       statusFields = { payment_status: "Paid" };
     }
 
     const payload = {
       bill_no: selectedBill.raw_bill_no || selectedBill.bill_no,
-      type: currentBillType,
-      bill_category: currentBillType,
+      bill_id: selectedBill.raw?._id || selectedBill.raw?.id || selectedBill.id || selectedBill._id,
+      bill_type: selectedBill.bill_type_id ?? selectedBill.raw?.bill_type,
+      type: billCategory,
+      bill_category: billCategory,
       ...statusFields,
       payment_details,
       shiftno: activeShift?.shiftno || "",
@@ -2132,7 +2123,6 @@ export default function CentralCashCounter() {
         await fetchOpPharmacyPendingBills();
         await fetchReceivedBills();
         refreshActiveShift();
-        setSelectedType("received");
         try {
           localStorage.setItem("hms_last_billing_update", Date.now().toString());
           if (typeof BroadcastChannel !== "undefined") {
@@ -2233,7 +2223,6 @@ export default function CentralCashCounter() {
         setShowPaymentModal(false);
         await fetchReturnBills();
         refreshActiveShift();
-        setSelectedType("received");
         showToast("success", "Return bill payment processed successfully!");
       } else {
         const errMsg = extractErrorMessage(result?.message || result?.error || "Payment failed. Please try again.");
@@ -3025,41 +3014,6 @@ export default function CentralCashCounter() {
                                     🗑️
                                   </button>
                                 </div>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 4,
-                                  }}
-                                >
-                                  <label
-                                    style={{
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color: "#374151",
-                                    }}
-                                  >
-                                    Room No
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="Enter room no"
-                                    value={rpDescFields.room_no || ""}
-                                    onChange={(e) =>
-                                      setRpDescFields((p) => ({
-                                        ...p,
-                                        room_no: e.target.value,
-                                      }))
-                                    }
-                                    style={{
-                                      border: "1px solid #d1d5db",
-                                      borderRadius: 4,
-                                      padding: "8px 12px",
-                                      fontSize: 14,
-                                      minWidth: 120,
-                                    }}
-                                  />
-                                </div>
                               </TableCell>
                             </tr>
                           ))
@@ -3346,7 +3300,7 @@ export default function CentralCashCounter() {
                     </SearchWrapper>
                   </TableControls>
 
-                  <div style={{ width: "100%", overflowX: "auto" }}>
+                  <div style={{ width: "100%", overflowX: "hidden" }}>
                   <Table>
                     <thead>
                       <tr>
