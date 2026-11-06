@@ -1,3 +1,4 @@
+import ReportConfigurationTab from "./ReportConfigurationTab";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
@@ -604,9 +605,21 @@ const EmployeeMaster = () => {
             >
               Optional
             </button>
+            <button
+              type="button"
+              className={`em-tab-btn ${activeTab === "ReportConfig" ? "active" : ""}`}
+              onClick={() => setActiveTab("ReportConfig")}
+            >
+              Report Configuration
+            </button>
           </div>
 
           {/* Form Content */}
+          {activeTab === "ReportConfig" ? (
+            <div className="em-card-body" style={{ padding: "16px 20px" }}>
+              <ReportConfigurationTab selectedEmployee={formData} employees={employees} />
+            </div>
+          ) : (
           <form onSubmit={handleSave} className="em-card-body">
             {activeTab === "Mandatory" ? (
               <>
@@ -1114,6 +1127,7 @@ const EmployeeMaster = () => {
               </div>
             </div>
           </form>
+          )}
         </div>
       </div>
     </div>

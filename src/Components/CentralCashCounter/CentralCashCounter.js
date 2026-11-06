@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Mic, RotateCcw, CreditCard, Clock, User, Hash, Layers, Plus, Minus } from "lucide-react";
 import ShiftDetails from "./ShiftDetails";
 import styled from "styled-components";
@@ -961,6 +962,7 @@ const ShiftRunningBanner = styled.div`
 `;
 
 export default function CentralCashCounter() {
+  const navigate = useNavigate();
   const [billType, setBillType] = useState("ALL");
   const [showEntries, setShowEntries] = useState("10");
   const [searchTerm, setSearchTerm] = useState("");
@@ -2670,20 +2672,50 @@ export default function CentralCashCounter() {
                       <span className="dot" />
                       Running: <strong>{activeShift.CashierID}</strong>
                     </ShiftRunningBanner>
-                    <Button
-                      style={{
-                        background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                        boxShadow: "0 2px 8px rgba(220, 38, 38, 0.25)",
-                        padding: "7px 14px",
-                        fontSize: "12.5px"
-                      }}
-                      onClick={handleShiftDetailsClick}
-                    >
-                      ⏹ Stop Counter
-                    </Button>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <Button
+                        style={{
+                          background: "#ffffff",
+                          color: "#0f766e",
+                          border: "1px solid #ccfbf1",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                          padding: "7px 12px",
+                          fontSize: "12px"
+                        }}
+                        onClick={() => navigate("/CashCounterShiftManagement")}
+                        title="Manage All Shifts"
+                      >
+                        🕒 Shift Manager
+                      </Button>
+                      <Button
+                        style={{
+                          background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                          boxShadow: "0 2px 8px rgba(220, 38, 38, 0.25)",
+                          padding: "7px 14px",
+                          fontSize: "12.5px"
+                        }}
+                        onClick={handleShiftDetailsClick}
+                      >
+                        ⏹ Stop Counter
+                      </Button>
+                    </div>
                   </>
                 ) : (
-                  <div style={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
+                  <div style={{ width: "100%", display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                    <Button
+                      style={{
+                        background: "#ffffff",
+                        color: "#0f766e",
+                        border: "1px solid #ccfbf1",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                        padding: "7px 12px",
+                        fontSize: "12.5px"
+                      }}
+                      onClick={() => navigate("/CashCounterShiftManagement")}
+                      title="Manage All Shifts"
+                    >
+                      🕒 Shift Manager
+                    </Button>
                     <Button
                       style={{ padding: "7px 16px", fontSize: "13px" }}
                       onClick={handleShiftDetailsClick}
