@@ -801,7 +801,7 @@ const PatientRegistrationForm = () => {
             <div class="sub-header"><u>GST No : 33ABDCS8326A1ZP</u></div>
             <div class="bill-type">*${visit.paymentMethod || 'Cash'} Bill*</div>
             <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: ${visit.paymentStatus === 'Paid' ? '#16a34a' : '#d97706'}">
-              STATUS: ${visit.paymentStatus === 'Paid' ? 'PAID' : 'PAY LATER (PENDING)'}
+              STATUS: ${(visit.paymentStatus === 'Paid') ? 'PAID' : 'PENDING'}
             </div>
           </div>
           <table class="info-table">
@@ -1035,7 +1035,7 @@ const PatientRegistrationForm = () => {
           <p><b>Total Fees:</b> ₹${totalFees}</p>
           <p><b>Payment Option:</b> ${
             paymentTiming === "pay_now"
-              ? `Pay Now (${paymentMethod})`
+              ? `Pay Now - Pending (${paymentMethod})`
               : ((patient.customerType || "").toLowerCase() === "insurance"
                   ? `Pay Later (Insurance Cashless Claim)`
                   : `Pay Later (Deferred / Counter Pending)`)
@@ -1099,7 +1099,7 @@ const PatientRegistrationForm = () => {
       // Append Payment Timing & Method
       formData.append("payment_timing", paymentTiming);
       formData.append("payment_method", paymentMethod);
-      formData.append("payment_status", paymentTiming === "pay_now" ? "Paid" : "Pending");
+      formData.append("payment_status", "Pending");
 
       const result = await apiRequest(`${Hmsbaseurl}patients/register/`, "POST", formData);
 
@@ -1130,7 +1130,7 @@ const PatientRegistrationForm = () => {
           dateTime: new Date().toLocaleString('en-GB'),
           company_name: patient.insuranceProviderCode || patient.company_name || "",
           paymentMethod: paymentMethod,
-          paymentStatus: paymentTiming === "pay_now" ? "Paid" : "Pending"
+          paymentStatus: "Pending"
         };
 
         // Automatically generate and print the barcode label (Vikas format)
@@ -2915,9 +2915,9 @@ const PatientRegistrationForm = () => {
               <PaymentTimingHeader>
                 <span>PAYMENT OPTION</span>
                 {paymentTiming === "pay_now" ? (
-                  <PaymentStatusPill $variant="paid">Collect Now</PaymentStatusPill>
+                  <PaymentStatusPill $variant="pending">Pending</PaymentStatusPill>
                 ) : (
-                  <PaymentStatusPill $variant="pending">Deferred / Claim</PaymentStatusPill>
+                  <PaymentStatusPill $variant="pending">Pay Later</PaymentStatusPill>
                 )}
               </PaymentTimingHeader>
 
@@ -2930,7 +2930,7 @@ const PatientRegistrationForm = () => {
                     setPaymentTiming("pay_now");
                     setPaymentMethod("Cash");
                   }}
-                  title="Collect payment now at counter"
+                  title="Pay Now (Pending collection at counter)"
                 >
                   <CreditCard size={13} />
                   <span>Pay Now</span>
@@ -2968,7 +2968,7 @@ const PatientRegistrationForm = () => {
                   paymentTiming === "pay_later" ? (
                     <span>⏳ <b>Pay Later:</b> ₹{totalFees} pending collection at Cash Counter / Discharge.</span>
                   ) : (
-                    <span>✓ <b>Pay Now:</b> Collect ₹{totalFees} in {paymentMethod} at counter.</span>
+                    <span>⏳ <b>Pending:</b> Collect ₹{totalFees} in {paymentMethod} at Cash Counter.</span>
                   )
                 )}
               </PaymentStatusNotice>
@@ -3190,17 +3190,17 @@ const PatientRegistrationForm = () => {
                     <TableCell>{visit.visitType}</TableCell>
                     <TableCell>₹{visit.billAmount}</TableCell>
                     <TableCell style={{ color: visit.paymentStatus === 'Paid' ? '#16a34a' : '#d97706', fontWeight: 600 }}>
-                      {visit.paymentStatus}
+                      {visit.paymentStatus === 'Paid' ? 'Paid' : 'Pending'}
                     </TableCell>
                     <TableCell>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <HeaderBtn small onClick={() => handlePrintSticker(visit)} title="Print Sticker"><Printer size={14} /></HeaderBtn>
                         <HeaderBtn small onClick={() => handlePrintBill(visit)} title="Print Bill"><FileText size={14} /></HeaderBtn>
                         <HeaderBtn small onClick={() => { setSelectedVisit(visit); setShowHistoryModal(true); }} title="History"><History size={14} /></HeaderBtn>
-                        {visit.paymentStatus !== 'Paid' && (
+                        {(visit.paymentStatus !== 'Paid') && (
                           <HeaderBtn small onClick={() => { setSelectedVisit(visit); setEditingDoctor(visit.doctor || ""); setShowEditVisitModal(true); }} title="Edit"><Edit size={14} /></HeaderBtn>
                         )}
-                        {visit.paymentStatus === 'Paid' && (
+                        {(visit.paymentStatus === 'Paid') && (
                           <HeaderBtn small onClick={() => { setSelectedVisit(visit); setRefundAmount(visit.billAmount); setShowRefundVisitModal(true); }} title="Refund"><RotateCcw size={14} /></HeaderBtn>
                         )}
                       </div>

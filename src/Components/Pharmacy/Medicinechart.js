@@ -1978,7 +1978,20 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
     try {
       const res = await apiRequest(`${HmsBaseUrl}convert_to_bill/`, "POST", { Bill_id: billId });
-      if (!res.success) console.error("convert_to_bill API error:", res.error);
+      if (!res.success) {
+        console.error("convert_to_bill API error:", res.error);
+      } else {
+        try {
+          localStorage.setItem("hms_last_billing_update", Date.now().toString());
+          if (typeof BroadcastChannel !== "undefined") {
+            new BroadcastChannel("hms_billing_channel").postMessage({
+              type: "BILL_PROCESSING",
+              billId,
+              isWardRequest: true,
+            });
+          }
+        } catch (e) {}
+      }
     } catch (err) {
       console.error("convert_to_bill API failed:", err);
     }
