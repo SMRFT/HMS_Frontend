@@ -2000,7 +2000,6 @@ export default function PharmacyBillAnalysis() {
                           <FaPills style={{ marginRight: 6, color: "#2563eb", fontSize: 11 }} />
                           {sug.item_name}
                         </div>
-                        <div className="item-badge">ID: {sug.item_id}</div>
                       </SuggestionItem>
                     ))}
                   </SuggestionsList>
@@ -2232,7 +2231,6 @@ export default function PharmacyBillAnalysis() {
                 <StyledTable>
                   <thead>
                     <tr>
-                      <th style={{ width: 80 }}>Item ID</th>
                       <th>Item / Medicine Name</th>
                       <th style={{ textAlign: "right" }}>Total Quantity Sold</th>
                       <th style={{ textAlign: "center" }}>Unique UHIDs (Patients)</th>
@@ -2244,11 +2242,6 @@ export default function PharmacyBillAnalysis() {
                   <tbody>
                     {paginatedItems.map((item) => (
                       <tr key={item.item_id || item.item_name}>
-                        <td>
-                          <span style={{ color: "#64748b", fontWeight: 600 }}>
-                            #{item.item_id || "—"}
-                          </span>
-                        </td>
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <FaPills style={{ color: "#2563eb", fontSize: 13, flexShrink: 0 }} />
@@ -2769,7 +2762,7 @@ export default function PharmacyBillAnalysis() {
                   <FaHospitalUser /> Patient Purchase Analysis: {selectedItemForDetail.item_name}
                 </h2>
                 <p>
-                  Item ID: #{selectedItemForDetail.item_id || "—"} | Unique Patients:{" "}
+                  Unique Patients:{" "}
                   <strong>{selectedItemForDetail.unique_uhid_count}</strong> | Unique Inpatients:{" "}
                   <strong>{selectedItemForDetail.unique_ip_count}</strong> | Total Quantity Sold:{" "}
                   <strong>{selectedItemForDetail.total_quantity}</strong>

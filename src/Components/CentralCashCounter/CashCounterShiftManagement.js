@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
@@ -10,7 +11,8 @@ import {
     CheckCircle2, 
     AlertCircle, 
     RefreshCw, 
-    ArrowRight, 
+    ArrowRight,
+    ArrowLeft,
     User, 
     Building2, 
     Layers, 
@@ -66,6 +68,29 @@ const HeaderSection = styled.div`
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+`;
+
+const BackButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background: #ffffff;
+  color: #0f766e;
+  border: 1.5px solid #ccfbf1;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #0f766e;
+    color: #ffffff;
+    border-color: #0f766e;
+    transform: translateX(-2px);
   }
 `;
 
@@ -467,6 +492,7 @@ const ModalFooter = styled.div`
 `;
 
 const CashCounterShiftManagement = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("active_shifts"); // 'active_shifts' | 'date_shifts'
   const [loading, setLoading] = useState(false);
   const [activeShifts, setActiveShifts] = useState([]);
@@ -706,6 +732,9 @@ const CashCounterShiftManagement = () => {
           <p>Real-time active shift tracking, historical date-wise shift auditing, and counter closing controls.</p>
         </div>
         <div className="actions-area">
+          <BackButton onClick={() => navigate("/CentralCashCounter")} title="Return to Central Cash Counter">
+            <ArrowLeft size={16} /> Back to Central Cash Counter
+          </BackButton>
           <RefreshButton onClick={activeTab === "active_shifts" ? fetchActiveShifts : fetchDateShifts} disabled={loading}>
             <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh Shifts
           </RefreshButton>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Mic, RotateCcw, CreditCard, Clock, User, Hash, Layers, Plus, Minus } from "lucide-react";
+import { Search, Mic, RotateCcw, CreditCard, Hash, Plus, Minus, Eye } from "lucide-react";
 import ShiftDetails from "./ShiftDetails";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
@@ -24,155 +24,86 @@ const MainContent = styled.div`
 
 const TopSection = styled.div`
   background: #ffffff;
-  border-radius: 20px;
+  border-radius: 16px;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
-  padding: 20px 24px;
-  margin-bottom: 24px;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+  padding: 12px 20px;
+  margin-bottom: 20px;
   transition: all 0.25s ease;
 `;
 
-const TopGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1.15fr 1fr 1.15fr;
-  gap: 20px;
-  align-items: stretch;
-
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
-  }
+const ShiftSummaryBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 `;
 
-const ShiftCard = styled.div`
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 16px 20px;
+const ShiftSummaryLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+`;
+
+const ShiftItemBox = styled.div`
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
-  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.03);
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
-  }
+  gap: 3px;
 `;
 
-const ShiftCardHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #f1f5f9;
-`;
-
-const ShiftRefBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #38bdf8;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12.5px;
-  font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  letter-spacing: 0.04em;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
-`;
-
-const ShiftDataRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 3px 0;
-`;
-
-const ShiftDataLabel = styled.span`
+const ShiftItemLabel = styled.span`
   color: #64748b;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
 `;
 
-const ShiftDataValue = styled.span`
-  color: #0f172a;
-  font-weight: 600;
-  font-size: 13px;
-`;
-
-const BalancesCard = styled.div`
-  background: linear-gradient(135deg, #f0fdfa 0%, #ecfdf5 45%, #ffffff 100%);
-  border: 1.5px solid #99f6e4;
-  border-radius: 16px;
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 10px;
-  box-shadow: 0 6px 20px -4px rgba(13, 148, 136, 0.1);
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #5eead4;
-    box-shadow: 0 8px 24px -4px rgba(13, 148, 136, 0.16);
-  }
-`;
-
-const BalancesHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
+const ShiftItemRef = styled.span`
+  display: inline-flex;
   align-items: center;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed #99f6e4;
-`;
-
-const BalancesGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-`;
-
-const BalanceTile = styled.div`
-  background: #ffffff;
-  border: 1.5px solid ${(props) => (props.$highlight ? "#0d9488" : "#e2e8f0")};
-  border-radius: 12px;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  box-shadow: ${(props) => (props.$highlight ? "0 4px 14px rgba(13, 148, 136, 0.12)" : "0 2px 6px rgba(15, 23, 42, 0.03)")};
-  transition: all 0.2s ease;
-`;
-
-const BalanceTileLabel = styled.span`
-  font-size: 10.5px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #38bdf8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13.5px;
   font-weight: 700;
-  color: ${(props) => (props.$highlight ? "#0f766e" : "#64748b")};
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
 `;
 
-const BalanceTileAmount = styled.span`
-  font-size: 17.5px;
+const ShiftCollectedAmount = styled.span`
+  font-size: 18px;
   font-weight: 800;
-  color: ${(props) => (props.$highlight ? "#0f766e" : "#0f172a")};
+  color: #0d9488;
   letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+`;
+
+const ShiftItemDivider = styled.div`
+  width: 1px;
+  height: 32px;
+  background: #e2e8f0;
+  margin: 0 4px;
+
+  @media (max-width: 640px) {
+    display: none;
+  }
 `;
 
 const StatusChip = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 9999px;
   font-size: 11.5px;
   font-weight: 700;
@@ -183,22 +114,11 @@ const StatusChip = styled.span`
   box-shadow: 0 1px 3px rgba(16, 185, 129, 0.08);
 `;
 
-const CounterCard = styled.div`
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 16px 20px;
+const ShiftSummaryRight = styled.div`
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
-  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.03);
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
-  }
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 `;
 
 // Legacy Label / Amount for backward compatibility if referenced elsewhere
@@ -257,73 +177,77 @@ const Button = styled.button`
   }
 `;
 
-const ContentWrapper = styled.div`
+const ModuleWrapper = styled.div`
   display: flex;
-  gap: 24px;
-  align-items: flex-start;
-
-  @media (max-width: 900px) {
-    flex-direction: column;
-  }
-`;
-
-const Sidebar = styled.div`
-  width: 250px;
-  flex-shrink: 0;
-  background-color: white;
-  border-radius: 20px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04);
-  padding: 14px;
-`;
-
-const SidebarButton = styled.button`
+  flex-direction: column;
   width: 100%;
-  text-align: left;
-  padding: 12px 18px;
-  margin-bottom: 8px;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+`;
+
+const ModuleTabBar = styled.div`
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 12px 20px 0;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 55%, #14b8a6 100%);
+  box-shadow: 0 2px 12px rgba(15, 118, 110, 0.25);
+  flex-wrap: wrap;
+`;
+
+const ModuleTabButton = styled.button`
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 8px;
+  padding: 11px 22px;
+  font-size: 0.88rem;
+  font-weight: ${({ $active }) => ($active ? "700" : "500")};
+  border: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+  position: relative;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  background: ${({ $active }) => ($active ? "#ffffff" : "rgba(255, 255, 255, 0.14)")};
+  color: ${({ $active }) => ($active ? "#0f766e" : "rgba(255, 255, 255, 0.92)")};
+  box-shadow: ${({ $active }) =>
+    $active ? "0 -2px 8px rgba(0,0,0,0.08), 0 0 0 1px rgba(15,118,110,0.10)" : "none"};
 
-  ${(props) =>
-    props.active
-      ? `
-    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
-    color: white;
-    box-shadow: 0 6px 20px rgba(15, 118, 110, 0.28);
-    transform: translateX(2px);
-  `
-      : `
-    background-color: transparent;
-    color: #475569;
-    
-    &:hover {
-      background-color: #f1f5f9;
-      color: #0f172a;
-      transform: translateX(2px);
-    }
-  `}
+  &:hover {
+    background: ${({ $active }) => ($active ? "#ffffff" : "rgba(255, 255, 255, 0.24)")};
+    color: ${({ $active }) => ($active ? "#0f766e" : "#ffffff")};
+  }
+
+  svg {
+    font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+
+  ${({ $active }) =>
+    $active &&
+    `&::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 12px; right: 12px;
+      height: 3px;
+      background: linear-gradient(90deg, #0f766e, #14b8a6);
+      border-radius: 0 0 4px 4px;
+    }`}
 `;
 
 const MainPanel = styled.div`
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   background-color: white;
-  border-radius: 20px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04);
+  border-radius: 0;
+  border: none;
   overflow: hidden;
 `;
 
 const PanelContent = styled.div`
-  padding: 26px 30px;
+  padding: 22px 26px;
 `;
 
 const Title = styled.h2`
@@ -953,6 +877,7 @@ export default function CentralCashCounter() {
   const [unpaidBills, setUnpaidBills] = useState([]);
   const [receivedBills, setReceivedBills] = useState([]);
   const [ipAdvancePendingBills, setIpAdvancePendingBills] = useState([]);
+  const [ipAdvanceUnpaidBills, setIpAdvanceUnpaidBills] = useState([]);
   const [ipAdvanceReceivedBills, setIpAdvanceReceivedBills] = useState([]);
   const [opPharmacyBills, setOpPharmacyBills] = useState([]);
   const [opPharmacyReceivedBills, setOpPharmacyReceivedBills] = useState([]);
@@ -1291,36 +1216,6 @@ export default function CentralCashCounter() {
     URL.revokeObjectURL(url);
   };
 
-  const formatShiftDateTime = (raw) => {
-    if (!raw) return "—";
-    let s = String(raw).trim().replace(" ", "T");
-    if (s && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
-      s += "Z";
-    }
-    const d = new Date(s);
-    if (isNaN(d.getTime())) return "—";
-    return d.toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  };
-
-  const formatSessionDate = (raw) => {
-    if (!raw) return new Date().toLocaleDateString("en-IN");
-    const datePart = String(raw).split(" ")[0].split("T")[0];
-    const parts = datePart.split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    return datePart;
-  };
-
   const handleShiftChange = async (shiftData) => {
     if (!shiftData) {
       setActiveShift(null);
@@ -1454,16 +1349,27 @@ export default function CentralCashCounter() {
   // ✅ IP Advance formatter — flattens each pending_payment into its own table row
   const formatIpAdvanceData = (admissionsArray, statusFilter = "pending") => {
     const rows = [];
+    const isPaidFilter =
+      statusFilter.toLowerCase() === "paid" || statusFilter.toLowerCase() === "received";
+
     admissionsArray.forEach((admission) => {
       const payments = admission.advance_payments || [];
       // Filter based on status (pending or paid)
-      const filteredPayments = payments.filter(
-        (p) => p.is_advanceActive && String(p.status).toLowerCase() === statusFilter.toLowerCase()
-      );
+      const filteredPayments = payments.filter((p) => {
+        if (!p.is_advanceActive) return false;
+        const pStatus = String(p.status || "").toLowerCase();
+        if (isPaidFilter) {
+          return pStatus === "paid" || pStatus === "received";
+        }
+        return pStatus === "pending";
+      });
       if (filteredPayments.length === 0) return;
 
       filteredPayments.forEach((payment) => {
-        const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
+        const rawDate = isPaidFilter
+          ? (payment.paid_datetime || payment.paid_date || payment.bill_date || payment.date)
+          : (payment.bill_date || payment.date);
+        const billDateObj = rawDate ? new Date(rawDate) : null;
 
         // ✅ Resolve raw integer bill_type (may have a space-prefixed key in some records)
         const rawBillType =
@@ -1476,6 +1382,22 @@ export default function CentralCashCounter() {
         rows.push({
           id: `${admission.ipNumber}-${payment.advance_id}`,
           // display fields
+          date: billDateObj
+            ? billDateObj.toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                timeZone: "Asia/Kolkata",
+              })
+            : "-",
+          time: billDateObj
+            ? billDateObj.toLocaleTimeString("en-IN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+                timeZone: "Asia/Kolkata",
+              })
+            : "-",
           bill_date: billDateObj
             ? billDateObj.toLocaleDateString("en-IN", {
                 day: "2-digit",
@@ -1492,6 +1414,8 @@ export default function CentralCashCounter() {
           ipserial_number: admission.ipserial_number || "-",
           advance_id: payment.advance_id,
           status: payment.status || "-",
+          doctor: admission.admittingDoctor || admission.consultingDoctor || "-",
+          payment_method: payment.payment_details?.method || payment.payment_method || (payment.payment_details ? Object.keys(payment.payment_details).filter(k => payment.payment_details[k] > 0).join(", ") : "-"),
           total: payment.advance_amount || 0,
           source: "IP",
           bill_type: "IP Advance",       // display label (kept for UI)
@@ -1832,7 +1756,7 @@ export default function CentralCashCounter() {
     isFetchingIpAdvanceRef.current = true;
     if (!silent) setLoading(true);
     try {
-      const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "GET");
+      const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/?status=pending`, "GET");
       const billsArray = Array.isArray(response?.data?.data) ? response.data.data : [];
 
       if (!billsArray.length && response?.data?.error) {
@@ -1840,7 +1764,7 @@ export default function CentralCashCounter() {
         return;
       }
 
-      const formatted = formatIpAdvanceData(billsArray);
+      const formatted = formatIpAdvanceData(billsArray, "pending");
       setIpAdvancePendingBills(formatted);
     } catch (err) {
       if (!silent) {
@@ -1854,12 +1778,38 @@ export default function CentralCashCounter() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Fetch IP advance received bills (stub) ────────────────────────────────────
+  const fetchIpAdvanceUnpaidBills = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/?status=unpaid`, "GET");
+      const billsArray = Array.isArray(response?.data?.data) ? response.data.data : [];
+
+      if (!billsArray.length && response?.data?.error) {
+        if (!silent) showToast("error", "IP Advance API error: " + response.data.error);
+        return;
+      }
+
+      const formatted = formatIpAdvanceData(billsArray, "pending");
+      setIpAdvanceUnpaidBills(formatted);
+    } catch (err) {
+      if (!silent) {
+        console.error("IP Advance unpaid bills error:", err?.message || err);
+        showToast("error", "Failed to load IP Advance unpaid bills.");
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Fetch IP advance received bills ───────────────────────────────────────────
   const fetchIpAdvanceReceivedBills = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      // TODO: replace with actual IP advance received-bills endpoint when available
-      setIpAdvanceReceivedBills([]);
+      const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/?status=paid`, "GET");
+      const billsArray = Array.isArray(response?.data?.data) ? response.data.data : [];
+      const formatted = formatIpAdvanceData(billsArray, "paid");
+      setIpAdvanceReceivedBills(formatted);
     } catch (err) {
       if (!silent) {
         console.error("IP Advance received bills error:", err);
@@ -2024,6 +1974,7 @@ export default function CentralCashCounter() {
         if (ipRes?.status === "success" || ipRes?.success) {
           setShowPaymentModal(false);
           await fetchIpAdvancePendingBills();
+          await fetchIpAdvanceUnpaidBills();
           await fetchIpAdvanceReceivedBills();
           refreshActiveShift();
           showToast("success", "Payment collected successfully!");
@@ -2053,10 +2004,6 @@ export default function CentralCashCounter() {
           payment_details,
           shiftno: activeShift?.shiftno || "",
           counter_id: cashCounterId,
-          "auth-hospital-code": localStorage.getItem("hospital_code") || localStorage.getItem("hospitalId") || "SH001",
-          "auth-branch-code": localStorage.getItem("selected_branch") || localStorage.getItem("branch_code") || "SHB001",
-          "auth-outlet-code": localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "OLET001",
-          "auth-user-id": localStorage.getItem("user_id") || localStorage.getItem("userId") || "",
           // ✅ remarks: only sent if user typed something
           ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
         };
@@ -2273,7 +2220,7 @@ export default function CentralCashCounter() {
         selectedType === "pending"
           ? ipAdvancePendingBills
           : selectedType === "unpaid"
-          ? []
+          ? ipAdvanceUnpaidBills
           : ipAdvanceReceivedBills;
     } else if (activeMenuItem === "Returns Bills") {
       bills =
@@ -2311,6 +2258,7 @@ export default function CentralCashCounter() {
     opPharmacyReceivedBills,
     receivedBills,
     ipAdvancePendingBills,
+    ipAdvanceUnpaidBills,
     ipAdvanceReceivedBills,
     returnPendingBills,
     returnReceivedBills,
@@ -2372,6 +2320,8 @@ export default function CentralCashCounter() {
     } else if (activeMenuItem === "IP Advance") {
       if (selectedType === "pending") {
         fetchIpAdvancePendingBills();
+      } else if (selectedType === "unpaid") {
+        fetchIpAdvanceUnpaidBills();
       } else {
         fetchIpAdvanceReceivedBills();
       }
@@ -2409,6 +2359,8 @@ export default function CentralCashCounter() {
     } else if (activeMenuItem === "IP Advance") {
       if (type === "pending") {
         fetchIpAdvancePendingBills();
+      } else if (type === "unpaid") {
+        fetchIpAdvanceUnpaidBills();
       } else {
         fetchIpAdvanceReceivedBills();
       }
@@ -2453,6 +2405,8 @@ export default function CentralCashCounter() {
     } else if (activeMenuItem === "IP Advance") {
       if (selectedType === "pending") {
         fetchIpAdvancePendingBills(silent);
+      } else if (selectedType === "unpaid") {
+        fetchIpAdvanceUnpaidBills(silent);
       } else {
         fetchIpAdvanceReceivedBills(silent);
       }
@@ -2470,6 +2424,7 @@ export default function CentralCashCounter() {
     fetchOpPharmacyPendingBills,
     fetchReceivedBills,
     fetchIpAdvancePendingBills,
+    fetchIpAdvanceUnpaidBills,
     fetchIpAdvanceReceivedBills,
     fetchReturnBills,
   ]);
@@ -2508,6 +2463,8 @@ export default function CentralCashCounter() {
       } else if (activeMenuItem === "IP Advance") {
         if (selectedType === "pending") {
           fetchIpAdvancePendingBills(true);
+        } else if (selectedType === "unpaid") {
+          fetchIpAdvanceUnpaidBills(true);
         } else {
           fetchIpAdvanceReceivedBills(true);
         }
@@ -2545,6 +2502,8 @@ export default function CentralCashCounter() {
     fetchOpPharmacyPendingBills,
     fetchReceivedBills,
     fetchIpAdvancePendingBills,
+    fetchIpAdvanceUnpaidBills,
+    fetchIpAdvanceReceivedBills,
     fetchIpAdvanceReceivedBills,
     fetchReturnBills,
   ]);
@@ -2566,179 +2525,124 @@ export default function CentralCashCounter() {
     <Container>
       <MainContent>
         <TopSection>
-          <TopGrid>
-            {/* ── CARD 1: Shift Reference & Timings ── */}
-            <ShiftCard>
-              <ShiftCardHeader>
-                <ShiftDataLabel><Hash size={13} color="#64748b" /> Shift Ref</ShiftDataLabel>
-                <ShiftRefBadge>{activeShift?.shiftno || "—"}</ShiftRefBadge>
-              </ShiftCardHeader>
+          <ShiftSummaryBar>
+            <ShiftSummaryLeft>
+              <ShiftItemBox>
+                <ShiftItemLabel><Hash size={13} color="#0d9488" /> Shift Number</ShiftItemLabel>
+                <ShiftItemRef>{activeShift?.shiftno || "—"}</ShiftItemRef>
+              </ShiftItemBox>
 
-              <ShiftDataRow>
-                <ShiftDataLabel><Clock size={12} color="#64748b" /> Start Time</ShiftDataLabel>
-                <ShiftDataValue style={shiftBelongsHere ? { color: "#0d9488", fontWeight: 700 } : {}}>
-                  {formatShiftDateTime(activeShift?.StartingTime)}
-                </ShiftDataValue>
-              </ShiftDataRow>
+              <ShiftItemDivider />
 
-              <ShiftDataRow>
-                <ShiftDataLabel><Clock size={12} color="#64748b" /> Close Time</ShiftDataLabel>
-                <ShiftDataValue style={!shiftBelongsHere && activeShift?.closingTime ? { color: "#dc2626", fontWeight: 700 } : {}}>
-                  {activeShift?.closingTime
-                    ? formatShiftDateTime(activeShift.closingTime)
-                    : shiftBelongsHere
-                      ? "Running…"
-                      : "—"}
-                </ShiftDataValue>
-              </ShiftDataRow>
+              <ShiftItemBox>
+                <ShiftItemLabel>Collected Amount</ShiftItemLabel>
+                <ShiftCollectedAmount>
+                  ₹ {parseFloat(activeShift?.collected_Amount ?? activeShift?.collected_amount ?? activeShift?.CollectedAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </ShiftCollectedAmount>
+              </ShiftItemBox>
 
-              <ShiftDataRow>
-                <ShiftDataLabel><User size={12} color="#64748b" /> Cashier ID</ShiftDataLabel>
-                <ShiftDataValue style={{ fontFamily: "monospace", fontWeight: 700, color: "#0f172a" }}>
-                  {activeShift?.CashierID || "—"}
-                </ShiftDataValue>
-              </ShiftDataRow>
-            </ShiftCard>
+              <ShiftItemDivider />
 
-            {/* ── CARD 2: Financial Balances & Shift Status ── */}
-            <BalancesCard>
-              <BalancesHeader>
-                <ShiftDataLabel style={{ color: "#0f766e" }}>Cash Overview</ShiftDataLabel>
-                <StatusChip $active={activeShift?.ShiftStatus === "active"}>
-                  <span style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: "50%",
-                    background: activeShift?.ShiftStatus === "active" ? "#10b981" : "#94a3b8",
-                    display: "inline-block"
-                  }} />
-                  {activeShift?.ShiftStatus ? (activeShift.ShiftStatus.charAt(0).toUpperCase() + activeShift.ShiftStatus.slice(1)) : "Inactive"}
-                </StatusChip>
-              </BalancesHeader>
-
-              <BalancesGrid>
-                <BalanceTile>
-                  <BalanceTileLabel>Opening Balance</BalanceTileLabel>
-                  <BalanceTileAmount>
-                    ₹ {parseFloat(activeShift?.OpeningBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </BalanceTileAmount>
-                </BalanceTile>
-
-                <BalanceTile $highlight style={{ background: "#f0fdf4" }}>
-                  <BalanceTileLabel $highlight>Closing Balance</BalanceTileLabel>
-                  <BalanceTileAmount $highlight>
-                    ₹ {parseFloat(activeShift?.ClosingBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </BalanceTileAmount>
-                </BalanceTile>
-              </BalancesGrid>
-            </BalancesCard>
-
-            {/* ── CARD 3: Counter Session & Actions ── */}
-            <CounterCard>
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <ShiftDataRow>
-                  <ShiftDataLabel><Layers size={12} color="#64748b" /> Cash Counter</ShiftDataLabel>
-                  <ShiftDataValue style={{ fontWeight: 700, color: "#0f172a" }}>
-                    {activeShift?.CashCounter || "—"}
-                  </ShiftDataValue>
-                </ShiftDataRow>
-
-                <ShiftDataRow>
-                  <ShiftDataLabel>Branch Code</ShiftDataLabel>
-                  <ShiftDataValue>{activeShift?.branch_code || "—"}</ShiftDataValue>
-                </ShiftDataRow>
-
-                <ShiftDataRow>
-                  <ShiftDataLabel>Session Date</ShiftDataLabel>
-                  <ShiftDataValue>{formatSessionDate(activeShift?.date)}</ShiftDataValue>
-                </ShiftDataRow>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 4 }}>
+              <div>
                 {shiftBelongsHere ? (
-                  <>
-                    <ShiftRunningBanner style={{ margin: 0, padding: "6px 10px", fontSize: "12px", flex: 1 }}>
-                      <span className="dot" />
-                      Running: <strong>{activeShift.CashierID}</strong>
-                    </ShiftRunningBanner>
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <Button
-                        style={{
-                          background: "#ffffff",
-                          color: "#0f766e",
-                          border: "1px solid #ccfbf1",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                          padding: "7px 12px",
-                          fontSize: "12px"
-                        }}
-                        onClick={() => navigate("/CashCounterShiftManagement")}
-                        title="Manage All Shifts"
-                      >
-                        🕒 Shift Manager
-                      </Button>
-                      <Button
-                        style={{
-                          background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                          boxShadow: "0 2px 8px rgba(220, 38, 38, 0.25)",
-                          padding: "7px 14px",
-                          fontSize: "12.5px"
-                        }}
-                        onClick={handleShiftDetailsClick}
-                      >
-                        ⏹ Stop Counter
-                      </Button>
-                    </div>
-                  </>
+                  <ShiftRunningBanner style={{ margin: 0, padding: "5px 12px", fontSize: "12px", borderRadius: "9999px" }}>
+                    <span className="dot" />
+                    Running: <strong>{activeShift.CashierID}</strong>
+                  </ShiftRunningBanner>
                 ) : (
-                  <div style={{ width: "100%", display: "flex", justifyContent: "flex-end", gap: "8px" }}>
-                    <Button
-                      style={{
-                        background: "#ffffff",
-                        color: "#0f766e",
-                        border: "1px solid #ccfbf1",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                        padding: "7px 12px",
-                        fontSize: "12.5px"
-                      }}
-                      onClick={() => navigate("/CashCounterShiftManagement")}
-                      title="Manage All Shifts"
-                    >
-                      🕒 Shift Manager
-                    </Button>
-                    <Button
-                      style={{ padding: "7px 16px", fontSize: "13px" }}
-                      onClick={handleShiftDetailsClick}
-                    >
-                      ▶ Start Counter
-                    </Button>
-                  </div>
+                  <StatusChip $active={false} style={{ fontSize: "12px", padding: "5px 12px" }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#94a3b8", display: "inline-block" }} />
+                    Inactive
+                  </StatusChip>
                 )}
               </div>
-            </CounterCard>
-          </TopGrid>
+            </ShiftSummaryLeft>
+
+            <ShiftSummaryRight>
+              <Button
+                style={{
+                  background: "#f0fdfa",
+                  color: "#0f766e",
+                  border: "1px solid #99f6e4",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                  padding: "8px 14px",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+                onClick={handleShiftDetailsClick}
+                title="View shift details in modal"
+              >
+                <Eye size={14} /> Shift Details
+              </Button>
+
+              <Button
+                style={{
+                  background: "#ffffff",
+                  color: "#0f766e",
+                  border: "1px solid #ccfbf1",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                  padding: "8px 14px",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+                onClick={() => navigate("/CashCounterShiftManagement")}
+                title="Manage All Shifts"
+              >
+                🕒 Shift Manager
+              </Button>
+
+              {shiftBelongsHere ? (
+                <Button
+                  style={{
+                    background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                    boxShadow: "0 2px 8px rgba(220, 38, 38, 0.25)",
+                    padding: "8px 16px",
+                    fontSize: "12.5px",
+                    fontWeight: 700
+                  }}
+                  onClick={handleShiftDetailsClick}
+                >
+                  ⏹ Stop Counter
+                </Button>
+              ) : (
+                <Button
+                  style={{ padding: "8px 18px", fontSize: "13px", fontWeight: 700 }}
+                  onClick={handleShiftDetailsClick}
+                >
+                  ▶ Start Counter
+                </Button>
+              )}
+            </ShiftSummaryRight>
+          </ShiftSummaryBar>
         </TopSection>
 
-        <ContentWrapper>
-          <Sidebar>
+        <ModuleWrapper>
+          <ModuleTabBar>
             {sidebarItems.map((item, index) => {
               const iconMap = {
-                "Pending Bills": <CreditCard size={16} />,
-                "IP Advance": <CreditCard size={16} />,
-                "Returns Bills": <RotateCcw size={16} />,
-                "Receipt / Payment": <Search size={16} />,
+                "Pending Bills": <CreditCard size={15} />,
+                "IP Advance": <CreditCard size={15} />,
+                "Returns Bills": <RotateCcw size={15} />,
+                "Receipt / Payment": <Search size={15} />,
               };
               return (
-                <SidebarButton
+                <ModuleTabButton
                   key={index}
-                  active={activeMenuItem === item.label}
+                  $active={activeMenuItem === item.label}
                   onClick={() => handleMenuItemClick(item.label)}
                 >
-                  {iconMap[item.label] || <Search size={16} />}
+                  {iconMap[item.label] || <Search size={15} />}
                   <span>{item.label}</span>
-                </SidebarButton>
+                </ModuleTabButton>
               );
             })}
-          </Sidebar>
+          </ModuleTabBar>
 
           <MainPanel>
             <PanelContent>
@@ -3622,7 +3526,7 @@ export default function CentralCashCounter() {
               )}
             </PanelContent>
           </MainPanel>
-        </ContentWrapper>
+        </ModuleWrapper>
       </MainContent>
 
       <ShiftDetails

@@ -16,43 +16,43 @@ const ModalOverlay = styled.div`
 const ModalContent = styled.div`
   background: white; border-radius: 8px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-  width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto;
+  width: 92%; max-width: 880px; max-height: 94vh; overflow-y: auto;
 `;
 const ModalHeader = styled.div`
   background-color: #0d9488; color: white;
-  padding: 16px 24px;
+  padding: 10px 18px;
   display: flex; justify-content: space-between; align-items: center;
   border-radius: 8px 8px 0 0;
 `;
-const ModalTitle = styled.h2`margin:0; font-size:18px; font-weight:600;`;
+const ModalTitle = styled.h2`margin:0; font-size:16px; font-weight:600;`;
 const CloseButton = styled.button`
-  background:none; border:none; color:white; font-size:24px; cursor:pointer;
-  width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+  background:none; border:none; color:white; font-size:20px; cursor:pointer;
+  width:28px; height:28px; display:flex; align-items:center; justify-content:center;
   border-radius:4px;
   &:hover { background-color: rgba(255,255,255,0.1); }
 `;
-const ModalBody = styled.div`padding: 24px;`;
+const ModalBody = styled.div`padding: 14px 18px;`;
 const FormGrid = styled.div`
-  display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 14px; margin-bottom: 12px;
   @media (max-width: 768px) { grid-template-columns: 1fr; }
 `;
-const FormGroup = styled.div`display:flex; flex-direction:column; gap:6px;`;
-const FormLabel = styled.label`font-weight:600; color:#374151; font-size:13px; letter-spacing:0.02em;`;
+const FormGroup = styled.div`display:flex; flex-direction:column; gap:3px;`;
+const FormLabel = styled.label`font-weight:700; color:#475569; font-size:11px; letter-spacing:0.02em;`;
 
 const FormInput = styled.input`
-  border: 1px solid #d1d5db; border-radius: 4px; padding: 10px 12px;
-  font-size: 14px; width: 100%; box-sizing: border-box;
-  background-color: ${(p) => (p.readOnly ? "#f3f4f6" : "white")};
+  border: 1px solid #d1d5db; border-radius: 4px; padding: 6px 10px;
+  font-size: 13px; width: 100%; box-sizing: border-box; height: 34px;
+  background-color: ${(p) => (p.readOnly ? "#f8fafc" : "white")};
   cursor: ${(p) => (p.readOnly ? "not-allowed" : "text")};
   color: #111827;
-  &:focus { outline:none; border-color:#0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
+  &:focus { outline:none; border-color:#0d9488; box-shadow: 0 0 0 2px rgba(13,148,136,0.15); }
 `;
 
 const ClockInput = styled.input`
   border: 1.5px solid ${(p) => (p.isactive ? "#0d9488" : p.isfrozen ? "#6366f1" : "#d1d5db")};
-  border-radius: 4px; padding: 10px 12px;
-  font-size: 20px; font-family: monospace; font-weight: 700; letter-spacing: 0.1em;
-  width: 100%; box-sizing: border-box;
+  border-radius: 4px; padding: 4px 8px;
+  font-size: 15px; font-family: monospace; font-weight: 700; letter-spacing: 0.08em;
+  width: 100%; box-sizing: border-box; height: 34px;
   background-color: ${(p) => (p.isactive ? "#f0fdfa" : p.isfrozen ? "#eef2ff" : "#f9fafb")};
   color: ${(p) => (p.isactive ? "#0d9488" : p.isfrozen ? "#4338ca" : "#9ca3af")};
   cursor: not-allowed; text-align: center;
@@ -60,17 +60,17 @@ const ClockInput = styled.input`
 
 const ShiftBadge = styled.div`
   display:inline-flex; align-items:center; gap:6px;
-  padding:8px 14px; border-radius:20px; font-size:13px; font-weight:600;
+  padding:4px 10px; border-radius:14px; font-size:11.5px; font-weight:600;
   background-color:${(p) => p.status==="active" ? "#dcfce7" : p.status==="inactive" ? "#fee2e2" : "#f3f4f6"};
   color:${(p) => p.status==="active" ? "#166534" : p.status==="inactive" ? "#991b1b" : "#6b7280"};
   border:1px solid ${(p) => p.status==="active" ? "#bbf7d0" : p.status==="inactive" ? "#fecaca" : "#e5e7eb"};
 `;
 const ButtonGroup = styled.div`
-  display:flex; justify-content:center; gap:16px; margin-top:24px;
+  display:flex; justify-content:center; gap:12px; margin-top:10px;
 `;
 const ActionButton = styled.button`
-  padding:12px 28px; border:none; border-radius:4px; font-size:14px; font-weight:600;
-  display:flex; align-items:center; gap:8px; transition:background-color 0.2s;
+  padding:8px 26px; border:none; border-radius:4px; font-size:13.5px; font-weight:600;
+  display:flex; align-items:center; gap:6px; transition:background-color 0.2s;
   opacity:${(p) => p.disabled ? 0.5 : 1};
   cursor:${(p) => p.disabled ? "not-allowed" : "pointer"};
   ${(p) => p.variant === "start"
@@ -78,24 +78,20 @@ const ActionButton = styled.button`
     : "background-color:#dc2626; color:white; &:hover:not(:disabled){background-color:#b91c1c;}"}
 `;
 const LoadingSpinner = styled.div`
-  display:inline-block; width:16px; height:16px;
+  display:inline-block; width:14px; height:14px;
   border:2px solid #ffffff40; border-top:2px solid #ffffff;
   border-radius:50%; animation:spin 1s linear infinite;
   @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
 `;
 const AlertBox = styled.div`
-  padding:12px 16px; border-radius:4px; margin-bottom:16px; font-size:14px;
-  display:flex; align-items:flex-start; gap:8px;
+  padding:8px 12px; border-radius:4px; margin-bottom:10px; font-size:12.5px;
+  display:flex; align-items:flex-start; gap:6px;
   background-color:${({type}) => type==="error"?"#fef2f2":type==="success"?"#f0fdf4":"#fffbeb"};
   color:${({type}) => type==="error"?"#dc2626":type==="success"?"#166534":"#92400e"};
   border:1px solid ${({type}) => type==="error"?"#fecaca":type==="success"?"#bbf7d0":"#fde68a"};
 `;
-const SectionDivider = styled.div`border-top:1px solid #e5e7eb; margin:8px 0 20px;`;
-const TimeSection = styled.div`
-  grid-column: 1 / -1;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
-`;
-const SubLabel = styled.div`font-size:11px; color:#6b7280; margin-top:3px;`;
+const SectionDivider = styled.div`border-top:1px solid #e5e7eb; margin:6px 0 10px;`;
+const SubLabel = styled.div`font-size:10px; color:#6b7280; margin-top:2px;`;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -484,6 +480,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
 
           <FormGrid>
 
+            {/* ROW 1: Counter, Cashier, Branch */}
             <FormGroup>
               <FormLabel>CASH COUNTER</FormLabel>
               <FormInput type="text" value={formData.cashCounterName || "—"} readOnly />
@@ -494,6 +491,12 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
               <FormInput type="text" value={formData.cashierID || "—"} readOnly />
             </FormGroup>
 
+            <FormGroup>
+              <FormLabel>BRANCH CODE</FormLabel>
+              <FormInput type="text" value={formData.branchCode || "—"} readOnly />
+            </FormGroup>
+
+            {/* ROW 2: Opening, Petty cash, Collected */}
             <FormGroup>
               <FormLabel>OPENING BALANCE</FormLabel>
               <FormInput
@@ -526,6 +529,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
               />
             </FormGroup>
 
+            {/* ROW 3: Closing, Remitted, Handover */}
             <FormGroup>
               <FormLabel>CLOSING BALANCE</FormLabel>
               <FormInput
@@ -535,7 +539,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
                 readOnly={!isActive}
                 placeholder="0.00"
               />
-              <SubLabel>Formula: Opening + Collected - Remitted - Submitted</SubLabel>
+              <SubLabel>Opening + Collected - Remitted - Handover</SubLabel>
             </FormGroup>
 
             <FormGroup>
@@ -560,53 +564,43 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
               />
             </FormGroup>
 
-            <FormGroup>
-              <FormLabel>BRANCH CODE</FormLabel>
-              <FormInput type="text" value={formData.branchCode || "—"} readOnly />
-            </FormGroup>
-
+            {/* ROW 4: Date, Starting time, Closing time */}
             <FormGroup>
               <FormLabel>DATE</FormLabel>
               <FormInput type="text" value={formData.date || "—"} readOnly />
             </FormGroup>
 
-            <TimeSection>
+            <FormGroup>
+              <FormLabel>STARTING TIME</FormLabel>
+              <ClockInput
+                type="text"
+                value={startClock || "— : — : —"}
+                readOnly
+                isactive={startActive}
+                isfrozen={startFrozen}
+              />
+              <SubLabel>
+                {shiftStartISO ? formatDateTime(shiftStartISO) : "— not started —"}
+              </SubLabel>
+            </FormGroup>
 
-              {/* Starting Time — frozen to API StartingTime */}
-              <FormGroup>
-                <FormLabel>STARTING TIME</FormLabel>
-                <ClockInput
-                  type="text"
-                  value={startClock || "— : — : —"}
-                  readOnly
-                  isactive={startActive}
-                  isfrozen={startFrozen}
-                />
-                <SubLabel>
-                  {shiftStartISO ? formatDateTime(shiftStartISO) : "— not started —"}
-                </SubLabel>
-              </FormGroup>
-
-              {/* Closing Time — live ticker while active, frozen on stop */}
-              <FormGroup>
-                <FormLabel>CLOSING TIME</FormLabel>
-                <ClockInput
-                  type="text"
-                  value={closingClock || "— : — : —"}
-                  readOnly
-                  isactive={closeActive}
-                  isfrozen={closeFrozen}
-                />
-                <SubLabel>
-                  {shiftEndISO
-                    ? formatDateTime(shiftEndISO)
-                    : isActive
-                    ? "Shift running…"
-                    : "— not stopped —"}
-                </SubLabel>
-              </FormGroup>
-
-            </TimeSection>
+            <FormGroup>
+              <FormLabel>CLOSING TIME</FormLabel>
+              <ClockInput
+                type="text"
+                value={closingClock || "— : — : —"}
+                readOnly
+                isactive={closeActive}
+                isfrozen={closeFrozen}
+              />
+              <SubLabel>
+                {shiftEndISO
+                  ? formatDateTime(shiftEndISO)
+                  : isActive
+                  ? "Shift running…"
+                  : "— not stopped —"}
+              </SubLabel>
+            </FormGroup>
 
           </FormGrid>
 
