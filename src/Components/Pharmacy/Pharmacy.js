@@ -1083,6 +1083,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
   // UHID Search Modal
   const [showUHIDModal, setShowUHIDModal] = useState(false);
+  const [uhidModalTitle, setUhidModalTitle] = useState("Select Patient");
   const [uhidSearchInput, setUhidSearchInput] = useState("");
   const [uhidNamePhone, setUhidNamePhone] = useState("");
   const [uhidAdmitted, setUhidAdmitted] = useState(false);
@@ -1097,10 +1098,14 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     }
     const np = (uhidNamePhone || "").trim().toLowerCase();
     if (np) {
+      const npDigits = np.replace(/\D/g, "");
       list = list.filter(p => {
         const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.toLowerCase();
-        const mobile = String(p.mobilePhone || p.mobile || p.phone || p.mobileNumber || "").toLowerCase();
-        return fullName.includes(np) || mobile.includes(np);
+        const rawPhone = String(p.mobilePhone || p.mobile || p.phone || p.mobileNumber || "");
+        const phoneLower = rawPhone.toLowerCase();
+        const phoneDigits = rawPhone.replace(/\D/g, "");
+        const matchPhone = phoneLower.includes(np) || (npDigits.length >= 6 && phoneDigits.includes(npDigits));
+        return fullName.includes(np) || matchPhone;
       });
     }
     return list;
@@ -1300,6 +1305,94 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   }
 };
 
+  // Search patient by UHID (from form UHID field or Enter key)
+  const handleSearchByUhid = async (directVal) => {
+    const val = (directVal !== undefined ? directVal : formData.uhid || "").trim();
+    if (!val) {
+      openUHIDModal();
+      return;
+    }
+
+    setUhidSearchLoading(true);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}patient_details/?uhid=${encodeURIComponent(val)}`,
+        "GET"
+      );
+      const resBody = res?.data || res;
+      let results = Array.isArray(resBody?.data)
+        ? resBody.data
+        : Array.isArray(resBody)
+          ? resBody
+          : [];
+
+      if (results.length === 0) {
+        toast.info("No patient found for the given UHID.", { autoClose: 2000, pauseOnHover: false });
+      } else if (results.length === 1) {
+        handleUHIDSelect(results[0]);
+        const pName = formatPatientName(results[0].salutation, results[0].firstName, results[0].lastName);
+        toast.success(`Patient details loaded for ${pName || results[0].uhid}`, { autoClose: 2000, pauseOnHover: false });
+      } else {
+        setUhidModalTitle(`Select Patient (UHID: ${val})`);
+        setUhidSearchInput(val);
+        setUhidNamePhone("");
+        setUhidAdmitted(false);
+        setUhidSearchResults(results);
+        setShowUHIDModal(true);
+      }
+    } catch (err) {
+      console.error("UHID search error:", err);
+      toast.error("Failed to search patient by UHID.", { autoClose: 2000, pauseOnHover: false });
+    } finally {
+      setUhidSearchLoading(false);
+    }
+  };
+
+  // Search patient by Mobile Number (from form Mobile field or Enter key)
+  const handleSearchByMobile = async (directVal) => {
+    const val = (directVal !== undefined ? directVal : mobilePhone || "").trim();
+    if (!val) {
+      toast.warning("Please enter a mobile number to search.", { autoClose: 2000, pauseOnHover: false });
+      return;
+    }
+
+    setUhidSearchLoading(true);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}patient_details/?mobile=${encodeURIComponent(val)}`,
+        "GET"
+      );
+      const resBody = res?.data || res;
+      let results = Array.isArray(resBody?.data)
+        ? resBody.data
+        : Array.isArray(resBody)
+          ? resBody
+          : [];
+
+      if (results.length === 0) {
+        toast.info("No patient found for the given mobile number.", { autoClose: 2000, pauseOnHover: false });
+      } else if (results.length === 1) {
+        handleUHIDSelect(results[0]);
+        const pName = formatPatientName(results[0].salutation, results[0].firstName, results[0].lastName);
+        toast.success(`Patient details loaded for ${pName || results[0].uhid}`, { autoClose: 2000, pauseOnHover: false });
+      } else {
+        setUhidModalTitle(`Select Patient (Mobile: ${val})`);
+        setUhidSearchInput("");
+        setUhidNamePhone("");
+        setUhidAdmitted(false);
+        setUhidSearchResults(results);
+        setShowUHIDModal(true);
+        toast.info(`Found ${results.length} patients sharing this mobile number. Please select one.`, { autoClose: 2500, pauseOnHover: false });
+      }
+    } catch (err) {
+      console.error("Mobile search error:", err);
+      toast.error("Failed to search patient by mobile number.", { autoClose: 2000, pauseOnHover: false });
+    } finally {
+      setUhidSearchLoading(false);
+    }
+  };
+
+
 
   const fetchAdmissionStatus = async (uhid) => {
     try {
@@ -1420,18 +1513,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   };
 
   const openUHIDModal = () => {
-  const currentUhid = formData.uhid || "";
-  setUhidSearchInput(currentUhid);
-  setUhidNamePhone("");
-  setUhidAdmitted(false);
-  setUhidSearchResults([]);
-  setShowUHIDModal(true);
+    const currentUhid = formData.uhid || "";
+    setUhidModalTitle("Select Patient");
+    setUhidSearchInput(currentUhid);
+    setUhidNamePhone("");
+    setUhidAdmitted(false);
+    setUhidSearchResults([]);
+    setShowUHIDModal(true);
 
-  // Auto-search if UHID already typed in form — pass value directly to avoid stale closure
-  if (currentUhid.trim()) {
-    setTimeout(() => handleUHIDSearch(currentUhid.trim()), 0);
-  }
-};
+    // Auto-search if UHID already typed in form — pass value directly to avoid stale closure
+    if (currentUhid.trim()) {
+      setTimeout(() => handleUHIDSearch(currentUhid.trim()), 0);
+    }
+  };
   // ── IP Number Search ─────────────────────────────────────────────────────
   const handleIPSearch = async (directIPVal) => {
     const ipVal = (directIPVal !== undefined ? directIPVal : ipSearchInput).trim();
@@ -3592,7 +3686,7 @@ const loadedMedicines = rawMeds.map((item) => {
 
   return (
     <PageWrapper>
-      <StyledToastContainer position="top-right" autoClose={5000} hideProgressBar={false} closeOnClick pauseOnHover />
+      <StyledToastContainer position="top-right" autoClose={2000} hideProgressBar={false} closeOnClick pauseOnHover={false} limit={3} />
       <Card>
 
         {/* ── Top Bar: Title + Last Billed UHID ── */}
@@ -3698,19 +3792,40 @@ const loadedMedicines = rawMeds.map((item) => {
           <FormRow>
             <InputWrapper>
               <Label>UHID Number</Label>
-              <Input
-                type="text"
-                name="uhid"
-                placeholder="Type UHID and press Enter to search"
-                value={formData.uhid}
-                onChange={handleChange}
-                onKeyDown={e => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    openUHIDModal();
-                  }
-                }}
-              />
+              <div style={{ display: "flex", gap: 0 }}>
+                <Input
+                  type="text"
+                  name="uhid"
+                  placeholder="Type UHID and press Enter"
+                  value={formData.uhid}
+                  onChange={handleChange}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleSearchByUhid();
+                    }
+                  }}
+                  style={{ borderRadius: "10px 0 0 10px", borderRight: "none", flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSearchByUhid()}
+                  title="Search patient by UHID"
+                  style={{
+                    padding: "0 14px",
+                    background: "linear-gradient(135deg, #0f766e, #0d9488)",
+                    color: "#fff",
+                    border: "1px solid #0f766e",
+                    borderRadius: "0 10px 10px 0",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  <FaSearch />
+                </button>
+              </div>
             </InputWrapper>
 
             <InputWrapper>
@@ -3771,7 +3886,40 @@ const loadedMedicines = rawMeds.map((item) => {
 
             <InputWrapper>
               <Label>Mobile</Label>
-              <Input value={mobilePhone} disabled />
+              <div style={{ display: "flex", gap: 0 }}>
+                <Input
+                  type="text"
+                  name="mobilePhone"
+                  placeholder="Type Mobile and press Enter"
+                  value={mobilePhone}
+                  onChange={e => setMobilePhone(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleSearchByMobile();
+                    }
+                  }}
+                  style={{ borderRadius: "10px 0 0 10px", borderRight: "none", flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSearchByMobile()}
+                  title="Search patient by Mobile Number"
+                  style={{
+                    padding: "0 14px",
+                    background: "linear-gradient(135deg, #0f766e, #0d9488)",
+                    color: "#fff",
+                    border: "1px solid #0f766e",
+                    borderRadius: "0 10px 10px 0",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  <FaSearch />
+                </button>
+              </div>
             </InputWrapper>
 
             <InputWrapper>
@@ -4756,7 +4904,7 @@ const loadedMedicines = rawMeds.map((item) => {
         <ModalOverlay onClick={() => setShowUHIDModal(false)}>
           <ModalContainer style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
             <ModalHeader>
-              <ModalTitle>Select UHID</ModalTitle>
+              <ModalTitle>{uhidModalTitle || "Select Patient"}</ModalTitle>
               <CloseButton onClick={() => setShowUHIDModal(false)}>×</CloseButton>
             </ModalHeader>
             <ModalBody>

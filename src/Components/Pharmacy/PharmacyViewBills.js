@@ -811,7 +811,10 @@ const SectionTitle = styled.div`
 `;
 
 // ─── Pure helpers ──────────────────────────────────────────────────────────────
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => {
+  const d = new Date();
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+};
 
 const ensureUtcIso = (iso) => {
   if (!iso) return iso;
@@ -1111,7 +1114,7 @@ const returnStatusVariant = (status) => {
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) {
+export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, activeTab, refreshTrigger }) {
   const { toasts, show: showToast, dismiss: dismissToast } = useToast();
 
   // ── Bills State ───────────────────────────────────────────────────────────
@@ -1280,13 +1283,28 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
     }
   }, [fromDate, toDate, searchBy, searchText, billTypeFilter]);
 
-  useEffect(() => { fetchBills(); }, []); // eslint-disable-line
+  // Auto-fetch bills on initial mount, when switching to View Bills tab, or when a new bill is saved
+  useEffect(() => {
+    if (!activeTab || activeTab === "view_bills") {
+      fetchBills();
+    }
+  }, [activeTab, refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Bills filtering/sorting/pagination ────────────────────────────────────
   const filtered = allBills.filter((b) => {
     if (billTypeFilter !== "ALL" && b.bill_type !== billTypeFilter) return false;
     if (fromDate || toDate) {
-      const billDay = b.bill_date ? b.bill_date.split("T")[0] : null;
+      const billDay = b.bill_date ? (() => {
+        try {
+          const s = String(b.bill_date).trim();
+          const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
+          const d = new Date(iso);
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+          }
+        } catch (e) {}
+        return b.bill_date.split("T")[0];
+      })() : null;
       if (billDay) {
         if (fromDate && billDay < fromDate) return false;
         if (toDate   && billDay > toDate)   return false;
@@ -1336,7 +1354,17 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const dateFiltered = allBills.filter((b) => {
     if (fromDate || toDate) {
-      const billDay = b.bill_date ? b.bill_date.split("T")[0] : null;
+      const billDay = b.bill_date ? (() => {
+        try {
+          const s = String(b.bill_date).trim();
+          const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
+          const d = new Date(iso);
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+          }
+        } catch (e) {}
+        return b.bill_date.split("T")[0];
+      })() : null;
       if (billDay) {
         if (fromDate && billDay < fromDate) return false;
         if (toDate   && billDay > toDate)   return false;

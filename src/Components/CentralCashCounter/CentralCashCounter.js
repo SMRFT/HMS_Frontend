@@ -968,6 +968,7 @@ export default function CentralCashCounter() {
   const [activeMenuItem, setActiveMenuItem] = useState("Pending Bills");
   const [showShiftDetails, setShowShiftDetails] = useState(false);
   const [pendingBills, setPendingBills] = useState([]);
+  const [unpaidBills, setUnpaidBills] = useState([]);
   const [receivedBills, setReceivedBills] = useState([]);
   const [ipAdvancePendingBills, setIpAdvancePendingBills] = useState([]);
   const [ipAdvanceReceivedBills, setIpAdvanceReceivedBills] = useState([]);
@@ -1004,12 +1005,12 @@ export default function CentralCashCounter() {
   const showToast = (type, message) => {
     const text = type === "error" ? extractErrorMessage(message) : (typeof message === "string" ? message : JSON.stringify(message));
     if (type === "success") {
-      toast.success(text);
+      toast.success(text, { autoClose: 2000, pauseOnHover: false });
     } else {
-      toast.error(text);
+      toast.error(text, { autoClose: 2500, pauseOnHover: false });
     }
     setToastState({ visible: true, type, message: text });
-    setTimeout(() => setToastState({ visible: false, type: "", message: "" }), 4000);
+    setTimeout(() => setToastState({ visible: false, type: "", message: "" }), 2000);
   };
 
   const [filteredBills, setFilteredBills] = useState([]);
@@ -1611,6 +1612,65 @@ export default function CentralCashCounter() {
     }
   }, []);
 
+  // ── Fetch unpaid bills ───────────────────────────────────────────────────────
+  const fetchUnpaidBills = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}get_mainblock_pendingbills/?status=unpaid`, "GET");
+      if (!response?.success) {
+        if (!silent) {
+          console.error("Unpaid bills error:", response);
+          showToast("error", response?.error || "Unable to connect to HMS server. Please try again.");
+        }
+        return;
+      }
+
+      const billsArray = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+      const formatted = billsArray.map((item, index) => {
+        const dateObj = item.date ? new Date(item.date) : null;
+        const billDate = dateObj
+          ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
+          : "-";
+        const billTime = dateObj
+          ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+          : "-";
+
+        return {
+          id: `${item.type}-${item.bill_no}-${index}`,
+          date: billDate,
+          time: billTime,
+          bill_no: item.bill_no || "-",
+          raw_bill_no: item.bill_no || null,
+          bill_type: item.type || "-",
+          raw_bill_type: item.type || null,
+          uhid_no: item.uhid || "-",
+          patient: item.patient_name || "-",
+          amount: parseFloat(item.amount || 0),
+          status: item.status || "-",
+          raw: item.raw || {},
+          Bill_id: item.raw?.patient_id || null,
+          uhid: item.uhid || "-",
+          total: parseFloat(item.amount || 0),
+          source: item.type === "Discharge" ? "IP" : "OP",
+        };
+      });
+
+      setUnpaidBills(formatted);
+    } catch (err) {
+      if (!silent) {
+        console.error("Unpaid bills error:", err);
+        showToast("error", "Unable to connect to HMS server. Please try again.");
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
+
   // ── Fetch received bills ─────────────────────────────────────────────────────
   const fetchReceivedBills = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -2063,8 +2123,10 @@ export default function CentralCashCounter() {
         const paidBillNo = selectedBill.raw_bill_no || selectedBill.bill_no;
         // Immediate local state removal for instant UI feedback
         setPendingBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+        setUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         setOpPharmacyBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         await fetchPendingBills();
+        await fetchUnpaidBills();
         await fetchOpPharmacyPendingBills();
         await fetchReceivedBills();
         refreshActiveShift();
@@ -2210,19 +2272,21 @@ export default function CentralCashCounter() {
     if (activeMenuItem === "Pending Bills") {
       if (isOp) {
         // Outlet 2 / CC0002: strictly OP Pharmacy bills only (bill type 42)
-        bills = selectedType === "pending" ? opPharmacyBills : opPharmacyReceivedBills;
+        bills = selectedType === "pending" ? opPharmacyBills : selectedType === "unpaid" ? [] : opPharmacyReceivedBills;
       } else {
         // Main block front office (CC0001 / OLET003)
-        bills = selectedType === "pending" ? pendingBills : receivedBills;
+        bills = selectedType === "pending" ? pendingBills : selectedType === "unpaid" ? unpaidBills : receivedBills;
       }
     } else if (activeMenuItem === "IP Advance") {
       bills =
         selectedType === "pending"
           ? ipAdvancePendingBills
+          : selectedType === "unpaid"
+          ? []
           : ipAdvanceReceivedBills;
     } else if (activeMenuItem === "Returns Bills") {
       bills =
-        selectedType === "pending" ? returnPendingBills : returnReceivedBills;
+        selectedType === "pending" ? returnPendingBills : selectedType === "unpaid" ? [] : returnReceivedBills;
     }
 
     let filtered = bills;
@@ -2251,6 +2315,7 @@ export default function CentralCashCounter() {
     activeMenuItem,
     selectedType,
     pendingBills,
+    unpaidBills,
     opPharmacyBills,
     opPharmacyReceivedBills,
     receivedBills,
@@ -2307,6 +2372,8 @@ export default function CentralCashCounter() {
       } else {
         if (selectedType === "pending") {
           fetchPendingBills();
+        } else if (selectedType === "unpaid") {
+          fetchUnpaidBills();
         } else {
           fetchReceivedBills();
         }
@@ -2342,6 +2409,8 @@ export default function CentralCashCounter() {
       } else {
         if (type === "pending") {
           fetchPendingBills();
+        } else if (type === "unpaid") {
+          fetchUnpaidBills();
         } else {
           fetchReceivedBills();
         }
@@ -2384,6 +2453,8 @@ export default function CentralCashCounter() {
       } else {
         if (selectedType === "pending") {
           fetchPendingBills(silent);
+        } else if (selectedType === "unpaid") {
+          fetchUnpaidBills(silent);
         } else {
           fetchReceivedBills(silent);
         }
@@ -2404,6 +2475,7 @@ export default function CentralCashCounter() {
     activeShift?.shiftno,
     cashCounterId,
     fetchPendingBills,
+    fetchUnpaidBills,
     fetchOpPharmacyPendingBills,
     fetchReceivedBills,
     fetchIpAdvancePendingBills,
@@ -2436,6 +2508,8 @@ export default function CentralCashCounter() {
         } else {
           if (selectedType === "pending") {
             fetchPendingBills(true);
+          } else if (selectedType === "unpaid") {
+            fetchUnpaidBills(true);
           } else {
             fetchReceivedBills(true);
           }
@@ -3157,6 +3231,16 @@ export default function CentralCashCounter() {
                         <RadioInput
                           type="radio"
                           name="billStatus"
+                          value="unpaid"
+                          checked={selectedType === "unpaid"}
+                          onChange={(e) => handleTypeChange(e.target.value)}
+                        />
+                        Unpaid Bills
+                      </RadioLabel>
+                      <RadioLabel>
+                        <RadioInput
+                          type="radio"
+                          name="billStatus"
                           value="received"
                           checked={selectedType === "received"}
                           onChange={(e) => handleTypeChange(e.target.value)}
@@ -3280,7 +3364,7 @@ export default function CentralCashCounter() {
                             )}
                           </>
                         )}
-                        {selectedType === "pending" && <TableHeader center>Action</TableHeader>}
+                        {(selectedType === "pending" || selectedType === "unpaid") && <TableHeader center>Action</TableHeader>}
                       </tr>
                     </thead>
                     <tbody>
@@ -3463,7 +3547,7 @@ export default function CentralCashCounter() {
                             )}
 
                             <TableCell center>
-                              {selectedType === "pending" && (
+                              {(selectedType === "pending" || selectedType === "unpaid") && (
                                 <button
                                   title="Collect Payment"
                                   onClick={() => openPaymentModal(bill)}
@@ -3530,7 +3614,7 @@ export default function CentralCashCounter() {
                       ) : (
                         <tr>
                           <TableCell center muted colSpan={colSpan}>
-                            {selectedType === "pending" ? "No pending bills found" : "No received bills found"}
+                            {selectedType === "pending" ? "No pending bills found" : selectedType === "unpaid" ? "No unpaid bills found" : "No received bills found"}
                           </TableCell>
                         </tr>
                       )}

@@ -615,7 +615,7 @@ function App() {
 
   return (
     <div>
-      <ToastContainer position="top-right" autoClose={3000} />
+      <ToastContainer position="top-right" autoClose={2000} hideProgressBar={false} closeOnClick pauseOnHover={false} limit={3} />
 
       {showOutletModal && (
         <OutletSelectionModal
