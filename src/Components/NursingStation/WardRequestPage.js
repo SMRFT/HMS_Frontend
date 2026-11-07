@@ -1241,8 +1241,8 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     try {
       const queryTerm = (val || "").trim();
       const url = queryTerm
-        ? `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${targetOutlet}&search=${encodeURIComponent(queryTerm)}`
-        : `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${targetOutlet}`;
+        ? `${HmsBaseUrl}get_nursing_station_pharmacy_stock/?outlet_code=${targetOutlet}&search=${encodeURIComponent(queryTerm)}`
+        : `${HmsBaseUrl}get_nursing_station_pharmacy_stock/?outlet_code=${targetOutlet}`;
       const res = await apiRequest(url, "GET");
       const list = res.success
         ? Array.isArray(res.data?.data)
@@ -1368,7 +1368,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     setPackageLoading(true);
     try {
       const res = await apiRequest(
-        `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${pharmacyDept}`,
+        `${HmsBaseUrl}get_nursing_station_pharmacy_stock/?outlet_code=${pharmacyDept}`,
         "GET"
       );
       const stockList = res.success
