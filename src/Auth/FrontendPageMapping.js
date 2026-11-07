@@ -19,6 +19,8 @@ export const PAGE_PERMISSIONS = {
  * @returns {boolean} - True if allowed, False otherwise.
  */
 export const hasPagePermission = (route, allowedActions, dynamicPermissions = {}) => {
+    // Dashboard is common to all users
+    if (route === "/Dashboard") return true;
     // Determine the actual array of permissions the user possesses
     let permissions = [];
     if (Array.isArray(allowedActions)) {
