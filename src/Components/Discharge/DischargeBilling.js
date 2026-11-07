@@ -615,7 +615,7 @@ const calcTotals = (items, f) => {
   return { totalAmount, discAmt, totalDisc, netAmount, totalCharges };
 };
 
-const buildPayload = (items, f, totals, status, patient, editReason = "", insurance = null) => ({
+const buildPayload = (items, f, totals, status, patient, editReason = "", insurance = null, paymentMethod = "Cash") => ({
   status,
   uhid: patient?.uhid || null,
   ip_number: patient?.ip_number || null,
@@ -648,6 +648,7 @@ const buildPayload = (items, f, totals, status, patient, editReason = "", insura
   remarks: f.remarks || "",
   next_visit_date: f.next_visit_date || null,
   edit_reason: editReason || "",
+  payment_method: status === "Estimate" ? null : (paymentMethod || f.payment_method || "Cash"),
 });
 
 const recalcItem = (item, field, value) => {
@@ -1594,6 +1595,9 @@ const DischargeBilling = () => {
   const [saving, setSaving] = useState(false);
   const [editingEst, setEditingEst] = useState(null);
   const [printBillModal, setPrintBillModal] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState("Cash");
+  const [pendingSaveIntent, setPendingSaveIntent] = useState(null);
 
   // Insurance Bill State
   const [insuranceData, setInsuranceData] = useState({
@@ -1639,7 +1643,9 @@ const DischargeBilling = () => {
       setEditReasonText("");
       setEditReasonModal({ actionType: "insurance_bill", insurance: updated });
     } else {
-      executeSave("insurance_bill", "", updated);
+      setSelectedPaymentMode("Credit");
+      setPendingSaveIntent({ actionType: "insurance_bill", reason: "", customInsurance: updated });
+      setShowPaymentModal(true);
     }
   };
 
@@ -1685,10 +1691,14 @@ const DischargeBilling = () => {
                       [];
         setBillTypes(list);
         if (list.length > 0) {
+          const defaultBt = list.find(b =>
+            !["AD01", "DIS01", "REG01"].includes(b.billTypeNo) &&
+            !["ADVANCE", "DISCHARGE", "REGISTRATION"].includes(String(b.bill_name || "").toUpperCase())
+          ) || list[0];
           setSelectedBT({
-            billTypeNo: list[0].billTypeNo || list[0].bill_type_no || "",
-            bill_type: list[0].bill_type,
-            bill_name: list[0].bill_name,
+            billTypeNo: defaultBt.billTypeNo || defaultBt.bill_type_no || "",
+            bill_type: defaultBt.bill_type,
+            bill_name: defaultBt.bill_name,
             isInsurance: false,
           });
         }
@@ -2196,13 +2206,17 @@ const DischargeBilling = () => {
       setEditReasonText("");
       setEditReasonModal({ actionType: "bill" });
     } else {
-      executeSave("bill", "");
+      setSelectedPaymentMode("Cash");
+      setPendingSaveIntent({ actionType: "bill", reason: "", customInsurance: null });
+      setShowPaymentModal(true);
     }
   };
 
-  const executeSave = async (actionType, reason, customInsurance = null) => {
+  const executeSave = async (actionType, reason, customInsurance = null, paymentMethod = "Cash") => {
     setSaving(true);
     setEditReasonModal(null);
+    setShowPaymentModal(false);
+    setPendingSaveIntent(null);
     const activeInsurance = customInsurance || insuranceData;
     const isIns = actionType === "insurance_bill" || Boolean(activeInsurance.isInsuranceBill);
     const insPayload = { ...activeInsurance, isInsuranceBill: isIns };
@@ -2211,8 +2225,8 @@ const DischargeBilling = () => {
       const t = calcTotals(items, form);
       if (actionType === "estimate") {
         const res = editingEst?.id
-          ? await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient, reason, insPayload))
-          : await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Estimate", patient, "", insPayload));
+          ? await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient, reason, insPayload, null))
+          : await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Estimate", patient, "", insPayload, null));
         const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
         if (d?.id) {
           showToast(`✓ Estimate saved — ${d.estimate_number || ""}`);
@@ -2220,16 +2234,16 @@ const DischargeBilling = () => {
         } else showToast(JSON.stringify(res?.error || res), true);
       } else {
         if (editingEst?.id && editingEst.status === "Billed") {
-          const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Billed", patient, reason, insPayload));
+          const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Billed", patient, reason, insPayload, paymentMethod));
           const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id || d?.bill_no) {
             showToast(isIns ? `✓ Insurance Bill updated — ${d.insurance_bill_number || d.bill_no || ""}` : `✓ Bill updated — ${d.bill_no || ""}`);
-            setPrintBillModal(d);
+            setPrintBillModal({ ...d, patient_details: { ...(patient || {}), ...(d.patient_details || {}) } });
             handleReset(); setBillRefresh(n => n + 1); setTab("bills");
           } else showToast(JSON.stringify(res?.error || res), true);
         } else if (editingEst?.id) {
-          await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient, reason, insPayload));
-          const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/convert-to-bill/`, "POST", {});
+          await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient, reason, insPayload, paymentMethod));
+          const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/convert-to-bill/`, "POST", { payment_method: paymentMethod });
           let d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id || d?.bill_no) {
             if (isIns) {
@@ -2244,15 +2258,15 @@ const DischargeBilling = () => {
               }
             }
             showToast(isIns ? `✓ Converted to Insurance Bill — ${d.insurance_bill_number || d.bill_no || ""}` : `✓ Converted to Bill — ${d.bill_no || ""}`);
-            setPrintBillModal(d);
+            setPrintBillModal({ ...d, patient_details: { ...(patient || {}), ...(d.patient_details || {}) } });
             handleReset(); setEstRefresh(n => n + 1); setBillRefresh(n => n + 1); setTab("bills");
           } else showToast(JSON.stringify(res?.error || res), true);
         } else {
-          const res = await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Billed", patient, "", insPayload));
+          const res = await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Billed", patient, "", insPayload, paymentMethod));
           const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id) {
             showToast(isIns ? `✓ Insurance Bill saved — ${d.insurance_bill_number || d.bill_no || ""}` : `✓ Bill saved — ${d.bill_no || ""}`);
-            setPrintBillModal(d);
+            setPrintBillModal({ ...d, patient_details: { ...(patient || {}), ...(d.patient_details || {}) } });
             handleReset(); setBillRefresh(n => n + 1); setTab("bills");
           } else showToast(JSON.stringify(res?.error || res), true);
         }
@@ -2669,8 +2683,109 @@ const DischargeBilling = () => {
             </div>
             <div style={{ padding: "12px 20px", background: "#f8fafc", borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <Btn $ghost onClick={() => setEditReasonModal(null)}>Cancel</Btn>
-              <Btn $amber onClick={() => executeSave(editReasonModal.actionType, editReasonText, editReasonModal.insurance || null)} disabled={saving || !editReasonText.trim()}>
-                {saving ? <Spinner /> : "✓ Confirm & Save"}
+              <Btn $amber onClick={() => {
+                const aType = editReasonModal.actionType;
+                const rText = editReasonText;
+                const cIns = editReasonModal.insurance || null;
+                setEditReasonModal(null);
+                if (aType === "estimate") {
+                  executeSave("estimate", rText, cIns);
+                } else {
+                  setSelectedPaymentMode(aType === "insurance_bill" ? "Credit" : "Cash");
+                  setPendingSaveIntent({ actionType: aType, reason: rText, customInsurance: cIns });
+                  setShowPaymentModal(true);
+                }
+              }} disabled={saving || !editReasonText.trim()}>
+                {saving ? <Spinner /> : "✓ Confirm & Proceed"}
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Payment Mode Modal (Pay Now / Pay Later - same as Pharmacy) ── */}
+      {showPaymentModal && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.55)",
+          backdropFilter: "blur(2px)", zIndex: 10000, display: "flex",
+          alignItems: "center", justifyContent: "center", padding: 16
+        }} onClick={() => setShowPaymentModal(false)}>
+          <div style={{
+            background: "#fff", borderRadius: 14, width: "100%", maxWidth: 440,
+            overflow: "hidden", boxShadow: "0 20px 45px rgba(0,0,0,0.22)"
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{
+              background: "linear-gradient(135deg, #0f766e, #0d9488)",
+              color: "#fff", padding: "14px 20px", display: "flex",
+              alignItems: "center", justifyContent: "space-between"
+            }}>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0, color: "#fff" }}>
+                Select Payment Mode
+              </h3>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                style={{ background: "transparent", border: "none", color: "#fff", fontSize: "1.4rem", cursor: "pointer", lineHeight: 1 }}
+              >
+                &times;
+              </button>
+            </div>
+            <div style={{ padding: "24px 26px" }}>
+              <div style={{ marginBottom: 18, color: "#475569", fontSize: "0.92rem", fontWeight: 500 }}>
+                Choose how the patient will settle this discharge bill:
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {[
+                  { value: "Cash", label: "Pay Now", desc: "Patient pays immediately (Cash / Card / UPI)" },
+                  { value: "Credit", label: "Pay Later", desc: "Bill on credit — patient pays at a later date" },
+                ].map(opt => (
+                  <label
+                    key={opt.value}
+                    onClick={() => setSelectedPaymentMode(opt.value)}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 14,
+                      padding: "14px 18px",
+                      borderRadius: 12,
+                      border: `2px solid ${selectedPaymentMode === opt.value ? "#0f766e" : "#e2e8f0"}`,
+                      background: selectedPaymentMode === opt.value ? "#f0fdfa" : "#fff",
+                      cursor: "pointer",
+                      transition: "all 0.18s",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="dischargePaymentMode"
+                      value={opt.value}
+                      checked={selectedPaymentMode === opt.value}
+                      onChange={() => setSelectedPaymentMode(opt.value)}
+                      style={{ accentColor: "#0f766e", marginTop: 3, width: 17, height: 17 }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.97rem" }}>{opt.label}</div>
+                      <div style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 3 }}>{opt.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{
+              padding: "12px 20px", background: "#f8fafc", borderTop: "1px solid #e2e8f0",
+              display: "flex", justifyContent: "flex-end", gap: 10
+            }}>
+              <Btn $ghost onClick={() => setShowPaymentModal(false)}>Cancel</Btn>
+              <Btn
+                $primary
+                disabled={saving}
+                onClick={async () => {
+                  const mode = selectedPaymentMode;
+                  const intent = pendingSaveIntent || { actionType: "bill", reason: "", customInsurance: null };
+                  setShowPaymentModal(false);
+                  setPendingSaveIntent(null);
+                  await executeSave(intent.actionType, intent.reason, intent.customInsurance, mode);
+                }}
+              >
+                {saving ? <Spinner /> : "Proceed"}
               </Btn>
             </div>
           </div>
