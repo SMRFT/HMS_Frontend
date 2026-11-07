@@ -359,8 +359,13 @@ const PatientRegistrationForm = () => {
   const [showRefundVisitModal, setShowRefundVisitModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [refundAmount, setRefundAmount] = useState("");
-  const [refundRemarks, setRefundRemarks] = useState("Patient Request");
+  const [refundRemarks, setRefundRemarks] = useState("");
+  const [refundReasonType, setRefundReasonType] = useState("Patient Cancelled Visit / Left Before Consultation");
   const [editingDoctor, setEditingDoctor] = useState("");
+  const [editReasonType, setEditReasonType] = useState("Doctor Unavailable / On Leave");
+  const [editCustomReason, setEditCustomReason] = useState("");
+  const [visitSearchTerm, setVisitSearchTerm] = useState("");
+  const [visitStatusFilter, setVisitStatusFilter] = useState("ALL");
 
   // Doctor & Fee states
   const [doctors, setDoctors] = useState([])
@@ -484,6 +489,16 @@ const PatientRegistrationForm = () => {
         alert("Please select a doctor");
         return;
       }
+
+      const finalEditReason = editReasonType === "Other"
+        ? editCustomReason.trim()
+        : (editCustomReason.trim() ? `${editReasonType} - ${editCustomReason.trim()}` : editReasonType);
+
+      if (!finalEditReason) {
+        alert("Please provide a reason for updating the visit doctor.");
+        return;
+      }
+
       const doc = doctors.find(d => String(d.id) === String(editingDoctor));
       const regFee = doc && doc.registrationFee !== undefined ? doc.registrationFee : (selectedVisit ? Number(selectedVisit.registrationFee) || 0 : 0);
       const consFee = doc && doc.consultingFee !== undefined ? doc.consultingFee : (selectedVisit ? Number(selectedVisit.consultingFee) || 0 : 0);
@@ -495,13 +510,15 @@ const PatientRegistrationForm = () => {
         doctorName: doc ? doc.name : "",
         registrationFee: regFee,
         consultingFee: consFee,
-        totalFees: totalFees
+        totalFees: totalFees,
+        reason: finalEditReason
       };
 
       const result = await apiRequest(`${Hmsbaseurl}update-registration-visit/`, "POST", payload);
       if (result.success) {
-        alert("Visit updated successfully");
+        alert("Visit doctor updated successfully!");
         setShowEditVisitModal(false);
+        setEditCustomReason("");
         handleViewList();
       } else {
         alert(result.error || result.message || "Update failed");
@@ -514,21 +531,33 @@ const PatientRegistrationForm = () => {
 
   const handleProcessRefund = async () => {
     try {
-      if (Number(refundAmount) <= 0) {
+      if (!refundAmount || Number(refundAmount) <= 0) {
         alert("Please enter a valid refund amount");
         return;
       }
+
+      const finalRefundReason = refundReasonType === "Other"
+        ? refundRemarks.trim()
+        : (refundRemarks.trim() ? `${refundReasonType} - ${refundRemarks.trim()}` : refundReasonType);
+
+      if (!finalRefundReason) {
+        alert("Please provide a reason for processing the refund.");
+        return;
+      }
+
       const payload = {
         bill_no: selectedVisit.billNumber,
         uhid: selectedVisit.uhid,
         refund_amount: refundAmount,
-        remarks: refundRemarks
+        remarks: finalRefundReason,
+        reason: finalRefundReason
       };
 
       const result = await apiRequest(`${Hmsbaseurl}process-registration-refund/`, "POST", payload);
       if (result.success) {
         alert(`Refund processed successfully. Refund Bill No: ${result.refund_bill_no}`);
         setShowRefundVisitModal(false);
+        setRefundRemarks("");
         handleViewList();
       } else {
         alert(result.error || result.message || "Refund failed");
@@ -3127,91 +3156,307 @@ const PatientRegistrationForm = () => {
       <Modal
         show={showVisitList}
         onClose={() => setShowVisitList(false)}
-        title="Visited Patients List"
+        title="Visited Patients List & Billing Records"
+        maxWidth="1180px"
       >
-        <div style={{ paddingBottom: '14px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <FormGroup style={{ flex: 1 }}>
-            <FormLabel>From Date</FormLabel>
-            <FormInput
-              type="date"
-              value={filterDate.from}
-              onChange={(e) => setFilterDate({ ...filterDate, from: e.target.value })}
-            />
-          </FormGroup>
-          <FormGroup style={{ flex: 1 }}>
-            <FormLabel>To Date</FormLabel>
-            <FormInput
-              type="date"
-              value={filterDate.to}
-              onChange={(e) => setFilterDate({ ...filterDate, to: e.target.value })}
-            />
-          </FormGroup>
-          <FormGroup style={{ flex: 1 }}>
-            <FormLabel>Doctor</FormLabel>
-            <FormSelect
-              value={filterDoctor}
-              onChange={(e) => setFilterDoctor(e.target.value)}
-            >
-              <option value="">All Doctors</option>
-              {doctors.map(doc => (
-                <option key={doc.id} value={doc.id}>{doc.name}</option>
-              ))}
-            </FormSelect>
-          </FormGroup>
-          <SearchBtn onClick={handleViewList} style={{ marginTop: 'auto', height: '38px' }}>
-            <Search size={14} /> Filter
-          </SearchBtn>
+        {/* KPI Summary Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: '6px', padding: '8px', display: 'flex' }}><List size={18} /></div>
+            <div>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Total Loaded</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>{visitList.length}</div>
+            </div>
+          </div>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#dcfce7', color: '#15803d', borderRadius: '6px', padding: '8px', display: 'flex' }}><CheckCircle2 size={18} /></div>
+            <div>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Paid Visits</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#16a34a' }}>{visitList.filter(v => v.paymentStatus === 'Paid').length}</div>
+            </div>
+          </div>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#fef3c7', color: '#b45309', borderRadius: '6px', padding: '8px', display: 'flex' }}><Clock size={18} /></div>
+            <div>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Pending Payments</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#d97706' }}>{visitList.filter(v => v.paymentStatus !== 'Paid' && v.paymentStatus !== 'Refunded').length}</div>
+            </div>
+          </div>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#fee2e2', color: '#b91c1c', borderRadius: '6px', padding: '8px', display: 'flex' }}><RotateCcw size={18} /></div>
+            <div>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Refunded / Partial</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#dc2626' }}>{visitList.filter(v => v.paymentStatus === 'Refunded' || (Number(v.totalRefunded) > 0)).length}</div>
+            </div>
+          </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        {/* Filters and Controls */}
+        <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <FormGroup style={{ flex: '1 1 140px', margin: 0 }}>
+              <FormLabel style={{ fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>From Date</FormLabel>
+              <FormInput
+                type="date"
+                value={filterDate.from}
+                onChange={(e) => setFilterDate({ ...filterDate, from: e.target.value })}
+                style={{ height: '36px', fontSize: '12px' }}
+              />
+            </FormGroup>
+            <FormGroup style={{ flex: '1 1 140px', margin: 0 }}>
+              <FormLabel style={{ fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>To Date</FormLabel>
+              <FormInput
+                type="date"
+                value={filterDate.to}
+                onChange={(e) => setFilterDate({ ...filterDate, to: e.target.value })}
+                style={{ height: '36px', fontSize: '12px' }}
+              />
+            </FormGroup>
+            <FormGroup style={{ flex: '1 1 200px', margin: 0 }}>
+              <FormLabel style={{ fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Filter by Doctor</FormLabel>
+              <FormSelect
+                value={filterDoctor}
+                onChange={(e) => setFilterDoctor(e.target.value)}
+                style={{ height: '36px', fontSize: '12px' }}
+              >
+                <option value="">All Doctors</option>
+                {doctors.map(doc => (
+                  <option key={doc.id} value={doc.id}>{doc.name}</option>
+                ))}
+              </FormSelect>
+            </FormGroup>
+            <SearchBtn onClick={handleViewList} style={{ height: '36px', padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Search size={14} /> Fetch Visits
+            </SearchBtn>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+            {/* Instant Filter Tabs */}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {['ALL', 'Paid', 'Pending', 'Refunded'].map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setVisitStatusFilter(tab)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: visitStatusFilter === tab ? '1px solid #0d9488' : '1px solid #e2e8f0',
+                    background: visitStatusFilter === tab ? '#0d9488' : '#ffffff',
+                    color: visitStatusFilter === tab ? '#ffffff' : '#64748b',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {tab === 'ALL' ? 'All Status' : tab}
+                </button>
+              ))}
+            </div>
+
+            {/* Quick in-table search */}
+            <div style={{ position: 'relative', minWidth: '260px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search by UHID, Name, Mobile, Bill No..."
+                value={visitSearchTerm}
+                onChange={(e) => setVisitSearchTerm(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '32px',
+                  paddingLeft: '32px',
+                  paddingRight: '28px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12px',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+              {visitSearchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setVisitSearchTerm("")}
+                  style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', padding: 0 }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Visited Table */}
+        <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHeaderCell>Date</TableHeaderCell>
-                <TableHeaderCell>UHID</TableHeaderCell>
-                <TableHeaderCell>Name</TableHeaderCell>
-                <TableHeaderCell>Doctor</TableHeaderCell>
-                <TableHeaderCell>Type</TableHeaderCell>
-                <TableHeaderCell>Amount</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Action</TableHeaderCell>
+              <TableRow style={{ background: '#f8fafc' }}>
+                <TableHeaderCell style={{ width: '130px' }}>Visited Date</TableHeaderCell>
+                <TableHeaderCell style={{ width: '110px' }}>UHID</TableHeaderCell>
+                <TableHeaderCell>Patient Name</TableHeaderCell>
+                <TableHeaderCell>Consulting Doctor</TableHeaderCell>
+                <TableHeaderCell style={{ width: '80px' }}>Type</TableHeaderCell>
+                <TableHeaderCell style={{ width: '90px', textAlign: 'right' }}>Amount</TableHeaderCell>
+                <TableHeaderCell style={{ width: '90px', textAlign: 'center' }}>Status</TableHeaderCell>
+                <TableHeaderCell style={{ width: '150px', textAlign: 'center' }}>Actions</TableHeaderCell>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visitList.length > 0 ? (
-                visitList.map((visit, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{visit.date}</TableCell>
-                    <TableCell style={{ fontWeight: 600 }}>{visit.uhid}</TableCell>
-                    <TableCell style={{ color: '#0d9488', cursor: 'pointer', fontWeight: 600 }} onClick={() => handlePatientClick(visit)}>
-                      {visit.patientName} ({visit.age}/{visit.gender})
-                    </TableCell>
-                    <TableCell>{visit.doctorName || visit.doctor}</TableCell>
-                    <TableCell>{visit.visitType}</TableCell>
-                    <TableCell>₹{visit.billAmount}</TableCell>
-                    <TableCell style={{ color: visit.paymentStatus === 'Paid' ? '#16a34a' : '#d97706', fontWeight: 600 }}>
-                      {visit.paymentStatus === 'Paid' ? 'Paid' : 'Pending'}
-                    </TableCell>
-                    <TableCell>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <HeaderBtn small onClick={() => handlePrintSticker(visit)} title="Print Sticker"><Printer size={14} /></HeaderBtn>
-                        <HeaderBtn small onClick={() => handlePrintBill(visit)} title="Print Bill"><FileText size={14} /></HeaderBtn>
-                        <HeaderBtn small onClick={() => { setSelectedVisit(visit); setShowHistoryModal(true); }} title="History"><History size={14} /></HeaderBtn>
-                        {(visit.paymentStatus !== 'Paid') && (
-                          <HeaderBtn small onClick={() => { setSelectedVisit(visit); setEditingDoctor(visit.doctor || ""); setShowEditVisitModal(true); }} title="Edit"><Edit size={14} /></HeaderBtn>
+              {(() => {
+                let list = visitList || [];
+                if (visitStatusFilter !== "ALL") {
+                  if (visitStatusFilter === "Paid") list = list.filter(v => v.paymentStatus === "Paid");
+                  else if (visitStatusFilter === "Pending") list = list.filter(v => v.paymentStatus !== "Paid" && v.paymentStatus !== "Refunded");
+                  else if (visitStatusFilter === "Refunded") list = list.filter(v => v.paymentStatus === "Refunded" || (Number(v.totalRefunded) > 0));
+                }
+                if (visitSearchTerm && visitSearchTerm.trim()) {
+                  const q = visitSearchTerm.toLowerCase();
+                  list = list.filter(v =>
+                    (v.uhid && v.uhid.toLowerCase().includes(q)) ||
+                    (v.patientName && v.patientName.toLowerCase().includes(q)) ||
+                    (v.mobile && String(v.mobile).includes(q)) ||
+                    (v.billNumber && v.billNumber.toLowerCase().includes(q)) ||
+                    (v.doctorName && v.doctorName.toLowerCase().includes(q))
+                  );
+                }
+
+                if (list.length === 0) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center" style={{ padding: '30px', color: '#94a3b8' }}>
+                        No matching patient visits found.
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+
+                return list.map((visit, idx) => {
+                  const hasEdits = visit.editHistory && visit.editHistory.length > 0;
+                  const hasRefunds = (visit.refunds && visit.refunds.length > 0) || (Number(visit.totalRefunded) > 0);
+                  const isPaid = visit.paymentStatus === 'Paid';
+                  const isRefunded = visit.paymentStatus === 'Refunded' || (Number(visit.totalRefunded) >= Number(visit.billAmount));
+
+                  return (
+                    <TableRow key={idx} style={{ transition: 'background-color 0.15s' }}>
+                      <TableCell style={{ fontSize: '11px', color: '#475569', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={12} color="#94a3b8" />
+                          <span>{visit.date}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', fontSize: '12px' }}>
+                        {visit.uhid}
+                      </TableCell>
+                      <TableCell>
+                        <div
+                          style={{ color: '#0d9488', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}
+                          onClick={() => handlePatientClick(visit)}
+                          title="Click to view patient details"
+                        >
+                          {visit.patientName}
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>
+                          {visit.age} Y / {visit.gender} • Mob: {visit.mobile || "N/A"}
+                        </div>
+                      </TableCell>
+                      <TableCell style={{ fontSize: '12px' }}>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{visit.doctorName || visit.doctor}</div>
+                        {visit.billNumber && (
+                          <div style={{ fontSize: '10px', color: '#94a3b8' }}>Bill: {visit.billNumber}</div>
                         )}
-                        {(visit.paymentStatus === 'Paid') && (
-                          <HeaderBtn small onClick={() => { setSelectedVisit(visit); setRefundAmount(visit.billAmount); setShowRefundVisitModal(true); }} title="Refund"><RotateCcw size={14} /></HeaderBtn>
+                      </TableCell>
+                      <TableCell>
+                        <span style={{
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          background: visit.visitType === 'New' ? '#dbeafe' : '#f3e8ff',
+                          color: visit.visitType === 'New' ? '#1d4ed8' : '#7e22ce'
+                        }}>
+                          {visit.visitType}
+                        </span>
+                      </TableCell>
+                      <TableCell style={{ textAlign: 'right', fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
+                        ₹{visit.billAmount}
+                        {Number(visit.totalRefunded) > 0 && (
+                          <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: 600 }}>-₹{visit.totalRefunded}</div>
                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center">No visits found.</TableCell>
-                </TableRow>
-              )}
+                      </TableCell>
+                      <TableCell style={{ textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: '9999px',
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          background: isRefunded ? '#fee2e2' : (isPaid ? '#dcfce7' : '#fef3c7'),
+                          color: isRefunded ? '#b91c1c' : (isPaid ? '#15803d' : '#b45309'),
+                          border: `1px solid ${isRefunded ? '#fca5a5' : (isPaid ? '#86efac' : '#fde68a')}`
+                        }}>
+                          {isRefunded ? 'Refunded' : (isPaid ? 'Paid' : 'Pending')}
+                        </span>
+                      </TableCell>
+                      <TableCell style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                          <HeaderBtn small onClick={() => handlePrintSticker(visit)} title="Print Patient Sticker" style={{ background: '#f1f5f9' }}>
+                            <Printer size={13} color="#475569" />
+                          </HeaderBtn>
+                          <HeaderBtn small onClick={() => handlePrintBill(visit)} title="Print Registration Bill" style={{ background: '#f1f5f9' }}>
+                            <FileText size={13} color="#475569" />
+                          </HeaderBtn>
+                          <HeaderBtn
+                            small
+                            onClick={() => { setSelectedVisit(visit); setShowHistoryModal(true); }}
+                            title="View Edit & Refund Audit History"
+                            style={{ position: 'relative', background: (hasEdits || hasRefunds) ? '#f0fdfa' : '#f1f5f9', border: (hasEdits || hasRefunds) ? '1px solid #99f6e4' : 'none' }}
+                          >
+                            <History size={13} color={(hasEdits || hasRefunds) ? "#0d9488" : "#475569"} />
+                            {(hasEdits || hasRefunds) && (
+                              <span style={{ position: 'absolute', top: '-3px', right: '-3px', width: '6px', height: '6px', borderRadius: '50%', background: '#0d9488' }}></span>
+                            )}
+                          </HeaderBtn>
+                          {!isPaid && !isRefunded && (
+                            <HeaderBtn
+                              small
+                              onClick={() => {
+                                setSelectedVisit(visit);
+                                setEditingDoctor(visit.doctor || "");
+                                setEditReasonType("Doctor Unavailable / On Leave");
+                                setEditCustomReason("");
+                                setShowEditVisitModal(true);
+                              }}
+                              title="Edit Doctor & Fees"
+                              style={{ background: '#ecfdf5', color: '#047857' }}
+                            >
+                              <Edit size={13} color="#047857" />
+                            </HeaderBtn>
+                          )}
+                          {isPaid && !isRefunded && (
+                            <HeaderBtn
+                              small
+                              onClick={() => {
+                                setSelectedVisit(visit);
+                                const bal = Math.max(0, Number(visit.billAmount || 0) - Number(visit.totalRefunded || 0));
+                                setRefundAmount(bal > 0 ? bal : visit.billAmount);
+                                setRefundReasonType("Patient Cancelled Visit / Left Before Consultation");
+                                setRefundRemarks("");
+                                setShowRefundVisitModal(true);
+                              }}
+                              title="Process Refund"
+                              style={{ background: '#fef2f2', color: '#b91c1c' }}
+                            >
+                              <RotateCcw size={13} color="#dc2626" />
+                            </HeaderBtn>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                });
+              })()}
             </TableBody>
           </Table>
         </div>
@@ -3221,17 +3466,25 @@ const PatientRegistrationForm = () => {
       <Modal
         show={showDetailModal}
         onClose={() => setShowDetailModal(false)}
-        title="Patient Visit Details"
+        title="Patient Visit Profile Details"
+        maxWidth="500px"
       >
         {selectedVisit && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <DetailLine><span>UHID:</span> <strong>{selectedVisit.uhid}</strong></DetailLine>
-            <DetailLine><span>Patient Name:</span> <strong>{selectedVisit.patientName}</strong></DetailLine>
-            <DetailLine><span>Age / Gender:</span> <strong>{selectedVisit.age} / {selectedVisit.gender}</strong></DetailLine>
-            <DetailLine><span>Mobile:</span> <strong>{selectedVisit.mobile}</strong></DetailLine>
-            <DetailLine><span>Visited Date:</span> <strong>{selectedVisit.date}</strong></DetailLine>
-            <DetailLine><span>Doctor:</span> <strong>{selectedVisit.doctor}</strong></DetailLine>
-            <DetailLine><span>Bill Amount:</span> <strong>₹{selectedVisit.billAmount}</strong></DetailLine>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+            <div style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', borderRadius: '6px', padding: '10px', marginBottom: '4px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f766e' }}>{selectedVisit.patientName}</div>
+              <div style={{ fontSize: '11px', color: '#0d9488', fontWeight: 600 }}>UHID: {selectedVisit.uhid} • Age/Gender: {selectedVisit.age} Y / {selectedVisit.gender}</div>
+            </div>
+            <DetailLine><span>Mobile Number:</span> <strong>{selectedVisit.mobile || "N/A"}</strong></DetailLine>
+            <DetailLine><span>Guardian/Spouse:</span> <strong>{selectedVisit.guardianName ? `${selectedVisit.guardianType || 'S/o'} ${selectedVisit.guardianName}` : (selectedVisit.spouseName || "N/A")}</strong></DetailLine>
+            <DetailLine><span>Full Address:</span> <strong>{selectedVisit.address || selectedVisit.permanentAddress || "N/A"}</strong></DetailLine>
+            <DetailLine><span>Visit Type:</span> <strong>{selectedVisit.visitType}</strong></DetailLine>
+            <DetailLine><span>Consulting Doctor:</span> <strong>{selectedVisit.doctorName || selectedVisit.doctor}</strong></DetailLine>
+            <DetailLine><span>Bill Number:</span> <strong>{selectedVisit.billNumber}</strong></DetailLine>
+            <DetailLine><span>Registration Fee:</span> <strong>₹{selectedVisit.registrationFee}</strong></DetailLine>
+            <DetailLine><span>Consulting Fee:</span> <strong>₹{selectedVisit.consultingFee}</strong></DetailLine>
+            <DetailLine><span>Total Bill Amount:</span> <strong>₹{selectedVisit.billAmount}</strong></DetailLine>
+            <DetailLine><span>Payment Status:</span> <strong style={{ color: selectedVisit.paymentStatus === 'Paid' ? '#16a34a' : '#d97706' }}>{selectedVisit.paymentStatus}</strong></DetailLine>
           </div>
         )}
       </Modal>
@@ -3240,67 +3493,313 @@ const PatientRegistrationForm = () => {
       <Modal
         show={showEditVisitModal}
         onClose={() => setShowEditVisitModal(false)}
-        title="Edit Visit (Doctor Change)"
-        footer={<SavePatientBtn onClick={handleUpdateVisit}>Update Visit</SavePatientBtn>}
+        title="Edit Visit — Change Doctor & Reason"
+        maxWidth="540px"
+        footer={
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', width: '100%' }}>
+            <button
+              type="button"
+              onClick={() => setShowEditVisitModal(false)}
+              style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
+            >
+              Cancel
+            </button>
+            <SavePatientBtn onClick={handleUpdateVisit} style={{ padding: '8px 18px', background: '#0d9488', color: '#fff', borderRadius: '6px', fontWeight: 700, fontSize: '12px' }}>
+              Update Doctor Visit
+            </SavePatientBtn>
+          </div>
+        }
       >
         {selectedVisit && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Patient Context Banner */}
+            <div style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', borderRadius: '8px', padding: '12px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f766e' }}>{selectedVisit.patientName}</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#0d9488', fontFamily: 'monospace' }}>UHID: {selectedVisit.uhid}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#475569' }}>
+                <span>Bill: <strong>{selectedVisit.billNumber}</strong></span>
+                <span>Current Doctor: <strong>{selectedVisit.doctorName || selectedVisit.doctor}</strong></span>
+                <span>Amount: <strong>₹{selectedVisit.billAmount}</strong></span>
+              </div>
+            </div>
+
+            {/* Doctor Select */}
             <FormGroup>
-              <FormLabel>Select New Doctor</FormLabel>
+              <FormLabel style={{ fontWeight: 700, color: '#1e293b' }}>Select New Doctor *</FormLabel>
               <FormSelect value={editingDoctor} onChange={(e) => setEditingDoctor(e.target.value)}>
-                <option value="">Select Doctor</option>
+                <option value="">-- Select Doctor --</option>
                 {doctors.map(doc => (
-                  <option key={doc.id} value={doc.id}>{doc.name} - {doc.specialty}</option>
+                  <option key={doc.id} value={doc.id}>
+                    {doc.name} ({doc.specialty || "General"}) — Fee: ₹{doc.consultingFee || 0}
+                  </option>
                 ))}
               </FormSelect>
             </FormGroup>
+
+            {/* Mandatory Reason for Edit */}
+            <FormGroup>
+              <FormLabel style={{ fontWeight: 700, color: '#1e293b' }}>
+                Reason for Change / Edit <span style={{ color: '#dc2626' }}>*</span>
+              </FormLabel>
+              <FormSelect
+                value={editReasonType}
+                onChange={(e) => setEditReasonType(e.target.value)}
+                style={{ marginBottom: '8px' }}
+              >
+                <option value="Doctor Unavailable / On Leave">Doctor Unavailable / On Leave</option>
+                <option value="Patient Request / Preference">Patient Request / Preference</option>
+                <option value="Wrong Doctor Selected Initially">Wrong Doctor Selected Initially</option>
+                <option value="Specialty / Department Change">Specialty / Department Change</option>
+                <option value="Emergency / Senior Review">Emergency / Senior Review</option>
+                <option value="Other">Other (Specify details below)</option>
+              </FormSelect>
+              <textarea
+                rows={2}
+                value={editCustomReason}
+                onChange={(e) => setEditCustomReason(e.target.value)}
+                placeholder={editReasonType === "Other" ? "Enter specific reason details here (Required)..." : "Additional remarks / notes (Optional)..."}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12px',
+                  fontFamily: 'inherit',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </FormGroup>
+
+            {/* New Fee Preview */}
+            {editingDoctor && (
+              <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '6px', padding: '10px 12px', fontSize: '11px', color: '#334155' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                  <span>Registration Fee:</span>
+                  <strong>₹{(() => {
+                    const doc = doctors.find(d => String(d.id) === String(editingDoctor));
+                    return doc && doc.registrationFee !== undefined ? doc.registrationFee : (Number(selectedVisit.registrationFee) || 0);
+                  })()}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                  <span>Consulting Fee:</span>
+                  <strong>₹{(() => {
+                    const doc = doctors.find(d => String(d.id) === String(editingDoctor));
+                    return doc && doc.consultingFee !== undefined ? doc.consultingFee : (Number(selectedVisit.consultingFee) || 0);
+                  })()}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '4px', fontWeight: 800, color: '#0f766e', fontSize: '12px' }}>
+                  <span>Updated Total Fees:</span>
+                  <span>₹{(() => {
+                    const doc = doctors.find(d => String(d.id) === String(editingDoctor));
+                    const rf = doc && doc.registrationFee !== undefined ? Number(doc.registrationFee) : (Number(selectedVisit.registrationFee) || 0);
+                    const cf = doc && doc.consultingFee !== undefined ? Number(doc.consultingFee) : (Number(selectedVisit.consultingFee) || 0);
+                    return rf + cf;
+                  })()}</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>
 
-      {/* Refund Modal */}
+      {/* Process Refund Modal */}
       <Modal
         show={showRefundVisitModal}
         onClose={() => setShowRefundVisitModal(false)}
-        title="Process Refund"
-        footer={<SavePatientBtn style={{ background: '#dc2626' }} onClick={handleProcessRefund}>Process Refund</SavePatientBtn>}
+        title="Process Registration Refund"
+        maxWidth="540px"
+        footer={
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', width: '100%' }}>
+            <button
+              type="button"
+              onClick={() => setShowRefundVisitModal(false)}
+              style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
+            >
+              Cancel
+            </button>
+            <SavePatientBtn style={{ background: '#dc2626', color: '#fff', padding: '8px 18px', borderRadius: '6px', fontWeight: 700, fontSize: '12px' }} onClick={handleProcessRefund}>
+              Confirm Refund
+            </SavePatientBtn>
+          </div>
+        }
       >
         {selectedVisit && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Patient Context Banner */}
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#991b1b' }}>{selectedVisit.patientName}</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#b91c1c', fontFamily: 'monospace' }}>UHID: {selectedVisit.uhid}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '11px', color: '#7f1d1d' }}>
+                <div>Bill Total: <strong>₹{selectedVisit.billAmount}</strong></div>
+                <div>Refunded: <strong>₹{selectedVisit.totalRefunded || 0}</strong></div>
+                <div>Balance: <strong style={{ color: '#b91c1c' }}>₹{Math.max(0, Number(selectedVisit.billAmount || 0) - Number(selectedVisit.totalRefunded || 0))}</strong></div>
+              </div>
+            </div>
+
+            {/* Refund Amount */}
             <FormGroup>
-              <FormLabel>Refund Amount</FormLabel>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <FormLabel style={{ fontWeight: 700, color: '#1e293b', margin: 0 }}>Refund Amount (₹) *</FormLabel>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const bal = Math.max(0, Number(selectedVisit.billAmount || 0) - Number(selectedVisit.totalRefunded || 0));
+                    setRefundAmount(bal > 0 ? bal : selectedVisit.billAmount);
+                  }}
+                  style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Full Refund
+                </button>
+              </div>
               <FormInput
                 type="number"
                 value={refundAmount}
                 onChange={(e) => setRefundAmount(e.target.value)}
-                max={selectedVisit.billAmount}
+                max={Math.max(0, Number(selectedVisit.billAmount || 0) - Number(selectedVisit.totalRefunded || 0))}
+                placeholder="Enter refund amount in ₹..."
               />
             </FormGroup>
+
+            {/* Mandatory Reason for Refund */}
             <FormGroup>
-              <FormLabel>Remarks / Reason</FormLabel>
-              <FormInput
-                type="text"
+              <FormLabel style={{ fontWeight: 700, color: '#1e293b' }}>
+                Reason for Refund <span style={{ color: '#dc2626' }}>*</span>
+              </FormLabel>
+              <FormSelect
+                value={refundReasonType}
+                onChange={(e) => setRefundReasonType(e.target.value)}
+                style={{ marginBottom: '8px' }}
+              >
+                <option value="Patient Cancelled Visit / Left Before Consultation">Patient Cancelled Visit / Left Before Consultation</option>
+                <option value="Doctor Emergency / Unavailable">Doctor Emergency / Unavailable</option>
+                <option value="Double Payment / Billing Error">Double Payment / Billing Error</option>
+                <option value="Service Not Availed">Service Not Availed</option>
+                <option value="Patient Transferred to Inpatient (IP)">Patient Transferred to Inpatient (IP)</option>
+                <option value="Other">Other (Specify below)</option>
+              </FormSelect>
+              <textarea
+                rows={2}
                 value={refundRemarks}
                 onChange={(e) => setRefundRemarks(e.target.value)}
-                placeholder="Enter reason..."
+                placeholder={refundReasonType === "Other" ? "Enter detailed refund reason here (Required)..." : "Additional justification / notes (Optional)..."}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12px',
+                  fontFamily: 'inherit',
+                  boxSizing: 'border-box'
+                }}
               />
             </FormGroup>
+
+            <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '8px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              ℹ️ <strong>Audit Log:</strong> This refund will be recorded in the visit audit trail with your staff ID and timestamp.
+            </div>
           </div>
         )}
       </Modal>
 
-      {/* History Modal */}
+      {/* History & Refunds Audit Modal */}
       <Modal
         show={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
-        title="Visit History & Refunds"
+        title="Visit History & Refund Audit Trail"
+        maxWidth="680px"
       >
         {selectedVisit && (
-          <div>
-            <h4>Edit History</h4>
-            <p>{selectedVisit.editHistory?.length > 0 ? JSON.stringify(selectedVisit.editHistory) : "No edit history."}</p>
-            <h4>Refunds</h4>
-            <p>{selectedVisit.refunds?.length > 0 ? JSON.stringify(selectedVisit.refunds) : "No refunds found."}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Header context card */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
+              <div>
+                <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>{selectedVisit.patientName}</span>
+                <span style={{ color: '#0d9488', fontWeight: 700, marginLeft: '8px', fontFamily: 'monospace' }}>({selectedVisit.uhid})</span>
+              </div>
+              <div style={{ fontSize: '11px', color: '#475569' }}>
+                Bill No: <strong>{selectedVisit.billNumber}</strong> • Total: <strong>₹{selectedVisit.billAmount}</strong>
+              </div>
+            </div>
+
+            {/* Doctor & Fee Edit History */}
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f766e', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Edit size={14} /> Doctor & Fee Modification History
+              </div>
+              {selectedVisit.editHistory && selectedVisit.editHistory.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {selectedVisit.editHistory.map((h, i) => (
+                    <div key={i} style={{ borderLeft: '3px solid #0d9488', background: '#f0fdfa', padding: '10px 14px', borderRadius: '0 8px 8px 0', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '11px' }}>
+                        <span>Staff: <strong style={{ color: '#0f766e' }}>{h.user || "System"}</strong></span>
+                        <span style={{ color: '#64748b' }}>{h.date}</span>
+                      </div>
+                      {h.reason && (
+                        <div style={{ background: '#ccfbf1', color: '#0f766e', padding: '5px 8px', borderRadius: '4px', fontWeight: 700, marginBottom: '6px', fontSize: '11px', border: '1px solid #99f6e4' }}>
+                          📌 Reason: {h.reason}
+                        </div>
+                      )}
+                      <div style={{ fontSize: '11px', color: '#334155', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        {h.changes?.doctor && (
+                          <div>Doctor: <del style={{ color: '#94a3b8' }}>{h.changes.doctor.old || "None"}</del> ➔ <strong style={{ color: '#0d9488' }}>{h.changes.doctor.new}</strong></div>
+                        )}
+                        {h.changes?.consulting_fee && (
+                          <div>Consulting Fee: ₹{h.changes.consulting_fee.old} ➔ <strong>₹{h.changes.consulting_fee.new}</strong></div>
+                        )}
+                        {h.changes?.registration_fee && (
+                          <div>Registration Fee: ₹{h.changes.registration_fee.old} ➔ <strong>₹{h.changes.registration_fee.new}</strong></div>
+                        )}
+                        {h.changes?.total_fees && (
+                          <div>Total Fees: ₹{h.changes.total_fees.old} ➔ <strong>₹{h.changes.total_fees.new}</strong></div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '6px', color: '#94a3b8', fontSize: '12px', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
+                  No doctor or fee modifications recorded for this visit.
+                </div>
+              )}
+            </div>
+
+            {/* Refund History */}
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#b91c1c', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <RotateCcw size={14} /> Refund Records
+              </div>
+              {selectedVisit.refunds && selectedVisit.refunds.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {selectedVisit.refunds.map((r, i) => (
+                    <div key={i} style={{ borderLeft: '3px solid #dc2626', background: '#fef2f2', padding: '10px 14px', borderRadius: '0 8px 8px 0', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: 800, color: '#991b1b' }}>Refund Bill: {r.refund_bill_no}</span>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>{r.date}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ color: '#dc2626', fontWeight: 800, fontSize: '13px' }}>Refund Amount: ₹{r.amount}</span>
+                        <span style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 800 }}>
+                          {r.status || "Pending"}
+                        </span>
+                      </div>
+                      {r.reason && (
+                        <div style={{ background: '#fee2e2', color: '#7f1d1d', padding: '5px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '11px', border: '1px solid #fca5a5' }}>
+                          📌 Refund Reason: {r.reason}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '6px', color: '#94a3b8', fontSize: '12px', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
+                  No refunds processed for this visit.
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Modal>
