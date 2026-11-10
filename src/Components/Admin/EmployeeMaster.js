@@ -1,4 +1,5 @@
 import ReportConfigurationTab from "./ReportConfigurationTab";
+import IntentDepartmentAssignmentTab from "./IntentDepartmentAssignmentTab";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
@@ -612,12 +613,27 @@ const EmployeeMaster = () => {
             >
               Report Configuration
             </button>
+            <button
+              type="button"
+              className={`em-tab-btn ${activeTab === "IntentDeptApproval" ? "active" : ""}`}
+              onClick={() => setActiveTab("IntentDeptApproval")}
+            >
+              Intent Dept Approval
+            </button>
           </div>
 
           {/* Form Content */}
           {activeTab === "ReportConfig" ? (
             <div className="em-card-body" style={{ padding: "16px 20px" }}>
               <ReportConfigurationTab selectedEmployee={formData} employees={employees} />
+            </div>
+          ) : activeTab === "IntentDeptApproval" ? (
+            <div className="em-card-body" style={{ padding: "16px 20px" }}>
+              <IntentDepartmentAssignmentTab
+                selectedEmployee={formData}
+                departments={departments}
+                employees={employees}
+              />
             </div>
           ) : (
           <form onSubmit={handleSave} className="em-card-body">
