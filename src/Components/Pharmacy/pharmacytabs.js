@@ -416,7 +416,14 @@ const OPPharmacyTabs = () => {
 
   const fetchMedichartCount = useCallback(async () => {
     try {
-      const res = await apiRequest(`${Hmsbaseurl}pharmacy_medicinechart/`, "POST");
+      const activeOutlet =
+        selectedOutlet ||
+        localStorage.getItem("selected_outlet") ||
+        localStorage.getItem("outlet_code") ||
+        "";
+      const res = await apiRequest(`${Hmsbaseurl}pharmacy_medicinechart/`, "POST", {
+        outlet_code: activeOutlet,
+      });
 
       if (res.success && res.data) {
         const list = res.data.data || [];
@@ -425,7 +432,7 @@ const OPPharmacyTabs = () => {
     } catch {
       // silent fallback
     }
-  }, [Hmsbaseurl]);
+  }, [Hmsbaseurl, selectedOutlet]);
 
   useEffect(() => {
     fetchMedichartCount();
@@ -526,6 +533,7 @@ const OPPharmacyTabs = () => {
             onCountChange={setMedichartCount}
             refreshTrigger={medichartRefreshKey}
             activeTab={activeTab}
+            selectedOutlet={selectedOutlet}
           />
         </TabPanel>
       )}
