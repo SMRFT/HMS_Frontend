@@ -857,6 +857,30 @@ const formatExpiryForBill = (dateStr) => {
   return raw;
 };
 
+// ── Helper to Paginate Medicines for Print Layout (A5 Landscape) ──
+const chunkMedicinesForPrint = (items) => {
+  const list = items || [];
+  if (list.length <= 7) return [list];
+  const pages = [];
+  let remaining = [...list];
+  while (remaining.length > 0) {
+    if (remaining.length <= 7) {
+      pages.push(remaining);
+      break;
+    }
+    if (remaining.length <= 14) {
+      const take = Math.ceil(remaining.length / 2);
+      pages.push(remaining.slice(0, take));
+      remaining = remaining.slice(take);
+    } else {
+      const take = 10;
+      pages.push(remaining.slice(0, take));
+      remaining = remaining.slice(take);
+    }
+  }
+  return pages;
+};
+
 const formatBillCurrency = (val) => {
   const num = Number(val || 0);
   return isNaN(num) ? "0.00" : num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1150,7 +1174,45 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
   const [printBill, setPrintBill] = useState(null);
 
   // ── Print ─────────────────────────────────────────────────────────────────
-  const handlePrint = (bill) => setPrintBill(bill);
+  const handlePrint = async (bill) => {
+    setPrintBill(bill);
+    if (bill && bill.uhid && (!bill.inpatient_number || !bill.room_no || !bill.insurance_name)) {
+      try {
+        const res = await apiRequest(`${HmsBaseUrl}admissionstatus/?uhid=${bill.uhid}`, "GET");
+        if (res && res.success) {
+          const body = res.data;
+          const isAdmitted = body?.admitted === true || body?.data?.is_admitted === true || Boolean(body?.data?.ipNumber);
+          if (isAdmitted) {
+            const adm = body?.data || body;
+            const activeRoom = Array.isArray(adm?.room_details)
+              ? (adm.room_details.find(r => r.is_roomActive) || adm.room_details[0])
+              : null;
+            const activeShift = Array.isArray(adm?.roomShitingDetails)
+              ? (adm.roomShitingDetails.find(r => r.is_roomActive) || adm.roomShitingDetails[0])
+              : null;
+            const roomDisplay = activeRoom
+              ? (activeRoom.bedNo ? `${activeRoom.roomNo} / Bed ${activeRoom.bedNo}` : activeRoom.roomNo)
+              : activeShift
+                ? (activeShift.newBedNo ? `${activeShift.newRoomNo} / Bed ${activeShift.newBedNo}` : activeShift.newRoomNo)
+                : "";
+            const ins = adm?.insurance_company || adm?.company_code || (String(adm?.customer_type || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "";
+            const ip = adm?.ipNumber || adm?.inpatient_number || adm?.base_ip_number || "";
+            setPrintBill(prev => {
+              if (!prev || prev.id !== bill.id) return prev;
+              return {
+                ...prev,
+                inpatient_number: prev.inpatient_number || ip,
+                room_no: prev.room_no || roomDisplay,
+                insurance_name: prev.insurance_name || ins,
+              };
+            });
+          }
+        }
+      } catch (e) {
+        // keep bill as is
+      }
+    }
+  };
 
   const handlePrintNow = () => {
     const content = document.getElementById("print-area").innerHTML;
@@ -1167,30 +1229,82 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
             * { box-sizing: border-box; margin: 0; padding: 0; }
             html, body {
               width: 210mm;
-              height: 148mm;
-              font-family: Arial, Helvetica, sans-serif;
-              padding: 0;
               margin: 0;
-              font-size: 11.5px;
+              padding: 0;
+              font-family: Arial, Helvetica, sans-serif;
               color: #111;
+              background: #ffffff;
+              font-size: 11.5px;
               line-height: 1.35;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
-            .bill-wrapper {
+            .bill-page {
               width: 100%;
               max-width: 198mm;
               margin: 0 auto;
               padding: 3mm 4mm;
               background: #fff;
+              page-break-after: always;
+              break-after: page;
+              page-break-inside: avoid;
+              break-inside: avoid;
+              box-sizing: border-box;
+            }
+            .bill-page:last-child {
+              page-break-after: auto;
+              break-after: auto;
+            }
+            .divider {
+              border-top: 1px solid #111;
+              margin: 3px 0;
+            }
+            .bill-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 2px 0;
+              font-size: 11px;
+            }
+            .bill-table th {
+              color: #111;
+              font-weight: 700;
+              font-size: 10.5px;
+              padding: 3px 4px;
+              background: #fff;
+            }
+            .bill-table td {
+              padding: 2.5px 4px;
+              vertical-align: middle;
+              font-size: 11px;
+              border: none;
+            }
+            .bill-table tr {
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
             @media print {
-              body { padding: 0; background: #fff; }
-              .bill-wrapper { border: none; padding: 0; margin: 0 auto; width: 100%; }
+              html, body {
+                width: 210mm;
+                margin: 0;
+                padding: 0;
+                background: #fff;
+              }
+              .bill-page {
+                border: none;
+                padding: 0;
+                margin: 0 auto;
+                width: 100%;
+                page-break-after: always;
+                break-after: page;
+              }
+              .bill-page:last-child {
+                page-break-after: auto;
+                break-after: auto;
+              }
             }
           </style>
         </head>
-        <body><div class="bill-wrapper">${content}</div></body>
+        <body><div class="print-container">${content}</div></body>
       </html>
     `);
     win.document.close();
@@ -1711,184 +1825,251 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
               }}>✕</button>
             </div>
 
-            <div id="print-area" style={{ padding: "16px 20px", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 11.5, color: "#111", lineHeight: 1.35, background: "#fff" }}>
-              {/* Top Header: Logo on left, Hospital details directly next to it matching photo */}
-              <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 3 }}>
-                <img
-                  src={HospitalHeader}
-                  alt="Shanmuga Hospital Limited"
-                  style={{ maxHeight: 48, objectFit: "contain" }}
-                  onError={(e) => { e.target.style.display = "none"; }}
-                />
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: "#005b8e", letterSpacing: 0.5, textTransform: "uppercase" }}>
-                    SHANMUGA HOSPITAL LIMITED
-                  </div>
-                  <div style={{ fontSize: 11, color: "#222", marginTop: 1 }}>
-                    51/24.Saradha College Road, Salem - 636007
-                  </div>
-                  <div style={{ fontSize: 11, color: "#222" }}>
-                    Ph No: 04272706666
-                  </div>
-                </div>
-              </div>
+            <div id="print-area" style={{ padding: "16px 20px", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 11.5, color: "#111", lineHeight: 1.35, background: "#f8fafc" }}>
+              {(() => {
+                const allMeds = parseMedicineParticulars(printBill.medicine_particulars || []);
+                const previewPages = chunkMedicinesForPrint(allMeds);
+                const totalPreviewPages = previewPages.length;
 
-              {/* Divider Line */}
-              <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
+                return previewPages.map((pageMeds, pageIdx) => {
+                  const isLastPage = pageIdx === totalPreviewPages - 1;
 
-              {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
-                <div>
-                  <div>TN/SLE/20/01109</div>
-                  <div>CIN : L85110TZ2020PLC033974</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 11, fontStyle: "italic", color: "#333", fontWeight: 700 }}>*** Duplicate ***</div>
-                  <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>
-                    {(printBill.payment_method || printBill.payment_mode || "").toLowerCase().includes("credit") ? "CREDIT BILL" : "CASH BILL"}
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
-                    {((printBill.inpatient_number || printBill.ip_number || printBill.bill_type_name || "").toLowerCase().includes("ip")) ? "PHARMACY IP GST INVOICE" : "PHARMACY OP GST INVOICE"}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 14 }}>
-                    <span>GST NO : 33ABDCS8326A1ZP</span>
-                    <span>No. RM/3G/012</span>
-                  </div>
-                </div>
-              </div>
+                  return (
+                    <div
+                      key={pageIdx}
+                      className="bill-page"
+                      style={{
+                        background: "#fff",
+                        padding: "14px 18px",
+                        marginBottom: isLastPage ? 0 : 20,
+                        borderRadius: 6,
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                        border: "1px solid #e2e8f0"
+                      }}
+                    >
+                      {/* Top Header */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 3 }}>
+                        <img
+                          src={HospitalHeader}
+                          alt="Shanmuga Hospital Limited"
+                          style={{ maxHeight: 48, objectFit: "contain" }}
+                          onError={(e) => { e.target.style.display = "none"; }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: "#005b8e", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                            SHANMUGA HOSPITAL LIMITED
+                          </div>
+                          <div style={{ fontSize: 11, color: "#222", marginTop: 1 }}>
+                            51/24.Saradha College Road, Salem - 636007
+                          </div>
+                          <div style={{ fontSize: 11, color: "#222" }}>
+                            Ph No: 04272706666
+                          </div>
+                        </div>
+                        {totalPreviewPages > 1 && (
+                          <div style={{ textAlign: "right" }}>
+                            <span style={{ display: "inline-block", fontSize: 10.5, fontWeight: 700, color: "#005b8e", background: "#e0f2fe", padding: "2px 8px", borderRadius: 4, border: "1px solid #bae6fd" }}>
+                              Page {pageIdx + 1} of {totalPreviewPages}
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
-              {/* Divider Line */}
-              <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
+                      {/* Divider Line */}
+                      <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
 
-              {/* Patient & Bill Details (Perfect Colon Alignment using Dedicated Column) */}
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 20, fontSize: 11.5, padding: "2px 0 3px 0" }}>
-                <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: "82px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
-                  <span style={{ color: "#222" }}>Patient</span><span>:</span><span style={{ fontWeight: 700 }}>{printBill.patient_name || "—"}</span>
-                  <span style={{ color: "#222" }}>UHID No</span><span>:</span><span>{printBill.uhid || "—"}</span>
-                  {(printBill.inpatient_number || printBill.ip_number || printBill.ipNumber) && (
-                    <>
-                      <span style={{ color: "#222" }}>IN Patient NO</span><span>:</span><span>{printBill.inpatient_number || printBill.ip_number || printBill.ipNumber}</span>
-                    </>
-                  )}
-                  <span style={{ color: "#222" }}>Doctor</span><span>:</span><span>{printBill.doctor_name || "—"}</span>
-                </div>
-                <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: "72px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
-                  <span style={{ color: "#222" }}>Bill No</span><span>:</span><span style={{ fontWeight: 700 }}>{printBill.bill_number || printBill.bill_no || "—"}</span>
-                  <span style={{ color: "#222" }}>Date</span><span>:</span><span>{formatDate(printBill.bill_date)}</span>
-                  <span style={{ color: "#222" }}>Time</span><span>:</span><span>{formatTime(printBill.bill_date)}</span>
-                  {(printBill.room_no || printBill.room || printBill.roomNo) && (
-                    <>
-                      <span style={{ color: "#222" }}>Room</span><span>:</span><span>{printBill.room_no || printBill.room || printBill.roomNo}</span>
-                    </>
-                  )}
-                </div>
-              </div>
+                      {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
+                        <div>
+                          <div>TN/SLE/20/01109</div>
+                          <div>CIN : L85110TZ2020PLC033974</div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 11, fontStyle: "italic", color: "#333", fontWeight: 700 }}>*** Duplicate ***</div>
+                          <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>
+                            {(printBill.payment_method || printBill.payment_mode || printBill.paymentMode || "").toLowerCase().includes("credit") ? "CREDIT BILL" : "CASH BILL"}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
+                            {((printBill.inpatient_number || printBill.ip_number || printBill.bill_type_name || "").toLowerCase().includes("ip")) ? "PHARMACY IP GST INVOICE" : "PHARMACY OP GST INVOICE"}
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 14 }}>
+                            <span>GST NO : 33ABDCS8326A1ZP</span>
+                            <span>No. RM/3G/012</span>
+                          </div>
+                        </div>
+                      </div>
 
-              {/* Medicines Table (Clean Alignment Sheet Style - No vertical borders) */}
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, margin: "2px 0" }}>
-                <thead>
-                  <tr style={{ borderTop: "1px solid #111" }}>
-                    <th rowSpan={2} style={{ textAlign: "left", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5, width: 180 }}>Particulars</th>
-                    <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>HSN Code</th>
-                    <th rowSpan={2} style={{ width: 75, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
-                    <th rowSpan={2} style={{ width: 60, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
-                    <th rowSpan={2} style={{ width: 35, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Qty</th>
-                    <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Rate</th>
-                    <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>CGST</th>
-                    <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>SGST</th>
-                    <th rowSpan={2} style={{ width: 70, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amount</th>
-                  </tr>
-                  <tr style={{ borderBottom: "1px solid #111" }}>
-                    <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
-                    <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
-                    <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
-                    <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
-                  </tr>
-                </thead>
-                <tbody style={{ borderBottom: "1px solid #111" }}>
-                  {printBill.medicine_particulars && printBill.medicine_particulars.length > 0 ? (
-                    printBill.medicine_particulars.map((med, i) => {
-                      const qty      = parseFloat(med.qty   ?? med.quantity ?? 0);
-                      const price    = parseFloat(med.price ?? med.rate     ?? 0);
-                      const amt      = qty * price;
-                      const cgstPct  = parseFloat(med.CGST_Percentage ?? med.cgst_percentage ?? med.cgst_pct ?? 2.5);
-                      const sgstPct  = parseFloat(med.SGST_Percentage ?? med.sgst_percentage ?? med.sgst_pct ?? 2.5);
-                      const cgstAmt  = parseFloat(med.CGST_Amt ?? med.cgst_amount ?? (amt * cgstPct / 100).toFixed(2));
-                      const sgstAmt  = parseFloat(med.SGST_Amt ?? med.sgst_amount ?? (amt * sgstPct / 100).toFixed(2));
-                      return (
-                        <tr key={i}>
-                          <td style={{ padding: "2.5px 4px", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>
-                            <div>{(med.item_name && med.item_name.trim()) || (med.medicine_name && med.medicine_name.trim()) || (med.name && med.name.trim()) || `Item #${med.item_id || i + 1}`}</div>
-                            {med.dosage && (
-                              <div style={{ fontSize: 9.5, color: "#166534", fontWeight: 600 }}>
-                                Dosage: {med.dosage} {med.noOfDays ? `(${med.noOfDays} Days)` : ""}
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.hsn_code ?? "—"}</td>
-                          <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.batch_number ?? med.batch ?? "—"}</td>
-                          <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryForBill(med.expiry_date ?? med.expiry)}</td>
-                          <td style={{ padding: "2.5px 3px", textAlign: "center", fontWeight: 700 }}>{qty}</td>
-                          <td style={{ padding: "2.5px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{price.toFixed(2)}</td>
-                          <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{cgstPct}</td>
-                          <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{cgstAmt.toFixed(2)}</td>
-                          <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{sgstPct}</td>
-                          <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{sgstAmt.toFixed(2)}</td>
-                          <td style={{ padding: "2.5px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{amt.toFixed(2)}</td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={11} style={{ textAlign: "center", color: "#999", padding: "6px" }}>No medicine details available</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                      {/* Divider Line */}
+                      <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
 
-              {/* Totals & Payment (Aligned with columns on right matching reference photo) */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>
-                <div style={{ fontSize: 11.5, paddingTop: 2 }}>
-                  <span style={{ fontWeight: 700 }}>Payment Mode :</span> &nbsp; {(printBill.payment_method || printBill.payment_mode || "—").toUpperCase()}
-                </div>
-                <table style={{ borderCollapse: "collapse", marginLeft: "auto", fontSize: 11.5 }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Total :</td>
-                      <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
-                        {formatBillCurrency(printBill.total_amount)}
-                      </td>
-                    </tr>
-                    {parseFloat(printBill.overall_discount_amount || printBill.discount || 0) > 0 && (
-                      <tr>
-                        <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Discount Amt:</td>
-                        <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
-                          {formatBillCurrency(printBill.overall_discount_amount || printBill.discount)}
-                        </td>
-                      </tr>
-                    )}
-                    <tr>
-                      <td style={{ padding: "2.5px 12px 2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" }}>Net Amount (Payable) :</td>
-                      <td style={{ padding: "2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, minWidth: 72 }}>
-                        {formatBillCurrency(printBill.net_amount)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                      {/* Patient & Bill Details */}
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 20, fontSize: 11.5, padding: "2px 0 3px 0" }}>
+                        <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: "82px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
+                          <span style={{ color: "#222" }}>Patient</span><span>:</span><span style={{ fontWeight: 700 }}>{printBill.patient_name || "—"}</span>
+                          <span style={{ color: "#222" }}>UHID No</span><span>:</span><span>{printBill.uhid || "—"}</span>
+                          {(printBill.inpatient_number || printBill.ip_number || printBill.ipNumber) && (
+                            <>
+                              <span style={{ color: "#222" }}>IP Number</span><span>:</span><span>{printBill.inpatient_number || printBill.ip_number || printBill.ipNumber}</span>
+                            </>
+                          )}
+                          <span style={{ color: "#222" }}>Doctor</span><span>:</span><span>{printBill.doctor_name || "—"}</span>
+                        </div>
+                        <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: "72px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
+                          <span style={{ color: "#222" }}>Bill No</span><span>:</span><span style={{ fontWeight: 700 }}>{printBill.bill_number || printBill.bill_no || "—"}</span>
+                          <span style={{ color: "#222" }}>Date</span><span>:</span><span>{formatDate(printBill.bill_date)} &nbsp;&nbsp; {formatTime(printBill.bill_date)}</span>
+                          {(printBill.room_no || printBill.room || printBill.roomNo) && (
+                            <>
+                              <span style={{ color: "#222" }}>Room</span><span>:</span><span>{printBill.room_no || printBill.room || printBill.roomNo}</span>
+                            </>
+                          )}
+                          {(printBill.insurance_name || printBill.insurance_company) && (
+                            <>
+                              <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{printBill.insurance_name || printBill.insurance_company}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
 
-              {/* Divider Line Above Footer */}
-              <div style={{ borderTop: "1px solid #111", margin: "4px 0 3px 0" }} />
+                      {/* Medicines Table */}
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, margin: "2px 0" }}>
+                        <thead>
+                          <tr style={{ borderTop: "1px solid #111" }}>
+                            <th rowSpan={2} style={{ textAlign: "left", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5, width: 180 }}>Particulars</th>
+                            <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>HSN Code</th>
+                            <th rowSpan={2} style={{ width: 75, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
+                            <th rowSpan={2} style={{ width: 60, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
+                            <th rowSpan={2} style={{ width: 35, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Qty</th>
+                            <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Rate</th>
+                            <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>CGST</th>
+                            <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>SGST</th>
+                            <th rowSpan={2} style={{ width: 70, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amount</th>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #111" }}>
+                            <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
+                            <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
+                            <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
+                            <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
+                          </tr>
+                        </thead>
+                        <tbody style={{ borderBottom: "1px solid #111" }}>
+                          {pageMeds && pageMeds.length > 0 ? (
+                            pageMeds.map((med, i) => {
+                              const qty      = parseFloat(med.qty   ?? med.quantity ?? 0);
+                              const price    = parseFloat(med.price ?? med.rate     ?? 0);
+                              const amt      = qty * price;
+                              const cgstPct  = parseFloat(med.CGST_Percentage ?? med.cgst_percentage ?? med.cgst_pct ?? 2.5);
+                              const sgstPct  = parseFloat(med.SGST_Percentage ?? med.sgst_percentage ?? med.sgst_pct ?? 2.5);
+                              const cgstAmt  = parseFloat(med.CGST_Amt ?? med.cgst_amount ?? (amt * cgstPct / 100).toFixed(2));
+                              const sgstAmt  = parseFloat(med.SGST_Amt ?? med.sgst_amount ?? (amt * sgstPct / 100).toFixed(2));
+                              return (
+                                <tr key={i}>
+                                  <td style={{ padding: "2.5px 4px", fontWeight: 500, maxWidth: 185, wordBreak: "break-word", lineHeight: 1.25 }}>
+                                    <div>{(med.item_name && med.item_name.trim()) || (med.medicine_name && med.medicine_name.trim()) || (med.name && med.name.trim()) || `Item #${med.item_id || i + 1}`}</div>
+                                    {med.dosage && (
+                                      <div style={{ fontSize: 9.5, color: "#166534", fontWeight: 600 }}>
+                                        Dosage: {med.dosage} {med.noOfDays ? `(${med.noOfDays} Days)` : ""}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.hsn_code ?? "—"}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.batch_number ?? med.batch ?? "—"}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryForBill(med.expiry_date ?? med.expiry)}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "center", fontWeight: 700 }}>{qty}</td>
+                                  <td style={{ padding: "2.5px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{price.toFixed(2)}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{cgstPct}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{cgstAmt.toFixed(2)}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{sgstPct}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{sgstAmt.toFixed(2)}</td>
+                                  <td style={{ padding: "2.5px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{amt.toFixed(2)}</td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={11} style={{ textAlign: "center", color: "#999", padding: "6px" }}>No medicine details available</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
 
-              {/* Footer: E & OE on left, Prepared by, Goods once sold in center, Sign on right */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: 11, padding: "2px 0" }}>
-                <div style={{ fontWeight: 700, width: 75 }}>E &amp; OE</div>
-                <div style={{ textAlign: "left", width: 180 }}>Prepared by : {printBill.prepared_by || printBill.created_by_name || printBill.employee_name || "—"}</div>
-                <div style={{ textAlign: "center", flex: 1, fontStyle: "italic", color: "#222" }}>"Goods once sold will not taken back"</div>
-                <div style={{ textAlign: "right", width: 140 }}>(Sign-pharmacist)</div>
-              </div>
+                      {/* Continuation indicator OR Totals & Footer */}
+                      {!isLastPage ? (
+                        <div style={{ display: "flex", justify_content: "space-between", alignItems: "center", borderTop: "1px solid #111", padding: "4px 2px", marginTop: 4, fontSize: 11, fontStyle: "italic", color: "#444" }}>
+                          <span>Continued on Page {pageIdx + 2}...</span>
+                          <span style={{ fontWeight: 700, fontStyle: "normal", color: "#005b8e" }}>Page {pageIdx + 1} of {totalPreviewPages}</span>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Totals & Payment */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>
+                            <div style={{ fontSize: 11.5, paddingTop: 2 }}>
+                              <span style={{ fontWeight: 700 }}>Payment Mode :</span> &nbsp; {(printBill.payment_method || printBill.payment_mode || printBill.paymentMode || "—").toUpperCase()}
+                            </div>
+                            {(() => {
+                              const computedGross = (allMeds || []).reduce((sum, m) => {
+                                const q = Number(m.qty || m.quantity || 0);
+                                const p = Number(m.price || m.mrp || m.Selling_Price || m.selling_price || 0);
+                                return sum + (q * p);
+                              }, 0);
+                              const previewGross = computedGross > 0 ? computedGross : Number(printBill.total_amount || 0);
+                              const previewNet = Number(printBill.net_amount || 0);
+                              const previewDisc = Math.max(
+                                0,
+                                previewGross - previewNet,
+                                Number(printBill.overall_discount_amount || printBill.discount || printBill.total_discount || 0)
+                              );
+                              const previewPct = previewGross > 0 ? (previewDisc / previewGross) * 100 : 0;
+                              const previewPctLabel = previewPct > 0
+                                ? ` (${previewPct % 1 === 0 ? previewPct.toFixed(0) : previewPct.toFixed(2).replace(/\.?0+$/, "")}%)`
+                                : "";
+
+                              return (
+                                <table style={{ borderCollapse: "collapse", marginLeft: "auto", fontSize: 11.5 }}>
+                                  <tbody>
+                                    <tr>
+                                      <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Total :</td>
+                                      <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                        {formatBillCurrency(previewGross)}
+                                      </td>
+                                    </tr>
+                                    {previewDisc > 0 && (
+                                      <tr>
+                                        <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Discount Amt{previewPctLabel}:</td>
+                                        <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                          {formatBillCurrency(previewDisc)}
+                                        </td>
+                                      </tr>
+                                    )}
+                                    <tr>
+                                      <td style={{ padding: "2.5px 12px 2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" }}>Net Amount (Payable) :</td>
+                                      <td style={{ padding: "2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, minWidth: 72 }}>
+                                        {formatBillCurrency(previewNet)}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Divider Line Above Footer */}
+                          <div style={{ borderTop: "1px solid #111", margin: "4px 0 3px 0" }} />
+
+                          {/* Footer */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: 11, padding: "2px 0" }}>
+                            <div style={{ fontWeight: 700, width: 75 }}>E &amp; OE</div>
+                            <div style={{ textAlign: "left", width: 180 }}>Prepared by : {printBill.prepared_by || printBill.created_by_name || printBill.employee_name || "—"}</div>
+                            <div style={{ textAlign: "center", flex: 1, fontStyle: "italic", color: "#222" }}>"Goods once sold will not taken back"</div>
+                            <div style={{ textAlign: "right", width: 140 }}>(Sign-pharmacist)</div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", padding: "12px 20px 16px", borderTop: "1px solid #e2e8f0" }}>
