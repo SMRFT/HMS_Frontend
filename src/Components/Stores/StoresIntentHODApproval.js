@@ -644,18 +644,24 @@ export default function StoresIntentHODApproval() {
       return;
     }
 
-    const rows = filteredIntents.map(it => ({
-      "Intent ID": it.intent_id,
-      "Date": it.date ? dayjs(it.date).format("YYYY-MM-DD") : "",
-      "Department Code": it.department,
-      "Department Name": it.department_name || it.department,
-      "Requester": it.created_by_name || it.created_by,
-      "Total Items": it.items?.length || 0,
-      "HOD Status": it.hod_status || (it.is_hod_approved ? "Approved" : "Pending"),
-      "HOD Approved By": it.hod_approved_by_name || it.hod_approved_by || "",
-      "HOD Remarks": it.hod_remarks || "",
-      "Store Approved": it.is_approved ? "Yes" : "No"
-    }));
+    const rows = filteredIntents.map(it => {
+      const items = it.items || [];
+      const totalReq = items.reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+      const totalPending = items.reduce((sum, i) => sum + Math.max(0, Number(i.quantity || 0) - Number(i.approved_quantity || 0)), 0);
+      return {
+        "Intent ID": it.intent_id,
+        "Date": it.date ? dayjs(it.date).format("YYYY-MM-DD") : "",
+        "Department": it.department_name || it.department,
+        "Requester": it.created_by_name || it.created_by,
+        "Total Items": items.length,
+        "Requested Qty": totalReq,
+        "Pending Qty": totalPending,
+        "HOD Status": it.hod_status || (it.is_hod_approved ? "Approved" : "Pending"),
+        "HOD Approved By": it.hod_approved_by_name || it.hod_approved_by || "",
+        "HOD Remarks": it.hod_remarks || "",
+        "Store Approved": it.is_approved ? "Yes" : "No"
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -698,11 +704,8 @@ export default function StoresIntentHODApproval() {
       key: "department_name",
       width: 180,
       render: (val, record) => (
-        <div>
-          <div style={{ fontWeight: 700, color: "#0f172a" }}>{val || record.department}</div>
-          <span style={{ fontSize: "0.72rem", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4, color: "#64748b" }}>
-            {record.department}
-          </span>
+        <div style={{ fontWeight: 700, color: "#0f172a" }}>
+          {val || record.department}
         </div>
       )
     },
@@ -725,15 +728,60 @@ export default function StoresIntentHODApproval() {
       key: "items",
       render: (_, record) => {
         const items = record.items || [];
+        const totalPending = items.reduce((acc, it) => acc + Math.max(0, Number(it.quantity || 0) - Number(it.approved_quantity || 0)), 0);
+        const totalReq = items.reduce((acc, it) => acc + Number(it.quantity || 0), 0);
         return (
           <div>
-            <div style={{ fontWeight: 700, color: "#1e293b", marginBottom: 3 }}>
-              {items.length} {items.length === 1 ? "Item" : "Items"} Requested
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+              <span style={{ fontWeight: 700, color: "#1e293b", fontSize: "0.85rem" }}>
+                {items.length} {items.length === 1 ? "Item" : "Items"} ({totalReq} Req)
+              </span>
+              {totalPending > 0 && (
+                <span style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  background: "#fffbeb",
+                  color: "#d97706",
+                  border: "1px solid #fde68a",
+                  padding: "1px 6px",
+                  borderRadius: 4
+                }}>
+                  {totalPending} Pending
+                </span>
+              )}
             </div>
             <div style={{ fontSize: "0.76rem", color: "#64748b", maxWidth: 280, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {items.map(i => `${i.name || i.item_id} (x${i.quantity})`).join(", ")}
+              {items.map(i => {
+                const req = Number(i.quantity || 0);
+                const apprv = Number(i.approved_quantity || 0);
+                const pend = Math.max(0, req - apprv);
+                return `${i.name || i.itemName || i.item_name || i.item_id} (Req: ${req}${pend > 0 ? `, Pend: ${pend}` : ""})`;
+              }).join(", ")}
             </div>
           </div>
+        );
+      }
+    },
+    {
+      title: "Pending Qty",
+      key: "pending_qty",
+      width: 120,
+      render: (_, record) => {
+        const items = record.items || [];
+        const totalPending = items.reduce((acc, it) => acc + Math.max(0, Number(it.quantity || 0) - Number(it.approved_quantity || 0)), 0);
+        return (
+          <span style={{
+            display: "inline-block",
+            fontWeight: 800,
+            fontSize: "0.9rem",
+            color: totalPending > 0 ? "#d97706" : "#10b981",
+            background: totalPending > 0 ? "#fffbeb" : "#ecfdf5",
+            padding: "3px 10px",
+            borderRadius: 6,
+            border: totalPending > 0 ? "1px solid #fde68a" : "1px solid #a7f3d0"
+          }}>
+            {totalPending}
+          </span>
         );
       }
     },
@@ -939,7 +987,7 @@ export default function StoresIntentHODApproval() {
                 const name = getDeptName(d);
                 return (
                   <Option key={code} value={code}>
-                    {name} ({code})
+                    {name}
                   </Option>
                 );
               })}
@@ -1067,29 +1115,30 @@ export default function StoresIntentHODApproval() {
               <table>
                 <thead>
                   <tr>
-                    <th style={{ width: 45 }}>#</th>
-                    <th>Item ID</th>
+                    <th style={{ width: 50 }}>#</th>
                     <th>Item Name</th>
-                    <th style={{ textAlign: "right", width: 120 }}>Store Stock</th>
-                    <th style={{ textAlign: "right", width: 140 }}>Requested Qty</th>
+                    <th style={{ textAlign: "right", width: 130 }}>Requested Qty</th>
+                    <th style={{ textAlign: "right", width: 130 }}>Pending Qty</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(selectedIntent.items || []).map((item, idx) => (
-                    <tr key={item.item_id || idx}>
-                      <td>{idx + 1}</td>
-                      <td style={{ fontWeight: 600, color: "#64748b" }}>{item.item_id}</td>
-                      <td style={{ fontWeight: 700, color: "#0f172a" }}>{item.name}</td>
-                      <td style={{ textAlign: "right" }}>
-                        <Tag color={(item.available_stock || 0) > 0 ? "green" : "red"}>
-                          {item.available_stock !== undefined ? item.available_stock : "-"}
-                        </Tag>
-                      </td>
-                      <td style={{ textAlign: "right", fontWeight: 800, fontSize: "0.95rem", color: "#0f172a" }}>
-                        {item.quantity}
-                      </td>
-                    </tr>
-                  ))}
+                  {(selectedIntent.items || []).map((item, idx) => {
+                    const reqQty = Number(item.quantity || 0);
+                    const apprvQty = Number(item.approved_quantity || 0);
+                    const pendingQty = Math.max(0, reqQty - apprvQty);
+                    return (
+                      <tr key={item.item_id || idx}>
+                        <td>{idx + 1}</td>
+                        <td style={{ fontWeight: 700, color: "#0f172a" }}>{item.name || item.itemName || item.item_name || item.item_id}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, fontSize: "0.95rem", color: "#64748b" }}>
+                          {reqQty}
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 800, fontSize: "0.95rem", color: pendingQty > 0 ? "#d97706" : "#10b981" }}>
+                          {pendingQty}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1150,20 +1199,25 @@ export default function StoresIntentHODApproval() {
               <thead>
                 <tr>
                   <th style={{ width: 40 }}>#</th>
-                  <th>Item Code</th>
                   <th>Item Description</th>
-                  <th style={{ textAlign: "right", width: 140 }}>Quantity Requested</th>
+                  <th style={{ textAlign: "right", width: 130 }}>Quantity Requested</th>
+                  <th style={{ textAlign: "right", width: 130 }}>Pending Quantity</th>
                 </tr>
               </thead>
               <tbody>
-                {(selectedIntent.items || []).map((it, idx) => (
-                  <tr key={idx}>
-                    <td>{idx + 1}</td>
-                    <td>{it.item_id}</td>
-                    <td>{it.name}</td>
-                    <td style={{ textAlign: "right", fontWeight: 700 }}>{it.quantity}</td>
-                  </tr>
-                ))}
+                {(selectedIntent.items || []).map((it, idx) => {
+                  const reqQty = Number(it.quantity || 0);
+                  const apprvQty = Number(it.approved_quantity || 0);
+                  const pendingQty = Math.max(0, reqQty - apprvQty);
+                  return (
+                    <tr key={idx}>
+                      <td>{idx + 1}</td>
+                      <td>{it.name || it.itemName || it.item_name || it.item_id}</td>
+                      <td style={{ textAlign: "right", fontWeight: 700 }}>{reqQty}</td>
+                      <td style={{ textAlign: "right", fontWeight: 800, color: pendingQty > 0 ? "#d97706" : "#10b981" }}>{pendingQty}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
