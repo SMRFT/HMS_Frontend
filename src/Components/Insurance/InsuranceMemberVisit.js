@@ -11,6 +11,7 @@ import {
   Save
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
+import PatientSearchModal from "../Common/PatientSearchModal";
 
 const THEME = {
   primary: "#133d34",
@@ -617,30 +618,49 @@ const InsuranceMemberVisit = () => {
     }
   };
 
-  // Lookup Patient by UHID
-  const handleSearchUHID = async () => {
-    if (!formData.uhid.trim()) {
-      toast.warn("Please enter a UHID to search");
-      return;
-    }
-    try {
-      const res = await apiRequest(`${HMS_URL}insurance-search-patient/?uhid=${encodeURIComponent(formData.uhid.trim())}`, "GET");
-      if (res.success && res.data) {
-        const p = res.data?.data || res.data;
-        const patientName = p.patient_name || p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "";
-        setFormData(prev => ({
-          ...prev,
-          uhid: p.uhid || prev.uhid,
-          patient_name: patientName,
-          age: (p.age !== undefined && p.age !== null && p.age !== "") ? p.age : prev.age,
-          gender: (p.gender || "MALE").toUpperCase()
-        }));
-        toast.success(`Patient ${patientName || p.uhid} loaded!`);
-      } else {
-        toast.error(res.error || "Patient not found");
+  // Patient Search Modal States
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+
+  const openPatientSearch = () => {
+    setPatientSearchQuery((formData.uhid || "").trim());
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelectFromModal = async (p) => {
+    if (!p) return;
+    const uhidVal = p.uhid || "";
+    const firstName = (p.firstName || "").trim();
+    const lastName = (p.lastName || "").trim();
+    const patientName = p.patient_name || p.name || `${firstName} ${lastName}`.trim() || "";
+
+    setFormData(prev => ({
+      ...prev,
+      uhid: uhidVal || prev.uhid,
+      patient_name: patientName || prev.patient_name,
+      age: (p.age !== undefined && p.age !== null && p.age !== "") ? String(p.age) : prev.age,
+      gender: (p.gender || "MALE").toUpperCase()
+    }));
+    toast.success(`Patient ${patientName || uhidVal} loaded!`);
+
+    // If member_number is not set yet, check if there's an existing insurance member with this UHID
+    if (uhidVal && !formData.member_number) {
+      try {
+        const res = await apiRequest(`${HMS_URL}insurance-member-master/?uhid=${encodeURIComponent(uhidVal)}`, "GET");
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        if (list && list.length > 0) {
+          const m = list[0];
+          setFormData(prev => ({
+            ...prev,
+            member_number: prev.member_number || m.member_number,
+            parent_polyclinic: m.parent_polyclinic || prev.parent_polyclinic,
+            referral_number: m.referral_number || prev.referral_number,
+            service_number: m.service_number || prev.service_number
+          }));
+        }
+      } catch (e) {
+        // non-blocking
       }
-    } catch (err) {
-      toast.error("Error searching patient");
     }
   };
 
@@ -827,11 +847,15 @@ const InsuranceMemberVisit = () => {
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          handleSearchUHID();
+                          openPatientSearch();
                         }
                       }}
                     />
-                    <SearchBtnIcon type="button" onClick={handleSearchUHID}>
+                    <SearchBtnIcon
+                      type="button"
+                      title="Search Patient by UHID / Name / Mobile"
+                      onClick={openPatientSearch}
+                    >
                       <Search size={14} />
                     </SearchBtnIcon>
                   </InputWithSearch>
@@ -1218,6 +1242,15 @@ const InsuranceMemberVisit = () => {
           </Pagination>
         </TableFooterBar>
       </TableCard>
+      {/* ── Patient Search Modal for UHID Lookup ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientSelectFromModal}
+        initialQuery={patientSearchQuery}
+        mode="uhid"
+        title="Select Patient for Insurance Visit (UHID / Name / Mobile)"
+      />
     </PageContainer>
   );
 };
