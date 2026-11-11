@@ -14,6 +14,7 @@ import {
   FileText
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
+import PatientSearchModal from "../Common/PatientSearchModal";
 
 // Styling constants
 const THEME = {
@@ -711,6 +712,53 @@ const InsuranceMemberMaster = () => {
   });
   const [depSaving, setDepSaving] = useState(false);
 
+  // Patient Search Modal States
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const [patientSearchTarget, setPatientSearchTarget] = useState("member"); // "member" | "dependent"
+
+  const openPatientSearch = (target = "member") => {
+    setPatientSearchTarget(target);
+    const q = target === "dependent" ? (dependentForm.uhid || "") : (formData.uhid || "");
+    setPatientSearchQuery(q.trim());
+    setShowPatientModal(true);
+  };
+
+  const handlePatientSelectFromModal = (p) => {
+    if (!p) return;
+    const uhidVal = p.uhid || "";
+    const firstName = (p.firstName || p.name || p.patient_name || "").trim();
+    const lastName = (p.lastName || "").trim();
+    const fullName = `${firstName} ${lastName}`.trim() || firstName || p.name || "";
+    const patientProvider = p.company_code || p.insurance_type || p.insurance_company || "";
+
+    if (patientSearchTarget === "dependent") {
+      setDependentForm(prev => ({
+        ...prev,
+        uhid: uhidVal,
+        dependent_name: prev.dependent_name || fullName,
+        gender: (p.gender || prev.gender || "MALE").toUpperCase(),
+        age: (p.age !== undefined && p.age !== null && p.age !== "") ? String(p.age) : prev.age
+      }));
+      toast.success(`Dependent patient ${fullName || uhidVal} selected!`);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        uhid: uhidVal || prev.uhid,
+        member_first_name: firstName || prev.member_first_name,
+        member_last_name: lastName || prev.member_last_name,
+        member_phone: p.mobilePhone || p.phone || p.mobile_number || prev.member_phone,
+        member_address_1: p.address || p.permanentAddress || p.permanent_address || prev.member_address_1,
+        area: p.area || prev.area,
+        member_sex: (p.gender || prev.member_sex || "MALE").toUpperCase(),
+        member_age: (p.age !== undefined && p.age !== null && p.age !== "") ? String(p.age) : prev.member_age,
+        member_dob: p.dob || prev.member_dob,
+        ...(patientProvider ? { insurance_type: patientProvider } : {})
+      }));
+      toast.success(`Patient ${fullName || uhidVal} found and loaded!`);
+    }
+  };
+
   // --- Fetch Members for Left Panel ---
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -766,42 +814,6 @@ const InsuranceMemberMaster = () => {
   useEffect(() => {
     fetchInsuranceProviders();
   }, [fetchInsuranceProviders]);
-
-  // --- Search Patient by UHID to auto-fill form ---
-  const handleSearchUHID = async () => {
-    if (!formData.uhid.trim()) {
-      toast.warn("Please enter a UHID number to search");
-      return;
-    }
-    try {
-      const res = await apiRequest(`${HMS_URL}insurance-search-patient/?uhid=${encodeURIComponent(formData.uhid.trim())}`, "GET");
-      if (res.success && res.data) {
-        // Handle both unwrapped and wrapped { success: true, data: { ... } } responses from apiRequest
-        const p = res.data?.data || res.data;
-        const firstName = p.firstName || p.name || p.patient_name || "";
-        const lastName = p.lastName || "";
-        const patientProvider = p.company_code || p.insurance_type || p.insurance_company || "";
-        setFormData(prev => ({
-          ...prev,
-          uhid: p.uhid || prev.uhid,
-          member_first_name: firstName,
-          member_last_name: lastName,
-          member_phone: p.mobilePhone || p.phone || prev.member_phone,
-          member_address_1: p.address || p.permanentAddress || prev.member_address_1,
-          area: p.area || prev.area,
-          member_sex: (p.gender || "MALE").toUpperCase(),
-          member_age: (p.age !== undefined && p.age !== null && p.age !== "") ? p.age : prev.member_age,
-          member_dob: p.dob || prev.member_dob,
-          ...(patientProvider ? { insurance_type: patientProvider } : {})
-        }));
-        toast.success(`Patient ${firstName} ${lastName}`.trim() + " found and loaded!");
-      } else {
-        toast.error(res.error || "No patient found with this UHID");
-      }
-    } catch (err) {
-      toast.error("Error fetching patient details");
-    }
-  };
 
   // --- Select Member to Edit ---
   const handleSelectMember = (member) => {
@@ -1190,14 +1202,14 @@ const InsuranceMemberMaster = () => {
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          handleSearchUHID();
+                          openPatientSearch("member");
                         }
                       }}
                     />
                     <InputSearchButton
                       type="button"
-                      title="Search Patient by UHID"
-                      onClick={handleSearchUHID}
+                      title="Search Patient by UHID / Name / Mobile"
+                      onClick={() => openPatientSearch("member")}
                     >
                       <Search size={14} />
                     </InputSearchButton>
@@ -1849,11 +1861,27 @@ const InsuranceMemberMaster = () => {
 
                   <FormGroup>
                     <FieldLabel>UHID No</FieldLabel>
-                    <TextInput
-                      type="text"
-                      value={dependentForm.uhid}
-                      onChange={(e) => setDependentForm({ ...dependentForm, uhid: e.target.value })}
-                    />
+                    <InputWithButtonWrapper>
+                      <TextInput
+                        type="text"
+                        placeholder="Search or enter UHID"
+                        value={dependentForm.uhid}
+                        onChange={(e) => setDependentForm({ ...dependentForm, uhid: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            openPatientSearch("dependent");
+                          }
+                        }}
+                      />
+                      <InputSearchButton
+                        type="button"
+                        title="Search Patient for Dependent"
+                        onClick={() => openPatientSearch("dependent")}
+                      >
+                        <Search size={14} />
+                      </InputSearchButton>
+                    </InputWithButtonWrapper>
                   </FormGroup>
                 </FormGrid>
 
@@ -1924,6 +1952,15 @@ const InsuranceMemberMaster = () => {
           </ModalContainer>
         </ModalOverlay>
       )}
+      {/* ── Patient Search Modal for UHID Lookup ── */}
+      <PatientSearchModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelect={handlePatientSelectFromModal}
+        initialQuery={patientSearchQuery}
+        mode="uhid"
+        title={patientSearchTarget === "dependent" ? "Select Patient for Dependent (UHID / Name / Mobile)" : "Select Patient (UHID / Name / Mobile)"}
+      />
     </PageContainer>
   );
 };
