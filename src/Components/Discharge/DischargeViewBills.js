@@ -324,13 +324,13 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     }
   }, [inputFrom, inputTo, inputQ]);
 
-  const handleOpenPrint = async (b) => {
+  const handleOpenPrint = async (b, defaultViewMode = "NORMAL") => {
     let updatedBill = { ...b };
     const searchVal = b.uhid || b.ip_number;
     if (searchVal) {
       try {
         const param = b.uhid ? `uhid=${encodeURIComponent(b.uhid)}` : `ipNumber=${encodeURIComponent(b.ip_number)}`;
-        const raw = await apiRequest(`${BASE}search-discharge-patient/?${param}`, "GET");
+        const raw = await apiRequest(`${BASE}search-discharge-patient/?${param}&for_print=true`, "GET");
         const res = raw?.success && raw?.data?.success ? raw.data.data : (raw?.success ? raw.data : raw);
         if (res?.patient) {
           updatedBill.patient_details = {
@@ -342,7 +342,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
         console.error("Print patient details fetch error:", err);
       }
     }
-    setPrintBill(updatedBill);
+    setPrintBill({ bill: updatedBill, defaultViewMode });
   };
 
 
@@ -352,7 +352,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
 
   useEffect(() => {
     if (autoPrintBill) {
-      handleOpenPrint(autoPrintBill);
+      handleOpenPrint(autoPrintBill, "NORMAL");
     }
   }, [autoPrintBill]);
 
@@ -749,9 +749,14 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                 🛡️ Convert to Insurance Bill
               </DI>
             )}
-            <DI onClick={() => { setOpenMenu(null); handleOpenPrint(b); }}>
+            <DI onClick={() => { setOpenMenu(null); handleOpenPrint(b, "NORMAL"); }}>
               🖨️ Print Bill
             </DI>
+            {(b.is_insurance_bill || b.insurance_bill_number) && (
+              <DI onClick={() => { setOpenMenu(null); handleOpenPrint(b, "INSURANCE_CLAIM"); }}>
+                🛡️ Insurance Print Bill
+              </DI>
+            )}
             <DI onClick={() => { setOpenMenu(null); setAuditBill(b); }}>
               📜 Audit History
             </DI>
@@ -855,7 +860,8 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
       {/* ── Discharge Bill Print Modal ── */}
       <DischargeBillPrintModal
         isOpen={Boolean(printBill)}
-        bill={printBill}
+        bill={printBill?.bill || printBill}
+        defaultViewMode={printBill?.defaultViewMode || "NORMAL"}
         onClose={() => setPrintBill(null)}
       />
 

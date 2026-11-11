@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
 import headerImg from "../Images/Header.png";
+import smrftLogo from "../Images/smrft_logo.png";
 import apiRequest from "../../Auth/apiRequest";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -90,7 +91,7 @@ const numberToWords = (num) => {
   return words;
 };
 
-// Item categorization for IP/General patient format
+// Item categorization for IP/NABH Insurance format
 const categorizeItem = (it) => {
   const text = `${it.itemName || ""} ${it.category || ""} ${it.department || ""} ${it.item_description || ""} ${it.package_name || ""}`.toLowerCase();
 
@@ -112,7 +113,6 @@ const categorizeItem = (it) => {
   return "SPECIALISED SERVICES / PROCEDURES / SURGERY";
 };
 
-// Standard Categories
 const IP_CATEGORIES = [
   "ACCOMMODATION - TYPE OF WARD PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY CARE",
   "CONSULTATION CHARGES OPD/INDOOR",
@@ -122,17 +122,115 @@ const IP_CATEGORIES = [
   "SPECIALISED SERVICES / PROCEDURES / SURGERY"
 ];
 
+const cleanDesc = (it) => {
+  let desc = (it.item_description || "").trim();
+  const btn = (it.billTypeNo || "").trim();
+  if (
+    desc === btn ||
+    desc === "DIS01" ||
+    desc.toUpperCase().startsWith("DIS0") ||
+    desc.toUpperCase().startsWith("LAB0") ||
+    desc.toLowerCase() === "investbilling" ||
+    desc.includes("NABH:")
+  ) {
+    desc = "";
+  }
+  return desc;
+};
+
+const getNabhCode = (it) => {
+  let code = it.nabh_code || it.nabhCode || it.nabh || "";
+  if (!code && it.item_description && it.item_description.includes("NABH:")) {
+    const match = it.item_description.match(/NABH:\s*([^\s·,]+)/i);
+    if (match) code = match[1];
+  }
+  return code || "-";
+};
+
+// ── Formatting Helpers matching Reference Bills (PDF 1 & PDF 2) ───────────────
+const formatPatientName = (pd, bill) => {
+  const name = pd.patient_name || bill.patient_name || "—";
+  const gender = pd.gender ? String(pd.gender).trim().toUpperCase() : "";
+  const age = pd.age ? String(pd.age).trim() : "";
+  let res = String(name).toUpperCase();
+  if (gender && age) {
+    res += `, ${gender} ${age}YEARS`;
+  } else if (gender) {
+    res += `, ${gender}`;
+  } else if (age) {
+    res += `, ${age}YEARS`;
+  }
+  return res;
+};
+
+const formatGuardian = (pd) => {
+  const raw = pd.guardian || pd.guardian_name || pd.spouse_name || pd.father_name || "";
+  if (!raw || !String(raw).trim()) return "—";
+  const s = String(raw).trim();
+  if (/^(w\/o|s\/o|d\/o|c\/o)\b/i.test(s)) {
+    return s.toUpperCase();
+  }
+  const gType = pd.guardian_type || (/female/i.test(pd.gender || "") && (pd.spouse_name || pd.guardian) ? "W/o" : "S/o");
+  return `${gType} ${s}`.toUpperCase();
+};
+
+const formatDoctor = (pd) => {
+  let doc = pd.doctor || pd.doctorName || pd.admittingDoctorName || pd.admitting_doctor || "—";
+  if (!doc || doc === "—") return "—";
+  doc = String(doc).trim();
+  if (!/^dr[.\s]/i.test(doc)) {
+    doc = `DR.${doc}`;
+  }
+  return doc.toUpperCase();
+};
+
+const formatDepartment = (pd, bill) => {
+  const dept = pd.department || bill.department || "GYNEACOLOGY";
+  return String(dept).toUpperCase();
+};
+
 // ── Styled Modal Components ──────────────────────────────────────────────────
 const ModalOverlay = styled.div`
   position: fixed; inset: 0; background: rgba(15,23,42,0.65);
   backdrop-filter: blur(2px); z-index: 10000; display: flex;
   align-items: center; justify-content: center; padding: 16px;
+
+  @media print {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    z-index: auto !important;
+  }
 `;
 
 const ModalBox = styled.div`
   background: #f1f5f9; border-radius: 12px; width: 100%; max-width: 900px;
   max-height: 94vh; display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+
+  @media print {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 `;
 
 const ModalHead = styled.div`
@@ -144,7 +242,7 @@ const ModalHead = styled.div`
 const ModalTitle = styled.h3`
   margin: 0; font-size: 0.95rem; font-weight: 700; color: #fff;
   display: flex; align-items: center; gap: 8px; text-transform: uppercase;
-  font-family: 'Times New Roman', Times, serif;
+  font-family: Arial, Helvetica, sans-serif;
 `;
 
 const ModalClose = styled.button`
@@ -163,8 +261,328 @@ const HeadBtn = styled.button`
   &:hover { background: ${props => props.$active ? "#0f766e" : "rgba(255,255,255,0.18)"}; }
 `;
 
-// ── Printable Sheet ──────────────────────────────────────────────────────────
-export const PrintSheet = React.forwardRef(({
+// ═════════════════════════════════════════════════════════════════════════════
+// ── NORMAL BILL SHEET (EXACT REPLICA OF ATTACHED REFERENCE CASH & CREDIT BILLS)
+// ═════════════════════════════════════════════════════════════════════════════
+const NormalBillSheet = ({
+  bill,
+  withHeader = true,
+  preparedByName = "",
+}) => {
+  if (!bill) return null;
+
+  const pd = bill.patient_details || {};
+  const rawItems = parseItems(bill.items);
+
+  // Credit vs Cash determination:
+  // If payment method is Credit, or company name is present (like RAILWAY CTSE in Ref PDF 2), it's CREDIT BILL
+  const isCredit = Boolean(
+    (bill.payment_method && String(bill.payment_method).toLowerCase().includes("credit")) ||
+    (pd.patient_type && String(pd.patient_type).toLowerCase().includes("credit")) ||
+    (bill.company_name && String(bill.company_name).trim()) ||
+    (pd.company && String(pd.company).trim()) ||
+    bill.is_insurance_bill
+  );
+
+  const companyName = String(
+    bill.company_name ||
+    pd.company ||
+    pd.company_code ||
+    ""
+  ).toUpperCase().trim();
+
+  // Build items list
+  const displayItems = [];
+  rawItems.forEach(it => {
+    let name = String(it.itemName || it.name || "SERVICE / PROCEDURE").toUpperCase();
+    let sub = "";
+    if (it.doctor && String(it.doctor).trim()) {
+      let d = String(it.doctor).trim();
+      if (!/^dr[.\s]/i.test(d)) d = `DR.${d}`;
+      sub = d.toUpperCase();
+    }
+    const cleanD = cleanDesc(it);
+    if (cleanD) {
+      sub = sub ? `${sub}; ${cleanD.toUpperCase()}` : cleanD.toUpperCase();
+    }
+    displayItems.push({
+      name,
+      subDesc: sub,
+      qty: it.quantity || 1,
+      amount: parseFloat(it.amount) || 0,
+    });
+  });
+
+  const medAmt = parseFloat(bill.medicines_amount) || 0;
+  if (medAmt > 0 && !displayItems.some(i => i.name.includes("MEDICINE") || i.name.includes("PHARMACY"))) {
+    displayItems.push({
+      name: "MEDICINE CHARGES 1",
+      subDesc: "",
+      qty: 1,
+      amount: medAmt,
+    });
+  }
+
+  const impAmt = parseFloat(bill.implant_amount) || 0;
+  if (impAmt > 0 && !displayItems.some(i => i.name.includes("IMPLANT"))) {
+    displayItems.push({
+      name: "IMPLANT CHARGES",
+      subDesc: "",
+      qty: 1,
+      amount: impAmt,
+    });
+  }
+
+  const totalAmt = parseFloat(bill.total_amount) || displayItems.reduce((acc, it) => acc + (it.amount || 0), 0);
+  const advAmt = parseFloat(bill.advance_amount) || 0;
+  const discAmt = parseFloat(bill.discount_amount) || 0;
+  const netAmt = parseFloat(bill.net_amount) || (totalAmt - advAmt - discAmt);
+
+  const opNumber = String(bill.uhid || pd.uhid || "—").toUpperCase();
+  const patientName = formatPatientName(pd, bill);
+  const guardian = formatGuardian(pd);
+  const address = pd.address || pd.permanent_address || "—";
+  const doctor = formatDoctor(pd);
+  const department = formatDepartment(pd, bill);
+
+  const billNo = String(bill.bill_no || bill.bill_number || bill.estimate_number || "—").toUpperCase();
+  const ipNumber = String(bill.ip_number || pd.ip_number || pd.ipNumber || "—").toUpperCase();
+  const billDate = fmtDateStr(bill.bill_date || bill.created_date || new Date());
+  const doa = fmtDateStr(pd.admission_date || pd.admissionDateTime || pd.doa);
+  const dod = fmtDateStr(pd.discharge_date || pd.dischargeDateTime || bill.bill_date || pd.dod);
+  const roomNumber = String(pd.room_no || pd.roomNo || pd.bed_no || "—").toUpperCase();
+  const billId = String(bill.estimate_number || bill.bill_id || bill.discharge_id || bill.bill_no || "—").toUpperCase();
+
+  // Address lines formatting matching reference
+  const addrParts = String(address).split(",").map(p => p.trim()).filter(Boolean);
+
+  return (
+    <div className="bill-page" style={{
+      background: "#fff",
+      padding: "24px 28px",
+      border: "1px solid #e2e8f0",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+      fontFamily: "Arial, Helvetica, sans-serif",
+      color: "#000",
+      fontSize: "12px",
+      lineHeight: "1.4"
+    }}>
+      {/* ── TOP HEADER (LOGO + HOSPITAL DETAILS + BILL TYPE) ── */}
+      {withHeader ? (
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <img
+              src={smrftLogo}
+              alt="Shanmuga Logo"
+              style={{ width: 56, height: 56, objectFit: "contain" }}
+              onError={(e) => { e.target.style.display = "none"; }}
+            />
+            <div>
+              <div style={{ fontSize: "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
+                SHANMUGA HOSPITAL LIMITED
+              </div>
+              <div style={{ fontSize: "11.5px", color: "#222", marginTop: 2 }}>
+                51/24.Saradha College Road, Salem - 636007
+              </div>
+              <div style={{ display: "flex", gap: 24, fontSize: "11px", color: "#222", marginTop: 2, flexWrap: "wrap" }}>
+                <span>04272706666</span>
+                <span>CIN: L85110TZ2020PLC033974</span>
+              </div>
+              <div style={{ fontSize: "11px", color: "#222" }}>
+                GST No: 33ABDCS8326A1ZP
+              </div>
+            </div>
+          </div>
+          <div style={{ textAlign: "right", alignSelf: "flex-end", paddingBottom: 2 }}>
+            <div style={{ fontSize: "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
+              {isCredit ? "CREDIT BILL" : "CASH BILL"}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="letterpad-spacer" style={{ height: "95px" }} />
+      )}
+
+      {/* Divider Line */}
+      <div style={{ borderTop: "1.5px solid #000", margin: "4px 0" }} />
+
+      {/* ── SUBHEADER: DISCHARGE BILL - GST EXEMPT & COMPANY NAME ── */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        fontWeight: "800",
+        fontSize: "12.5px",
+        padding: "2px 0",
+        letterSpacing: "0.4px",
+        textTransform: "uppercase"
+      }}>
+        <div>DISCHARGE BILL &nbsp;&nbsp;-&nbsp;&nbsp; GST EXEMPT</div>
+        {isCredit && companyName && (
+          <div style={{ fontWeight: "800", letterSpacing: "0.5px" }}>{companyName}</div>
+        )}
+      </div>
+
+      {/* Divider Line */}
+      <div style={{ borderTop: "1px solid #000", margin: "4px 0 6px" }} />
+
+      {/* ── PATIENT & BILL DETAILS (2 COLUMNS WITH ALIGNED COLONS) ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 24, fontSize: "11.5px", padding: "2px 0" }}>
+        {/* Left Column */}
+        <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: "88px 12px 1fr", rowGap: 2, alignItems: "baseline" }}>
+          <span style={{ fontWeight: "bold" }}>OP Number</span><span>:</span><span style={{ fontWeight: "bold" }}>{opNumber}</span>
+          <span style={{ fontWeight: "bold" }}>Name</span><span>:</span><span style={{ fontWeight: "bold" }}>{patientName}</span>
+          <span style={{ fontWeight: "bold" }}>Guardian</span><span>:</span><span>{guardian}</span>
+          <span style={{ fontWeight: "bold" }}>Address</span><span>:</span>
+          <div>
+            {addrParts.length > 0 ? (
+              addrParts.map((p, i) => (
+                <div key={i} style={{ textTransform: "uppercase" }}>{p}</div>
+              ))
+            ) : (
+              <span>—</span>
+            )}
+          </div>
+          <span style={{ fontWeight: "bold" }}>Doctor</span><span>:</span><span style={{ fontWeight: "bold" }}>{doctor}</span>
+          <span style={{ fontWeight: "bold" }}>Department</span><span>:</span><span>{department}</span>
+        </div>
+
+        {/* Right Column */}
+        <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: "98px 12px 1fr", rowGap: 2, alignItems: "baseline" }}>
+          <span style={{ fontWeight: "bold" }}>SH-Bill No</span><span>:</span><span style={{ fontWeight: "bold" }}>{billNo}</span>
+          <span style={{ fontWeight: "bold" }}>IP Number</span><span>:</span><span style={{ fontWeight: "bold" }}>{ipNumber}</span>
+          <span style={{ fontWeight: "bold" }}>Billdate</span><span>:</span><span>{billDate}</span>
+          <span style={{ fontWeight: "bold" }}>DOA</span><span>:</span><span>{doa}</span>
+          <span style={{ fontWeight: "bold" }}>DOD</span><span>:</span><span>{dod}</span>
+          <span style={{ fontWeight: "bold" }}>Room Number</span><span>:</span><span>{roomNumber}</span>
+          <span style={{ fontWeight: "bold" }}>Bill Id</span><span>:</span><span>{billId}</span>
+        </div>
+      </div>
+
+      {/* Divider Line */}
+      <div style={{ borderTop: "1px solid #000", margin: "6px 0 4px" }} />
+
+      {/* ── ITEMS TABLE ── */}
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11.5px", margin: "4px 0" }}>
+        <thead>
+          <tr style={{ borderBottom: "1.5px solid #000" }}>
+            <th style={{ width: "45px", textAlign: "left", padding: "4px 4px", fontWeight: "bold" }}>Slno</th>
+            <th style={{ textAlign: "left", padding: "4px 4px", fontWeight: "bold" }}>Description</th>
+            <th style={{ width: "80px", textAlign: "center", padding: "4px 4px", fontWeight: "bold" }}>Quantity</th>
+            <th style={{ width: "110px", textAlign: "right", padding: "4px 4px", fontWeight: "bold" }}>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {displayItems.length > 0 ? (
+            displayItems.map((it, idx) => (
+              <tr key={idx} style={{ verticalAlign: "top" }}>
+                <td style={{ padding: "4px 4px" }}>{idx + 1}</td>
+                <td style={{ padding: "4px 4px" }}>
+                  <div style={{ fontWeight: "bold" }}>{it.name}</div>
+                  {it.subDesc ? (
+                    <div style={{ fontSize: "10.5px", color: "#222", marginTop: 1 }}>{it.subDesc}</div>
+                  ) : null}
+                </td>
+                <td style={{ padding: "4px 4px", textAlign: "center" }}>{it.qty}</td>
+                <td style={{ padding: "4px 4px", textAlign: "right" }}>{it.amount.toFixed(2)}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={4} style={{ textAlign: "center", padding: "10px", color: "#666" }}>
+                NO BILL ITEMS
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* Divider Line */}
+      <div style={{ borderTop: "1.5px solid #000", margin: "6px 0 4px" }} />
+
+      {/* ── TOTALS (RIGHT-ALIGNED MATCHING REFERENCE) ── */}
+      <div style={{ display: "flex", justifyContent: "flex-end", margin: "4px 0 6px" }}>
+        <table style={{ borderCollapse: "collapse", fontSize: "12px" }}>
+          <tbody>
+            <tr>
+              <td style={{ padding: "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                Total :
+              </td>
+              <td style={{ padding: "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 90 }}>
+                {Math.round(totalAmt)}
+              </td>
+            </tr>
+            {advAmt > 0 && (
+              <tr>
+                <td style={{ padding: "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                  Advance :
+                </td>
+                <td style={{ padding: "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 90 }}>
+                  {Math.round(advAmt)}
+                </td>
+              </tr>
+            )}
+            {discAmt > 0 && (
+              <tr>
+                <td style={{ padding: "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                  Discount :
+                </td>
+                <td style={{ padding: "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 90 }}>
+                  {Math.round(discAmt)}
+                </td>
+              </tr>
+            )}
+            <tr>
+              <td style={{ padding: "3px 16px 3px 0", textAlign: "right", fontWeight: "800", fontSize: "13px", whiteSpace: "nowrap" }}>
+                Net Amount :
+              </td>
+              <td style={{ padding: "3px 0", textAlign: "right", fontWeight: "800", fontSize: "13px", minWidth: 90 }}>
+                {fmt(netAmt)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Divider Line */}
+      <div style={{ borderTop: "1.5px solid #000", margin: "6px 0 16px" }} />
+
+      {/* ── FOOTER: PREPARED BY IN LEFT, SIGNATURE IN RIGHT (MATCHING PHARMACY / REFERENCE) ── */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-end",
+        fontSize: "12px",
+        padding: "2px 0 16px"
+      }}>
+        <div style={{ textAlign: "left" }}>
+          <span>Prepared By : </span>
+          <span style={{ fontWeight: "bold" }}>{preparedByName || "PARS1"}</span>
+        </div>
+        <div style={{ textAlign: "right", fontWeight: "bold" }}>
+          Signature
+        </div>
+      </div>
+
+      {/* ── GST EXEMPTION DISCLAIMER ── */}
+      <div style={{
+        fontSize: "10px",
+        color: "#222",
+        fontStyle: "italic",
+        paddingTop: 4,
+        textAlign: "left",
+        lineHeight: "1.3"
+      }}>
+        Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST-Exempt Invoice
+      </div>
+    </div>
+  );
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── INSURANCE CLAIM SHEET (NABH DETAILED 2-PAGE IP & OP FORMATS)
+// ═════════════════════════════════════════════════════════════════════════════
+const InsuranceClaimSheet = ({
   bill,
   insuranceFormat = "IP",
   withHeader = true,
@@ -172,47 +590,12 @@ export const PrintSheet = React.forwardRef(({
   managerDesig,
   preparedByName,
   preparedByDesig,
-}, ref) => {
+}) => {
   if (!bill) return null;
 
   const pd = bill.patient_details || {};
   const rawItems = parseItems(bill.items);
 
-  const isInsurance = Boolean(
-    bill.is_insurance_bill ||
-    bill.insurance_bill_number ||
-    bill.claim_number ||
-    (pd.patient_type && String(pd.patient_type).toLowerCase().includes("insurance")) ||
-    (pd.patient_type && String(pd.patient_type).toLowerCase().includes("credit")) ||
-    (pd.company && String(pd.company).trim())
-  );
-
-  const cleanDesc = (it) => {
-    let desc = (it.item_description || "").trim();
-    const btn = (it.billTypeNo || "").trim();
-    if (
-      desc === btn ||
-      desc === "DIS01" ||
-      desc.toUpperCase().startsWith("DIS0") ||
-      desc.toUpperCase().startsWith("LAB0") ||
-      desc.toLowerCase() === "investbilling" ||
-      desc.includes("NABH:")
-    ) {
-      desc = "";
-    }
-    return desc;
-  };
-
-  const getNabhCode = (it) => {
-    let code = it.nabh_code || it.nabhCode || it.nabh || "";
-    if (!code && it.item_description && it.item_description.includes("NABH:")) {
-      const match = it.item_description.match(/NABH:\s*([^\s·,]+)/i);
-      if (match) code = match[1];
-    }
-    return code || "-";
-  };
-
-  // Group items for categories
   const groups = {};
   IP_CATEGORIES.forEach(cat => { groups[cat] = []; });
 
@@ -254,13 +637,11 @@ export const PrintSheet = React.forwardRef(({
     groupTotals[cat] = (groups[cat] || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
   });
 
-  // Effective Prepared By and Manager names & designations (resolved dynamically from backend / bill)
-  const effPreparedByName = String(preparedByName ?? bill.created_by_name ?? bill.created_by ?? "").toUpperCase();
-  const effPreparedByDesig = String(preparedByDesig ?? bill.created_by_designation ?? "").toUpperCase();
-  const effManagerName = String(managerName ?? bill.manager_name ?? "").toUpperCase();
-  const effManagerDesig = String(managerDesig ?? bill.manager_designation ?? "GENERAL INSURANCE MANAGER").toUpperCase();
+  const effPreparedByName = String(bill.insurance_prepared_by || bill.insurance_prepared_by_name || "SHANTHI GOVINDARAJAN").toUpperCase();
+  const effPreparedByDesig = String(bill.insurance_prepared_by_designation || "INSURANCE MANAGER").toUpperCase();
+  const effManagerName = String(bill.insurance_manager_name || (managerName && managerName !== "DR.B.KAUSALYA" ? managerName : "DR.B.KAUSALYA")).toUpperCase();
+  const effManagerDesig = String(bill.insurance_manager_designation || managerDesig || "GENERAL INSURANCE MANAGER").toUpperCase();
 
-  // ── Header Block (Header Image for Plain Paper or Blank Spacer for Physical Letterpad on ALL pages) ──
   const renderHeaderBlock = () => (
     withHeader ? (
       <div style={{ textAlign: "center", marginBottom: 6 }}>
@@ -271,82 +652,70 @@ export const PrintSheet = React.forwardRef(({
     )
   );
 
-  // ── Header Details Table (Displayed ONLY on First Page) ───────────────────
-  const renderHeaderDetails = () => {
-    if (isInsurance) {
-      const rows = [
-        {
-          lLabel: "INSURANCE BILL NO",
-          lVal: <span style={{ fontWeight: "bold" }}>{String(bill.insurance_bill_number || "—").toUpperCase()}</span>,
-          rLabel: "BILL DATE",
-          rVal: fmtDateStr(bill.bill_date)
-        },
-        {
-          lLabel: "NAME OF PATIENT",
-          lVal: <span style={{ fontWeight: "bold" }}>{(pd.patient_name || bill.patient_name || "—").toUpperCase()}{pd.age ? `, ${pd.age} Y` : ""}{pd.gender ? `, ${String(pd.gender).toUpperCase()}` : ""}</span>,
-          rLabel: "IP NO",
-          rVal: String(bill.ip_number || pd.ip_number || "—").toUpperCase()
-        },
-        {
-          lLabel: "UHID",
-          lVal: String(bill.uhid || pd.uhid || "—").toUpperCase(),
-          rLabel: "ROOM",
-          rVal: String(pd.room_no || pd.roomNo || "GENERAL WARD").toUpperCase()
-        },
-        {
-          lLabel: "ADDRESS",
-          lVal: String(pd.address || pd.permanent_address || "—").toUpperCase(),
-          rLabel: "DATE OF ADMISSION",
-          rVal: fmtDateStr(pd.admission_date || pd.admissionDateTime)
-        },
-        {
-          lLabel: "ID CARD NO",
-          lVal: String(bill.id_card_number || pd.id_card_number || pd.card_no || "—").toUpperCase(),
-          rLabel: "DATE OF DISCHARGE",
-          rVal: fmtDateStr(bill.bill_date || pd.discharge_date)
-        },
-        {
-          lLabel: "REFERRAL NO",
-          lVal: String(bill.claim_number || pd.claim_number || pd.referral_number || "—").toUpperCase(),
-          rLabel: "BILL NO",
-          rVal: String(bill.bill_no || bill.estimate_number || "—").toUpperCase()
-        },
-        {
-          lLabel: "DOCTOR NAME",
-          lVal: String(pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN").toUpperCase(),
-          rLabel: "COMPANY NAME",
-          rVal: String(bill.company_name || pd.company || "—").toUpperCase()
-        }
-      ];
+  const renderSignatures = (pageNo, totalPages) => {
+    // Only display signatories at the end of the bill (on the final page)
+    const isEndOfBill = pageNo === totalPages;
 
-      return (
+    return (
+      <div style={{ marginTop: 14 }}>
+        {isEndOfBill && (
+          <table style={{
+            width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
+            fontSize: "0.78rem", textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif"
+          }}>
+            <tbody>
+              <tr>
+                <td style={{ width: "50%", textAlign: "left", verticalAlign: "bottom" }}>
+                  <div style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                    {effPreparedByName}
+                  </div>
+                  <div style={{ fontSize: "0.72rem", color: "#111", fontWeight: "bold", marginTop: 2 }}>
+                    {effPreparedByDesig}
+                  </div>
+                </td>
+                <td style={{ width: "50%", textAlign: "right", verticalAlign: "bottom" }}>
+                  <div style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                    {effManagerName}
+                  </div>
+                  <div style={{ fontSize: "0.72rem", color: "#111", fontWeight: "bold", marginTop: 2 }}>
+                    {effManagerDesig}
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+
+        <div style={{
+          textAlign: "center", fontWeight: "bold", fontSize: "0.78rem",
+          marginTop: isEndOfBill ? 12 : 6, marginBottom: 4, textTransform: "uppercase",
+          fontFamily: "'Times New Roman', Times, serif"
+        }}>
+          PAGE : {pageNo} OF {totalPages}
+        </div>
+
         <table style={{
           width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
-          fontSize: "0.74rem", lineHeight: "1.35", borderBottom: "1px solid #000",
-          paddingBottom: 4, marginBottom: 8, textTransform: "uppercase",
+          borderTop: "1px solid #000", fontSize: "0.68rem", textTransform: "uppercase",
           fontFamily: "'Times New Roman', Times, serif"
         }}>
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td style={{ width: "20%", padding: "1px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.lLabel}</td>
-                <td style={{ width: "2%", padding: "1px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
-                <td style={{ width: "28%", padding: "1px 4px 1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{r.lVal}</td>
-                <td style={{ width: "20%", padding: "1px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.rLabel}</td>
-                <td style={{ width: "2%", padding: "1px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
-                <td style={{ width: "28%", padding: "1px 2px", verticalAlign: "top", wordBreak: "break-word", fontWeight: "bold" }}>{r.rVal}</td>
-              </tr>
-            ))}
+            <tr>
+              <td style={{ textAlign: "left", fontStyle: "italic", fontSize: "0.65rem", padding: "4px 2px 0", verticalAlign: "middle" }}>
+                HEALTH CARE SERVICES PROVIDED BY A CLINICAL ESTABLISHMENT ARE EXEMPT UNDER NOTIFICATION NO. 12/2017-CENTRAL TAX (RATE). THIS IS A GST EXEMPT INVOICE.
+              </td>
+            </tr>
           </tbody>
         </table>
-      );
-    }
+      </div>
+    );
+  };
 
-    // General / Cash Bill Fields:
-    const genRows = [
+  const renderHeaderDetails = () => {
+    const rows = [
       {
-        lLabel: "BILL NO",
-        lVal: <span style={{ fontWeight: "bold" }}>{String(bill.bill_no || bill.estimate_number || "—").toUpperCase()}</span>,
+        lLabel: "INSURANCE BILL NO",
+        lVal: <span style={{ fontWeight: "bold" }}>{String(bill.insurance_bill_number || "—").toUpperCase()}</span>,
         rLabel: "BILL DATE",
         rVal: fmtDateStr(bill.bill_date)
       },
@@ -369,10 +738,22 @@ export const PrintSheet = React.forwardRef(({
         rVal: fmtDateStr(pd.admission_date || pd.admissionDateTime)
       },
       {
-        lLabel: "DOCTOR NAME",
-        lVal: String(pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN").toUpperCase(),
+        lLabel: "ID CARD NO",
+        lVal: String(bill.id_card_number || pd.id_card_number || pd.card_no || "—").toUpperCase(),
         rLabel: "DATE OF DISCHARGE",
         rVal: fmtDateStr(bill.bill_date || pd.discharge_date)
+      },
+      {
+        lLabel: "REFERRAL NO",
+        lVal: String(bill.claim_number || pd.claim_number || pd.referral_number || "—").toUpperCase(),
+        rLabel: "BILL NO",
+        rVal: String(bill.bill_no || bill.estimate_number || "—").toUpperCase()
+      },
+      {
+        lLabel: "DOCTOR NAME",
+        lVal: String(pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN").toUpperCase(),
+        rLabel: "COMPANY NAME",
+        rVal: String(bill.company_name || pd.company || "—").toUpperCase()
       }
     ];
 
@@ -384,7 +765,7 @@ export const PrintSheet = React.forwardRef(({
         fontFamily: "'Times New Roman', Times, serif"
       }}>
         <tbody>
-          {genRows.map((r, i) => (
+          {rows.map((r, i) => (
             <tr key={i}>
               <td style={{ width: "20%", padding: "1px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.lLabel}</td>
               <td style={{ width: "2%", padding: "1px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
@@ -399,142 +780,12 @@ export const PrintSheet = React.forwardRef(({
     );
   };
 
-  // ── Reusable Signature Block (Included on Page 1 & Page 2) ────────────────
-  const renderSignatures = (pageNo, totalPages) => (
-    <div style={{ marginTop: 14 }}>
-      <table style={{
-        width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
-        fontSize: "0.78rem", textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif"
-      }}>
-        <tbody>
-          <tr>
-            {/* LEFT SIDE: Bill Prepared By + Designation */}
-            <td style={{ width: "50%", textAlign: "left", verticalAlign: "bottom" }}>
-              <div style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
-                {effPreparedByName}
-              </div>
-              <div style={{ fontSize: "0.72rem", color: "#111", fontWeight: "bold", marginTop: 2 }}>
-                {effPreparedByDesig}
-              </div>
-            </td>
-
-            {/* RIGHT SIDE: General Insurance Manager */}
-            <td style={{ width: "50%", textAlign: "right", verticalAlign: "bottom" }}>
-              <div style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
-                {effManagerName}
-              </div>
-              <div style={{ fontSize: "0.72rem", color: "#111", fontWeight: "bold", marginTop: 2 }}>
-                {effManagerDesig}
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* Page Number (Center of page before line and after signature) */}
-      <div style={{
-        textAlign: "center", fontWeight: "bold", fontSize: "0.78rem",
-        marginTop: 12, marginBottom: 4, textTransform: "uppercase",
-        fontFamily: "'Times New Roman', Times, serif"
-      }}>
-        PAGE : {pageNo} OF {totalPages}
-      </div>
-
-      {/* Bottom Footer Line & Exemption */}
-      <table style={{
-        width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
-        borderTop: "1px solid #000", fontSize: "0.68rem", textTransform: "uppercase",
-        fontFamily: "'Times New Roman', Times, serif"
-      }}>
-        <tbody>
-          <tr>
-            <td style={{ textAlign: "left", fontStyle: "italic", fontSize: "0.65rem", padding: "4px 2px 0", verticalAlign: "middle" }}>
-              HEALTH CARE SERVICES PROVIDED BY A CLINICAL ESTABLISHMENT ARE EXEMPT UNDER NOTIFICATION NO. 12/2017-CENTRAL TAX (RATE). THIS IS A GST EXEMPT INVOICE.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-
   return (
-    <div ref={ref} className="print-area" style={{
-      width: "100%", maxWidth: "780px", margin: "0 auto", color: "#000",
-      fontFamily: "'Times New Roman', Times, serif", padding: "12px 16px", boxSizing: "border-box",
-      textTransform: "uppercase"
-    }}>
-      <style>{`
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 8mm 10mm;
-            @bottom-right {
-              content: none;
-            }
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #fff !important;
-          }
-          body * {
-            visibility: hidden;
-          }
-          .print-area, .print-area * {
-            visibility: visible;
-            font-family: 'Times New Roman', Times, serif !important;
-            text-transform: uppercase !important;
-          }
-          .print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100% !important;
-            max-width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .bill-page {
-            background: #fff !important;
-            box-shadow: none !important;
-            border: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          .bill-page-1 {
-            page-break-after: always !important;
-            break-after: page !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            height: auto;
-          }
-          .letterpad-spacer {
-            height: 95px !important;
-            min-height: 95px !important;
-            display: block !important;
-          }
-          .bill-page-2 {
-            page-break-before: always !important;
-            break-before: page !important;
-            padding-top: 0 !important;
-          }
-          .page-break {
-            page-break-before: always !important;
-            break-before: page !important;
-          }
-        }
-      `}</style>
-
-      {/* ── FORMAT A: OP INSURANCE (CONTINUOUS PRINT OPTION) ── */}
-      {isInsurance && insuranceFormat === "OP" ? (
+    <>
+      {insuranceFormat === "OP" ? (
         <div className="bill-page" style={{ background: "#fff", padding: "16px 20px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          {/* Header Block (Optional based on withHeader / physical letterpad) */}
           {renderHeaderBlock()}
 
-          {/* Title Banner */}
           <table style={{
             width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
             borderTop: "2px solid #000", borderBottom: "2px solid #000",
@@ -553,17 +804,12 @@ export const PrintSheet = React.forwardRef(({
             </tbody>
           </table>
 
-          {/* Header Details (Only on First Page) */}
           {renderHeaderDetails()}
 
-          {/* Line by line continuous print */}
           <div style={{ marginTop: 10, marginBottom: 12 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem", textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif" }}>
               <thead>
-                <tr style={{
-                  borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000",
-                  fontWeight: "bold"
-                }}>
+                <tr style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", fontWeight: "bold" }}>
                   <th style={{ width: "120px", textAlign: "left", padding: "5px 4px" }}>REF / CODE</th>
                   <th style={{ textAlign: "left", padding: "5px 4px" }}>ITEM DESCRIPTION</th>
                   <th style={{ width: "180px", textAlign: "left", padding: "5px 4px" }}>DOCTOR</th>
@@ -590,7 +836,6 @@ export const PrintSheet = React.forwardRef(({
               </tbody>
             </table>
 
-            {/* Total Amount Continuous */}
             <table style={{
               width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
               borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000",
@@ -609,7 +854,6 @@ export const PrintSheet = React.forwardRef(({
               </tbody>
             </table>
 
-            {/* Amount in words */}
             <div style={{
               marginTop: 8, marginBottom: 10, padding: "5px 6px",
               background: "#f8fafc", border: "1px dashed #000",
@@ -620,15 +864,12 @@ export const PrintSheet = React.forwardRef(({
             </div>
           </div>
 
-          {/* Signatures */}
           {renderSignatures(1, 1)}
         </div>
       ) : (
-        /* ── STANDARD 2-PAGE DISCHARGE BILL (APPLIES TO BOTH IP & CASH) ── */
+        /* ── 2-PAGE IP NABH INSURANCE BILL ── */
         <div>
-          {/* ═════════════════════════════════════════════════════════════════════ */}
-          {/* ── PAGE 1: OVERALL CHARGES SUMMARY & PATIENT DETAILS ALONE ─────── */}
-          {/* ═════════════════════════════════════════════════════════════════════ */}
+          {/* PAGE 1: Overall Summary */}
           <div className="bill-page bill-page-1" style={{
             background: "#fff",
             padding: "16px 20px",
@@ -638,10 +879,8 @@ export const PrintSheet = React.forwardRef(({
             pageBreakAfter: "always",
             breakAfter: "page"
           }}>
-            {/* Header Block (Optional based on withHeader / physical letterpad) */}
             {renderHeaderBlock()}
 
-            {/* Title Banner */}
             <table style={{
               width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
               borderTop: "2px solid #000", borderBottom: "2px solid #000",
@@ -654,16 +893,14 @@ export const PrintSheet = React.forwardRef(({
                     DISCHARGE BILL - GST EXEMPT
                   </td>
                   <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.82rem", padding: "3px 2px" }}>
-                    {isInsurance ? "CREDIT BILL (INSURANCE)" : "CASH BILL"}
+                    CREDIT BILL (INSURANCE)
                   </td>
                 </tr>
               </tbody>
             </table>
 
-            {/* Patient Details (ONLY ON FIRST PAGE) */}
             {renderHeaderDetails()}
 
-            {/* Page 1: Overall Category Summary Table */}
             <div style={{ marginTop: 8, marginBottom: 8 }}>
               <div style={{
                 fontWeight: "bold", fontSize: "0.78rem", marginBottom: 4,
@@ -685,25 +922,13 @@ export const PrintSheet = React.forwardRef(({
                 <tbody>
                   {IP_CATEGORIES.filter(cat => (parseFloat(groupTotals[cat]) || 0) > 0).map((cat, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                      <td style={{ padding: "3.5px 4px", fontWeight: "bold" }}>
-                        {cat}
-                      </td>
-                      <td style={{ padding: "3.5px 4px", textAlign: "right", fontWeight: "bold" }}>
-                        ₹{fmt(groupTotals[cat])}
-                      </td>
+                      <td style={{ padding: "3.5px 4px", fontWeight: "bold" }}>{cat}</td>
+                      <td style={{ padding: "3.5px 4px", textAlign: "right", fontWeight: "bold" }}>₹{fmt(groupTotals[cat])}</td>
                     </tr>
                   ))}
-                  {!IP_CATEGORIES.some(cat => (parseFloat(groupTotals[cat]) || 0) > 0) && (
-                    <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-                      <td colSpan={2} style={{ padding: "6px 4px", textAlign: "center", color: "#64748b" }}>
-                        NO CHARGES AVAILABLE
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
 
-              {/* Totals Summary */}
               <div style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", marginTop: 6, padding: "4px 0" }}>
                 <table style={{
                   width: "100%", borderCollapse: "collapse", fontSize: "0.78rem",
@@ -714,40 +939,10 @@ export const PrintSheet = React.forwardRef(({
                       <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>TOTAL HOSPITAL CHARGES :</td>
                       <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.total_amount)}</td>
                     </tr>
-                    {parseFloat(bill.medicines_amount) > 0 && groups["MEDICINE / PHARMACY CHARGES"].length === 0 && (
-                      <tr>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>MEDICINES CHARGES :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.medicines_amount)}</td>
-                      </tr>
-                    )}
-                    {parseFloat(bill.implant_amount) > 0 && (
-                      <tr>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>IMPLANT CHARGES :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.implant_amount)}</td>
-                      </tr>
-                    )}
-                    {parseFloat(bill.gst_amount) > 0 && (
-                      <tr>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>GST :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.gst_amount)}</td>
-                      </tr>
-                    )}
-                    {parseFloat(bill.room_tax) > 0 && (
-                      <tr>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>ROOM TAX :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.room_tax)}</td>
-                      </tr>
-                    )}
                     {parseFloat(bill.advance_amount) > 0 && (
                       <tr style={{ color: "#b91c1c" }}>
                         <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: ADVANCE PAID :</td>
                         <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.advance_amount)}</td>
-                      </tr>
-                    )}
-                    {parseFloat(bill.sales_return) > 0 && (
-                      <tr style={{ color: "#b91c1c" }}>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: SALES RETURN :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.sales_return)}</td>
                       </tr>
                     )}
                     {parseFloat(bill.discount_amount) > 0 && (
@@ -758,12 +953,9 @@ export const PrintSheet = React.forwardRef(({
                     )}
                     <tr>
                       <td style={{ textAlign: "right", padding: "4px 6px 1px", fontWeight: "bold", fontSize: "0.86rem", borderTop: "1px dashed #000" }}>
-                        {parseFloat(bill.net_amount) < 0 ? "NET AMOUNT (REFUND) :" : "GRAND TOTAL / NET AMOUNT :"}
+                        GRAND TOTAL / NET AMOUNT :
                       </td>
-                      <td style={{
-                        width: "130px", textAlign: "right", padding: "4px 4px 1px", fontWeight: "bold", fontSize: "0.86rem",
-                        borderTop: "1px dashed #000"
-                      }}>
+                      <td style={{ width: "130px", textAlign: "right", padding: "4px 4px 1px", fontWeight: "bold", fontSize: "0.86rem", borderTop: "1px dashed #000" }}>
                         ₹{fmt(bill.net_amount || bill.total_amount)}
                       </td>
                     </tr>
@@ -771,7 +963,6 @@ export const PrintSheet = React.forwardRef(({
                 </table>
               </div>
 
-              {/* Amount in words under Page 1 */}
               <div style={{
                 marginTop: 6, marginBottom: 8, padding: "4px 6px",
                 background: "#f8fafc", border: "1px dashed #000",
@@ -782,13 +973,10 @@ export const PrintSheet = React.forwardRef(({
               </div>
             </div>
 
-            {/* Page 1 Signatures */}
             {renderSignatures(1, 2)}
           </div>
 
-          {/* ═════════════════════════════════════════════════════════════════════ */}
-          {/* ── PAGE 2: REMAINING BILLING DETAILS (ITEMIZED BREAKDOWN) ──────── */}
-          {/* ═════════════════════════════════════════════════════════════════════ */}
+          {/* PAGE 2: Itemized Breakdown */}
           <div className="bill-page bill-page-2 page-break" style={{
             background: "#fff",
             padding: "16px 20px",
@@ -797,10 +985,8 @@ export const PrintSheet = React.forwardRef(({
             pageBreakBefore: "always",
             breakBefore: "page"
           }}>
-            {/* Header Block on Page 2 (Header Image or Letterpad Spacer) */}
             {renderHeaderBlock()}
 
-            {/* Header Banner on Page 2 (Compact reference, NO full patient details) */}
             <table style={{
               width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
               borderTop: "2px solid #000", borderBottom: "2px solid #000",
@@ -819,7 +1005,6 @@ export const PrintSheet = React.forwardRef(({
               </tbody>
             </table>
 
-            {/* Column Headers directly at top of Page 2 */}
             <table style={{
               width: "100%", borderCollapse: "collapse", fontSize: "0.76rem",
               textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif",
@@ -837,7 +1022,6 @@ export const PrintSheet = React.forwardRef(({
               </thead>
             </table>
 
-            {/* Grouped Breakdown */}
             {IP_CATEGORIES.map((groupTitle, gIdx) => {
               const gItems = groups[groupTitle];
               if (!gItems || gItems.length === 0) return null;
@@ -845,7 +1029,6 @@ export const PrintSheet = React.forwardRef(({
 
               return (
                 <div key={gIdx} style={{ marginTop: 8, marginBottom: 10 }}>
-                  {/* Category Section Header */}
                   <div style={{
                     background: "#f1f5f9", padding: "4px 6px", fontSize: "0.75rem",
                     fontWeight: "bold", borderLeft: "3px solid #000",
@@ -855,7 +1038,6 @@ export const PrintSheet = React.forwardRef(({
                     {groupTitle}
                   </div>
 
-                  {/* Items in this category */}
                   <table style={{
                     width: "100%", borderCollapse: "collapse", fontSize: "0.75rem",
                     tableLayout: "fixed", textTransform: "uppercase",
@@ -892,7 +1074,6 @@ export const PrintSheet = React.forwardRef(({
                     </tbody>
                   </table>
 
-                  {/* Subtotal for category */}
                   <div style={{
                     display: "flex", justifyContent: "flex-end", gap: 14,
                     padding: "3px 6px", fontSize: "0.73rem", fontWeight: "bold",
@@ -906,7 +1087,6 @@ export const PrintSheet = React.forwardRef(({
               );
             })}
 
-            {/* Final Total Bottom of Page 2 */}
             <div style={{
               borderTop: "2px solid #000", borderBottom: "2px solid #000",
               padding: "6px 4px", marginTop: 10, display: "flex", justifyContent: "space-between",
@@ -917,7 +1097,6 @@ export const PrintSheet = React.forwardRef(({
               <span>₹{fmt(bill.total_amount)}</span>
             </div>
 
-            {/* Amount in words under Page 2 */}
             <div style={{
               marginTop: 8, marginBottom: 10, padding: "4px 6px",
               background: "#f8fafc", border: "1px dashed #000",
@@ -927,82 +1106,362 @@ export const PrintSheet = React.forwardRef(({
               RUPEE(S) {numberToWords(bill.total_amount || bill.net_amount).toUpperCase()} ONLY /-
             </div>
 
-            {/* Page 2 Signatures */}
             {renderSignatures(2, 2)}
           </div>
         </div>
+      )}
+    </>
+  );
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── MASTER PRINT SHEET (FORWARD REF)
+// ═════════════════════════════════════════════════════════════════════════════
+export const PrintSheet = React.forwardRef(({
+  bill,
+  viewMode = "NORMAL",
+  insuranceFormat = "IP",
+  withHeader = true,
+  managerName,
+  managerDesig,
+  preparedByName,
+  preparedByDesig,
+}, ref) => {
+  if (!bill) return null;
+
+  return (
+    <div ref={ref} className="print-area" style={{
+      width: "100%", maxWidth: "780px", margin: "0 auto", color: "#000",
+      padding: "12px 16px", boxSizing: "border-box"
+    }}>
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm 10mm;
+            @bottom-right {
+              content: none;
+            }
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            height: auto !important;
+            overflow: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body * {
+            visibility: hidden;
+          }
+          .discharge-modal-overlay {
+            position: static !important;
+            inset: auto !important;
+            display: block !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          .discharge-modal-box {
+            position: static !important;
+            display: block !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .discharge-modal-scroll {
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            flex: none !important;
+          }
+          .print-area, .print-area * {
+            visibility: visible !important;
+          }
+          .print-area {
+            position: static !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+          .bill-page {
+            background: #fff !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .bill-page-1 {
+            page-break-after: always !important;
+            break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin-bottom: 0 !important;
+            height: auto;
+          }
+          .letterpad-spacer {
+            height: 95px !important;
+            min-height: 95px !important;
+            display: block !important;
+          }
+          .bill-page-2 {
+            page-break-before: always !important;
+            break-before: page !important;
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+          }
+          .page-break {
+            page-break-before: always !important;
+            break-before: page !important;
+          }
+        }
+      `}</style>
+
+      {viewMode === "INSURANCE_CLAIM" ? (
+        <InsuranceClaimSheet
+          bill={bill}
+          insuranceFormat={insuranceFormat}
+          withHeader={withHeader}
+          managerName={managerName}
+          managerDesig={managerDesig}
+          preparedByName={preparedByName}
+          preparedByDesig={preparedByDesig}
+        />
+      ) : (
+        <NormalBillSheet
+          bill={bill}
+          withHeader={withHeader}
+          preparedByName={preparedByName}
+        />
       )}
     </div>
   );
 });
 
-// ── Complete Modal Component ─────────────────────────────────────────────────
-const DischargeBillPrintModal = ({ isOpen, bill, onClose }) => {
+// ═════════════════════════════════════════════════════════════════════════════
+// ── COMPLETE MODAL COMPONENT
+// ═════════════════════════════════════════════════════════════════════════════
+const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NORMAL" }) => {
   const printRef = useRef(null);
 
+  // Is this an insurance bill (i.e. Convert to Insurance Bill was clicked)?
+  const isInsurance = Boolean(bill?.is_insurance_bill || bill?.insurance_bill_number);
+
+  // View mode: "NORMAL" (Cash / Credit reference bill) vs "INSURANCE_CLAIM" (NABH multi-category format)
+  // For normal bills: ALWAYS "NORMAL"
+  // For insurance bills: defaults to "INSURANCE_CLAIM" or "NORMAL" based on user toggle
+  const [viewMode, setViewMode] = useState("NORMAL");
   const [insFormat, setInsFormat] = useState("IP");
   const [withHeader, setWithHeader] = useState(true);
 
-  // Dynamic Signatories state (fetched dynamically from backend)
+  // Dynamic Signatories state
   const [preparedByName, setPreparedByName] = useState("");
   const [preparedByDesig, setPreparedByDesig] = useState("");
-  const [managerName, setManagerName] = useState("");
+  const [managerName, setManagerName] = useState("DR.B.KAUSALYA");
   const [managerDesig, setManagerDesig] = useState("GENERAL INSURANCE MANAGER");
 
   useEffect(() => {
     if (bill) {
+      // Use the explicitly passed defaultViewMode (from which action was clicked)
+      setViewMode(defaultViewMode);
+
       const hasIp = Boolean(bill.ip_number || bill.patient_details?.ip_number || bill.patient_details?.room_no);
       setInsFormat(hasIp ? "IP" : "OP");
 
-      const pName = bill.created_by_name || bill.created_by || "";
+      const pName = bill.created_by_name || bill.created_by || localStorage.getItem("userName") || localStorage.getItem("employeeName") || "PARS1";
       const pDesig = bill.created_by_designation || "";
-      const mName = bill.manager_name || "";
-      const mDesig = bill.manager_designation || "GENERAL INSURANCE MANAGER";
+      const mName = bill.insurance_manager_name || bill.manager_name || "DR.B.KAUSALYA";
+      const mDesig = bill.insurance_manager_designation || bill.manager_designation || "GENERAL INSURANCE MANAGER";
 
       setPreparedByName(pName);
       setPreparedByDesig(pDesig);
       setManagerName(mName);
       setManagerDesig(mDesig);
 
-      // Fetch dynamic signatories from backend API to ensure latest profile data
+      // Fetch dynamic signatories from backend API
       const fetchSignatories = async () => {
         try {
           const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/_b_a_c_k_e_n_d/HMS/";
           const res = await apiRequest(`${HmsBaseUrl}discharge-billing/signatories/?created_by=${encodeURIComponent(bill.created_by || "")}`, "GET");
           if (res?.success) {
             const data = res.data?.data || res.data;
-            if (data?.prepared_by?.name !== undefined) setPreparedByName(data.prepared_by.name);
-            if (data?.prepared_by?.designation !== undefined) setPreparedByDesig(data.prepared_by.designation);
-            if (data?.manager?.name !== undefined) setManagerName(data.manager.name);
-            if (data?.manager?.designation !== undefined) setManagerDesig(data.manager.designation);
+            if (data?.prepared_by?.name !== undefined && data.prepared_by.name) {
+              setPreparedByName(data.prepared_by.name);
+            }
+            if (data?.prepared_by?.designation !== undefined) {
+              setPreparedByDesig(data.prepared_by.designation);
+            }
+            if (data?.manager?.name !== undefined) {
+              setManagerName(data.manager.name);
+            }
+            if (data?.manager?.designation !== undefined) {
+              setManagerDesig(data.manager.designation);
+            }
           }
         } catch {
-          // keep existing bill values
+          // keep existing values
         }
       };
       fetchSignatories();
     }
-  }, [bill]);
+  }, [bill, defaultViewMode]);
 
   if (!isOpen || !bill) return null;
 
-  const isInsurance = Boolean(
-    bill.is_insurance_bill ||
-    bill.insurance_bill_number ||
-    bill.claim_number ||
-    (bill.patient_details?.patient_type && String(bill.patient_details.patient_type).toLowerCase().includes("insurance")) ||
-    (bill.patient_details?.company && String(bill.patient_details.company).trim())
-  );
-
   const triggerPrint = () => {
-    window.print();
+    if (!printRef.current) return;
+
+    try {
+      let iframe = document.getElementById("discharge-print-iframe");
+      if (iframe) {
+        try { document.body.removeChild(iframe); } catch {}
+      }
+
+      iframe = document.createElement("iframe");
+      iframe.id = "discharge-print-iframe";
+      // Render offscreen with a standard A4 desktop width so layout is computed properly
+      iframe.style.position = "fixed";
+      iframe.style.left = "-10000px";
+      iframe.style.top = "0px";
+      iframe.style.width = "794px";
+      iframe.style.height = "1123px";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
+
+      // Clone node and remove any embedded <style> tags so they don't hide iframe contents
+      const cloned = printRef.current.cloneNode(true);
+      cloned.querySelectorAll("style").forEach(s => s.remove());
+      const contentHtml = cloned.innerHTML;
+
+      const doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>Discharge Bill - ${bill.insurance_bill_number || bill.bill_no || "Bill"}</title>
+            <style>
+              @page {
+                size: A4 portrait;
+                margin: 8mm 10mm;
+              }
+              *, *::before, *::after {
+                box-sizing: border-box;
+                visibility: visible !important;
+              }
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+                color: #000 !important;
+                visibility: visible !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .print-area {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+              .bill-page {
+                width: 100% !important;
+                background: #fff !important;
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              .bill-page-1 {
+                page-break-after: always !important;
+                break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                margin-bottom: 0 !important;
+              }
+              .bill-page-2 {
+                page-break-before: always !important;
+                break-before: page !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+              }
+              .page-break {
+                page-break-before: always !important;
+                break-before: page !important;
+              }
+              .letterpad-spacer {
+                height: 95px !important;
+                min-height: 95px !important;
+                display: block !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+              table {
+                border-collapse: collapse;
+              }
+            </style>
+          </head>
+          <body>
+            <div style="width: 100%; max-width: 780px; margin: 0 auto; color: #000;">
+              ${contentHtml}
+            </div>
+          </body>
+        </html>
+      `);
+      doc.close();
+
+      const imgs = doc.querySelectorAll("img");
+      const promises = Array.from(imgs).map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      });
+
+      Promise.all(promises).then(() => {
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          } catch (e) {
+            console.error("Iframe print error, falling back to window.print():", e);
+            window.print();
+          }
+        }, 250);
+      });
+    } catch (err) {
+      console.error("Print error, fallback to window.print():", err);
+      window.print();
+    }
   };
 
   const handleDownloadWord = () => {
     if (!printRef.current) return;
     let bodyHtml = printRef.current.innerHTML;
 
-    // Convert images to base64 canvas and constrain width to 580px (fits standard A4 Word page)
     const imgEls = printRef.current.querySelectorAll("img");
     imgEls.forEach(imgEl => {
       if (imgEl && imgEl.src) {
@@ -1029,7 +1488,6 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose }) => {
       }
     });
 
-    // Remove outer container's padding/maxWidth so Word doesn't double-pad
     bodyHtml = bodyHtml.replace(/class="print-area"[^>]*style="[^"]*"/i, 'class="print-area" style="width:100%;margin:0;padding:0;"');
 
     const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -1047,54 +1505,20 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose }) => {
   <![endif]-->
   <style>
     @page Section1 {
-      size: 595.35pt 841.95pt; /* A4 Portrait */
+      size: 595.35pt 841.95pt;
       margin: 22.7pt 28.35pt 22.7pt 28.35pt;
       mso-header-margin: 15pt;
       mso-footer-margin: 15pt;
       mso-paper-source: 0;
     }
-    div.Section1 {
-      page: Section1;
-    }
-    body {
-      font-family: 'Times New Roman', Times, serif;
-      font-size: 8.5pt;
-      color: #000;
-      margin: 0;
-      padding: 0;
-      text-transform: uppercase;
-    }
-    table {
-      width: 100% !important;
-      max-width: 100% !important;
-      border-collapse: collapse;
-      table-layout: fixed;
-      mso-table-lspace: 0pt;
-      mso-table-rspace: 0pt;
-      font-family: 'Times New Roman', Times, serif;
-      text-transform: uppercase;
-    }
-    td, th {
-      font-family: 'Times New Roman', Times, serif;
-      font-size: 7.5pt;
-      padding: 1.5px 2px;
-      word-wrap: break-word;
-      text-transform: uppercase;
-    }
-    img {
-      max-width: 100%;
-    }
-    .no-print {
-      display: none;
-    }
-    .bill-page-1 {
-      page-break-after: always;
-      mso-break-type: page-break;
-    }
-    .bill-page-2, .page-break {
-      page-break-before: always;
-      mso-break-type: page-break;
-    }
+    div.Section1 { page: Section1; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; color: #000; margin: 0; padding: 0; }
+    table { width: 100% !important; max-width: 100% !important; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; }
+    td, th { font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; padding: 2px; }
+    img { max-width: 100%; }
+    .no-print { display: none; }
+    .bill-page-1 { page-break-after: always; mso-break-type: page-break; }
+    .bill-page-2, .page-break { page-break-before: always; mso-break-type: page-break; }
   </style>
 </head>
 <body>
@@ -1134,7 +1558,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose }) => {
         if (window.html2pdf) {
           window.html2pdf().set(opt).from(element).save();
         } else {
-          window.print();
+          triggerPrint();
         }
       };
       document.body.appendChild(script);
@@ -1142,65 +1566,90 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose }) => {
   };
 
   return (
-    <ModalOverlay onClick={onClose}>
-      <ModalBox onClick={e => e.stopPropagation()}>
+    <ModalOverlay className="discharge-modal-overlay" onClick={onClose}>
+      <ModalBox className="discharge-modal-box" onClick={e => e.stopPropagation()}>
         <ModalHead className="no-print">
           <ModalTitle>
             🖨️ DISCHARGE BILL PRINT PREVIEW — {bill.insurance_bill_number || bill.bill_no || bill.estimate_number || ""}
           </ModalTitle>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {/* Header toggle buttons: With Header / Without Header */}
-            <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
-              <HeadBtn
-                type="button"
-                $active={withHeader}
-                onClick={() => setWithHeader(true)}
-                title="Print with Hospital Header Image (for Plain A4 Paper)"
-              >
-                WITH HEADER
-              </HeadBtn>
-              <HeadBtn
-                type="button"
-                $active={!withHeader}
-                onClick={() => setWithHeader(false)}
-                title="Print without Header (leaves ~95px top space for physical Pre-printed Letterpad)"
-              >
-                WITHOUT HEADER (LETTERPAD)
-              </HeadBtn>
-            </div>
 
-            {/* Insurance Format toggle: IP Format vs OP Format */}
-            {isInsurance && (
-              <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
-                <HeadBtn
-                  type="button"
-                  $active={insFormat === "IP"}
-                  onClick={() => setInsFormat("IP")}
-                  title="IP Format: Summary Page + Itemized Detailed Pages"
-                >
-                  📄 IP FORMAT
-                </HeadBtn>
-                <HeadBtn
-                  type="button"
-                  $active={insFormat === "OP"}
-                  onClick={() => setInsFormat("OP")}
-                  title="OP Format: Continuous Print without table"
-                >
-                  📄 OP FORMAT
-                </HeadBtn>
-              </div>
+            {/* ── INSURANCE toolbar: shown when viewMode is INSURANCE_CLAIM ── */}
+            {viewMode === "INSURANCE_CLAIM" ? (
+              <>
+                {/* Header toggle */}
+                <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
+                  <HeadBtn
+                    type="button"
+                    $active={withHeader}
+                    onClick={() => setWithHeader(true)}
+                    title="Print with Hospital Header & Logo (for Plain Paper)"
+                  >
+                    WITH HEADER
+                  </HeadBtn>
+                  <HeadBtn
+                    type="button"
+                    $active={!withHeader}
+                    onClick={() => setWithHeader(false)}
+                    title="Print without Header (leaves ~95px top space for physical Pre-printed Letterpad)"
+                  >
+                    WITHOUT HEADER (LETTERPAD)
+                  </HeadBtn>
+                </div>
+
+                {/* NABH format toggle */}
+                <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
+                  <HeadBtn
+                    type="button"
+                    $active={insFormat === "IP"}
+                    onClick={() => setInsFormat("IP")}
+                    title="NABH IP Format: Summary Page + Itemized Detailed Pages"
+                  >
+                    🛡️ NABH IP FORMAT
+                  </HeadBtn>
+                  <HeadBtn
+                    type="button"
+                    $active={insFormat === "OP"}
+                    onClick={() => setInsFormat("OP")}
+                    title="NABH OP Format: Continuous Print"
+                  >
+                    🛡️ NABH OP FORMAT
+                  </HeadBtn>
+                </div>
+
+                <HeadBtn type="button" onClick={handleDownloadWord}>📄 WORD</HeadBtn>
+                <HeadBtn type="button" onClick={handleDownloadPDF}>📑 PDF</HeadBtn>
+                <HeadBtn type="button" $active onClick={triggerPrint}>🖨️ PRINT</HeadBtn>
+              </>
+            ) : (
+              /* ── NORMAL BILL toolbar: shown when viewMode is NORMAL ── */
+              <>
+                {/* Bill type label toggle */}
+                <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
+                  <HeadBtn
+                    type="button"
+                    $active={isInsurance}
+                    style={{ cursor: "default", opacity: 0.85 }}
+                    title={isInsurance ? "Credit Bill (Insurance patient)" : "Cash Bill (Cash patient)"}
+                  >
+                    {isInsurance ? "💳 CREDIT BILL" : "💵 CASH BILL"}
+                  </HeadBtn>
+                </div>
+
+                <HeadBtn type="button" onClick={handleDownloadWord}>📄 WORD</HeadBtn>
+                <HeadBtn type="button" onClick={handleDownloadPDF}>📑 PDF</HeadBtn>
+                <HeadBtn type="button" $active onClick={triggerPrint}>🖨️ PRINT</HeadBtn>
+              </>
             )}
 
-            <HeadBtn type="button" onClick={handleDownloadWord}>📄 WORD</HeadBtn>
-            <HeadBtn type="button" onClick={handleDownloadPDF}>📑 PDF</HeadBtn>
-            <HeadBtn type="button" $active onClick={triggerPrint}>🖨️ PRINT</HeadBtn>
             <ModalClose onClick={onClose}>✕</ModalClose>
           </div>
         </ModalHead>
-        <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
+        <div className="discharge-modal-scroll" style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
           <PrintSheet
             ref={printRef}
             bill={bill}
+            viewMode={viewMode}
             insuranceFormat={insFormat}
             withHeader={withHeader}
             managerName={managerName}

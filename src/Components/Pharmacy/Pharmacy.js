@@ -1863,23 +1863,18 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         "GET"
       );
 
-      // Response shape: res = { success, status, data: { success, data: [...] } }
-      // So the array lives at res.data.data
+      const resBody = res?.data || res;
       let allAdmissions = [];
       try {
-        const arr = res?.data?.data;
+        const arr = resBody?.data;
         if (Array.isArray(arr)) {
           allAdmissions = arr;
-        } else if (Array.isArray(res?.data)) {
-          allAdmissions = res.data;
-        } else if (Array.isArray(res)) {
-          allAdmissions = res;
+        } else if (Array.isArray(resBody)) {
+          allAdmissions = resBody;
         }
       } catch (_) { allAdmissions = []; }
 
       // ── Client-side filter ─────────────────────────────────────────────────
-      // Full IP typed  (contains "/") → "S026/500008" must match ipNumber fully
-      // Suffix typed   (no "/")       → "500008" matches ANY prefix: S026/500008, S027/500008 …
       const query = ipVal.toLowerCase().trim();
       const isFullIP = query.includes("/");
 
@@ -1887,10 +1882,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         const ip = (adm.ipNumber || "").toLowerCase().trim();
         if (!ip) return false;
         if (isFullIP) {
-          // Full IP: "s026/500008" — match exactly
           return ip === query;
         } else {
-          // Suffix only: "500008" — match numeric part after the last "/"
           const slashIdx = ip.lastIndexOf("/");
           const suffix = slashIdx !== -1 ? ip.slice(slashIdx + 1) : ip;
           return suffix.includes(query);
@@ -1900,10 +1893,27 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       if (filtered.length === 0) {
         setIpSearchResults([]);
         toast.info("No admissions found for the given IP number.");
+      } else if (filtered.length === 1) {
+        // ✅ Exactly 1 admission found -> Auto-fill immediately!
+        handleIPSelect(filtered[0]);
+        setShowIPModal(false);
+        const pName = formatPatientName(filtered[0].salutation, filtered[0].firstName, filtered[0].lastName);
+        toast.success(`Patient details loaded for ${pName || filtered[0].ipNumber}`, { autoClose: 2000, pauseOnHover: false });
       } else {
-        // ── Always show results in the modal list (single or multiple) ──
-        // User must click a row to confirm and auto-fill — no silent auto-fill
-        setIpSearchResults(filtered);
+        // Multiple admissions found: check if only one is currently active (admitted and not discharged)
+        const activeOnly = filtered.filter(a => a.is_admitted && !a.is_discharged);
+        if (activeOnly.length === 1 && isFullIP) {
+          // Exactly 1 active admission matches full IP -> Auto-fill immediately!
+          handleIPSelect(activeOnly[0]);
+          setShowIPModal(false);
+          const pName = formatPatientName(activeOnly[0].salutation, activeOnly[0].firstName, activeOnly[0].lastName);
+          toast.success(`Patient details loaded for ${pName || activeOnly[0].ipNumber}`, { autoClose: 2000, pauseOnHover: false });
+        } else {
+          // Show selection modal with results
+          setIpSearchResults(filtered);
+          setIpSearchInput(ipVal);
+          setShowIPModal(true);
+        }
       }
     } catch (err) {
       console.error("IP search failed", err);
@@ -1912,6 +1922,15 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     } finally {
       setIpSearchLoading(false);
     }
+  };
+
+  const handleSearchByIP = (directIPVal) => {
+    const val = (directIPVal !== undefined ? directIPVal : formData.inpatientNo || "").trim();
+    if (!val) {
+      openIPModal();
+      return;
+    }
+    handleIPSearch(val);
   };
 
   const handleIPSelect = (adm) => {
@@ -1931,7 +1950,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         : "";
     const roomNo = roomDisplay || activeRoom?.roomNo || activeShift?.newRoomNo || adm.room_no || "";
 
-    const rawIPDoc = adm.admittingDoctor || adm.consultingDoctor || "";
+    const rawIPDoc = adm.consultingDoctor || adm.admittingDoctor || "";
     const resolvedIPDoc = resolveDoctorIdAndName(rawIPDoc);
 
     const admIns = adm.insurance_company || adm.company_code || (String(adm.customer_type || adm.customerType || "").toLowerCase() === "insurance" ? "INSURANCE" : adm.customer_type || adm.customerType || "") || "";
@@ -1939,22 +1958,25 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     setFormData(prev => ({
       ...prev,
-      inpatientNo: adm.ipNumber || "",
+      inpatientNo: adm.ipNumber || prev.inpatientNo,
       uhid:        adm.uhid     || prev.uhid,
       name:        fullName     || prev.name,
       doctor_id:   resolvedIPDoc.doctor_id || prev.doctor_id,
-      doctor_name: resolvedIPDoc.doctor_name || prev.doctor_name,
+      doctor_name: resolvedIPDoc.doctor_name || rawIPDoc,
       roomNo,
+      dob:         adm.dob      || prev.dob,
+      customer_type: adm.customerType || adm.customer_type || prev.customer_type,
       insuranceName: admIns || prev.insuranceName || "",
     }));
 
     if (adm.mobilePhone || adm.mobile) setMobilePhone(adm.mobilePhone || adm.mobile || "");
     if (adm.permanent_address)         setAddress(adm.permanent_address);
     if (adm.area || adm.city)          setPlace(adm.area || adm.city || "");
-    if (adm.customerType)              setPatientType(adm.customerType);
+    if (adm.customerType || adm.customer_type) setPatientType(adm.customerType || adm.customer_type);
     if (adm.age)                       setPatientAge(`${adm.age}Y`);
 
-    setAdmissionStatus(adm.is_admitted && !adm.is_discharged ? "ADMITTED" : "NOT ADMITTED");
+    const isAdmitted = Boolean(adm.is_admitted && !adm.is_discharged);
+    setAdmissionStatus(isAdmitted ? "ADMITTED" : "NOT ADMITTED");
     if (roomDisplay) setAdmissionRoomNo(roomDisplay);
     if (adm.admissionDateTime) {
       const dt = new Date(adm.admissionDateTime);
@@ -1963,7 +1985,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         hour: "2-digit", minute: "2-digit", hour12: true
       }));
     }
-    if (adm.uhid) fetchAdmissionStatus(adm.uhid);
+    if (adm.uhid) fetchAdmissionStatus(adm.uhid, adm);
     setShowIPModal(false);
     focusMedicineSearch();
   };
@@ -2634,25 +2656,20 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         String(patientType || "").toLowerCase() === "insurance" ||
         Boolean(formData.is_insurance) ||
         String(formData.customer_type || "").toLowerCase() === "insurance";
-      if (isInsurancePatient) {
-        // Insurance patient does not pay cash — covered under insurance credit
-        await executeSave(intentStatus, "credit");
-        return;
-      }
+
       const currentOutlet = String(
         localStorage.getItem("selected_outlet") ||
         localStorage.getItem("outlet_code") ||
         ""
       ).trim().toUpperCase();
 
-      if (currentOutlet === "OLET001") {
-        // OLET001 (IP Pharmacy): strictly Pay Later (credit)
+      // Outlet-based default selection:
+      // OLET001 (IP Pharmacy) or Insurance patient defaults to "credit" (Pay Later)
+      // OLET002 (OP Pharmacy) or standard retail defaults to "cash" (Pay Now)
+      if (currentOutlet === "OLET001" || isInsurancePatient) {
         setSelectedPaymentMode("credit");
-      } else if (currentOutlet === "OLET002") {
-        // OLET002 (OP Pharmacy): defaults to Pay Now (cash), user can toggle Pay Now / Pay Later
-        setSelectedPaymentMode(prev => (prev === "credit" ? "credit" : "cash"));
       } else {
-        setSelectedPaymentMode("credit");
+        setSelectedPaymentMode("cash");
       }
       setShowPaymentModal(true);
       return;
@@ -4175,17 +4192,17 @@ const loadedMedicines = rawMeds.map((item) => {
                   value={formData.inpatientNo}
                   onChange={handleChange}
                   onKeyDown={e => {
-                    if (e.key === "Enter") { e.preventDefault(); openIPModal(); }
+                    if (e.key === "Enter") { e.preventDefault(); handleSearchByIP(); }
                   }}
                   onBlur={() => {
                     // Auto-search when user leaves the field if an IP is typed
-                    if (formData.inpatientNo?.trim()) openIPModal();
+                    if (formData.inpatientNo?.trim() && !formData.name) handleSearchByIP();
                   }}
                   style={{ borderRadius: "10px 0 0 10px", borderRight: "none", flex: 1 }}
                 />
                 <button
                   type="button"
-                  onClick={openIPModal}
+                  onClick={() => handleSearchByIP()}
                   title="Search admissions by IP number"
                   style={{
                     padding: "0 14px",
@@ -5112,7 +5129,7 @@ const loadedMedicines = rawMeds.map((item) => {
       {/* ── IP Number Search Modal ── */}
       {showIPModal && (
         <ModalOverlay onClick={() => setShowIPModal(false)}>
-          <ModalContainer style={{ maxWidth: 760 }} onClick={e => e.stopPropagation()}>
+          <ModalContainer style={{ maxWidth: 980, width: "95%" }} onClick={e => e.stopPropagation()}>
             <ModalHeader>
               <ModalTitle>Search by IP Number</ModalTitle>
               <CloseButton onClick={() => setShowIPModal(false)}>×</CloseButton>
@@ -5160,17 +5177,17 @@ const loadedMedicines = rawMeds.map((item) => {
                   <ModalResultCount>
                     {ipSearchResults.length} admission{ipSearchResults.length !== 1 ? "s" : ""} found — click a row to select
                   </ModalResultCount>
-                  <TableWrapper>
-                    <Table>
+                  <TableWrapper style={{ overflowX: "auto" }}>
+                    <Table style={{ minWidth: 860, width: "100%" }}>
                       <thead>
                         <tr>
-                          <Th>Select</Th>
-                          <Th>IP Number</Th>
-                          <Th>UHID</Th>
-                          <Th>Patient Name</Th>
-                          <Th>Mobile</Th>
-                          <Th>Room / Bed</Th>
-                          <Th>Status</Th>
+                          <Th style={{ width: 60, textAlign: "center" }}>Select</Th>
+                          <Th style={{ minWidth: 120 }}>IP Number</Th>
+                          <Th style={{ minWidth: 110 }}>UHID</Th>
+                          <Th style={{ minWidth: 160 }}>Patient Name</Th>
+                          <Th style={{ minWidth: 110 }}>Mobile</Th>
+                          <Th style={{ minWidth: 130 }}>Room / Bed</Th>
+                          <Th style={{ minWidth: 110, textAlign: "center" }}>Status</Th>
                         </tr>
                       </thead>
                       <tbody>
@@ -5194,25 +5211,27 @@ const loadedMedicines = rawMeds.map((item) => {
                               style={{ cursor: "pointer" }}
                               onClick={() => handleIPSelect(adm)}
                             >
-                              <Td>
+                              <Td style={{ textAlign: "center" }}>
                                 <div style={{
                                   width: 28, height: 28, borderRadius: "50%",
                                   background: isAdmitted ? "#0f766e" : "#94a3b8",
-                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  display: "inline-flex", alignItems: "center", justifyContent: "center",
                                   color: "#fff", fontSize: "0.9rem",
                                 }} title={isAdmitted ? "Admitted" : "Discharged"}>✓</div>
                               </Td>
-                              <Td style={{ fontWeight: 700, color: "#0f766e", fontFamily: "monospace" }}>{adm.ipNumber || "—"}</Td>
-                              <Td style={{ fontWeight: 600 }}>{adm.uhid || "—"}</Td>
+                              <Td style={{ fontWeight: 700, color: "#0f766e", fontFamily: "monospace", whiteSpace: "nowrap" }}>{adm.ipNumber || "—"}</Td>
+                              <Td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{adm.uhid || "—"}</Td>
                               <Td>{fullName || "—"}</Td>
-                              <Td>{mobile}</Td>
-                              <Td style={{ fontSize: "0.83rem" }}>{roomLabel}</Td>
-                              <Td>
+                              <Td style={{ whiteSpace: "nowrap" }}>{mobile}</Td>
+                              <Td style={{ fontSize: "0.83rem", whiteSpace: "nowrap" }}>{roomLabel}</Td>
+                              <Td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                                 <span style={{
-                                  fontSize: "0.75rem", fontWeight: 700, padding: "2px 10px", borderRadius: 20,
+                                  fontSize: "0.75rem", fontWeight: 700, padding: "3px 12px", borderRadius: 20,
                                   background: isAdmitted ? "#f0fdf4" : "#fef2f2",
                                   color: isAdmitted ? "#15803d" : "#dc2626",
                                   border: `1px solid ${isAdmitted ? "#bbf7d0" : "#fecaca"}`,
+                                  display: "inline-block",
+                                  whiteSpace: "nowrap"
                                 }}>
                                   {isAdmitted ? "Admitted" : "Discharged"}
                                 </span>
@@ -5239,7 +5258,7 @@ const loadedMedicines = rawMeds.map((item) => {
       {/* ── UHID Search Modal ── */}
       {showUHIDModal && (
         <ModalOverlay onClick={() => setShowUHIDModal(false)}>
-          <ModalContainer style={{ maxWidth: 760 }} onClick={e => e.stopPropagation()}>
+          <ModalContainer style={{ maxWidth: 920, width: "95%" }} onClick={e => e.stopPropagation()}>
             <ModalHeader>
               <ModalTitle>{uhidModalTitle || "Select Patient"}</ModalTitle>
               <CloseButton onClick={() => setShowUHIDModal(false)}>×</CloseButton>
@@ -5302,15 +5321,15 @@ const loadedMedicines = rawMeds.map((item) => {
                   <ModalResultCount>
                     Showing 1 to {displayedUhidResults.length} of {displayedUhidResults.length} entries
                   </ModalResultCount>
-                  <TableWrapper>
-                    <Table>
+                  <TableWrapper style={{ overflowX: "auto" }}>
+                    <Table style={{ minWidth: 800, width: "100%" }}>
                       <thead>
                         <tr>
                           <Th style={{ width: 60, textAlign: "center" }}>Action</Th>
-                          <Th>UHID No</Th>
-                          <Th>Patient</Th>
-                          <Th>Mobile</Th>
-                          <Th style={{ textAlign: "center" }}>Admission Status</Th>
+                          <Th style={{ minWidth: 120 }}>UHID No</Th>
+                          <Th style={{ minWidth: 160 }}>Patient</Th>
+                          <Th style={{ minWidth: 120 }}>Mobile</Th>
+                          <Th style={{ minWidth: 130, textAlign: "center" }}>Admission Status</Th>
                         </tr>
                       </thead>
                       <tbody>
@@ -5396,12 +5415,12 @@ const loadedMedicines = rawMeds.map((item) => {
           { value: "cash", label: "Pay Now", desc: "Patient pays immediately (Cash / Card / UPI)" },
           { value: "credit", label: "Pay Later", desc: "Bill on credit — patient pays at a later date" },
         ].filter(opt => {
-          // If selected_outlet is OLET002: display Pay Now and Pay Later options
-          if (activeOutlet === "OLET002") {
-            return true;
+          // If selected_outlet is OLET001: display only Pay Later
+          if (activeOutlet === "OLET001") {
+            return opt.value === "credit";
           }
-          // If selected_outlet is OLET001 (or non-OLET002): display Pay Later only
-          return opt.value === "credit";
+          // If selected_outlet is OLET002: display Pay Now and Pay Later
+          return true;
         });
 
         return (
