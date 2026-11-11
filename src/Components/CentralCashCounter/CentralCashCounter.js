@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Mic, RotateCcw, CreditCard, Clock, User, Hash, Layers, Plus, Minus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Mic, RotateCcw, CreditCard, Hash, Plus, Minus, Eye } from "lucide-react";
 import ShiftDetails from "./ShiftDetails";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
@@ -23,155 +24,86 @@ const MainContent = styled.div`
 
 const TopSection = styled.div`
   background: #ffffff;
-  border-radius: 20px;
+  border-radius: 16px;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
-  padding: 20px 24px;
-  margin-bottom: 24px;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+  padding: 12px 20px;
+  margin-bottom: 20px;
   transition: all 0.25s ease;
 `;
 
-const TopGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1.15fr 1fr 1.15fr;
-  gap: 20px;
-  align-items: stretch;
-
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
-  }
+const ShiftSummaryBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 `;
 
-const ShiftCard = styled.div`
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 16px 20px;
+const ShiftSummaryLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+`;
+
+const ShiftItemBox = styled.div`
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
-  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.03);
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
-  }
+  gap: 3px;
 `;
 
-const ShiftCardHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #f1f5f9;
-`;
-
-const ShiftRefBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #38bdf8;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12.5px;
-  font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  letter-spacing: 0.04em;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
-`;
-
-const ShiftDataRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 3px 0;
-`;
-
-const ShiftDataLabel = styled.span`
+const ShiftItemLabel = styled.span`
   color: #64748b;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
 `;
 
-const ShiftDataValue = styled.span`
-  color: #0f172a;
-  font-weight: 600;
-  font-size: 13px;
-`;
-
-const BalancesCard = styled.div`
-  background: linear-gradient(135deg, #f0fdfa 0%, #ecfdf5 45%, #ffffff 100%);
-  border: 1.5px solid #99f6e4;
-  border-radius: 16px;
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 10px;
-  box-shadow: 0 6px 20px -4px rgba(13, 148, 136, 0.1);
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #5eead4;
-    box-shadow: 0 8px 24px -4px rgba(13, 148, 136, 0.16);
-  }
-`;
-
-const BalancesHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
+const ShiftItemRef = styled.span`
+  display: inline-flex;
   align-items: center;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed #99f6e4;
-`;
-
-const BalancesGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-`;
-
-const BalanceTile = styled.div`
-  background: #ffffff;
-  border: 1.5px solid ${(props) => (props.$highlight ? "#0d9488" : "#e2e8f0")};
-  border-radius: 12px;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  box-shadow: ${(props) => (props.$highlight ? "0 4px 14px rgba(13, 148, 136, 0.12)" : "0 2px 6px rgba(15, 23, 42, 0.03)")};
-  transition: all 0.2s ease;
-`;
-
-const BalanceTileLabel = styled.span`
-  font-size: 10.5px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #38bdf8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13.5px;
   font-weight: 700;
-  color: ${(props) => (props.$highlight ? "#0f766e" : "#64748b")};
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
 `;
 
-const BalanceTileAmount = styled.span`
-  font-size: 17.5px;
+const ShiftCollectedAmount = styled.span`
+  font-size: 18px;
   font-weight: 800;
-  color: ${(props) => (props.$highlight ? "#0f766e" : "#0f172a")};
+  color: #0d9488;
   letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+`;
+
+const ShiftItemDivider = styled.div`
+  width: 1px;
+  height: 32px;
+  background: #e2e8f0;
+  margin: 0 4px;
+
+  @media (max-width: 640px) {
+    display: none;
+  }
 `;
 
 const StatusChip = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 9999px;
   font-size: 11.5px;
   font-weight: 700;
@@ -182,22 +114,11 @@ const StatusChip = styled.span`
   box-shadow: 0 1px 3px rgba(16, 185, 129, 0.08);
 `;
 
-const CounterCard = styled.div`
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 16px 20px;
+const ShiftSummaryRight = styled.div`
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
-  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.03);
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
-  }
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 `;
 
 // Legacy Label / Amount for backward compatibility if referenced elsewhere
@@ -256,73 +177,77 @@ const Button = styled.button`
   }
 `;
 
-const ContentWrapper = styled.div`
+const ModuleWrapper = styled.div`
   display: flex;
-  gap: 24px;
-  align-items: flex-start;
-
-  @media (max-width: 900px) {
-    flex-direction: column;
-  }
-`;
-
-const Sidebar = styled.div`
-  width: 250px;
-  flex-shrink: 0;
-  background-color: white;
-  border-radius: 20px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04);
-  padding: 14px;
-`;
-
-const SidebarButton = styled.button`
+  flex-direction: column;
   width: 100%;
-  text-align: left;
-  padding: 12px 18px;
-  margin-bottom: 8px;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+`;
+
+const ModuleTabBar = styled.div`
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 12px 20px 0;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 55%, #14b8a6 100%);
+  box-shadow: 0 2px 12px rgba(15, 118, 110, 0.25);
+  flex-wrap: wrap;
+`;
+
+const ModuleTabButton = styled.button`
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 8px;
+  padding: 11px 22px;
+  font-size: 0.88rem;
+  font-weight: ${({ $active }) => ($active ? "700" : "500")};
+  border: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+  position: relative;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  background: ${({ $active }) => ($active ? "#ffffff" : "rgba(255, 255, 255, 0.14)")};
+  color: ${({ $active }) => ($active ? "#0f766e" : "rgba(255, 255, 255, 0.92)")};
+  box-shadow: ${({ $active }) =>
+    $active ? "0 -2px 8px rgba(0,0,0,0.08), 0 0 0 1px rgba(15,118,110,0.10)" : "none"};
 
-  ${(props) =>
-    props.active
-      ? `
-    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
-    color: white;
-    box-shadow: 0 6px 20px rgba(15, 118, 110, 0.28);
-    transform: translateX(2px);
-  `
-      : `
-    background-color: transparent;
-    color: #475569;
-    
-    &:hover {
-      background-color: #f1f5f9;
-      color: #0f172a;
-      transform: translateX(2px);
-    }
-  `}
+  &:hover {
+    background: ${({ $active }) => ($active ? "#ffffff" : "rgba(255, 255, 255, 0.24)")};
+    color: ${({ $active }) => ($active ? "#0f766e" : "#ffffff")};
+  }
+
+  svg {
+    font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+
+  ${({ $active }) =>
+    $active &&
+    `&::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 12px; right: 12px;
+      height: 3px;
+      background: linear-gradient(90deg, #0f766e, #14b8a6);
+      border-radius: 0 0 4px 4px;
+    }`}
 `;
 
 const MainPanel = styled.div`
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   background-color: white;
-  border-radius: 20px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04);
+  border-radius: 0;
+  border: none;
   overflow: hidden;
 `;
 
 const PanelContent = styled.div`
-  padding: 26px 30px;
+  padding: 22px 26px;
 `;
 
 const Title = styled.h2`
@@ -498,33 +423,25 @@ const Table = styled.table`
 const TableHeader = styled.th`
   border: none;
   border-bottom: 2px solid #e2e8f0;
-  padding: 12px 14px;
+  padding: 10px 10px;
   text-align: ${(props) => (props.align ? props.align : props.center ? "center" : props.right ? "right" : "left")};
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   font-weight: 700;
-  font-size: 11.5px;
+  font-size: 11px;
   color: #475569;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   white-space: nowrap;
   vertical-align: middle;
-
-  &:last-child {
-    position: sticky;
-    right: 0;
-    background: #f1f5f9;
-    box-shadow: -3px 0 8px rgba(0, 0, 0, 0.04);
-    z-index: 2;
-  }
 `;
 
 const TableCell = styled.td`
   border: none;
   border-bottom: 1px solid #f1f5f9;
-  padding: 11px 14px;
+  padding: 9px 10px;
   text-align: ${(props) => (props.align ? props.align : props.center ? "center" : props.right ? "right" : "left")};
   color: ${(props) => (props.muted ? "#64748b" : "#1e293b")};
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   white-space: nowrap;
   vertical-align: middle;
@@ -536,18 +453,6 @@ const TableCell = styled.td`
 
   tr:hover & {
     background-color: #f0fdfa;
-  }
-
-  &:last-child {
-    position: sticky;
-    right: 0;
-    background-color: #ffffff;
-    box-shadow: -3px 0 8px rgba(0, 0, 0, 0.04);
-    z-index: 1;
-
-    tr:hover & {
-      background-color: #f0fdfa;
-    }
   }
 `;
 
@@ -681,9 +586,11 @@ const ModalContainer = styled.div`
     0 20px 60px rgba(0, 0, 0, 0.2),
     0 4px 16px rgba(0, 0, 0, 0.08);
   width: 100%;
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-width: 620px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   animation: slideUp 0.25s ease;
 
   @keyframes slideUp {
@@ -699,16 +606,17 @@ const ModalContainer = styled.div`
 `;
 
 const ModalHeader = styled.div`
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px 16px;
+  padding: 12px 20px;
   background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   border-radius: 16px 16px 0 0;
 `;
 
 const ModalTitle = styled.h3`
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -734,28 +642,30 @@ const CloseButton = styled.button`
 `;
 
 const ModalBody = styled.div`
-  padding: 20px 24px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 20px;
 `;
 
 const BillInfoCard = styled.div`
   background: #f0fdfa;
   border: 1px solid #ccfbf1;
-  border-radius: 10px;
-  padding: 14px 18px;
-  margin-bottom: 20px;
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-bottom: 10px;
   display: flex;
-  gap: 24px;
+  gap: 20px;
   flex-wrap: wrap;
 `;
 
 const BillInfoItem = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 `;
 
 const BillInfoLabel = styled.span`
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #6b7280;
@@ -763,7 +673,7 @@ const BillInfoLabel = styled.span`
 `;
 
 const BillInfoValue = styled.span`
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #0d9488;
 `;
@@ -771,30 +681,30 @@ const BillInfoValue = styled.span`
 const NetAmountBanner = styled.div`
   background: linear-gradient(135deg, #0d9488, #0f766e);
   color: white;
-  border-radius: 10px;
-  padding: 12px 18px;
-  margin-bottom: 20px;
+  border-radius: 8px;
+  padding: 9px 14px;
+  margin-bottom: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 `;
 
 const PaymentSection = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 16px;
+  gap: 2px;
+  margin-bottom: 8px;
 `;
 
 const PaymentMethodLabel = styled.div`
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: #6b7280;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   padding-left: 2px;
 `;
 
@@ -802,27 +712,37 @@ const FormRow = styled.div`
   display: grid;
   grid-template-columns: 140px 1fr;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 5px;
 `;
 
 const FormLabel = styled.label`
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: #374151;
 `;
 
 const Input = styled.input`
   border: 1.5px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 9px 14px;
-  font-size: 14px;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 13.5px;
   width: 100%;
   box-sizing: border-box;
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
   background: #fafafa;
+
+  /* Hide number input spinners and avoid accidental wheel changes */
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 
   &:focus {
     outline: none;
@@ -839,25 +759,25 @@ const Input = styled.input`
 const SubInput = styled(Input)`
   border-style: dashed;
   background: #f8fafc;
-  font-size: 13px;
+  font-size: 12.5px;
 `;
 
 const SummaryCard = styled.div`
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 14px 18px;
-  margin-top: 8px;
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-top: 6px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 `;
 
 const SummaryRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14px;
+  font-size: 13px;
   color: ${(props) =>
     props.highlight ? "#0d9488" : props.danger ? "#dc2626" : "#374151"};
   font-weight: ${(props) => (props.bold ? "700" : "500")};
@@ -865,16 +785,17 @@ const SummaryRow = styled.div`
     props.separator &&
     `
     border-top: 1px solid #e5e7eb;
-    padding-top: 8px;
+    padding-top: 5px;
     margin-top: 2px;
   `}
 `;
 
 const ModalFooterBar = styled.div`
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
+  gap: 10px;
+  padding: 10px 20px;
   border-top: 1px solid #f0f0f0;
   background: #fafafa;
   border-radius: 0 0 16px 16px;
@@ -884,9 +805,9 @@ const SaveButton = styled.button`
   background: linear-gradient(135deg, #0d9488, #0f766e);
   color: white;
   border: none;
-  padding: 10px 28px;
-  border-radius: 8px;
-  font-size: 15px;
+  padding: 8px 24px;
+  border-radius: 7px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
@@ -961,6 +882,7 @@ const ShiftRunningBanner = styled.div`
 `;
 
 export default function CentralCashCounter() {
+  const navigate = useNavigate();
   const [billType, setBillType] = useState("ALL");
   const [showEntries, setShowEntries] = useState("10");
   const [searchTerm, setSearchTerm] = useState("");
@@ -968,10 +890,13 @@ export default function CentralCashCounter() {
   const [activeMenuItem, setActiveMenuItem] = useState("Pending Bills");
   const [showShiftDetails, setShowShiftDetails] = useState(false);
   const [pendingBills, setPendingBills] = useState([]);
+  const [unpaidBills, setUnpaidBills] = useState([]);
   const [receivedBills, setReceivedBills] = useState([]);
   const [ipAdvancePendingBills, setIpAdvancePendingBills] = useState([]);
+  const [ipAdvanceUnpaidBills, setIpAdvanceUnpaidBills] = useState([]);
   const [ipAdvanceReceivedBills, setIpAdvanceReceivedBills] = useState([]);
   const [opPharmacyBills, setOpPharmacyBills] = useState([]);
+  const [opPharmacyUnpaidBills, setOpPharmacyUnpaidBills] = useState([]);
   const [opPharmacyReceivedBills, setOpPharmacyReceivedBills] = useState([]);
   const [allowedBillTypes, setAllowedBillTypes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1004,12 +929,12 @@ export default function CentralCashCounter() {
   const showToast = (type, message) => {
     const text = type === "error" ? extractErrorMessage(message) : (typeof message === "string" ? message : JSON.stringify(message));
     if (type === "success") {
-      toast.success(text);
+      toast.success(text, { autoClose: 2000, pauseOnHover: false });
     } else {
-      toast.error(text);
+      toast.error(text, { autoClose: 2500, pauseOnHover: false });
     }
     setToastState({ visible: true, type, message: text });
-    setTimeout(() => setToastState({ visible: false, type: "", message: "" }), 4000);
+    setTimeout(() => setToastState({ visible: false, type: "", message: "" }), 2000);
   };
 
   const [filteredBills, setFilteredBills] = useState([]);
@@ -1117,6 +1042,7 @@ export default function CentralCashCounter() {
       let list = [];
       if (Array.isArray(res)) list = res;
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
+      else if (Array.isArray(res?.data)) list = res.data;
       else if (Array.isArray(res?.results)) list = res.results;
       setRpRecords(list);
     } catch (err) {
@@ -1307,41 +1233,13 @@ export default function CentralCashCounter() {
     URL.revokeObjectURL(url);
   };
 
-  const formatShiftDateTime = (raw) => {
-    if (!raw) return "—";
-    let s = String(raw).trim().replace(" ", "T");
-    if (s && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
-      s += "Z";
-    }
-    const d = new Date(s);
-    if (isNaN(d.getTime())) return "—";
-    return d.toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  };
-
-  const formatSessionDate = (raw) => {
-    if (!raw) return new Date().toLocaleDateString("en-IN");
-    const datePart = String(raw).split(" ")[0].split("T")[0];
-    const parts = datePart.split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    return datePart;
-  };
-
   const handleShiftChange = async (shiftData) => {
     if (!shiftData) {
       setActiveShift(null);
       setPendingBills([]);
       setOpPharmacyBills([]);
+      setOpPharmacyUnpaidBills([]);
+      setOpPharmacyReceivedBills([]);
       setFilteredBills([]);
       await refreshActiveShift();
       return;
@@ -1363,6 +1261,8 @@ export default function CentralCashCounter() {
       setActiveShift(null);
       setPendingBills([]);
       setOpPharmacyBills([]);
+      setOpPharmacyUnpaidBills([]);
+      setOpPharmacyReceivedBills([]);
       setFilteredBills([]);
     }
     await refreshActiveShift();
@@ -1409,6 +1309,8 @@ export default function CentralCashCounter() {
         setActiveShift(null);
         setPendingBills([]);
         setOpPharmacyBills([]);
+        setOpPharmacyUnpaidBills([]);
+        setOpPharmacyReceivedBills([]);
         setFilteredBills([]);
       }
     } catch (err) {
@@ -1470,16 +1372,27 @@ export default function CentralCashCounter() {
   // ✅ IP Advance formatter — flattens each pending_payment into its own table row
   const formatIpAdvanceData = (admissionsArray, statusFilter = "pending") => {
     const rows = [];
+    const isPaidFilter =
+      statusFilter.toLowerCase() === "paid" || statusFilter.toLowerCase() === "received";
+
     admissionsArray.forEach((admission) => {
       const payments = admission.advance_payments || [];
       // Filter based on status (pending or paid)
-      const filteredPayments = payments.filter(
-        (p) => p.is_advanceActive && String(p.status).toLowerCase() === statusFilter.toLowerCase()
-      );
+      const filteredPayments = payments.filter((p) => {
+        if (!p.is_advanceActive) return false;
+        const pStatus = String(p.status || "").toLowerCase();
+        if (isPaidFilter) {
+          return pStatus === "paid" || pStatus === "received";
+        }
+        return pStatus === "pending";
+      });
       if (filteredPayments.length === 0) return;
 
       filteredPayments.forEach((payment) => {
-        const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
+        const rawDate = isPaidFilter
+          ? (payment.paid_datetime || payment.paid_date || payment.bill_date || payment.date)
+          : (payment.bill_date || payment.date);
+        const billDateObj = rawDate ? new Date(rawDate) : null;
 
         // ✅ Resolve raw integer bill_type (may have a space-prefixed key in some records)
         const rawBillType =
@@ -1492,6 +1405,22 @@ export default function CentralCashCounter() {
         rows.push({
           id: `${admission.ipNumber}-${payment.advance_id}`,
           // display fields
+          date: billDateObj
+            ? billDateObj.toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                timeZone: "Asia/Kolkata",
+              })
+            : "-",
+          time: billDateObj
+            ? billDateObj.toLocaleTimeString("en-IN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+                timeZone: "Asia/Kolkata",
+              })
+            : "-",
           bill_date: billDateObj
             ? billDateObj.toLocaleDateString("en-IN", {
                 day: "2-digit",
@@ -1508,6 +1437,8 @@ export default function CentralCashCounter() {
           ipserial_number: admission.ipserial_number || "-",
           advance_id: payment.advance_id,
           status: payment.status || "-",
+          doctor: admission.admittingDoctor || admission.consultingDoctor || "-",
+          payment_method: payment.payment_details?.method || payment.payment_method || (payment.payment_details ? Object.keys(payment.payment_details).filter(k => payment.payment_details[k] > 0).join(", ") : "-"),
           total: payment.advance_amount || 0,
           source: "IP",
           bill_type: "IP Advance",       // display label (kept for UI)
@@ -1586,16 +1517,20 @@ export default function CentralCashCounter() {
           time: billTime,
           bill_no: item.bill_no || "-",
           raw_bill_no: item.bill_no || null,
-          bill_type: item.type || "-",
+          bill_type: item.bill_type || item.bill_type_name || item.type || "-",
           raw_bill_type: item.type || null,
-          uhid_no: item.uhid || "-",
-          patient: item.patient_name || "-",
+          bill_type_id: item.bill_type_id || item.raw?.bill_type,
+          uhid_no: item.uhid || item.raw?.uhid || "-",
+          patient: item.patient_name || item.raw?.patient_name || item.raw?.patient || "-",
           amount: parseFloat(item.amount || 0),
           status: item.status || "-",
+          doctor: item.doctor || item.doctor_name || item.raw?.doctor_name || item.raw?.doctor || "-",
+          total: parseFloat(item.total || item.amount || 0),
+          payment_method: item.payment_method || item.raw?.payment_method || item.raw?.payment_details?.method || "-",
+          payment_breakdown: item.payment_breakdown || null,
           raw: item.raw || {},
           Bill_id: item.raw?.patient_id || null,
-          uhid: item.uhid || "-",
-          total: parseFloat(item.amount || 0),
+          uhid: item.uhid || item.raw?.uhid || "-",
           source: item.type === "Discharge" ? "IP" : "OP",
         };
       });
@@ -1604,6 +1539,69 @@ export default function CentralCashCounter() {
     } catch (err) {
       if (!silent) {
         console.error("Pending bills error:", err);
+        showToast("error", "Unable to connect to HMS server. Please try again.");
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
+
+  // ── Fetch unpaid bills ───────────────────────────────────────────────────────
+  const fetchUnpaidBills = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}get_mainblock_pendingbills/?status=unpaid`, "GET");
+      if (!response?.success) {
+        if (!silent) {
+          console.error("Unpaid bills error:", response);
+          showToast("error", response?.error || "Unable to connect to HMS server. Please try again.");
+        }
+        return;
+      }
+
+      const billsArray = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+      const formatted = billsArray.map((item, index) => {
+        const dateObj = item.date ? new Date(item.date) : null;
+        const billDate = dateObj
+          ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
+          : "-";
+        const billTime = dateObj
+          ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+          : "-";
+
+        return {
+          id: `${item.type}-${item.bill_no}-${index}`,
+          date: billDate,
+          time: billTime,
+          bill_no: item.bill_no || "-",
+          raw_bill_no: item.bill_no || null,
+          bill_type: item.bill_type || item.bill_type_name || item.type || "-",
+          raw_bill_type: item.type || null,
+          bill_type_id: item.bill_type_id || item.raw?.bill_type,
+          uhid_no: item.uhid || item.raw?.uhid || "-",
+          patient: item.patient_name || item.raw?.patient_name || item.raw?.patient || "-",
+          amount: parseFloat(item.amount || 0),
+          status: item.status || "-",
+          doctor: item.doctor || item.doctor_name || item.raw?.doctor_name || item.raw?.doctor || "-",
+          total: parseFloat(item.total || item.amount || 0),
+          payment_method: item.payment_method || item.raw?.payment_method || item.raw?.payment_details?.method || "-",
+          payment_breakdown: item.payment_breakdown || null,
+          raw: item.raw || {},
+          Bill_id: item.raw?.patient_id || null,
+          uhid: item.uhid || item.raw?.uhid || "-",
+          source: item.type === "Discharge" ? "IP" : "OP",
+        };
+      });
+
+      setUnpaidBills(formatted);
+    } catch (err) {
+      if (!silent) {
+        console.error("Unpaid bills error:", err);
         showToast("error", "Unable to connect to HMS server. Please try again.");
       }
     } finally {
@@ -1638,16 +1636,20 @@ export default function CentralCashCounter() {
             time: billTime,
             bill_no: item.bill_no || "-",
             raw_bill_no: item.bill_no || null,
-            bill_type: item.type || "-",
+            bill_type: item.bill_type || item.bill_type_name || item.type || "-",
             raw_bill_type: item.type || null,
-            uhid_no: item.uhid || "-",
-            patient: item.patient_name || "-",
+            bill_type_id: item.bill_type_id || item.raw?.bill_type,
+            uhid_no: item.uhid || item.raw?.uhid || "-",
+            patient: item.patient_name || item.raw?.patient_name || item.raw?.patient || "-",
             amount: parseFloat(item.amount || 0),
             status: item.status || "-",
+            doctor: item.doctor || item.doctor_name || item.raw?.doctor_name || item.raw?.doctor || "-",
+            total: parseFloat(item.total || item.amount || 0),
+            payment_method: item.payment_method || item.raw?.payment_method || item.raw?.payment_details?.method || "-",
+            payment_breakdown: item.payment_breakdown || null,
             raw: item.raw || {},
             Bill_id: item.raw?.patient_id || null,
-            uhid: item.uhid || "-",
-            total: parseFloat(item.amount || 0),
+            uhid: item.uhid || item.raw?.uhid || "-",
             source: item.type === "Discharge" ? "IP" : "OP",
           };
         });
@@ -1724,7 +1726,10 @@ export default function CentralCashCounter() {
       };
 
       const formatPharmacyItem = (item, index) => {
-        const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
+        const rawDate = item.billing_status === "Paid"
+          ? (item.paid_date || item.paid_datetime || item.lastmodified_date || item.bill_date)
+          : (item.bill_date || item.created_date);
+        const billDateObj = rawDate ? new Date(rawDate) : null;
         const billDate = billDateObj
           ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
           : "-";
@@ -1754,15 +1759,36 @@ export default function CentralCashCounter() {
         };
       };
 
-      const formatted = billsArray
-        .filter((item) => item.billing_status === "Billed" || item.billing_status === "Processing")
+      const isCurrentDate = (item) => {
+        if (typeof item.is_current_date === "boolean") return item.is_current_date;
+        const rawDate = item.billing_status === "Paid"
+          ? (item.paid_date || item.paid_datetime || item.lastmodified_date || item.bill_date)
+          : (item.bill_date || item.created_date);
+        if (!rawDate) return false;
+        const bDate = new Date(rawDate);
+        if (isNaN(bDate.getTime())) return false;
+        const todayStr = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+        const billStr = bDate.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+        return todayStr === billStr;
+      };
+
+      const isUnpaidStatus = (status) =>
+        status === "Billed" || status === "Processing" || status === "Pending";
+
+      const formattedPending = billsArray
+        .filter((item) => item.is_pending === true || (isUnpaidStatus(item.billing_status) && isCurrentDate(item)))
+        .map(formatPharmacyItem);
+
+      const formattedUnpaid = billsArray
+        .filter((item) => item.is_unpaid === true || (isUnpaidStatus(item.billing_status) && !isCurrentDate(item)))
         .map(formatPharmacyItem);
 
       const formattedReceived = billsArray
-        .filter((item) => item.billing_status === "Paid")
+        .filter((item) => item.is_received === true || (item.billing_status === "Paid" && isCurrentDate(item)))
         .map(formatPharmacyItem);
 
-      setOpPharmacyBills(formatted);
+      setOpPharmacyBills(formattedPending);
+      setOpPharmacyUnpaidBills(formattedUnpaid);
       setOpPharmacyReceivedBills(formattedReceived);
     } catch (err) {
       if (!silent) {
@@ -1777,7 +1803,7 @@ export default function CentralCashCounter() {
     isFetchingIpAdvanceRef.current = true;
     if (!silent) setLoading(true);
     try {
-      const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "GET");
+      const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/?status=pending`, "GET");
       const billsArray = Array.isArray(response?.data?.data) ? response.data.data : [];
 
       if (!billsArray.length && response?.data?.error) {
@@ -1785,7 +1811,7 @@ export default function CentralCashCounter() {
         return;
       }
 
-      const formatted = formatIpAdvanceData(billsArray);
+      const formatted = formatIpAdvanceData(billsArray, "pending");
       setIpAdvancePendingBills(formatted);
     } catch (err) {
       if (!silent) {
@@ -1799,12 +1825,38 @@ export default function CentralCashCounter() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Fetch IP advance received bills (stub) ────────────────────────────────────
+  const fetchIpAdvanceUnpaidBills = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/?status=unpaid`, "GET");
+      const billsArray = Array.isArray(response?.data?.data) ? response.data.data : [];
+
+      if (!billsArray.length && response?.data?.error) {
+        if (!silent) showToast("error", "IP Advance API error: " + response.data.error);
+        return;
+      }
+
+      const formatted = formatIpAdvanceData(billsArray, "pending");
+      setIpAdvanceUnpaidBills(formatted);
+    } catch (err) {
+      if (!silent) {
+        console.error("IP Advance unpaid bills error:", err?.message || err);
+        showToast("error", "Failed to load IP Advance unpaid bills.");
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Fetch IP advance received bills ───────────────────────────────────────────
   const fetchIpAdvanceReceivedBills = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      // TODO: replace with actual IP advance received-bills endpoint when available
-      setIpAdvanceReceivedBills([]);
+      const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/?status=paid`, "GET");
+      const billsArray = Array.isArray(response?.data?.data) ? response.data.data : [];
+      const formatted = formatIpAdvanceData(billsArray, "paid");
+      setIpAdvanceReceivedBills(formatted);
     } catch (err) {
       if (!silent) {
         console.error("IP Advance received bills error:", err);
@@ -1930,13 +1982,7 @@ export default function CentralCashCounter() {
       return;
     }
 
-    // Validate ref numbers based on selected methods
-    if (selectedMethods.card && parseFloat(payments.card) > 0 && !payments.cardNo.trim()) {
-      const msg = "Please enter the Card / Transaction Reference No to proceed.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
+    // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
     if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
       const msg = "Please enter the Cheque Number to proceed.";
       setModalError(msg);
@@ -1969,9 +2015,9 @@ export default function CentralCashCounter() {
         if (ipRes?.status === "success" || ipRes?.success) {
           setShowPaymentModal(false);
           await fetchIpAdvancePendingBills();
+          await fetchIpAdvanceUnpaidBills();
           await fetchIpAdvanceReceivedBills();
           refreshActiveShift();
-          setSelectedType("received");
           showToast("success", "Payment collected successfully!");
         } else {
           const errMsg = extractErrorMessage(ipRes?.message || ipRes?.error || "Payment failed. Please try again.");
@@ -1999,10 +2045,6 @@ export default function CentralCashCounter() {
           payment_details,
           shiftno: activeShift?.shiftno || "",
           counter_id: cashCounterId,
-          "auth-hospital-code": localStorage.getItem("hospital_code") || localStorage.getItem("hospitalId") || "SH001",
-          "auth-branch-code": localStorage.getItem("selected_branch") || localStorage.getItem("branch_code") || "SHB001",
-          "auth-outlet-code": localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "OLET001",
-          "auth-user-id": localStorage.getItem("user_id") || localStorage.getItem("userId") || "",
           // ✅ remarks: only sent if user typed something
           ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
         };
@@ -2013,7 +2055,6 @@ export default function CentralCashCounter() {
           await fetchOpPharmacyPendingBills();
           await fetchPendingBills();
           refreshActiveShift();
-          setSelectedType("received");
           showToast("success", "Pharmacy payment collected successfully!");
         } else {
           const errMsg = extractErrorMessage(result?.error || result?.message || "Payment failed. Please try again.");
@@ -2031,22 +2072,22 @@ export default function CentralCashCounter() {
       return;
     }
 
-    const currentBillType = selectedBill.raw_bill_type || selectedBill.bill_type || selectedBill.type || "";
+    const billCategory = selectedBill.type || selectedBill.raw_bill_type || selectedBill.bill_type || "";
     let statusFields = {};
-    if (currentBillType === "Discharge") {
+    if (billCategory === "Discharge") {
       statusFields = { status: "Paid" };
-    } else if (currentBillType === "Investigation") {
+    } else if (billCategory === "Investigation") {
       statusFields = { paymentStatus: "Paid" };
-    } else if (currentBillType === "Billing") {
-      statusFields = { payment_status: "Paid" };
     } else {
       statusFields = { payment_status: "Paid" };
     }
 
     const payload = {
       bill_no: selectedBill.raw_bill_no || selectedBill.bill_no,
-      type: currentBillType,
-      bill_category: currentBillType,
+      bill_id: selectedBill.raw?._id || selectedBill.raw?.id || selectedBill.id || selectedBill._id,
+      bill_type: selectedBill.bill_type_id ?? selectedBill.raw?.bill_type,
+      type: billCategory,
+      bill_category: billCategory,
       ...statusFields,
       payment_details,
       shiftno: activeShift?.shiftno || "",
@@ -2063,12 +2104,14 @@ export default function CentralCashCounter() {
         const paidBillNo = selectedBill.raw_bill_no || selectedBill.bill_no;
         // Immediate local state removal for instant UI feedback
         setPendingBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+        setUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         setOpPharmacyBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+        setOpPharmacyUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         await fetchPendingBills();
+        await fetchUnpaidBills();
         await fetchOpPharmacyPendingBills();
         await fetchReceivedBills();
         refreshActiveShift();
-        setSelectedType("received");
         try {
           localStorage.setItem("hms_last_billing_update", Date.now().toString());
           if (typeof BroadcastChannel !== "undefined") {
@@ -2126,13 +2169,7 @@ export default function CentralCashCounter() {
       return;
     }
 
-    // Validate ref numbers based on selected methods
-    if (selectedMethods.card && parseFloat(payments.card) > 0 && !payments.cardNo.trim()) {
-      const msg = "Please enter the Card / Transaction Reference No to proceed.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
+    // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
     if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
       const msg = "Please enter the Cheque Number to proceed.";
       setModalError(msg);
@@ -2169,7 +2206,6 @@ export default function CentralCashCounter() {
         setShowPaymentModal(false);
         await fetchReturnBills();
         refreshActiveShift();
-        setSelectedType("received");
         showToast("success", "Return bill payment processed successfully!");
       } else {
         const errMsg = extractErrorMessage(result?.message || result?.error || "Payment failed. Please try again.");
@@ -2210,19 +2246,21 @@ export default function CentralCashCounter() {
     if (activeMenuItem === "Pending Bills") {
       if (isOp) {
         // Outlet 2 / CC0002: strictly OP Pharmacy bills only (bill type 42)
-        bills = selectedType === "pending" ? opPharmacyBills : opPharmacyReceivedBills;
+        bills = selectedType === "pending" ? opPharmacyBills : selectedType === "unpaid" ? opPharmacyUnpaidBills : opPharmacyReceivedBills;
       } else {
         // Main block front office (CC0001 / OLET003)
-        bills = selectedType === "pending" ? pendingBills : receivedBills;
+        bills = selectedType === "pending" ? pendingBills : selectedType === "unpaid" ? unpaidBills : receivedBills;
       }
     } else if (activeMenuItem === "IP Advance") {
       bills =
         selectedType === "pending"
           ? ipAdvancePendingBills
+          : selectedType === "unpaid"
+          ? ipAdvanceUnpaidBills
           : ipAdvanceReceivedBills;
     } else if (activeMenuItem === "Returns Bills") {
       bills =
-        selectedType === "pending" ? returnPendingBills : returnReceivedBills;
+        selectedType === "pending" ? returnPendingBills : selectedType === "unpaid" ? [] : returnReceivedBills;
     }
 
     let filtered = bills;
@@ -2251,10 +2289,13 @@ export default function CentralCashCounter() {
     activeMenuItem,
     selectedType,
     pendingBills,
+    unpaidBills,
     opPharmacyBills,
+    opPharmacyUnpaidBills,
     opPharmacyReceivedBills,
     receivedBills,
     ipAdvancePendingBills,
+    ipAdvanceUnpaidBills,
     ipAdvanceReceivedBills,
     returnPendingBills,
     returnReceivedBills,
@@ -2307,6 +2348,8 @@ export default function CentralCashCounter() {
       } else {
         if (selectedType === "pending") {
           fetchPendingBills();
+        } else if (selectedType === "unpaid") {
+          fetchUnpaidBills();
         } else {
           fetchReceivedBills();
         }
@@ -2314,6 +2357,8 @@ export default function CentralCashCounter() {
     } else if (activeMenuItem === "IP Advance") {
       if (selectedType === "pending") {
         fetchIpAdvancePendingBills();
+      } else if (selectedType === "unpaid") {
+        fetchIpAdvanceUnpaidBills();
       } else {
         fetchIpAdvanceReceivedBills();
       }
@@ -2342,6 +2387,8 @@ export default function CentralCashCounter() {
       } else {
         if (type === "pending") {
           fetchPendingBills();
+        } else if (type === "unpaid") {
+          fetchUnpaidBills();
         } else {
           fetchReceivedBills();
         }
@@ -2349,6 +2396,8 @@ export default function CentralCashCounter() {
     } else if (activeMenuItem === "IP Advance") {
       if (type === "pending") {
         fetchIpAdvancePendingBills();
+      } else if (type === "unpaid") {
+        fetchIpAdvanceUnpaidBills();
       } else {
         fetchIpAdvanceReceivedBills();
       }
@@ -2366,6 +2415,8 @@ export default function CentralCashCounter() {
     if (!isShiftActive) {
       setPendingBills([]);
       setOpPharmacyBills([]);
+      setOpPharmacyUnpaidBills([]);
+      setOpPharmacyReceivedBills([]);
       setFilteredBills([]);
       return;
     }
@@ -2384,6 +2435,8 @@ export default function CentralCashCounter() {
       } else {
         if (selectedType === "pending") {
           fetchPendingBills(silent);
+        } else if (selectedType === "unpaid") {
+          fetchUnpaidBills(silent);
         } else {
           fetchReceivedBills(silent);
         }
@@ -2391,6 +2444,8 @@ export default function CentralCashCounter() {
     } else if (activeMenuItem === "IP Advance") {
       if (selectedType === "pending") {
         fetchIpAdvancePendingBills(silent);
+      } else if (selectedType === "unpaid") {
+        fetchIpAdvanceUnpaidBills(silent);
       } else {
         fetchIpAdvanceReceivedBills(silent);
       }
@@ -2404,9 +2459,11 @@ export default function CentralCashCounter() {
     activeShift?.shiftno,
     cashCounterId,
     fetchPendingBills,
+    fetchUnpaidBills,
     fetchOpPharmacyPendingBills,
     fetchReceivedBills,
     fetchIpAdvancePendingBills,
+    fetchIpAdvanceUnpaidBills,
     fetchIpAdvanceReceivedBills,
     fetchReturnBills,
   ]);
@@ -2436,6 +2493,8 @@ export default function CentralCashCounter() {
         } else {
           if (selectedType === "pending") {
             fetchPendingBills(true);
+          } else if (selectedType === "unpaid") {
+            fetchUnpaidBills(true);
           } else {
             fetchReceivedBills(true);
           }
@@ -2443,6 +2502,8 @@ export default function CentralCashCounter() {
       } else if (activeMenuItem === "IP Advance") {
         if (selectedType === "pending") {
           fetchIpAdvancePendingBills(true);
+        } else if (selectedType === "unpaid") {
+          fetchIpAdvanceUnpaidBills(true);
         } else {
           fetchIpAdvanceReceivedBills(true);
         }
@@ -2480,6 +2541,8 @@ export default function CentralCashCounter() {
     fetchOpPharmacyPendingBills,
     fetchReceivedBills,
     fetchIpAdvancePendingBills,
+    fetchIpAdvanceUnpaidBills,
+    fetchIpAdvanceReceivedBills,
     fetchIpAdvanceReceivedBills,
     fetchReturnBills,
   ]);
@@ -2501,149 +2564,133 @@ export default function CentralCashCounter() {
     <Container>
       <MainContent>
         <TopSection>
-          <TopGrid>
-            {/* ── CARD 1: Shift Reference & Timings ── */}
-            <ShiftCard>
-              <ShiftCardHeader>
-                <ShiftDataLabel><Hash size={13} color="#64748b" /> Shift Ref</ShiftDataLabel>
-                <ShiftRefBadge>{activeShift?.shiftno || "—"}</ShiftRefBadge>
-              </ShiftCardHeader>
+          <ShiftSummaryBar>
+            <ShiftSummaryLeft>
+              <ShiftItemBox>
+                <ShiftItemLabel><Hash size={13} color="#0d9488" /> Shift Number</ShiftItemLabel>
+                <ShiftItemRef>{activeShift?.shiftno || "—"}</ShiftItemRef>
+              </ShiftItemBox>
 
-              <ShiftDataRow>
-                <ShiftDataLabel><Clock size={12} color="#64748b" /> Start Time</ShiftDataLabel>
-                <ShiftDataValue style={shiftBelongsHere ? { color: "#0d9488", fontWeight: 700 } : {}}>
-                  {formatShiftDateTime(activeShift?.StartingTime)}
-                </ShiftDataValue>
-              </ShiftDataRow>
+              <ShiftItemDivider />
 
-              <ShiftDataRow>
-                <ShiftDataLabel><Clock size={12} color="#64748b" /> Close Time</ShiftDataLabel>
-                <ShiftDataValue style={!shiftBelongsHere && activeShift?.closingTime ? { color: "#dc2626", fontWeight: 700 } : {}}>
-                  {activeShift?.closingTime
-                    ? formatShiftDateTime(activeShift.closingTime)
-                    : shiftBelongsHere
-                      ? "Running…"
-                      : "—"}
-                </ShiftDataValue>
-              </ShiftDataRow>
+              <ShiftItemBox>
+                <ShiftItemLabel>Cash Collected</ShiftItemLabel>
+                <ShiftCollectedAmount>
+                  ₹ {parseFloat(activeShift?.collected_Amount ?? activeShift?.collected_amount ?? activeShift?.CollectedAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </ShiftCollectedAmount>
+              </ShiftItemBox>
 
-              <ShiftDataRow>
-                <ShiftDataLabel><User size={12} color="#64748b" /> Cashier ID</ShiftDataLabel>
-                <ShiftDataValue style={{ fontFamily: "monospace", fontWeight: 700, color: "#0f172a" }}>
-                  {activeShift?.CashierID || "—"}
-                </ShiftDataValue>
-              </ShiftDataRow>
-            </ShiftCard>
+              <ShiftItemDivider />
 
-            {/* ── CARD 2: Financial Balances & Shift Status ── */}
-            <BalancesCard>
-              <BalancesHeader>
-                <ShiftDataLabel style={{ color: "#0f766e" }}>Cash Overview</ShiftDataLabel>
-                <StatusChip $active={activeShift?.ShiftStatus === "active"}>
-                  <span style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: "50%",
-                    background: activeShift?.ShiftStatus === "active" ? "#10b981" : "#94a3b8",
-                    display: "inline-block"
-                  }} />
-                  {activeShift?.ShiftStatus ? (activeShift.ShiftStatus.charAt(0).toUpperCase() + activeShift.ShiftStatus.slice(1)) : "Inactive"}
-                </StatusChip>
-              </BalancesHeader>
+              <ShiftItemBox>
+                <ShiftItemLabel>Credit (UPI / Card / Cheque / Credit)</ShiftItemLabel>
+                <ShiftCollectedAmount style={{ color: "#2563eb" }}>
+                  ₹ {parseFloat(activeShift?.CreditAmount ?? activeShift?.credit_amount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </ShiftCollectedAmount>
+              </ShiftItemBox>
 
-              <BalancesGrid>
-                <BalanceTile>
-                  <BalanceTileLabel>Opening Balance</BalanceTileLabel>
-                  <BalanceTileAmount>
-                    ₹ {parseFloat(activeShift?.OpeningBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </BalanceTileAmount>
-                </BalanceTile>
+              <ShiftItemDivider />
 
-                <BalanceTile $highlight style={{ background: "#f0fdf4" }}>
-                  <BalanceTileLabel $highlight>Closing Balance</BalanceTileLabel>
-                  <BalanceTileAmount $highlight>
-                    ₹ {parseFloat(activeShift?.ClosingBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </BalanceTileAmount>
-                </BalanceTile>
-              </BalancesGrid>
-            </BalancesCard>
-
-            {/* ── CARD 3: Counter Session & Actions ── */}
-            <CounterCard>
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <ShiftDataRow>
-                  <ShiftDataLabel><Layers size={12} color="#64748b" /> Cash Counter</ShiftDataLabel>
-                  <ShiftDataValue style={{ fontWeight: 700, color: "#0f172a" }}>
-                    {activeShift?.CashCounter || "—"}
-                  </ShiftDataValue>
-                </ShiftDataRow>
-
-                <ShiftDataRow>
-                  <ShiftDataLabel>Branch Code</ShiftDataLabel>
-                  <ShiftDataValue>{activeShift?.branch_code || "—"}</ShiftDataValue>
-                </ShiftDataRow>
-
-                <ShiftDataRow>
-                  <ShiftDataLabel>Session Date</ShiftDataLabel>
-                  <ShiftDataValue>{formatSessionDate(activeShift?.date)}</ShiftDataValue>
-                </ShiftDataRow>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 4 }}>
+              <div>
                 {shiftBelongsHere ? (
-                  <>
-                    <ShiftRunningBanner style={{ margin: 0, padding: "6px 10px", fontSize: "12px", flex: 1 }}>
-                      <span className="dot" />
-                      Running: <strong>{activeShift.CashierID}</strong>
-                    </ShiftRunningBanner>
-                    <Button
-                      style={{
-                        background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                        boxShadow: "0 2px 8px rgba(220, 38, 38, 0.25)",
-                        padding: "7px 14px",
-                        fontSize: "12.5px"
-                      }}
-                      onClick={handleShiftDetailsClick}
-                    >
-                      ⏹ Stop Counter
-                    </Button>
-                  </>
+                  <ShiftRunningBanner style={{ margin: 0, padding: "5px 12px", fontSize: "12px", borderRadius: "9999px" }}>
+                    <span className="dot" />
+                    Running: <strong>{activeShift.CashierID}</strong>
+                  </ShiftRunningBanner>
                 ) : (
-                  <div style={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
-                    <Button
-                      style={{ padding: "7px 16px", fontSize: "13px" }}
-                      onClick={handleShiftDetailsClick}
-                    >
-                      ▶ Start Counter
-                    </Button>
-                  </div>
+                  <StatusChip $active={false} style={{ fontSize: "12px", padding: "5px 12px" }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#94a3b8", display: "inline-block" }} />
+                    Inactive
+                  </StatusChip>
                 )}
               </div>
-            </CounterCard>
-          </TopGrid>
+            </ShiftSummaryLeft>
+
+            <ShiftSummaryRight>
+              <Button
+                style={{
+                  background: "#f0fdfa",
+                  color: "#0f766e",
+                  border: "1px solid #99f6e4",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                  padding: "8px 14px",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+                onClick={handleShiftDetailsClick}
+                title="View shift details in modal"
+              >
+                <Eye size={14} /> Shift Details
+              </Button>
+
+              <Button
+                style={{
+                  background: "#ffffff",
+                  color: "#0f766e",
+                  border: "1px solid #ccfbf1",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                  padding: "8px 14px",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+                onClick={() => navigate("/CashCounterShiftManagement")}
+                title="Manage All Shifts"
+              >
+                🕒 Shift Manager
+              </Button>
+
+              {shiftBelongsHere ? (
+                <Button
+                  style={{
+                    background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                    boxShadow: "0 2px 8px rgba(220, 38, 38, 0.25)",
+                    padding: "8px 16px",
+                    fontSize: "12.5px",
+                    fontWeight: 700
+                  }}
+                  onClick={handleShiftDetailsClick}
+                >
+                  ⏹ Stop Counter
+                </Button>
+              ) : (
+                <Button
+                  style={{ padding: "8px 18px", fontSize: "13px", fontWeight: 700 }}
+                  onClick={handleShiftDetailsClick}
+                >
+                  ▶ Start Counter
+                </Button>
+              )}
+            </ShiftSummaryRight>
+          </ShiftSummaryBar>
         </TopSection>
 
-        <ContentWrapper>
-          <Sidebar>
+        <ModuleWrapper>
+          <ModuleTabBar>
             {sidebarItems.map((item, index) => {
               const iconMap = {
-                "Pending Bills": <CreditCard size={16} />,
-                "IP Advance": <CreditCard size={16} />,
-                "Returns Bills": <RotateCcw size={16} />,
-                "Receipt / Payment": <Search size={16} />,
+                "Pending Bills": <CreditCard size={15} />,
+                "IP Advance": <CreditCard size={15} />,
+                "Returns Bills": <RotateCcw size={15} />,
+                "Receipt / Payment": <Search size={15} />,
               };
               return (
-                <SidebarButton
+                <ModuleTabButton
                   key={index}
-                  active={activeMenuItem === item.label}
+                  $active={activeMenuItem === item.label}
                   onClick={() => handleMenuItemClick(item.label)}
                 >
-                  {iconMap[item.label] || <Search size={16} />}
+                  {iconMap[item.label] || <Search size={15} />}
                   <span>{item.label}</span>
-                </SidebarButton>
+                </ModuleTabButton>
               );
             })}
-          </Sidebar>
+          </ModuleTabBar>
 
           <MainPanel>
             <PanelContent>
@@ -2816,6 +2863,7 @@ export default function CentralCashCounter() {
                               type="number" placeholder="0.00" min="0" step="0.01"
                               value={rpAmount}
                               onChange={(e) => setRpAmount(e.target.value)}
+                              onWheel={(e) => e.target.blur()}
                               style={{ border:"1px solid #cbd5e1", borderRadius:8, padding:"8px 12px", fontSize:13.5, minWidth:130, height:38, background:"#ffffff", outline:"none" }}
                             />
                           </div>
@@ -2918,41 +2966,6 @@ export default function CentralCashCounter() {
                                   >
                                     🗑️
                                   </button>
-                                </div>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 4,
-                                  }}
-                                >
-                                  <label
-                                    style={{
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color: "#374151",
-                                    }}
-                                  >
-                                    Room No
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="Enter room no"
-                                    value={rpDescFields.room_no || ""}
-                                    onChange={(e) =>
-                                      setRpDescFields((p) => ({
-                                        ...p,
-                                        room_no: e.target.value,
-                                      }))
-                                    }
-                                    style={{
-                                      border: "1px solid #d1d5db",
-                                      borderRadius: 4,
-                                      padding: "8px 12px",
-                                      fontSize: 14,
-                                      minWidth: 120,
-                                    }}
-                                  />
                                 </div>
                               </TableCell>
                             </tr>
@@ -3157,6 +3170,16 @@ export default function CentralCashCounter() {
                         <RadioInput
                           type="radio"
                           name="billStatus"
+                          value="unpaid"
+                          checked={selectedType === "unpaid"}
+                          onChange={(e) => handleTypeChange(e.target.value)}
+                        />
+                        Unpaid Bills
+                      </RadioLabel>
+                      <RadioLabel>
+                        <RadioInput
+                          type="radio"
+                          name="billStatus"
                           value="received"
                           checked={selectedType === "received"}
                           onChange={(e) => handleTypeChange(e.target.value)}
@@ -3230,7 +3253,7 @@ export default function CentralCashCounter() {
                     </SearchWrapper>
                   </TableControls>
 
-                  <div style={{ width: "100%", overflowX: "auto" }}>
+                  <div style={{ width: "100%", overflowX: "hidden" }}>
                   <Table>
                     <thead>
                       <tr>
@@ -3280,7 +3303,7 @@ export default function CentralCashCounter() {
                             )}
                           </>
                         )}
-                        {selectedType === "pending" && <TableHeader center>Action</TableHeader>}
+                        {(selectedType === "pending" || selectedType === "unpaid") && <TableHeader center>Action</TableHeader>}
                       </tr>
                     </thead>
                     <tbody>
@@ -3463,7 +3486,7 @@ export default function CentralCashCounter() {
                             )}
 
                             <TableCell center>
-                              {selectedType === "pending" && (
+                              {(selectedType === "pending" || selectedType === "unpaid") && (
                                 <button
                                   title="Collect Payment"
                                   onClick={() => openPaymentModal(bill)}
@@ -3530,7 +3553,7 @@ export default function CentralCashCounter() {
                       ) : (
                         <tr>
                           <TableCell center muted colSpan={colSpan}>
-                            {selectedType === "pending" ? "No pending bills found" : "No received bills found"}
+                            {selectedType === "pending" ? "No pending bills found" : selectedType === "unpaid" ? "No unpaid bills found" : "No received bills found"}
                           </TableCell>
                         </tr>
                       )}
@@ -3552,7 +3575,7 @@ export default function CentralCashCounter() {
               )}
             </PanelContent>
           </MainPanel>
-        </ContentWrapper>
+        </ModuleWrapper>
       </MainContent>
 
       <ShiftDetails
@@ -3579,7 +3602,7 @@ export default function CentralCashCounter() {
       {/* ══════════════ PAYMENT MODAL ══════════════ */}
       {showPaymentModal && (
         <ModalOverlay>
-          <ModalContainer style={{ maxWidth: 560 }}>
+          <ModalContainer style={{ maxWidth: 600 }}>
             <ModalHeader>
               <ModalTitle>
                 {selectedBill?.source === "ReturnBill" ? "💰 Process Refund" : "💳 Collect Payment"}
@@ -3654,17 +3677,17 @@ export default function CentralCashCounter() {
                 <span>₹ {netAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </NetAmountBanner>
 
-              <div style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
                 {["cash", "card", "cheque", "credit"].map((method) => (
                   <label
                     key={method}
                     style={{
                       flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: "8px",
+                      gap: "6px",
                       border: `2px solid ${selectedMethods[method] ? "#0d9488" : "#e5e7eb"}`,
-                      borderRadius: "8px", padding: "10px 12px", cursor: "pointer",
+                      borderRadius: "7px", padding: "7px 10px", cursor: "pointer",
                       background: selectedMethods[method] ? "#f0fdfa" : "#fafafa",
-                      fontWeight: 600, fontSize: "14px",
+                      fontWeight: 600, fontSize: "13px",
                       color: selectedMethods[method] ? "#0d9488" : "#6b7280",
                       transition: "all 0.2s", userSelect: "none",
                     }}
@@ -3727,6 +3750,7 @@ export default function CentralCashCounter() {
                       type="number" placeholder="0.00"
                       value={payments.cash}
                       onChange={(e) => setPayments({ ...payments, cash: e.target.value })}
+                      onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                 </PaymentSection>
@@ -3749,12 +3773,13 @@ export default function CentralCashCounter() {
                           : payments.cash;
                         setPayments({ ...payments, card: e.target.value, cash: newCash });
                       }}
+                      onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                   <FormRow>
-                    <FormLabel>Card / Ref No</FormLabel>
+                    <FormLabel>Card / Ref No (Optional)</FormLabel>
                     <SubInput
-                      type="text" placeholder="Enter card / transaction ref no"
+                      type="text" placeholder="Enter card / transaction ref no (optional)"
                       value={payments.cardNo}
                       onChange={(e) => setPayments({ ...payments, cardNo: e.target.value })}
                     />
@@ -3779,6 +3804,7 @@ export default function CentralCashCounter() {
                           : payments.cash;
                         setPayments({ ...payments, cheque: e.target.value, cash: newCash });
                       }}
+                      onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                   <FormRow>
@@ -3809,6 +3835,7 @@ export default function CentralCashCounter() {
                           : payments.cash;
                         setPayments({ ...payments, credit: e.target.value, cash: newCash });
                       }}
+                      onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                 </PaymentSection>
@@ -3856,21 +3883,23 @@ export default function CentralCashCounter() {
 
               {/* ✅ NEW: Remarks field — only shown for OPPharmacy bills */}
               {selectedBill?.source === "OPPharmacy" && (
-                <PaymentSection style={{ marginTop: "14px" }}>
+                <PaymentSection style={{ marginTop: "8px" }}>
                   <PaymentMethodLabel>📝 Remarks (Optional)</PaymentMethodLabel>
                   <textarea
                     placeholder="Enter remarks if any..."
                     value={remarks}
                     onChange={(e) => setRemarks(e.target.value)}
-                    rows={2}
+                    rows={1}
                     style={{
                       border: "1.5px solid #e5e7eb",
-                      borderRadius: "8px",
-                      padding: "9px 14px",
-                      fontSize: "14px",
+                      borderRadius: "7px",
+                      padding: "6px 12px",
+                      fontSize: "13px",
                       width: "100%",
+                      minHeight: "36px",
+                      height: "36px",
                       boxSizing: "border-box",
-                      resize: "vertical",
+                      resize: "none",
                       fontFamily: "inherit",
                       background: "#fafafa",
                       transition: "border-color 0.2s, box-shadow 0.2s",

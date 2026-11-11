@@ -98,6 +98,7 @@ const StoresIntentManager = () => {
     const [reportViewMode, setReportViewMode] = useState('intents'); // 'intents' or 'returns'
     const [itemsMaster, setItemsMaster] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [nursingStations, setNursingStations] = useState([]);
     const [loading, setLoading] = useState(false);
     const formDepartmentSelectRef = useRef(null);
     const reportDepartmentSelectRef = useRef(null);
@@ -124,8 +125,58 @@ const StoresIntentManager = () => {
         intent_id: `SINT${dayjs().format('YYMM')}${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
         date: dayjs().format('YYYY-MM-DD'),
         department: '',
+        nursing_station: '',
+        nursing_station_id: '',
         items: []
     });
+
+    const extractArray = (res) => {
+        if (!res) return [];
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res?.data)) return res.data;
+        if (Array.isArray(res?.data?.data)) return res.data.data;
+        if (Array.isArray(res?.data?.wards)) return res.data.wards;
+        return [];
+    };
+
+    const fetchNursingStations = async () => {
+        try {
+            const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/hospital_nursingstation/`).catch(() =>
+                apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/get_wards_list/`)
+            );
+            const stations = extractArray(res);
+            if (stations.length > 0) {
+                setNursingStations(stations);
+            }
+        } catch (e) {
+            console.error("Error fetching nursing stations:", e);
+        }
+    };
+
+    const isNursingDepartment = (deptValue) => {
+        if (!deptValue) return false;
+        const raw = String(deptValue).trim().toLowerCase();
+        if (raw === 'dept003') return true;
+        const matched = departments.find(d => 
+            String(d.department_code || d.department_id || '').toLowerCase() === raw ||
+            String(d.department_name || '').toLowerCase() === raw
+        );
+        if (matched) {
+            const code = String(matched.department_code || matched.department_id || '').toLowerCase();
+            const name = String(matched.department_name || '').toLowerCase();
+            return code === 'dept003' || name.includes('nursing');
+        }
+        return raw.includes('nursing');
+    };
+
+    const handleDepartmentChange = (val) => {
+        const isNursing = isNursingDepartment(val);
+        setIntentForm(prev => ({
+            ...prev,
+            department: val,
+            ...(!isNursing ? { nursing_station: '', nursing_station_id: '' } : {})
+        }));
+    };
 
     // Indent Return State
     const [returnIntentList, setReturnIntentList] = useState([]);
@@ -176,6 +227,12 @@ const StoresIntentManager = () => {
     };
 
     useEffect(() => {
+        if (isNursingDepartment(intentForm.department) && nursingStations.length === 0) {
+            fetchNursingStations();
+        }
+    }, [intentForm.department]);
+
+    useEffect(() => {
         fetchMasters();
         if (activeTab === 'report') {
             if (reportViewMode === 'intents') loadIntents();
@@ -188,13 +245,18 @@ const StoresIntentManager = () => {
 
     const fetchMasters = async () => {
         try {
-            const [itms, depts] = await Promise.all([
+            const [itms, depts, wardsRes] = await Promise.all([
                 apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/item-master/`),
-                apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/department-master/`)
+                apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/department-master/`),
+                apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/hospital_nursingstation/`).catch(() =>
+                    apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/get_wards_list/`)
+                )
             ]);
             const nonVmItems = (itms.data || []).filter(i => !i.is_VM);
             setItemsMaster(nonVmItems);
             setDepartments(depts.data || []);
+            const wardsData = extractArray(wardsRes);
+            setNursingStations(wardsData);
         } catch (err) {
             toast.error("Failed to load master data");
         }
@@ -333,6 +395,9 @@ const StoresIntentManager = () => {
 
     const submitIntent = async () => {
         if (!intentForm.department || intentForm.items.length === 0) return toast.warning("Provide department and at least one item");
+        if (isNursingDepartment(intentForm.department) && !intentForm.nursing_station) {
+            return toast.warning("Please select a Nursing Station");
+        }
         
         setLoading(true);
         const url = isEditMode 
@@ -345,6 +410,8 @@ const StoresIntentManager = () => {
             intent_id: intentForm.intent_id,
             date: dayjs(intentForm.date).format('YYYY-MM-DD'),
             department: intentForm.department,
+            nursing_station: intentForm.nursing_station || undefined,
+            nursing_station_id: intentForm.nursing_station_id || undefined,
             items: intentForm.items.map(it => ({
                 item_id: it.item_id,
                 name: it.name,
@@ -365,6 +432,8 @@ const StoresIntentManager = () => {
                 intent_id: `SINT${dayjs().format('YYMM')}${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
                 date: dayjs().format('YYYY-MM-DD'), 
                 department: '', 
+                nursing_station: '',
+                nursing_station_id: '',
                 items: [] 
             });
             setIsEditMode(false);
@@ -456,7 +525,9 @@ const StoresIntentManager = () => {
     const handleEditIntent = (intent) => {
         setIntentForm({ 
             ...intent,
-            date: dayjs(intent.date).format('YYYY-MM-DD')
+            date: dayjs(intent.date).format('YYYY-MM-DD'),
+            nursing_station: intent.nursing_station || intent.nursing_station_name || '',
+            nursing_station_id: intent.nursing_station_id || ''
         });
         setIsEditMode(true);
         setActiveTab('create');
@@ -472,6 +543,7 @@ const StoresIntentManager = () => {
                         'Date': dayjs(intent.date).format('DD/MM/YYYY'),
                         'Intent ID': intent.intent_id,
                         'Department': intent.department_name,
+                        'Nursing Station': intent.nursing_station_name || intent.nursing_station || '-',
                         'Item Name': item.name,
                         'HSN': item.hsn || '-',
                         'Requested Qty': item.quantity,
@@ -580,7 +652,7 @@ const StoresIntentManager = () => {
                                         showSearch
                                         placeholder="Select Department (F10)"
                                         value={intentForm.department || undefined}
-                                        onChange={v => setIntentForm({...intentForm, department: v})}
+                                        onChange={handleDepartmentChange}
                                         style={{ height: '42px' }}
                                         optionFilterProp="children"
                                     >
@@ -591,6 +663,45 @@ const StoresIntentManager = () => {
                                         ))}
                                     </Select>
                                 </div>
+                                {isNursingDepartment(intentForm.department) && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <S.Label required style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span>Nursing Station</span>
+                                            <span style={{ fontSize: '0.7rem', background: '#ecfdf5', color: '#059669', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>hospital_nursingstation</span>
+                                        </S.Label>
+                                        <Select
+                                            showSearch
+                                            placeholder="Select Nursing Station"
+                                            value={intentForm.nursing_station || undefined}
+                                            onChange={(val, opt) => {
+                                                setIntentForm(prev => ({
+                                                    ...prev,
+                                                    nursing_station: val,
+                                                    nursing_station_id: opt?.['data-id'] || ''
+                                                }));
+                                            }}
+                                            style={{ height: '42px', width: '100%' }}
+                                            optionFilterProp="children"
+                                            filterOption={(input, option) =>
+                                                String(option?.children || option?.value || '').toLowerCase().includes(input.toLowerCase())
+                                            }
+                                        >
+                                            {nursingStations.map(ns => {
+                                                const idVal = String(ns.ward_id ?? ns.id ?? ns.nursing_station_id);
+                                                const nameVal = ns.ward_name || ns.nursing_station_name || idVal;
+                                                return (
+                                                    <Option 
+                                                        key={idVal} 
+                                                        value={nameVal}
+                                                        data-id={idVal}
+                                                    >
+                                                        {nameVal}
+                                                    </Option>
+                                                );
+                                            })}
+                                        </Select>
+                                    </div>
+                                )}
                             </FormGrid>
                         </SectionFrame>
 
@@ -962,7 +1073,25 @@ const StoresIntentManager = () => {
                                                     <tr key={intent.intent_id}>
                                                         <td>{dayjs(intent.date).format('DD/MM/YYYY')}</td>
                                                         <td style={{ fontWeight: 700, color: '#0d9488' }}>{intent.intent_id}</td>
-                                                        <td>{intent.department_name || intent.department}</td>
+                                                        <td>
+                                                            <div style={{ fontWeight: 600 }}>{intent.department_name || intent.department}</div>
+                                                            {(intent.nursing_station_name || intent.nursing_station) && (
+                                                                <div style={{ marginTop: '3px' }}>
+                                                                    <span style={{ 
+                                                                        display: 'inline-block',
+                                                                        fontSize: '0.74rem', 
+                                                                        color: '#0d9488', 
+                                                                        fontWeight: 700, 
+                                                                        background: '#ccfbf1', 
+                                                                        padding: '2px 8px', 
+                                                                        borderRadius: '4px',
+                                                                        border: '1px solid #99f6e4'
+                                                                    }}>
+                                                                        🏥 {intent.nursing_station_name || intent.nursing_station}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </td>
                                                         <td>
                                                             <div style={{ fontSize: '0.8rem' }}>
                                                                 {intent.items.map((it, idx) => (

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes, createGlobalStyle } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { FaPrint, FaSearch, FaTimes } from "react-icons/fa";
+import { Maximize2, Minimize2, RotateCw, Download, Printer, X } from "lucide-react";
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -761,6 +763,327 @@ const cleanPatientName = (name) => {
   return cleanWords.join(" ");
 };
 
+// ─── Sales Return Slip HTML Builder (Thermal Monospace Layout) ────────────────
+const buildPrintSlipHtml = (data) => {
+  const {
+    hospital_name = "SHANMUGA HOSPITAL LIMITED",
+    hospital_address = "51/24.Saradha College Road, Salem - 636007,,",
+    hospital_phone = "04272706666",
+    return_bill_no = "—",
+    patient_name = "—",
+    op_number = "—",
+    uhid = "—",
+    bill_no = "—",
+    formatted_datetime = "—",
+    total_amount = 0,
+    pharmacist_name = "Pharmacist",
+    items = [],
+  } = (data || {});
+
+  const totalNum = parseFloat(total_amount || 0).toFixed(2);
+  const patientUhid = op_number || uhid || "—";
+
+  const rowsHtml = (items || []).map((it) => {
+    const qty = it.billed_qty ?? it.qty ?? 1;
+    const name = (it.item_name || it.name || "ITEM").toUpperCase();
+    const cost = parseFloat(it.re_cost ?? it.return_cost ?? it.price ?? 0).toFixed(2);
+    const reQty = it.re_qty ?? it.return_qty ?? 1;
+    const gst = it.gst ? (String(it.gst).includes("%") ? it.gst : `${it.gst}%`) : "5%";
+    const batch = it.batch_number || it.batch || "—";
+    const expiry = it.expiry_date || it.expiry || "—";
+    const amt = parseFloat(it.amount ?? it.return_amount ?? 0).toFixed(2);
+
+    return `
+      <tr>
+        <td style="text-align: left; padding: 2.5px 4px; vertical-align: top; width: 35px;">${qty}</td>
+        <td style="text-align: left; padding: 2.5px 4px; vertical-align: top; max-width: 220px; word-break: break-word;">${name}</td>
+        <td style="text-align: right; padding: 2.5px 4px; vertical-align: top; width: 65px;">${cost}</td>
+        <td style="text-align: right; padding: 2.5px 4px; vertical-align: top; width: 55px;">${reQty}</td>
+        <td style="text-align: center; padding: 2.5px 4px; vertical-align: top; width: 45px;">${gst}</td>
+        <td style="text-align: left; padding: 2.5px 4px; vertical-align: top; width: 95px;">${batch}</td>
+        <td style="text-align: center; padding: 2.5px 4px; vertical-align: top; width: 75px;">${expiry}</td>
+        <td style="text-align: right; padding: 2.5px 4px; vertical-align: top; width: 75px;">${amt}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sales Return Slip - ${return_bill_no}</title>
+  <style>
+    @page {
+      size: auto;
+      margin: 4mm 6mm;
+    }
+    body {
+      margin: 0;
+      padding: 10px;
+      font-family: 'Courier New', Courier, Consolas, monospace;
+      font-size: 12px;
+      color: #000;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .slip-container {
+      width: 100%;
+      max-width: 660px;
+      margin: 0 auto;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .bold { font-weight: bold; }
+    .divider-dash {
+      border-top: 1px dashed #000;
+      margin: 6px 0;
+    }
+    .divider-double {
+      border-top: 2px double #000;
+      margin: 6px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: inherit;
+      font-size: inherit;
+    }
+    th {
+      font-weight: bold;
+      padding: 3px 4px;
+      border-top: 1px dashed #000;
+      border-bottom: 1px dashed #000;
+    }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .no-print { display: none !important; }
+      .slip-container { width: 100%; max-width: 100%; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="slip-container">
+    <div class="text-center bold" style="font-size: 14px; letter-spacing: 0.5px;">${hospital_name}</div>
+    <div class="text-center" style="font-size: 11px; margin-top: 2px;">${hospital_address}</div>
+    <div class="text-center" style="font-size: 11px;">${hospital_phone}</div>
+    <div class="text-center bold" style="margin-top: 6px; font-size: 13px;">SALES RETURN SLIP</div>
+    <br/>
+    <div style="line-height: 1.5; font-size: 12px;">
+      <div><span class="bold">SALES Refund Order No. :</span> ${return_bill_no}</div>
+      <div><span class="bold">Patient   :</span> ${patient_name || "—"}</div>
+      <div><span class="bold">OP Number :</span> ${patientUhid}</div>
+      <div style="display: flex; justify-content: space-between;">
+        <div><span class="bold">Date&amp;Time :</span> ${formatted_datetime}</div>
+        <div><span class="bold">Bill Number:</span> ${bill_no}</div>
+      </div>
+    </div>
+
+    <table style="margin-top: 8px;">
+      <thead>
+        <tr>
+          <th style="text-align: left; width: 35px;">Qty</th>
+          <th style="text-align: left;">Particulars</th>
+          <th style="text-align: right; width: 65px;">Re.cost</th>
+          <th style="text-align: right; width: 55px;">Re.Qty</th>
+          <th style="text-align: center; width: 45px;">Gst</th>
+          <th style="text-align: left; width: 95px;">Batch</th>
+          <th style="text-align: center; width: 75px;">Expiry</th>
+          <th style="text-align: right; width: 75px;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+
+    <div class="divider-dash"></div>
+    <div style="display: flex; justify-content: flex-end; padding: 2px 4px; font-size: 12px;">
+      <span class="bold" style="margin-right: 40px;">Total :</span>
+      <span class="bold" style="width: 75px; text-align: right;">${totalNum}</span>
+    </div>
+
+    <div class="divider-double"></div>
+    <div style="padding: 2px 0; font-size: 12px;">
+      <div><span class="bold">Refund   :</span> ${totalNum}</div>
+      <div>Rupee(s) Only</div>
+    </div>
+
+    <div class="divider-double"></div>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 12px; font-size: 12px;">
+      <div><span class="bold">Prepared By :</span> ${pharmacist_name || "Pharmacist"}</div>
+      <div class="bold">Pharmacist</div>
+    </div>
+    <div style="margin-top: 4px; font-size: 11px; font-weight: bold;">E &amp; OE</div>
+  </div>
+</body>
+</html>`;
+};
+
+// ─── Print Slip Modal Styled Components ──────────────────────────────────────
+const PrintActionBtn = styled.button`
+  background: #00796b;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: #004d40;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 105, 92, 0.3);
+  }
+`;
+
+const PrintModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: ${slideDown} 0.2s ease;
+`;
+
+const PrintModalBox = styled.div`
+  background: #202224;
+  border-radius: 8px;
+  width: ${p => p.$isMaximized ? "98vw" : "880px"};
+  max-width: 98vw;
+  height: ${p => p.$isMaximized ? "96vh" : "88vh"};
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+`;
+
+const PrintModalTopHeader = styled.div`
+  background: #00767a;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  height: 44px;
+  user-select: none;
+  flex-shrink: 0;
+`;
+
+const HeaderIconBtn = styled.button`
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  border-radius: 4px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.28);
+  }
+`;
+
+const PrintViewerToolbar = styled.div`
+  background: #2d3033;
+  color: #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  height: 42px;
+  border-bottom: 1px solid #3c3f42;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 10px;
+`;
+
+const ZoomBtn = styled.button`
+  background: #3c3f42;
+  border: 1px solid #505559;
+  color: #e2e8f0;
+  border-radius: 4px;
+  height: 26px;
+  min-width: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.15s;
+
+  &:hover {
+    background: #505559;
+    color: #fff;
+  }
+`;
+
+const ToolbarActionBtn = styled.button`
+  background: ${p => p.$primary ? "#00796b" : "rgba(255, 255, 255, 0.08)"};
+  border: 1px solid ${p => p.$primary ? "#00897b" : "rgba(255, 255, 255, 0.18)"};
+  color: #ffffff;
+  border-radius: 4px;
+  height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: ${p => p.$primary ? "#00695c" : "rgba(255, 255, 255, 0.18)"};
+  }
+`;
+
+const PrintViewerCanvas = styled.div`
+  flex: 1;
+  background: #333639;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+`;
+
+const SlipSheetContainer = styled.div`
+  background: #ffffff;
+  color: #000000;
+  width: 100%;
+  max-width: 660px;
+  padding: 28px 34px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  font-family: 'Courier New', Courier, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.42;
+  box-sizing: border-box;
+  transition: transform 0.15s ease;
+`;
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const SalesReturn = () => {
   const today        = new Date().toISOString().split("T")[0];
@@ -788,6 +1111,12 @@ const SalesReturn = () => {
   // ── Patient Selection Modal State (Multiple Matches) ────────────────────────
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [matchingPatients, setMatchingPatients] = useState([]);
+
+  // ── Print Modal State (Thermal Receipt Preview) ─────────────────────────────
+  const [showPrintModal, setShowPrintModal]       = useState(false);
+  const [printSlipData, setPrintSlipData]         = useState(null);
+  const [isPrintMaximized, setIsPrintMaximized]   = useState(false);
+  const [printZoom, setPrintZoom]                 = useState(100);
 
   const { showToast, ToastPortal } = useToast();
 
@@ -1121,6 +1450,166 @@ const SalesReturn = () => {
     }
   };
 
+  const handlePrintReturnBill = async (row) => {
+    try {
+      // Immediate view if row already has items
+      if (Array.isArray(row.items) && row.items.length > 0) {
+        setPrintSlipData({
+          hospital_name: "SHANMUGA HOSPITAL LIMITED",
+          hospital_address: "51/24.Saradha College Road, Salem - 636007,,",
+          hospital_phone: "04272706666",
+          return_bill_no: row.return_bill_no,
+          bill_no: row.bill_no,
+          uhid: row.uhid,
+          op_number: row.uhid,
+          patient_name: cleanPatientName(row.patient_name),
+          formatted_datetime: formatDate(row.return_bill_date),
+          pharmacist_name: row.pharmacist_name || row.created_by || row.user || "Pharmacist",
+          total_amount: parseFloat(row.return_amount || 0),
+          refund_amount: parseFloat(row.return_amount || 0).toFixed(2),
+          items: row.items,
+        });
+        setShowPrintModal(true);
+      }
+
+      // Fetch complete print details from backend endpoint
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_salesreturn_print_details/?return_bill_no=${encodeURIComponent(row.return_bill_no)}`,
+        "GET"
+      );
+      if (res?.data?.status === "success" && res.data.data) {
+        setPrintSlipData(res.data.data);
+        setShowPrintModal(true);
+      } else if (!Array.isArray(row.items) || row.items.length === 0) {
+        setPrintSlipData({
+          hospital_name: "SHANMUGA HOSPITAL LIMITED",
+          hospital_address: "51/24.Saradha College Road, Salem - 636007,,",
+          hospital_phone: "04272706666",
+          return_bill_no: row.return_bill_no,
+          bill_no: row.bill_no,
+          uhid: row.uhid,
+          op_number: row.uhid,
+          patient_name: cleanPatientName(row.patient_name),
+          formatted_datetime: formatDate(row.return_bill_date),
+          pharmacist_name: row.pharmacist_name || row.created_by || row.user || "Pharmacist",
+          total_amount: parseFloat(row.return_amount || 0),
+          refund_amount: parseFloat(row.return_amount || 0).toFixed(2),
+          items: row.items || [],
+        });
+        setShowPrintModal(true);
+      }
+    } catch (err) {
+      console.error("Print slip fetch error:", err);
+      if (row.return_bill_no) {
+        setPrintSlipData({
+          hospital_name: "SHANMUGA HOSPITAL LIMITED",
+          hospital_address: "51/24.Saradha College Road, Salem - 636007,,",
+          hospital_phone: "04272706666",
+          return_bill_no: row.return_bill_no,
+          bill_no: row.bill_no,
+          uhid: row.uhid,
+          op_number: row.uhid,
+          patient_name: cleanPatientName(row.patient_name),
+          formatted_datetime: formatDate(row.return_bill_date),
+          pharmacist_name: row.pharmacist_name || row.created_by || row.user || "Pharmacist",
+          total_amount: parseFloat(row.return_amount || 0),
+          refund_amount: parseFloat(row.return_amount || 0).toFixed(2),
+          items: row.items || [],
+        });
+        setShowPrintModal(true);
+      }
+    }
+  };
+
+  const handleTriggerPrint = () => {
+    if (!printSlipData) return;
+    const html = buildPrintSlipHtml(printSlipData);
+    const pw = window.open("", "_blank", "width=850,height=750");
+    if (pw) {
+      pw.document.write(html);
+      pw.document.close();
+      pw.focus();
+      setTimeout(() => {
+        pw.print();
+        pw.close();
+      }, 350);
+    }
+  };
+
+  const handleExportWord = () => {
+    if (!printSlipData) return;
+    const html = buildPrintSlipHtml(printSlipData);
+    const content = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>Sales Return Slip - ${printSlipData.return_bill_no}</title>
+      </head>
+      <body>
+        ${html}
+      </body>
+      </html>
+    `;
+    const blob = new Blob(["\ufeff", content], { type: "application/msword;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const cleanBillNo = (printSlipData.return_bill_no || "Slip").replace(/[^a-zA-Z0-9]/g, "_");
+    a.download = `SalesReturn_${cleanBillNo}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = async () => {
+    if (!printSlipData) return;
+    try {
+      const XLSX = await import("xlsx");
+      const metaRows = [
+        ["SHANMUGA HOSPITAL LIMITED"],
+        ["51/24.Saradha College Road, Salem - 636007,,"],
+        ["04272706666"],
+        ["SALES RETURN SLIP"],
+        [],
+        ["SALES Refund Order No.:", printSlipData.return_bill_no || "—"],
+        ["Patient Name:", printSlipData.patient_name || "—"],
+        ["OP Number / UHID:", printSlipData.op_number || printSlipData.uhid || "—"],
+        ["Date & Time:", printSlipData.formatted_datetime || "—", "Bill Number:", printSlipData.bill_no || "—"],
+        [],
+        ["Qty", "Particulars", "Re.cost", "Re.Qty", "Gst", "Batch", "Expiry", "Amount"]
+      ];
+
+      const itemRows = (printSlipData.items || []).map(it => [
+        it.billed_qty ?? it.qty ?? 1,
+        it.item_name || "—",
+        parseFloat(it.re_cost ?? it.return_cost ?? 0).toFixed(2),
+        it.re_qty ?? it.return_qty ?? 1,
+        it.gst || "5%",
+        it.batch_number || "—",
+        it.expiry_date || "—",
+        parseFloat(it.amount ?? it.return_amount ?? 0).toFixed(2)
+      ]);
+
+      const footerRows = [
+        [],
+        ["", "", "", "", "", "", "Total:", parseFloat(printSlipData.total_amount || 0).toFixed(2)],
+        ["Refund:", parseFloat(printSlipData.total_amount || 0).toFixed(2), "Rupee(s) Only"],
+        [],
+        ["Prepared By:", printSlipData.pharmacist_name || "Pharmacist", "", "", "", "", "Pharmacist:"]
+      ];
+
+      const allRows = [...metaRows, ...itemRows, ...footerRows];
+      const ws = XLSX.utils.aoa_to_sheet(allRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "SalesReturnSlip");
+      const cleanBillNo = (printSlipData.return_bill_no || "Slip").replace(/[^a-zA-Z0-9]/g, "_");
+      XLSX.writeFile(wb, `SalesReturn_${cleanBillNo}.xlsx`);
+    } catch (err) {
+      console.error("Excel export error:", err);
+    }
+  };
+
   const handleSave = async () => {
     if (!form.billNumber?.trim()) {
       showToast("Please enter a Bill Number before saving.", "warning");
@@ -1143,17 +1632,37 @@ const SalesReturn = () => {
     const medicine_particulars = billItems
       .filter(item => Number(item.returnQty) > 0)
       .map(item => {
-        const returnableQty   = parseFloat(item.qty ?? item.quantity ?? 0);               // remaining qty (for price calc)
-        const originalBilledQty = parseFloat(item.billed_qty ?? item.qty ?? item.quantity ?? 1); // ✅ original bill qty
-        const calculatedPrice = parseFloat(item.calculated_price ?? 0);  // pro-rated to remaining qty
-        const perUnitPrice    = returnableQty > 0 ? calculatedPrice / returnableQty : 0;
-        const returnQty       = Number(item.returnQty);
-        const returnAmount    = parseFloat((returnQty * perUnitPrice).toFixed(2));
+        const returnableQty     = parseFloat(item.qty ?? item.quantity ?? 0);               // remaining qty (for price calc)
+        const originalBilledQty = parseFloat(item.billed_qty ?? item.qty ?? item.quantity ?? 1); // original bill qty
+        const calculatedPrice   = parseFloat(item.calculated_price ?? 0);  // pro-rated to remaining qty
+        const perUnitPrice      = returnableQty > 0 ? calculatedPrice / returnableQty : 0;
+        const returnQty         = Number(item.returnQty);
+        const returnAmount      = parseFloat((returnQty * perUnitPrice).toFixed(2));
+        const cgstPct           = parseFloat(item.cgst ?? 2.5);
+        const sgstPct           = parseFloat(item.sgst ?? 2.5);
+        const totGst            = (cgstPct + sgstPct) || 5;
+
+        // Clean expiry date to YYYY/MM
+        let expClean = "—";
+        if (item.expiry_date) {
+          const s = String(item.expiry_date).split("T")[0];
+          if (s.includes("-")) {
+            const p = s.split("-");
+            if (p.length >= 2) expClean = `${p[0]}/${p[1]}`;
+          } else {
+            expClean = s;
+          }
+        }
+
         return {
           item_id:        item.item_id      ?? item.id ?? "",
+          item_name:      item.item_name    ?? "",
           batch_number:   item.batch_number ?? "",
-          billed_qty:     originalBilledQty, // ✅ always the original billed qty (5, 7 etc.)
-          return_qty:     returnQty,         // ✅ what the user is returning now
+          billed_qty:     originalBilledQty,
+          return_qty:     returnQty,
+          return_cost:    perUnitPrice.toFixed(2),
+          gst:            `${totGst}%`,
+          expiry_date:    expClean,
           return_amount:  returnAmount,
         };
       });
@@ -1180,9 +1689,35 @@ const SalesReturn = () => {
       const data = res.data;
       if (data?.status === "success" || res.status === 200 || res.status === 201) {
         showToast(data?.message || "Sales return saved successfully.", "success");
+
+        const savedSlipData = data?.print_data || {
+          hospital_name: "SHANMUGA HOSPITAL LIMITED",
+          hospital_address: "51/24.Saradha College Road, Salem - 636007,,",
+          hospital_phone: "04272706666",
+          return_bill_no: data?.data?.return_bill_no || "—",
+          bill_no: form.billNumber,
+          uhid: form.uhidNo,
+          op_number: form.uhidNo,
+          patient_name: form.name,
+          formatted_datetime: new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata" }).replace(",", " &"),
+          pharmacist_name: localStorage.getItem("username") || "Pharmacist",
+          total_amount: totalReturnAmount,
+          refund_amount: totalReturnAmount.toFixed(2),
+          items: medicine_particulars.map(it => ({
+            ...it,
+            re_cost: it.return_cost,
+            re_qty: it.return_qty,
+            amount: it.return_amount,
+          })),
+        };
+
         handleFormReset();
         setShowForm(false);
         handleSearch();
+
+        // Automatically open the print modal for the newly processed return!
+        setPrintSlipData(savedSlipData);
+        setShowPrintModal(true);
       } else {
         showToast(data?.message || "Failed to save sales return.", "error");
       }
@@ -1705,16 +2240,17 @@ const SalesReturn = () => {
                   <Th>IP No/SL No</Th>
                   <Th>Return Amount</Th>
                   <Th>User</Th>
+                  <Th style={{ textAlign: "center", width: 90 }}>Action</Th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <Td colSpan={8}><NoRecords>Loading…</NoRecords></Td>
+                    <Td colSpan={9}><NoRecords>Loading…</NoRecords></Td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <Td colSpan={8}><NoRecords>No records found</NoRecords></Td>
+                    <Td colSpan={9}><NoRecords>No records found</NoRecords></Td>
                   </tr>
                 ) : (
                   filtered.map((row, i) => (
@@ -1727,6 +2263,15 @@ const SalesReturn = () => {
                       <Td>{row.bill_no || "—"}</Td>
                       <Td>₹ {parseFloat(row.return_amount || 0).toFixed(2)}</Td>
                       <Td>{row.pharmacist_name || row.created_by || "—"}</Td>
+                      <Td style={{ textAlign: "center" }}>
+                        <PrintActionBtn
+                          type="button"
+                          onClick={() => handlePrintReturnBill(row)}
+                          title="Print Sales Return Slip"
+                        >
+                          <FaPrint size={11} /> Print
+                        </PrintActionBtn>
+                      </Td>
                     </tr>
                   ))
                 )}
@@ -1745,6 +2290,174 @@ const SalesReturn = () => {
 
         </ContentArea>
       </PageWrapper>
+
+      {/* ── Print Preview Modal (Matches Hospital SALES RETURN SLIP Format) ── */}
+      {showPrintModal && printSlipData && (
+        <PrintModalOverlay onClick={() => setShowPrintModal(false)}>
+          <PrintModalBox $isMaximized={isPrintMaximized} onClick={e => e.stopPropagation()}>
+            {/* Top Bar Header */}
+            <PrintModalTopHeader>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "1.05rem", fontWeight: 700, letterSpacing: "0.02em" }}>Print</span>
+                <span style={{ fontSize: "0.85rem", opacity: 0.85, borderLeft: "1px solid rgba(255,255,255,0.3)", paddingLeft: 8 }}>
+                  SALES RETURN SLIP — {printSlipData.return_bill_no || "Preview"}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <HeaderIconBtn title="Export to Word (.doc)" onClick={handleExportWord}>
+                  W
+                </HeaderIconBtn>
+                <HeaderIconBtn title="Export to Excel (.xlsx)" onClick={handleExportExcel}>
+                  X
+                </HeaderIconBtn>
+                <HeaderIconBtn
+                  title={isPrintMaximized ? "Restore Size" : "Maximize"}
+                  onClick={() => setIsPrintMaximized(prev => !prev)}
+                >
+                  {isPrintMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                </HeaderIconBtn>
+                <HeaderIconBtn
+                  title="Close"
+                  onClick={() => setShowPrintModal(false)}
+                  style={{ background: "rgba(220, 38, 38, 0.4)", borderColor: "rgba(239, 68, 68, 0.6)" }}
+                >
+                  <X size={14} />
+                </HeaderIconBtn>
+              </div>
+            </PrintModalTopHeader>
+
+            {/* Viewer Toolbar */}
+            <PrintViewerToolbar>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: "0.82rem", color: "#94a3b8", fontWeight: 600 }}>
+                  Order: {printSlipData.return_bill_no || "—"}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <ZoomBtn onClick={() => setPrintZoom(z => Math.max(z - 10, 50))} title="Zoom Out">-</ZoomBtn>
+                <span style={{ fontSize: "0.8rem", color: "#e2e8f0", minWidth: 42, textAlign: "center" }}>{printZoom}%</span>
+                <ZoomBtn onClick={() => setPrintZoom(z => Math.min(z + 10, 160))} title="Zoom In">+</ZoomBtn>
+                <ZoomBtn onClick={() => setPrintZoom(100)} title="Reset Zoom">
+                  <RotateCw size={12} />
+                </ZoomBtn>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <ToolbarActionBtn onClick={handleExportExcel} title="Download Excel Sheet">
+                  <Download size={13} /> Excel
+                </ToolbarActionBtn>
+                <ToolbarActionBtn onClick={handleExportWord} title="Download Word Document">
+                  <Download size={13} /> Word
+                </ToolbarActionBtn>
+                <ToolbarActionBtn
+                  $primary
+                  onClick={handleTriggerPrint}
+                  title="Print Sales Return Slip"
+                >
+                  <Printer size={13} /> Print Slip
+                </ToolbarActionBtn>
+              </div>
+            </PrintViewerToolbar>
+
+            {/* Viewer Canvas */}
+            <PrintViewerCanvas>
+              <SlipSheetContainer style={{ transform: `scale(${printZoom / 100})`, transformOrigin: "top center" }}>
+                {/* Header */}
+                <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "14px", letterSpacing: "0.5px" }}>
+                  {printSlipData.hospital_name || "SHANMUGA HOSPITAL LIMITED"}
+                </div>
+                <div style={{ textAlign: "center", fontSize: "11px", marginTop: "2px" }}>
+                  {printSlipData.hospital_address || "51/24.Saradha College Road, Salem - 636007,,"}
+                </div>
+                <div style={{ textAlign: "center", fontSize: "11px" }}>
+                  {printSlipData.hospital_phone || "04272706666"}
+                </div>
+                <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "13px", marginTop: "6px" }}>
+                  SALES RETURN SLIP
+                </div>
+
+                {/* Metadata */}
+                <div style={{ marginTop: "16px", lineHeight: 1.5, fontSize: "12px" }}>
+                  <div><span style={{ fontWeight: "bold" }}>SALES Refund Order No. :</span>{printSlipData.return_bill_no}</div>
+                  <div><span style={{ fontWeight: "bold" }}>Patient   :</span> {cleanPatientName(printSlipData.patient_name) || "—"}</div>
+                  <div><span style={{ fontWeight: "bold" }}>OP Number :</span> {printSlipData.op_number || printSlipData.uhid || "—"}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <div><span style={{ fontWeight: "bold" }}>Date&amp;Time :</span> {printSlipData.formatted_datetime || formatDate(printSlipData.return_bill_date)}</div>
+                    <div><span style={{ fontWeight: "bold" }}>Bill Number:</span> {printSlipData.bill_no}</div>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: "1px dashed #000", margin: "8px 0 6px 0" }} />
+
+                {/* Table */}
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", fontFamily: "inherit" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px dashed #000" }}>
+                      <th style={{ textAlign: "left", padding: "3px 4px", width: "35px", fontWeight: "bold" }}>Qty</th>
+                      <th style={{ textAlign: "left", padding: "3px 4px", fontWeight: "bold" }}>Particulars</th>
+                      <th style={{ textAlign: "right", padding: "3px 4px", width: "65px", fontWeight: "bold" }}>Re.cost</th>
+                      <th style={{ textAlign: "right", padding: "3px 4px", width: "55px", fontWeight: "bold" }}>Re.Qty</th>
+                      <th style={{ textAlign: "center", padding: "3px 4px", width: "45px", fontWeight: "bold" }}>Gst</th>
+                      <th style={{ textAlign: "left", padding: "3px 4px", width: "95px", fontWeight: "bold" }}>Batch</th>
+                      <th style={{ textAlign: "center", padding: "3px 4px", width: "75px", fontWeight: "bold" }}>Expiry</th>
+                      <th style={{ textAlign: "right", padding: "3px 4px", width: "75px", fontWeight: "bold" }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(printSlipData.items || []).map((it, idx) => {
+                      const qty = it.billed_qty ?? it.qty ?? 1;
+                      const name = (it.item_name || it.name || "Item").toUpperCase();
+                      const cost = parseFloat(it.re_cost ?? it.return_cost ?? 0).toFixed(2);
+                      const reQty = it.re_qty ?? it.return_qty ?? 1;
+                      const gst = it.gst ? (String(it.gst).includes("%") ? it.gst : `${it.gst}%`) : "5%";
+                      const batch = it.batch_number || it.batch || "—";
+                      const expiry = it.expiry_date || it.expiry || "—";
+                      const amt = parseFloat(it.amount ?? it.return_amount ?? 0).toFixed(2);
+
+                      return (
+                        <tr key={idx}>
+                          <td style={{ textAlign: "left", padding: "3px 4px", verticalAlign: "top" }}>{qty}</td>
+                          <td style={{ textAlign: "left", padding: "3px 4px", verticalAlign: "top", wordBreak: "break-word" }}>{name}</td>
+                          <td style={{ textAlign: "right", padding: "3px 4px", verticalAlign: "top" }}>{cost}</td>
+                          <td style={{ textAlign: "right", padding: "3px 4px", verticalAlign: "top" }}>{reQty}</td>
+                          <td style={{ textAlign: "center", padding: "3px 4px", verticalAlign: "top" }}>{gst}</td>
+                          <td style={{ textAlign: "left", padding: "3px 4px", verticalAlign: "top" }}>{batch}</td>
+                          <td style={{ textAlign: "center", padding: "3px 4px", verticalAlign: "top" }}>{expiry}</td>
+                          <td style={{ textAlign: "right", padding: "3px 4px", verticalAlign: "top" }}>{amt}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                <div style={{ borderTop: "1px dashed #000", margin: "6px 0" }} />
+
+                {/* Total */}
+                <div style={{ display: "flex", justifyContent: "flex-end", padding: "2px 4px", fontSize: "12px", fontWeight: "bold" }}>
+                  <span style={{ marginRight: 40 }}>Total :</span>
+                  <span style={{ width: 75, textAlign: "right" }}>{parseFloat(printSlipData.total_amount || 0).toFixed(2)}</span>
+                </div>
+
+                <div style={{ borderTop: "2px double #000", margin: "6px 0" }} />
+
+                {/* Refund */}
+                <div style={{ padding: "2px 0", fontSize: "12px" }}>
+                  <div><span style={{ fontWeight: "bold" }}>Refund   :</span> {parseFloat(printSlipData.total_amount || 0).toFixed(2)}</div>
+                  <div>Rupee(s) Only</div>
+                </div>
+
+                <div style={{ borderTop: "2px double #000", margin: "6px 0" }} />
+
+                {/* Signatures */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: "14px", fontSize: "12px" }}>
+                  <div><span style={{ fontWeight: "bold" }}>Prepared By :</span> {printSlipData.pharmacist_name || printSlipData.created_by || "Pharmacist"}</div>
+                  <div style={{ fontWeight: "bold" }}>Pharmacist</div>
+                </div>
+                <div style={{ marginTop: "4px", fontSize: "11px", fontWeight: "bold" }}>E &amp; OE</div>
+              </SlipSheetContainer>
+            </PrintViewerCanvas>
+          </PrintModalBox>
+        </PrintModalOverlay>
+      )}
     </>
   );
 };

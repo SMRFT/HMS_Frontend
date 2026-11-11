@@ -1189,8 +1189,10 @@ const OTLabBilling = () => {
             investBillNo: billNo,
             investBillDate: formData.investBillDate,
             item: productList,
+            isDuplicate: false,
           },
           isEstimate: false,
+          isDuplicate: false,
           toastMsg: "Lab bill generated successfully!",
         });
       }
@@ -1676,8 +1678,12 @@ const OTLabBilling = () => {
                           type="button"
                           onClick={() =>
                             setPrintJob({
-                              bill: bill.fullBill,
+                              bill: {
+                                ...bill.fullBill,
+                                isDuplicate: false,
+                              },
                               isEstimate: false,
+                              isDuplicate: false,
                               toastMsg: `Printing Bill #${bill.investBillNo}`,
                             })
                           }
@@ -1725,6 +1731,7 @@ const OTLabBilling = () => {
           bill={printJob.bill}
           doctors={doctors}
           isEstimate={printJob.isEstimate}
+          isDuplicate={printJob.isDuplicate ?? false}
           toastMsg={printJob.toastMsg}
           onClose={() => setPrintJob(null)}
         />

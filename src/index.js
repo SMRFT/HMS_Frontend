@@ -5,6 +5,8 @@ import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
+
+
 // Patch performance.measure to prevent DataCloneError / Out of memory crashes from React dev User Timing profiling
 if (typeof performance !== 'undefined' && typeof performance.measure === 'function') {
   const _origMeasure = performance.measure.bind(performance);

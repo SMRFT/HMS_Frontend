@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
+import { fetchMyReportPermissions } from "../../Auth/reportConfigApi";
 import { 
     FileText, 
     Users, 
@@ -690,7 +691,43 @@ const ReportsDashboard = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [isMaximized, setIsMaximized] = useState(false);
 
+    // Dynamic report permissions for displaying reports strictly inside this dashboard
+    const [userReportPerms, setUserReportPerms] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("report_permissions") || "null");
+        } catch {
+            return null;
+        }
+    });
+    const [hasCustomConfig, setHasCustomConfig] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("has_custom_report_config") || "false");
+        } catch {
+            return false;
+        }
+    });
+
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+    // Load active employee report permissions
+    useEffect(() => {
+        const loadUserPermissions = async () => {
+            const empId = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || localStorage.getItem("auth-user-id");
+            if (!empId) return;
+            try {
+                const res = await fetchMyReportPermissions(empId);
+                if (res && res.success) {
+                    setUserReportPerms(res.report_permissions || {});
+                    setHasCustomConfig(Boolean(res.has_custom_config));
+                    localStorage.setItem("report_permissions", JSON.stringify(res.report_permissions || {}));
+                    localStorage.setItem("has_custom_report_config", JSON.stringify(Boolean(res.has_custom_config)));
+                }
+            } catch (err) {
+                console.error("Error loading user report permissions:", err);
+            }
+        };
+        loadUserPermissions();
+    }, []);
 
     useEffect(() => {
         const fetchOutlets = async () => {
@@ -726,6 +763,7 @@ const ReportsDashboard = () => {
     const reportsList = [
         {
             id: "bill_wise",
+            route: "/BillWiseReport",
             title: "Detailed Bill Report",
             description: "Detailed breakdown of all bills generated across departments",
             icon: <FileText size={24} />,
@@ -734,6 +772,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "cashier_wise",
+            route: "/CashierWiseReport",
             title: "Cashier Wise Report",
             description: "Collection summary grouped by individual cashiers",
             icon: <Users size={24} />,
@@ -742,6 +781,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "cashier_detailed",
+            route: "/CashierWiseDetailedReport",
             title: "Cashier Wise Detailed",
             description: "Full transaction list for in-depth cashier auditing",
             icon: <ClipboardList size={24} />,
@@ -750,6 +790,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "shift_basis",
+            route: "/ShiftBasisReport",
             title: "Shift Basis Report",
             description: "Financial reports summarized by individual work shifts",
             icon: <Clock size={24} />,
@@ -758,6 +799,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "ip_advance",
+            route: "/IPAdvanceReport",
             title: "IP Advance Report",
             description: "Tracking of all in-patient advances and deposits",
             icon: <CreditCard size={24} />,
@@ -766,6 +808,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "discharge_bills",
+            route: "/DischargeBills",
             title: "Cash Discharge Report",
             description: "Discharged patient settlement bills (Cash / Self-paying)",
             icon: <TrendingUp size={24} />,
@@ -774,6 +817,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "discharge_detailed",
+            route: "/DischargeBillsDetailed",
             title: "Discharge Detailed",
             description: "Itemized view of discharge bill components",
             icon: <BarChart3 size={24} />,
@@ -782,6 +826,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "advance_reg",
+            route: "/AdvanceRegistration",
             title: "Advance Register (Accounts)",
             description: "Daily IP advance register grouped by date with Cash/Credit breakdown",
             icon: <UserCheck size={24} />,
@@ -790,6 +835,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "insurance_advance",
+            route: "/AdvanceRegistrationInsurence",
             title: "Insurance Discharge Report",
             description: "Insurance Bills Status Report grouped by TPA/Company with 25-column audit",
             icon: <ShieldCheck size={24} />,
@@ -798,6 +844,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "bill_cancel",
+            route: "/BillCancelReport",
             title: "Bill Cancel Report",
             description: "List of all cancelled bills and IP advances with patient details",
             icon: <X size={24} />,
@@ -806,6 +853,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "pharmacy_expiry",
+            route: "/PharmacyExpiryReport",
             title: "Pharmacy Expiry Report",
             description: "Analyze stock expiry dates, track upcoming batch expiries, and export sheets",
             icon: <ClipboardList size={24} />,
@@ -814,6 +862,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "sales_return",
+            route: "/SalesReturnReport",
             title: "Sales Return Report",
             description: "IP and OP pharmacy sales returns with patient, doctor, and item details",
             icon: <RotateCcw size={24} />,
@@ -822,6 +871,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "credit_card",
+            route: "/CreditCardReport",
             title: "Credit Card Report",
             description: "Card-mode collections across Registration (OP), Pharmacy, and Discharge billing",
             icon: <CreditCard size={24} />,
@@ -830,6 +880,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "cash_bills",
+            route: "/CashBillsReport",
             title: "Cash Bills Report",
             description: "Cash-mode collections across Registration, Pharmacy (OP/IP), Discharge, and Investigations",
             icon: <Banknote size={24} />,
@@ -838,6 +889,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "department_wise",
+            route: "/DepartmentWiseReport",
             title: "Department Wise Report",
             description: "Financial & patient volume report summarized by hospital departments",
             icon: <Building2 size={24} />,
@@ -846,6 +898,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "datewise_collection",
+            route: "/DatewiseCollectionSummary",
             title: "Date-wise Collection Summary",
             description: "Hospital-wide daily collection totals across every billing department",
             icon: <Calendar size={24} />,
@@ -854,6 +907,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "misc_payment",
+            route: "/MiscellaneousPaymentReport",
             title: "Miscellaneous Payment Report",
             description: "Receipt & Payment vouchers posted against any account head",
             icon: <Wallet size={24} />,
@@ -862,6 +916,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "daily_cash",
+            route: "/DailyCashReport",
             title: "A/c Papers — Daily Cash Report",
             description: "Cash Book: daily cash in/out across Registration, Pharmacy, Discharge & vouchers",
             icon: <Banknote size={24} />,
@@ -870,6 +925,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "debit_bills",
+            route: "/DebitBillsReport",
             title: "Debit Bills Report",
             description: "Bill edits that increased the billed amount",
             icon: <MinusCircle size={24} />,
@@ -878,6 +934,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "audit_report",
+            route: "/AuditReport",
             title: "Audit Report (Edit View)",
             description: "Cross-record edit trail across Registration, Pharmacy, Sales Return & Investigation billing",
             icon: <History size={24} />,
@@ -886,6 +943,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "sales_tax_register",
+            route: "/SalesTaxRegister",
             title: "Sales Tax Register (GST)",
             description: "Rate-wise GST register for pharmacy OP/IP sales and returns (approximate)",
             icon: <Percent size={24} />,
@@ -894,6 +952,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "daywise_sales_tax_register",
+            route: "/DaywiseSalesTaxRegister",
             title: "Day-wise Sales Tax Register (GST)",
             description: "Daily rate-wise GST register (Exempted, 5%, 12%, 18%, 28%) with multi-column breakdown",
             icon: <Percent size={24} />,
@@ -902,6 +961,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "stock_report_ip_op",
+            route: "/StockReportIpOp",
             title: "Stock Report — IP vs OP",
             description: "Pharmacy consumption split by IP and OP bills, item-wise",
             icon: <Package size={24} />,
@@ -910,6 +970,7 @@ const ReportsDashboard = () => {
         },
         {
             id: "discount_bills",
+            route: "/DiscountBillsReport",
             title: "Discount Bills Report",
             description: "Concession & discount register across Pharmacy (OP/IP), Investigation, Discharge, and Registration",
             icon: <Percent size={24} />,
@@ -919,9 +980,36 @@ const ReportsDashboard = () => {
     ];
 
     const filteredReports = reportsList.filter(report => {
+        // Evaluate dynamic report permissions strictly for display inside this dashboard
+        if (hasCustomConfig && userReportPerms && typeof userReportPerms === "object") {
+            const rRoute = report.route;
+            const norm = rRoute?.startsWith("/") ? rRoute : `/${rRoute}`;
+            const isAllowed = Boolean(
+                userReportPerms[rRoute] ||
+                userReportPerms[norm] ||
+                userReportPerms[report.title] ||
+                userReportPerms[report.id]
+            );
+            if (!isAllowed) return false;
+        } else if (userReportPerms && typeof userReportPerms === "object" && Object.keys(userReportPerms).length > 0) {
+            const rRoute = report.route;
+            const norm = rRoute?.startsWith("/") ? rRoute : `/${rRoute}`;
+            const isAllowed = Boolean(
+                userReportPerms[rRoute] ||
+                userReportPerms[norm] ||
+                userReportPerms[report.title] ||
+                userReportPerms[report.id]
+            );
+            if (!isAllowed) return false;
+        }
+
         if (!searchTerm.trim()) return true;
         const term = searchTerm.toLowerCase();
-        return report.title.toLowerCase().includes(term) || report.description.toLowerCase().includes(term);
+        return (
+            report.title.toLowerCase().includes(term) ||
+            report.description.toLowerCase().includes(term) ||
+            (report.route && report.route.toLowerCase().includes(term))
+        );
     });
 
     const handleCardClick = (report) => {

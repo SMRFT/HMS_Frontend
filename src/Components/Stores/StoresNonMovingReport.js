@@ -213,7 +213,7 @@ const StoresNonMovingReport = () => {
                                         <Td>{idx + 1}</Td>
                                         <Td>
                                             <div style={{ fontWeight: '700', color: colors.textMain }}>{item.item_name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {item.item_id}</div>
+                                            
                                         </Td>
                                         <Td>
                                             <div>{item.group || '-'}</div>

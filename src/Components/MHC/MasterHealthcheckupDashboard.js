@@ -336,13 +336,19 @@ export default function MasterHealthcheckupDashboard() {
   const gt = data?.grand_totals || {};
   const monthsList = data?.months_list || [];
 
-  // Chart Data combining category patients and category revenue for MHC
-  const chartData = (data?.category_patients || []).map((cp) => {
-    const cr = (data?.category_revenue || []).find((r) => r.month === cp.month) || {};
+  // Chart Data combining monthly summary, category patients and category revenue
+  const chartData = (data?.monthly_summary || []).map((ms) => {
+    const cp = (data?.category_patients || []).find((r) => r.month === ms.month) || {};
+    const cr = (data?.category_revenue || []).find((r) => r.month === ms.month) || {};
+    const totalPatients = ms.patient_count ?? cp.total ?? 0;
+    const totalRevenue = ms.total_revenue ?? cr.total ?? 0;
     return {
-      month: cp.month,
-      mhcPatients: cp.MHC || 0,
-      mhcRevenue: cr.MHC || 0,
+      month: ms.month,
+      mhcPatients: totalPatients,
+      totalPatients: totalPatients,
+      categoryMhc: cp.MHC || 0,
+      categoryOthers: cp.Others || 0,
+      mhcRevenue: totalRevenue,
     };
   });
 

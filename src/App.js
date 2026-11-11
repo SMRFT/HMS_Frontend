@@ -15,6 +15,7 @@ import "./App.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { hasPagePermission } from "./Auth/FrontendPageMapping";
+import { fetchMyReportPermissions } from "./Auth/reportConfigApi";
 import {
   fetchSidebarMapping,
   fetchUserPermissions,
@@ -120,26 +121,32 @@ import LaundryAdmin from "./Components/NursingStation/LaundryAdmin";
 import Items from "./Components/Stores/Items";
 import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
 import StoresGRNReport from "./Components/Stores/StoresGRNReport";
+import StoresGRNGeneralReport from "./Components/Stores_report/StoresGRNGeneralReport";
+import StoresIntentReturnReport from "./Components/Stores_report/StoresIntentReturnReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
+import StoresIntentHODApproval from "./Components/Stores/StoresIntentHODApproval";
 import Generalstorevendor from "./Components/Stores/Generalstorevendor";
 import LabDailyUsage from "./Components/Stores/Labdailyusage";
 import LabInventoryReport from "./Components/Stores/LabInventoryReport";
-import StoresAbcVedReport from "./Components/Stores/StoresAbcVedReport";
-import VendingMachineReport from "./Components/Stores/VendingMachineReport";
+import StoresAbcVedReport from "./Components/Stores_report/StoresAbcVedReport";
+import VendingMachineReport from "./Components/Stores_report/VendingMachineReport";
 import StoresReportsDashboard from "./Components/Stores/StoresReportsDashboard";
-import StoresSupplierGrnReport from "./Components/Stores/StoresSupplierGrnReport";
-import StoresDepartmentIndentReport from "./Components/Stores/StoresDepartmentIndentReport";
+import StoresSupplierGrnReport from "./Components/Stores_report/StoresSupplierGrnReport";
+import StoresDepartmentIndentReport from "./Components/Stores_report/StoresDepartmentIndentReport";
 import StoresPurchaseOrderFormat from "./Components/Stores/StoresPurchaseOrderFormat";
 import StoresPurchaseReturn from "./Components/Stores/StoresPurchaseReturn";
-import StoresPurchaseAnalysisReport from "./Components/Stores/StoresPurchaseAnalysisReport";
-import StoresPreviousDayStockReport from "./Components/Stores/StoresPreviousDayStockReport";
-import StoresSupplierWiseReport from "./Components/Stores/StoresSupplierWiseReport";
-import StoresNonMovingReport from "./Components/Stores/StoresNonMovingReport";
-import StoresShortExpiryReport from "./Components/Stores/StoresShortExpiryReport";
-import StoresReorderLevelReport from "./Components/Stores/StoresReorderLevelReport";
+import StoresPurchaseAnalysisReport from "./Components/Stores_report/StoresPurchaseAnalysisReport";
+import StoresPreviousDayStockReport from "./Components/Stores_report/StoresPreviousDayStockReport";
+import StoresSupplierWiseReport from "./Components/Stores_report/StoresSupplierWiseReport";
+import StoresNonMovingReport from "./Components/Stores_report/StoresNonMovingReport";
+import StoresShortExpiryReport from "./Components/Stores_report/StoresShortExpiryReport";
+import StoresReorderLevelReport from "./Components/Stores_report/StoresReorderLevelReport";
 import StoresRackClassification from "./Components/Stores/StoresRackClassification";
-import StoresOpeningStockReport from "./Components/Stores/StoresOpeningStockReport";
+import StoresOpeningStockReport from "./Components/Stores_report/StoresOpeningStockReport";
+import StoresPurchaseOrderReport from "./Components/Stores_report/StoresPurchaseOrderReport";
+import StoresPurchaseReturnReport from "./Components/Stores_report/StoresPurchaseReturnReport";
+import StoresRackClassificationReport from "./Components/Stores_report/StoresRackClassificationReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -158,6 +165,7 @@ import PharmacyBillAnalysis from "./Components/Pharmacy/PharmacyBillAnalysis";
 // import CustomerType from "./Components/BillingMaster/CustomerType";
 import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
 import CashCounterManager from "./Components/CentralCashCounter/CashCounterManager";
+import CashCounterShiftManagement from "./Components/CentralCashCounter/CashCounterShiftManagement";
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
 // import DoctorSchedule from "./Components/DoctorMaster/DoctorSchedule";
@@ -320,10 +328,16 @@ function App() {
       // Handle Outlet Selection
       if (employeeId) {
         try {
-          const [userPerms, allOutlets] = await Promise.all([
+          const [userPerms, allOutlets, myReportPerms] = await Promise.all([
             fetchUserPermissions(employeeId),
             fetchOutlets(),
+            fetchMyReportPermissions(employeeId).catch(() => null),
           ]);
+
+          if (myReportPerms && myReportPerms.success) {
+            localStorage.setItem("report_permissions", JSON.stringify(myReportPerms.report_permissions || {}));
+            localStorage.setItem("allocated_reports", JSON.stringify(myReportPerms.reports || {}));
+          }
 
           let assignedOutletCodes = userPerms?.hms_outlets || [];
 
@@ -482,8 +496,14 @@ function App() {
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
+      "/StoresGRNGeneralReport": "Stores GRN General Report",
+      "/StoresIntentReturnReport": "Stores Intent & Return Report",
+      "/StoresPurchaseOrderReport": "Purchase Order Report",
+      "/StoresPurchaseReturnReport": "Purchase Return & Debit Notes Report",
+      "/StoresRackClassificationReport": "Barcode Entry & Rack Classification Report",
       "/StoresIntent": "Stores Intent",
       "/StoresIntentApproval": "Store Intent Approval",
+      "/StoresIntentHODApproval": "Department Intent Admin Approval",
       "/Generalstorevendor": "General Store Vendor",
       "/GeneralStoresVendor": "General Store Vendor",
       "/StoresAbcVedReport": "Stores ABC & VED Analysis Report",
@@ -513,6 +533,7 @@ function App() {
       "/pharmacytabs": "OP Pharmacy Tabs",
       "/ShiftBasisReport": "Shift Basis Report",
       "/CashCounterManager": "Cash Counter Manager",
+      "/CashCounterShiftManagement": "Cash Counter Shift Management",
       "/BillWiseReport": "BillWiseReport",
       "/DischargeBills": "Discharge Bills",
       "/DischargeBillsDetailed": "Discharge Bills Detailed",
@@ -621,7 +642,7 @@ function App() {
 
   return (
     <div>
-      <ToastContainer position="top-right" autoClose={3000} />
+      <ToastContainer position="top-right" autoClose={2000} hideProgressBar={false} closeOnClick pauseOnHover={false} limit={3} />
 
       {showOutletModal && (
         <OutletSelectionModal
@@ -1649,6 +1670,10 @@ function App() {
                   element={<StoreIntentApproval />}
                 />
               )}
+              <Route
+                path="/StoresIntentHODApproval"
+                element={<StoresIntentHODApproval />}
+              />
               {hasPagePermission("/Generalstorevendor", allowedActions) && (
                 <Route
                   path="/Generalstorevendor"
@@ -1666,6 +1691,11 @@ function App() {
               <Route path="/StoresAbcVedReport" element={<StoresAbcVedReport />} />
               <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
               <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
+              <Route path="/StoresGRNGeneralReport" element={<StoresGRNGeneralReport />} />
+              <Route path="/StoresIntentReturnReport" element={<StoresIntentReturnReport />} />
+              <Route path="/StoresPurchaseOrderReport" element={<StoresPurchaseOrderReport />} />
+              <Route path="/StoresPurchaseReturnReport" element={<StoresPurchaseReturnReport />} />
+              <Route path="/StoresRackClassificationReport" element={<StoresRackClassificationReport />} />
               <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
               <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
               <Route path="/StoresPurchaseOrderFormat" element={<StoresPurchaseOrderFormat />} />
@@ -1870,6 +1900,10 @@ function App() {
                     element={<CashCounterManager />}
                   />
                 )}
+              <Route
+                path="/CashCounterShiftManagement"
+                element={<CashCounterShiftManagement />}
+              />
 
               {/* Accounts Reports */}
               {hasPagePermission(

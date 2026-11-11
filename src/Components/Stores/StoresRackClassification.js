@@ -5,6 +5,7 @@ import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepart
 import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 import { 
     Grid, Barcode, Search, RefreshCw, Download, Printer, 
     Save, Edit, CheckCircle, Package, Layers, X, Plus, Trash2, Tag, Box, AlertCircle
@@ -61,14 +62,14 @@ const customSelectStyles = {
     }),
     menu: (provided) => ({
         ...provided,
-        zIndex: 9999,
+        zIndex: 99999,
         fontSize: '0.85rem',
         borderRadius: '8px',
         boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
     }),
     menuPortal: (provided) => ({
         ...provided,
-        zIndex: 9999
+        zIndex: 99999
     }),
     option: (provided, state) => ({
         ...provided,
@@ -139,7 +140,24 @@ const StoresRackClassification = () => {
     const [newShelfRackId, setNewShelfRackId] = useState('');
     const [newShelfDesc, setNewShelfDesc] = useState('');
     const [masterLoading, setMasterLoading] = useState(false);
-    const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ASSIGNED' | 'UNASSIGNED'
+    const [statusFilter, setStatusFilter] = useState('ALL');
+
+    // Dropdown options for Rack and Bero selection in modal
+    const rackDropdownOptions = Array.from(
+        new Set([
+            ...rackMasters.map(r => r.rack_name),
+            ...racks
+        ].filter(Boolean))
+    ).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }))
+    .map(name => ({ value: name, label: name }));
+
+    const beroDropdownOptions = Array.from(
+        new Set([
+            ...shelfMasters.map(s => s.shelf_name),
+            ...shelves
+        ].filter(Boolean))
+    ).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }))
+    .map(name => ({ value: name, label: name })); // 'ALL' | 'ASSIGNED' | 'UNASSIGNED'
 
     const filteredItemsList = itemsList
         .filter(it => {
@@ -225,6 +243,15 @@ const StoresRackClassification = () => {
     const handleSaveRackDetails = async (e) => {
         e.preventDefault();
         if (!editingItem) return;
+
+        if (!editRack || !String(editRack).trim()) {
+            alert("Please select or enter a Rack Number.");
+            return;
+        }
+        if (!editShelf || !String(editShelf).trim()) {
+            alert("Please select or enter a Bero Number.");
+            return;
+        }
 
         try {
             setLoading(true);
@@ -441,49 +468,71 @@ const StoresRackClassification = () => {
                 </div>
 
                 {/* Quick Status Filter Pills & Search Controls */}
-                <ControlsContainer style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        {[
-                            { key: 'ALL', label: 'All Items', count: itemsList.length },
-                            { key: 'ASSIGNED', label: 'Assigned to Racks', count: itemsList.filter(it => it.rack_no).length },
-                            { key: 'UNASSIGNED', label: 'Unassigned (Pending)', count: itemsList.filter(it => !it.rack_no).length }
-                        ].map(st => (
-                            <button
-                                key={st.key}
-                                onClick={() => setStatusFilter(st.key)}
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    padding: '6px 14px',
-                                    borderRadius: '20px',
-                                    border: statusFilter === st.key ? '1px solid #0284c7' : '1px solid #cbd5e1',
-                                    background: statusFilter === st.key ? '#e0f2fe' : '#ffffff',
-                                    color: statusFilter === st.key ? '#0369a1' : '#475569',
-                                    fontWeight: '700',
-                                    fontSize: '0.82rem',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                <span>{st.label}</span>
-                                <span style={{ fontSize: '0.72rem', background: statusFilter === st.key ? '#0284c7' : '#f1f5f9', color: statusFilter === st.key ? '#ffffff' : '#64748b', padding: '1px 6px', borderRadius: '10px' }}>
-                                    {st.count}
-                                </span>
-                            </button>
-                        ))}
+                <ControlsContainer style={{ background: '#ffffff', padding: '18px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                    {/* Top Row: Status Filter Pills */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: colors.textMuted, marginRight: '4px' }}>
+                                Status:
+                            </span>
+                            {[
+                                { key: 'ALL', label: 'All Items', count: itemsList.length },
+                                { key: 'ASSIGNED', label: 'Assigned to Racks', count: itemsList.filter(it => it.rack_no).length },
+                                { key: 'UNASSIGNED', label: 'Unassigned (Pending)', count: itemsList.filter(it => !it.rack_no).length }
+                            ].map(st => (
+                                <button
+                                    key={st.key}
+                                    type="button"
+                                    onClick={() => setStatusFilter(st.key)}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '6px 14px',
+                                        borderRadius: '20px',
+                                        border: statusFilter === st.key ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
+                                        background: statusFilter === st.key ? '#e0f2fe' : '#ffffff',
+                                        color: statusFilter === st.key ? '#0284c7' : '#475569',
+                                        fontWeight: '700',
+                                        fontSize: '0.82rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease',
+                                        boxShadow: statusFilter === st.key ? '0 1px 3px rgba(2, 132, 199, 0.15)' : 'none'
+                                    }}
+                                >
+                                    <span>{st.label}</span>
+                                    <span style={{ fontSize: '0.72rem', background: statusFilter === st.key ? '#0284c7' : '#f1f5f9', color: statusFilter === st.key ? '#ffffff' : '#64748b', padding: '1px 7px', borderRadius: '10px', fontWeight: '700' }}>
+                                        {st.count}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: colors.textMuted }}>
+                            Total Items: <strong style={{ color: colors.textMain }}>{filteredItemsList.length}</strong>
+                        </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {/* Main Filter Row (Left to Right): 1. Switch Department -> 2. Filter Rack -> 3. Filter Bero -> 4. Scan / Search Barcode or Item -> 5. Actions */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(140px, 1.2fr) minmax(140px, 1.2fr) minmax(220px, 2.2fr) auto', gap: '14px', alignItems: 'flex-end', width: '100%' }}>
+                        {/* 1. Switch Department */}
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: '700', color: colors.textMuted, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Switch Department
+                            </label>
                             <DepartmentFilterControl
                                 departments={allDepartments}
                                 onDepartmentChange={(dept) => {
                                     setSelectedDepartment(dept || '');
                                 }}
+                                style={{ height: '38px', borderRadius: '8px', padding: '0 12px', boxSizing: 'border-box', border: '1px solid #cbd5e1', whiteSpace: 'nowrap' }}
                             />
                         </div>
-                        <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
-                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Filter Rack</label>
+
+                        {/* 2. Filter Rack */}
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: '700', color: colors.textMuted, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Filter Rack
+                            </label>
                             <ReactSelect
                                 options={[
                                     { value: '', label: 'All Racks' },
@@ -497,11 +546,15 @@ const StoresRackClassification = () => {
                                 styles={customSelectStyles}
                                 menuPortalTarget={document.body}
                                 isSearchable
-                                placeholder="Search Rack..."
+                                placeholder="All Racks"
                             />
                         </div>
-                        <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
-                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Filter Bero</label>
+
+                        {/* 3. Filter Bero */}
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: '700', color: colors.textMuted, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Filter Bero
+                            </label>
                             <ReactSelect
                                 options={[
                                     { value: '', label: 'All Bero' },
@@ -515,25 +568,45 @@ const StoresRackClassification = () => {
                                 styles={customSelectStyles}
                                 menuPortalTarget={document.body}
                                 isSearchable
-                                placeholder="Search Bero..."
+                                placeholder="All Bero"
                             />
                         </div>
-                        <div style={{ flex: '1 1 250px', minWidth: '200px' }}>
-                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Scan / Search Barcode or Item</label>
-                            <Input 
-                                type="text" 
-                                placeholder="Scan Barcode, Item Name, Rack..." 
-                                value={searchTerm} 
-                                onChange={e => setSearchTerm(e.target.value)} 
-                                style={{ width: '100%' }}
-                            />
+
+                        {/* 4. Scan / Search Barcode or Item */}
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: '700', color: colors.textMuted, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Scan / Search Barcode or Item
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={15} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                                <Input 
+                                    type="text" 
+                                    placeholder="Scan barcode, enter item name, rack..." 
+                                    value={searchTerm} 
+                                    onChange={e => setSearchTerm(e.target.value)} 
+                                    onKeyDown={e => { if (e.key === 'Enter') fetchItems(); }}
+                                    style={{ width: '100%', height: '38px', paddingLeft: '36px', borderRadius: '8px', border: '1px solid #c0dbff', fontSize: '0.85rem' }}
+                                />
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end' }}>
-                            <Button onClick={fetchItems} style={{ background: '#0284c7', color: '#fff', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600' }}>
-                                <Search size={16} /> Search
+
+                        {/* Actions: Search & Reset */}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <Button 
+                                type="button"
+                                onClick={fetchItems} 
+                                disabled={loading}
+                                style={{ height: '38px', background: '#0284c7', color: '#fff', padding: '0 18px', borderRadius: '8px', border: 'none', fontWeight: '700', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(2, 132, 199, 0.2)', whiteSpace: 'nowrap' }}
+                            >
+                                <Search size={15} /> Search
                             </Button>
-                            <Button onClick={() => { setSelectedRack(''); setSelectedShelf(''); setSearchTerm(''); setStatusFilter('ALL'); }} style={{ background: '#e2e8f0', color: colors.textMain, padding: '9px 14px', borderRadius: '8px', border: 'none' }}>
-                                <RefreshCw size={16} />
+                            <Button 
+                                type="button"
+                                title="Reset All Filters"
+                                onClick={() => { setSelectedRack(''); setSelectedShelf(''); setSearchTerm(''); setStatusFilter('ALL'); }} 
+                                style={{ height: '38px', width: '38px', minWidth: '38px', padding: 0, background: '#f1f5f9', color: '#475569', borderRadius: '8px', border: '1px solid #cbd5e1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            >
+                                <RefreshCw size={15} />
                             </Button>
                         </div>
                     </div>
@@ -638,27 +711,9 @@ const StoresRackClassification = () => {
                                         </div>
                                     </div>
 
-                                    <datalist id="existing-racks">
-                                        {[...rackMasters].sort((a, b) => (a.rack_name || '').localeCompare(b.rack_name || '', undefined, { numeric: true })).map((r, i) => (
-                                            <option key={i} value={r.rack_name}>{r.rack_id ? `[${r.rack_id}] ${r.rack_name}` : r.rack_name}</option>
-                                        ))}
-                                        {[...racks].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).filter(r => !rackMasters.some(rm => rm.rack_name === r)).map((r, i) => (
-                                            <option key={`extra-r-${i}`} value={r} />
-                                        ))}
-                                    </datalist>
-
-                                    <datalist id="existing-shelves">
-                                        {[...shelfMasters].sort((a, b) => (a.shelf_name || '').localeCompare(b.shelf_name || '', undefined, { numeric: true })).map((s, i) => (
-                                            <option key={i} value={s.shelf_name}>{s.shelf_id ? `[${s.shelf_id}] ${s.shelf_name}` : s.shelf_name}</option>
-                                        ))}
-                                        {[...shelves].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).filter(s => !shelfMasters.some(sm => sm.shelf_name === s)).map((s, i) => (
-                                            <option key={`extra-s-${i}`} value={s} />
-                                        ))}
-                                    </datalist>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                                         <div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                                                 <label style={{ fontSize: '0.85rem', fontWeight: '700', margin: 0, color: colors.textMain }}>
                                                     Rack Number <span style={{ color: '#ef4444' }}>*</span>
                                                 </label>
@@ -670,19 +725,23 @@ const StoresRackClassification = () => {
                                                     + Add Rack
                                                 </button>
                                             </div>
-                                            <Input 
-                                                type="text" 
-                                                list="existing-racks"
-                                                placeholder="e.g. Rack A, Rack B" 
-                                                value={editRack} 
-                                                onChange={e => setEditRack(e.target.value)} 
-                                                style={{ width: '100%' }}
-                                                required
+                                            <CreatableSelect
+                                                isClearable
+                                                options={rackDropdownOptions}
+                                                value={editRack ? { value: editRack, label: editRack } : null}
+                                                onChange={(opt) => setEditRack(opt ? opt.value : '')}
+                                                onCreateOption={(val) => setEditRack(val)}
+                                                placeholder="Select or type Rack..."
+                                                styles={customSelectStyles}
+                                                menuPortalTarget={document.body}
+                                                formatCreateLabel={(input) => `+ Create new rack "${input}"`}
                                             />
-                                            <span style={{ fontSize: '0.72rem', color: colors.textMuted }}>Pick registered rack or type new</span>
+                                            <span style={{ fontSize: '0.72rem', color: colors.textMuted, display: 'block', marginTop: '4px' }}>
+                                                Select registered rack or type new
+                                            </span>
                                         </div>
                                         <div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                                                 <label style={{ fontSize: '0.85rem', fontWeight: '700', margin: 0, color: colors.textMain }}>
                                                     Bero Number <span style={{ color: '#ef4444' }}>*</span>
                                                 </label>
@@ -694,16 +753,20 @@ const StoresRackClassification = () => {
                                                     + Add Bero
                                                 </button>
                                             </div>
-                                            <Input 
-                                                type="text" 
-                                                list="existing-shelves"
-                                                placeholder="e.g. Bero 1, Bero 2" 
-                                                value={editShelf} 
-                                                onChange={e => setEditShelf(e.target.value)} 
-                                                style={{ width: '100%' }}
-                                                required
+                                            <CreatableSelect
+                                                isClearable
+                                                options={beroDropdownOptions}
+                                                value={editShelf ? { value: editShelf, label: editShelf } : null}
+                                                onChange={(opt) => setEditShelf(opt ? opt.value : '')}
+                                                onCreateOption={(val) => setEditShelf(val)}
+                                                placeholder="Select or type Bero..."
+                                                styles={customSelectStyles}
+                                                menuPortalTarget={document.body}
+                                                formatCreateLabel={(input) => `+ Create new bero "${input}"`}
                                             />
-                                            <span style={{ fontSize: '0.72rem', color: colors.textMuted }}>Pick registered bero or type new</span>
+                                            <span style={{ fontSize: '0.72rem', color: colors.textMuted, display: 'block', marginTop: '4px' }}>
+                                                Select registered bero or type new
+                                            </span>
                                         </div>
                                     </div>
 
