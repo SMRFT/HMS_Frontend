@@ -708,9 +708,11 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
               "IP PHARMACY"}
           </OutletName>
         </OutletTextGroup>
-        <SwitchBtn onClick={onSwitchOutlet}>
-          Switch
-        </SwitchBtn>
+        {hasMultipleOutlets && (
+          <SwitchBtn onClick={onSwitchOutlet}>
+            Switch
+          </SwitchBtn>
+        )}
       </OutletSection>
 
       {/* ── Clock ── */}
