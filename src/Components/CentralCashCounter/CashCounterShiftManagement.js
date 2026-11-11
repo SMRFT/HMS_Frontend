@@ -718,7 +718,7 @@ const CashCounterShiftManagement = () => {
   // Computed statistics
   const currentList = activeTab === "active_shifts" ? filteredActiveShifts : dateShifts;
   const totalCollections = currentList.reduce((acc, s) => acc + (parseFloat(s.collected_Amount) || 0), 0);
-  const totalCredits = currentList.reduce((acc, s) => acc + (parseFloat(s.CreditAmount || s.credit_amount) || 0), 0);
+  const totalCredits = currentList.reduce((acc, s) => acc + (parseFloat(s.CreditAmount ?? s.credit_amount ?? 0) || 0), 0);
   const totalOpenings = currentList.reduce((acc, s) => acc + (parseFloat(s.OpeningBalance) || 0), 0);
   const totalClosings = currentList.reduce((acc, s) => acc + (parseFloat(s.ClosingBalance) || 0), 0);
 
@@ -915,7 +915,7 @@ const CashCounterShiftManagement = () => {
                       {formatINR(shift.collected_Amount)}
                     </td>
                     <td style={{ textAlign: "right", fontWeight: "700", color: "#2563eb" }}>
-                      {formatINR(shift.CreditAmount || shift.credit_amount)}
+                      {formatINR(shift.CreditAmount ?? shift.credit_amount ?? 0)}
                     </td>
                     <td style={{ textAlign: "right", fontWeight: "700", color: "#0f172a" }}>
                       {formatINR(shift.ClosingBalance)}
@@ -1009,7 +1009,7 @@ const CashCounterShiftManagement = () => {
                 <div className="item">
                   <span className="k">Credit (UPI/Card/Cheque/Credit)</span>
                   <span className="v" style={{ color: "#2563eb" }}>
-                    ₹ {formatINR(selectedShiftToClose.CreditAmount || selectedShiftToClose.credit_amount)}
+                    ₹ {formatINR(selectedShiftToClose.CreditAmount ?? selectedShiftToClose.credit_amount ?? 0)}
                   </span>
                 </div>
               </InfoCard>
