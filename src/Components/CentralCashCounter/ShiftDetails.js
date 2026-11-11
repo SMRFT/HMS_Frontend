@@ -192,7 +192,8 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       date:            d.date             || "",
       openingBalance:  d.OpeningBalance   != null ? String(d.OpeningBalance)  : (d.expected_opening != null ? String(d.expected_opening) : "0.00"),
       pettyCashBalance: d.PettyCashBalance  != null ? String(d.PettyCashBalance) : (d.default_petty_cash != null ? String(d.default_petty_cash) : "0.00"),
-      collectedAmount: d.collected_Amount != null ? String(d.collected_Amount) : "0.00",
+      collectedAmount: d.collected_Amount != null ? parseFloat(d.collected_Amount).toFixed(2) : "0.00",
+      creditAmount:    (d.CreditAmount ?? d.credit_amount ?? d.total_credit) != null ? parseFloat(d.CreditAmount ?? d.credit_amount ?? d.total_credit).toFixed(2) : "0.00",
       closingBalance:  d.ClosingBalance   != null ? String(d.ClosingBalance)  : "0.00",
       remittedToBank:  d.RemittedToBank    != null ? String(d.RemittedToBank)   : "0.00",
       submittedToAccount: d.SubmittedToAccount != null ? String(d.SubmittedToAccount) : "0.00",
@@ -292,6 +293,8 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       cashCounterName: cashCounterId || resolvedName,
       openingBalance:  prev.openingBalance  || "0.00",
       closingBalance:  prev.closingBalance  || "0.00",
+      collectedAmount: prev.collectedAmount || "0.00",
+      creditAmount:    prev.creditAmount    || "0.00",
     }));
 
     // If parent passed fresh data, paint immediately (no flicker)
@@ -527,6 +530,18 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
                 readOnly
                 style={{ backgroundColor: "#f0fdf4", color: "#166534", fontWeight: "bold" }}
               />
+              <SubLabel>Cash Collection</SubLabel>
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>CREDIT AMOUNT</FormLabel>
+              <FormInput
+                type="text"
+                value={formData.creditAmount || "0.00"}
+                readOnly
+                style={{ backgroundColor: "#eff6ff", color: "#1d4ed8", fontWeight: "bold" }}
+              />
+              <SubLabel>UPI / Card / Cheque / Credit</SubLabel>
             </FormGroup>
 
             {/* ROW 3: Closing, Remitted, Handover */}
@@ -539,7 +554,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
                 readOnly={!isActive}
                 placeholder="0.00"
               />
-              <SubLabel>Opening + Collected - Remitted - Handover</SubLabel>
+              <SubLabel>Opening + Cash Collected - Remitted - Handover</SubLabel>
             </FormGroup>
 
             <FormGroup>

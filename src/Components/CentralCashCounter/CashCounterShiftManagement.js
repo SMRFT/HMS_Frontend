@@ -718,6 +718,7 @@ const CashCounterShiftManagement = () => {
   // Computed statistics
   const currentList = activeTab === "active_shifts" ? filteredActiveShifts : dateShifts;
   const totalCollections = currentList.reduce((acc, s) => acc + (parseFloat(s.collected_Amount) || 0), 0);
+  const totalCredits = currentList.reduce((acc, s) => acc + (parseFloat(s.CreditAmount ?? s.credit_amount ?? 0) || 0), 0);
   const totalOpenings = currentList.reduce((acc, s) => acc + (parseFloat(s.OpeningBalance) || 0), 0);
   const totalClosings = currentList.reduce((acc, s) => acc + (parseFloat(s.ClosingBalance) || 0), 0);
 
@@ -759,7 +760,7 @@ const CashCounterShiftManagement = () => {
           </div>
           <div className="stat-info">
             <span className="val">₹ {formatINR(totalCollections)}</span>
-            <span className="lbl">Total Collected ({activeTab === "active_shifts" ? "Active" : "Period"})</span>
+            <span className="lbl">Cash Collected ({activeTab === "active_shifts" ? "Active" : "Period"})</span>
           </div>
         </StatCard>
 
@@ -768,8 +769,8 @@ const CashCounterShiftManagement = () => {
             <DollarSign size={24} />
           </div>
           <div className="stat-info">
-            <span className="val">₹ {formatINR(totalOpenings)}</span>
-            <span className="lbl">Total Opening Balance</span>
+            <span className="val">₹ {formatINR(totalCredits)}</span>
+            <span className="lbl">Credit (UPI / Card / Cheque / Credit)</span>
           </div>
         </StatCard>
 
@@ -870,7 +871,8 @@ const CashCounterShiftManagement = () => {
               <th>Start Time (IST)</th>
               <th>End Time (IST)</th>
               <th style={{ textAlign: "right" }}>Opening (₹)</th>
-              <th style={{ textAlign: "right" }}>Collected (₹)</th>
+              <th style={{ textAlign: "right" }}>Cash Coll (₹)</th>
+              <th style={{ textAlign: "right" }}>Credit Coll (₹)</th>
               <th style={{ textAlign: "right" }}>Closing (₹)</th>
               <th>Status</th>
               <th style={{ textAlign: "center" }}>Actions</th>
@@ -912,6 +914,9 @@ const CashCounterShiftManagement = () => {
                     <td style={{ textAlign: "right", fontWeight: "700", color: "#16a34a" }}>
                       {formatINR(shift.collected_Amount)}
                     </td>
+                    <td style={{ textAlign: "right", fontWeight: "700", color: "#2563eb" }}>
+                      {formatINR(shift.CreditAmount ?? shift.credit_amount ?? 0)}
+                    </td>
                     <td style={{ textAlign: "right", fontWeight: "700", color: "#0f172a" }}>
                       {formatINR(shift.ClosingBalance)}
                     </td>
@@ -935,7 +940,7 @@ const CashCounterShiftManagement = () => {
               })
             ) : (
               <tr>
-                <td colSpan="11" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                <td colSpan="12" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
                   {loading ? (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
                       <RefreshCw size={18} className="animate-spin text-teal-600" /> Loading shift records...
@@ -996,9 +1001,15 @@ const CashCounterShiftManagement = () => {
                   <span className="v">₹ {formatINR(selectedShiftToClose.OpeningBalance)}</span>
                 </div>
                 <div className="item">
-                  <span className="k">Total Collected</span>
+                  <span className="k">Cash Collected</span>
                   <span className="v" style={{ color: "#16a34a" }}>
                     ₹ {formatINR(selectedShiftToClose.collected_Amount)}
+                  </span>
+                </div>
+                <div className="item">
+                  <span className="k">Credit (UPI/Card/Cheque/Credit)</span>
+                  <span className="v" style={{ color: "#2563eb" }}>
+                    ₹ {formatINR(selectedShiftToClose.CreditAmount ?? selectedShiftToClose.credit_amount ?? 0)}
                   </span>
                 </div>
               </InfoCard>

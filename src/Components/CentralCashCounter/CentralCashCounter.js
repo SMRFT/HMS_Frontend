@@ -586,9 +586,11 @@ const ModalContainer = styled.div`
     0 20px 60px rgba(0, 0, 0, 0.2),
     0 4px 16px rgba(0, 0, 0, 0.08);
   width: 100%;
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-width: 620px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   animation: slideUp 0.25s ease;
 
   @keyframes slideUp {
@@ -604,16 +606,17 @@ const ModalContainer = styled.div`
 `;
 
 const ModalHeader = styled.div`
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px 16px;
+  padding: 12px 20px;
   background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   border-radius: 16px 16px 0 0;
 `;
 
 const ModalTitle = styled.h3`
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -639,28 +642,30 @@ const CloseButton = styled.button`
 `;
 
 const ModalBody = styled.div`
-  padding: 20px 24px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 20px;
 `;
 
 const BillInfoCard = styled.div`
   background: #f0fdfa;
   border: 1px solid #ccfbf1;
-  border-radius: 10px;
-  padding: 14px 18px;
-  margin-bottom: 20px;
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-bottom: 10px;
   display: flex;
-  gap: 24px;
+  gap: 20px;
   flex-wrap: wrap;
 `;
 
 const BillInfoItem = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 `;
 
 const BillInfoLabel = styled.span`
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #6b7280;
@@ -668,7 +673,7 @@ const BillInfoLabel = styled.span`
 `;
 
 const BillInfoValue = styled.span`
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #0d9488;
 `;
@@ -676,30 +681,30 @@ const BillInfoValue = styled.span`
 const NetAmountBanner = styled.div`
   background: linear-gradient(135deg, #0d9488, #0f766e);
   color: white;
-  border-radius: 10px;
-  padding: 12px 18px;
-  margin-bottom: 20px;
+  border-radius: 8px;
+  padding: 9px 14px;
+  margin-bottom: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 `;
 
 const PaymentSection = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 16px;
+  gap: 2px;
+  margin-bottom: 8px;
 `;
 
 const PaymentMethodLabel = styled.div`
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: #6b7280;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   padding-left: 2px;
 `;
 
@@ -707,27 +712,37 @@ const FormRow = styled.div`
   display: grid;
   grid-template-columns: 140px 1fr;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 5px;
 `;
 
 const FormLabel = styled.label`
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: #374151;
 `;
 
 const Input = styled.input`
   border: 1.5px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 9px 14px;
-  font-size: 14px;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 13.5px;
   width: 100%;
   box-sizing: border-box;
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
   background: #fafafa;
+
+  /* Hide number input spinners and avoid accidental wheel changes */
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    -moz-appearance: textfield;
+  }
 
   &:focus {
     outline: none;
@@ -744,25 +759,25 @@ const Input = styled.input`
 const SubInput = styled(Input)`
   border-style: dashed;
   background: #f8fafc;
-  font-size: 13px;
+  font-size: 12.5px;
 `;
 
 const SummaryCard = styled.div`
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 14px 18px;
-  margin-top: 8px;
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-top: 6px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 `;
 
 const SummaryRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14px;
+  font-size: 13px;
   color: ${(props) =>
     props.highlight ? "#0d9488" : props.danger ? "#dc2626" : "#374151"};
   font-weight: ${(props) => (props.bold ? "700" : "500")};
@@ -770,16 +785,17 @@ const SummaryRow = styled.div`
     props.separator &&
     `
     border-top: 1px solid #e5e7eb;
-    padding-top: 8px;
+    padding-top: 5px;
     margin-top: 2px;
   `}
 `;
 
 const ModalFooterBar = styled.div`
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
+  gap: 10px;
+  padding: 10px 20px;
   border-top: 1px solid #f0f0f0;
   background: #fafafa;
   border-radius: 0 0 16px 16px;
@@ -789,9 +805,9 @@ const SaveButton = styled.button`
   background: linear-gradient(135deg, #0d9488, #0f766e);
   color: white;
   border: none;
-  padding: 10px 28px;
-  border-radius: 8px;
-  font-size: 15px;
+  padding: 8px 24px;
+  border-radius: 7px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
@@ -880,6 +896,7 @@ export default function CentralCashCounter() {
   const [ipAdvanceUnpaidBills, setIpAdvanceUnpaidBills] = useState([]);
   const [ipAdvanceReceivedBills, setIpAdvanceReceivedBills] = useState([]);
   const [opPharmacyBills, setOpPharmacyBills] = useState([]);
+  const [opPharmacyUnpaidBills, setOpPharmacyUnpaidBills] = useState([]);
   const [opPharmacyReceivedBills, setOpPharmacyReceivedBills] = useState([]);
   const [allowedBillTypes, setAllowedBillTypes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1221,6 +1238,8 @@ export default function CentralCashCounter() {
       setActiveShift(null);
       setPendingBills([]);
       setOpPharmacyBills([]);
+      setOpPharmacyUnpaidBills([]);
+      setOpPharmacyReceivedBills([]);
       setFilteredBills([]);
       await refreshActiveShift();
       return;
@@ -1242,6 +1261,8 @@ export default function CentralCashCounter() {
       setActiveShift(null);
       setPendingBills([]);
       setOpPharmacyBills([]);
+      setOpPharmacyUnpaidBills([]);
+      setOpPharmacyReceivedBills([]);
       setFilteredBills([]);
     }
     await refreshActiveShift();
@@ -1288,6 +1309,8 @@ export default function CentralCashCounter() {
         setActiveShift(null);
         setPendingBills([]);
         setOpPharmacyBills([]);
+        setOpPharmacyUnpaidBills([]);
+        setOpPharmacyReceivedBills([]);
         setFilteredBills([]);
       }
     } catch (err) {
@@ -1703,7 +1726,10 @@ export default function CentralCashCounter() {
       };
 
       const formatPharmacyItem = (item, index) => {
-        const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
+        const rawDate = item.billing_status === "Paid"
+          ? (item.paid_date || item.paid_datetime || item.lastmodified_date || item.bill_date)
+          : (item.bill_date || item.created_date);
+        const billDateObj = rawDate ? new Date(rawDate) : null;
         const billDate = billDateObj
           ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
           : "-";
@@ -1733,15 +1759,36 @@ export default function CentralCashCounter() {
         };
       };
 
-      const formatted = billsArray
-        .filter((item) => item.billing_status === "Billed" || item.billing_status === "Processing")
+      const isCurrentDate = (item) => {
+        if (typeof item.is_current_date === "boolean") return item.is_current_date;
+        const rawDate = item.billing_status === "Paid"
+          ? (item.paid_date || item.paid_datetime || item.lastmodified_date || item.bill_date)
+          : (item.bill_date || item.created_date);
+        if (!rawDate) return false;
+        const bDate = new Date(rawDate);
+        if (isNaN(bDate.getTime())) return false;
+        const todayStr = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+        const billStr = bDate.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+        return todayStr === billStr;
+      };
+
+      const isUnpaidStatus = (status) =>
+        status === "Billed" || status === "Processing" || status === "Pending";
+
+      const formattedPending = billsArray
+        .filter((item) => item.is_pending === true || (isUnpaidStatus(item.billing_status) && isCurrentDate(item)))
+        .map(formatPharmacyItem);
+
+      const formattedUnpaid = billsArray
+        .filter((item) => item.is_unpaid === true || (isUnpaidStatus(item.billing_status) && !isCurrentDate(item)))
         .map(formatPharmacyItem);
 
       const formattedReceived = billsArray
-        .filter((item) => item.billing_status === "Paid")
+        .filter((item) => item.is_received === true || (item.billing_status === "Paid" && isCurrentDate(item)))
         .map(formatPharmacyItem);
 
-      setOpPharmacyBills(formatted);
+      setOpPharmacyBills(formattedPending);
+      setOpPharmacyUnpaidBills(formattedUnpaid);
       setOpPharmacyReceivedBills(formattedReceived);
     } catch (err) {
       if (!silent) {
@@ -1935,13 +1982,7 @@ export default function CentralCashCounter() {
       return;
     }
 
-    // Validate ref numbers based on selected methods
-    if (selectedMethods.card && parseFloat(payments.card) > 0 && !payments.cardNo.trim()) {
-      const msg = "Please enter the Card / Transaction Reference No to proceed.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
+    // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
     if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
       const msg = "Please enter the Cheque Number to proceed.";
       setModalError(msg);
@@ -2065,6 +2106,7 @@ export default function CentralCashCounter() {
         setPendingBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         setUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         setOpPharmacyBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+        setOpPharmacyUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
         await fetchPendingBills();
         await fetchUnpaidBills();
         await fetchOpPharmacyPendingBills();
@@ -2127,13 +2169,7 @@ export default function CentralCashCounter() {
       return;
     }
 
-    // Validate ref numbers based on selected methods
-    if (selectedMethods.card && parseFloat(payments.card) > 0 && !payments.cardNo.trim()) {
-      const msg = "Please enter the Card / Transaction Reference No to proceed.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
+    // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
     if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
       const msg = "Please enter the Cheque Number to proceed.";
       setModalError(msg);
@@ -2210,7 +2246,7 @@ export default function CentralCashCounter() {
     if (activeMenuItem === "Pending Bills") {
       if (isOp) {
         // Outlet 2 / CC0002: strictly OP Pharmacy bills only (bill type 42)
-        bills = selectedType === "pending" ? opPharmacyBills : selectedType === "unpaid" ? [] : opPharmacyReceivedBills;
+        bills = selectedType === "pending" ? opPharmacyBills : selectedType === "unpaid" ? opPharmacyUnpaidBills : opPharmacyReceivedBills;
       } else {
         // Main block front office (CC0001 / OLET003)
         bills = selectedType === "pending" ? pendingBills : selectedType === "unpaid" ? unpaidBills : receivedBills;
@@ -2255,6 +2291,7 @@ export default function CentralCashCounter() {
     pendingBills,
     unpaidBills,
     opPharmacyBills,
+    opPharmacyUnpaidBills,
     opPharmacyReceivedBills,
     receivedBills,
     ipAdvancePendingBills,
@@ -2378,6 +2415,8 @@ export default function CentralCashCounter() {
     if (!isShiftActive) {
       setPendingBills([]);
       setOpPharmacyBills([]);
+      setOpPharmacyUnpaidBills([]);
+      setOpPharmacyReceivedBills([]);
       setFilteredBills([]);
       return;
     }
@@ -2535,9 +2574,18 @@ export default function CentralCashCounter() {
               <ShiftItemDivider />
 
               <ShiftItemBox>
-                <ShiftItemLabel>Collected Amount</ShiftItemLabel>
+                <ShiftItemLabel>Cash Collected</ShiftItemLabel>
                 <ShiftCollectedAmount>
                   ₹ {parseFloat(activeShift?.collected_Amount ?? activeShift?.collected_amount ?? activeShift?.CollectedAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </ShiftCollectedAmount>
+              </ShiftItemBox>
+
+              <ShiftItemDivider />
+
+              <ShiftItemBox>
+                <ShiftItemLabel>Credit (UPI / Card / Cheque / Credit)</ShiftItemLabel>
+                <ShiftCollectedAmount style={{ color: "#2563eb" }}>
+                  ₹ {parseFloat(activeShift?.CreditAmount ?? activeShift?.credit_amount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </ShiftCollectedAmount>
               </ShiftItemBox>
 
@@ -2815,6 +2863,7 @@ export default function CentralCashCounter() {
                               type="number" placeholder="0.00" min="0" step="0.01"
                               value={rpAmount}
                               onChange={(e) => setRpAmount(e.target.value)}
+                              onWheel={(e) => e.target.blur()}
                               style={{ border:"1px solid #cbd5e1", borderRadius:8, padding:"8px 12px", fontSize:13.5, minWidth:130, height:38, background:"#ffffff", outline:"none" }}
                             />
                           </div>
@@ -3553,7 +3602,7 @@ export default function CentralCashCounter() {
       {/* ══════════════ PAYMENT MODAL ══════════════ */}
       {showPaymentModal && (
         <ModalOverlay>
-          <ModalContainer style={{ maxWidth: 560 }}>
+          <ModalContainer style={{ maxWidth: 600 }}>
             <ModalHeader>
               <ModalTitle>
                 {selectedBill?.source === "ReturnBill" ? "💰 Process Refund" : "💳 Collect Payment"}
@@ -3628,17 +3677,17 @@ export default function CentralCashCounter() {
                 <span>₹ {netAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </NetAmountBanner>
 
-              <div style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
                 {["cash", "card", "cheque", "credit"].map((method) => (
                   <label
                     key={method}
                     style={{
                       flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: "8px",
+                      gap: "6px",
                       border: `2px solid ${selectedMethods[method] ? "#0d9488" : "#e5e7eb"}`,
-                      borderRadius: "8px", padding: "10px 12px", cursor: "pointer",
+                      borderRadius: "7px", padding: "7px 10px", cursor: "pointer",
                       background: selectedMethods[method] ? "#f0fdfa" : "#fafafa",
-                      fontWeight: 600, fontSize: "14px",
+                      fontWeight: 600, fontSize: "13px",
                       color: selectedMethods[method] ? "#0d9488" : "#6b7280",
                       transition: "all 0.2s", userSelect: "none",
                     }}
@@ -3701,6 +3750,7 @@ export default function CentralCashCounter() {
                       type="number" placeholder="0.00"
                       value={payments.cash}
                       onChange={(e) => setPayments({ ...payments, cash: e.target.value })}
+                      onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                 </PaymentSection>
@@ -3723,12 +3773,13 @@ export default function CentralCashCounter() {
                           : payments.cash;
                         setPayments({ ...payments, card: e.target.value, cash: newCash });
                       }}
+                      onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                   <FormRow>
-                    <FormLabel>Card / Ref No</FormLabel>
+                    <FormLabel>Card / Ref No (Optional)</FormLabel>
                     <SubInput
-                      type="text" placeholder="Enter card / transaction ref no"
+                      type="text" placeholder="Enter card / transaction ref no (optional)"
                       value={payments.cardNo}
                       onChange={(e) => setPayments({ ...payments, cardNo: e.target.value })}
                     />
@@ -3753,6 +3804,7 @@ export default function CentralCashCounter() {
                           : payments.cash;
                         setPayments({ ...payments, cheque: e.target.value, cash: newCash });
                       }}
+                      onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                   <FormRow>
@@ -3783,6 +3835,7 @@ export default function CentralCashCounter() {
                           : payments.cash;
                         setPayments({ ...payments, credit: e.target.value, cash: newCash });
                       }}
+                      onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                 </PaymentSection>
@@ -3830,21 +3883,23 @@ export default function CentralCashCounter() {
 
               {/* ✅ NEW: Remarks field — only shown for OPPharmacy bills */}
               {selectedBill?.source === "OPPharmacy" && (
-                <PaymentSection style={{ marginTop: "14px" }}>
+                <PaymentSection style={{ marginTop: "8px" }}>
                   <PaymentMethodLabel>📝 Remarks (Optional)</PaymentMethodLabel>
                   <textarea
                     placeholder="Enter remarks if any..."
                     value={remarks}
                     onChange={(e) => setRemarks(e.target.value)}
-                    rows={2}
+                    rows={1}
                     style={{
                       border: "1.5px solid #e5e7eb",
-                      borderRadius: "8px",
-                      padding: "9px 14px",
-                      fontSize: "14px",
+                      borderRadius: "7px",
+                      padding: "6px 12px",
+                      fontSize: "13px",
                       width: "100%",
+                      minHeight: "36px",
+                      height: "36px",
                       boxSizing: "border-box",
-                      resize: "vertical",
+                      resize: "none",
                       fontFamily: "inherit",
                       background: "#fafafa",
                       transition: "border-color 0.2s, box-shadow 0.2s",

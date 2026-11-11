@@ -433,16 +433,28 @@ const RHCLbl = styled.div`font-size:.6rem;font-weight:600;color:#9ca3af;text-tra
 const RHCVal = styled.div`font-size:.76rem;color:#111827;font-weight:600;margin-top:2px;`;
 const RHFooter = styled.div`padding:8px 14px;background:${p => p.active ? '#f0fdf4' : p.shift ? '#faf5ff' : '#f8fafc'};border-top:1px solid ${p => p.active ? '#bbf7d0' : p.shift ? '#e9d5ff' : '#f3f4f6'};font-size:.7rem;font-weight:600;color:${p => p.active ? '#166534' : p.shift ? '#7e22ce' : '#374151'};display:flex;align-items:center;gap:8px;`;
 
-// ─── Print Slip ────────────────────────────────────────────────────────────────
+// ─── Print Slip (Styled for thermal label 97.5mm x 51.0mm) ───────────────────
 const PMC = styled(ModalContainer)`max-width:520px;`;
 const PMB = styled(ModalBody)`padding:0;background:#fff;`;
-const Slip = styled.div`padding:16px;font-family:'Courier New',monospace;font-size:12px;color:#000;border:2px solid #000;margin:16px;`;
-const SR = styled.div`display:flex;justify-content:space-between;gap:12px;`;
-const SL = styled.div`flex:1;`;
-const SRt = styled.div`text-align:right;`;
-const SBig = styled.div`font-size:18px;font-weight:900;letter-spacing:.5px;`;
-const SLn = styled.div`margin:2px 0;font-size:11px;`;
-const SBold = styled.div`font-weight:700;margin:2px 0;font-size:12px;`;
+const Slip = styled.div`
+  width: 97.5mm;
+  min-height: 51.0mm;
+  max-width: 100%;
+  padding: 3mm 4mm;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10px;
+  color: #000;
+  border: 1.5px dashed #000;
+  margin: 16px auto;
+  box-sizing: border-box;
+  background: #fff;
+`;
+const SR = styled.div`display:flex;justify-content:space-between;gap:10px;align-items:flex-start;`;
+const SL = styled.div`flex:1.55;display:flex;flex-direction:column;gap:1.5px;`;
+const SRt = styled.div`flex:1;text-align:right;display:flex;flex-direction:column;gap:1.5px;`;
+const SBig = styled.div`font-size:12px;font-weight:900;letter-spacing:.3px;line-height:1.1;`;
+const SLn = styled.div`margin:0;font-size:9.5px;line-height:1.2;`;
+const SBold = styled.div`font-weight:700;margin:1px 0;font-size:10.5px;line-height:1.2;`;
 const PA = styled.div`display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e5e7eb;`;
 const PBt = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p => p.sec ? '#e5e7eb' : '#7c3aed'};color:${p => p.sec ? '#374151' : '#fff'};&:hover{opacity:.88;}`;
 
@@ -674,6 +686,12 @@ const parseTimestamp = (d) => {
   const str = String(d).trim();
   if (!str) return 0;
 
+  // Bare ISO datetime without timezone offset (e.g. naive UTC datetime serialized without Z/+HH:MM)
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(str)) {
+    const utcTs = new Date(str.replace(" ", "T") + "Z").getTime();
+    if (!isNaN(utcTs)) return utcTs;
+  }
+
   let t = new Date(str).getTime();
   if (!isNaN(t)) return t;
 
@@ -710,23 +728,27 @@ const parseTimestamp = (d) => {
   return 0;
 };
 
+const IST_TZ = "Asia/Kolkata";
 const fmtDate = d => {
   if (!d) return "-";
   const ts = parseTimestamp(d);
   if (!ts) return typeof d === "string" ? d : "-";
-  try { return new Date(ts).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return "-"; }
+  try { return new Date(ts).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: IST_TZ }); } catch { return "-"; }
 };
 const fmtTime = d => {
   if (!d) return "-";
   const ts = parseTimestamp(d);
   if (!ts) return "-";
-  try { return new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }); } catch { return "-"; }
+  try { return new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: IST_TZ }); } catch { return "-"; }
 };
 const fmtDateTime = d => { if (!d) return "—"; try { return `${fmtDate(d)}, ${fmtTime(d)}`; } catch { return "—"; } };
 
 function calcDuration(start, end) {
   if (!start) return null;
-  const ms = (end ? new Date(end) : new Date()) - new Date(start);
+  const startTs = parseTimestamp(start);
+  const endTs = end ? parseTimestamp(end) : Date.now();
+  if (!startTs || !endTs) return null;
+  const ms = endTs - startTs;
   if (ms < 0) return { days: 0, hours: 0 };
   return { days: Math.floor(ms / 86400000), hours: Math.floor((ms % 86400000) / 3600000) };
 }
@@ -1922,7 +1944,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: IST_TZ });
 
   // ── Today Registered Patients / Admission Requests State ───────────────────
   const [registeredPatients, setRegisteredPatients] = useState([]);
@@ -2573,11 +2595,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     if (!d) return false;
     const ts = parseTimestamp(d);
     if (!ts) return false;
-    const dateObj = new Date(ts);
-    const now = new Date();
-    return dateObj.getFullYear() === now.getFullYear() &&
-           dateObj.getMonth() === now.getMonth() &&
-           dateObj.getDate() === now.getDate();
+    return fmtDate(ts) === fmtDate(Date.now());
   };
 
   const isTodayAdmission = (a) => {
@@ -3088,14 +3106,15 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
   const doPrint = () => {
     const pd = printData || {};
-    const admDT = pd.admissionDateTime ? new Date(pd.admissionDateTime) : new Date();
+    const admTs = parseTimestamp(pd.admissionDateTime);
+    const admDT = new Date(admTs || Date.now());
     const ipStr = pd.ipNumber || "";
     const { roomNo, bedNo } = getActiveRoom(pd);
     const encoded = encodeCode128(ipStr);
-    const bW = 200, modW = bW / encoded.length;
+    const bW = 160, modW = bW / encoded.length;
     let barsHtml = "", xPos = 0;
     for (let i = 0; i < encoded.length; i++) {
-      if (i % 2 === 0) barsHtml += `<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW, 0.6).toFixed(2)}" height="38" fill="black"/>`;
+      if (i % 2 === 0) barsHtml += `<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW, 0.6).toFixed(2)}" height="26" fill="black"/>`;
       xPos += modW;
     }
 
@@ -3135,30 +3154,146 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     // Room
     const roomDisplay = roomNo !== "-" ? `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}` : "-";
 
-    const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }); // DD/MM/YYYY
-    const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }); // HH:MM:SS
+    const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: IST_TZ }); // DD/MM/YYYY
+    const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ }); // HH:MM:SS
 
-    const w = window.open("", "_blank", "width=600,height=420");
-    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>
-      *{margin:0;padding:0;box-sizing:border-box;}
-      body{font-family:'Arial',sans-serif;font-size:12px;padding:16px;color:#000;background:#fff;}
-      .slip{width:460px;border:2px solid #000;padding:10px 14px;background:#fff;}
-      .header-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
-      .bc-box{display:flex;flex-direction:column;align-items:flex-start;}
-      .ip-box{text-align:right;}
-      .ip-title{font-size:14px;font-weight:900;letter-spacing:.3px;}
-      .comp-title{font-size:12px;font-weight:900;margin-top:2px;}
-      .grid{display:grid;grid-template-columns:1.45fr 1fr;gap:6px 12px;}
-      .col-left{display:flex;flex-direction:column;gap:3px;}
-      .col-right{display:flex;flex-direction:column;gap:3px;text-align:left;}
-      .bold{font-weight:900;}
-      .line{font-size:11.5px;line-height:1.3;word-break:break-word;}
-      @media print{body{padding:0;}.slip{border:none;}}
+    const w = window.open("", "_blank", "width=500,height=340");
+    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip - ${ipStr}</title><style>
+      @page {
+        size: 97.5mm 51.0mm;
+        margin: 0;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html, body {
+        width: 97.5mm;
+        height: 51.0mm;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #fff;
+        color: #000;
+        font-family: Arial, Helvetica, sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .slip {
+        width: 97.5mm;
+        height: 51.0mm;
+        max-width: 97.5mm;
+        max-height: 51.0mm;
+        padding: 2mm 3mm;
+        background: #fff;
+        box-sizing: border-box;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+      }
+      .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 3px;
+        padding-bottom: 2px;
+        border-bottom: 1px dashed #000;
+      }
+      .bc-box {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .ip-box {
+        text-align: right;
+      }
+      .ip-title {
+        font-size: 11.5px;
+        font-weight: 900;
+        letter-spacing: .3px;
+        line-height: 1.1;
+      }
+      .comp-title {
+        font-size: 9.5px;
+        font-weight: 800;
+        margin-top: 2px;
+        line-height: 1.1;
+        max-width: 170px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.55fr 1fr;
+        gap: 2px 8px;
+        margin-top: 2px;
+      }
+      .col-left {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5px;
+      }
+      .col-right {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5px;
+        text-align: left;
+      }
+      .bold {
+        font-weight: 900;
+      }
+      .line {
+        font-size: 9.5px;
+        line-height: 1.2;
+        word-break: break-word;
+      }
+      .line-main {
+        font-size: 10.5px;
+        line-height: 1.2;
+      }
+      @media screen {
+        body {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          background: #e2e8f0;
+          padding: 20px;
+        }
+        .slip {
+          border: 1px dashed #64748b;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+      }
+      @media print {
+        html, body {
+          width: 97.5mm !important;
+          height: 51.0mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+        }
+        .slip {
+          border: none !important;
+          box-shadow: none !important;
+          width: 97.5mm !important;
+          height: 51.0mm !important;
+          max-width: 97.5mm !important;
+          max-height: 51.0mm !important;
+          margin: 0 !important;
+          padding: 2mm 3mm !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+      }
     </style></head><body>
       <div class="slip">
         <div class="header-row">
           <div class="bc-box">
-            <svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="38" viewBox="0 0 ${bW} 38">${barsHtml}</svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="26" viewBox="0 0 ${bW} 26">${barsHtml}</svg>
           </div>
           <div class="ip-box">
             <div class="ip-title">IP NO: ${ipStr}</div>
@@ -3167,19 +3302,19 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         </div>
         <div class="grid">
           <div class="col-left">
-            <div class="line bold">${pName(pd).toUpperCase()} / ${pd.age || ""} ${String(pd.gender || "").toUpperCase()}</div>
+            <div class="line line-main bold">${pName(pd).toUpperCase()} / ${pd.age || ""} ${String(pd.gender || "").toUpperCase()}</div>
             ${relLine}
             ${addr1 ? `<div class="line bold">${addr1}</div>` : ""}
             ${addr2 ? `<div class="line bold">${addr2}</div>` : ""}
             ${pd.mobilePhone ? `<div class="line bold">${pd.mobilePhone}</div>` : ""}
-            <div class="line bold" style="margin-top:2px;">Admitted : ${docDisplay}</div>
-            <div class="line bold">Adhar Number : ${adharNo}</div>
+            <div class="line bold">Admitted : ${docDisplay}</div>
+            ${adharNo ? `<div class="line bold">Adhar Number : ${adharNo}</div>` : ""}
           </div>
           <div class="col-right">
             <div class="line bold">UHID : ${pd.uhid || ""}</div>
-            <div class="line bold">DOA  :${doaDate}</div>
+            <div class="line bold">DOA  : ${doaDate}</div>
             <div class="line bold">AD.TIME: ${doaTime}</div>
-            <div class="line bold">Room: ${roomDisplay}</div>
+            <div class="line bold">Room : ${roomDisplay}</div>
           </div>
         </div>
       </div>
@@ -4637,7 +4772,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                 <Slip>
                   <SR>
                     <SL>
-                      <BarcodeSVG value={printData.ipNumber || printData.ip_number || ""} width={240} height={64} showText />
+                      <BarcodeSVG value={printData.ipNumber || printData.ip_number || ""} width={160} height={30} showText />
                       <SBold>{pName(printData)}</SBold>
                       <SLn>
                         {printData.dob ? `DOB: ${printData.dob}  ` : ""}
@@ -4654,7 +4789,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       <SLn>{printData.insuranceCompanyName || ""}</SLn>
                       <SLn>UHID : {printData.uhid || ""}</SLn>
                       <SLn>DOA  : {printData.admissionDateTime ? fmtDate(printData.admissionDateTime) : "-"}</SLn>
-                      <SLn>TIME : {printData.admissionDateTime ? new Date(printData.admissionDateTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "-"}</SLn>
+                      <SLn>TIME : {parseTimestamp(printData.admissionDateTime) ? new Date(parseTimestamp(printData.admissionDateTime)).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ }) : "-"}</SLn>
                       <SLn>Room : {roomNo} / {bedNo}</SLn>
                     </SRt>
                   </SR>

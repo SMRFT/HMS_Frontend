@@ -1241,8 +1241,8 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     try {
       const queryTerm = (val || "").trim();
       const url = queryTerm
-        ? `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${targetOutlet}&search=${encodeURIComponent(queryTerm)}`
-        : `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${targetOutlet}`;
+        ? `${HmsBaseUrl}get_nursing_station_pharmacy_stock/?outlet_code=${targetOutlet}&search=${encodeURIComponent(queryTerm)}`
+        : `${HmsBaseUrl}get_nursing_station_pharmacy_stock/?outlet_code=${targetOutlet}`;
       const res = await apiRequest(url, "GET");
       const list = res.success
         ? Array.isArray(res.data?.data)
@@ -1286,6 +1286,15 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       }
     }
   }, [highlightedMedicineIndex, isSearchModalOpen]);
+
+  // Debounced live search when typing inside the medicine search modal
+  useEffect(() => {
+    if (!isSearchModalOpen) return;
+    const timer = setTimeout(() => {
+      handleMedicineSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, isSearchModalOpen]);
 
   // Auto-calculate quantity based on dosage & days
   useEffect(() => {
@@ -1368,7 +1377,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     setPackageLoading(true);
     try {
       const res = await apiRequest(
-        `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${pharmacyDept}`,
+        `${HmsBaseUrl}get_nursing_station_pharmacy_stock/?outlet_code=${pharmacyDept}`,
         "GET"
       );
       const stockList = res.success
@@ -2484,7 +2493,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
 
       {/* ─── Medicine Search Modal ────────────────────────────────────── */}
       {isSearchModalOpen && (
-        <ModalOverlay style={{ zIndex: 2000 }}>
+        <ModalOverlay style={{ zIndex: 2000 }} onClick={() => setIsSearchModalOpen(false)}>
           <ModalContainer
             style={{ width: "80%", height: "80%", maxWidth: "1000px" }}
             onClick={(e) => e.stopPropagation()}
@@ -2673,6 +2682,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       )}
       {showDosageModal && (
         <div
+          onClick={() => setShowDosageModal(false)}
           style={{
             position: "fixed",
             top: 0,
@@ -2687,6 +2697,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
           }}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               background: "white",
               padding: "24px",
@@ -2768,7 +2779,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       )}
       {/* ─── Return Medicine Modal ────────────────────────────────────── */}
       {isReturnModalOpen && selectedReturnReq && (
-        <ModalOverlay style={{ zIndex: 2000 }}>
+        <ModalOverlay style={{ zIndex: 2000 }} onClick={() => setIsReturnModalOpen(false)}>
           <ModalContainer
             style={{ width: "80%", height: "80%", maxWidth: "1000px" }}
             onClick={(e) => e.stopPropagation()}
@@ -2846,7 +2857,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
 
       {/* Package Selection Modal */}
       {isPackageModalOpen && (
-        <ModalOverlay style={{ zIndex: 2000 }}>
+        <ModalOverlay style={{ zIndex: 2000 }} onClick={() => setIsPackageModalOpen(false)}>
           <ModalContainer
             style={{ width: "90%", maxWidth: "700px", height: "70vh" }}
             onClick={(e) => e.stopPropagation()}

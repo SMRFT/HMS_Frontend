@@ -655,8 +655,8 @@ const LegendEntry = styled.div`
 const DetailModalBox = styled.div`
   background: #ffffff;
   border-radius: 16px;
-  width: 1040px;
-  max-width: 95vw;
+  width: 1160px;
+  max-width: 96vw;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -1711,7 +1711,7 @@ const getUnitPrice = (item) => {
 };
 
 // --------- MAIN COMPONENT ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeTab }) => {
+const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeTab, selectedOutlet }) => {
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
   const yesterdayStr = useMemo(() => {
     const d = new Date();
@@ -1928,7 +1928,14 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       if (!silent) setLoading(true);
       setError(null);
 
+      const activeOutlet =
+        selectedOutlet ||
+        localStorage.getItem("selected_outlet") ||
+        localStorage.getItem("outlet_code") ||
+        "";
+
       const payload = {};
+      if (activeOutlet) payload.outlet_code = activeOutlet;
       if (fromDate) payload.from_date = fromDate;
       if (toDate) payload.to_date = toDate;
 
@@ -1955,9 +1962,19 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
             ? resBody.data.data
             : [];
       console.log("fetchMedicineChart rawList count:", rawList.length, rawList);
-      setMedicineData(rawList);
+
+      // Extra safeguard: filter by active outlet so other outlet requests are not mixed
+      const filteredList = activeOutlet
+        ? rawList.filter((bill) => {
+            const billOutlet = bill.outlet_code || bill.outletCode;
+            if (!billOutlet) return true;
+            return String(billOutlet).trim().toUpperCase() === String(activeOutlet).trim().toUpperCase();
+          })
+        : rawList;
+
+      setMedicineData(filteredList);
       if (typeof onCountChange === "function") {
-        onCountChange(rawList.length);
+        onCountChange(filteredList.length);
       }
     } catch (err) {
       console.error("Error fetching medicine chart:", err);
@@ -1965,7 +1982,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [Hmsbaseurl, fromDate, toDate, onCountChange]);
+  }, [Hmsbaseurl, fromDate, toDate, onCountChange, selectedOutlet]);
 
   // Initial load
   useEffect(() => {
@@ -2540,8 +2557,6 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <th>Insurance Name</th>
                       <th>Ward & Room Number</th>
                       <th>Date & Req. By</th>
-                      <th>Items & Amount</th>
-                      <th>IP Advance</th>
                       <th style={{ textAlign: "center" }}>Status</th>
                       <th style={{ textAlign: "center" }}>Actions</th>
                     </tr>
@@ -2549,7 +2564,6 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                   <tbody>
                     {filteredData.map(patient => {
                       const billKey = getBillKey(patient);
-                      const { itemsCount, prescriptionTotal, advance } = getPatientFinancials(patient);
                       const pName = patient.patient_details?.patient_name || patient.patient_name || "—";
                       const uhid = patient.uhid || "—";
                       const ipNo = patient.inpatient_number || patient.ip_number || "—";
@@ -2665,38 +2679,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             )}
                           </td>
 
-                          {/* 7. Items & Amount */}
-                          <td>
-                            <div style={{ fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-                              {itemsCount} {itemsCount === 1 ? "item" : "items"} • ₹{formatCurrency(prescriptionTotal)}
-                            </div>
-                            {Array.isArray(patient?.medicine_items) && patient.medicine_items.some(isConsumableItem) && (
-                              <span
-                                style={{
-                                  background: "#ffedd5",
-                                  color: "#c2410c",
-                                  padding: "1px 5px",
-                                  borderRadius: 3,
-                                  fontSize: "0.62rem",
-                                  fontWeight: 700,
-                                  border: "1px solid #fed7aa",
-                                  display: "inline-block",
-                                  marginTop: 2,
-                                }}
-                              >
-                                CONSUMABLES
-                              </span>
-                            )}
-                          </td>
-
-                          {/* 8. IP Advance */}
-                          <td>
-                            <span style={{ fontWeight: 700, color: "#059669", whiteSpace: "nowrap" }}>
-                              ₹{formatCurrency(advance)}
-                            </span>
-                          </td>
-
-                          {/* 9. Status */}
+                          {/* 7. Status */}
                           <td style={{ textAlign: "center" }}>
                             <StatusPill $status={patient.billing_status || "Pending"}>
                               <span className="dot" />
@@ -3044,6 +3027,8 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                         <tr>
                           <th>Medicine</th>
                           <th>Type</th>
+                          <th>Batch No</th>
+                          <th>Expiry</th>
                           <th style={{ textAlign: "center" }}>Qty</th>
                           <th style={{ textAlign: "right" }}>Unit ₹</th>
                           <th style={{ textAlign: "right" }}>Amount ₹</th>
@@ -3056,7 +3041,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <tbody>
                         {items.length === 0 ? (
                           <tr>
-                            <td colSpan="9" style={{ textAlign: "center", padding: "28px", color: "#94a3b8" }}>
+                            <td colSpan="11" style={{ textAlign: "center", padding: "28px", color: "#94a3b8" }}>
                               No medicine items in this prescription.
                             </td>
                           </tr>
@@ -3070,6 +3055,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             const dotColor = getItemDotColor(item);
                             const typeName = getItemTypeName(item);
                             const requestedTime = formatDateTime(item.ward_request_date || patient.ward_request_date || patient.created_date);
+                            const batchNum = item.batch_number || item.batch || item.batch_no || "—";
+                            const expDateRaw = item.expiry_date || item.expiry || item.expiryDate;
+                            const expDate = expDateRaw ? formatExpiryForBill(expDateRaw) : "—";
 
                             return (
                               <tr key={item.item_id || idx}>
@@ -3096,6 +3084,39 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                                   </div>
                                 </td>
                                 <td style={{ color: "#475569" }}>{typeName}</td>
+                                <td style={{ color: "#334155", fontWeight: 600, fontSize: "0.74rem", whiteSpace: "nowrap" }}>
+                                  {batchNum !== "—" ? (
+                                    <span style={{
+                                      background: "#f1f5f9",
+                                      padding: "2px 6px",
+                                      borderRadius: 4,
+                                      border: "1px solid #e2e8f0",
+                                      fontFamily: "'JetBrains Mono', monospace",
+                                      color: "#1e293b",
+                                      fontWeight: 700
+                                    }}>
+                                      {batchNum}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: "#94a3b8" }}>—</span>
+                                  )}
+                                </td>
+                                <td style={{ color: "#334155", fontWeight: 600, fontSize: "0.74rem", whiteSpace: "nowrap" }}>
+                                  {expDate !== "—" ? (
+                                    <span style={{
+                                      background: "#f8fafc",
+                                      padding: "2px 6px",
+                                      borderRadius: 4,
+                                      border: "1px solid #e2e8f0",
+                                      fontFamily: "'JetBrains Mono', monospace",
+                                      color: "#475569"
+                                    }}>
+                                      {expDate}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: "#94a3b8" }}>—</span>
+                                  )}
+                                </td>
                                 <td style={{ textAlign: "center", fontWeight: 600 }}>{q}</td>
                                 <td style={{ textAlign: "right", fontFamily: "'JetBrains Mono', monospace" }}>
                                   {formatCurrency(unitPrice)}
@@ -3373,10 +3394,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                   * { box-sizing: border-box; margin: 0; padding: 0; }
                   html, body {
                     width: 210mm;
-                    height: 148mm;
-                    font-family: Arial, Helvetica, sans-serif;
-                    padding: 0;
                     margin: 0;
+                    padding: 0;
+                    font-family: Arial, Helvetica, sans-serif;
                     font-size: 11px;
                     color: #111;
                     line-height: 1.35;
@@ -3389,6 +3409,10 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     margin: 0 auto;
                     padding: 3mm 4mm;
                     background: #fff;
+                  }
+                  .bill-table tr {
+                    page-break-inside: avoid;
+                    break-inside: avoid;
                   }
                   @media print {
                     body { padding: 0; background: #fff; }

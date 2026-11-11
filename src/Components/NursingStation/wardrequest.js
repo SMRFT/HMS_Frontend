@@ -28,7 +28,8 @@ import {
   FiFileText,
   FiCreditCard,
   FiCheckCircle,
-  FiTrendingUp
+  FiTrendingUp,
+  FiChevronDown
 } from "react-icons/fi";
 import {
   MdOutlineScience,
@@ -834,7 +835,7 @@ const RequestSubModalCard = styled.div`
 `;
 
 const DrawerContent = styled.div`
-  width: 360px;
+  width: 380px;
   height: 100vh;
   background: white;
   box-shadow: -10px 0 25px rgba(0, 0, 0, 0.1);
@@ -843,7 +844,7 @@ const DrawerContent = styled.div`
   animation: ${slideInRight} 0.25s ease-out;
 
   .drawer-header {
-    padding: 16px 20px;
+    padding: 18px 22px;
     border-bottom: 1px solid #e2e8f0;
     display: flex;
     justify-content: space-between;
@@ -856,96 +857,154 @@ const DrawerContent = styled.div`
       margin: 0;
     }
 
+    .active-badge {
+      background: #e6f9f3;
+      color: #0d9488;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+
     button {
       background: none;
       border: none;
       font-size: 18px;
       color: #64748b;
       cursor: pointer;
-      &:hover { color: #0f172a; }
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.15s;
+      &:hover { color: #0f172a; background: #f1f5f9; }
     }
   }
 
   .drawer-body {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: 22px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
 
     .filter-group {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
 
-      .group-title {
-        font-size: 11px;
-        font-weight: 700;
-        color: #94a3b8;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+      .group-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .group-title {
+          font-size: 11.5px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .clear-btn {
+          background: none;
+          border: none;
+          color: #0d9488;
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 0 4px;
+          &:hover {
+            text-decoration: underline;
+          }
+        }
       }
 
-      .chip-wrap {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
+      .filter-select-wrapper {
+        position: relative;
+        width: 100%;
 
-        .chip {
-          border: 1px solid #e2e8f0;
+        select {
+          width: 100%;
+          padding: 10px 36px 10px 14px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #1e293b;
           background: #f8fafc;
-          border-radius: 20px;
-          padding: 6px 14px;
-          font-size: 12px;
-          font-weight: 600;
-          color: #334155;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 10px;
+          outline: none;
+          appearance: none;
           cursor: pointer;
-          transition: all 0.15s;
+          transition: all 0.2s ease;
 
-          &.selected {
-            background: #f0fdf4;
+          &.is-active {
+            background: #f0fdfa;
             border-color: #0d9488;
-            color: #0d9488;
+            color: #0f766e;
+            font-weight: 600;
           }
 
-          &:hover {
-            border-color: #cbd5e1;
+          &:focus {
+            border-color: #0d9488;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
           }
+
+          &:hover:not(:focus) {
+            border-color: #cbd5e1;
+            background: #ffffff;
+          }
+        }
+
+        .select-arrow {
+          position: absolute;
+          right: 14px;
+          top: 50%;
+          transform: translateY(-50%);
+          pointer-events: none;
+          color: #64748b;
+          font-size: 16px;
         }
       }
     }
   }
 
   .drawer-footer {
-    padding: 16px 20px;
+    padding: 16px 22px;
     border-top: 1px solid #e2e8f0;
     display: flex;
     gap: 12px;
+    background: #ffffff;
 
     .btn-reset {
       flex: 1;
       background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 10px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 11px;
       font-size: 13px;
       font-weight: 700;
       color: #475569;
       cursor: pointer;
-      &:hover { background: #f1f5f9; }
+      transition: all 0.15s;
+      &:hover { background: #f1f5f9; border-color: #cbd5e1; }
     }
 
     .btn-apply {
       flex: 2;
       background: #0d9488;
       border: none;
-      border-radius: 8px;
-      padding: 10px;
+      border-radius: 10px;
+      padding: 11px;
       font-size: 13px;
       font-weight: 700;
       color: white;
       cursor: pointer;
+      transition: all 0.15s;
+      box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2);
       &:hover { background: #0f766e; }
     }
   }
@@ -1274,6 +1333,18 @@ const WardRequest = () => {
     });
     return Array.from(set);
   }, [admissions]);
+
+  // Active filters count for badge
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedNursingStation !== "ALL") count++;
+    if (selectedBlock !== "ALL") count++;
+    if (selectedCategory !== "ALL") count++;
+    if (selectedDoctor !== "ALL") count++;
+    if (selectedPayment !== "ALL") count++;
+    if (selectedWardStatus !== "ALL") count++;
+    return count;
+  }, [selectedNursingStation, selectedBlock, selectedCategory, selectedDoctor, selectedPayment, selectedWardStatus]);
 
   // Filter Admissions
   const filteredAdmissions = useMemo(() => {
@@ -1644,7 +1715,7 @@ const WardRequest = () => {
 
         <div className="action-toggles">
           <button className="btn-filter" onClick={() => setShowFilterDrawer(true)}>
-            <FiSettings /> Filters
+            <FiSettings /> Filters {activeFiltersCount > 0 && `(${activeFiltersCount})`}
           </button>
 
           <div className="view-switch">
@@ -1942,98 +2013,151 @@ const WardRequest = () => {
         <DrawerOverlay onClick={() => setShowFilterDrawer(false)}>
           <DrawerContent onClick={e => e.stopPropagation()}>
             <div className="drawer-header">
-              <h3>Filters</h3>
-              <button onClick={() => setShowFilterDrawer(false)}>✕</button>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <h3>Filters</h3>
+                {activeFiltersCount > 0 && (
+                  <span className="active-badge">{activeFiltersCount} active</span>
+                )}
+              </div>
+              <button onClick={() => setShowFilterDrawer(false)} title="Close">✕</button>
             </div>
 
             <div className="drawer-body">
+              {/* 1. Nursing Station */}
               <div className="filter-group">
-                <div className="group-title">NURSING STATION</div>
-                <div className="chip-wrap">
-                  {availableNursingStations.map(ns => (
-                    <button
-                      key={ns}
-                      className={`chip ${selectedNursingStation === ns ? "selected" : ""}`}
-                      onClick={() => setSelectedNursingStation(ns)}
-                    >
-                      {ns === "ALL" ? "All Stations" : ns}
-                    </button>
-                  ))}
+                <div className="group-header">
+                  <span className="group-title">NURSING STATION</span>
+                  {selectedNursingStation !== "ALL" && (
+                    <button className="clear-btn" onClick={() => setSelectedNursingStation("ALL")}>Reset</button>
+                  )}
+                </div>
+                <div className="filter-select-wrapper">
+                  <select
+                    className={selectedNursingStation !== "ALL" ? "is-active" : ""}
+                    value={selectedNursingStation}
+                    onChange={e => setSelectedNursingStation(e.target.value)}
+                  >
+                    <option value="ALL">All Stations</option>
+                    {availableNursingStations.filter(ns => ns !== "ALL").map(ns => (
+                      <option key={ns} value={ns}>{ns}</option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="select-arrow" />
                 </div>
               </div>
 
+              {/* 2. Block */}
               <div className="filter-group">
-                <div className="group-title">BLOCK</div>
-                <div className="chip-wrap">
-                  {availableBlocks.map(b => (
-                    <button
-                      key={b}
-                      className={`chip ${selectedBlock === b ? "selected" : ""}`}
-                      onClick={() => setSelectedBlock(b)}
-                    >
-                      {b === "ALL" ? "All Blocks" : b}
-                    </button>
-                  ))}
+                <div className="group-header">
+                  <span className="group-title">BLOCK</span>
+                  {selectedBlock !== "ALL" && (
+                    <button className="clear-btn" onClick={() => setSelectedBlock("ALL")}>Reset</button>
+                  )}
+                </div>
+                <div className="filter-select-wrapper">
+                  <select
+                    className={selectedBlock !== "ALL" ? "is-active" : ""}
+                    value={selectedBlock}
+                    onChange={e => setSelectedBlock(e.target.value)}
+                  >
+                    <option value="ALL">All Blocks</option>
+                    {availableBlocks.filter(b => b !== "ALL").map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="select-arrow" />
                 </div>
               </div>
 
+              {/* 3. Room Category */}
               <div className="filter-group">
-                <div className="group-title">ROOM CATEGORY</div>
-                <div className="chip-wrap">
-                  {availableCategories.map(cat => (
-                    <button
-                      key={cat}
-                      className={`chip ${selectedCategory === cat ? "selected" : ""}`}
-                      onClick={() => setSelectedCategory(cat)}
-                    >
-                      {cat === "ALL" ? "All Categories" : cat}
-                    </button>
-                  ))}
+                <div className="group-header">
+                  <span className="group-title">ROOM CATEGORY</span>
+                  {selectedCategory !== "ALL" && (
+                    <button className="clear-btn" onClick={() => setSelectedCategory("ALL")}>Reset</button>
+                  )}
+                </div>
+                <div className="filter-select-wrapper">
+                  <select
+                    className={selectedCategory !== "ALL" ? "is-active" : ""}
+                    value={selectedCategory}
+                    onChange={e => setSelectedCategory(e.target.value)}
+                  >
+                    <option value="ALL">All Categories</option>
+                    {availableCategories.filter(cat => cat !== "ALL").map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="select-arrow" />
                 </div>
               </div>
 
+              {/* 4. Doctor */}
               <div className="filter-group">
-                <div className="group-title">DOCTOR</div>
-                <div className="chip-wrap">
-                  {availableDoctors.map(doc => (
-                    <button
-                      key={doc}
-                      className={`chip ${selectedDoctor === doc ? "selected" : ""}`}
-                      onClick={() => setSelectedDoctor(doc)}
-                    >
-                      {doc === "ALL" ? "All Doctors" : doc}
-                    </button>
-                  ))}
+                <div className="group-header">
+                  <span className="group-title">DOCTOR</span>
+                  {selectedDoctor !== "ALL" && (
+                    <button className="clear-btn" onClick={() => setSelectedDoctor("ALL")}>Reset</button>
+                  )}
+                </div>
+                <div className="filter-select-wrapper">
+                  <select
+                    className={selectedDoctor !== "ALL" ? "is-active" : ""}
+                    value={selectedDoctor}
+                    onChange={e => setSelectedDoctor(e.target.value)}
+                  >
+                    <option value="ALL">All Doctors</option>
+                    {availableDoctors.filter(doc => doc !== "ALL").map(doc => (
+                      <option key={doc} value={doc}>{doc}</option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="select-arrow" />
                 </div>
               </div>
 
+              {/* 5. Payment */}
               <div className="filter-group">
-                <div className="group-title">PAYMENT</div>
-                <div className="chip-wrap">
-                  {availablePaymentTypes.map(pay => (
-                    <button
-                      key={pay}
-                      className={`chip ${selectedPayment === pay ? "selected" : ""}`}
-                      onClick={() => setSelectedPayment(pay)}
-                    >
-                      {pay === "ALL" ? "All Payments" : pay}
-                    </button>
-                  ))}
+                <div className="group-header">
+                  <span className="group-title">PAYMENT</span>
+                  {selectedPayment !== "ALL" && (
+                    <button className="clear-btn" onClick={() => setSelectedPayment("ALL")}>Reset</button>
+                  )}
+                </div>
+                <div className="filter-select-wrapper">
+                  <select
+                    className={selectedPayment !== "ALL" ? "is-active" : ""}
+                    value={selectedPayment}
+                    onChange={e => setSelectedPayment(e.target.value)}
+                  >
+                    <option value="ALL">All Payments</option>
+                    {availablePaymentTypes.filter(pay => pay !== "ALL").map(pay => (
+                      <option key={pay} value={pay}>{pay}</option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="select-arrow" />
                 </div>
               </div>
 
+              {/* 6. Ward Status */}
               <div className="filter-group">
-                <div className="group-title">WARD STATUS</div>
-                <div className="chip-wrap">
-                  {availableWardStatuses.map(st => (
-                    <button
-                      key={st}
-                      className={`chip ${selectedWardStatus === st ? "selected" : ""}`}
-                      onClick={() => setSelectedWardStatus(st)}
-                    >
-                      {st === "ALL" ? "All Statuses" : st}
-                    </button>
-                  ))}
+                <div className="group-header">
+                  <span className="group-title">WARD STATUS</span>
+                  {selectedWardStatus !== "ALL" && (
+                    <button className="clear-btn" onClick={() => setSelectedWardStatus("ALL")}>Reset</button>
+                  )}
+                </div>
+                <div className="filter-select-wrapper">
+                  <select
+                    className={selectedWardStatus !== "ALL" ? "is-active" : ""}
+                    value={selectedWardStatus}
+                    onChange={e => setSelectedWardStatus(e.target.value)}
+                  >
+                    <option value="ALL">All Statuses</option>
+                    {availableWardStatuses.filter(st => st !== "ALL").map(st => (
+                      <option key={st} value={st}>{st}</option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="select-arrow" />
                 </div>
               </div>
             </div>

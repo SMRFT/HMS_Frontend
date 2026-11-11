@@ -570,7 +570,7 @@ const NotifWrapper = styled.div`
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, hasMultipleOutlets }) => {
+const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, hasMultipleOutlets, isStockOutlet }) => {
   const [time, setTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -640,6 +640,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
         localStorage.removeItem("selected_outlet");
         localStorage.removeItem("outlet_code");
         localStorage.removeItem("selected_outlet_name");
+        localStorage.removeItem("is_stock_outlet");
         localStorage.removeItem("allowed-outlets");
         window.location.href = "/secure";
       }
@@ -736,10 +737,15 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
           {isFullscreen ? <Minimize size={17} /> : <Maximize size={17} />}
         </IconBtn>
 
-        {/* ── Pharmacy Stock Notifications ── */}
-        <NotifWrapper>
-          <PharmacyNotification />
-        </NotifWrapper>
+        {/* ── Pharmacy Stock Notifications (only for is_stock_outlet: true outlets or Drug Purchase OLET006) ── */}
+        {(isStockOutlet === undefined
+          ? (localStorage.getItem("is_stock_outlet") === "true" ||
+             (localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code")) === "OLET006")
+          : Boolean(isStockOutlet)) && (
+          <NotifWrapper>
+            <PharmacyNotification />
+          </NotifWrapper>
+        )}
 
         <HeaderDivider />
 

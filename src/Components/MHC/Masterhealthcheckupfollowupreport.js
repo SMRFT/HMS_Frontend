@@ -289,7 +289,7 @@ export default function Masterhealthcheckupfollowupreport() {
   const fetchReport = useCallback(async (fd, td) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from_date: fd, to_date: td });
+      const params = new URLSearchParams({ from_date: fd, to_date: td, filter_by: "follow_up" });
       const res = await apiRequest(`${Hmsbaseurl}mhc_report/?${params}`, "GET");
       if (res.success && Array.isArray(res.data)) {
         setRows(res.data);
