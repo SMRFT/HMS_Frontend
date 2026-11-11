@@ -2574,9 +2574,18 @@ export default function CentralCashCounter() {
               <ShiftItemDivider />
 
               <ShiftItemBox>
-                <ShiftItemLabel>Collected Amount</ShiftItemLabel>
+                <ShiftItemLabel>Cash Collected</ShiftItemLabel>
                 <ShiftCollectedAmount>
                   ₹ {parseFloat(activeShift?.collected_Amount ?? activeShift?.collected_amount ?? activeShift?.CollectedAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </ShiftCollectedAmount>
+              </ShiftItemBox>
+
+              <ShiftItemDivider />
+
+              <ShiftItemBox>
+                <ShiftItemLabel>Credit (UPI / Card / Cheque / Credit)</ShiftItemLabel>
+                <ShiftCollectedAmount style={{ color: "#2563eb" }}>
+                  ₹ {parseFloat(activeShift?.CreditAmount ?? activeShift?.credit_amount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </ShiftCollectedAmount>
               </ShiftItemBox>
 

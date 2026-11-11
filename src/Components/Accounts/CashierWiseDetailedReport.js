@@ -334,6 +334,7 @@ const CashierWiseDetailedReport = ({
                         <InfoItem><InfoLabel>Remitted To Bank</InfoLabel><InfoValue>₹{parseFloat(selectedShift.RemittedToBank || 0).toFixed(2)}</InfoValue></InfoItem>
                         <InfoItem><InfoLabel>Hand Over Amount</InfoLabel><InfoValue>₹{parseFloat(selectedShift.HandOverAmount || 0).toFixed(2)}</InfoValue></InfoItem>
                         <InfoItem><InfoLabel>Total Collection</InfoLabel><InfoValue style={{ color: colors.success }}>₹{parseFloat(selectedShift.collected_Amount || 0).toFixed(2)}</InfoValue></InfoItem>
+                        <InfoItem><InfoLabel>Credit Amount</InfoLabel><InfoValue style={{ color: "#2563eb", fontWeight: "700" }}>₹{parseFloat(selectedShift.CreditAmount || selectedShift.credit_amount || 0).toFixed(2)}</InfoValue></InfoItem>
                     </InfoGrid>
                 </SummaryCard>
             )}
@@ -448,7 +449,7 @@ const CashierWiseDetailedReport = ({
                                     <strong>Shift Start:</strong> {selectedShift.StartTime} | <strong>Shift End:</strong> {selectedShift.EndTime || "Active"}
                                 </td>
                                 <td style={{ textAlign: "right" }}>
-                                    <strong>Shift Total Coll:</strong> ₹{parseFloat(selectedShift.collected_Amount || 0).toFixed(2)}
+                                    <strong>Shift Total Coll:</strong> ₹{parseFloat(selectedShift.collected_Amount || 0).toFixed(2)} | <strong>Credit Amount:</strong> ₹{parseFloat(selectedShift.CreditAmount || selectedShift.credit_amount || 0).toFixed(2)}
                                 </td>
                             </tr>
                         )}
