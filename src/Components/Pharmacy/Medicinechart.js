@@ -2557,8 +2557,6 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <th>Insurance Name</th>
                       <th>Ward & Room Number</th>
                       <th>Date & Req. By</th>
-                      <th>Items & Amount</th>
-                      <th>IP Advance</th>
                       <th style={{ textAlign: "center" }}>Status</th>
                       <th style={{ textAlign: "center" }}>Actions</th>
                     </tr>
@@ -2566,7 +2564,6 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                   <tbody>
                     {filteredData.map(patient => {
                       const billKey = getBillKey(patient);
-                      const { itemsCount, prescriptionTotal, advance } = getPatientFinancials(patient);
                       const pName = patient.patient_details?.patient_name || patient.patient_name || "—";
                       const uhid = patient.uhid || "—";
                       const ipNo = patient.inpatient_number || patient.ip_number || "—";
@@ -2682,38 +2679,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             )}
                           </td>
 
-                          {/* 7. Items & Amount */}
-                          <td>
-                            <div style={{ fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-                              {itemsCount} {itemsCount === 1 ? "item" : "items"} • ₹{formatCurrency(prescriptionTotal)}
-                            </div>
-                            {Array.isArray(patient?.medicine_items) && patient.medicine_items.some(isConsumableItem) && (
-                              <span
-                                style={{
-                                  background: "#ffedd5",
-                                  color: "#c2410c",
-                                  padding: "1px 5px",
-                                  borderRadius: 3,
-                                  fontSize: "0.62rem",
-                                  fontWeight: 700,
-                                  border: "1px solid #fed7aa",
-                                  display: "inline-block",
-                                  marginTop: 2,
-                                }}
-                              >
-                                CONSUMABLES
-                              </span>
-                            )}
-                          </td>
-
-                          {/* 8. IP Advance */}
-                          <td>
-                            <span style={{ fontWeight: 700, color: "#059669", whiteSpace: "nowrap" }}>
-                              ₹{formatCurrency(advance)}
-                            </span>
-                          </td>
-
-                          {/* 9. Status */}
+                          {/* 7. Status */}
                           <td style={{ textAlign: "center" }}>
                             <StatusPill $status={patient.billing_status || "Pending"}>
                               <span className="dot" />

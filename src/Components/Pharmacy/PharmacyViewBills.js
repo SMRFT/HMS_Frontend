@@ -1363,7 +1363,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     setLoading(true);
     setError("");
     try {
+      const activeOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
       const params = new URLSearchParams();
+      if (activeOutlet) params.append("outlet_code", activeOutlet);
       if (fromDate) params.append("from_date", fromDate);
       if (toDate)   params.append("to_date", toDate);
       if (searchText && searchText.trim()) {
@@ -1397,12 +1399,14 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     }
   }, [fromDate, toDate, searchBy, searchText, billTypeFilter]);
 
-  // Auto-fetch bills on initial mount, when switching to View Bills tab, or when a new bill is saved
+  const currentOutletCode = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+
+  // Auto-fetch bills on initial mount, when switching to View Bills tab, when outlet changes, or when a new bill is saved
   useEffect(() => {
     if (!activeTab || activeTab === "view_bills") {
       fetchBills();
     }
-  }, [activeTab, refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, refreshTrigger, currentOutletCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Bills filtering/sorting/pagination ────────────────────────────────────
   const filtered = allBills.filter((b) => {
