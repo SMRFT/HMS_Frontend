@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Modal, DatePicker, Button } from "antd";
 import dayjs from "dayjs";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { fetchMyReportPermissions } from "../../Auth/reportConfigApi";
 import { toast } from "react-toastify";
 import {
     Users,
@@ -52,11 +53,13 @@ const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
   animation: ${fadeIn} 0.5s ease-out;
 
   .title-section {
     h1 {
-      font-size: 1.875rem;
+      font-size: 1.6rem;
       font-weight: 800;
       color: ${colors.textMain};
       margin: 0;
@@ -65,30 +68,82 @@ const Header = styled.div`
     p {
       color: ${colors.textMuted};
       margin-top: 4px;
-      font-size: 1rem;
+      font-size: 0.9rem;
     }
   }
 `;
 
+const SearchBox = styled.div`
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+
+  svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: ${colors.textMuted};
+  }
+
+  input {
+    width: 100%;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid ${colors.border};
+    background: ${colors.surface};
+    padding: 0 14px 0 38px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: ${colors.textMain};
+    transition: all 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: ${colors.primary};
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    }
+  }
+
+  @media (max-width: 640px) {
+    width: 100%;
+  }
+`;
+
+const NoResults = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: ${colors.textMuted};
+  grid-column: 1 / -1;
+
+  svg { margin-bottom: 12px; opacity: 0.5; }
+  .title { font-weight: 700; color: ${colors.textMain}; font-size: 1rem; margin-bottom: 4px; }
+  .sub { font-size: 0.82rem; }
+`;
+
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
   animation: ${fadeIn} 0.6s ease-out;
 `;
 
 const ReportCard = styled.div`
   background: ${colors.surface};
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 10px;
+  padding: 14px 16px;
   border: 1px solid ${colors.border};
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 
   &::before {
     content: '';
@@ -96,47 +151,72 @@ const ReportCard = styled.div`
     top: 0;
     left: 0;
     width: 100%;
-    height: 4px;
+    height: 3px;
     background: ${props => props.color || colors.primary};
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.25s ease;
   }
 
   &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 20px -4px rgba(0, 0, 0, 0.08), 0 6px 6px -4px rgba(0, 0, 0, 0.03);
     border-color: ${props => props.color || colors.primary};
 
     &::before { opacity: 1; }
-    .icon-wrapper { background: ${colors.tabBg}; color: ${colors.primary}; transform: scale(1.1); }
-    .arrow-icon { transform: translateX(5px); opacity: 1; }
+    .icon-wrapper { background: ${colors.tabBg}; color: ${colors.primary}; transform: scale(1.05); }
+    .arrow-icon { transform: translateX(3px); opacity: 1; }
   }
 
   .icon-wrapper {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     background: ${colors.background};
     color: ${colors.textMuted};
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
   }
 
   .content {
-    h3 { font-size: 1.125rem; font-weight: 700; color: ${colors.textMain}; margin: 0; }
-    p { font-size: 0.875rem; color: ${colors.textMuted}; margin-top: 6px; line-height: 1.5; }
+    h3 {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: ${colors.textMain};
+      margin: 0;
+      line-height: 1.3;
+    }
+    p {
+      font-size: 0.76rem;
+      color: ${colors.textMuted};
+      margin-top: 4px;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
   }
 
   .footer {
     margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px dashed ${colors.border};
     display: flex;
     justify-content: space-between;
     align-items: center;
 
-    .view-text { font-size: 0.875rem; font-weight: 600; color: ${props => props.color || colors.primary}; }
-    .arrow-icon { color: ${props => props.color || colors.primary}; opacity: 0.5; transition: all 0.3s ease; }
+    .view-text {
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: ${props => props.color || colors.primary};
+    }
+    .arrow-icon {
+      color: ${props => props.color || colors.primary};
+      opacity: 0.5;
+      transition: all 0.25s ease;
+    }
   }
 `;
 
@@ -686,6 +766,26 @@ const FrontOfficeReports = () => {
     const [isReportModalVisible, setIsReportModalVisible] = useState(false);
     const [selectedReport, setSelectedReport] = useState(null);
     const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [userReportPerms, setUserReportPerms] = useState({});
+    const [hasCustomConfig, setHasCustomConfig] = useState(false);
+
+    useEffect(() => {
+        const loadUserPermissions = async () => {
+            const empId = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || localStorage.getItem("auth-user-id");
+            if (!empId) return;
+            try {
+                const res = await fetchMyReportPermissions(empId);
+                if (res && res.success) {
+                    setUserReportPerms(res.report_permissions || {});
+                    setHasCustomConfig(Boolean(res.has_custom_config));
+                }
+            } catch (err) {
+                console.error("Error loading user report permissions:", err);
+            }
+        };
+        loadUserPermissions();
+    }, []);
 
     const closeModal = () => {
         setIsConfigModalVisible(false);
@@ -696,54 +796,87 @@ const FrontOfficeReports = () => {
         {
             id: "referred_patients", title: "Referred Patients",
             description: "Patients registered with a referring source, for the selected period",
-            icon: <UserPlus size={24} />, reportType: "referred_patients", color: colors.primary
+            icon: <UserPlus size={18} />, reportType: "referred_patients", color: colors.primary,
+            permission: "HMS-RPT-REFERRED-PATIENTS"
         },
         {
             id: "op_patients", title: "OP Patient Register",
             description: "Full outpatient registration list for the selected period",
-            icon: <Users size={24} />, reportType: "op_patients", color: colors.primary
+            icon: <Users size={18} />, reportType: "op_patients", color: colors.primary,
+            permission: "HMS-RPT-OP-PATIENTS"
         },
         {
             id: "admission_register", title: "Admission Register",
             description: "IP admissions with room, doctor, and reason for admission",
-            icon: <FileText size={24} />, reportType: "admission_register", color: colors.primary
+            icon: <FileText size={18} />, reportType: "admission_register", color: colors.primary,
+            permission: "HMS-RPT-ADMISSION-REGISTER"
         },
         {
             id: "discharge_register", title: "Discharge Register",
             description: "Discharged patients with admission/discharge dates and doctor",
-            icon: <LogOut size={24} />, reportType: "discharge_register", color: colors.danger
+            icon: <LogOut size={18} />, reportType: "discharge_register", color: colors.danger,
+            permission: "HMS-RPT-DISCHARGE-REGISTER"
         },
         {
             id: "doctor_wise_ip_collection", title: "Doctor wise IP Collection",
             description: "IP billing collection totals grouped by doctor",
-            icon: <IndianRupee size={24} />, reportType: "doctor_wise_ip_collection", color: '#059669'
+            icon: <IndianRupee size={18} />, reportType: "doctor_wise_ip_collection", color: '#059669',
+            permission: "HMS-RPT-DOCTOR-WISE-IP-COLLECTION"
         },
         {
             id: "new_born_babies", title: "New Born Babies List",
             description: "Newborn registrations linked to a mother's UHID",
-            icon: <Baby size={24} />, reportType: "new_born_babies", color: '#db2777'
+            icon: <Baby size={18} />, reportType: "new_born_babies", color: '#db2777',
+            permission: "HMS-RPT-NEWBORN-BABIES"
         },
         {
             id: "doctor_wise_admission", title: "Doctor wise Admission",
             description: "IP admissions grouped and filterable by admitting doctor",
-            icon: <UserCheck size={24} />, reportType: "doctor_wise_admission", color: colors.primary
+            icon: <UserCheck size={18} />, reportType: "doctor_wise_admission", color: colors.primary,
+            permission: "HMS-RPT-DOCTOR-WISE-ADMISSION"
         },
         {
             id: "room_occupancy", title: "Room Occupancy Report",
             description: "Live view of currently occupied rooms and beds",
-            icon: <BedDouble size={24} />, path: "/RoomOccupencyReport", color: '#2563eb'
+            icon: <BedDouble size={18} />, path: "/RoomOccupencyReport", color: '#2563eb',
+            permission: "HMS-RPT-ROOM-OCCUPANCY"
         },
         {
             id: "pre_day_room_occupancy", title: "Previous Day Room Occupancy",
             description: "Room occupancy as it stood at end-of-day for any past date",
-            icon: <History size={24} />, path: "/PreDayRoomOccupancyReport", color: '#2563eb'
+            icon: <History size={18} />, path: "/PreDayRoomOccupancyReport", color: '#2563eb',
+            permission: "HMS-RPT-PRE-OCCUPANCY"
         },
         {
             id: "insurance_credit_report", title: "Insurance & Credit Billing Report",
             description: "Comprehensive tracking of insurance credit bills, active admissions, room occupancy & lab investigations",
-            icon: <ShieldCheck size={24} />, path: "/InsuranceCreditReport", color: '#0d9488'
+            icon: <ShieldCheck size={18} />, path: "/InsuranceCreditReport", color: '#0d9488',
+            permission: "HMS-RPT-INSURANCE-CREDIT"
         },
     ];
+
+    const filteredReports = reportsList.filter(report => {
+        // Evaluate dynamic report permissions if configured
+        if (hasCustomConfig && userReportPerms && typeof userReportPerms === "object") {
+            const rRoute = report.path || report.reportType;
+            const norm = rRoute?.startsWith("/") ? rRoute : `/${rRoute}`;
+            const isAllowed = Boolean(
+                userReportPerms[rRoute] ||
+                userReportPerms[norm] ||
+                userReportPerms[report.title] ||
+                userReportPerms[report.id] ||
+                userReportPerms[report.permission]
+            );
+            if (!isAllowed) return false;
+        }
+
+        if (!searchTerm.trim()) return true;
+        const term = searchTerm.toLowerCase();
+        return (
+            report.title.toLowerCase().includes(term) ||
+            report.description.toLowerCase().includes(term)
+        );
+    });
 
     const handleCardClick = (report) => {
         if (report.path) {
@@ -777,22 +910,39 @@ const FrontOfficeReports = () => {
                     <h1>Front Office Reports</h1>
                     <p>Registration, admission, discharge, and room occupancy insights</p>
                 </div>
+                <SearchBox>
+                    <Search size={16} />
+                    <input
+                        type="text"
+                        placeholder="Search front office reports..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </SearchBox>
             </Header>
 
             <Grid>
-                {reportsList.map((report) => (
-                    <ReportCard key={report.id} color={report.color} onClick={() => handleCardClick(report)}>
-                        <div className="icon-wrapper">{report.icon}</div>
-                        <div className="content">
-                            <h3>{report.title}</h3>
-                            <p>{report.description}</p>
-                        </div>
-                        <div className="footer">
-                            <span className="view-text">{report.path ? "Open Report" : "Generate Report"}</span>
-                            <ArrowRight className="arrow-icon" size={18} />
-                        </div>
-                    </ReportCard>
-                ))}
+                {filteredReports.length > 0 ? (
+                    filteredReports.map((report) => (
+                        <ReportCard key={report.id} color={report.color} onClick={() => handleCardClick(report)}>
+                            <div className="icon-wrapper">{report.icon}</div>
+                            <div className="content">
+                                <h3>{report.title}</h3>
+                                <p>{report.description}</p>
+                            </div>
+                            <div className="footer">
+                                <span className="view-text">{report.path ? "Open Report" : "Generate Report"}</span>
+                                <ArrowRight className="arrow-icon" size={15} />
+                            </div>
+                        </ReportCard>
+                    ))
+                ) : (
+                    <NoResults>
+                        <Search size={36} />
+                        <div className="title">No Reports Found</div>
+                        <div className="sub">No front office reports match "{searchTerm}"</div>
+                    </NoResults>
+                )}
             </Grid>
 
             {/* Date Configuration Modal */}
