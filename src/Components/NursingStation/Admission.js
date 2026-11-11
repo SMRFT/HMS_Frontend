@@ -686,6 +686,12 @@ const parseTimestamp = (d) => {
   const str = String(d).trim();
   if (!str) return 0;
 
+  // Bare ISO datetime without timezone offset (e.g. naive UTC datetime serialized without Z/+HH:MM)
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(str)) {
+    const utcTs = new Date(str.replace(" ", "T") + "Z").getTime();
+    if (!isNaN(utcTs)) return utcTs;
+  }
+
   let t = new Date(str).getTime();
   if (!isNaN(t)) return t;
 
@@ -722,23 +728,27 @@ const parseTimestamp = (d) => {
   return 0;
 };
 
+const IST_TZ = "Asia/Kolkata";
 const fmtDate = d => {
   if (!d) return "-";
   const ts = parseTimestamp(d);
   if (!ts) return typeof d === "string" ? d : "-";
-  try { return new Date(ts).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return "-"; }
+  try { return new Date(ts).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: IST_TZ }); } catch { return "-"; }
 };
 const fmtTime = d => {
   if (!d) return "-";
   const ts = parseTimestamp(d);
   if (!ts) return "-";
-  try { return new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }); } catch { return "-"; }
+  try { return new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: IST_TZ }); } catch { return "-"; }
 };
 const fmtDateTime = d => { if (!d) return "—"; try { return `${fmtDate(d)}, ${fmtTime(d)}`; } catch { return "—"; } };
 
 function calcDuration(start, end) {
   if (!start) return null;
-  const ms = (end ? new Date(end) : new Date()) - new Date(start);
+  const startTs = parseTimestamp(start);
+  const endTs = end ? parseTimestamp(end) : Date.now();
+  if (!startTs || !endTs) return null;
+  const ms = endTs - startTs;
   if (ms < 0) return { days: 0, hours: 0 };
   return { days: Math.floor(ms / 86400000), hours: Math.floor((ms % 86400000) / 3600000) };
 }
@@ -1934,7 +1944,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: IST_TZ });
 
   // ── Today Registered Patients / Admission Requests State ───────────────────
   const [registeredPatients, setRegisteredPatients] = useState([]);
@@ -2585,11 +2595,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     if (!d) return false;
     const ts = parseTimestamp(d);
     if (!ts) return false;
-    const dateObj = new Date(ts);
-    const now = new Date();
-    return dateObj.getFullYear() === now.getFullYear() &&
-           dateObj.getMonth() === now.getMonth() &&
-           dateObj.getDate() === now.getDate();
+    return fmtDate(ts) === fmtDate(Date.now());
   };
 
   const isTodayAdmission = (a) => {
@@ -3100,7 +3106,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
   const doPrint = () => {
     const pd = printData || {};
-    const admDT = pd.admissionDateTime ? new Date(pd.admissionDateTime) : new Date();
+    const admTs = parseTimestamp(pd.admissionDateTime);
+    const admDT = new Date(admTs || Date.now());
     const ipStr = pd.ipNumber || "";
     const { roomNo, bedNo } = getActiveRoom(pd);
     const encoded = encodeCode128(ipStr);
@@ -3147,8 +3154,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     // Room
     const roomDisplay = roomNo !== "-" ? `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}` : "-";
 
-    const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }); // DD/MM/YYYY
-    const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }); // HH:MM:SS
+    const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: IST_TZ }); // DD/MM/YYYY
+    const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ }); // HH:MM:SS
 
     const w = window.open("", "_blank", "width=500,height=340");
     w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip - ${ipStr}</title><style>
@@ -4782,7 +4789,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       <SLn>{printData.insuranceCompanyName || ""}</SLn>
                       <SLn>UHID : {printData.uhid || ""}</SLn>
                       <SLn>DOA  : {printData.admissionDateTime ? fmtDate(printData.admissionDateTime) : "-"}</SLn>
-                      <SLn>TIME : {printData.admissionDateTime ? new Date(printData.admissionDateTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "-"}</SLn>
+                      <SLn>TIME : {parseTimestamp(printData.admissionDateTime) ? new Date(parseTimestamp(printData.admissionDateTime)).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ }) : "-"}</SLn>
                       <SLn>Room : {roomNo} / {bedNo}</SLn>
                     </SRt>
                   </SR>
