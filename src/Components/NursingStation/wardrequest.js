@@ -11,6 +11,7 @@ import LaundryWardRequest from "./LaundryWardRequest";
 import ImplantWardRequest from "./ImplantWardRequest";
 import IPClinicalNotesModal from "../IPEMR/IPClinicalNotesModal";
 import IPNursingNotesModal from "../IPEMR/IPNursingNotesModal";
+import GeoVerificationModal from "./GeoVerificationModal";
 import { PageWrapper, Container, colors } from "../GlobalStyles";
 import { useNavigate } from "react-router-dom";
 
@@ -29,7 +30,8 @@ import {
   FiCreditCard,
   FiCheckCircle,
   FiTrendingUp,
-  FiChevronDown
+  FiChevronDown,
+  FiCamera
 } from "react-icons/fi";
 import {
   MdOutlineScience,
@@ -1103,6 +1105,7 @@ const WardRequest = () => {
   const [showImplantModal, setShowImplantModal] = useState(false);
   const [showDoctorNotesModal, setShowDoctorNotesModal] = useState(false);
   const [showNursingNotesModal, setShowNursingNotesModal] = useState(false);
+  const [showGeoModal, setShowGeoModal] = useState(false);
   const [statusToUpdate, setStatusToUpdate] = useState("");
   const [clearanceLoading, setClearanceLoading] = useState(false);
   const [clearanceData, setClearanceData] = useState(null);
@@ -1625,6 +1628,9 @@ const WardRequest = () => {
       case "nursing_notes":
         setShowNursingNotesModal(true);
         break;
+      case "geo_verification":
+        setShowGeoModal(true);
+        break;
       case "billing":
         navigate("/DischargeBilling", { state: patientState });
         break;
@@ -1995,6 +2001,14 @@ const WardRequest = () => {
                   <div className="pill-badge">DN</div>
                   <div className="title">Doctor Notes</div>
                   <div className="sub">IP EMR / Notes</div>
+                </div>
+
+                <div className="type-card" onClick={() => handleActionOption("geo_verification")}>
+                  <div className="pill-badge" style={{ background: "#ccfbf1", color: "#0d9488" }}>
+                    <FiCamera size={15} />
+                  </div>
+                  <div className="title">Geo Verification</div>
+                  <div className="sub">Bedside photo & GPS</div>
                 </div>
 
                 <div className="type-card" onClick={() => handleActionOption("billing")}>
@@ -2752,6 +2766,19 @@ const WardRequest = () => {
           patient={selectedPatient}
           onClose={() => {
             setShowNursingNotesModal(false);
+            setShowActionModal(true);
+          }}
+        />
+      )}
+
+      {/* WARD GEO VERIFICATION MODAL */}
+      {showGeoModal && selectedPatient && (
+        <GeoVerificationModal
+          patient={selectedPatient}
+          onClose={() => setShowGeoModal(false)}
+          onSaved={() => {
+            fetchAdmissions();
+            setShowGeoModal(false);
             setShowActionModal(true);
           }}
         />
