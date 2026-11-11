@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import styled from "styled-components";
 import {
@@ -424,6 +425,293 @@ const CheckboxLabel = styled.label`
   }
 `;
 
+// ─── Searchable Doctor Combobox Styles ────────────────────────────────────────
+
+const ComboWrapper = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const ComboInputBox = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+
+  input {
+    padding-right: 3.2rem;
+  }
+`;
+
+const ComboIcons = styled.div`
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #64748b;
+  pointer-events: none;
+
+  button {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: #94a3b8;
+    border-radius: 4px;
+
+    &:hover {
+      color: #ef4444;
+      background: #fee2e2;
+    }
+  }
+`;
+
+const ComboList = styled.div`
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 200;
+  max-height: 260px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+  padding: 4px 0;
+`;
+
+const ComboOption = styled.div`
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: #1e293b;
+  cursor: pointer;
+  background: ${(props) => (props.$active ? "#f0fdfa" : "white")};
+  border-left: 3px solid ${(props) => (props.$active ? "#0f766e" : "transparent")};
+
+  &:hover {
+    background: #f0fdfa;
+  }
+
+  .doc-name {
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .doc-meta {
+    font-size: 0.74rem;
+    color: #64748b;
+    margin-top: 1px;
+  }
+`;
+
+const ComboEmpty = styled.div`
+  padding: 0.65rem 0.75rem;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-style: italic;
+`;
+
+// ─── Searchable Doctor Select (type to search + select from list) ─────────────
+
+const SearchableDoctorSelect = ({
+  value,
+  doctors,
+  onSelect,
+  placeholder = "Type to search doctor...",
+  disabled = false,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIdx, setActiveIdx] = useState(0);
+  const wrapRef = useRef(null);
+  const listRef = useRef(null);
+
+  // Close on outside click
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  const trimmed = query.trim();
+
+  const filtered = useMemo(() => {
+    const q = trimmed.toLowerCase();
+    if (!q) return doctors;
+    return doctors.filter((d) =>
+      [d.name, d.specialty, d.department, d.designation, d.regNo]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [doctors, trimmed]);
+
+  const exactMatch = useMemo(
+    () => doctors.some((d) => (d.name || "").toLowerCase() === trimmed.toLowerCase()),
+    [doctors, trimmed]
+  );
+
+  // Options = matched doctors + optional "use typed text" entry
+  const options = useMemo(() => {
+    const list = filtered.map((d) => ({ type: "doctor", doctor: d }));
+    if (trimmed && !exactMatch) {
+      list.push({ type: "custom", text: trimmed });
+    }
+    return list;
+  }, [filtered, trimmed, exactMatch]);
+
+  useEffect(() => {
+    setActiveIdx(0);
+  }, [trimmed, open]);
+
+  // Keep active option visible while using keyboard
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const el = listRef.current.querySelector(`[data-idx="${activeIdx}"]`);
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+  }, [activeIdx, open]);
+
+  const commit = (opt) => {
+    if (!opt) return;
+    const name = opt.type === "doctor" ? opt.doctor.name : opt.text;
+    onSelect(name);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (disabled) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      setActiveIdx((i) => Math.min(i + 1, Math.max(options.length - 1, 0)));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      if (open) {
+        e.preventDefault();
+        commit(options[activeIdx]);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setQuery("");
+    } else if (e.key === "Tab") {
+      setOpen(false);
+      setQuery("");
+    }
+  };
+
+  return (
+    <ComboWrapper ref={wrapRef}>
+      <ComboInputBox>
+        <Input
+          type="text"
+          autoComplete="off"
+          placeholder={placeholder}
+          value={open ? query : value || ""}
+          disabled={disabled}
+          onFocus={() => {
+            if (!disabled) {
+              setOpen(true);
+              setQuery("");
+            }
+          }}
+          onClick={() => {
+            if (!disabled) setOpen(true);
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (!open) setOpen(true);
+          }}
+          onKeyDown={handleKeyDown}
+        />
+        <ComboIcons>
+          {value && !disabled && (
+            <button
+              type="button"
+              title="Clear selection"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onSelect("");
+                setQuery("");
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
+          <ChevronDown size={15} />
+        </ComboIcons>
+      </ComboInputBox>
+
+      {open && !disabled && (
+        <ComboList ref={listRef}>
+          {options.length === 0 && (
+            <ComboEmpty>
+              {doctors.length === 0
+                ? "No doctors loaded. Type a name to enter manually."
+                : "No matching doctor found."}
+            </ComboEmpty>
+          )}
+          {options.map((opt, idx) =>
+            opt.type === "doctor" ? (
+              <ComboOption
+                key={opt.doctor.employeeId || opt.doctor.name}
+                data-idx={idx}
+                $active={idx === activeIdx}
+                onMouseEnter={() => setActiveIdx(idx)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => commit(opt)}
+              >
+                <div className="doc-name">{opt.doctor.name}</div>
+                <div className="doc-meta">
+                  {[
+                    opt.doctor.specialty && opt.doctor.specialty !== "N/A"
+                      ? opt.doctor.specialty
+                      : opt.doctor.department,
+                    opt.doctor.regNo ? `Reg. No: ${opt.doctor.regNo}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" • ")}
+                </div>
+              </ComboOption>
+            ) : (
+              <ComboOption
+                key="__custom__"
+                data-idx={idx}
+                $active={idx === activeIdx}
+                onMouseEnter={() => setActiveIdx(idx)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => commit(opt)}
+              >
+                <div className="doc-name">➕ Use "{opt.text}"</div>
+                <div className="doc-meta">Enter as custom doctor name</div>
+              </ComboOption>
+            )
+          )}
+        </ComboList>
+      )}
+    </ComboWrapper>
+  );
+};
+
 // ─── Modal Styles for Template Selection ──────────────────────────────────────
 
 const ModalOverlay = styled.div`
@@ -670,367 +958,13 @@ const formatDoctorReg = (reg, hasDoctorName = false) => {
 const formatDoctorRegNo = formatDoctorReg;
 
 // ─── Oncology & Hospital Consultants Master Directory ─────────────────────────
-const ONCOLOGY_DOCTORS_MASTER = [
-  // Medical Oncology
-  {
-    name: "Dr. R. Vidhya, MD(RT), DM.",
-    searchTerms: ["vidhya"],
-    specialty: "Medical Oncology",
-    department: "Medical Oncology",
-    designation: "Medical Oncologist",
-    regNo: "63108",
-    category: "medical_oncology",
-  },
-  // Radiation Oncology
-  {
-    name: "Dr. Srikanth Shankar, MD(RT)",
-    searchTerms: ["srikant", "srikanth", "shankar"],
-    specialty: "Radiation Oncology",
-    department: "Radiation Oncology",
-    designation: "Radiation Oncologist",
-    regNo: "456789",
-    category: "radiation_oncology",
-  },
-  {
-    name: "Dr. Dharmaraj A, MBBS, MD",
-    searchTerms: ["dharmaraj"],
-    specialty: "Radiation Oncology",
-    department: "Radiation Oncology",
-    designation: "Radiation Oncologist",
-    regNo: "58291",
-    category: "radiation_oncology",
-  },
-  {
-    name: "Dr. K. Satheesh Babu, MD, DMRT",
-    searchTerms: ["satheesh", "babu"],
-    specialty: "Radiation Oncology",
-    department: "Radiation Oncology",
-    designation: "Radiation Oncologist",
-    regNo: "42110",
-    category: "radiation_oncology",
-  },
-  {
-    name: "Dr. Venkatesan, MD(RT)",
-    searchTerms: ["venkatesan"],
-    specialty: "Radiation Oncology",
-    department: "Radiation Oncology",
-    designation: "Radiation Oncologist",
-    regNo: "39812",
-    category: "radiation_oncology",
-  },
-  {
-    name: "Dr. Vijayaveeran P, MD(RT)",
-    searchTerms: ["vijayaveeran"],
-    specialty: "Radiation Oncology",
-    department: "Radiation Oncology",
-    designation: "Radiation Oncologist",
-    regNo: "61204",
-    category: "radiation_oncology",
-  },
-  {
-    name: "Dr. Sridhar, DNB RT",
-    searchTerms: ["sridhar"],
-    specialty: "Radiation Oncology",
-    department: "Radiation Oncology",
-    designation: "Radiation Oncologist",
-    regNo: "54321",
-    category: "radiation_oncology",
-  },
-  // Surgical Oncology
-  {
-    name: "Dr. G. Prasanna, MS, DNB (Onco)",
-    searchTerms: ["prasanna"],
-    specialty: "Surgical Oncology",
-    department: "Surgical Oncology",
-    designation: "Surgical Oncologist",
-    regNo: "4521464",
-    category: "surgical_oncology",
-  },
-  {
-    name: "Dr. P. Arunraj, MS, MCh (Surg Gastro)",
-    searchTerms: ["arunraj"],
-    specialty: "Surgical Gastroenterology",
-    department: "Surgical Gastroenterology",
-    designation: "Surgical Gastroenterologist",
-    regNo: "47120",
-    category: "surgical_oncology",
-  },
-  // Other Hospital Consultants
-  {
-    name: "Dr. P. S. Panneer Selvam, MS, FICS, FAIGES",
-    searchTerms: ["panneer"],
-    specialty: "General Surgery",
-    department: "General Surgery",
-    designation: "General Surgeon",
-    regNo: "38910",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. R. Murugavel, MS, FAIGES",
-    searchTerms: ["murugavel"],
-    specialty: "General Surgery",
-    department: "General Surgery",
-    designation: "General Surgeon",
-    regNo: "41235",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Ramesh Ethiraj, MCh",
-    searchTerms: ["ramesh", "ethiraj"],
-    specialty: "Urology",
-    department: "Urology",
-    designation: "Urologist",
-    regNo: "49201",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Arun Kumar B, MD, DNB",
-    searchTerms: ["arun kumar"],
-    specialty: "Cardiology",
-    department: "Cardiology",
-    designation: "Cardiologist",
-    regNo: "52140",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. S. Nerthiha, DNB",
-    searchTerms: ["nerthiha"],
-    specialty: "Emergency Medicine",
-    department: "Emergency Medicine",
-    designation: "Consultant Emergency Medicine",
-    regNo: "65412",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Harihara Sudhan",
-    searchTerms: ["harihara"],
-    specialty: "Neuro Surgery",
-    department: "Neuro Surgery",
-    designation: "Neuro Surgeon",
-    regNo: "51289",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Vengatesan, MD, DM",
-    searchTerms: ["vengatesan"],
-    specialty: "Neurology",
-    department: "Neurology",
-    designation: "Neurologist",
-    regNo: "43290",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Mahesh, MD, DM",
-    searchTerms: ["mahesh"],
-    specialty: "Rheumatology",
-    department: "Rheumatology",
-    designation: "Rheumatologist",
-    regNo: "48102",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Narendran P, MS",
-    searchTerms: ["narendran"],
-    specialty: "Orthopedics",
-    department: "Orthopedics",
-    designation: "Orthopedic Surgeon",
-    regNo: "44321",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. P. Prabu Sankar, MS, MRCS",
-    searchTerms: ["prabu"],
-    specialty: "General Medicine",
-    department: "General Medicine",
-    designation: "Physician",
-    regNo: "46781",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Pavithra, DNB",
-    searchTerms: ["pavithra"],
-    specialty: "Obstetrics and Gynecology",
-    department: "Obstetrics and Gynecology",
-    designation: "Gynecologist",
-    regNo: "53412",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Priyadharshini, DCH, DNB",
-    searchTerms: ["priyadharshini"],
-    specialty: "Paediatrics",
-    department: "Paediatrics",
-    designation: "Paediatrician",
-    regNo: "55120",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Ranganathan, MD",
-    searchTerms: ["ranganathan"],
-    specialty: "General Medicine",
-    department: "General Medicine",
-    designation: "Physician",
-    regNo: "37890",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Sangeetha, MD",
-    searchTerms: ["sangeetha"],
-    specialty: "General Medicine",
-    department: "General Medicine",
-    designation: "Physician",
-    regNo: "50192",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Sathian, MBBS, MRCP",
-    searchTerms: ["sathian"],
-    specialty: "Endocrinology",
-    department: "Endocrinology",
-    designation: "Endocrinologist",
-    regNo: "48920",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Shanmuga Priyan, MD",
-    searchTerms: ["shanmuga priyan"],
-    specialty: "Dermatology",
-    department: "Dermatology",
-    designation: "Dermatologist",
-    regNo: "57210",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Shikha K.C, MBBS, DNB",
-    searchTerms: ["shikha"],
-    specialty: "Pulmonology",
-    department: "Pulmonology",
-    designation: "Pulmonologist",
-    regNo: "59340",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Siddharth, MD, DM",
-    searchTerms: ["siddharth"],
-    specialty: "Medical Gastroenterology",
-    department: "Medical Gastroenterology",
-    designation: "Medical Gastroenterologist",
-    regNo: "56123",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Sivakumar",
-    searchTerms: ["sivakumar"],
-    specialty: "ENT",
-    department: "ENT",
-    designation: "ENT Specialist",
-    regNo: "40215",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Velraj, MD",
-    searchTerms: ["velraj"],
-    specialty: "Pulmonology",
-    department: "Pulmonology",
-    designation: "Pulmonologist",
-    regNo: "45129",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Vidhya Prabhakar",
-    searchTerms: ["vidhya prabhakar"],
-    specialty: "Obstetrics and Gynecology",
-    department: "Obstetrics and Gynecology",
-    designation: "Gynecologist",
-    regNo: "41982",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Vignesh D, MS",
-    searchTerms: ["vignesh.d", "vignesh d"],
-    specialty: "Orthopedics",
-    department: "Orthopedics",
-    designation: "Orthopedic Surgeon",
-    regNo: "53201",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Vigneshwaran",
-    searchTerms: ["vigneshwaran"],
-    specialty: "Cardiothoracic and Vascular Surgery",
-    department: "Cardiothoracic and Vascular Surgery",
-    designation: "Cardiothoracic Surgeon",
-    regNo: "52981",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Vijay Kannan",
-    searchTerms: ["vijay kannan"],
-    specialty: "Plastic Surgery",
-    department: "Plastic Surgery",
-    designation: "Plastic Surgeon",
-    regNo: "47812",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Bhuvaneswari, MDS",
-    searchTerms: ["bhuvaneswari"],
-    specialty: "Dental",
-    department: "Dental",
-    designation: "Dental Surgeon",
-    regNo: "36120",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Elakeswari, BDS",
-    searchTerms: ["elakeswari"],
-    specialty: "Dental",
-    department: "Dental",
-    designation: "Dental Surgeon",
-    regNo: "35912",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Chakravarthi",
-    searchTerms: ["chakravarthi"],
-    specialty: "Nephrology",
-    department: "Nephrology",
-    designation: "Nephrologist",
-    regNo: "44102",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. J. Jegapriya",
-    searchTerms: ["jegapriya"],
-    specialty: "General Medicine",
-    department: "General Medicine",
-    designation: "Physician",
-    regNo: "49821",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Suresh Kumar",
-    searchTerms: ["suresh kumar"],
-    specialty: "Anesthesiology",
-    department: "Anesthesiology",
-    designation: "Anesthesiologist",
-    regNo: "41902",
-    category: "general_consultant",
-  },
-  {
-    name: "Dr. Karthick V, MBBS",
-    searchTerms: ["karthick"],
-    specialty: "Anesthesiology",
-    department: "Anesthesiology",
-    designation: "Anesthesiologist",
-    regNo: "51092",
-    category: "general_consultant",
-  },
-];
+// Doctors are fetched live from doctor_list_diagnostics API
+const ONCOLOGY_DOCTORS_MASTER = [];
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function TumourBoardCertificaiton() {
+  const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   // View state: "list" | "form"
@@ -1041,10 +975,18 @@ export default function TumourBoardCertificaiton() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
 
-  // List filters
+  const getTodayDateStr = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // List filters - initially displays current date
   const [filters, setFilters] = useState({
-    fromDate: "",
-    toDate: "",
+    fromDate: getTodayDateStr(),
+    toDate: getTodayDateStr(),
     uhid: "",
     patientName: "",
     status: "",
@@ -1053,9 +995,8 @@ export default function TumourBoardCertificaiton() {
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Doctors directory state & custom text mode tracker
-  const [doctorsList, setDoctorsList] = useState(ONCOLOGY_DOCTORS_MASTER);
-  const [customDoctorFields, setCustomDoctorFields] = useState({});
+  // Doctors directory state (populated live from doctor_list_diagnostics)
+  const [doctorsList, setDoctorsList] = useState([]);
 
   // Print mode state: withLetterpad (true/false)
   const [withLetterpad, setWithLetterpad] = useState(true);
@@ -1159,7 +1100,7 @@ export default function TumourBoardCertificaiton() {
     primary_referral_dept: "",
     treating_consultant: "",
     template_id: 1,
-    template_name: "TUMOUR BOARD CERTIFICATE (For AB-PMJAY/State Health Schemes)",
+    template_name: "TUMOUR BOARD CERTIFICATE",
     primary_site: "",
     stage: "Stage II",
     board_remarks: "",
@@ -1233,13 +1174,28 @@ export default function TumourBoardCertificaiton() {
             ? raw
             : [];
       setTemplates(list);
-      if (list.length > 0 && !selectedTemplate) {
-        setSelectedTemplate(list[0]);
+      if (list.length > 0) {
+        setSelectedTemplate((prev) => {
+          if (!prev) return list[0];
+          const matched = list.find((t) => t.template_id === prev.template_id);
+          return matched || list[0];
+        });
+        setCertData((prev) => {
+          if (!prev.certificate_id) {
+            const matchedTmpl = list.find((t) => t.template_id === prev.template_id) || list[0];
+            return {
+              ...prev,
+              template_id: matchedTmpl.template_id,
+              template_name: matchedTmpl.template_name || "TUMOUR BOARD CERTIFICATE",
+            };
+          }
+          return prev;
+        });
       }
     } catch (err) {
       console.error("Error fetching tumour board templates:", err);
     }
-  }, [HMSURL, selectedTemplate]);
+  }, [HMSURL]);
 
   useEffect(() => {
     fetchTemplates();
@@ -1252,45 +1208,43 @@ export default function TumourBoardCertificaiton() {
         const res = await apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET");
         const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
         if (list.length > 0) {
-          setDoctorsList((prev) => {
-            const combined = [...prev];
-            const existingNames = new Set(prev.map((d) => d.name.toLowerCase()));
-            list.forEach((doc) => {
-              const dName = doc.employeeName || doc.doctor_name || doc.name || "";
-              if (dName && !existingNames.has(dName.toLowerCase())) {
-                combined.push({
-                  name: dName,
-                  specialty: doc.specialty || doc.department || "Consultant",
-                  department: doc.department || "Consultant",
-                  designation: doc.designation || "Doctor",
-                  regNo: doc.registrationNumber || "",
-                  employeeId: doc.employeeId || "",
-                  category: "general_consultant",
-                });
-                existingNames.add(dName.toLowerCase());
-              }
-            });
-            return combined;
+          const seen = new Set();
+          const formatted = [];
+          list.forEach((doc) => {
+            const dName = doc.employeeName || doc.doctor_name || doc.name || "";
+            const eid = String(doc.employeeId || "").trim();
+            const key = eid || dName.toLowerCase();
+            if (dName && !seen.has(key)) {
+              seen.add(key);
+              formatted.push({
+                name: dName,
+                specialty: doc.specialty || doc.department || "",
+                department: doc.department || "",
+                designation: doc.designation || "Doctor",
+                regNo: (doc.registrationNumber || "").trim(),
+                employeeId: eid,
+              });
+            }
           });
+          setDoctorsList(formatted);
         }
       } catch (err) {
-        console.warn("Could not fetch live doctors list, using master directory:", err);
+        console.warn("Could not fetch live doctors list from doctor_list_diagnostics:", err);
       }
     };
     fetchLiveDoctors();
   }, [HMSURL]);
 
   // ── Doctor Select Handler (Auto-Fills Registration Number Below) ──────────────
-  const handleDoctorSelect = async (fieldKey, doctorName) => {
+  const handleDoctorSelect = (fieldKey, doctorName) => {
     const updatedValues = { [fieldKey]: doctorName };
 
-    // Find matching doctor from master list
+    // Find matching doctor from doctor_list_diagnostics
     const cleanTarget = (doctorName || "").toLowerCase().trim();
     const doc = doctorsList.find(
       (d) =>
         d.name === doctorName ||
-        (d.name && d.name.toLowerCase().trim() === cleanTarget) ||
-        (d.searchTerms && d.searchTerms.some((st) => cleanTarget.includes(st)))
+        (d.name && d.name.toLowerCase().trim() === cleanTarget)
     );
 
     let regFieldKey = "";
@@ -1299,20 +1253,8 @@ export default function TumourBoardCertificaiton() {
     else if (fieldKey === "surgical_oncologist_name") regFieldKey = "surgical_oncologist_reg";
 
     if (regFieldKey) {
-      let regNo = doc?.regNo || "";
-      if (!regNo && doc?.employeeId) {
-        try {
-          const sigRes = await apiRequest(`${HMSURL}employee-signature/?employee_id=${doc.employeeId}`, "GET");
-          if (sigRes?.registrationNumber) {
-            regNo = sigRes.registrationNumber;
-          }
-        } catch (e) {
-          console.warn("Error fetching employee signature regNo:", e);
-        }
-      }
-      if (regNo) {
-        updatedValues[regFieldKey] = regNo;
-      }
+      // If no register number it should be empty
+      updatedValues[regFieldKey] = doc?.regNo || "";
     }
 
     setCertData((prev) => ({
@@ -1327,8 +1269,13 @@ export default function TumourBoardCertificaiton() {
   // ── Helper to build initial values from template fields ─────────────────────
   const buildInitialValuesFromTemplate = (tmpl) => {
     const vals = {};
+    const todayStr = getTodayDateStr();
     (tmpl?.header_fields || []).forEach((hf) => {
-      vals[hf.key] = hf.default_value !== undefined ? hf.default_value : "";
+      if (hf.type === "date" || hf.key === "meeting_date" || hf.key === "certificate_date") {
+        vals[hf.key] = hf.default_value || todayStr;
+      } else {
+        vals[hf.key] = hf.default_value !== undefined ? hf.default_value : "";
+      }
     });
     (tmpl?.fields || []).forEach((f) => {
       vals[f.key] = f.default_value !== undefined ? f.default_value : "";
@@ -1540,7 +1487,7 @@ export default function TumourBoardCertificaiton() {
       template_id: chosen ? chosen.template_id : 1,
       template_name: chosen
         ? chosen.template_name
-        : "TUMOUR BOARD CERTIFICATE (For AB-PMJAY/State Health Schemes)",
+        : "TUMOUR BOARD CERTIFICATE",
       primary_site: initialFields.site_of_malignancy || "",
       stage: initialFields.stage || "Stage II",
       board_remarks: initialFields.board_remarks || "",
@@ -1575,7 +1522,7 @@ export default function TumourBoardCertificaiton() {
       primary_referral_dept: cert.primary_referral_dept || fv.primary_referral_dept || "",
       treating_consultant: cert.treating_consultant || fv.treating_consultant || "",
       template_id: cert.template_id || 1,
-      template_name: cert.template_name || "TUMOUR BOARD CERTIFICATE (For AB-PMJAY/State Health Schemes)",
+      template_name: cert.template_name || matched?.template_name || "TUMOUR BOARD CERTIFICATE",
       primary_site: cert.primary_site || fv.site_of_malignancy || "",
       stage: cert.stage || fv.stage || "Stage II",
       board_remarks: cert.board_remarks || fv.board_remarks || "",
@@ -1621,9 +1568,14 @@ export default function TumourBoardCertificaiton() {
     }
 
     try {
+      const currentEmployeeId = localStorage.getItem("employeeId") || "";
+      const currentEmployeeName = localStorage.getItem("name") || "";
+
       const payload = {
         id: currentId,
         ...certData,
+        "auth-user-id": currentEmployeeId,
+        "auth-user-name": currentEmployeeName,
         primary_site: certData.field_values.site_of_malignancy || certData.primary_site,
         stage: certData.field_values.stage || certData.stage,
         board_remarks: certData.field_values.board_remarks || certData.board_remarks,
@@ -1639,6 +1591,7 @@ export default function TumourBoardCertificaiton() {
           setCertData((prev) => ({ ...prev, certificate_id: res.certificate_id }));
         }
         fetchCertificates();
+        navigate(-1);
       } else {
         toast.error(res?.error || "Failed to save certificate.");
       }
@@ -1673,9 +1626,15 @@ export default function TumourBoardCertificaiton() {
     if (!confirm.isConfirmed) return;
 
     try {
+      const currentEmployeeId = localStorage.getItem("employeeId") || "";
+      const currentEmployeeName = localStorage.getItem("name") || "";
       const res = await apiRequest(
         `${HMSURL}tumour-board-certificates/approve/${encodeURIComponent(idToApprove)}/`,
-        "POST"
+        "POST",
+        {
+          "auth-user-id": currentEmployeeId,
+          "auth-user-name": currentEmployeeName,
+        }
       );
       if (res && res.success) {
         toast.success("Tumour Board Certificate Approved successfully!");
@@ -1709,9 +1668,15 @@ export default function TumourBoardCertificaiton() {
     if (!confirm.isConfirmed) return;
 
     try {
+      const currentEmployeeId = localStorage.getItem("employeeId") || "";
+      const currentEmployeeName = localStorage.getItem("name") || "";
       const res = await apiRequest(
         `${HMSURL}tumour-board-certificates/delete/${encodeURIComponent(certId)}/`,
-        "DELETE"
+        "DELETE",
+        {
+          "auth-user-id": currentEmployeeId,
+          "auth-user-name": currentEmployeeName,
+        }
       );
       if (res && res.success) {
         toast.success(res.message || "Certificate deleted successfully.");
@@ -1862,13 +1827,10 @@ export default function TumourBoardCertificaiton() {
       <div class="cert-page" style="height: 297mm; max-height: 297mm; box-sizing: border-box; position: relative; padding: 6mm 12mm 20mm 12mm; font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; background: #fff;">
         ${pageHeaderHtml}
 
-        <!-- Certificate Title -->
+        <!-- Certificate Title: Display stored template name -->
         <div style="text-align: center; margin: 3px 0 8px 0;">
           <div style="font-size: 16px; font-weight: 800; color: #1e3a8a; letter-spacing: 0.8px; text-transform: uppercase;">
-            TUMOUR BOARD CERTIFICATE
-          </div>
-          <div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 2px;">
-            (For AB-PMJAY / State Health Schemes)
+            ${(target.template_name || certData.template_name || selectedTemplate?.template_name || "TUMOUR BOARD CERTIFICATE").toUpperCase()}
           </div>
         </div>
 
@@ -2136,13 +2098,12 @@ export default function TumourBoardCertificaiton() {
             lb.style.borderColor = !isP ? '#0ea5e9' : '#475569';
             lb.style.color       = !isP ? '#1e40af' : '#cbd5e1';
           }
-          ${
-            previewMode
-              ? ""
-              : `setTimeout(function() {
+          ${previewMode
+        ? ""
+        : `setTimeout(function() {
             window.print();
           }, 450);`
-          }
+      }
         <\/script>
 
         ${singlePageHtml}
@@ -2294,9 +2255,9 @@ export default function TumourBoardCertificaiton() {
                           <div style={{ marginBottom: "3px" }}>
                             <span style={{ color: "#64748b", fontWeight: 600 }}>Prepared: </span>
                             <strong style={{ color: "#0f766e" }}>{cert.created_by_name || cert.created_by || "—"}</strong>
-                            {cert.created_at && (
+                            {(cert.created_date || cert.created_at) && (
                               <span style={{ fontSize: "0.72rem", color: "#94a3b8", display: "block" }}>
-                                {new Date(cert.created_at).toLocaleDateString()} {new Date(cert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(cert.created_date || cert.created_at).toLocaleDateString()} {new Date(cert.created_date || cert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             )}
                           </div>
@@ -2544,15 +2505,13 @@ export default function TumourBoardCertificaiton() {
                   curVal = normalizeGender(curVal);
                 }
 
-                // Treating Consultant Dropdown Selection
+                // Treating Consultant: Searchable (type-to-search) Doctor Selection
                 if (hf.key === "treating_consultant") {
-                  const isCustom = Boolean(customDoctorFields["treating_consultant"]);
                   const cleanCur = (curVal || "").toLowerCase().trim();
                   const matchedDoc = doctorsList.find(
                     (d) =>
                       d.name === curVal ||
-                      (d.name && d.name.toLowerCase().trim() === cleanCur) ||
-                      (d.searchTerms && d.searchTerms.some((st) => cleanCur.includes(st)))
+                      (d.name && d.name.toLowerCase().trim() === cleanCur)
                   );
 
                   return (
@@ -2560,71 +2519,13 @@ export default function TumourBoardCertificaiton() {
                       <Label>
                         {hf.label} {hf.required && "*"}
                       </Label>
-                      {isCustom ? (
-                        <div style={{ display: "flex", gap: "6px" }}>
-                          <Input
-                            type="text"
-                            placeholder="Enter Treating Consultant..."
-                            value={curVal}
-                            onChange={(e) => handleHeaderFieldChange(hf.key, e.target.value)}
-                            disabled={certData.is_approved}
-                            style={{ flex: 1 }}
-                          />
-                          <Button
-                            type="button"
-                            $variant="outline"
-                            style={{ padding: "0.25rem 0.6rem", fontSize: "0.75rem" }}
-                            onClick={() =>
-                              setCustomDoctorFields((prev) => ({ ...prev, treating_consultant: false }))
-                            }
-                            title="Switch to Dropdown List"
-                          >
-                            List
-                          </Button>
-                        </div>
-                      ) : (
-                        <Select
-                          value={curVal}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === "__custom__") {
-                              setCustomDoctorFields((prev) => ({ ...prev, treating_consultant: true }));
-                            } else {
-                              handleHeaderFieldChange(hf.key, val);
-                            }
-                          }}
-                          disabled={certData.is_approved}
-                        >
-                          <option value="">Select Treating Consultant</option>
-                          {curVal && !doctorsList.some((d) => d.name === curVal) && (
-                            <option value={curVal}>{curVal} (Current)</option>
-                          )}
-                          <optgroup label="Oncology Specialists">
-                            {doctorsList
-                              .filter((d) =>
-                                ["medical_oncology", "radiation_oncology", "surgical_oncology"].includes(d.category)
-                              )
-                              .map((d) => (
-                                <option key={d.name} value={d.name}>
-                                  {d.name} — {d.specialty || d.department} {d.regNo ? `(Reg. No: ${d.regNo})` : ""}
-                                </option>
-                              ))}
-                          </optgroup>
-                          <optgroup label="Hospital Consultants & Surgeons">
-                            {doctorsList
-                              .filter(
-                                (d) =>
-                                  !["medical_oncology", "radiation_oncology", "surgical_oncology"].includes(d.category)
-                              )
-                              .map((d) => (
-                                <option key={d.name} value={d.name}>
-                                  {d.name} — {d.specialty || d.department} {d.regNo ? `(Reg. No: ${d.regNo})` : ""}
-                                </option>
-                              ))}
-                          </optgroup>
-                          <option value="__custom__">➕ Type Custom Doctor...</option>
-                        </Select>
-                      )}
+                      <SearchableDoctorSelect
+                        value={curVal}
+                        doctors={doctorsList}
+                        placeholder="Type to search Treating Consultant..."
+                        disabled={certData.is_approved}
+                        onSelect={(name) => handleHeaderFieldChange(hf.key, name)}
+                      />
                       {matchedDoc?.regNo && (
                         <div style={{ fontSize: "0.75rem", color: "#0f766e", fontWeight: 600, marginTop: "2px" }}>
                           Reg. No: {matchedDoc.regNo}
@@ -2802,7 +2703,7 @@ export default function TumourBoardCertificaiton() {
                     return null;
                   }
 
-                  // Doctor Name Dropdown Selection (Medical / Radiation / Surgical Oncologist)
+                  // Doctor Name: Searchable (type-to-search) Selection (Medical / Radiation / Surgical Oncologist)
                   const doctorFieldCategories = {
                     medical_oncologist_name: "medical_oncology",
                     radiation_oncologist_name: "radiation_oncology",
@@ -2822,12 +2723,8 @@ export default function TumourBoardCertificaiton() {
                   };
 
                   if (doctorFieldCategories[field.key]) {
-                    const primaryCat = doctorFieldCategories[field.key];
                     const regKey = doctorRegFieldKeys[field.key];
                     const regLabel = doctorRegLabels[field.key] || "Reg. No";
-                    const primaryDocs = doctorsList.filter((d) => d.category === primaryCat);
-                    const otherDocs = doctorsList.filter((d) => d.category !== primaryCat);
-                    const isCustom = Boolean(customDoctorFields[field.key]);
                     const regVal = certData.field_values?.[regKey] ?? "";
 
                     return (
@@ -2835,62 +2732,13 @@ export default function TumourBoardCertificaiton() {
                         <Label>
                           {field.label} {field.required && "*"}
                         </Label>
-                        {isCustom ? (
-                          <div style={{ display: "flex", gap: "6px" }}>
-                            <Input
-                              type="text"
-                              placeholder={`Enter ${field.label}...`}
-                              value={curVal}
-                              onChange={(e) => handleFieldValueChange(field.key, e.target.value)}
-                              disabled={certData.is_approved}
-                              style={{ flex: 1 }}
-                            />
-                            <Button
-                              type="button"
-                              $variant="outline"
-                              style={{ padding: "0.25rem 0.6rem", fontSize: "0.75rem" }}
-                              onClick={() =>
-                                setCustomDoctorFields((prev) => ({ ...prev, [field.key]: false }))
-                              }
-                              title="Switch to Dropdown List"
-                            >
-                              List
-                            </Button>
-                          </div>
-                        ) : (
-                          <Select
-                            value={curVal}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === "__custom__") {
-                                setCustomDoctorFields((prev) => ({ ...prev, [field.key]: true }));
-                              } else {
-                                handleDoctorSelect(field.key, val);
-                              }
-                            }}
-                            disabled={certData.is_approved}
-                          >
-                            <option value="">Select {field.label.replace(" Name", "")}</option>
-                            {curVal && !doctorsList.some((d) => d.name === curVal) && (
-                              <option value={curVal}>{curVal} (Current)</option>
-                            )}
-                            <optgroup label="Recommended Specialists">
-                              {primaryDocs.map((d) => (
-                                <option key={d.name} value={d.name}>
-                                  {d.name} {d.regNo ? `(Reg. No: ${d.regNo})` : ""}
-                                </option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="Other Hospital Doctors & Oncologists">
-                              {otherDocs.map((d) => (
-                                <option key={d.name} value={d.name}>
-                                  {d.name} — {d.specialty || d.department} {d.regNo ? `(Reg. No: ${d.regNo})` : ""}
-                                </option>
-                              ))}
-                            </optgroup>
-                            <option value="__custom__">➕ Type Custom Doctor Name...</option>
-                          </Select>
-                        )}
+                        <SearchableDoctorSelect
+                          value={curVal}
+                          doctors={doctorsList}
+                          placeholder={`Type to search ${field.label.replace(" Name", "")}...`}
+                          disabled={certData.is_approved}
+                          onSelect={(name) => handleDoctorSelect(field.key, name)}
+                        />
 
                         {/* Display Reg. No directly under the respective doctor's name */}
                         <div style={{ marginTop: "0.65rem", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
@@ -2928,6 +2776,34 @@ export default function TumourBoardCertificaiton() {
               </SectionGrid>
             </Card>
           ))}
+
+          {/* ── Bottom Form Action Bar: Back & Save Draft ── */}
+          <Card
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: "12px",
+              padding: "1rem 1.25rem",
+              marginTop: "1.25rem",
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+            }}
+          >
+            <Button type="button" $variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft size={16} /> Back
+            </Button>
+            {!certData.is_approved && ((currentId && canEdit) || (!currentId && canCreate)) && (
+              <Button
+                type="button"
+                $variant="primary"
+                onClick={handleSaveCertificate}
+                style={{ minWidth: "150px" }}
+              >
+                <Save size={16} /> {currentId ? "Update Draft" : "Save Draft"}
+              </Button>
+            )}
+          </Card>
         </>
       )}
 
@@ -3037,13 +2913,10 @@ export default function TumourBoardCertificaiton() {
                 <div style={{ height: "105px", marginBottom: "4px" }} />
               )}
 
-              {/* Certificate Title */}
+              {/* Certificate Title: Display stored template name */}
               <div style={{ textAlign: "center", margin: "3px 0 8px 0" }}>
                 <div style={{ fontSize: "16px", fontWeight: 800, color: "#1e3a8a", letterSpacing: "0.8px", textTransform: "uppercase" }}>
-                  TUMOUR BOARD CERTIFICATE
-                </div>
-                <div style={{ fontSize: "11px", fontWeight: 700, color: "#475569", marginTop: 2 }}>
-                  (For AB-PMJAY / State Health Schemes)
+                  {(certData.template_name || selectedTemplate?.template_name || "TUMOUR BOARD CERTIFICATE").toUpperCase()}
                 </div>
               </div>
 
@@ -3357,13 +3230,10 @@ export default function TumourBoardCertificaiton() {
                       />
                     </div>
 
-                    {/* Certificate Title */}
+                    {/* Certificate Title: Display stored template name */}
                     <div style={{ textAlign: "center", margin: "3px 0 8px 0" }}>
                       <div style={{ fontSize: "16px", fontWeight: 800, color: "#1e3a8a", letterSpacing: "0.8px", textTransform: "uppercase" }}>
-                        TUMOUR BOARD CERTIFICATE
-                      </div>
-                      <div style={{ fontSize: "11px", fontWeight: 700, color: "#475569", marginTop: "2px" }}>
-                        (For AB-PMJAY / State Health Schemes)
+                        {(previewCert?.template_name || certData.template_name || "TUMOUR BOARD CERTIFICATE").toUpperCase()}
                       </div>
                     </div>
 

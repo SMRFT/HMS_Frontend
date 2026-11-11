@@ -253,7 +253,7 @@ function DoctorList() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  
+
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -280,10 +280,10 @@ function DoctorList() {
   // Filtered doctors logic
   const filteredDoctors = doctors.filter(doc => {
     const nameMatch = (doc.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      (doc.employeeId || '').toString().toLowerCase().includes(searchTerm.toLowerCase());
-    const statusMatch = statusFilter === 'All' || 
-                       (statusFilter === 'Scheduled' && doc.schedule_exists) ||
-                       (statusFilter === 'Not set' && !doc.schedule_exists);
+      (doc.employeeId || '').toString().toLowerCase().includes(searchTerm.toLowerCase());
+    const statusMatch = statusFilter === 'All' ||
+      (statusFilter === 'Scheduled' && doc.schedule_exists) ||
+      (statusFilter === 'Not set' && !doc.schedule_exists);
     return nameMatch && statusMatch;
   });
 
