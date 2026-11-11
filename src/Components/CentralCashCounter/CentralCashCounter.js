@@ -947,6 +947,7 @@ export default function CentralCashCounter() {
     cheque: false,
     credit: false,
   });
+  const [isMultipleMode, setIsMultipleMode] = useState(false);
   const [payments, setPayments] = useState({
     cash: "",
     cheque: "",
@@ -960,6 +961,19 @@ export default function CentralCashCounter() {
   const [remarks, setRemarks] = useState("");
 
   const [activeShift, setActiveShift] = useState(null);
+
+  // ── Helper to reliably parse UTC datetimes into local Indian Time (IST) Date objects
+  const parseUtcDate = (val) => {
+    if (!val) return null;
+    if (val instanceof Date) return val;
+    const str = String(val).trim();
+    if (!str || str === "-" || str === "null" || str === "undefined") return null;
+    // If ISO timestamp without explicit timezone indicator (no 'Z' and no offset like +05:30), append 'Z' so it treats as UTC
+    if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:?\d{2}$/.test(str)) {
+      return new Date(str + "Z");
+    }
+    return new Date(str);
+  };
 
   // ── Receipt / Payment state ──────────────────────────────────────────────────
   const [rpReceiptType, setRpReceiptType] = useState("Receipt");
@@ -1330,7 +1344,7 @@ export default function CentralCashCounter() {
       const id = item.id ?? `temp-${index}-${Date.now()}`;
 
       // ✅ use bill_date only
-      const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
+      const billDateObj = parseUtcDate(item.bill_date);
 
       const billDate = billDateObj
         ? billDateObj.toLocaleDateString("en-IN", {
@@ -1392,7 +1406,7 @@ export default function CentralCashCounter() {
         const rawDate = isPaidFilter
           ? (payment.paid_datetime || payment.paid_date || payment.bill_date || payment.date)
           : (payment.bill_date || payment.date);
-        const billDateObj = rawDate ? new Date(rawDate) : null;
+        const billDateObj = parseUtcDate(rawDate);
 
         // ✅ Resolve raw integer bill_type (may have a space-prefixed key in some records)
         const rawBillType =
@@ -1459,7 +1473,7 @@ export default function CentralCashCounter() {
 
   const balance = netAmount - paidAmount;
 
-  // ✅ UPDATED: reset remarks when opening the modal
+  // ✅ UPDATED: reset remarks and payment modes when opening the modal
   const openPaymentModal = (bill) => {
     // For return bills, ensure the source flag is set so submitPayment routes correctly
     const enrichedBill = activeMenuItem === "Returns Bills"
@@ -1467,6 +1481,7 @@ export default function CentralCashCounter() {
       : bill;
     setSelectedBill(enrichedBill);
     const totalAmt = parseFloat(bill?.total || 0);
+    setIsMultipleMode(false);
     setSelectedMethods({ cash: true, card: false, cheque: false, credit: false });
     setPayments({
       cash: totalAmt > 0 ? String(totalAmt) : "",
@@ -1480,6 +1495,116 @@ export default function CentralCashCounter() {
     setModalError("");
     setIsSavingPayment(false);
     setShowPaymentModal(true);
+  };
+
+  // ── Select a SINGLE payment method (auto-fills 100% Net Amount) ─────────────
+  const handleSelectSingleMethod = (method) => {
+    setIsMultipleMode(false);
+    setSelectedMethods({
+      cash: method === "cash",
+      card: method === "card",
+      cheque: method === "cheque",
+      credit: method === "credit",
+    });
+    setPayments((prev) => ({
+      cash: method === "cash" ? (netAmount > 0 ? String(netAmount) : "") : "",
+      card: method === "card" ? (netAmount > 0 ? String(netAmount) : "") : "",
+      cardNo: prev.cardNo,
+      cheque: method === "cheque" ? (netAmount > 0 ? String(netAmount) : "") : "",
+      chequeNo: prev.chequeNo,
+      credit: method === "credit" ? (netAmount > 0 ? String(netAmount) : "") : "",
+    }));
+  };
+
+  // ── Toggle payment method in MULTIPLE payment mode ──────────────────────────
+  const handleToggleMultipleMethod = (method, isChecked) => {
+    const nextSelected = { ...selectedMethods, [method]: isChecked };
+    const checkedKeys = Object.keys(nextSelected).filter((m) => nextSelected[m]);
+
+    // Don't allow 0 methods
+    if (checkedKeys.length === 0) {
+      handleSelectSingleMethod(method);
+      return;
+    }
+
+    // If exactly 1 method is left, revert to single method mode with 100% amount
+    if (checkedKeys.length === 1) {
+      handleSelectSingleMethod(checkedKeys[0]);
+      return;
+    }
+
+    // 2 or more methods active: activate multiple mode
+    setIsMultipleMode(true);
+    setSelectedMethods(nextSelected);
+
+    setPayments((prev) => {
+      const nextPayments = { ...prev };
+      if (!isChecked) {
+        // Method was unchecked: clear its amount
+        nextPayments[method] = "";
+        if (method === "card") nextPayments.cardNo = "";
+        if (method === "cheque") nextPayments.chequeNo = "";
+
+        // Reallocate the cleared balance to the primary active method
+        const primary = checkedKeys.includes("cash") ? "cash" : checkedKeys[0];
+        const otherAllocated = checkedKeys
+          .filter((m) => m !== primary)
+          .reduce((sum, m) => sum + (parseFloat(nextPayments[m]) || 0), 0);
+        nextPayments[primary] = String(Math.max(netAmount - otherAllocated, 0));
+      } else {
+        // Method was newly checked: calculate remaining unallocated balance
+        const otherAllocated = checkedKeys
+          .filter((m) => m !== method)
+          .reduce((sum, m) => sum + (parseFloat(nextPayments[m]) || 0), 0);
+        const remaining = Math.max(netAmount - otherAllocated, 0);
+        nextPayments[method] = remaining > 0 ? String(remaining) : "";
+      }
+      return nextPayments;
+    });
+  };
+
+  // ── Toggle Multiple Payment mode on/off ──────────────────────────────────────
+  const handleToggleMultipleMode = (enabled) => {
+    setIsMultipleMode(enabled);
+    if (!enabled) {
+      // Switching back to single: keep the first active method (or cash)
+      const activeKeys = Object.keys(selectedMethods).filter((m) => selectedMethods[m]);
+      const primary = activeKeys.includes("cash") ? "cash" : (activeKeys[0] || "cash");
+      handleSelectSingleMethod(primary);
+    }
+  };
+
+  // ── Smart amount change with 2-method auto-balancing ─────────────────────────
+  const handlePaymentAmountChange = (method, rawValue) => {
+    setPayments((prev) => {
+      const next = { ...prev, [method]: rawValue };
+      const checkedKeys = Object.keys(selectedMethods).filter((m) => selectedMethods[m]);
+
+      // If exactly 2 methods are active and a valid number was typed:
+      // auto-balance the other method so total = netAmount
+      if (checkedKeys.length === 2 && rawValue !== "") {
+        const otherMethod = checkedKeys.find((m) => m !== method);
+        const enteredVal = parseFloat(rawValue) || 0;
+        if (enteredVal <= netAmount) {
+          const autoBalance = Math.max(netAmount - enteredVal, 0);
+          next[otherMethod] = String(autoBalance);
+        }
+      }
+      return next;
+    });
+  };
+
+  // ── Helper: Apply remaining balance to a target method ───────────────────────
+  const applyRemainingToMethod = (targetMethod) => {
+    const checkedKeys = Object.keys(selectedMethods).filter((m) => selectedMethods[m]);
+    const otherAllocated = checkedKeys
+      .filter((m) => m !== targetMethod)
+      .reduce((sum, m) => sum + (parseFloat(payments[m]) || 0), 0);
+    const remaining = Math.max(netAmount - otherAllocated, 0);
+    setPayments((prev) => ({
+      ...prev,
+      [targetMethod]: String(remaining),
+    }));
   };
 
   // ── Fetch pending bills ───────────────────────────────────────────────────────
@@ -1503,7 +1628,8 @@ export default function CentralCashCounter() {
         : [];
 
       const formatted = billsArray.map((item, index) => {
-        const dateObj = item.date ? new Date(item.date) : null;
+        const rawDate = item.billed_date || item.raw?.billed_date || item.raw?.investBillDate || item.raw?.bill_date || item.date || item.raw?.created_date;
+        const dateObj = parseUtcDate(rawDate);
         const billDate = dateObj
           ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
           : "-";
@@ -1566,7 +1692,8 @@ export default function CentralCashCounter() {
         : [];
 
       const formatted = billsArray.map((item, index) => {
-        const dateObj = item.date ? new Date(item.date) : null;
+        const rawDate = item.billed_date || item.raw?.billed_date || item.raw?.investBillDate || item.raw?.bill_date || item.date || item.raw?.created_date;
+        const dateObj = parseUtcDate(rawDate);
         const billDate = dateObj
           ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
           : "-";
@@ -1622,7 +1749,8 @@ export default function CentralCashCounter() {
           : [];
 
         const formatted = billsArray.map((item, index) => {
-          const dateObj = item.date ? new Date(item.date) : null;
+          const rawDate = item.paid_date || item.raw?.paid_date || item.raw?.paid_at || item.date || item.billed_date || item.raw?.billed_date;
+          const dateObj = parseUtcDate(rawDate);
           const billDate = dateObj
             ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
             : "-";
@@ -1729,7 +1857,7 @@ export default function CentralCashCounter() {
         const rawDate = item.billing_status === "Paid"
           ? (item.paid_date || item.paid_datetime || item.lastmodified_date || item.bill_date)
           : (item.bill_date || item.created_date);
-        const billDateObj = rawDate ? new Date(rawDate) : null;
+        const billDateObj = parseUtcDate(rawDate);
         const billDate = billDateObj
           ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
           : "-";
@@ -3677,79 +3805,115 @@ export default function CentralCashCounter() {
                 <span>₹ {netAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </NetAmountBanner>
 
-              <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-                {["cash", "card", "cheque", "credit"].map((method) => (
-                  <label
-                    key={method}
-                    style={{
-                      flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: "6px",
-                      border: `2px solid ${selectedMethods[method] ? "#0d9488" : "#e5e7eb"}`,
-                      borderRadius: "7px", padding: "7px 10px", cursor: "pointer",
-                      background: selectedMethods[method] ? "#f0fdfa" : "#fafafa",
-                      fontWeight: 600, fontSize: "13px",
-                      color: selectedMethods[method] ? "#0d9488" : "#6b7280",
-                      transition: "all 0.2s", userSelect: "none",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedMethods[method]}
-                      onChange={(e) => {
-                        const isChecked = e.target.checked;
-                        setSelectedMethods((prev) => ({ ...prev, [method]: isChecked }));
+              {/* Payment Mode Selector: Single vs Multiple Payment */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Payment Method
+                </span>
+                <label
+                  style={{
+                    display: "flex", alignItems: "center", gap: "6px",
+                    cursor: "pointer", fontSize: "12px", fontWeight: 600,
+                    color: isMultipleMode ? "#0d9488" : "#6b7280",
+                    background: isMultipleMode ? "#f0fdfa" : "#f3f4f6",
+                    padding: "4px 10px", borderRadius: "6px",
+                    border: `1px solid ${isMultipleMode ? "#99f6e4" : "#e5e7eb"}`,
+                    transition: "all 0.2s"
+                  }}
+                  title="Enable to split payment across multiple methods (e.g. Cash + Card)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isMultipleMode}
+                    onChange={(e) => handleToggleMultipleMode(e.target.checked)}
+                    style={{ accentColor: "#0d9488", width: "14px", height: "14px", cursor: "pointer" }}
+                  />
+                  <span>🔀 Multiple Payment (Split)</span>
+                </label>
+              </div>
 
-                        if (isChecked) {
-                          // Auto-fill this method with the remaining unpaid amount
-                          setPayments((prev) => {
-                            const alreadyPaid =
-                              (method !== "cash" && selectedMethods.cash ? parseFloat(prev.cash) || 0 : 0) +
-                              (method !== "card" && selectedMethods.card ? parseFloat(prev.card) || 0 : 0) +
-                              (method !== "cheque" && selectedMethods.cheque ? parseFloat(prev.cheque) || 0 : 0) +
-                              (method !== "credit" && selectedMethods.credit ? parseFloat(prev.credit) || 0 : 0);
-                            const remaining = Math.max(netAmount - alreadyPaid, 0);
-                            return {
-                              ...prev,
-                              [method]: remaining > 0 ? String(remaining) : "",
-                            };
-                          });
+              {/* Payment Method Pills */}
+              <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+                {[
+                  { id: "cash", label: "Cash", icon: "💵" },
+                  { id: "card", label: "Card", icon: "💳" },
+                  { id: "cheque", label: "Cheque", icon: "🏦" },
+                  { id: "credit", label: "Credit", icon: "📑" },
+                ].map(({ id, label, icon }) => {
+                  const isChecked = !!selectedMethods[id];
+                  return (
+                    <div
+                      key={id}
+                      onClick={() => {
+                        if (isMultipleMode) {
+                          handleToggleMultipleMethod(id, !isChecked);
                         } else {
-                          // Clear this method's amount; redistribute remaining to cash if cash is still selected
-                          setPayments((prev) => {
-                            const clearedPayments = {
-                              ...prev,
-                              [method]: "",
-                              ...(method === "card" ? { cardNo: "" } : {}),
-                              ...(method === "cheque" ? { chequeNo: "" } : {}),
-                            };
-                            // If cash is still active, update cash to cover remaining balance
-                            const otherPaid =
-                              (method !== "card" && selectedMethods.card ? parseFloat(prev.card) || 0 : 0) +
-                              (method !== "cheque" && selectedMethods.cheque ? parseFloat(prev.cheque) || 0 : 0) +
-                              (method !== "credit" && selectedMethods.credit ? parseFloat(prev.credit) || 0 : 0);
-                            if (selectedMethods.cash && method !== "cash") {
-                              clearedPayments.cash = String(Math.max(netAmount - otherPaid, 0));
-                            }
-                            return clearedPayments;
-                          });
+                          handleSelectSingleMethod(id);
                         }
                       }}
-                      style={{ accentColor: "#0d9488", width: "16px", height: "16px" }}
-                    />
-                    {method === "credit" ? "Credit" : method.charAt(0).toUpperCase() + method.slice(1)}
-                  </label>
-                ))}
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                        border: `2px solid ${isChecked ? "#0d9488" : "#e5e7eb"}`,
+                        borderRadius: "8px",
+                        padding: "8px 10px",
+                        cursor: "pointer",
+                        background: isChecked ? "#f0fdfa" : "#ffffff",
+                        fontWeight: 600,
+                        fontSize: "13px",
+                        color: isChecked ? "#0d9488" : "#4b5563",
+                        boxShadow: isChecked ? "0 2px 4px rgba(13, 148, 136, 0.12)" : "none",
+                        transition: "all 0.15s ease",
+                        userSelect: "none",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          if (!isMultipleMode && e.target.checked) {
+                            setIsMultipleMode(true);
+                            handleToggleMultipleMethod(id, true);
+                          } else {
+                            handleToggleMultipleMethod(id, e.target.checked);
+                          }
+                        }}
+                        style={{ accentColor: "#0d9488", width: "16px", height: "16px", cursor: "pointer" }}
+                      />
+                      <span>{icon} {label}</span>
+                    </div>
+                  );
+                })}
               </div>
 
               {selectedMethods.cash && (
                 <PaymentSection>
-                  <PaymentMethodLabel>💵 Cash</PaymentMethodLabel>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <PaymentMethodLabel>💵 Cash</PaymentMethodLabel>
+                    {isMultipleMode && balance > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => applyRemainingToMethod("cash")}
+                        style={{
+                          fontSize: "11px", color: "#0d9488", background: "#f0fdfa",
+                          border: "1px solid #99f6e4", borderRadius: "4px",
+                          padding: "2px 8px", cursor: "pointer", fontWeight: 600
+                        }}
+                      >
+                        + Use remaining ₹{balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </button>
+                    )}
+                  </div>
                   <FormRow>
                     <FormLabel>Amount (₹)</FormLabel>
                     <Input
                       type="number" placeholder="0.00"
                       value={payments.cash}
-                      onChange={(e) => setPayments({ ...payments, cash: e.target.value })}
+                      onChange={(e) => handlePaymentAmountChange("cash", e.target.value)}
                       onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
@@ -3758,21 +3922,28 @@ export default function CentralCashCounter() {
 
               {selectedMethods.card && (
                 <PaymentSection>
-                  <PaymentMethodLabel>💳 Card</PaymentMethodLabel>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <PaymentMethodLabel>💳 Card</PaymentMethodLabel>
+                    {isMultipleMode && balance > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => applyRemainingToMethod("card")}
+                        style={{
+                          fontSize: "11px", color: "#0d9488", background: "#f0fdfa",
+                          border: "1px solid #99f6e4", borderRadius: "4px",
+                          padding: "2px 8px", cursor: "pointer", fontWeight: 600
+                        }}
+                      >
+                        + Use remaining ₹{balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </button>
+                    )}
+                  </div>
                   <FormRow>
                     <FormLabel>Amount (₹)</FormLabel>
                     <Input
                       type="number" placeholder="0.00"
                       value={payments.card}
-                      onChange={(e) => {
-                        const cardVal = parseFloat(e.target.value) || 0;
-                        const chequeVal = selectedMethods.cheque ? parseFloat(payments.cheque) || 0 : 0;
-                        const creditVal = selectedMethods.credit ? parseFloat(payments.credit) || 0 : 0;
-                        const newCash = selectedMethods.cash
-                          ? String(Math.max(netAmount - cardVal - chequeVal - creditVal, 0))
-                          : payments.cash;
-                        setPayments({ ...payments, card: e.target.value, cash: newCash });
-                      }}
+                      onChange={(e) => handlePaymentAmountChange("card", e.target.value)}
                       onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
@@ -3789,26 +3960,33 @@ export default function CentralCashCounter() {
 
               {selectedMethods.cheque && (
                 <PaymentSection>
-                  <PaymentMethodLabel>🏦 Cheque</PaymentMethodLabel>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <PaymentMethodLabel>🏦 Cheque</PaymentMethodLabel>
+                    {isMultipleMode && balance > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => applyRemainingToMethod("cheque")}
+                        style={{
+                          fontSize: "11px", color: "#0d9488", background: "#f0fdfa",
+                          border: "1px solid #99f6e4", borderRadius: "4px",
+                          padding: "2px 8px", cursor: "pointer", fontWeight: 600
+                        }}
+                      >
+                        + Use remaining ₹{balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </button>
+                    )}
+                  </div>
                   <FormRow>
                     <FormLabel>Amount (₹)</FormLabel>
                     <Input
                       type="number" placeholder="0.00"
                       value={payments.cheque}
-                      onChange={(e) => {
-                        const chequeVal = parseFloat(e.target.value) || 0;
-                        const cardVal = selectedMethods.card ? parseFloat(payments.card) || 0 : 0;
-                        const creditVal = selectedMethods.credit ? parseFloat(payments.credit) || 0 : 0;
-                        const newCash = selectedMethods.cash
-                          ? String(Math.max(netAmount - chequeVal - cardVal - creditVal, 0))
-                          : payments.cash;
-                        setPayments({ ...payments, cheque: e.target.value, cash: newCash });
-                      }}
+                      onChange={(e) => handlePaymentAmountChange("cheque", e.target.value)}
                       onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                   <FormRow>
-                    <FormLabel>Cheque No</FormLabel>
+                    <FormLabel>Cheque No <span style={{ color: "red" }}>*</span></FormLabel>
                     <SubInput
                       type="text" placeholder="Enter cheque number"
                       value={payments.chequeNo}
@@ -3820,21 +3998,28 @@ export default function CentralCashCounter() {
 
               {selectedMethods.credit && (
                 <PaymentSection>
-                  <PaymentMethodLabel>📑 Credit</PaymentMethodLabel>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <PaymentMethodLabel>📑 Credit</PaymentMethodLabel>
+                    {isMultipleMode && balance > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => applyRemainingToMethod("credit")}
+                        style={{
+                          fontSize: "11px", color: "#0d9488", background: "#f0fdfa",
+                          border: "1px solid #99f6e4", borderRadius: "4px",
+                          padding: "2px 8px", cursor: "pointer", fontWeight: 600
+                        }}
+                      >
+                        + Use remaining ₹{balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </button>
+                    )}
+                  </div>
                   <FormRow>
                     <FormLabel>Amount (₹)</FormLabel>
                     <Input
                       type="number" placeholder="0.00"
                       value={payments.credit}
-                      onChange={(e) => {
-                        const creditVal = parseFloat(e.target.value) || 0;
-                        const cardVal = selectedMethods.card ? parseFloat(payments.card) || 0 : 0;
-                        const chequeVal = selectedMethods.cheque ? parseFloat(payments.cheque) || 0 : 0;
-                        const newCash = selectedMethods.cash
-                          ? String(Math.max(netAmount - creditVal - cardVal - chequeVal, 0))
-                          : payments.cash;
-                        setPayments({ ...payments, credit: e.target.value, cash: newCash });
-                      }}
+                      onChange={(e) => handlePaymentAmountChange("credit", e.target.value)}
                       onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
