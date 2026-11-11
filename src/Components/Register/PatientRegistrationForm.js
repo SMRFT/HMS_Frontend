@@ -380,7 +380,7 @@ const PatientRegistrationForm = () => {
 
   // Payment timing & method states
   const [paymentTiming, setPaymentTiming] = useState("pay_now") // "pay_now" | "pay_later"
-  const [paymentMethod, setPaymentMethod] = useState("Cash") // "Cash" | "UPI" | "Card" | "Insurance Credit" | "Pay Later"
+  const [paymentMethod, setPaymentMethod] = useState("Cash") // "Cash" | "Credit"
   const doctorDropdownListRef = useRef(null)
 
   // Auto-scroll dropdown list so highlighted doctor is visible during Up/Down arrow navigation
@@ -1066,8 +1066,8 @@ const PatientRegistrationForm = () => {
             paymentTiming === "pay_now"
               ? `Pay Now - Pending (${paymentMethod})`
               : ((patient.customerType || "").toLowerCase() === "insurance"
-                  ? `Pay Later (Insurance Cashless Claim)`
-                  : `Pay Later (Deferred / Counter Pending)`)
+                  ? `Credit (Insurance Claim)`
+                  : `Credit (Pay Later)`)
           }</p>
           <p><b>Emergency Contact:</b> ${patient.emergencyContact || "N/A"}</p>
         </div>
@@ -1127,7 +1127,7 @@ const PatientRegistrationForm = () => {
 
       // Append Payment Timing & Method
       formData.append("payment_timing", paymentTiming);
-      formData.append("payment_method", paymentMethod);
+      formData.append("payment_method", (paymentMethod === "Insurance Credit" || paymentMethod === "Pay Later") ? "Credit" : (paymentMethod || "Cash"));
       formData.append("payment_status", "Pending");
 
       const result = await apiRequest(`${Hmsbaseurl}patients/register/`, "POST", formData);
@@ -1389,7 +1389,7 @@ const PatientRegistrationForm = () => {
     const selectedCustType = (mappedPatient.customerType || "").toLowerCase();
     if (selectedCustType === "insurance") {
       setPaymentTiming("pay_later");
-      setPaymentMethod("Insurance Credit");
+      setPaymentMethod("Credit");
     } else {
       setPaymentTiming("pay_now");
       setPaymentMethod("Cash");
@@ -1969,8 +1969,8 @@ const PatientRegistrationForm = () => {
                     // Auto-toggle payment timing when customer type changes
                     if (selectedValue.toLowerCase() === "insurance") {
                       setPaymentTiming("pay_later");
-                      setPaymentMethod("Insurance Credit");
-                    } else if (paymentTiming === "pay_later" && paymentMethod === "Insurance Credit") {
+                      setPaymentMethod("Credit");
+                    } else if (paymentTiming === "pay_later" && paymentMethod === "Credit") {
                       setPaymentTiming("pay_now");
                       setPaymentMethod("Cash");
                     }
@@ -2971,13 +2971,9 @@ const PatientRegistrationForm = () => {
                   $variant="payLater"
                   onClick={() => {
                     setPaymentTiming("pay_later");
-                    setPaymentMethod(
-                      (patient.customerType || "").toLowerCase() === "insurance"
-                        ? "Insurance Credit"
-                        : "Pay Later"
-                    );
+                    setPaymentMethod("Credit");
                   }}
-                  title="Defer payment / Insurance claim"
+                  title="Defer payment / Credit claim"
                 >
                   <Clock size={13} />
                   <span>Pay Later</span>
