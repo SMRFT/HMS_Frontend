@@ -490,7 +490,7 @@ const InsuranceCreditReport = () => {
             "Investigation Total (₹)": r.investigation_total,
             "Total Credit Amount (₹)": r.total_credit_amount,
             "Payment Status": r.payment_status,
-            "Payment Method": r.payment_method || 'Insurance Credit'
+            "Payment Method": r.payment_method || 'Credit'
         }));
 
         const ws = XLSX.utils.json_to_sheet(exportData);
