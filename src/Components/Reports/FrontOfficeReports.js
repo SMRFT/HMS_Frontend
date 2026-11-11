@@ -797,60 +797,70 @@ const FrontOfficeReports = () => {
             id: "referred_patients", title: "Referred Patients",
             description: "Patients registered with a referring source, for the selected period",
             icon: <UserPlus size={18} />, reportType: "referred_patients", color: colors.primary,
+            route: "/ReferredPatientsReport",
             permission: "HMS-RPT-REFERRED-PATIENTS"
         },
         {
             id: "op_patients", title: "OP Patient Register",
             description: "Full outpatient registration list for the selected period",
             icon: <Users size={18} />, reportType: "op_patients", color: colors.primary,
+            route: "/OPPatientRegister",
             permission: "HMS-RPT-OP-PATIENTS"
         },
         {
             id: "admission_register", title: "Admission Register",
             description: "IP admissions with room, doctor, and reason for admission",
             icon: <FileText size={18} />, reportType: "admission_register", color: colors.primary,
+            route: "/AdmissionRegister",
             permission: "HMS-RPT-ADMISSION-REGISTER"
         },
         {
             id: "discharge_register", title: "Discharge Register",
             description: "Discharged patients with admission/discharge dates and doctor",
             icon: <LogOut size={18} />, reportType: "discharge_register", color: colors.danger,
+            route: "/DischargeRegister",
             permission: "HMS-RPT-DISCHARGE-REGISTER"
         },
         {
             id: "doctor_wise_ip_collection", title: "Doctor wise IP Collection",
             description: "IP billing collection totals grouped by doctor",
             icon: <IndianRupee size={18} />, reportType: "doctor_wise_ip_collection", color: '#059669',
+            route: "/DoctorWiseIPCollection",
             permission: "HMS-RPT-DOCTOR-WISE-IP-COLLECTION"
         },
         {
             id: "new_born_babies", title: "New Born Babies List",
             description: "Newborn registrations linked to a mother's UHID",
             icon: <Baby size={18} />, reportType: "new_born_babies", color: '#db2777',
+            route: "/NewBornBabiesReport",
             permission: "HMS-RPT-NEWBORN-BABIES"
         },
         {
             id: "doctor_wise_admission", title: "Doctor wise Admission",
             description: "IP admissions grouped and filterable by admitting doctor",
             icon: <UserCheck size={18} />, reportType: "doctor_wise_admission", color: colors.primary,
+            route: "/DoctorWiseAdmission",
             permission: "HMS-RPT-DOCTOR-WISE-ADMISSION"
         },
         {
             id: "room_occupancy", title: "Room Occupancy Report",
             description: "Live view of currently occupied rooms and beds",
             icon: <BedDouble size={18} />, path: "/RoomOccupencyReport", color: '#2563eb',
+            route: "/RoomOccupencyReport",
             permission: "HMS-RPT-ROOM-OCCUPANCY"
         },
         {
             id: "pre_day_room_occupancy", title: "Previous Day Room Occupancy",
             description: "Room occupancy as it stood at end-of-day for any past date",
             icon: <History size={18} />, path: "/PreDayRoomOccupancyReport", color: '#2563eb',
+            route: "/PreDayRoomOccupancyReport",
             permission: "HMS-RPT-PRE-OCCUPANCY"
         },
         {
             id: "insurance_credit_report", title: "Insurance & Credit Billing Report",
             description: "Comprehensive tracking of insurance credit bills, active admissions, room occupancy & lab investigations",
             icon: <ShieldCheck size={18} />, path: "/InsuranceCreditReport", color: '#0d9488',
+            route: "/InsuranceCreditReport",
             permission: "HMS-RPT-INSURANCE-CREDIT"
         },
     ];
@@ -858,11 +868,13 @@ const FrontOfficeReports = () => {
     const filteredReports = reportsList.filter(report => {
         // Evaluate dynamic report permissions if configured
         if (hasCustomConfig && userReportPerms && typeof userReportPerms === "object") {
-            const rRoute = report.path || report.reportType;
+            const rRoute = report.route || report.path || report.reportType;
             const norm = rRoute?.startsWith("/") ? rRoute : `/${rRoute}`;
             const isAllowed = Boolean(
                 userReportPerms[rRoute] ||
                 userReportPerms[norm] ||
+                userReportPerms[report.path] ||
+                userReportPerms[report.reportType] ||
                 userReportPerms[report.title] ||
                 userReportPerms[report.id] ||
                 userReportPerms[report.permission]
