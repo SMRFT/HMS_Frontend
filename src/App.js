@@ -359,6 +359,7 @@ function App() {
             localStorage.removeItem("selected_outlet");
             localStorage.removeItem("outlet_code");
             localStorage.removeItem("selected_outlet_name");
+            localStorage.removeItem("is_stock_outlet");
 
             if (effectiveOutlets.length === 1) {
               // Auto-select if only one
@@ -369,16 +370,21 @@ function App() {
                 "selected_outlet_name",
                 outlet.outlet_name,
               );
+              localStorage.setItem(
+                "is_stock_outlet",
+                String(Boolean(outlet.is_stock_outlet) || outlet.outlet_code === "OLET006"),
+              );
             } else if (effectiveOutlets.length > 1) {
               setShowOutletModal(true);
             }
           } else {
-            // Keep selected_outlet, outlet_code and selected_outlet_name in sync
+            // Keep selected_outlet, outlet_code, selected_outlet_name and is_stock_outlet in sync
             const currentOutletObj = effectiveOutlets.find((o) => o.outlet_code === storedOutlet);
             if (currentOutletObj) {
               localStorage.setItem("selected_outlet", currentOutletObj.outlet_code);
               localStorage.setItem("outlet_code", currentOutletObj.outlet_code);
               localStorage.setItem("selected_outlet_name", currentOutletObj.outlet_name);
+              localStorage.setItem("is_stock_outlet", String(Boolean(currentOutletObj.is_stock_outlet) || currentOutletObj.outlet_code === "OLET006"));
             }
           }
         } catch (error) {
@@ -630,6 +636,7 @@ function App() {
             localStorage.setItem("selected_outlet", outlet.outlet_code);
             localStorage.setItem("outlet_code", outlet.outlet_code);
             localStorage.setItem("selected_outlet_name", outlet.outlet_name);
+            localStorage.setItem("is_stock_outlet", String(Boolean(outlet.is_stock_outlet) || outlet.outlet_code === "OLET006"));
             setShowOutletModal(false);
 
             const userRole = getUserRole(allowedActions);
@@ -737,6 +744,13 @@ function App() {
               setIsSidebarCollapsed={setSidebarCollapsed}
               onSwitchOutlet={() => setShowOutletModal(true)}
               hasMultipleOutlets={userOutlets.length > 1}
+              isStockOutlet={(() => {
+                const activeCode = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+                if (activeCode === "OLET006") return true;
+                const activeObj = userOutlets.find((o) => o.outlet_code === activeCode);
+                if (activeObj) return Boolean(activeObj.is_stock_outlet);
+                return localStorage.getItem("is_stock_outlet") === "true";
+              })()}
             />
             <Routes>
               {/* Dashboard */}
