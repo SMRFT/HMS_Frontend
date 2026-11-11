@@ -16,7 +16,8 @@ import {
   InvTr,
   InvBadge,
   InvActionGroup,
-  InvActionBtn,
+  InvEditBtn,
+  InvDeleteBtn,
   InvSlideFormPanel,
   InvSlideFormHead,
   InvSlideFormTitle,
@@ -573,7 +574,7 @@ const VendorManagement = () => {
                 <InvTh>Contact Person</InvTh>
                 <InvTh>Phone / Email</InvTh>
                 <InvTh>Payment Terms</InvTh>
-                <InvTh style={{ textAlign: "center", width: 140 }}>Actions</InvTh>
+                <InvTh style={{ textAlign: "center", width: 100 }}>Action</InvTh>
               </tr>
             </thead>
             <tbody>
@@ -622,12 +623,8 @@ const VendorManagement = () => {
                     <InvTd>{v.payment_terms || "—"}</InvTd>
                     <InvTd style={{ textAlign: "center" }}>
                       <InvActionGroup>
-                        <InvActionBtn variant="edit" onClick={() => handleEdit(v)} title="Edit Vendor Details">
-                          ✏️ Edit
-                        </InvActionBtn>
-                        <InvActionBtn variant="delete" onClick={() => handleDelete(v.vendor_id || v._id)} title="Delete Vendor">
-                          🗑️ Delete
-                        </InvActionBtn>
+                        <InvEditBtn onClick={() => handleEdit(v)} title="Edit Vendor Details" />
+                        <InvDeleteBtn onClick={() => handleDelete(v.vendor_id || v._id)} title="Delete Vendor" />
                       </InvActionGroup>
                     </InvTd>
                   </InvTr>

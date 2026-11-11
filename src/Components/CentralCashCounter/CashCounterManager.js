@@ -425,6 +425,14 @@ const CashCounterManager = () => {
         }
     };
 
+    const getOutletName = (outletCode) => {
+        if (!outletCode) return "-";
+        const found = outlets.find(o => 
+            String(o.outlet_code || o.outlet_id || '').trim().toLowerCase() === String(outletCode).trim().toLowerCase()
+        );
+        return found?.outlet_name || found?.name || outletCode;
+    };
+
     const fetchEmployees = async () => {
         setEmpLoading(true);
         try {
@@ -536,11 +544,15 @@ const CashCounterManager = () => {
         }
     };
 
-    const filteredCounters = counters.filter(c => 
-        (c.counter_name && c.counter_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (c.counter_id && c.counter_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (c.outlet && c.outlet.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredCounters = counters.filter(c => {
+        if (!searchTerm) return true;
+        const q = searchTerm.toLowerCase().trim();
+        const oName = (getOutletName(c.outlet) || c.outlet_name || '').toLowerCase();
+        return (c.counter_name && c.counter_name.toLowerCase().includes(q)) ||
+               (c.counter_id && c.counter_id.toLowerCase().includes(q)) ||
+               (c.outlet && c.outlet.toLowerCase().includes(q)) ||
+               oName.includes(q);
+    });
 
     const filteredEmployees = employees.filter(emp => {
         if (empFilterStatus === 'assigned' && !emp.assigned_counter) return false;
@@ -621,7 +633,7 @@ const CashCounterManager = () => {
                                 <tr key={c.counter_id}>
                                     <Td style={{ fontWeight: '600' }}>{c.counter_id}</Td>
                                     <Td>{c.counter_name}</Td>
-                                    <Td>{c.outlet}</Td>
+                                    <Td style={{ fontWeight: '600', color: '#1e293b' }}>{getOutletName(c.outlet) || c.outlet_name || c.outlet || '-'}</Td>
                                     <Td>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                             {Array.isArray(c.bill_type) ? c.bill_type.map(bt => (
@@ -831,8 +843,8 @@ const CashCounterManager = () => {
                                 >
                                     <option value="">Select Outlet</option>
                                     {outlets.map(o => (
-                                        <option key={o.outlet_code} value={o.outlet_code}>
-                                            {o.outlet_name} ({o.outlet_code})
+                                        <option key={o.outlet_code || o.outlet_id} value={o.outlet_code || o.outlet_id}>
+                                            {o.outlet_name || o.name}
                                         </option>
                                     ))}
                                 </select>

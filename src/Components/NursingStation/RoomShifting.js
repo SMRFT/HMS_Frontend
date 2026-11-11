@@ -16,6 +16,7 @@ import {
 import apiRequest from "../../Auth/apiRequest";
 import PatientSearchModal from "../Common/PatientSearchModal";
 import OccupiedBedDetailModal from "./OccupiedBedDetailModal";
+import { AdmittedPatientsPanel, AdmittedPatientSummaryCard } from "./AdmittedPatientsPanel";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -1133,8 +1134,10 @@ const EditModal = ({ open, record, onClose, onSave, baseUrl }) => {
 // ─── EMPTY FORM ───────────────────────────────────────────────────────────────
 const EMPTY = {
   uhid: "", ipNumber: "", ipserial_number: "",
-  name: "", age: "", gender: "",
-  area: "", city: "", state: "", zipcode: "",
+  name: "", age: "", ageType: "Y", gender: "", mobile: "",
+  address: "", area: "", city: "", state: "", zipcode: "",
+  doctor: "", admittedDateTime: "", totalDays: "",
+  customerType: "", company: "",
   admittedOn: "", admittedTime: "",
   roomNo: "", bedNo: "",
   newRoomNo: "", newBedNo: "",
@@ -1150,6 +1153,9 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
 
   const [activeTab,     setActiveTab] = useState("create");
   const [form,          setForm]      = useState(EMPTY);
+  const [searchingAdm,  setSearchingAdm] = useState(false);
+  const [admittedCount, setAdmittedCount] = useState(0);
+  const [admittedRefreshKey, setAdmittedRefreshKey] = useState(0);
   const [showRoom,      setShowRoom]  = useState(false);
   const [shiftings,     setShiftings] = useState([]);
   const [entriesPerPage,setEntries]   = useState(15);
@@ -1238,10 +1244,18 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
     } else {
       fetchShiftings();
     }
+    apiRequest(`${HmsBaseUrl}admitted-patients/?date=all`, "GET")
+      .then((res) => {
+        if (res.success && Array.isArray(res.data?.data)) {
+          setAdmittedCount(res.data.data.length);
+        }
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propPatient, location.state]);
 
   const loadAdmission = async (params) => {
+    setSearchingAdm(true);
     try {
       const qs  = new URLSearchParams(params).toString();
       const res = await apiRequest(`${HmsBaseUrl}get_active_admission/?${qs}`, "GET");
@@ -1273,11 +1287,19 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
         ipserial_number: String(adm.ipserial_number ?? ""),
         admittedOn:      adm.admissionDate     || "",
         admittedTime:    adm.admissionTime     || "",
+        admittedDateTime:adm.admissionDateTime || "",
+        totalDays:       adm.total_days != null ? adm.total_days : "",
+        doctor:          adm.admittingDoctorName || adm.admittingDoctor || "",
+        customerType:    adm.customerType || adm.customer_type || patient.customerType || "General",
+        company:         adm.company || adm.companyName || "",
         roomNo:          adm.roomNo            || "",
         bedNo:           adm.bedNo             || "",
         name:            patient.patientname   || "",
         age:             patient.age           || "",
+        ageType:         patient.age_type      || "Y",
         gender:          patient.gender        || "",
+        mobile:          patient.mobilePhone   || "",
+        address:         patient.permanent_address || buildAddress(patient),
         city:            patient.city          || "",
         state:           patient.state         || "",
         area:            patient.area          || "",
@@ -1294,6 +1316,8 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
       else if (hasRes) toast.success(`Loaded: ${adm.ipNumber} — Reserved room auto-filled.`);
     } catch (err) {
       toast.error(err?.message || "Failed to fetch admission");
+    } finally {
+      setSearchingAdm(false);
     }
   };
 
@@ -1362,10 +1386,11 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
               <PageSubtitle>Patient Room &amp; Bed Shifting Management</PageSubtitle>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             {[
-              { id: "create", label: "+ Shift Room" },
-              { id: "list", label: "📋 Shifting List" }
+              { id: "create",   label: "+ Room Shifting Entry" },
+              { id: "admitted", label: "🏥 Admitted Patients", count: admittedCount },
+              { id: "list",     label: "📋 Shifting List" }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1373,6 +1398,7 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                 onClick={() => {
                   setActiveTab(tab.id);
                   if (tab.id === "list") fetchShiftings();
+                  if (tab.id === "admitted") setAdmittedRefreshKey(k => k + 1);
                 }}
                 style={
                   activeTab === tab.id
@@ -1388,7 +1414,7 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                         boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                         display: "flex",
                         alignItems: "center",
-                        gap: 5,
+                        gap: 6,
                       }
                     : {
                         background: "rgba(255,255,255,0.18)",
@@ -1401,11 +1427,23 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
-                        gap: 5,
+                        gap: 6,
                       }
                 }
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                {typeof tab.count === "number" && (
+                  <span style={{
+                    background: activeTab === tab.id ? "#0d9488" : "rgba(255,255,255,0.28)",
+                    color: "#fff",
+                    borderRadius: 999,
+                    padding: "1px 7px",
+                    fontSize: "0.68rem",
+                    fontWeight: 800,
+                  }}>
+                    {tab.count}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -1413,53 +1451,73 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
 
         {activeTab === "create" && (
           <>
-            {/* ── Patient Lookup ── */}
-            <Card>
-              <CardTitle>🔎 Patient Lookup</CardTitle>
-              <Grid>
-                <Field label="UHID" value={form.uhid}
-                  onChange={e => setForm(p => ({ ...p, uhid: e.target.value }))}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (form.uhid.trim()) {
-                        loadAdmission({ uhid: form.uhid.trim() });
-                      } else {
-                        openUhidSearch();
-                      }
-                    }
-                  }}
-                  onSearch={() => {
-                    if (form.uhid.trim()) {
-                      loadAdmission({ uhid: form.uhid.trim() });
-                    } else {
-                      openUhidSearch();
-                    }
-                  }}
-                  placeholder="Enter UHID" />
-                <Field label="IP Number" value={form.ipNumber}
-                  onChange={e => setForm(p => ({ ...p, ipNumber: e.target.value }))}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (form.ipNumber.trim()) {
-                        loadAdmission({ ip_number: form.ipNumber.trim() });
-                      } else {
-                        openIpSearch();
-                      }
-                    }
-                  }}
-                  onSearch={() => {
-                    if (form.ipNumber.trim()) {
-                      loadAdmission({ ip_number: form.ipNumber.trim() });
-                    } else {
-                      openIpSearch();
-                    }
-                  }}
-                  placeholder="Enter IP No" />
-                <Field label="IP Serial No" value={form.ipserial_number} readOnly />
-                <Field label="Patient Name" value={form.name} readOnly />
-              </Grid>
+            {/* ── Patient Lookup & Discharge-Style Profile Card ── */}
+            <Card style={{ padding: 0, overflow: "hidden" }}>
+              <div style={{
+                padding: "11px 18px",
+                background: "#f8fafc",
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 8,
+              }}>
+                <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  🔎 Patient Lookup &amp; Admission Details
+                </span>
+                {form.ipNumber && form.name ? (
+                  <span style={{
+                    background: "#dcfce7",
+                    color: "#15803d",
+                    border: "1px solid #bbf7d0",
+                    borderRadius: 999,
+                    padding: "2px 10px",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                  }}>
+                    ✓ Admission Active · {form.ipNumber}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: "0.74rem", color: "#6b7280" }}>
+                    Search by UHID or IP Number
+                  </span>
+                )}
+              </div>
+
+              <AdmittedPatientSummaryCard
+                uhid={form.uhid}
+                onUhidChange={(val) => setForm(p => ({ ...p, uhid: val }))}
+                onUhidSearch={openUhidSearch}
+                ipNumber={form.ipNumber}
+                onIpChange={(val) => setForm(p => ({ ...p, ipNumber: val }))}
+                onIpSearch={openIpSearch}
+                searching={searchingAdm}
+                onReset={handleReset}
+                admittedCount={admittedCount}
+                onBrowseAdmitted={() => {
+                  setAdmittedRefreshKey(k => k + 1);
+                  setActiveTab("admitted");
+                }}
+                patient={form.ipNumber && form.name ? {
+                  uhid: form.uhid,
+                  ipNumber: form.ipNumber,
+                  ipSerial: form.ipserial_number,
+                  name: form.name,
+                  age: form.age,
+                  ageType: form.ageType,
+                  gender: form.gender,
+                  mobile: form.mobile,
+                  address: form.address || buildAddress(form),
+                  doctor: form.doctor,
+                  admissionDate: form.admittedDateTime || (form.admittedOn ? `${form.admittedOn} ${form.admittedTime}`.trim() : ""),
+                  roomNo: form.roomNo,
+                  bedNo: form.bedNo,
+                  totalDays: form.totalDays,
+                  customerType: form.customerType,
+                  company: form.company,
+                } : null}
+              />
             </Card>
 
             {/* ── Banners ── */}
@@ -1474,21 +1532,9 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
               </Banner>
             )}
 
-            {/* ── Patient Details ── */}
+            {/* ── Room Shifting Entry ── */}
             <Card>
-              <CardTitle>👤 Patient Details</CardTitle>
-              <Grid>
-                <Field label="Age"           value={form.age}         readOnly />
-                <Field label="Gender"        value={form.gender}      readOnly />
-                <Field label="Admitted On"   value={form.admittedOn}  readOnly type="date" />
-                <Field label="Admitted Time" value={form.admittedTime}readOnly type="time" />
-                <Field label="Address" value={buildAddress(form)} readOnly fullWidth />
-              </Grid>
-            </Card>
-
-            {/* ── Room Assignment ── */}
-            <Card>
-              <CardTitle>🛏️ Room Assignment</CardTitle>
+              <CardTitle>🛏️ Room Shifting Entry</CardTitle>
               <Grid>
                 <Field label="Current Room No" value={form.roomNo} readOnly />
                 <Field label="Current Bed No"  value={form.bedNo}  readOnly />
@@ -1525,6 +1571,20 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
               </BtnRow>
             </Card>
           </>
+        )}
+
+        {activeTab === "admitted" && (
+          <AdmittedPatientsPanel
+            baseUrl={HmsBaseUrl}
+            refreshKey={admittedRefreshKey}
+            onCountChange={setAdmittedCount}
+            actionTitle="Load patient into Room Shifting entry"
+            onSelectPatient={(row) => {
+              if (row.ipNumber) loadAdmission({ ip_number: row.ipNumber });
+              else if (row.uhid) loadAdmission({ uhid: row.uhid });
+              setActiveTab("create");
+            }}
+          />
         )}
 
         {activeTab === "list" && (

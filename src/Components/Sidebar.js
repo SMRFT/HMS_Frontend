@@ -569,6 +569,10 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
 
             const currentOutlet = localStorage.getItem("selected_outlet");
             const allowedPages = (group.pages || []).filter((page) => {
+              // Dashboard is common to all users
+              if (page.route === "/Dashboard") {
+                return true;
+              }
               const perms = page.permissions || [];
               // Check if permissions are defined (either as non-empty array or non-empty object)
               const hasDefinedPermissions = Array.isArray(perms)

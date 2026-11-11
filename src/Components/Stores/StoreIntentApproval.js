@@ -30,6 +30,7 @@ const IntentActionPopover = ({
     const isApproved = status === 'Approved';
     const isRejected = status === 'Rejected';
     const isPending = status === 'Pending';
+    const isHodApproved = Boolean(item?.is_hod_approved || item?.hod_status === 'Approved');
     const [pos, setPos] = useState({ top: 0, left: 0 });
 
     useEffect(() => {
@@ -60,8 +61,8 @@ const IntentActionPopover = ({
             icon: <CheckCheck size={18} strokeWidth={1.8} />,
             label: isApproved ? "Verified" : "Approve",
             color: isApproved ? "#10b981" : "#10b981",
-            disabled: isRejected || isApproved,
-            title: isApproved ? "Already fully approved" : isRejected ? "Cannot approve rejected intent" : "Approve Intent",
+            disabled: isRejected || isApproved || !isHodApproved,
+            title: !isHodApproved ? "Requires Department HOD Approval first" : isApproved ? "Already fully approved" : isRejected ? "Cannot approve rejected intent" : "Approve Intent",
             onClick: onApprove,
         },
         {
@@ -76,8 +77,8 @@ const IntentActionPopover = ({
             icon: <Ban size={18} strokeWidth={1.8} />,
             label: "Reject",
             color: "#ef4444",
-            disabled: !isPending,
-            title: !isPending ? "Can only reject pending intents" : "Reject Intent",
+            disabled: !isPending || !isHodApproved,
+            title: !isHodApproved ? "Requires Department HOD Approval first" : !isPending ? "Can only reject pending intents" : "Reject Intent",
             onClick: onReject,
         },
         {
@@ -609,6 +610,11 @@ const StoresApprovalManager = () => {
     };
 
     const handleRejectIntent = async (intent) => {
+        const isHodApproved = Boolean(intent?.is_hod_approved || intent?.hod_status === 'Approved');
+        if (!isHodApproved) {
+            toast.warn("Store action not allowed: This intent requisition is awaiting Department HOD / Admin approval first.");
+            return;
+        }
         if (window.confirm(`Are you sure you want to REJECT Intent ${intent.intent_id}? This will mark all items as rejected.`)) {
             const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/stores-intent/update/${intent.intent_id}/`, "PATCH", {
                 items: (intent.items || []).map(it => ({
@@ -665,7 +671,7 @@ const StoresApprovalManager = () => {
                     <div class="info-grid">
                         <div><strong>Intent No:</strong> ${intent.intent_id}</div>
                         <div><strong>Date:</strong> ${new Date(intent.date).toLocaleDateString()}</div>
-                        <div><strong>Department:</strong> ${intent.department_name}</div>
+                        <div><strong>Department:</strong> ${intent.department_name}${intent.nursing_station_name || intent.nursing_station ? ` (🏥 ${intent.nursing_station_name || intent.nursing_station})` : ''}</div>
                         <div><strong>Status:</strong> ${intent.is_approved ? 'Verified' : 'Pending'}</div>
                     </div>
                     <table>
@@ -704,12 +710,23 @@ const StoresApprovalManager = () => {
     };
 
     const openApprovalModal = (intent) => {
+        const isHodApproved = Boolean(intent?.is_hod_approved || intent?.hod_status === 'Approved');
+        if (!isHodApproved) {
+            toast.warn("Store approval not allowed: This intent requisition is awaiting Department HOD / Admin approval first.");
+            return;
+        }
         openViewIntentModal(intent);
     };
 
     const submitFinalApproval = async () => {
         const targetIntent = selectedIntentForView || selectedIntent;
         if (!targetIntent) return;
+
+        const isHodApproved = Boolean(targetIntent.is_hod_approved || targetIntent.hod_status === 'Approved');
+        if (!isHodApproved) {
+            toast.error("Store approval not allowed: Department HOD / Admin approval is required before store stock issuance.");
+            return;
+        }
 
         const sourceItems = (approvalItems && approvalItems.length > 0)
             ? approvalItems
@@ -1415,7 +1432,25 @@ const StoresApprovalManager = () => {
                                                         <span>Created By: <strong>{item.created_by_name || item.created_by || 'Department User'}</strong></span>
                                                     </div>
                                                 </S.Td>
-                                                <S.Td style={{ fontWeight: '700', color: '#334155' }}>{item.department_name}</S.Td>
+                                                <S.Td style={{ fontWeight: '700', color: '#334155' }}>
+                                                    <div>{item.department_name}</div>
+                                                    {(item.nursing_station_name || item.nursing_station) && (
+                                                        <div style={{ marginTop: '3px' }}>
+                                                            <span style={{ 
+                                                                display: 'inline-block',
+                                                                fontSize: '0.72rem', 
+                                                                color: '#0d9488', 
+                                                                fontWeight: 700, 
+                                                                background: '#ccfbf1', 
+                                                                padding: '2px 8px', 
+                                                                borderRadius: '4px',
+                                                                border: '1px solid #99f6e4'
+                                                            }}>
+                                                                🏥 {item.nursing_station_name || item.nursing_station}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </S.Td>
                                                 <S.Td>
                                                     <div style={{ fontSize: '0.85rem' }}>
                                                         {(item.items || []).map((it, idx) => (
@@ -1447,6 +1482,21 @@ const StoresApprovalManager = () => {
                                                     >
                                                         {getIntentStatus(item)}
                                                     </Badge>
+                                                    <div style={{ marginTop: '5px' }}>
+                                                        {item.hod_status === 'Approved' || item.is_hod_approved ? (
+                                                            <span style={{ fontSize: '0.72rem', background: '#ecfdf5', color: '#059669', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, border: '1px solid #a7f3d0' }}>
+                                                                ✓ HOD Approved
+                                                            </span>
+                                                        ) : item.hod_status === 'Rejected' ? (
+                                                            <span style={{ fontSize: '0.72rem', background: '#fef2f2', color: '#dc2626', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, border: '1px solid #fecaca' }}>
+                                                                ✕ HOD Rejected
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ fontSize: '0.72rem', background: '#fffbeb', color: '#d97706', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, border: '1px solid #fde68a' }}>
+                                                                ⏳ Pending HOD
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </S.Td>
                                                 <S.Td style={{ textAlign: 'center', padding: '12px 10px' }}>
                                                     <div className="intent-action-popover-wrap" style={{ position: 'relative', display: 'inline-block' }}>
@@ -2007,10 +2057,23 @@ const StoresApprovalManager = () => {
                                         >
                                             {status.toUpperCase()}
                                         </Badge>
+                                        <Badge
+                                            type={
+                                                (selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved') ? 'SUCCESS' :
+                                                    (selectedIntentForView.hod_status === 'Rejected' ? 'DANGER' : 'WARNING')
+                                            }
+                                            style={{
+                                                background: (selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved') ? '#ecfdf5' : (selectedIntentForView.hod_status === 'Rejected' ? '#fef2f2' : '#fffbeb'),
+                                                color: (selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved') ? '#059669' : (selectedIntentForView.hod_status === 'Rejected' ? '#dc2626' : '#d97706'),
+                                                borderColor: (selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved') ? '#a7f3d0' : (selectedIntentForView.hod_status === 'Rejected' ? '#fecaca' : '#fde68a')
+                                            }}
+                                        >
+                                            {(selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved') ? 'HOD APPROVED' : (selectedIntentForView.hod_status === 'Rejected' ? 'HOD REJECTED' : 'PENDING HOD APPROVAL')}
+                                        </Badge>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                         <S.Button
-                                            disabled={!isPendingOrPartial || loading}
+                                            disabled={!isPendingOrPartial || loading || !(selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved')}
                                             onClick={submitFinalApproval}
                                             style={{
                                                 padding: '6px 14px',
@@ -2020,10 +2083,11 @@ const StoresApprovalManager = () => {
                                                 gap: '5px',
                                                 background: status === 'Approved' ? '#ecfdf5' : '#10b981',
                                                 color: status === 'Approved' ? '#059669' : '#ffffff',
-                                                cursor: (!isPendingOrPartial || loading) ? 'not-allowed' : 'pointer',
+                                                cursor: (!isPendingOrPartial || loading || !(selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved')) ? 'not-allowed' : 'pointer',
+                                                opacity: !(selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved') ? 0.6 : 1,
                                                 fontWeight: '600'
                                             }}
-                                            title={status === 'Approved' ? 'Already fully approved' : status === 'Rejected' ? 'Cannot approve rejected intent' : 'Confirm & Approve Intent'}
+                                            title={!(selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved') ? 'Requires Department HOD Approval first' : status === 'Approved' ? 'Already fully approved' : status === 'Rejected' ? 'Cannot approve rejected intent' : 'Confirm & Approve Intent'}
                                         >
                                             <CheckCheck size={14} />
                                             <span>{loading ? 'Approving...' : (status === 'Approved' ? 'Verified' : 'Confirm')}</span>
@@ -2063,8 +2127,13 @@ const StoresApprovalManager = () => {
                                     }}>
                                         <div>
                                             <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Department</div>
-                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px' }}>
-                                                {selectedIntentForView.department_name || selectedIntentForView.department || '-'}
+                                            <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <span>{selectedIntentForView.department_name || selectedIntentForView.department || '-'}</span>
+                                                {(selectedIntentForView.nursing_station_name || selectedIntentForView.nursing_station) && (
+                                                    <span style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: '700', background: '#ccfbf1', padding: '2px 8px', borderRadius: '4px', border: '1px solid #99f6e4' }}>
+                                                        🏥 {selectedIntentForView.nursing_station_name || selectedIntentForView.nursing_station}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <div>
@@ -2278,7 +2347,7 @@ const StoresApprovalManager = () => {
                                             Close
                                         </S.Button>
                                         <S.Button 
-                                            disabled={!isPendingOrPartial || loading}
+                                            disabled={!isPendingOrPartial || loading || !(selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved')}
                                             onClick={submitFinalApproval}
                                             style={{
                                                 padding: '8px 22px',
@@ -2287,10 +2356,11 @@ const StoresApprovalManager = () => {
                                                 gap: '6px',
                                                 background: status === 'Approved' ? '#ecfdf5' : '#10b981',
                                                 color: status === 'Approved' ? '#059669' : '#ffffff',
-                                                cursor: (!isPendingOrPartial || loading) ? 'not-allowed' : 'pointer',
+                                                cursor: (!isPendingOrPartial || loading || !(selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved')) ? 'not-allowed' : 'pointer',
+                                                opacity: !(selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved') ? 0.6 : 1,
                                                 fontWeight: '600'
                                             }}
-                                            title={status === 'Approved' ? 'Already fully approved' : status === 'Rejected' ? 'Cannot approve rejected intent' : 'Confirm & Approve Intent'}
+                                            title={!(selectedIntentForView.is_hod_approved || selectedIntentForView.hod_status === 'Approved') ? 'Requires Department HOD Approval first' : status === 'Approved' ? 'Already fully approved' : status === 'Rejected' ? 'Cannot approve rejected intent' : 'Confirm & Approve Intent'}
                                         >
                                             <CheckCheck size={16} />
                                             <span>{loading ? 'Approving...' : (status === 'Approved' ? 'Verified' : 'Confirm')}</span>

@@ -406,7 +406,6 @@ const VendingMachineReport = () => {
                                                 <Tr key={idx}>
                                                     <Td style={{ fontWeight: '600' }}>
                                                         <div style={{ color: colors.primary, fontSize: '0.95rem' }}>{item.product_name}</div>
-                                                        <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {item.item_id || '-'}</span>
                                                     </Td>
                                                     <Td style={{ fontSize: '0.85rem' }}>
                                                         <div>{item.category || '-'}</div>
