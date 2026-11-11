@@ -676,6 +676,58 @@ const chunkMedicinesForPrint = (items) => {
   return pages;
 };
 
+// ── Reliable Cross-Browser Print Execution (Uses hidden iframe to prevent popup blockers & premature close) ──
+const executeBillPrint = (html) => {
+  if (!html) return;
+  try {
+    let iframe = document.getElementById("hms-pharmacy-print-frame");
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "hms-pharmacy-print-frame";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.style.opacity = "0";
+      iframe.style.pointerEvents = "none";
+      document.body.appendChild(iframe);
+    }
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    iframe.contentWindow.focus();
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.print();
+      } catch (err) {
+        console.error("Iframe print error, falling back to window.open", err);
+        fallbackWindowPrint(html);
+      }
+    }, 250);
+  } catch (e) {
+    console.warn("Iframe print initialization failed, falling back to window.open", e);
+    fallbackWindowPrint(html);
+  }
+};
+
+const fallbackWindowPrint = (html) => {
+  const pw = window.open("", "_blank", "width=960,height=700");
+  if (pw) {
+    pw.document.open();
+    pw.document.write(html);
+    pw.document.close();
+    pw.focus();
+    setTimeout(() => {
+      pw.print();
+    }, 350);
+  } else {
+    toast.error("Print popup was blocked by browser. Please allow popups for this site.");
+  }
+};
+
 // ── Elegant Pharmacy Tax Invoice Generator (A5 Alignment Sheet Layout with Multi-Page Support) ──
 const buildPrintBillHtml = (data) => {
   const {
@@ -780,8 +832,8 @@ const buildPrintBillHtml = (data) => {
   const totalDiscount = Math.max(
     0,
     (Number(totalItemDiscount) || computedItemDisc) + overallDiscAmt,
-    Number(billData.totalDiscount || 0),
-    Number(billData.discount || 0),
+    Number(data?.totalDiscount || 0),
+    Number(data?.discount || 0),
     grossTotal - Number(netAmount || 0)
   );
 
@@ -1218,16 +1270,13 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [uhidModalTitle, setUhidModalTitle] = useState("Select Patient");
   const [uhidSearchInput, setUhidSearchInput] = useState("");
   const [uhidNamePhone, setUhidNamePhone] = useState("");
-  const [uhidAdmitted, setUhidAdmitted] = useState(false);
   const [uhidSearchResults, setUhidSearchResults] = useState([]);
   const [uhidSearchLoading, setUhidSearchLoading] = useState(false);
+  const [admissionStatusMap, setAdmissionStatusMap] = useState({});
 
-  // Live filter results inside modal by Name / Phone and Admitted status
+  // Live filter results inside modal by Name / Phone
   const displayedUhidResults = useMemo(() => {
     let list = uhidSearchResults || [];
-    if (uhidAdmitted) {
-      list = list.filter(p => Boolean(p.ip_number || p.admitted));
-    }
     const np = (uhidNamePhone || "").trim().toLowerCase();
     if (np) {
       const npDigits = np.replace(/\D/g, "");
@@ -1241,7 +1290,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       });
     }
     return list;
-  }, [uhidSearchResults, uhidAdmitted, uhidNamePhone]);
+  }, [uhidSearchResults, uhidNamePhone]);
 
   // IP Number Search Modal
   const [showIPModal, setShowIPModal] = useState(false);
@@ -1320,17 +1369,59 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       return { doctor_id: strVal, doctor_name: "" };
     }
 
-    // 3. Match by doctor name
-    const rawClean = strVal.toLowerCase().replace(/^(dr\.?|doctor)\s*/i, "").trim();
-    const matchByName = doctor_names.find(d => {
-      const empClean = String(d.employeeName || "").toLowerCase().replace(/^(dr\.?|doctor)\s*/i, "").trim();
-      return empClean === rawClean || empClean.includes(rawClean) || rawClean.includes(empClean);
-    });
-    if (matchByName) {
-      return { doctor_id: String(matchByName.employeeId), doctor_name: matchByName.employeeName };
+    // 3. Match by doctor name (robust token/clean matching)
+    const getTokens = (name) => {
+      if (!name) return [];
+      const DEGREE_REGEX = /\b(dr|doctor|m\.?s\.?|m\.?d\.?|m\.?c\.?h\.?|m\.?b\.?b\.?s\.?|dnb|frcs|mrcp|facs|dm|da|dgo|dmrd|dch|ortho|cardio|neuro|gastro|surg|general|physician|surgeon|consultant|fellow|phd|bams|bhms)\b/gi;
+      const withoutParens = String(name).replace(/\(.*?\)/g, " ");
+      const withoutDegrees = withoutParens.replace(DEGREE_REGEX, " ");
+      const cleaned = withoutDegrees.replace(/[^a-zA-Z0-9\s]/g, " ").toLowerCase();
+      return cleaned.split(/\s+/).filter(t => t.length > 0);
+    };
+
+    const inputTokens = getTokens(strVal);
+    const inputSig = inputTokens.filter(t => t.length > 1);
+
+    if (inputTokens.length > 0) {
+      let bestMatch = null;
+      let bestScore = 0;
+
+      for (const d of doctor_names) {
+        const empName = d.employeeName || "";
+        const empTokens = getTokens(empName);
+        const empSig = empTokens.filter(t => t.length > 1);
+
+        // Exact match of clean tokens
+        if (empTokens.join(" ") === inputTokens.join(" ")) {
+          return { doctor_id: String(d.employeeId), doctor_name: d.employeeName };
+        }
+
+        // Substring check
+        const cleanEmpStr = empTokens.join("");
+        const cleanInputStr = inputTokens.join("");
+        if (cleanEmpStr && cleanInputStr && (cleanEmpStr.includes(cleanInputStr) || cleanInputStr.includes(cleanEmpStr))) {
+          return { doctor_id: String(d.employeeId), doctor_name: d.employeeName };
+        }
+
+        // Token overlap check
+        if (inputSig.length > 0 && empSig.length > 0) {
+          const common = inputSig.filter(t => empSig.includes(t));
+          if (common.length > 0) {
+            const score = common.length / Math.max(inputSig.length, empSig.length);
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = d;
+            }
+          }
+        }
+      }
+
+      if (bestMatch && bestScore >= 0.5) {
+        return { doctor_id: String(bestMatch.employeeId), doctor_name: bestMatch.employeeName };
+      }
     }
 
-    return { doctor_id: "", doctor_name: strVal };
+    return { doctor_id: strVal, doctor_name: strVal };
   }, [doctor_names]);
 
   const handleChange = (e) => {
@@ -1399,56 +1490,92 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
   // UHID Modal: fetch all patients then filter client-side for partial UHID match
   const handleUHIDSearch = async (directUhidVal) => {
-  const uhidVal = (directUhidVal !== undefined ? directUhidVal : uhidSearchInput).trim();
-  const nameVal = uhidNamePhone.trim();
+    const uhidVal = (directUhidVal !== undefined ? directUhidVal : uhidSearchInput).trim();
+    const nameVal = uhidNamePhone.trim();
 
-  // ✅ Require at least one search param
-  if (!uhidVal && !nameVal) {
-    toast.warning("Please enter a UHID or name to search.");
-    return;
-  }
-
-  setUhidSearchLoading(true);
-  try {
-    let url = `${HmsBaseUrl}patient_details/`;
-    const params = [];
-
-    if (uhidVal) params.push(`uhid=${encodeURIComponent(uhidVal)}`);
-    if (nameVal)  params.push(`name=${encodeURIComponent(nameVal)}`);
-    if (nameVal)  params.push(`mobile=${encodeURIComponent(nameVal)}`);
-
-    if (params.length > 0) url += `?${params.join("&")}`;
-
-    const res = await apiRequest(url, "GET");
-    // ✅ FIX: API returns { success, data: [...] }
-    // apiRequest wraps it so the array lives at res.data.data
-    const resBody = res.data || res;
-    let results = Array.isArray(resBody?.data)
-      ? resBody.data
-      : Array.isArray(resBody)
-        ? resBody
-        : [];
-
-    if (uhidAdmitted) {
-      results = results.filter(p => Boolean(p.ip_number));
+    // ✅ Require at least one search param
+    if (!uhidVal && !nameVal) {
+      toast.warning("Please enter a UHID or name to search.");
+      return;
     }
 
-    setUhidSearchResults(results);
+    setUhidSearchLoading(true);
+    try {
+      let url = `${HmsBaseUrl}patient_details/`;
+      const params = [];
 
-    // Always show results in modal — let user pick, even if only 1 result
-    if (results.length === 0) {
-      toast.info("No patients found for the given UHID.");
+      if (uhidVal) params.push(`uhid=${encodeURIComponent(uhidVal)}`);
+      if (nameVal)  params.push(`name=${encodeURIComponent(nameVal)}`);
+      if (nameVal)  params.push(`mobile=${encodeURIComponent(nameVal)}`);
+
+      if (params.length > 0) url += `?${params.join("&")}`;
+
+      const res = await apiRequest(url, "GET");
+      const resBody = res.data || res;
+      let results = Array.isArray(resBody?.data)
+        ? resBody.data
+        : Array.isArray(resBody)
+          ? resBody
+          : [];
+
+      setUhidSearchResults(results);
+
+      // Always show results in modal — let user pick, even if only 1 result
+      if (results.length === 0) {
+        toast.info("No patients found for the given UHID.");
+      }
+    } catch (err) {
+      console.error("UHID search failed", err);
+      setUhidSearchResults([]);
+      toast.error("Search failed. Please try again.");
+    } finally {
+      setUhidSearchLoading(false);
     }
-    // Modal stays open so user can see and select from the list
+  };
 
-  } catch (err) {
-    console.error("UHID search failed", err);
-    setUhidSearchResults([]);
-    toast.error("Search failed. Please try again.");
-  } finally {
-    setUhidSearchLoading(false);
-  }
-};
+  // Live trigger admissionstatus API for all patients in modal search results
+  useEffect(() => {
+    if (!showUHIDModal || !uhidSearchResults || uhidSearchResults.length === 0) return;
+
+    // Pre-populate with values already provided by backend patient_details
+    const initialMap = {};
+    uhidSearchResults.forEach(p => {
+      const u = p.uhid || p.UHID;
+      if (u && typeof p.is_admitted === "boolean") {
+        initialMap[u] = {
+          admitted: p.is_admitted,
+          consultingDoctor: p.consulting_doctor || "",
+          ipNumber: p.ip_number || ""
+        };
+      }
+    });
+    if (Object.keys(initialMap).length > 0) {
+      setAdmissionStatusMap(prev => ({ ...prev, ...initialMap }));
+    }
+
+    // Call admissionstatus API for each patient displayed in the modal to guarantee live status
+    uhidSearchResults.forEach(async (p) => {
+      const u = p.uhid || p.UHID;
+      if (!u) return;
+      try {
+        const res = await apiRequest(`${HmsBaseUrl}admissionstatus/?uhid=${encodeURIComponent(u)}`, "GET");
+        const body = res?.data || res;
+        const isAdm = body?.admitted === true || body?.data?.is_admitted === true;
+        const admData = body?.data || {};
+        setAdmissionStatusMap(prev => ({
+          ...prev,
+          [u]: {
+            admitted: isAdm,
+            consultingDoctor: admData.consultingDoctor || admData.admittingDoctor || p.consulting_doctor || "",
+            ipNumber: admData.ipNumber || admData.inpatient_number || p.ip_number || "",
+            data: admData
+          }
+        }));
+      } catch (err) {
+        // preserve pre-populated state
+      }
+    });
+  }, [showUHIDModal, uhidSearchResults, HmsBaseUrl]);
 
   // Search patient by UHID (from form UHID field or Enter key)
   const handleSearchByUhid = async (directVal) => {
@@ -1481,7 +1608,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         setUhidModalTitle(`Select Patient (UHID: ${val})`);
         setUhidSearchInput(val);
         setUhidNamePhone("");
-        setUhidAdmitted(false);
         setUhidSearchResults(results);
         setShowUHIDModal(true);
       }
@@ -1524,7 +1650,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         setUhidModalTitle(`Select Patient (Mobile: ${val})`);
         setUhidSearchInput("");
         setUhidNamePhone("");
-        setUhidAdmitted(false);
         setUhidSearchResults(results);
         setShowUHIDModal(true);
         toast.info(`Found ${results.length} patients sharing this mobile number. Please select one.`, { autoClose: 2500, pauseOnHover: false });
@@ -1539,105 +1664,132 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
 
 
-  const fetchAdmissionStatus = async (uhid) => {
+  const fetchAdmissionStatus = async (uhid, patientFallback = null) => {
+    if (!uhid) return { isAdmitted: false, data: null };
     try {
       const res = await apiRequest(
-        `${HmsBaseUrl}admissionstatus/?uhid=${uhid}`,
+        `${HmsBaseUrl}admissionstatus/?uhid=${encodeURIComponent(uhid)}`,
         "GET"
       );
 
-      if (res.success) {
-        const body = res.data;
-        const isAdmitted = body?.admitted === true || body?.data?.is_admitted === true || Boolean(body?.data?.ipNumber);
-        if (isAdmitted) {
-          setAdmissionStatus("ADMITTED");
+      const body = res?.data || res;
+      const admData = body?.data || {};
+      const isAdmitted = body?.admitted === true || admData?.is_admitted === true || Boolean(admData?.ipNumber);
 
-          const admData = body?.data || body;
+      if (isAdmitted) {
+        setAdmissionStatus("ADMITTED");
 
-          // ✅ IP Number
-          const ipNum = admData?.ipNumber || admData?.inpatient_number || admData?.base_ip_number || "";
-          if (ipNum) {
-            setFormData(prev => ({
-              ...prev,
-              inpatientNo: ipNum,
-            }));
-          }
+        // ✅ IP Number
+        const ipNum = admData?.ipNumber || admData?.inpatient_number || admData?.base_ip_number || patientFallback?.ip_number || "";
+        if (ipNum) {
+          setFormData(prev => ({
+            ...prev,
+            inpatientNo: ipNum,
+          }));
+        }
 
-          // ── Admission Date & Time ──────────────────────────────────────
-          if (admData?.admissionDateTime) {
-            const dt = new Date(admData.admissionDateTime);
-            const formatted = dt.toLocaleString("en-IN", {
-              day: "2-digit", month: "2-digit", year: "numeric",
-              hour: "2-digit", minute: "2-digit", hour12: true
-            });
-            setAdmissionDateTime(formatted);
-          } else {
-            setAdmissionDateTime("");
-          }
-
-          // ── Active Room No / Bed Details ───────────────────────────────
-          const roomDetails     = admData?.room_details;
-          const shiftingDetails = admData?.roomShitingDetails;
-          const activeFromRoom  = Array.isArray(roomDetails)
-            ? (roomDetails.find(r => r.is_roomActive === true) || roomDetails[0]) : null;
-          const activeFromShift = Array.isArray(shiftingDetails)
-            ? (shiftingDetails.find(r => r.is_roomActive === true) || shiftingDetails[0]) : null;
-
-          let resolvedRoom = "";
-          if (activeFromRoom) {
-            resolvedRoom = activeFromRoom.bedNo
-              ? `${activeFromRoom.roomNo} / Bed ${activeFromRoom.bedNo}`
-              : `${activeFromRoom.roomNo}`;
-            setAdmissionRoomNo(resolvedRoom);
-            setFormData(prev => ({ ...prev, roomNo: resolvedRoom }));
-          } else if (activeFromShift) {
-            resolvedRoom = activeFromShift.newBedNo
-              ? `${activeFromShift.newRoomNo} / Bed ${activeFromShift.newBedNo}`
-              : `${activeFromShift.newRoomNo}`;
-            setAdmissionRoomNo(resolvedRoom);
-            setFormData(prev => ({ ...prev, roomNo: resolvedRoom }));
-          } else {
-            setAdmissionRoomNo("");
-          }
-
-          // ── Insurance Name & Customer Type ─────────────────────────────
-          const insName = admData?.insurance_company || admData?.company_code || (String(admData?.customer_type || "").toLowerCase() === "insurance" ? "INSURANCE" : admData?.customer_type || "") || "";
-          if (insName) {
-            setInsuranceName(insName);
-            setFormData(prev => ({
-              ...prev,
-              insuranceName: insName,
-              is_insurance: true,
-              customer_type: admData?.customer_type || "Insurance",
-            }));
-          }
-          if (admData?.customer_type) {
-            setPatientType(admData.customer_type);
-          }
-
+        // ── Admission Date & Time ──────────────────────────────────────
+        if (admData?.admissionDateTime) {
+          const dt = new Date(admData.admissionDateTime);
+          const formatted = dt.toLocaleString("en-IN", {
+            day: "2-digit", month: "2-digit", year: "numeric",
+            hour: "2-digit", minute: "2-digit", hour12: true
+          });
+          setAdmissionDateTime(formatted);
         } else {
-          setAdmissionStatus("NOT ADMITTED");
-          setAdmissionRoomNo("");
           setAdmissionDateTime("");
         }
+
+        // ── Active Room No / Bed Details ───────────────────────────────
+        const roomDetails     = admData?.room_details;
+        const shiftingDetails = admData?.roomShitingDetails;
+        const activeFromRoom  = Array.isArray(roomDetails)
+          ? (roomDetails.find(r => r.is_roomActive === true) || roomDetails[0]) : null;
+        const activeFromShift = Array.isArray(shiftingDetails)
+          ? (shiftingDetails.find(r => r.is_roomActive === true) || shiftingDetails[0]) : null;
+
+        let resolvedRoom = "";
+        if (activeFromRoom) {
+          resolvedRoom = activeFromRoom.bedNo
+            ? `${activeFromRoom.roomNo} / Bed ${activeFromRoom.bedNo}`
+            : `${activeFromRoom.roomNo}`;
+          setAdmissionRoomNo(resolvedRoom);
+          setFormData(prev => ({ ...prev, roomNo: resolvedRoom }));
+        } else if (activeFromShift) {
+          resolvedRoom = activeFromShift.newBedNo
+            ? `${activeFromShift.newRoomNo} / Bed ${activeFromShift.newBedNo}`
+            : `${activeFromShift.newRoomNo}`;
+          setAdmissionRoomNo(resolvedRoom);
+          setFormData(prev => ({ ...prev, roomNo: resolvedRoom }));
+        } else {
+          setAdmissionRoomNo("");
+        }
+
+        // ── Insurance Name & Customer Type ─────────────────────────────
+        const insName = admData?.insurance_company || admData?.company_code || (String(admData?.customer_type || "").toLowerCase() === "insurance" ? "INSURANCE" : admData?.customer_type || "") || "";
+        if (insName) {
+          setInsuranceName(insName);
+          setFormData(prev => ({
+            ...prev,
+            insuranceName: insName,
+            is_insurance: true,
+            customer_type: admData?.customer_type || "Insurance",
+          }));
+        }
+        if (admData?.customer_type) {
+          setPatientType(admData.customer_type);
+        }
+
+        // ── Admitted: ALWAYS populate Doctor Name with Consulting Doctor ──
+        const admDoc = admData?.consultingDoctor || admData?.admittingDoctor || patientFallback?.consulting_doctor || patientFallback?.consulting_doctor_name || "";
+        if (admDoc) {
+          const resDoc = resolveDoctorIdAndName(admDoc);
+          setFormData(prev => ({
+            ...prev,
+            doctor_id: resDoc.doctor_id || admDoc,
+            doctor_name: resDoc.doctor_name || admDoc,
+          }));
+        }
+
+        return { isAdmitted: true, data: admData };
+      } else {
+        setAdmissionStatus("NOT ADMITTED");
+        setAdmissionRoomNo("");
+        setAdmissionDateTime("");
+        return { isAdmitted: false, data: null };
       }
     } catch (error) {
       console.error("Error fetching admission status:", error);
+      return { isAdmitted: false, data: null };
     }
   };
-  const handleUHIDSelect = (p) => {
+
+  const handleUHIDSelect = async (p) => {
     const fullName = formatPatientName(p.salutation, p.firstName, p.lastName);
 
-    // ── Resolve doctor from most recent billing with a valid doctor_id ──────
+    // ── 1. Resolve doctor for Non-Admitted patient: from current date / latest billing ──────
     let resolvedDoctorId = "";
     if (Array.isArray(p.billing) && p.billing.length > 0) {
-      const billingsWithDoctor = p.billing.filter(b => b.doctor_id);
-      if (billingsWithDoctor.length > 0) {
-        // Sort descending by billed_date and pick latest
-        const sorted = [...billingsWithDoctor].sort(
-          (a, b) => new Date(b.billed_date) - new Date(a.billed_date)
-        );
-        resolvedDoctorId = sorted[0].doctor_id;
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const todayLocal = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+
+      // Check for bill on today's date first
+      const todayBill = p.billing.find(b => {
+        const bDate = String(b.billed_date || "");
+        return (bDate.startsWith(todayIso) || bDate.startsWith(todayLocal)) && (b.doctor_id || b.doctor_name || b.raw_doctor_id);
+      });
+
+      if (todayBill) {
+        resolvedDoctorId = todayBill.doctor_id || todayBill.doctor_name || todayBill.raw_doctor_id;
+      } else {
+        // Otherwise sort descending by billed_date and pick latest
+        const billingsWithDoctor = p.billing.filter(b => b.doctor_id || b.doctor_name || b.raw_doctor_id);
+        if (billingsWithDoctor.length > 0) {
+          const sorted = [...billingsWithDoctor].sort(
+            (a, b) => new Date(b.billed_date) - new Date(a.billed_date)
+          );
+          resolvedDoctorId = sorted[0].doctor_id || sorted[0].doctor_name || sorted[0].raw_doctor_id;
+        }
       }
     }
     if (!resolvedDoctorId) {
@@ -1676,7 +1828,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       setPatientAge("");
     }
 
-    fetchAdmissionStatus(p.uhid);
+    // ── 2. Live admission check: if admitted, consulting doctor overrides; if not admitted, latest visit doctor stays ──
+    await fetchAdmissionStatus(p.uhid, p);
 
     setShowUHIDModal(false);
     focusMedicineSearch();
@@ -1687,7 +1840,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setUhidModalTitle("Select Patient");
     setUhidSearchInput(currentUhid);
     setUhidNamePhone("");
-    setUhidAdmitted(false);
     setUhidSearchResults([]);
     setShowUHIDModal(true);
 
@@ -2797,7 +2949,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         ageYears = patientAge ? parseInt(patientAge, 10) || 0 : 0;
       }
 
+      const activeOutletCode = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+
       const basePayload = {
+        outlet_code: activeOutletCode || undefined,
         bill_date: formData.billDate,
         bill_type: formData.billType,
         uhid: formData.uhid,
@@ -3833,16 +3988,7 @@ const loadedMedicines = rawMeds.map((item) => {
       netAmount:            netAmount,
     });
 
-    const printWindow = window.open("", "", "width=960,height=700");
-    if (printWindow) {
-      printWindow.document.write(printableContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
-    }
+    executeBillPrint(printableContent);
   };
 
   const handleDelete = (key) => {
@@ -5093,14 +5239,14 @@ const loadedMedicines = rawMeds.map((item) => {
       {/* ── UHID Search Modal ── */}
       {showUHIDModal && (
         <ModalOverlay onClick={() => setShowUHIDModal(false)}>
-          <ModalContainer style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+          <ModalContainer style={{ maxWidth: 760 }} onClick={e => e.stopPropagation()}>
             <ModalHeader>
               <ModalTitle>{uhidModalTitle || "Select Patient"}</ModalTitle>
               <CloseButton onClick={() => setShowUHIDModal(false)}>×</CloseButton>
             </ModalHeader>
             <ModalBody>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 16, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 160px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 180px" }}>
                   <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#475569" }}>UHID</label>
                   <Input
                     type="text"
@@ -5113,7 +5259,7 @@ const loadedMedicines = rawMeds.map((item) => {
                     autoFocus
                   />
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 160px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 200px" }}>
                   <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#475569" }}>Name / Phone</label>
                   <Input
                     type="text"
@@ -5123,23 +5269,12 @@ const loadedMedicines = rawMeds.map((item) => {
                     onKeyDown={e => e.key === "Enter" && handleUHIDSearch()}
                   />
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 6 }}>
-                  <ModalCheckbox
-                    type="checkbox"
-                    id="uhid-admitted"
-                    checked={uhidAdmitted}
-                    onChange={e => {
-                      setUhidAdmitted(e.target.checked);
-                    }}
-                  />
-                  <label htmlFor="uhid-admitted" style={{ fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>Admitted</label>
-                </div>
                 <button
                   type="button"
                   onClick={() => handleUHIDSearch()}
                   disabled={uhidSearchLoading}
                   style={{
-                    padding: "8px 18px",
+                    padding: "8px 20px",
                     borderRadius: 6,
                     background: "#0f766e",
                     color: "white",
@@ -5171,10 +5306,11 @@ const loadedMedicines = rawMeds.map((item) => {
                     <Table>
                       <thead>
                         <tr>
-                          <Th>Action</Th>
+                          <Th style={{ width: 60, textAlign: "center" }}>Action</Th>
                           <Th>UHID No</Th>
                           <Th>Patient</Th>
                           <Th>Mobile</Th>
+                          <Th style={{ textAlign: "center" }}>Admission Status</Th>
                         </tr>
                       </thead>
                       <tbody>
@@ -5182,22 +5318,26 @@ const loadedMedicines = rawMeds.map((item) => {
                           const fullName = formatPatientName(p.salutation, p.firstName, p.lastName);
                           const uhidNo = p.uhid || p.UHID || "";
                           const mobile = p.mobilePhone || p.mobile || p.phone || p.mobileNumber || "";
-                          const isAdmitted = Boolean(p.ip_number || p.admitted);
+                          const admInfo = admissionStatusMap[uhidNo];
+                          const isAdmitted = admInfo !== undefined
+                            ? admInfo.admitted
+                            : (typeof p.is_admitted === "boolean" ? p.is_admitted : Boolean(p.ip_number));
+
                           return (
                             <Tr
                               key={i}
                               style={{ cursor: "pointer" }}
                               onClick={() => handleUHIDSelect(p)}
                             >
-                              <Td>
+                              <Td style={{ textAlign: "center" }}>
                                 <div
                                   style={{
                                     width: 28, height: 28, borderRadius: "50%",
-                                    background: isAdmitted ? "#0f766e" : "#94a3b8",
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    color: "white", fontSize: "0.9rem", cursor: "pointer"
+                                    background: isAdmitted ? "#0f766e" : "#64748b",
+                                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                    color: "white", fontSize: "0.85rem", cursor: "pointer"
                                   }}
-                                  title={isAdmitted ? "Admitted" : "Select"}
+                                  title={isAdmitted ? "Admitted - Select" : "Not Admitted - Select"}
                                 >
                                   ✓
                                 </div>
@@ -5205,15 +5345,37 @@ const loadedMedicines = rawMeds.map((item) => {
                               <Td style={{ fontWeight: 600 }}>{uhidNo}</Td>
                               <Td>{fullName || "—"}</Td>
                               <Td>{mobile || "—"}</Td>
+                              <Td style={{ textAlign: "center" }}>
+                                <span
+                                  style={{
+                                    display: "inline-block",
+                                    padding: "3px 12px",
+                                    borderRadius: "14px",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 700,
+                                    background: isAdmitted ? "#dcfce7" : "#f1f5f9",
+                                    color: isAdmitted ? "#15803d" : "#64748b",
+                                    border: `1px solid ${isAdmitted ? "#86efac" : "#cbd5e1"}`,
+                                  }}
+                                >
+                                  {isAdmitted ? "Admitted" : "Not Admitted"}
+                                </span>
+                              </Td>
                             </Tr>
                           );
                         })}
                       </tbody>
                     </Table>
                   </TableWrapper>
-                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#0f766e" }} />
-                    <span style={{ fontSize: "0.8rem", color: "#475569" }}>Admitted</span>
+                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "#15803d" }} />
+                      <span style={{ fontSize: "0.8rem", color: "#475569", fontWeight: 600 }}>Admitted</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "#64748b" }} />
+                      <span style={{ fontSize: "0.8rem", color: "#475569", fontWeight: 600 }}>Not Admitted</span>
+                    </div>
                   </div>
                 </>
               )}
@@ -5620,16 +5782,7 @@ const loadedMedicines = rawMeds.map((item) => {
               <Button
                 onClick={() => {
                   const html = buildPrintBillHtml(printBillData);
-                  const pw = window.open("", "", "width=960,height=700");
-                  if (pw) {
-                    pw.document.write(html);
-                    pw.document.close();
-                    pw.focus();
-                    setTimeout(() => {
-                      pw.print();
-                      pw.close();
-                    }, 250);
-                  }
+                  executeBillPrint(html);
                 }}
                 style={{ background: "linear-gradient(135deg, #0f766e, #0d9488)", color: "#fff", border: "none" }}
               >

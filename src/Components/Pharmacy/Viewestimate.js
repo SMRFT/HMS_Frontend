@@ -172,7 +172,11 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
   const fetchEstimates = async (isInitial = false) => {
     if (isInitial) setLoading(true);
     try {
-      const res = await apiRequest(`${HmsBaseUrl}get_estimate_bills/`, "GET");
+      const activeOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+      const url = activeOutlet
+        ? `${HmsBaseUrl}get_estimate_bills/?outlet_code=${encodeURIComponent(activeOutlet)}`
+        : `${HmsBaseUrl}get_estimate_bills/`;
+      const res = await apiRequest(url, "GET");
       const list = Array.isArray(res.data)
         ? res.data
         : Array.isArray(res.data?.data)
@@ -189,13 +193,15 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
     }
   };
 
-  // Fetch when refreshTrigger updates or when tab becomes active
+  const activeOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+
+  // Fetch when refreshTrigger updates, when tab becomes active, or when outlet changes
   useEffect(() => {
     if (!activeTab || activeTab === "view_estimate") {
       fetchEstimates(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger, activeTab]);
+  }, [refreshTrigger, activeTab, activeOutlet]);
 
   const handleConvert = (estimate) => {
     if (!estimate.Bill_id) {
