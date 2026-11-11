@@ -1287,6 +1287,15 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     }
   }, [highlightedMedicineIndex, isSearchModalOpen]);
 
+  // Debounced live search when typing inside the medicine search modal
+  useEffect(() => {
+    if (!isSearchModalOpen) return;
+    const timer = setTimeout(() => {
+      handleMedicineSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, isSearchModalOpen]);
+
   // Auto-calculate quantity based on dosage & days
   useEffect(() => {
     if (dosage && noOfDays) {
@@ -2484,7 +2493,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
 
       {/* ─── Medicine Search Modal ────────────────────────────────────── */}
       {isSearchModalOpen && (
-        <ModalOverlay style={{ zIndex: 2000 }}>
+        <ModalOverlay style={{ zIndex: 2000 }} onClick={() => setIsSearchModalOpen(false)}>
           <ModalContainer
             style={{ width: "80%", height: "80%", maxWidth: "1000px" }}
             onClick={(e) => e.stopPropagation()}
@@ -2673,6 +2682,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       )}
       {showDosageModal && (
         <div
+          onClick={() => setShowDosageModal(false)}
           style={{
             position: "fixed",
             top: 0,
@@ -2687,6 +2697,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
           }}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               background: "white",
               padding: "24px",
@@ -2768,7 +2779,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       )}
       {/* ─── Return Medicine Modal ────────────────────────────────────── */}
       {isReturnModalOpen && selectedReturnReq && (
-        <ModalOverlay style={{ zIndex: 2000 }}>
+        <ModalOverlay style={{ zIndex: 2000 }} onClick={() => setIsReturnModalOpen(false)}>
           <ModalContainer
             style={{ width: "80%", height: "80%", maxWidth: "1000px" }}
             onClick={(e) => e.stopPropagation()}
@@ -2846,7 +2857,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
 
       {/* Package Selection Modal */}
       {isPackageModalOpen && (
-        <ModalOverlay style={{ zIndex: 2000 }}>
+        <ModalOverlay style={{ zIndex: 2000 }} onClick={() => setIsPackageModalOpen(false)}>
           <ModalContainer
             style={{ width: "90%", maxWidth: "700px", height: "70vh" }}
             onClick={(e) => e.stopPropagation()}

@@ -829,6 +829,8 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
 
   const [investigationItems, setInvestigationItems] = useState([]);
   const [highlightedTestIndex, setHighlightedTestIndex] = useState(-1);
+  const [showTestDropdown, setShowTestDropdown] = useState(false);
+  const testDropdownContainerRef = useRef(null);
   const testListRef = useRef(null);
   const [selectedTests, setSelectedTests] = useState([]);
   const [billTypeOptions, setBillTypeOptions] = useState([]);
@@ -836,6 +838,17 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
   const [packages, setPackages] = useState([]);
   const [packageLoading, setPackageLoading] = useState(false);
   const [packageSearch, setPackageSearch] = useState("");
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (testDropdownContainerRef.current && !testDropdownContainerRef.current.contains(event.target)) {
+        setShowTestDropdown(false);
+        setHighlightedTestIndex(-1);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (investigationItems && investigationItems.length > 0) {
@@ -935,13 +948,19 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
     }
   };
 
-  // Automatically fetch investigation items when bill type or test name changes
+  // Automatically fetch investigation items when test name changes (only when typing)
   useEffect(() => {
     if (billTypeNo && billtype) {
-      const timer = setTimeout(() => {
-        fetchInvestigationItems();
-      }, 300); // 300ms debounce
-      return () => clearTimeout(timer);
+      const q = (testName || "").trim();
+      if (q.length > 0) {
+        const timer = setTimeout(() => {
+          fetchInvestigationItems(false);
+          setShowTestDropdown(true);
+        }, 300); // 300ms debounce
+        return () => clearTimeout(timer);
+      } else {
+        setShowTestDropdown(false);
+      }
     }
   }, [billTypeNo, billtype, testName]);
 
@@ -1041,20 +1060,26 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
       r.doctorName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const fetchInvestigationItems = async () => {
+  const fetchInvestigationItems = async (explicitUserAction = false) => {
     if (!billTypeNo || !billtype) {
-      alert("Please select a Bill Type first.");
+      if (explicitUserAction) {
+        alert("Please select a Bill Type first.");
+      }
       return;
     }
     try {
+      const q = (testName || "").trim();
       const res = await apiRequest(
-        `${HmsBaseUrl}investigation-items/?billTypeNo=${billTypeNo}&billType=${billtype}&itemName=${testName}`,
+        `${HmsBaseUrl}investigation-items/?billTypeNo=${billTypeNo}&billType=${billtype}&itemName=${encodeURIComponent(q)}`,
         "GET"
       );
       if (res.success) {
         // Backend returns { items: [...] } or { data: [...] }
         const list = res.data?.items || res.data?.data || (Array.isArray(res.data) ? res.data : []);
         setInvestigationItems(list);
+        if (explicitUserAction || q.length > 0) {
+          setShowTestDropdown(true);
+        }
       }
     } catch (error) {
       console.error("Investigation Items API Error", error);
@@ -1333,14 +1358,27 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
               </FormRow>
 
               <FormRowSingle>
-                <div style={{ position: "relative" }}>
+                <div ref={testDropdownContainerRef} style={{ position: "relative" }}>
                   <FormLabel>Test Name</FormLabel>
                   <div style={{ display: "flex" }}>
                     <FormInput
                       value={testName}
-                      onChange={(e) => setTestName(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setTestName(val);
+                        if (val.trim().length > 0) {
+                          setShowTestDropdown(true);
+                        } else {
+                          setShowTestDropdown(false);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (testName.trim().length > 0 && investigationItems.length > 0) {
+                          setShowTestDropdown(true);
+                        }
+                      }}
                       onKeyDown={(e) => {
-                        if (investigationItems.length > 0) {
+                        if (showTestDropdown && investigationItems.length > 0) {
                           if (e.key === "ArrowDown") {
                             e.preventDefault();
                             setHighlightedTestIndex((prev) => (prev < investigationItems.length - 1 ? prev + 1 : 0));
@@ -1355,25 +1393,28 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
                             e.preventDefault();
                             if (highlightedTestIndex >= 0 && investigationItems[highlightedTestIndex]) {
                               addTest(investigationItems[highlightedTestIndex]);
-                              setInvestigationItems([]);
+                              setTestName("");
+                              setShowTestDropdown(false);
+                              setHighlightedTestIndex(-1);
                             } else {
-                              fetchInvestigationItems();
+                              fetchInvestigationItems(true);
                             }
                             return;
                           }
                           if (e.key === "Escape") {
-                            setInvestigationItems([]);
+                            setShowTestDropdown(false);
+                            setHighlightedTestIndex(-1);
                             return;
                           }
                         }
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          fetchInvestigationItems();
+                          fetchInvestigationItems(true);
                         }
                       }}
                       placeholder="Search for a test (use ↑/↓ to navigate, Enter to select)..."
                     />
-                    <SearchIconBtn type="button" onClick={fetchInvestigationItems}>
+                    <SearchIconBtn type="button" onClick={() => fetchInvestigationItems(true)}>
                       🔍
                     </SearchIconBtn>
                     <button
@@ -1397,7 +1438,7 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
                       🎁 Package
                     </button>
                   </div>
-                  {investigationItems.length > 0 && (
+                  {showTestDropdown && investigationItems.length > 0 && (
                     <div
                       ref={testListRef}
                       style={{
@@ -1421,7 +1462,9 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
                             key={index}
                             onClick={() => {
                               addTest(item);
-                              setInvestigationItems([]);
+                              setTestName("");
+                              setShowTestDropdown(false);
+                              setHighlightedTestIndex(-1);
                             }}
                             onMouseEnter={() => setHighlightedTestIndex(index)}
                             style={{
@@ -1749,7 +1792,7 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
 
       {/* Package Selection Modal */}
       {isPackageModalOpen && (
-        <ModalOverlay style={{ zIndex: 2000 }}>
+        <ModalOverlay style={{ zIndex: 2000 }} onClick={() => setIsPackageModalOpen(false)}>
           <ModalContainer
             style={{ width: "90%", maxWidth: "700px", height: "70vh" }}
             onClick={(e) => e.stopPropagation()}
