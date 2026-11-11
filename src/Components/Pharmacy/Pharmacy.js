@@ -2915,14 +2915,21 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
       // ── Normal save path (Direct bill / Estimate / Edit bill) ─────────────
       const finalItems = addedMedicines.map((m) => {
-        const qty = Number(m.quantity);
-        const price = parseFloat(m.price || 0);
+        const qty = Number(m.quantity || 0);
+        const price = parseFloat(m.price || m.mrp || 0);
         return {
           item_id: Number(m.item_id),
-          batch_number: String(m.batch_number),
+          batch_number: String(m.batch_number || ""),
           qty,
           price,
           calculated_price: parseFloat((qty * price).toFixed(2)),
+          item_name: m.name || m.item_name || "",
+          dosage: m.dosage || "",
+          noOfDays: m.noOfDays || m.no_of_days || "",
+          dose: m.dose || "",
+          doseunit: m.doseunit || m.doseUnit || "",
+          instruction: m.instruction || "",
+          route: m.route || "",
         };
       });
 
@@ -3058,7 +3065,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
         const backendMsg = response.data?.message || response.message;
         if (status === "Estimate") {
-          toast.success(backendMsg || `Estimate saved! #${response.data?.estimate_no || ""}`, { autoClose: 2000 });
+          const estNo = response.data?.estimate_no || response.estimate_no || "";
+          toast.success(backendMsg || `Estimate saved! #${estNo}`, { autoClose: 2000 });
+          try {
+            localStorage.setItem("hms_last_billing_update", Date.now().toString());
+            localStorage.setItem("hms_last_medichart_update", Date.now().toString());
+            if (typeof BroadcastChannel !== "undefined") {
+              new BroadcastChannel("hms_billing_channel").postMessage({
+                type: "ESTIMATE_SAVED",
+                estimateNo: estNo,
+                billId: recordId,
+              });
+            }
+          } catch (e) {}
           if (typeof onEstimateSaved === "function") onEstimateSaved();
           resetForm();
           setTodayBillDate();

@@ -2556,7 +2556,6 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <th>Patient Name</th>
                       <th>Insurance Name</th>
                       <th>Ward & Room Number</th>
-                      <th>Date & Req. By</th>
                       <th style={{ textAlign: "center" }}>Status</th>
                       <th style={{ textAlign: "center" }}>Actions</th>
                     </tr>
@@ -2654,29 +2653,6 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                                 </div>
                               )}
                             </div>
-                          </td>
-
-                          {/* 6. Date & Requested By */}
-                          <td>
-                            <div style={{ color: "#334155", fontSize: "0.76rem", fontWeight: 600, whiteSpace: "nowrap" }}>
-                              {dateFormatted}
-                            </div>
-                            {requestedBy && (
-                              <div
-                                style={{
-                                  fontSize: "0.7rem",
-                                  color: "#64748b",
-                                  marginTop: 2,
-                                  maxWidth: 160,
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
-                                title={`Requested by: ${requestedBy}`}
-                              >
-                                Req: <span style={{ fontWeight: 600, color: "#0f766e" }}>{requestedBy}</span>
-                              </div>
-                            )}
                           </td>
 
                           {/* 7. Status */}
