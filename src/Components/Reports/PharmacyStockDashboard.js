@@ -590,7 +590,7 @@ const PharmacyStockDashboard = () => {
 
     // Navigate to detail report with preset and selected outlet
     const goToReport = (preset) => {
-        const outletParam = isLoggedDrugPurchase && selectedOutlet && selectedOutlet !== "ALL" ? `&outlet=${selectedOutlet}` : "";
+        const outletParam = isLoggedDrugPurchase ? `&outlet=${selectedOutlet || "ALL"}` : "";
         navigate(`/PharmacyExpiryReport?filter=${preset}${outletParam}`);
     };
 

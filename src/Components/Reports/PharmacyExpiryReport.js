@@ -415,12 +415,17 @@ const PharmacyExpiryReport = ({
     const urlOutlet = searchParams.get("outlet");
     const urlFilter = searchParams.get("filter");
 
+    const activeOutletCode = (localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim();
+    const activeOutletName = (localStorage.getItem("outlet_name") || "").trim().toLowerCase();
+    const isLoggedDrugPurchase = activeOutletCode === "OLET006" || activeOutletCode === "" || activeOutletName === "drug purchase";
+
     // Filters and Search States
     const [outlets, setOutlets] = useState([]);
     const propOutlet = outlet || initialOutlet || urlOutlet;
     const [selectedOutlet, setSelectedOutlet] = useState(() => {
-        if (propOutlet && propOutlet !== "all" && propOutlet !== "All") return propOutlet;
-        return localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+        if (propOutlet && propOutlet !== "all" && propOutlet !== "All" && propOutlet !== "ALL") return propOutlet;
+        if (isLoggedDrugPurchase) return "";
+        return activeOutletCode;
     });
     const [filterType, setFilterType] = useState(() => {
         if (urlFilter) return urlFilter;
@@ -442,7 +447,7 @@ const PharmacyExpiryReport = ({
         }
         const o = outlet || initialOutlet || urlOutlet;
         if (o !== undefined && o !== null) {
-            setSelectedOutlet(o === "all" || o === "All" ? "" : o);
+            setSelectedOutlet(o === "all" || o === "All" || o === "ALL" ? "" : o);
         }
     }, [startDate, endDate, outlet, initialOutlet, urlOutlet, urlFilter]);
     const [searchQuery, setSearchQuery] = useState("");
@@ -469,24 +474,26 @@ const PharmacyExpiryReport = ({
         fetchOutlets();
     }, [HMS_BASE_URL]);
 
-    // Sync with localStorage when component mounts or gains focus
+    // Sync with localStorage when component mounts or gains focus (only when not in Drug Purchase)
     useEffect(() => {
         const syncOutlet = () => {
-            const rawOutlet = (outlet || initialOutlet || selectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim();
-            const activeOutlet = (rawOutlet === "all" || rawOutlet === "All") ? "" : rawOutlet;
-            setSelectedOutlet(activeOutlet);
+            if (!isLoggedDrugPurchase) {
+                const rawOutlet = (outlet || initialOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim();
+                const activeOutlet = (rawOutlet === "all" || rawOutlet === "All" || rawOutlet === "ALL") ? "" : rawOutlet;
+                setSelectedOutlet(activeOutlet);
+            }
         };
         syncOutlet();
         
         window.addEventListener("focus", syncOutlet);
         return () => window.removeEventListener("focus", syncOutlet);
-    }, []);
+    }, [isLoggedDrugPurchase, outlet, initialOutlet]);
 
     // Fetch report data (with parameter overrides to avoid React batching delays)
-    const fetchReport = async (overrideFilterType, overrideDateRange, overrideSearchQuery) => {
+    const fetchReport = async (overrideFilterType, overrideDateRange, overrideSearchQuery, overrideOutlet) => {
         setLoading(true);
         try {
-            const activeOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+            const currentOutlet = overrideOutlet !== undefined ? overrideOutlet : selectedOutlet;
             
             const currentFilterType = overrideFilterType !== undefined ? overrideFilterType : filterType;
             const currentDateRange = overrideDateRange !== undefined ? overrideDateRange : dateRange;
@@ -507,7 +514,7 @@ const PharmacyExpiryReport = ({
             const params = {
                 start_date: currentDateRange && currentDateRange[0] ? currentDateRange[0].format("YYYY-MM-DD") : "",
                 end_date: currentDateRange && currentDateRange[1] ? currentDateRange[1].format("YYYY-MM-DD") : "",
-                outlet_code: activeOutlet,
+                outlet_code: currentOutlet,
                 search_query: currentSearchQuery,
                 all_time: currentFilterType === "all_time" || currentFilterType === "fast_moving" || currentFilterType === "not_sold" || currentFilterType === "stock_transfer" || currentFilterType === "reorder_level" || !currentDateRange || (!currentDateRange[0] && !currentDateRange[1]),
                 report_type: report_type
@@ -783,8 +790,13 @@ const PharmacyExpiryReport = ({
                         <Label>Select Outlet</Label>
                         <Select 
                             value={selectedOutlet} 
-                            disabled
-                            style={{ background: "#f1f5f9", cursor: "not-allowed", opacity: 0.8 }}
+                            disabled={!isLoggedDrugPurchase}
+                            onChange={(e) => {
+                                const newOutlet = e.target.value;
+                                setSelectedOutlet(newOutlet);
+                                setCurrentPage(1);
+                            }}
+                            style={!isLoggedDrugPurchase ? { background: "#f1f5f9", cursor: "not-allowed", opacity: 0.8 } : { cursor: "pointer" }}
                         >
                             <option value="">All Outlets / Central Stores</option>
                             {outlets.map((o) => (
@@ -848,13 +860,13 @@ const PharmacyExpiryReport = ({
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                     <Button onClick={() => { 
-                        const defaultOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+                        const defaultOutlet = isLoggedDrugPurchase ? "" : (localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "");
                         setSelectedOutlet(defaultOutlet);
                         setFilterType("all_time");
                         setDateRange([null, null]);
                         setSearchQuery("");
                         setCurrentPage(1);
-                        fetchReport("all_time", [null, null], "");
+                        fetchReport("all_time", [null, null], "", defaultOutlet);
                     }} secondary>
                         <RotateCcw size={14} /> Reset Filters
                     </Button>
