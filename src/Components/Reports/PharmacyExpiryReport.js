@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { DatePicker, Spin, Tooltip, Switch } from "antd";
 import dayjs from "dayjs";
 import styled, { keyframes, css } from "styled-components";
@@ -408,15 +408,22 @@ const PharmacyExpiryReport = ({
 }) => {
     const HMS_BASE_URL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Parse URL query parameters if navigated from Dashboard
+    const searchParams = new URLSearchParams(location.search);
+    const urlOutlet = searchParams.get("outlet");
+    const urlFilter = searchParams.get("filter");
 
     // Filters and Search States
     const [outlets, setOutlets] = useState([]);
-    const propOutlet = outlet || initialOutlet;
+    const propOutlet = outlet || initialOutlet || urlOutlet;
     const [selectedOutlet, setSelectedOutlet] = useState(() => {
         if (propOutlet && propOutlet !== "all" && propOutlet !== "All") return propOutlet;
         return localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
     });
     const [filterType, setFilterType] = useState(() => {
+        if (urlFilter) return urlFilter;
         return startDate && endDate ? "custom" : "all_time";
     });
     const [dateRange, setDateRange] = useState(() => {
@@ -430,12 +437,14 @@ const PharmacyExpiryReport = ({
         if (startDate && endDate) {
             setDateRange([dayjs(startDate), dayjs(endDate)]);
             setFilterType("custom");
+        } else if (urlFilter) {
+            setFilterType(urlFilter);
         }
-        const o = outlet || initialOutlet;
-        if (o) {
+        const o = outlet || initialOutlet || urlOutlet;
+        if (o !== undefined && o !== null) {
             setSelectedOutlet(o === "all" || o === "All" ? "" : o);
         }
-    }, [startDate, endDate, outlet, initialOutlet]);
+    }, [startDate, endDate, outlet, initialOutlet, urlOutlet, urlFilter]);
     const [searchQuery, setSearchQuery] = useState("");
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);

@@ -12,7 +12,7 @@ import {
 import {
     Package, AlertTriangle, ShieldAlert, TrendingDown, TrendingUp,
     RefreshCw, ExternalLink, ArrowRight, Activity, Pill,
-    Boxes, BarChart2, Clock, Truck
+    Boxes, BarChart2, Clock, Truck, Filter, Check
 } from "lucide-react";
 
 // ─── ANIMATIONS ──────────────────────────────────────────────────────────────
@@ -121,6 +121,89 @@ const NavigateBtn = styled.button`
   gap: 8px;
   transition: all 0.2s;
   &:hover { background: #1e293b; transform: translateY(-1px); }
+`;
+
+const FilterBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 12px 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    .filter-label {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  }
+
+  .filter-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .scope-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: #475569;
+    font-weight: 600;
+
+    .scope-tag {
+      background: #ccfbf1;
+      color: #0f766e;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 0.78rem;
+      border: 1px solid #99f6e4;
+    }
+  }
+`;
+
+const FilterPill = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid ${props => props.$active ? '#0d9488' : '#e2e8f0'};
+  background: ${props => props.$active ? '#0d9488' : '#ffffff'};
+  color: ${props => props.$active ? '#ffffff' : '#334155'};
+  box-shadow: ${props => props.$active ? '0 3px 10px rgba(13, 148, 136, 0.25)' : 'none'};
+  transition: all 0.18s ease;
+
+  .pill-icon {
+    font-size: 0.95rem;
+  }
+
+  &:hover {
+    border-color: #0d9488;
+    background: ${props => props.$active ? '#0f766e' : '#f0fdf4'};
+    color: ${props => props.$active ? '#ffffff' : '#0d9488'};
+  }
 `;
 
 // ─── KPI CARDS ───────────────────────────────────────────────────────────────
@@ -342,35 +425,57 @@ const PIE_COLORS = ['#ef4444', '#f97316', '#eab308', '#0d9488', '#3b82f6', '#8b5
 const CATEGORY_COLORS = ['#0d9488', '#3b82f6', '#8b5cf6', '#f97316', '#ef4444', '#eab308', '#06b6d4', '#10b981'];
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
+const OUTLET_OPTIONS = [
+    { code: "ALL", label: "All Outlets", icon: "🌐", desc: "Consolidated (IP, OP & Drug Purchase)" },
+    { code: "OLET006", label: "Drug Purchase", icon: "🏪", desc: "Central Store / Procurement" },
+    { code: "OLET001", label: "IP Pharmacy", icon: "🏥", desc: "In-Patient Dispensary" },
+    { code: "OLET002", label: "OP Pharmacy", icon: "🩺", desc: "Out-Patient Dispensary" }
+];
+
 const PharmacyStockDashboard = () => {
     const HMS_BASE_URL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const navigate = useNavigate();
 
+    const activeOutletCode = (localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim();
+    const isLoggedDrugPurchase = activeOutletCode === "OLET006" || activeOutletCode === "";
+    const [selectedOutlet, setSelectedOutlet] = useState(() => {
+        if (isLoggedDrugPurchase) return "ALL";
+        if (activeOutletCode === "OLET001" || activeOutletCode === "OLET002") return activeOutletCode;
+        return "ALL";
+    });
+
     const [loading, setLoading] = useState(true);
-    const [outletName, setOutletName] = useState("All Outlets");
+    const [outletName, setOutletName] = useState("All Outlets (Consolidated)");
 
     // All data states
     const [allTimeData, setAllTimeData] = useState([]);
     const [expiryData, setExpiryData] = useState([]);
     const [reorderData, setReorderData] = useState([]);
 
-    const fetchAll = useCallback(async () => {
+    const fetchAll = useCallback(async (overrideOutlet) => {
         setLoading(true);
-        const outlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+        const targetOutlet = overrideOutlet !== undefined ? overrideOutlet : selectedOutlet;
+        const apiOutlet = targetOutlet === "ALL" ? "" : targetOutlet;
 
         // Fetch outlet name
         try {
             const outletRes = await apiRequest(`${HMS_BASE_URL}get-all-outlets/`, "GET");
-            if (outletRes.success && Array.isArray(outletRes.data) && outlet) {
-                const found = outletRes.data.find(o => o.outlet_code === outlet);
-                if (found) setOutletName(found.outlet_name);
+            if (outletRes.success && Array.isArray(outletRes.data)) {
+                if (targetOutlet === "ALL") {
+                    setOutletName("All Outlets (Consolidated)");
+                } else {
+                    const found = outletRes.data.find(o => o.outlet_code === targetOutlet);
+                    if (found) setOutletName(found.outlet_name);
+                    else if (targetOutlet === "OLET006") setOutletName("DRUG PURCHASE");
+                    else setOutletName(targetOutlet);
+                }
             }
         } catch (_) {}
 
         // Fetch all-time stock (all items)
         try {
             const res = await apiRequest(`${HMS_BASE_URL}pharmacy_expiry_report/`, "POST", {
-                outlet_code: outlet,
+                outlet_code: apiOutlet,
                 all_time: true,
                 report_type: "expiry",
                 start_date: "", end_date: "", search_query: ""
@@ -382,7 +487,7 @@ const PharmacyStockDashboard = () => {
         // Fetch nearby expiry (within 6 months)
         try {
             const res = await apiRequest(`${HMS_BASE_URL}pharmacy_expiry_report/`, "POST", {
-                outlet_code: outlet,
+                outlet_code: apiOutlet,
                 all_time: false,
                 report_type: "expiry",
                 start_date: dayjs().format("YYYY-MM-DD"),
@@ -396,7 +501,7 @@ const PharmacyStockDashboard = () => {
         // Fetch reorder level items
         try {
             const res = await apiRequest(`${HMS_BASE_URL}pharmacy_expiry_report/`, "POST", {
-                outlet_code: outlet,
+                outlet_code: apiOutlet,
                 all_time: true,
                 report_type: "reorder_level",
                 start_date: "", end_date: "", search_query: ""
@@ -406,7 +511,13 @@ const PharmacyStockDashboard = () => {
         } catch (_) { setReorderData([]); }
 
         setLoading(false);
-    }, [HMS_BASE_URL]);
+    }, [HMS_BASE_URL, selectedOutlet]);
+
+    const handleSelectOutlet = (code) => {
+        if (code === selectedOutlet) return;
+        setSelectedOutlet(code);
+        fetchAll(code);
+    };
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -473,8 +584,11 @@ const PharmacyStockDashboard = () => {
         .sort((a, b) => dayjs(a.expiry_date).diff(dayjs(b.expiry_date)))
         .slice(0, 5);
 
-    // Navigate to detail report with preset
-    const goToReport = (preset) => navigate(`/PharmacyExpiryReport?filter=${preset}`);
+    // Navigate to detail report with preset and selected outlet
+    const goToReport = (preset) => {
+        const outletParam = selectedOutlet && selectedOutlet !== "ALL" ? `&outlet=${selectedOutlet}` : "";
+        navigate(`/PharmacyExpiryReport?filter=${preset}${outletParam}`);
+    };
 
     return (
         <Container>
@@ -485,21 +599,57 @@ const PharmacyStockDashboard = () => {
                         <BarChart2 size={28} style={{ color: '#0d9488' }} />
                         Pharmacy Stock Dashboard
                     </h1>
-                    <p>Visual analytics for stock, expiry & inventory health</p>
+                    <p>Visual analytics for stock, expiry & inventory health across departments</p>
                 </div>
                 <div className="actions">
                     <OutletBadge>
                         <div className="dot" />
                         {outletName}
                     </OutletBadge>
-                    <RefreshBtn onClick={fetchAll} $loading={loading} disabled={loading}>
+                    <RefreshBtn onClick={() => fetchAll(selectedOutlet)} $loading={loading} disabled={loading}>
                         <RefreshCw size={15} /> Refresh
                     </RefreshBtn>
-                    <NavigateBtn onClick={() => navigate('/PharmacyExpiryReport')}>
+                    <NavigateBtn onClick={() => goToReport('all_time')}>
                         <ExternalLink size={15} /> Detailed Report
                     </NavigateBtn>
                 </div>
             </Header>
+
+            {/* ── OUTLET FILTER TOOLBAR ── */}
+            <FilterBar>
+                <div className="filter-group">
+                    <span className="filter-label">
+                        <Filter size={14} /> Filter Outlet:
+                    </span>
+                    <div className="filter-pills">
+                        {OUTLET_OPTIONS.map(opt => {
+                            const isActive = selectedOutlet === opt.code;
+                            return (
+                                <FilterPill
+                                    key={opt.code}
+                                    type="button"
+                                    $active={isActive}
+                                    onClick={() => handleSelectOutlet(opt.code)}
+                                    title={opt.desc}
+                                >
+                                    <span className="pill-icon">{opt.icon}</span>
+                                    <span>{opt.label}</span>
+                                    {isActive && <Check size={13} style={{ strokeWidth: 3 }} />}
+                                </FilterPill>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="scope-meta">
+                    <span>Active Scope:</span>
+                    <span className="scope-tag">
+                        {OUTLET_OPTIONS.find(o => o.code === selectedOutlet)?.label || selectedOutlet}
+                    </span>
+                    <span style={{ color: "#cbd5e1" }}>•</span>
+                    <span>{loading ? "Refreshing..." : `${totalItems} items (${totalBatches} batches)`}</span>
+                </div>
+            </FilterBar>
 
             {/* ── KPI CARDS ── */}
             <KpiGrid>

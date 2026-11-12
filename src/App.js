@@ -1518,11 +1518,17 @@ function App() {
                     element={<PharmacyExpiryReport />}
                   />
                 )}
-              {hasPagePermission(
-                "/PharmacyExpiryReport",
+              {(hasPagePermission(
+                "/PharmacyStockDashboard",
                 allowedActions,
                 dynamicPermissions,
-              ) && (
+              ) ||
+                hasPagePermission(
+                  "/PharmacyExpiryReport",
+                  allowedActions,
+                  dynamicPermissions,
+                ) ||
+                ((localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code")) === "OLET006")) && (
                   <Route
                     path="/PharmacyStockDashboard"
                     element={<PharmacyStockDashboard />}
