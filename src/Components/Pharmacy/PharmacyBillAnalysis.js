@@ -596,7 +596,7 @@ const DrawerOverlay = styled.div`
 const DrawerContent = styled.div`
   background: #fff;
   width: 100%;
-  max-width: 820px;
+  max-width: 860px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -665,12 +665,15 @@ const DetailCard = styled.div`
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.03);
-  overflow: hidden;
+  flex-shrink: 0;
+  min-height: fit-content;
 
   .card-header {
     background: #f8fafc;
     padding: 12px 18px;
     border-bottom: 1px solid #e2e8f0;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -706,6 +709,8 @@ const GridList = styled.div`
       font-weight: 600;
       color: #0f172a;
       margin-top: 2px;
+      word-break: break-word;
+      line-height: 1.4;
     }
   }
 `;
@@ -2405,7 +2410,9 @@ export default function PharmacyBillAnalysis() {
                     </div>
                     <div className="field-item">
                       <div className="label">Billing Mode</div>
-                      <div className="value">{selectedBill.travel?.bill_info?.billing_mode || "DIRECT"}</div>
+                      <div className="value">
+                        {selectedBill.travel?.bill_info?.billing_mode || selectedBill.billing_mode || "DIRECT"}
+                      </div>
                     </div>
                     <div className="field-item">
                       <div className="label">Status</div>
@@ -2415,12 +2422,14 @@ export default function PharmacyBillAnalysis() {
                     </div>
                     <div className="field-item">
                       <div className="label">Outlet Code</div>
-                      <div className="value">{selectedBill.travel?.bill_info?.outlet_code || outletCode}</div>
+                      <div className="value">
+                        {selectedBill.travel?.bill_info?.outlet_code || selectedBill.outlet_code || outletCode || "—"}
+                      </div>
                     </div>
                     <div className="field-item">
                       <div className="label">Shift / Doctor</div>
                       <div className="value">
-                        Shift: {selectedBill.travel?.bill_info?.shift_no || "—"} | Dr: {selectedBill.travel?.bill_info?.doctor_id || "—"}
+                        Shift: {selectedBill.travel?.bill_info?.shift_no || selectedBill.shift_no || selectedBill.shiftno || "—"} | Dr: {selectedBill.travel?.bill_info?.doctor_id || selectedBill.doctor_id || "—"}
                       </div>
                     </div>
                     <div className="field-item">
@@ -2436,31 +2445,34 @@ export default function PharmacyBillAnalysis() {
               {/* 2. Patient Profile Comparison */}
               <DetailCard>
                 <div className="card-header">
-                  <FaHospitalUser /> Patient Profile (Linked via UHID {selectedBill.uhid})
+                  <FaHospitalUser /> Patient Profile (Linked via UHID {selectedBill.uhid || selectedBill.travel?.patient?.uhid || "—"})
                 </div>
                 <div className="card-body">
                   <GridList>
                     <div className="field-item">
                       <div className="label">UHID Number</div>
-                      <div className="value">{selectedBill.uhid}</div>
+                      <div className="value">{selectedBill.uhid || selectedBill.travel?.patient?.uhid || "—"}</div>
                     </div>
                     <div className="field-item">
                       <div className="label">Full Name</div>
-                      <div className="value">{selectedBill.patient_name}</div>
+                      <div className="value">{selectedBill.patient_name || selectedBill.travel?.patient?.name || "—"}</div>
                     </div>
                     <div className="field-item">
                       <div className="label">Age & Gender</div>
                       <div className="value">
-                        {selectedBill.patient_age ? `${selectedBill.patient_age} yrs` : "—"} / {selectedBill.patient_gender || "—"}
+                        {selectedBill.patient_age
+                          ? `${selectedBill.patient_age} yrs`
+                          : (selectedBill.travel?.patient?.age ? `${selectedBill.travel.patient.age} yrs` : "—")}{" "}
+                        / {selectedBill.patient_gender || selectedBill.travel?.patient?.gender || "—"}
                       </div>
                     </div>
                     <div className="field-item">
                       <div className="label">Contact Mobile</div>
-                      <div className="value">{selectedBill.patient_phone || "—"}</div>
+                      <div className="value">{selectedBill.patient_phone || selectedBill.travel?.patient?.phone || "—"}</div>
                     </div>
                     <div className="field-item" style={{ gridColumn: "1 / -1" }}>
                       <div className="label">Address / Location</div>
-                      <div className="value">{selectedBill.patient_address || "—"}</div>
+                      <div className="value">{selectedBill.patient_address || selectedBill.travel?.patient?.address || "—"}</div>
                     </div>
                   </GridList>
                 </div>
@@ -2477,23 +2489,23 @@ export default function PharmacyBillAnalysis() {
                       <GridList style={{ marginBottom: 16 }}>
                         <div className="field-item">
                           <div className="label">IP Number</div>
-                          <div className="value">{selectedBill.inpatient_number}</div>
+                          <div className="value">{selectedBill.inpatient_number || selectedBill.travel?.admission?.ipNumber || "—"}</div>
                         </div>
                         <div className="field-item">
                           <div className="label">Total IP Advance Paid</div>
                           <div className="value" style={{ color: "#059669", fontSize: 15 }}>
-                            ₹ {(selectedBill.advance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                            ₹ {((selectedBill.advance != null ? selectedBill.advance : selectedBill.travel?.admission?.total_ip_advance) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                           </div>
                         </div>
                         <div className="field-item">
                           <div className="label">Room / Bed Allocation</div>
-                          <div className="value">{selectedBill.travel?.admission?.room_label || "—"}</div>
+                          <div className="value">{selectedBill.travel?.admission?.room_label || selectedBill.room_no || "—"}</div>
                         </div>
                         <div className="field-item">
                           <div className="label">Discharge / Clearance Status</div>
                           <div className="value">
-                            <IndicatorPill val={selectedBill.ip_cleared}>
-                              {selectedBill.ip_cleared === "Yes" ? "Discharged / Cleared" : "Currently Admitted"}
+                            <IndicatorPill val={selectedBill.ip_cleared || (selectedBill.travel?.admission?.is_discharged ? "Yes" : "No")}>
+                              {selectedBill.ip_cleared === "Yes" || selectedBill.travel?.admission?.is_discharged ? "Discharged / Cleared" : "Currently Admitted"}
                             </IndicatorPill>
                           </div>
                         </div>
@@ -2504,7 +2516,7 @@ export default function PharmacyBillAnalysis() {
                         <div className="field-item">
                           <div className="label">Payer Category / Insurance</div>
                           <div className="value">
-                            {selectedBill.travel?.admission?.customer_type || "Cash"}{" "}
+                            {selectedBill.travel?.admission?.customer_type || selectedBill.customer_type || "Cash"}{" "}
                             {selectedBill.travel?.admission?.insurance_company ? `(${selectedBill.travel.admission.insurance_company})` : ""}
                           </div>
                         </div>
@@ -2555,62 +2567,80 @@ export default function PharmacyBillAnalysis() {
                   <FaPills /> Billed Medicines & Item Edit History
                 </div>
                 <div className="card-body">
-                  {selectedBill.travel?.medicines?.length > 0 ? (
-                    <SubTable>
-                      <thead>
-                        <tr>
-                          <th>Item Name</th>
-                          <th>Batch No</th>
-                          <th style={{ textAlign: "center" }}>Qty</th>
-                          <th style={{ textAlign: "right" }}>Unit Price</th>
-                          <th style={{ textAlign: "right" }}>Calculated Price</th>
-                          <th>Edit History / Return Travel</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedBill.travel.medicines.map((m, idx) => (
-                          <tr key={idx}>
-                            <td>
-                              <strong>{m.item_name}</strong>
-                              <div style={{ fontSize: 11, color: "#94a3b8" }}>ID: {m.item_id}</div>
-                            </td>
-                            <td>{m.batch_number}</td>
-                            <td style={{ textAlign: "center", fontWeight: 600 }}>{m.qty}</td>
-                            <td style={{ textAlign: "right" }}>
-                              ₹ {(m.price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                            </td>
-                            <td style={{ textAlign: "right", fontWeight: 700 }}>
-                              ₹ {(m.calculated_price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                            </td>
-                            <td>
-                              {m.edit_history && m.edit_history.length > 0 ? (
-                                m.edit_history.map((eh, eidx) => (
-                                  <div
-                                    key={eidx}
-                                    style={{
-                                      fontSize: 11,
-                                      background: "#fef3c7",
-                                      color: "#92400e",
-                                      padding: "3px 6px",
-                                      borderRadius: 4,
-                                      marginBottom: 2,
-                                    }}
-                                  >
-                                    <strong>{eh.action}</strong>: Ret Qty {eh.return_qty} | Bill: {eh.return_bill_no} (
-                                    {eh.return_date ? String(eh.return_date).slice(0, 10) : ""})
-                                  </div>
-                                ))
-                              ) : (
-                                <span style={{ color: "#94a3b8", fontSize: 11 }}>No edits</span>
-                              )}
-                            </td>
+                  {(() => {
+                    const medicinesList =
+                      selectedBill.travel?.medicines && selectedBill.travel.medicines.length > 0
+                        ? selectedBill.travel.medicines
+                        : (selectedBill.medicine_particulars || selectedBill.items || []);
+                    if (!medicinesList || medicinesList.length === 0) {
+                      return <div style={{ color: "#64748b", fontSize: 13 }}>No medicines listed for this bill.</div>;
+                    }
+                    return (
+                      <SubTable>
+                        <thead>
+                          <tr>
+                            <th>Item Name</th>
+                            <th>Batch No</th>
+                            <th style={{ textAlign: "center" }}>Qty</th>
+                            <th style={{ textAlign: "right" }}>Unit Price</th>
+                            <th style={{ textAlign: "right" }}>Calculated Price</th>
+                            <th>Edit History / Return Travel</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </SubTable>
-                  ) : (
-                    <div style={{ color: "#64748b", fontSize: 13 }}>No medicines listed for this bill.</div>
-                  )}
+                        </thead>
+                        <tbody>
+                          {medicinesList.map((m, idx) => {
+                            const itemName = m.item_name || m.itemName || "—";
+                            const itemId = m.item_id || m.itemId || "";
+                            const batchNo = m.batch_number || m.batch_no || m.batchNo || "—";
+                            const qty = m.qty != null ? m.qty : (m.quantity != null ? m.quantity : 0);
+                            const price = m.price != null ? m.price : (m.rate != null ? m.rate : 0);
+                            const calcPrice =
+                              m.calculated_price != null
+                                ? m.calculated_price
+                                : (m.amount != null ? m.amount : qty * price);
+                            return (
+                              <tr key={idx}>
+                                <td>
+                                  <strong style={{ color: "#0f172a" }}>{itemName}</strong>
+                                  {itemId && <div style={{ fontSize: 11, color: "#94a3b8" }}>ID: {itemId}</div>}
+                                </td>
+                                <td>{batchNo}</td>
+                                <td style={{ textAlign: "center", fontWeight: 600 }}>{qty}</td>
+                                <td style={{ textAlign: "right" }}>
+                                  ₹ {(price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                </td>
+                                <td style={{ textAlign: "right", fontWeight: 700, color: "#0f766e" }}>
+                                  ₹ {(calcPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                </td>
+                                <td>
+                                  {m.edit_history && m.edit_history.length > 0 ? (
+                                    m.edit_history.map((eh, eidx) => (
+                                      <div
+                                        key={eidx}
+                                        style={{
+                                          fontSize: 11,
+                                          background: "#fef3c7",
+                                          color: "#92400e",
+                                          padding: "3px 6px",
+                                          borderRadius: 4,
+                                          marginBottom: 2,
+                                        }}
+                                      >
+                                        <strong>{eh.action}</strong>: Ret Qty {eh.return_qty} | Bill: {eh.return_bill_no} (
+                                        {eh.return_date ? String(eh.return_date).slice(0, 10) : ""})
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <span style={{ color: "#94a3b8", fontSize: 11 }}>No edits</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </SubTable>
+                    );
+                  })()}
                 </div>
               </DetailCard>
 
