@@ -108,8 +108,8 @@ const PhysicalStockApproval = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [searchQ, setSearchQ]   = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate]     = useState("");
+  const [fromDate, setFromDate] = useState(getTodayDateString());
+  const [toDate, setToDate]     = useState(getTodayDateString());
 
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -212,32 +212,26 @@ const PhysicalStockApproval = () => {
             onSetToday={() => { const t = getTodayDateString(); setFromDate(t); setToDate(t); setPage(1); }}
             totalRecords={totalCount}
             customFilters={
-              <div style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-                {[
-                  { id: "pending", label: "Pending" },
-                  { id: "approved", label: "Approved" },
-                  { id: "all", label: "All" },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => { setFilter(tab.id); setPage(1); }}
-                    style={{
-                      height: 30,
-                      padding: "0 10px",
-                      fontSize: "0.74rem",
-                      fontWeight: 700,
-                      borderRadius: 6,
-                      border: `1px solid ${filter === tab.id ? "#0d9488" : "#cbd5e1"}`,
-                      background: filter === tab.id ? "#f0fdfa" : "#ffffff",
-                      color: filter === tab.id ? "#0f766e" : "#475569",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              <select
+                value={filter}
+                onChange={(e) => { setFilter(e.target.value); setPage(1); }}
+                style={{
+                  height: 30,
+                  padding: "0 10px",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  borderRadius: 6,
+                  border: "1px solid #cbd5e1",
+                  background: "#ffffff",
+                  color: "#0f766e",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="all">All</option>
+              </select>
             }
           />
         </div>

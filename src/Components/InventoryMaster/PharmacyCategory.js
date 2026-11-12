@@ -229,7 +229,7 @@ const PharmacyCategory = () => {
             setSearch(val);
             setCurrentPage(1);
           }}
-          searchPlaceholder="Search Category ID / Name..."
+          searchPlaceholder="Search Category Name..."
           totalRecords={totalCount}
         />
 
@@ -239,7 +239,6 @@ const PharmacyCategory = () => {
             <thead>
               <tr>
                 <InvTh style={{ width: 60 }}>#</InvTh>
-                <InvTh style={{ width: 140 }}>Category ID</InvTh>
                 <InvTh>Category Name</InvTh>
                 <InvTh style={{ textAlign: "center", width: 100 }}>Action</InvTh>
               </tr>
@@ -247,13 +246,13 @@ const PharmacyCategory = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <InvTd colSpan={4} style={{ textAlign: "center", padding: "40px" }}>
+                  <InvTd colSpan={3} style={{ textAlign: "center", padding: "40px" }}>
                     Loading categories...
                   </InvTd>
                 </tr>
               ) : categories.length === 0 ? (
                 <tr>
-                  <InvTd colSpan={4}>
+                  <InvTd colSpan={3}>
                     <InvEmptyState>
                       No categories found for the selected filter.
                     </InvEmptyState>
@@ -263,9 +262,6 @@ const PharmacyCategory = () => {
                 categories.map((cat, idx) => (
                   <InvTr key={cat.category_id || idx}>
                     <InvTd>{startIdx + idx}</InvTd>
-                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>
-                      CAT-{cat.category_id}
-                    </InvTd>
                     <InvTd style={{ fontWeight: 600, textTransform: "uppercase" }}>
                       {String(cat.category_name || "").toUpperCase()}
                     </InvTd>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react"
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import {
   PageWrapper, Container, SectionTitle, Input, Button,
   Table, Th, Td, Tr, Label, FormRow, TextArea, FormContent,
@@ -101,19 +101,6 @@ const VerifiedBanner = styled.div`
   display: flex; align-items: center; gap: 8px;
   background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;
   padding: 10px 14px; margin-bottom: 10px; font-size: 0.82rem; color: #166534; font-weight: 600;
-`
-const AutoWrap = styled.div`position: relative;`
-const DropList = styled.ul`
-  position: absolute; top: 100%; left: 0; right: 0; z-index: 9999;
-  background: white; border: 1px solid ${colors.border}; border-radius: 0 0 5px 5px;
-  max-height: 150px; overflow-y: auto; list-style: none; margin: 0; padding: 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-`
-const DropItem = styled.li`
-  padding: 6px 10px; font-size: 0.8rem; cursor: pointer;
-  border-bottom: 1px solid #f1f5f9;
-  &:hover { background: #f0fdf4; color: ${colors.primary}; }
-  &:last-child { border-bottom: none; }
 `
 const ScrollTable = styled.div`
   width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; box-sizing: border-box;
@@ -876,6 +863,7 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
 const GRNGeneration = () => {
   const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const medSearchInputRef = useRef(null);
+  const batchInputRef = useRef(null);
   const [vendors,     setVendors]     = useState([])
   const [medicines,   setMedicines]   = useState([])
   const [grnList,     setGrnList]     = useState([])
@@ -885,8 +873,6 @@ const GRNGeneration = () => {
   const [items,       setItems]       = useState([])
   const [curItem,     setCurItem]     = useState(EMPTY_ITEM)
   const [lastStock,   setLastStock]   = useState(null)
-  const [medSearch,   setMedSearch]   = useState("")
-  const [showDrop,    setShowDrop]    = useState(false)
   const [activeTab,   setActiveTab]   = useState("create")
   const [editDraftNo, setEditDraftNo] = useState("")
   const [editStatus,  setEditStatus]  = useState("")
@@ -1123,19 +1109,44 @@ const GRNGeneration = () => {
     setGrnData(p=>({...p,[name]:value}))
   }
 
-  const filteredMeds = medicines.filter(m => {
-    const q = medSearch.trim().toLowerCase()
-    if (!q) return true
-    const name = String(m.item_name || "").toLowerCase()
-    return name.startsWith(q)
-  })
+  const medicineOptions = useMemo(() => {
+    const base = medicines.map((m) => ({
+      value: String(m.item_id),
+      label: `${String(m.item_name || "").toUpperCase()} ${String(m.item_last_name || "").toUpperCase()}`.trim(),
+      sub: `HSN:${m.hsn || "—"}`,
+    }))
+    if (curItem.item_id && !medicines.some((m) => String(m.item_id) === String(curItem.item_id))) {
+      base.unshift({
+        value: String(curItem.item_id),
+        label: String(curItem.name || "").toUpperCase(),
+        sub: `HSN:${curItem.hsn || "—"}`,
+      })
+    }
+    return base
+  }, [medicines, curItem.item_id, curItem.name, curItem.hsn])
 
   const selectMedicine = (med) => {
     if(isVerified) return
     const fullName = `${med.item_name} ${med.item_last_name||""}`.trim()
-    setMedSearch(fullName); setShowDrop(false)
     setCurItem(p => recalcItem({...p, name:fullName, item_id:med.item_id, hsn:med.hsn||""}))
     fetchLastStock(med.item_id)
+    setTimeout(() => {
+      batchInputRef.current?.focus()
+    }, 40)
+  }
+
+  const handleMedicineChange = (e) => {
+    if (isVerified) return
+    const raw = e.target.value
+    if (!raw) {
+      setCurItem(p => recalcItem({ ...p, name: "", item_id: "", hsn: "" }))
+      setLastStock(null)
+      return
+    }
+    const med = medicines.find(m => String(m.item_id) === String(raw))
+    if (med) {
+      selectMedicine(med)
+    }
   }
 
   const handleItemChange = (e) => {
@@ -1170,13 +1181,12 @@ const GRNGeneration = () => {
     if(isVerified) return
     if(!validateCurItem()) return
     setItems(p=>[...p,{...curItem,id:Date.now()}])
-    setCurItem(EMPTY_ITEM); setMedSearch(""); setLastStock(null); setTimeout(() => medSearchInputRef.current?.focus(), 50);
+    setCurItem(EMPTY_ITEM); setLastStock(null); setTimeout(() => medSearchInputRef.current?.querySelector("input")?.focus(), 50);
   }
 
   const handleEditItem = (it) => {
     if (isVerified) return
     setEditingItemId(it.id)
-    setMedSearch(it.name || "")
     setCurItem({ ...it, _priceSource: it._priceSource || "packing_price" })
     fetchLastStock(it.item_id)
     const el = document.getElementById("item-entry-card")
@@ -1186,7 +1196,6 @@ const GRNGeneration = () => {
   const cancelEditItem = () => {
     setEditingItemId(null)
     setCurItem(EMPTY_ITEM)
-    setMedSearch("")
     setLastStock(null)
   }
 
@@ -1197,7 +1206,6 @@ const GRNGeneration = () => {
     setItems(p => p.map(item => item.id === editingItemId ? { ...curItem, id: editingItemId } : item))
     setEditingItemId(null)
     setCurItem(EMPTY_ITEM)
-    setMedSearch("")
     setLastStock(null)
     toast.success("Item updated in GRN")
   }
@@ -1348,7 +1356,7 @@ const GRNGeneration = () => {
   const resetForm = () => {
     setEditingItemId(null)
     setGrnData(EMPTY_GRN); setItems([]); setCurItem(EMPTY_ITEM)
-    setMedSearch(""); setEditDraftNo(""); setEditStatus(""); setVendorInfo(null); setLastStock(null)
+    setEditDraftNo(""); setEditStatus(""); setVendorInfo(null); setLastStock(null)
     setOcrApplied(false)
     pendingPayloadRef.current = null
     setShowEditReasonModal(false)
@@ -1578,34 +1586,17 @@ const GRNGeneration = () => {
                           <GridRow cols="2fr 1fr" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Medicine Name *</Lbl>
-                              <AutoWrap>
-                                <Input
-                                  ref={medSearchInputRef}
-                                  value={medSearch}
-                                  onChange={e=>{setMedSearch(e.target.value);setShowDrop(true)}}
-                                  onFocus={()=>setShowDrop(true)}
-                                  onBlur={()=>setTimeout(()=>setShowDrop(false),180)}
-                                  onKeyDown={(e) => {
-                                    if ((e.key === "Enter" || e.key === "Tab") && showDrop && filteredMeds.length > 0 && !curItem.name) {
-                                      selectMedicine(filteredMeds[0]);
-                                      if (e.key === "Enter") {
-                                        e.preventDefault();
-                                      }
-                                    }
-                                  }}
-                                  placeholder="Search medicine…" style={{fontSize:"0.8rem"}}
+                              <div ref={medSearchInputRef}>
+                                <Select
+                                  name="item_id"
+                                  value={curItem.item_id ? String(curItem.item_id) : ""}
+                                  onChange={handleMedicineChange}
+                                  options={medicineOptions}
+                                  placeholder={curItem.name || "Search medicine…"}
+                                  disabled={isVerified}
+                                  style={{fontSize:"0.8rem"}}
                                 />
-                                {showDrop&&medSearch&&filteredMeds.length>0&&(
-                                  <DropList>
-                                    {filteredMeds.map(m=>(
-                                      <DropItem key={m.item_id} onMouseDown={()=>selectMedicine(m)}>
-                                        {String(m.item_name || "").toUpperCase()} {String(m.item_last_name || "").toUpperCase()}
-                                        <span style={{fontSize:"0.7rem",color:colors.textMuted,marginLeft:5}}>HSN:{m.hsn||"—"}</span>
-                                      </DropItem>
-                                    ))}
-                                  </DropList>
-                                )}
-                              </AutoWrap>
+                              </div>
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>HSN Code</Lbl>
@@ -1617,6 +1608,7 @@ const GRNGeneration = () => {
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Batch No. *</Lbl>
                               <Input
+                                ref={batchInputRef}
                                 name="batch" value={curItem.batch} onChange={handleItemChange}
                                 placeholder="Required" style={{fontSize:"0.8rem", borderColor: curItem.name && !curItem.batch ? "#dc2626" : undefined}}
                               />
@@ -1917,15 +1909,15 @@ const GRNGeneration = () => {
                           <Th style={{fontSize:"0.72rem"}}>Units</Th>
                           <Th style={{fontSize:"0.72rem"}}>Qty</Th>
                           <Th style={{fontSize:"0.72rem"}}>Free</Th>
-                          <Th style={{fontSize:"0.72rem"}}>Pack ₹</Th>
                           <Th style={{fontSize:"0.72rem"}}>Item Val</Th>
+                          <Th style={{fontSize:"0.72rem"}}>MRP</Th>
+                          <Th style={{fontSize:"0.72rem"}}>S.Rate</Th>
                           <Th style={{fontSize:"0.72rem"}}>Tax%</Th>
                           <Th style={{fontSize:"0.72rem"}}>CGST</Th>
                           <Th style={{fontSize:"0.72rem"}}>SGST</Th>
                           <Th style={{fontSize:"0.72rem"}}>Disc%</Th>
-                          <Th style={{fontSize:"0.72rem"}}>Cost/Pack</Th>
-                          <Th style={{fontSize:"0.72rem"}}>MRP</Th>
-                          <Th style={{fontSize:"0.72rem"}}>Price</Th>
+                          <Th style={{fontSize:"0.72rem"}}>Item Val + GST</Th>
+                          <Th style={{fontSize:"0.72rem"}}>P.cost</Th>
                           {!isVerified && <Th style={{fontSize:"0.72rem"}}></Th>}
                         </tr></thead>
                         <tbody>
@@ -1983,21 +1975,7 @@ const GRNGeneration = () => {
                                 </Td>
                                 <Td style={{fontSize:"0.75rem"}}>{it.quantity}</Td>
                                 <Td style={{fontSize:"0.75rem"}}>{it.free}</Td>
-                                <Td style={{fontSize:"0.75rem"}}>
-                                  {isOcr && !isVerified ? (
-                                    <Input value={it.packing_price}
-                                      onChange={e => updateItem(it.id, "packing_price", e.target.value)}
-                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:75}} />
-                                  ) : `₹${parseFloat(it.packing_price||0).toFixed(2)}`}
-                                </Td>
                                 <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.item_value||0).toFixed(2)}</Td>
-                                <Td style={{fontSize:"0.75rem"}}>{it.purchase_tax_rate}%</Td>
-                                <Td style={{fontSize:"0.75rem"}}>₹{it.cgst_amt}</Td>
-                                <Td style={{fontSize:"0.75rem"}}>₹{it.sgst_amt}</Td>
-                                <Td style={{fontSize:"0.75rem"}}>{it.purchase_discount}%</Td>
-                                <Td style={{fontWeight:700,color:colors.primary,fontSize:"0.75rem"}}>
-                                  ₹{it.purchase_cost_display || it.purchase_cost}
-                                </Td>
                                 <Td style={{fontSize:"0.75rem"}}>
                                   {isOcr && !isVerified ? (
                                     <Input value={it.mrp}
@@ -2007,6 +1985,16 @@ const GRNGeneration = () => {
                                 </Td>
                                 <Td style={{fontSize:"0.75rem",color:"#15803d",fontWeight:600}}>
                                   ₹{parseFloat(it.selling_price||0).toFixed(2)}
+                                </Td>
+                                <Td style={{fontSize:"0.75rem"}}>{it.purchase_tax_rate}%</Td>
+                                <Td style={{fontSize:"0.75rem"}}>₹{it.cgst_amt}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>₹{it.sgst_amt}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>{it.purchase_discount}%</Td>
+                                <Td style={{fontWeight:600,fontSize:"0.75rem"}}>
+                                  ₹{(parseFloat(it.item_value||0) + parseFloat(it.cgst_amt||0) + parseFloat(it.sgst_amt||0)).toFixed(2)}
+                                </Td>
+                                <Td style={{fontWeight:700,color:colors.primary,fontSize:"0.75rem"}}>
+                                  ₹{it.purchase_cost_display || it.purchase_cost}
                                 </Td>
                                 {!isVerified && (
                                   <Td style={{whiteSpace:"nowrap", textAlign:"center"}}>

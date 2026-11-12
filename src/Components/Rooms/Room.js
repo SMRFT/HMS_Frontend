@@ -1308,7 +1308,6 @@ const Room = () => {
                         value={roomForm.capacity}
                         onChange={handleRoomChange}
                         min="1"
-                        max="50"
                         required
                         style={{ height: 34, fontSize: ".85rem" }}
                       />
