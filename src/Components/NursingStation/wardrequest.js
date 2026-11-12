@@ -2473,7 +2473,36 @@ const WardRequest = () => {
                   </div>
                 </div>
               </div>
-              <button className="close-btn" onClick={() => { setShowStatusModal(false); setClearanceData(null); }}>✕</button>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <button
+                  type="button"
+                  disabled={clearanceLoading}
+                  onClick={() => {
+                    const pIp = getField(selectedPatient, "ipNumber") || getField(selectedPatient, "ipNo") || selectedPatient?.ipNumber || selectedPatient?.ipNo;
+                    const pUhid = getField(selectedPatient, "uhid") || selectedPatient?.uhid;
+                    fetchBillingClearance(pIp, pUhid);
+                    fetchAdmissions();
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    color: "#0f766e",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    cursor: clearanceLoading ? "not-allowed" : "pointer"
+                  }}
+                  title="Refresh status & clearance"
+                >
+                  <FiRefreshCcw size={12} className={clearanceLoading ? "spin" : ""} />
+                  Refresh
+                </button>
+                <button className="close-btn" onClick={() => { setShowStatusModal(false); setClearanceData(null); }}>✕</button>
+              </div>
             </div>
             <div className="modal-body" style={{ padding: "20px", overflowY: "auto" }}>
               {/* Patient Info & Current Status */}
@@ -2507,21 +2536,50 @@ const WardRequest = () => {
                             Billing & Service Clearance Check
                           </span>
                         </div>
-                        {clearanceLoading ? (
-                          <span style={{ fontSize: "11px", color: "#0d9488", fontWeight: "700" }}>
-                            <i className="bi bi-arrow-repeat spin" style={{ marginRight: "4px" }}></i> Verifying...
-                          </span>
-                        ) : clearance ? (
-                          clearance.is_clear_for_billing ? (
-                            <span style={{ fontSize: "11px", fontWeight: "800", background: "#dcfce7", color: "#15803d", padding: "3px 8px", borderRadius: "20px", border: "1px solid #86efac", display: "flex", alignItems: "center", gap: "4px" }}>
-                              <i className="bi bi-check-circle-fill"></i> Ready for Billing
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <button
+                            type="button"
+                            disabled={clearanceLoading}
+                            onClick={() => {
+                              const pIp = getField(selectedPatient, "ipNumber") || getField(selectedPatient, "ipNo") || selectedPatient?.ipNumber || selectedPatient?.ipNo;
+                              const pUhid = getField(selectedPatient, "uhid") || selectedPatient?.uhid;
+                              fetchBillingClearance(pIp, pUhid);
+                              fetchAdmissions();
+                            }}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              border: "1px solid #cbd5e1",
+                              background: "#ffffff",
+                              color: "#0f766e",
+                              fontSize: "11px",
+                              fontWeight: "700",
+                              cursor: clearanceLoading ? "not-allowed" : "pointer"
+                            }}
+                            title="Re-check clearance"
+                          >
+                            <FiRefreshCcw size={11} className={clearanceLoading ? "spin" : ""} />
+                            Re-check
+                          </button>
+                          {clearanceLoading ? (
+                            <span style={{ fontSize: "11px", color: "#0d9488", fontWeight: "700" }}>
+                              <i className="bi bi-arrow-repeat spin" style={{ marginRight: "4px" }}></i> Verifying...
                             </span>
-                          ) : (
-                            <span style={{ fontSize: "11px", fontWeight: "800", background: "#fee2e2", color: "#b91c1c", padding: "3px 8px", borderRadius: "20px", border: "1px solid #fca5a5", display: "flex", alignItems: "center", gap: "4px" }}>
-                              <i className="bi bi-exclamation-triangle-fill"></i> {clearance.pending_total || 0} Item{Number(clearance.pending_total) === 1 ? "" : "s"} Pending
-                            </span>
-                          )
-                        ) : null}
+                          ) : clearance ? (
+                            clearance.is_clear_for_billing ? (
+                              <span style={{ fontSize: "11px", fontWeight: "800", background: "#dcfce7", color: "#15803d", padding: "3px 8px", borderRadius: "20px", border: "1px solid #86efac", display: "flex", alignItems: "center", gap: "4px" }}>
+                                <i className="bi bi-check-circle-fill"></i> Ready for Billing
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: "11px", fontWeight: "800", background: "#fee2e2", color: "#b91c1c", padding: "3px 8px", borderRadius: "20px", border: "1px solid #fca5a5", display: "flex", alignItems: "center", gap: "4px" }}>
+                                <i className="bi bi-exclamation-triangle-fill"></i> {clearance.pending_total || 0} Item{Number(clearance.pending_total) === 1 ? "" : "s"} Pending
+                              </span>
+                            )
+                          ) : null}
+                        </div>
                       </div>
 
                 {clearanceLoading ? (
