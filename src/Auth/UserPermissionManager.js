@@ -705,7 +705,13 @@ const UserPermissionManager = () => {
             if (Array.isArray(emp.allowed_pages)) {
               count = emp.allowed_pages.length;
             } else if (typeof emp.allowed_pages === 'object') {
-              count = Object.keys(emp.allowed_pages).length;
+              const pKeys = Object.keys(emp.allowed_pages).filter(k => k.startsWith('p_'));
+              if (pKeys.length > 0) {
+                const uniqueIds = new Set(pKeys.map(k => k.split('_')[1]));
+                count = uniqueIds.size;
+              } else {
+                count = Object.keys(emp.allowed_pages).length;
+              }
             }
           }
           initialMap[emp.employeeId] = count;
@@ -801,6 +807,7 @@ const UserPermissionManager = () => {
           const allIncomingKeys = new Set(Object.keys(allIncomingMapping).map(k => String(k).trim()));
 
           const activePageIds = new Set();
+          const hasHmsPages = incomingHmsPages.size > 0;
 
           sidebarData.forEach(group => {
             (group.pages || []).forEach(page => {
@@ -814,35 +821,46 @@ const UserPermissionManager = () => {
 
               let isPageActive = false;
 
-              // Match by HMS page ID
-              if (incomingHmsPages.has(pId)) {
-                isPageActive = true;
+              if (hasHmsPages) {
+                // Strict Page-ID-first authority: a page is active IF AND ONLY IF its page_id is in incomingHmsPages
+                if (incomingHmsPages.has(pId)) {
+                  isPageActive = true;
+                }
+              } else {
+                // Fallback for legacy users without hms_pages: strictly match by page route
+                if (pRoute && (allIncomingKeys.has(pRoute) || allIncomingValues.has(pRoute))) {
+                  isPageActive = true;
+                }
               }
 
-              // Match by route
-              if (pRoute && (allIncomingKeys.has(pRoute) || allIncomingValues.has(pRoute))) {
-                isPageActive = true;
-              }
-
-              // Match sub-permissions
-              const activeKeys = [];
-              if (typeof pMap === 'object' && !Array.isArray(pMap)) {
-                Object.entries(pMap).forEach(([k, v]) => {
-                  const normV = String(v).trim();
-                  if (allIncomingKeys.has(k) || allIncomingValues.has(normV)) {
-                    activeKeys.push(k);
-                    isPageActive = true;
-                  }
-                });
-              }
-
+              // Evaluate sub-permissions ONLY for active pages (never allow sub-permissions to activate other pages)
               if (isPageActive) {
                 activePageIds.add(pId);
-                // If sub-permissions exist, default to matched keys or all keys if page is enabled via ID/route
+
                 if (typeof pMap === 'object' && !Array.isArray(pMap) && Object.keys(pMap).length > 0) {
-                  sub[pId] = activeKeys.length > 0 ? activeKeys : Object.keys(pMap);
+                  // Check scoped keys first: p_{pId}_{k}
+                  const scopedKeysFound = [];
+                  Object.keys(pMap).forEach(k => {
+                    const scopedKey = `p_${pId}_${k}`;
+                    if (allIncomingMapping[scopedKey] !== undefined) {
+                      scopedKeysFound.push(k);
+                    }
+                  });
+
+                  if (scopedKeysFound.length > 0) {
+                    sub[pId] = scopedKeysFound;
+                  } else {
+                    // Legacy fallback: check if exact key exists and matches value or legacy keys
+                    const legacyMatched = [];
+                    Object.entries(pMap).forEach(([k, v]) => {
+                      if (allIncomingMapping[k] === v || (allIncomingKeys.has(k) && !allIncomingKeys.has(`p_${pId}_${k}`))) {
+                        legacyMatched.push(k);
+                      }
+                    });
+                    sub[pId] = legacyMatched.length > 0 ? legacyMatched : Object.keys(pMap);
+                  }
                 } else {
-                  sub[pId] = activeKeys;
+                  sub[pId] = [];
                 }
               }
             });
@@ -850,7 +868,7 @@ const UserPermissionManager = () => {
 
           const legacy = {};
           Object.entries(allIncomingMapping).forEach(([k, v]) => {
-            if (!managedStrings.has(String(v).trim()) && !allIncomingKeys.has(k)) {
+            if (!k.startsWith('p_') && !managedStrings.has(String(v).trim()) && !managedStrings.has(String(k).trim())) {
               legacy[k] = v;
             }
           });
@@ -967,13 +985,18 @@ const UserPermissionManager = () => {
                 : Object.keys(page.permissions);
 
               keysToUse.forEach(k => {
-                if (page.permissions[k]) {
-                  allowedPagesObj[k] = page.permissions[k];
+                const permVal = page.permissions[k];
+                if (permVal) {
+                  // Scoped key prevents collision across pages sharing permission keys/codes
+                  allowedPagesObj[`p_${page.page_id}_${k}`] = permVal;
+                  // Direct value mapping so backend and auth checks find the permission
+                  allowedPagesObj[String(permVal)] = permVal;
                 }
               });
             } else {
               const permsArr = Array.isArray(page.permissions) ? page.permissions : [PAGE_PERMISSIONS[page.route] || page.route];
               permsArr.forEach(p => {
+                allowedPagesObj[`p_${page.page_id}`] = p;
                 allowedPagesObj[String(p)] = p;
               });
             }
@@ -1123,7 +1146,14 @@ const UserPermissionManager = () => {
     }
     if (emp.allowed_pages) {
       if (Array.isArray(emp.allowed_pages)) return emp.allowed_pages.length;
-      if (typeof emp.allowed_pages === 'object') return Object.keys(emp.allowed_pages).length;
+      if (typeof emp.allowed_pages === 'object') {
+        const pKeys = Object.keys(emp.allowed_pages).filter(k => k.startsWith('p_'));
+        if (pKeys.length > 0) {
+          const uniqueIds = new Set(pKeys.map(k => k.split('_')[1]));
+          return uniqueIds.size;
+        }
+        return Object.keys(emp.allowed_pages).length;
+      }
     }
     return 0;
   };
