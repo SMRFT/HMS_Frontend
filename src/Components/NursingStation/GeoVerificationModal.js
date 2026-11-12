@@ -11,8 +11,7 @@ import {
   FiClock,
   FiUser,
   FiCompass,
-  FiZoomIn,
-  FiExternalLink
+  FiZoomIn
 } from "react-icons/fi";
 import apiRequest from "../../Auth/apiRequest";
 
@@ -29,8 +28,8 @@ const spin = keyframes`
 const Overlay = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(5px);
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -42,19 +41,19 @@ const ModalCard = styled.div`
   background: #ffffff;
   border-radius: 18px;
   width: 95%;
-  max-width: 860px;
-  max-height: 94vh;
+  max-width: 820px;
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   animation: ${modalUp} 0.25s ease-out;
 `;
 
 const HeaderBanner = styled.div`
-  background: linear-gradient(135deg, #0d9488 0%, #0f766e 60%, #115e59 100%);
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   color: white;
-  padding: 16px 22px;
+  padding: 16px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -86,9 +85,9 @@ const HeaderBanner = styled.div`
         letter-spacing: -0.01em;
       }
       p {
-        margin: 3px 0 0 0;
-        font-size: 0.82rem;
-        opacity: 0.95;
+        margin: 2px 0 0 0;
+        font-size: 0.8rem;
+        opacity: 0.9;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -128,7 +127,7 @@ const TabBar = styled.div`
   padding: 0 16px;
 
   button {
-    padding: 12px 20px;
+    padding: 12px 18px;
     border: none;
     background: transparent;
     font-size: 0.88rem;
@@ -148,20 +147,6 @@ const TabBar = styled.div`
     }
 
     &:hover:not(.active) { color: #0f172a; }
-
-    span.count-badge {
-      background: #e2e8f0;
-      color: #475569;
-      font-size: 0.75rem;
-      padding: 1px 7px;
-      border-radius: 12px;
-      font-weight: 800;
-    }
-
-    &.active span.count-badge {
-      background: #ccfbf1;
-      color: #0d9488;
-    }
   }
 `;
 
@@ -174,7 +159,7 @@ const ContentBody = styled.div`
 const CameraWrapper = styled.div`
   position: relative;
   width: 100%;
-  max-width: 680px;
+  max-width: 640px;
   margin: 0 auto;
   border-radius: 14px;
   overflow: hidden;
@@ -183,7 +168,7 @@ const CameraWrapper = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 
   video {
     width: 100%;
@@ -198,87 +183,29 @@ const CameraWrapper = styled.div`
     background: #000;
   }
 
-  /* Google Maps Top Bar */
-  .gmaps-top-card {
+  .gps-floating-pill {
     position: absolute;
     top: 12px;
     left: 12px;
-    right: 56px;
-    background: rgba(15, 23, 42, 0.88);
-    backdrop-filter: blur(8px);
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(6px);
     color: white;
-    padding: 8px 12px;
-    border-radius: 10px;
-    font-size: 0.78rem;
-    z-index: 10;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.76rem;
+    font-weight: 600;
     display: flex;
-    flex-direction: column;
-    gap: 3px;
+    align-items: center;
+    gap: 6px;
+    z-index: 10;
+    border: 1px solid rgba(255, 255, 255, 0.15);
 
-    .gmaps-header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      .gmaps-brand {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-weight: 800;
-        letter-spacing: 0.2px;
-
-        .brand-text {
-          font-family: 'Product Sans', Roboto, Arial, sans-serif;
-          font-size: 0.84rem;
-        }
-
-        .dot-status {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: ${props => props.$hasGps ? "#10b981" : "#f59e0b"};
-          box-shadow: 0 0 6px ${props => props.$hasGps ? "#10b981" : "#f59e0b"};
-        }
-      }
-
-      .gmaps-link {
-        color: #38bdf8;
-        font-weight: 700;
-        text-decoration: none;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 0.74rem;
-        background: rgba(56, 189, 248, 0.15);
-        padding: 2px 8px;
-        border-radius: 6px;
-        transition: all 0.2s;
-
-        &:hover { background: rgba(56, 189, 248, 0.3); color: #7dd3fc; }
-      }
-    }
-
-    .gmaps-address {
-      font-size: 0.75rem;
-      color: #f1f5f9;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-weight: 500;
-    }
-
-    .gmaps-coords-line {
-      font-size: 0.7rem;
-      color: #94a3b8;
-      font-family: monospace;
-      display: flex;
-      gap: 8px;
-
-      span.accuracy-pill {
-        color: #34d399;
-        font-weight: 600;
-      }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: ${props => props.$hasGps ? '#10b981' : '#f59e0b'};
+      box-shadow: 0 0 8px ${props => props.$hasGps ? '#10b981' : '#f59e0b'};
     }
   }
 
@@ -309,7 +236,7 @@ const ControlsSection = styled.div`
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 680px;
+  max-width: 640px;
   margin-left: auto;
   margin-right: auto;
 
@@ -392,7 +319,7 @@ const ControlsSection = styled.div`
 
 const HistoryGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
 
   .history-card {
@@ -400,13 +327,13 @@ const HistoryGrid = styled.div`
     border: 1px solid #e2e8f0;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     display: flex;
     flex-direction: column;
 
     .img-box {
       width: 100%;
-      height: 170px;
+      height: 160px;
       background: #0f172a;
       position: relative;
       cursor: pointer;
@@ -420,7 +347,7 @@ const HistoryGrid = styled.div`
       .zoom-overlay {
         position: absolute;
         inset: 0;
-        background: rgba(0, 0, 0, 0.35);
+        background: rgba(0, 0, 0, 0.3);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -433,11 +360,11 @@ const HistoryGrid = styled.div`
     }
 
     .info-box {
-      padding: 12px 14px;
-      font-size: 0.82rem;
+      padding: 12px;
+      font-size: 0.8rem;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
 
       .time-row {
         display: flex;
@@ -445,50 +372,28 @@ const HistoryGrid = styled.div`
         gap: 6px;
         color: #0f172a;
         font-weight: 700;
-        font-size: 0.82rem;
-      }
-
-      .address-row {
-        color: #334155;
-        font-size: 0.75rem;
-        line-height: 1.3;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
       }
 
       .gps-row {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        gap: 6px;
         color: #0d9488;
         font-weight: 600;
         font-size: 0.75rem;
-
-        a.map-link {
-          color: #0284c7;
-          text-decoration: none;
-          display: flex;
-          align-items: center;
-          gap: 3px;
-          font-size: 0.72rem;
-          font-weight: 700;
-          &:hover { text-decoration: underline; }
-        }
       }
 
       .staff-row {
         color: #64748b;
         font-size: 0.74rem;
-        border-top: 1px solid #f1f5f9;
-        padding-top: 6px;
         margin-top: 2px;
       }
 
       .notes-row {
-        padding-top: 4px;
-        color: #475569;
+        margin-top: 4px;
+        padding-top: 6px;
+        border-top: 1px dashed #f1f5f9;
+        color: #334155;
         font-style: italic;
         font-size: 0.75rem;
       }
@@ -510,38 +415,11 @@ const LoadingSpinner = styled(FiRefreshCw)`
   animation: ${spin} 1s linear infinite;
 `;
 
-// Helper function to safely extract fields across nested patient/admission structures
-const getPatientField = (obj, field) => {
-  if (!obj) return "";
-  if (obj[field] !== undefined && obj[field] !== null && obj[field] !== "") {
-    return obj[field];
-  }
-  const aliases = {
-    ipNumber: ["ipNumber", "ip_number", "ipNo", "IP_No", "ip", "admission_no", "admissionNo", "admission_id"],
-    uhid: ["uhid", "UHID", "patient_id", "patientId"],
-    patientName: ["patient_name", "patientName", "name", "firstName", "first_name"],
-    roomNo: ["room_no", "roomNo", "room_number", "roomNumber", "room"],
-    bedNo: ["bed_no", "bedNo", "bed_number", "bedNumber", "bed"],
-    doctorName: ["admittingDoctor", "consultingDoctor", "doctorName", "doctor_name", "doctor"]
-  };
-  const list = aliases[field] || [field];
-  for (const k of list) {
-    if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
-    if (obj.patient_details && obj.patient_details[k] !== undefined && obj.patient_details[k] !== null && obj.patient_details[k] !== "") {
-      return obj.patient_details[k];
-    }
-    if (obj.admission_details && obj.admission_details[k] !== undefined && obj.admission_details[k] !== null && obj.admission_details[k] !== "") {
-      return obj.admission_details[k];
-    }
-  }
-  return "";
-};
-
 const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
   const [activeTab, setActiveTab] = useState("capture"); // "capture" | "history"
   const [gpsData, setGpsData] = useState(null);
   const [isGpsLoading, setIsGpsLoading] = useState(false);
-  const [locationAddress, setLocationAddress] = useState("Shanmuga Hospital, 31/24, Saradha College Rd, Salem, Tamil Nadu 636007");
+  const [cameraStream, setCameraStream] = useState(null);
   const [cameraFacing, setCameraFacing] = useState("environment"); // "environment" | "user"
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [notes, setNotes] = useState("");
@@ -552,56 +430,17 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
 
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
-  const streamRef = useRef(null);
-  const activeTabRef = useRef(activeTab);
-  const isMountedRef = useRef(true);
-
-  activeTabRef.current = activeTab;
 
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/_b_a_c_k_e_n_d/HMS/";
 
-  // Extract patient metadata with fallbacks
-  const ipNumber = getPatientField(patient, "ipNumber");
-  const uhid = getPatientField(patient, "uhid");
-  const patientName =
-    getPatientField(patient, "patientName") ||
-    [getPatientField(patient, "firstName"), getPatientField(patient, "lastName")].filter(Boolean).join(" ") ||
-    "Patient";
-  const roomNo = getPatientField(patient, "roomNo") || "-";
-  const bedNo = getPatientField(patient, "bedNo") || "-";
-  const doctorName = getPatientField(patient, "doctorName") || "Doctor";
+  const ipNumber = patient?.ip_number || patient?.ip_no || patient?.IP_No || patient?.ipNumber || "";
+  const uhid = patient?.uhid || patient?.UHID || "";
+  const patientName = patient?.name || patient?.patient_name || patient?.patientName || "Patient";
+  const roomNo = patient?.room_no || patient?.room || patient?.roomNo || "-";
+  const bedNo = patient?.bed_no || patient?.bed || patient?.bedNo || "-";
+  const doctorName = patient?.doctorName || patient?.doctor_name || patient?.doctor || "Doctor";
 
-  // ── 1. Reverse Geocode Coordinates into Address ──
-  const fetchAddress = async (lat, lng) => {
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.display_name) {
-          const a = json.address || {};
-          const parts = [
-            a.hospital || a.amenity || a.building || "Shanmuga Hospital",
-            a.road || a.street || "Saradha College Road",
-            a.suburb || a.neighbourhood || "Hasthampatti",
-            a.city || a.town || "Salem",
-            a.state || "Tamil Nadu",
-            a.postcode || "636007"
-          ].filter(Boolean);
-          const formatted = parts.length >= 2 ? parts.join(", ") : json.display_name;
-          setLocationAddress(formatted);
-          return formatted;
-        }
-      }
-    } catch (e) {
-      console.warn("Reverse geocode failed:", e);
-    }
-    const fallbackAddr = "Shanmuga Hospital, 31/24, Saradha College Rd, Salem, Tamil Nadu 636007";
-    setLocationAddress(fallbackAddr);
-    return fallbackAddr;
-  };
-
-  // ── 2. Acquire Geolocation ──
+  // ── 1. Acquire Geolocation ──
   const requestLocation = () => {
     if (!navigator.geolocation) {
       toast.warning("Geolocation is not supported by your browser");
@@ -610,66 +449,33 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
     setIsGpsLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
         setGpsData({
-          latitude: lat,
-          longitude: lng,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
           altitude: pos.coords.altitude,
           timestamp: new Date(pos.timestamp)
         });
         setIsGpsLoading(false);
-        fetchAddress(lat, lng);
       },
       (err) => {
         console.warn("GPS error:", err.message);
-        // Default hospital coordinates if permission denied
-        const defaultLat = 11.664321;
-        const defaultLng = 78.146012;
+        // Fallback default coordinates if blocked (Salem coordinates)
         setGpsData({
-          latitude: defaultLat,
-          longitude: defaultLng,
-          accuracy: 5.0,
+          latitude: 11.664321,
+          longitude: 78.146012,
+          accuracy: 10,
           timestamp: new Date()
         });
         setIsGpsLoading(false);
-        fetchAddress(defaultLat, defaultLng);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
-  // ── 3. Strict Camera Lifecycle (Camera turns ON only in capture tab) ──
-  const stopCamera = () => {
-    if (streamRef.current) {
-      try {
-        const tracks = streamRef.current.getTracks();
-        tracks.forEach(t => t.stop());
-      } catch (e) {
-        console.warn("Error stopping stream tracks:", e);
-      }
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      try {
-        if (videoRef.current.srcObject) {
-          const tracks = videoRef.current.srcObject.getTracks();
-          tracks.forEach(t => t.stop());
-        }
-      } catch (e) {}
-      videoRef.current.srcObject = null;
-    }
-  };
-
+  // ── 2. Initialize Camera ──
   const startCamera = async (facing = "environment") => {
     stopCamera();
-
-    // STRICT CHECK: Only start if component is mounted and user is actively on capture tab
-    if (!isMountedRef.current || activeTabRef.current !== "capture" || capturedPhoto) {
-      return;
-    }
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -679,67 +485,42 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
         },
         audio: false
       });
-
-      // Verification after async permission dialog resolves: Did the user switch away?
-      if (!isMountedRef.current || activeTabRef.current !== "capture" || capturedPhoto) {
-        stream.getTracks().forEach(t => t.stop());
-        return;
-      }
-
-      streamRef.current = stream;
+      setCameraStream(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      console.warn("Camera start failed / cancelled:", err);
+      console.warn("Direct camera access failed, fallback to native file capture:", err);
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
     }
   };
 
   useEffect(() => {
-    isMountedRef.current = true;
-    activeTabRef.current = activeTab;
-
     if (activeTab === "capture" && !capturedPhoto) {
       requestLocation();
       startCamera(cameraFacing);
     } else {
       stopCamera();
     }
-
-    return () => {
-      stopCamera();
-    };
+    return () => stopCamera();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, capturedPhoto, cameraFacing]);
 
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      stopCamera();
-    };
-  }, []);
-
-  // ── 4. Fetch History for this IP / UHID ──
+  // ── 3. Fetch History for this IP ──
   const fetchHistory = async () => {
+    if (!ipNumber) return;
     setIsLoadingHistory(true);
     try {
-      const params = [];
-      if (ipNumber) params.push(`ip_number=${encodeURIComponent(ipNumber)}`);
-      if (uhid) params.push(`uhid=${encodeURIComponent(uhid)}`);
-      const qs = params.length > 0 ? `?${params.join("&")}` : "";
-
-      const res = await apiRequest(`${HmsBaseUrl}ward-geo-verification/${qs}`, "GET");
-      let list = [];
-      if (res && res.success) {
-        if (Array.isArray(res.data)) {
-          list = res.data;
-        } else if (res.data && Array.isArray(res.data.data)) {
-          list = res.data.data;
-        } else if (res.data && Array.isArray(res.data.records)) {
-          list = res.data.records;
-        }
+      const res = await apiRequest(`${HmsBaseUrl}ward-geo-verification/?ip_number=${encodeURIComponent(ipNumber)}`, "GET");
+      if (res.success && Array.isArray(res.data)) {
+        setHistoryList(res.data);
       }
-      setHistoryList(list);
     } catch (e) {
       console.error("Failed to load verification history:", e);
     } finally {
@@ -748,155 +529,13 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
   };
 
   useEffect(() => {
-    fetchHistory();
+    if (activeTab === "history") {
+      fetchHistory();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ipNumber, uhid]);
+  }, [activeTab]);
 
-  // ── 5. Vector Stamping: Google Maps Style Canvas Overlay ──
-  const renderGoogleMapsStamp = (ctx, width, height, currentAddress) => {
-    const footerHeight = Math.max(145, Math.round(height * 0.24));
-    
-    // Translucent dark gradient bar
-    const grad = ctx.createLinearGradient(0, height - footerHeight, 0, height);
-    grad.addColorStop(0, "rgba(15, 23, 42, 0.92)");
-    grad.addColorStop(1, "rgba(15, 23, 42, 0.98)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, height - footerHeight, width, footerHeight);
-
-    // Accent line: Google Blue / Teal split
-    ctx.fillStyle = "#0d9488";
-    ctx.fillRect(0, height - footerHeight, width, 4);
-
-    const baseFontSize = Math.max(13, Math.round(width * 0.017));
-
-    // 1. Hospital Header
-    ctx.font = `bold ${baseFontSize + 3}px 'Segoe UI', Arial, sans-serif`;
-    ctx.fillStyle = "#2dd4bf";
-    ctx.fillText("SHANMUGA HOSPITAL · BEDSIDE GEO-VERIFICATION", 24, height - footerHeight + baseFontSize + 10);
-
-    // 2. Patient metadata line
-    ctx.font = `bold ${baseFontSize}px 'Segoe UI', Arial, sans-serif`;
-    ctx.fillStyle = "#ffffff";
-    const line1 = `Patient: ${patientName}  |  IP No: ${ipNumber || "-"}  |  UHID: ${uhid || "-"}`;
-    ctx.fillText(line1, 24, height - footerHeight + (baseFontSize * 2) + 16);
-
-    // 3. Room & Doctor line
-    ctx.font = `500 ${baseFontSize - 1}px 'Segoe UI', Arial, sans-serif`;
-    ctx.fillStyle = "#cbd5e1";
-    const line2 = `Room: ${roomNo}  |  Bed: ${bedNo}  |  Consultant: ${doctorName}`;
-    ctx.fillText(line2, 24, height - footerHeight + (baseFontSize * 3) + 22);
-
-    // 4. Google Maps Address line
-    ctx.font = `bold ${baseFontSize - 1}px 'Segoe UI', Arial, sans-serif`;
-    ctx.fillStyle = "#fef08a"; // Yellow highlight for location address
-    const line3 = `📍 Google Maps: ${currentAddress || locationAddress}`;
-    ctx.fillText(line3, 24, height - footerHeight + (baseFontSize * 4) + 28);
-
-    // 5. GPS Coordinates, Timestamp, and Staff
-    const latStr = gpsData?.latitude ? gpsData.latitude.toFixed(6) : "11.664321";
-    const lngStr = gpsData?.longitude ? gpsData.longitude.toFixed(6) : "78.146012";
-    const accStr = gpsData?.accuracy ? `±${gpsData.accuracy.toFixed(1)}m` : "±5.0m";
-    const nowTime = new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "medium" });
-    const empId = localStorage.getItem("employeeId") || localStorage.getItem("auth-user-id") || "STAFF";
-
-    ctx.font = `600 ${baseFontSize - 2}px monospace, sans-serif`;
-    ctx.fillStyle = "#94a3b8";
-    const line4 = `🗺️ Lat: ${latStr}° N, Long: ${lngStr}° E (${accStr})  |  🕒 ${nowTime}  |  Staff ID: ${empId}`;
-    ctx.fillText(line4, 24, height - footerHeight + (baseFontSize * 5) + 32);
-
-    // ── 6. Google Maps Mini-Map Vector Card on Bottom-Right ──
-    const mapW = Math.round(footerHeight * 1.15);
-    const mapH = footerHeight - 20;
-    const mapX = width - mapW - 20;
-    const mapY = height - footerHeight + 10;
-
-    // Map base background (Google Maps terrain/land color)
-    ctx.fillStyle = "#e5e3df";
-    ctx.fillRect(mapX, mapY, mapW, mapH);
-
-    // Subtle green park zone
-    ctx.fillStyle = "#c8e6c9";
-    ctx.fillRect(mapX + 10, mapY + 10, mapW * 0.45, mapH * 0.4);
-
-    // Grid Roads (white local streets & yellow arterial highway)
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(mapX, mapY + (mapH * 0.45));
-    ctx.lineTo(mapX + mapW, mapY + (mapH * 0.45));
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(mapX + (mapW * 0.55), mapY);
-    ctx.lineTo(mapX + (mapW * 0.55), mapY + mapH);
-    ctx.stroke();
-
-    // Highway
-    ctx.strokeStyle = "#fbbc04";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(mapX + 2, mapY + (mapH * 0.45));
-    ctx.lineTo(mapX + mapW - 2, mapY + (mapH * 0.45));
-    ctx.stroke();
-
-    // Map Card Border
-    ctx.strokeStyle = "#cbd5e1";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(mapX, mapY, mapW, mapH);
-
-    // Google Maps iconic Red Pin Marker
-    const pinCenterX = mapX + (mapW * 0.55);
-    const pinCenterY = mapY + (mapH * 0.42);
-
-    // Pin shadow
-    ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-    ctx.beginPath();
-    ctx.ellipse(pinCenterX + 3, pinCenterY + 16, 8, 4, 0, 0, 2 * Math.PI);
-    ctx.fill();
-
-    // Red pin head
-    ctx.fillStyle = "#ea4335";
-    ctx.beginPath();
-    ctx.arc(pinCenterX, pinCenterY, 11, 0, 2 * Math.PI);
-    ctx.fill();
-
-    // Pin stem needle pointing down
-    ctx.beginPath();
-    ctx.moveTo(pinCenterX - 7, pinCenterY + 4);
-    ctx.lineTo(pinCenterX, pinCenterY + 16);
-    ctx.lineTo(pinCenterX + 7, pinCenterY + 4);
-    ctx.fill();
-
-    // Inner white circle
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(pinCenterX, pinCenterY, 4.5, 0, 2 * Math.PI);
-    ctx.fill();
-
-    // Bottom Google Maps Banner inside Map Box
-    ctx.fillStyle = "rgba(255, 255, 255, 0.94)";
-    ctx.fillRect(mapX, mapY + mapH - 24, mapW, 24);
-
-    ctx.font = "bold 11px Roboto, Arial, sans-serif";
-    ctx.fillStyle = "#4285F4";
-    ctx.fillText("G", mapX + 8, mapY + mapH - 8);
-    ctx.fillStyle = "#EA4335";
-    ctx.fillText("o", mapX + 17, mapY + mapH - 8);
-    ctx.fillStyle = "#FBBC05";
-    ctx.fillText("o", mapX + 24, mapY + mapH - 8);
-    ctx.fillStyle = "#4285F4";
-    ctx.fillText("g", mapX + 31, mapY + mapH - 8);
-    ctx.fillStyle = "#34A853";
-    ctx.fillText("l", mapX + 38, mapY + mapH - 8);
-    ctx.fillStyle = "#EA4335";
-    ctx.fillText("e", mapX + 41, mapY + mapH - 8);
-
-    ctx.fillStyle = "#475569";
-    ctx.font = "bold 10px sans-serif";
-    ctx.fillText("Maps Verified", mapX + 50, mapY + mapH - 8);
-  };
-
-  // ── 6. Capture Photo Handler ──
+  // ── 4. Capture & Stamp on Canvas ──
   const handleCapture = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -909,19 +548,96 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
     canvas.height = height;
     const ctx = canvas.getContext("2d");
 
-    // 1. Draw live video frame
+    // 1. Draw raw video frame
     ctx.drawImage(video, 0, 0, width, height);
 
-    // 2. Draw Google Maps style metadata overlay
-    renderGoogleMapsStamp(ctx, width, height, locationAddress);
+    // 2. Draw Translucent Metadata Stamping Bar
+    const footerHeight = Math.max(130, height * 0.22);
+    ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    ctx.fillRect(0, height - footerHeight, width, footerHeight);
+
+    // Cyan top accent line
+    ctx.fillStyle = "#0d9488";
+    ctx.fillRect(0, height - footerHeight, width, 4);
+
+    // Stamping Text Styles
+    ctx.fillStyle = "#ffffff";
+    const baseFontSize = Math.max(14, Math.round(width * 0.018));
+
+    // Hospital Branding Header
+    ctx.font = `bold ${baseFontSize + 3}px 'Segoe UI', Arial, sans-serif`;
+    ctx.fillStyle = "#14b8a6";
+    ctx.fillText("SHANMUGA HOSPITAL · BEDSIDE GEO-VERIFICATION", 24, height - footerHeight + baseFontSize + 8);
+
+    ctx.font = `bold ${baseFontSize}px 'Segoe UI', Arial, sans-serif`;
+    ctx.fillStyle = "#ffffff";
+    const line1 = `Patient: ${patientName}  |  IP No: ${ipNumber}  |  UHID: ${uhid}`;
+    ctx.fillText(line1, 24, height - footerHeight + (baseFontSize * 2) + 14);
+
+    ctx.font = `500 ${baseFontSize - 1}px 'Segoe UI', Arial, sans-serif`;
+    ctx.fillStyle = "#cbd5e1";
+    const line2 = `Room: ${roomNo}  |  Bed: ${bedNo}  |  Consultant: ${doctorName}`;
+    ctx.fillText(line2, 24, height - footerHeight + (baseFontSize * 3) + 20);
+
+    const latStr = gpsData?.latitude ? gpsData.latitude.toFixed(6) : "11.664321";
+    const lngStr = gpsData?.longitude ? gpsData.longitude.toFixed(6) : "78.146012";
+    const accStr = gpsData?.accuracy ? `±${gpsData.accuracy.toFixed(1)}m` : "±5.0m";
+    const nowTime = new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "medium" });
+    const empId = localStorage.getItem("employeeId") || localStorage.getItem("auth-user-id") || "STAFF";
+
+    ctx.fillStyle = "#fef08a"; // Yellow highlight for GPS
+    ctx.font = `bold ${baseFontSize - 1}px monospace, sans-serif`;
+    const line3 = `📍 GPS: ${latStr}° N, ${lngStr}° E (${accStr})  |  🕒 ${nowTime}  |  Staff ID: ${empId}`;
+    ctx.fillText(line3, 24, height - footerHeight + (baseFontSize * 4) + 26);
+
+    // Mini Map Thumbnail drawing on bottom-right corner
+    const mapW = Math.round(footerHeight * 1.05);
+    const mapH = footerHeight - 16;
+    const mapX = width - mapW - 16;
+    const mapY = height - footerHeight + 8;
+
+    // Draw Map Frame Background
+    ctx.fillStyle = "#1e293b";
+    ctx.strokeStyle = "#0d9488";
+    ctx.lineWidth = 2;
+    ctx.fillRect(mapX, mapY, mapW, mapH);
+    ctx.strokeRect(mapX, mapY, mapW, mapH);
+
+    // Vector Map Pin Marker
+    const centerX = mapX + (mapW / 2);
+    const centerY = mapY + (mapH / 2) - 4;
+
+    // Concentric GPS wave rings
+    ctx.strokeStyle = "rgba(13, 148, 136, 0.4)";
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 24, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(13, 148, 136, 0.8)";
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 14, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    // Red Pin Head
+    ctx.fillStyle = "#ef4444";
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 7, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Map label
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = `bold ${Math.max(10, Math.round(baseFontSize * 0.65))}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText("GPS LOCATED", centerX, mapY + mapH - 8);
+    ctx.textAlign = "left";
 
     // Export image as JPEG
     const stampedBase64 = canvas.toDataURL("image/jpeg", 0.9);
-    stopCamera();
     setCapturedPhoto(stampedBase64);
+    stopCamera();
   };
 
-  // ── 7. File Upload Fallback ──
+  // ── 5. File Upload Fallback ──
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -930,19 +646,46 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
+        const canvas = document.createElement("canvas");
         const width = img.width || 1280;
         const height = img.height || 720;
-
-        const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext("2d");
 
         ctx.drawImage(img, 0, 0, width, height);
-        renderGoogleMapsStamp(ctx, width, height, locationAddress);
+
+        const footerHeight = Math.max(130, height * 0.22);
+        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+        ctx.fillRect(0, height - footerHeight, width, footerHeight);
+
+        ctx.fillStyle = "#0d9488";
+        ctx.fillRect(0, height - footerHeight, width, 4);
+
+        const baseFontSize = Math.max(14, Math.round(width * 0.018));
+        ctx.font = `bold ${baseFontSize + 3}px 'Segoe UI', Arial, sans-serif`;
+        ctx.fillStyle = "#14b8a6";
+        ctx.fillText("SHANMUGA HOSPITAL · BEDSIDE GEO-VERIFICATION", 24, height - footerHeight + baseFontSize + 8);
+
+        ctx.font = `bold ${baseFontSize}px 'Segoe UI', Arial, sans-serif`;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(`Patient: ${patientName}  |  IP No: ${ipNumber}  |  UHID: ${uhid}`, 24, height - footerHeight + (baseFontSize * 2) + 14);
+
+        ctx.font = `500 ${baseFontSize - 1}px 'Segoe UI', Arial, sans-serif`;
+        ctx.fillStyle = "#cbd5e1";
+        ctx.fillText(`Room: ${roomNo}  |  Bed: ${bedNo}  |  Consultant: ${doctorName}`, 24, height - footerHeight + (baseFontSize * 3) + 20);
+
+        const latStr = gpsData?.latitude ? gpsData.latitude.toFixed(6) : "11.664321";
+        const lngStr = gpsData?.longitude ? gpsData.longitude.toFixed(6) : "78.146012";
+        const accStr = gpsData?.accuracy ? `±${gpsData.accuracy.toFixed(1)}m` : "±5.0m";
+        const nowTime = new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "medium" });
+        const empId = localStorage.getItem("employeeId") || localStorage.getItem("auth-user-id") || "STAFF";
+
+        ctx.fillStyle = "#fef08a";
+        ctx.font = `bold ${baseFontSize - 1}px monospace, sans-serif`;
+        ctx.fillText(`📍 GPS: ${latStr}° N, ${lngStr}° E (${accStr})  |  🕒 ${nowTime}  |  Staff ID: ${empId}`, 24, height - footerHeight + (baseFontSize * 4) + 26);
 
         const stampedBase64 = canvas.toDataURL("image/jpeg", 0.9);
-        stopCamera();
         setCapturedPhoto(stampedBase64);
       };
       img.src = event.target.result;
@@ -950,10 +693,10 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
     reader.readAsDataURL(file);
   };
 
-  // ── 8. Submit Geo-Verification ──
+  // ── 6. Save Record to Backend (MongoDB Collection) ──
   const handleSubmit = async () => {
     if (!capturedPhoto) {
-      toast.error("Please capture a bedside photo first");
+      toast.warning("Please capture a photo first");
       return;
     }
 
@@ -968,23 +711,22 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
         doctor_name: doctorName,
         latitude: gpsData?.latitude || 11.664321,
         longitude: gpsData?.longitude || 78.146012,
-        accuracy: gpsData?.accuracy || 5.0,
-        location_address: locationAddress || "Shanmuga Hospital, Salem",
+        accuracy: gpsData?.accuracy || 5,
+        location_address: "Shanmuga Hospital, Salem",
         image: capturedPhoto,
-        notes: notes.trim()
+        notes: notes
       };
 
       const res = await apiRequest(`${HmsBaseUrl}ward-geo-verification/`, "POST", payload);
 
-      if (res && res.success) {
-        toast.success("Bedside geo-verification recorded successfully!");
+      if (res.success) {
+        toast.success("Bedside geo-verification saved successfully!");
         if (onSaved) onSaved(res.data);
+        setActiveTab("history");
         setCapturedPhoto(null);
         setNotes("");
-        setActiveTab("history");
-        fetchHistory();
       } else {
-        toast.error(res?.error || "Failed to save verification");
+        toast.error(res.error || "Failed to save verification");
       }
     } catch (err) {
       console.error("Save verification error:", err);
@@ -994,35 +736,8 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
     }
   };
 
-  const handleCloseModal = () => {
-    stopCamera();
-    onClose();
-  };
-
-  const getFullImgUrl = (rec) => {
-    if (rec.thumbnail_base64 && rec.thumbnail_base64.length > 30) {
-      return rec.thumbnail_base64;
-    }
-    if (rec.image_base64 && rec.image_base64.length > 30) {
-      return rec.image_base64;
-    }
-    if (rec.photo_url) {
-      if (rec.photo_url.startsWith("http://") || rec.photo_url.startsWith("https://") || rec.photo_url.startsWith("data:")) {
-        return rec.photo_url;
-      }
-      const base = (process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/_b_a_c_k_e_n_d/HMS/").replace(/\/+$/, "");
-      const path = rec.photo_url.replace(/^\/_b_a_c_k_e_n_d\/HMS\//, "");
-      return `${base}/${path.replace(/^\/+/, "")}`;
-    }
-    return "";
-  };
-
-  const gmapsLiveUrl = gpsData?.latitude
-    ? `https://www.google.com/maps?q=${gpsData.latitude},${gpsData.longitude}`
-    : `https://www.google.com/maps?q=11.664321,78.146012`;
-
   return (
-    <Overlay onClick={handleCloseModal}>
+    <Overlay onClick={onClose}>
       <ModalCard onClick={(e) => e.stopPropagation()}>
         {/* Header Banner */}
         <HeaderBanner>
@@ -1039,7 +754,7 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
               </p>
             </div>
           </div>
-          <button className="close-btn" onClick={handleCloseModal} title="Close">
+          <button className="close-btn" onClick={onClose} title="Close">
             <FiX size={18} />
           </button>
         </HeaderBanner>
@@ -1056,14 +771,9 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
           <button
             type="button"
             className={activeTab === "history" ? "active" : ""}
-            onClick={() => {
-              stopCamera();
-              setActiveTab("history");
-              fetchHistory();
-            }}
+            onClick={() => setActiveTab("history")}
           >
-            <FiClock size={16} /> Verification History
-            <span className="count-badge">{historyList.length}</span>
+            <FiClock size={16} /> Verification History ({historyList.length})
           </button>
         </TabBar>
 
@@ -1072,41 +782,21 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
           {activeTab === "capture" ? (
             <div>
               <CameraWrapper $hasGps={Boolean(gpsData)}>
-                {/* Live Google Maps floating card */}
-                <div className="gmaps-top-card">
-                  <div className="gmaps-header-row">
-                    <div className="gmaps-brand">
-                      <span className="dot-status" />
-                      <span className="brand-text">
-                        <span style={{ color: "#38bdf8" }}>Google</span> Maps Geo-Location
-                      </span>
-                    </div>
-                    <a
-                      href={gmapsLiveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="gmaps-link"
-                      title="Open coordinates in Google Maps"
-                    >
-                      <FiExternalLink size={11} /> Open in Maps
-                    </a>
-                  </div>
-
-                  <div className="gmaps-address" title={locationAddress}>
-                    📍 {locationAddress}
-                  </div>
-
-                  <div className="gmaps-coords-line">
+                {/* Live GPS badge */}
+                <div className="gps-floating-pill">
+                  <span className="dot" />
+                  {isGpsLoading ? (
+                    <span>Acquiring GPS...</span>
+                  ) : gpsData ? (
                     <span>
-                      {gpsData?.latitude ? `${gpsData.latitude.toFixed(6)}° N, ${gpsData.longitude.toFixed(6)}° E` : "11.664321° N, 78.146012° E"}
+                      {gpsData.latitude.toFixed(4)}°, {gpsData.longitude.toFixed(4)}° (±{gpsData.accuracy?.toFixed(0)}m)
                     </span>
-                    <span className="accuracy-pill">
-                      {isGpsLoading ? "Acquiring..." : `(±${gpsData?.accuracy ? gpsData.accuracy.toFixed(0) : "5"}m)`}
-                    </span>
-                  </div>
+                  ) : (
+                    <span>GPS Pending</span>
+                  )}
                 </div>
 
-                {/* Switch camera button (environment vs user) */}
+                {/* Switch camera button */}
                 {!capturedPhoto && (
                   <button
                     type="button"
@@ -1203,17 +893,14 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
               ) : (
                 <HistoryGrid>
                   {historyList.map((rec) => {
-                    const imgSrc = getFullImgUrl(rec);
+                    const imgSrc = rec.thumbnail_base64 || rec.photo_url || "";
                     const createdDate = rec.created_date ? new Date(rec.created_date).toLocaleString("en-GB") : "-";
-                    const mapUrl = rec.latitude
-                      ? `https://www.google.com/maps?q=${rec.latitude},${rec.longitude}`
-                      : null;
 
                     return (
                       <div className="history-card" key={rec._id}>
                         <div
                           className="img-box"
-                          onClick={() => setZoomImage(rec.photo_url ? getFullImgUrl(rec) : (rec.thumbnail_base64 || rec.image_base64))}
+                          onClick={() => setZoomImage(rec.photo_url || rec.thumbnail_base64)}
                         >
                           {imgSrc ? (
                             <img src={imgSrc} alt="Verification" />
@@ -1229,36 +916,14 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
                           <div className="time-row">
                             <FiClock size={13} /> {createdDate}
                           </div>
-
-                          {rec.location_address && (
-                            <div className="address-row" title={rec.location_address}>
-                              📍 {rec.location_address}
-                            </div>
-                          )}
-
                           <div className="gps-row">
-                            <span>
-                              <FiMapPin size={12} style={{ display: "inline", marginRight: "3px" }} />
-                              {rec.latitude ? `${rec.latitude.toFixed(4)}°, ${rec.longitude.toFixed(4)}°` : "GPS Logged"}
-                            </span>
-                            {mapUrl && (
-                              <a
-                                href={mapUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="map-link"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Google Maps ↗
-                              </a>
-                            )}
+                            <FiMapPin size={13} />
+                            {rec.latitude ? `${rec.latitude.toFixed(4)}°, ${rec.longitude.toFixed(4)}°` : "GPS Logged"}
                           </div>
-
                           <div className="staff-row">
                             <FiUser size={12} style={{ display: "inline", marginRight: "4px" }} />
-                            Staff: {rec.created_by || "STAFF"}
+                            Staff ID: {rec.created_by || "STAFF"}
                           </div>
-
                           {rec.notes && <div className="notes-row">{rec.notes}</div>}
                         </div>
                       </div>
@@ -1273,11 +938,11 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
         {/* Zoom Lightbox Modal */}
         {zoomImage && (
           <Overlay onClick={() => setZoomImage(null)} style={{ zIndex: 10000 }}>
-            <div style={{ maxWidth: "90vw", maxHeight: "90vh", position: "relative" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ maxWidth: "90vw", maxHeight: "90vh", position: "relative" }}>
               <img
                 src={zoomImage}
                 alt="Enlarged verification"
-                style={{ width: "100%", height: "100%", maxHeight: "88vh", objectFit: "contain", borderRadius: "12px", background: "#000" }}
+                style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "12px" }}
               />
               <button
                 type="button"
@@ -1286,8 +951,8 @@ const GeoVerificationModal = ({ patient, onClose, onSaved }) => {
                   position: "absolute",
                   top: "12px",
                   right: "12px",
-                  background: "rgba(0,0,0,0.6)",
-                  color: "#fff",
+                  background: "rgba(0,0,0,0.7)",
+                  color: "white",
                   border: "none",
                   borderRadius: "50%",
                   width: "36px",
