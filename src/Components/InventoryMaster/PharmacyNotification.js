@@ -442,8 +442,17 @@ const PharmacyNotification = () => {
   const [expiryAlerts, setExpiryAlerts]   = useState([]);
   const [lowStockAlerts, setLowStockAlerts] = useState([]);
   const [outletFilter, setOutletFilter] = useState("ALL");
-  const [loggedOutlet, setLoggedOutlet] = useState("");
+  const [loggedOutlet, setLoggedOutlet] = useState(() => localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "");
+  const [outletDisplayName, setOutletDisplayName] = useState(() => localStorage.getItem("selected_outlet_name") || "");
+  const [isStockOutlet, setIsStockOutlet] = useState(() => {
+    const code = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+    if (code === "OLET006") return true;
+    const cached = localStorage.getItem("is_stock_outlet");
+    return cached === null ? null : cached === "true";
+  });
 
+  const isDrugPurchase = loggedOutlet === "OLET006" || (outletDisplayName || "").trim().toLowerCase() === "drug purchase";
+  const isLockedOutlet = Boolean(loggedOutlet && isStockOutlet === true && !isDrugPurchase);
   const isLockedIP = loggedOutlet === "OLET001";
   const isLockedOP = loggedOutlet === "OLET002";
 
@@ -455,16 +464,23 @@ const PharmacyNotification = () => {
 
   const fetchAlerts = useCallback(
     async (silent = false) => {
+      const selectedOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+      setLoggedOutlet(selectedOutlet);
+      setOutletDisplayName(localStorage.getItem("selected_outlet_name") || "");
+
+      const cachedFlag = localStorage.getItem("is_stock_outlet");
+      if (selectedOutlet && selectedOutlet !== "OLET006" && cachedFlag === "false") {
+        setIsStockOutlet(false);
+        setExpiryAlerts([]);
+        setLowStockAlerts([]);
+        return;
+      }
+
       silent ? setRefreshing(true) : setLoading(true);
       try {
-        const selectedOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
-        setLoggedOutlet(selectedOutlet);
-
         const params = new URLSearchParams();
-        if (selectedOutlet === "OLET001") {
-          params.append("outlet_code", "OLET001");
-        } else if (selectedOutlet === "OLET002") {
-          params.append("outlet_code", "OLET002");
+        if (selectedOutlet) {
+          params.append("outlet_code", selectedOutlet);
         }
 
         const response = await apiRequest(
@@ -472,8 +488,21 @@ const PharmacyNotification = () => {
           "GET"
         );
         if (response && !response.error) {
+          const allowed = response.data?.is_stock_outlet !== false;
+          setIsStockOutlet(allowed);
+          if (selectedOutlet && typeof response.data?.is_stock_outlet === "boolean") {
+            localStorage.setItem("is_stock_outlet", String(allowed));
+          }
+          if (!allowed) {
+            setExpiryAlerts([]);
+            setLowStockAlerts([]);
+            return;
+          }
           setExpiryAlerts(response.data?.expiry_alerts ?? []);
           setLowStockAlerts(response.data?.low_stock_alerts ?? []);
+          if (response.data?.outlet_name) {
+            setOutletDisplayName(response.data.outlet_name);
+          }
           setLastSynced(new Date());
         } else {
           if (!silent) toast.error("Failed to load notifications");
@@ -488,12 +517,13 @@ const PharmacyNotification = () => {
     [HmsBaseUrl]
   );
 
-  // Fetch on mount and every 5 minutes
+  // Fetch on mount and every 5 minutes (skip polling for non-stock outlets)
   useEffect(() => {
     fetchAlerts();
+    if (isStockOutlet === false) return undefined;
     const interval = setInterval(() => fetchAlerts(true), 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchAlerts]);
+  }, [fetchAlerts, isStockOutlet]);
 
   // Close panel on outside click
   useEffect(() => {
@@ -509,14 +539,14 @@ const PharmacyNotification = () => {
   // ── Computed with outlet filter ────────────────────────────────────────────
 
   const filteredExpiry = expiryAlerts.filter((a) => {
-    if (isLockedIP || outletFilter === "OLET001") return a.outlet_code === "OLET001";
-    if (isLockedOP || outletFilter === "OLET002") return a.outlet_code === "OLET002";
+    if (isLockedOutlet) return a.outlet_code === loggedOutlet;
+    if (outletFilter !== "ALL") return a.outlet_code === outletFilter;
     return true;
   });
 
   const filteredLowStock = lowStockAlerts.filter((a) => {
-    if (isLockedIP || outletFilter === "OLET001") return a.outlet_code === "OLET001";
-    if (isLockedOP || outletFilter === "OLET002") return a.outlet_code === "OLET002";
+    if (isLockedOutlet) return a.outlet_code === loggedOutlet;
+    if (outletFilter !== "ALL") return a.outlet_code === outletFilter;
     return true;
   });
 
@@ -660,6 +690,10 @@ const PharmacyNotification = () => {
 
   // ── JSX ────────────────────────────────────────────────────────────────────
 
+  if (isStockOutlet !== true) {
+    return null;
+  }
+
   return (
     <BellWrapper ref={wrapRef}>
       <BellButton
@@ -683,7 +717,11 @@ const PharmacyNotification = () => {
               <div>
                 <PanelTitle>🔔 Stock Alerts</PanelTitle>
                 <div style={{ fontSize: "0.72rem", opacity: 0.88, marginTop: 2 }}>
-                  {isLockedIP ? "🏥 IP Pharmacy" : isLockedOP ? "💊 OP Pharmacy" : "🏢 All Outlets"}
+                  {isDrugPurchase
+                    ? "🏪 Drug Purchase (IP & OP Pharmacy)"
+                    : isLockedOutlet
+                      ? (isLockedIP ? "🏥 IP Pharmacy" : isLockedOP ? "💊 OP Pharmacy" : `🏪 ${outletDisplayName || loggedOutlet}`)
+                      : "🏢 All Stock Outlets"}
                 </div>
               </div>
               <PanelMeta>
@@ -692,7 +730,7 @@ const PharmacyNotification = () => {
             </PanelHeader>
 
             {/* Outlet Filter for Common Outlets */}
-            {!isLockedIP && !isLockedOP && (
+            {!isLockedOutlet && !isLockedIP && !isLockedOP && (
               <div style={{ display: "flex", gap: 4, padding: "8px 12px", background: "#f1f5f9", borderBottom: "1px solid #e2e8f0" }}>
                 <button
                   style={{

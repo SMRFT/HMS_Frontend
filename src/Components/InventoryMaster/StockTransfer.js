@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
-import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper";
+import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvDeleteBtn } from "./InventoryUIHelper";
 import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
@@ -1734,8 +1734,8 @@ const StockTransfer = () => {
                           <ATd style={{ color: "#0d9488", fontWeight: 700 }}>
                             {item.transfer_quantity}
                           </ATd>
-                          <ATd>
-                            <RemoveBtn onClick={() => handleRemoveItem(idx)}>✕ Remove</RemoveBtn>
+                          <ATd style={{ textAlign: "center" }}>
+                            <InvDeleteBtn size={16} onClick={() => handleRemoveItem(idx)} title="Remove item" />
                           </ATd>
                         </tr>
                       ))}

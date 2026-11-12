@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
-import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper";
+import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvDeleteBtn } from "./InventoryUIHelper";
 import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
@@ -1734,7 +1734,7 @@ const ExpiryMedicines = () => {
                             {item.total_amount?.toFixed(2)}
                           </ATd>
                           <ATd style={{ textAlign: "center" }}>
-                            <RemoveBtn onClick={() => handleRemoveItem(idx)}>✕ Remove</RemoveBtn>
+                            <InvDeleteBtn size={16} onClick={() => handleRemoveItem(idx)} title="Remove item" />
                           </ATd>
                         </tr>
                       ))}

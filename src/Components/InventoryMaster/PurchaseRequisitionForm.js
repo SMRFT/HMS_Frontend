@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
+import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvDeleteBtn } from "./InventoryUIHelper"
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -667,12 +667,11 @@ export default function PurchaseRequisition() {
                             <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
                             <Td style={{ fontWeight: 600 }}>{item.medicine_name}</Td>
                             <Td style={{ textAlign: "center" }}>
-                              <DangerBtn
-                                style={{ padding: "4px 10px", fontSize: ".72rem" }}
+                              <InvDeleteBtn
+                                size={16}
+                                title="Remove item"
                                 onClick={() => handleRemoveItem(idx)}
-                              >
-                                ✕
-                              </DangerBtn>
+                              />
                             </Td>
                           </Trow>
                         ))}

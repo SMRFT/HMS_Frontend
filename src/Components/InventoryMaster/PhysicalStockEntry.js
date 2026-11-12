@@ -6,7 +6,7 @@ import {
   TableWrapper, Table, Th, Td, Tr,
 } from "../GlobalStyles";
 import styled from "styled-components";
-import { InvTopToolbar, InvPagination } from "./InventoryUIHelper";
+import { InvTopToolbar, InvPagination, InvActionGroup, InvEditBtn, InvSaveBtn } from "./InventoryUIHelper";
 
 // ── Styled Components ─────────────────────────────────────────────────────────
 
@@ -476,20 +476,16 @@ const PhysicalStockEntry = () => {
                           )}
                         </Td>
                         <Td>
-                          <div style={{ display: "flex", gap: 4 }}>
-                            {/* Save icon */}
-                            <ActionIcon
+                          <InvActionGroup>
+                            <InvSaveBtn
+                              size={16}
                               title="Save this row"
-                              color="#0d9488"
                               onClick={() => handleSaveRow(idx)}
-                            >
-                              💾
-                            </ActionIcon>
-                            {/* Edit icon — re-enable editing for saved row */}
+                            />
                             {row.saved && (
-                              <ActionIcon
+                              <InvEditBtn
+                                size={16}
                                 title="Edit"
-                                color="#0d9488"
                                 onClick={() => {
                                   setRows((prev) =>
                                     prev.map((r, i) =>
@@ -498,11 +494,9 @@ const PhysicalStockEntry = () => {
                                   );
                                   setEditingIdx(idx);
                                 }}
-                              >
-                                ✏️
-                              </ActionIcon>
+                              />
                             )}
-                          </div>
+                          </InvActionGroup>
                         </Td>
                       </Tr>
                     );

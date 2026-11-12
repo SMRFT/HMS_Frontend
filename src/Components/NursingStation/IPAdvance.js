@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
 import PatientSearchModal from "../Common/PatientSearchModal";
+import { AdmittedPatientsPanel, AdmittedPatientSummaryCard } from "./AdmittedPatientsPanel";
 
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -885,9 +886,9 @@ function SearchSelect({
 
 // ─────────────────────────────────────────────────────────────────────────────
 const EMPTY_COMMON = {
-  uhid: "", ipNumber: "", name: "", age: "", gender: "",
+  uhid: "", ipNumber: "", ipSerial: "", name: "", age: "", ageType: "Y", gender: "", mobile: "",
   roomNo: "", bedNo: "", admittingDate: "", admittingDoctor: "",
-  customer_type: "", company: "", address: "",
+  customer_type: "", company: "", address: "", totalDays: "",
   creditLimit: "", outBalance: "", totalAdvance: "",
 };
 
@@ -902,6 +903,9 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   // ── Admission ─────────────────────────────────────────────────────────────
   const [common, setCommon]     = useState(EMPTY_COMMON);
   const [admissionId, setAdmId] = useState(null);
+  const [searchingAdm, setSearchingAdm] = useState(false);
+  const [admittedCount, setAdmittedCount] = useState(0);
+  const [admittedRefreshKey, setAdmittedRefreshKey] = useState(0);
 
   // ── Patient search modal state & handlers ──────────────────────────────────
   const [showPatientModal, setShowPatientModal] = useState(false);
@@ -939,11 +943,9 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   const [billAdv, setBillAdv]         = useState("");
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [saving, setSaving]           = useState(false);
-  const [billTypes, setBillTypes]                   = useState([]);
-  const [selectedBillType, setSelectedBillType]     = useState("1");
-  const [activeTab, setActiveTab]                   = useState("create");
-  const [selectedBillTypeNo, setSelectedBillTypeNo] = useState("AD01");
-  const [loadingBillTypes, setLoadingBillTypes]     = useState(false);
+  const [activeTab, setActiveTab]     = useState("create");
+  const DEFAULT_BILL_TYPE             = "1";
+  const DEFAULT_BILL_TYPE_NO          = "AD01";
 
   // ── Edit state ────────────────────────────────────────────────────────────
   const [editingRecord, setEditingRecord] = useState(null);
@@ -1034,7 +1036,13 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   // ── Load today on mount ───────────────────────────────────────────────────
   useEffect(() => {
     fetchAdvancesByDate(today(), today());
-    fetchBillTypes();
+    apiRequest(`${BASE}admitted-patients/?date=all`, "GET")
+      .then((res) => {
+        if (res.success && Array.isArray(res.data?.data)) {
+          setAdmittedCount(res.data.data.length);
+        }
+      })
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1062,38 +1070,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       toast.error(e.message || "Failed to load advances");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchBillTypes = async () => {
-    setLoadingBillTypes(true);
-    try {
-      const res = await apiRequest(`${BASE}bill-types/`, "GET");
-      if (!res.success) throw new Error(res.error || "Failed to fetch bill types");
-      const list = Array.isArray(res.data?.billTypes)
-        ? res.data.billTypes
-        : Array.isArray(res.data?.records)
-        ? res.data.records
-        : [];
-      setBillTypes(list);
-      const advBt = list.find(b =>
-        String(b.bill_name || "").toLowerCase().includes("advance") ||
-        String(b.billTypeNo || "").toLowerCase().includes("ad")
-      ) || list[0];
-      if (advBt) {
-        setSelectedBillType(String(advBt.bill_type || "1"));
-        setSelectedBillTypeNo(advBt.billTypeNo || "AD01");
-      } else {
-        setSelectedBillType("1");
-        setSelectedBillTypeNo("AD01");
-      }
-    } catch (e) {
-      console.error("Failed to load bill types:", e);
-      setBillTypes([]);
-      setSelectedBillType("1");
-      setSelectedBillTypeNo("AD01");
-    } finally {
-      setLoadingBillTypes(false);
     }
   };
 
@@ -1180,22 +1156,29 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       ""
     ).trim();
     const age = pat.age || pt.age || "";
+    const ageType = pat.age_type || pt.age_type || "Y";
     const gender = pat.gender || pt.gender || "";
+    const mobile = pat.mobile || pat.mobilePhone || pt.mobilePhone || pt.phone || "";
     const customer_type = pat.customerType || pat.customer_type || pt.customerType || pt.customer_type || "";
-    const company = pat.insuranceCompanyName || pat.company_name || pat.company || pt.insuranceCompanyName || pt.company || "";
+    const company = pat.company || pat.companyName || pat.insuranceCompanyName || pat.company_name || pt.insuranceCompanyName || pt.company || "";
     const address = pat.permanent_address || pat.address || pt.permanent_address || pt.address || [pt.area, pt.city, pt.state, pt.zipcode].filter(Boolean).join(", ") || "";
     const roomNo = pat.roomNo || pat.room_no || pat.newRoomNo || "";
     const bedNo = pat.bedNo || pat.bed_no || pat.newBedNo || "";
     const admittingDate = pat.admissionDateTime || (pat.admissionDate && pat.admissionTime ? `${pat.admissionDate} ${pat.admissionTime}` : pat.admissionDate) || "";
     const admittingDoctor = pat.admittingDoctorName || pat.admittingDoctor || pat.doctor || "";
+    const totalDays = pat.total_days || "";
+    const ipSerial = pat.ipserial_number ? String(pat.ipserial_number) : "";
 
     setCommon(prev => ({
       ...prev,
       uhid: uhid || prev.uhid,
       ipNumber: ipNumber || prev.ipNumber,
+      ipSerial: ipSerial || prev.ipSerial,
       name: name || prev.name,
       age: age || prev.age,
+      ageType: ageType || prev.ageType,
       gender: gender || prev.gender,
+      mobile: mobile || prev.mobile,
       customer_type: customer_type || prev.customer_type,
       company: company || prev.company,
       address: address || prev.address,
@@ -1203,6 +1186,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       bedNo: bedNo || prev.bedNo,
       admittingDate: admittingDate || prev.admittingDate,
       admittingDoctor: admittingDoctor || prev.admittingDoctor,
+      totalDays: totalDays || prev.totalDays,
     }));
     if (ipNumber) setAdmId(ipNumber);
   };
@@ -1229,6 +1213,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
 
   // ── Load admission ─────────────────────────────────────────────────────────
   const loadActiveAdmission = async (params) => {
+    setSearchingAdm(true);
     try {
       const qs  = new URLSearchParams(params).toString();
       let adm = null;
@@ -1320,32 +1305,30 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         ...prev,
         uhid:            adm.uhid || prev.uhid,
         ipNumber:        adm.ipNumber || prev.ipNumber,
+        ipSerial:        adm.ipserial_number ? String(adm.ipserial_number) : prev.ipSerial,
         name:            pName || prev.name,
         age:             adm.age || patient.age || prev.age,
+        ageType:         patient.age_type || adm.age_type || prev.ageType || "Y",
         gender:          adm.gender || patient.gender || prev.gender,
+        mobile:          patient.mobilePhone || patient.phone || adm.mobile || prev.mobile,
         address:
           adm.permanent_address || patient.permanent_address ||
           [patient.area, patient.city, patient.state, patient.zipcode].filter(Boolean).join(", ") ||
           prev.address,
         customer_type:   adm.customerType || adm.customer_type || patient.customerType || prev.customer_type,
-        company:         adm.insuranceCompanyName || patient.insuranceCompanyName || adm.insuranceCompany || prev.company,
+        company:         adm.company || adm.companyName || adm.insuranceCompanyName || patient.insuranceCompanyName || adm.insuranceCompany || prev.company,
         roomNo, bedNo,
         admittingDate:   formattedDateTime,
         admittingDoctor: doctor,
+        totalDays:       adm.total_days != null ? adm.total_days : prev.totalDays,
         creditLimit:     adm.creditLimit != null ? adm.creditLimit : prev.creditLimit,
       }));
     } catch (err) {
       console.error(err);
       toast.error(err?.message || "No active admission found");
+    } finally {
+      setSearchingAdm(false);
     }
-  };
-
-  const handleSearch = () => {
-    const ip = common.ipNumber.trim();
-    const u = common.uhid.trim();
-    if (ip) openIpSearch();
-    else if (u) openUhidSearch();
-    else openIpSearch();
   };
 
   // ── Save (new or edited) ──────────────────────────────────────────────────
@@ -1353,17 +1336,8 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     if (!admissionId)             return toast.warning("Load an active admission first (is_admitted: true required)");
     if (total <= 0)               return toast.warning("Enter a valid advance amount");
 
-    let bType = selectedBillType;
-    let bTypeNo = selectedBillTypeNo;
-    if (!bType || !bTypeNo) {
-      if (billTypes.length > 0) {
-        bType = String(billTypes[0].bill_type);
-        bTypeNo = billTypes[0].billTypeNo || "AD01";
-      } else {
-        bType = "1";
-        bTypeNo = "AD01";
-      }
-    }
+    const bType = DEFAULT_BILL_TYPE;
+    const bTypeNo = DEFAULT_BILL_TYPE_NO;
 
     if (!splitEntered)
       return toast.warning("Both IP Advance and Billing Advance must be entered");
@@ -1427,17 +1401,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         };
       }
       setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
-      const advBt = billTypes.find(b =>
-        String(b.bill_name || "").toLowerCase().includes("advance") ||
-        String(b.billTypeNo || "").toLowerCase().includes("ad")
-      ) || billTypes[0];
-      if (advBt) {
-        setSelectedBillType(String(advBt.bill_type || "1"));
-        setSelectedBillTypeNo(advBt.billTypeNo || "AD01");
-      } else {
-        setSelectedBillType("1");
-        setSelectedBillTypeNo("AD01");
-      }
       fetchAdvancesByDate(filterFromDate, filterToDate);
       if (savedRecord) {
         openPrintModal(savedRecord);
@@ -1461,8 +1424,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     setBillAdv(String(record.billing_advance || ""));
     setPaymentMode(record.payment_mode || "Cash");
     setEditingRecord(record);
-    setSelectedBillType(String(record.bill_type || ""));
-    setSelectedBillTypeNo(record.billTypeNo || "");
     loadActiveAdmission({ ip_number: ipNo });
     setActiveTab("create");
     setTimeout(() => {
@@ -1474,7 +1435,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   const cancelEditMode = () => {
     setEditingRecord(null);
     setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
-    setSelectedBillType(""); setSelectedBillTypeNo("");
   };
 
   // ── Cancel advance ────────────────────────────────────────────────────────
@@ -1554,8 +1514,8 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
           refund_amount:  parseFloat(refundAmount),
           payment_mode:   refundPaymentMode,
           remarks:        refundRemarks.trim(),
-          bill_type:      refundRecord.bill_type,
-          billTypeNo:     refundRecord.billTypeNo,
+          bill_type:      refundRecord.bill_type || DEFAULT_BILL_TYPE,
+          billTypeNo:     refundRecord.billTypeNo || DEFAULT_BILL_TYPE_NO,
         }
       );
       if (!res.success) throw new Error(res.error || "Refund failed");
@@ -1771,17 +1731,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     setCommon(EMPTY_COMMON);
     setAdmId(null);
     cancelEditMode();
-    const advBt = billTypes.find(b =>
-      String(b.bill_name || "").toLowerCase().includes("advance") ||
-      String(b.billTypeNo || "").toLowerCase().includes("ad")
-    ) || billTypes[0];
-    if (advBt) {
-      setSelectedBillType(String(advBt.bill_type || "1"));
-      setSelectedBillTypeNo(advBt.billTypeNo || "AD01");
-    } else {
-      setSelectedBillType("1");
-      setSelectedBillTypeNo("AD01");
-    }
   };
 
   const handleAmountChange = (val) => { setAmount(val); setIpAdv(""); setBillAdv(""); };
@@ -1813,10 +1762,11 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             <PageTitle>💳 IP Advance</PageTitle>
             <PageSubtitle>Inpatient Advance Payment &amp; Collection Management</PageSubtitle>
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {[
-              { id: "create", label: "+ Create Advance" },
-              { id: "list", label: "📋 Advance List" }
+              { id: "create",   label: "+ IP Advance Entry" },
+              { id: "admitted", label: "🏥 Admitted Patients", count: admittedCount },
+              { id: "list",     label: "📋 Advance List" }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1824,6 +1774,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                 onClick={() => {
                   setActiveTab(tab.id);
                   if (tab.id === "list") fetchAdvancesByDate(filterFromDate, filterToDate);
+                  if (tab.id === "admitted") setAdmittedRefreshKey(k => k + 1);
                 }}
                 style={
                   activeTab === tab.id
@@ -1839,7 +1790,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                         boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                         display: "flex",
                         alignItems: "center",
-                        gap: 5,
+                        gap: 6,
                       }
                     : {
                         background: "rgba(255,255,255,0.18)",
@@ -1852,11 +1803,23 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
-                        gap: 5,
+                        gap: 6,
                       }
                 }
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                {typeof tab.count === "number" && (
+                  <span style={{
+                    background: activeTab === tab.id ? T.teal : "rgba(255,255,255,0.28)",
+                    color: "#fff",
+                    borderRadius: 999,
+                    padding: "1px 7px",
+                    fontSize: "0.68rem",
+                    fontWeight: 800,
+                  }}>
+                    {tab.count}
+                  </span>
+                )}
               </button>
             ))}
             {onClose && typeof onClose === "function" && (
@@ -1885,55 +1848,61 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
 
         {activeTab === "create" && (
           <>
-            {/* ── PATIENT & ADMISSION ── */}
+            {/* ── PATIENT LOOKUP & DISCHARGE-STYLE DETAILS ── */}
             <Card>
               <CardHead color="teal">
-                <span>🏥 Patient &amp; Admission Details</span>
+                <span>🏥 Patient Lookup &amp; Admission Details</span>
+                {admissionId ? (
+                  <span style={{
+                    background: "#dcfce7",
+                    color: "#15803d",
+                    border: "1px solid #bbf7d0",
+                    borderRadius: 999,
+                    padding: "2px 10px",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                  }}>
+                    ✓ Admission Active · {admissionId}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: "0.73rem", opacity: 0.9, fontWeight: 500 }}>
+                    Search by UHID or IP Number
+                  </span>
+                )}
               </CardHead>
-              <CardBody>
-                <Grid cols={6}>
-                  <GroupLabel c="teal">Search Admission</GroupLabel>
-                  <F span={2}>
-                    <Lbl>UHID</Lbl>
-                    <Inp value={common.uhid} placeholder="Enter UHID"
-                      onChange={e => setCommon(p => ({ ...p, uhid: e.target.value }))}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          openUhidSearch();
-                        }
-                      }} />
-                  </F>
-                  <F span={2}>
-                    <Lbl>IP No</Lbl>
-                    <Inp value={common.ipNumber} placeholder="Enter IP No"
-                      onChange={e => setCommon(p => ({ ...p, ipNumber: e.target.value }))}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          openIpSearch();
-                        }
-                      }} />
-                  </F>
-                  <F span={1}><Lbl>&nbsp;</Lbl><Btn onClick={handleSearch}>🔍 Search</Btn></F>
-                  <F span={1}><Lbl>&nbsp;</Lbl><Btn v="reset" onClick={handleResetForm}>↺ Reset</Btn></F>
-
-                  <GroupLabel c="teal">Patient Info</GroupLabel>
-                  <F span={3}><Lbl>Patient Name</Lbl><Inp value={common.name} readOnly /></F>
-                  <F><Lbl>Age</Lbl><Inp value={common.age} readOnly /></F>
-                  <F><Lbl>Gender</Lbl><Inp value={common.gender} readOnly /></F>
-                  <F><Lbl>Customer Type</Lbl><Inp value={common.customer_type} readOnly /></F>
-                  <F span={4}><Lbl>Address</Lbl><Inp value={common.address} readOnly /></F>
-                  <F span={2}><Lbl>Company</Lbl><Inp value={common.company} readOnly /></F>
-
-                  <GroupLabel c="teal">Admission Details</GroupLabel>
-                  <F><Lbl>Room No</Lbl><Inp value={common.roomNo} readOnly /></F>
-                  <F><Lbl>Bed No</Lbl><Inp value={common.bedNo} readOnly /></F>
-                  <F span={2}><Lbl>Admitting Date</Lbl><Inp value={common.admittingDate} readOnly /></F>
-                  <F span={2}><Lbl>Admitting Doctor</Lbl><Inp value={common.admittingDoctor} readOnly /></F>
-                  <F span={2} />
-                </Grid>
-              </CardBody>
+              <AdmittedPatientSummaryCard
+                uhid={common.uhid}
+                onUhidChange={(val) => setCommon(p => ({ ...p, uhid: val }))}
+                onUhidSearch={openUhidSearch}
+                ipNumber={common.ipNumber}
+                onIpChange={(val) => setCommon(p => ({ ...p, ipNumber: val }))}
+                onIpSearch={openIpSearch}
+                searching={searchingAdm}
+                onReset={handleResetForm}
+                admittedCount={admittedCount}
+                onBrowseAdmitted={() => {
+                  setAdmittedRefreshKey(k => k + 1);
+                  setActiveTab("admitted");
+                }}
+                patient={admissionId ? {
+                  uhid: common.uhid,
+                  ipNumber: common.ipNumber,
+                  ipSerial: common.ipSerial,
+                  name: common.name,
+                  age: common.age,
+                  ageType: common.ageType,
+                  gender: common.gender,
+                  mobile: common.mobile,
+                  address: common.address,
+                  doctor: common.admittingDoctor,
+                  admissionDate: common.admittingDate,
+                  roomNo: common.roomNo,
+                  bedNo: common.bedNo,
+                  totalDays: common.totalDays,
+                  customerType: common.customer_type,
+                  company: common.company,
+                } : null}
+              />
             </Card>
 
             {/* ── ADVANCE INPUT FORM ── */}
@@ -1958,34 +1927,15 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                 <CardBody>
                   <Grid cols={6}>
                     <GroupLabel c="teal">Payment Details</GroupLabel>
-                    <F span={1}>
+                    <F span={2}>
                       <Lbl>Date</Lbl>
                       <Inp type="date" value={date} onChange={e => setDate(e.target.value)} />
                     </F>
-                    <F span={2}>
+                    <F span={4}>
                       <Lbl>Advance Amount (₹)</Lbl>
                       <BigInp
                         value={amount} placeholder="Enter total advance amount"
                         onChange={e => handleAmountChange(e.target.value)} />
-                    </F>
-                    <F span={2}>
-                      <Lbl>Bill Type</Lbl>
-                      <Inp
-                        value={
-                          selectedBillTypeNo
-                            ? `${billTypes.find(b => String(b.bill_type) === String(selectedBillType))?.bill_name || "Advance"} (${selectedBillTypeNo})`
-                            : billTypes.find(b => String(b.bill_type) === String(selectedBillType))?.bill_name || "Advance (AD01)"
-                        }
-                        readOnly
-                        disabled
-                        style={{
-                          background: "#f1f5f9",
-                          color: "#1e293b",
-                          fontWeight: 700,
-                          cursor: "not-allowed",
-                        }}
-                        title="Bill Type is fixed as Advance and non-editable"
-                      />
                     </F>
 
                     <SplitBox>
@@ -2044,6 +1994,21 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
               </Card>
             </div>
           </>
+        )}
+
+        {activeTab === "admitted" && (
+          <AdmittedPatientsPanel
+            baseUrl={BASE}
+            refreshKey={admittedRefreshKey}
+            onCountChange={setAdmittedCount}
+            actionTitle="Load patient into IP Advance entry"
+            onSelectPatient={(row) => {
+              prefillFromPatient(row);
+              if (row.ipNumber) loadActiveAdmission({ ip_number: row.ipNumber });
+              else if (row.uhid) loadActiveAdmission({ uhid: row.uhid });
+              setActiveTab("create");
+            }}
+          />
         )}
 
         {activeTab === "list" && (
@@ -2152,7 +2117,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                       <Th>Bill No</Th>
                       <Th>IP No</Th>
                       <Th>Patient Name</Th>
-                      <Th>Bill Type</Th>
                       <Th>Payment Mode</Th>
                       <Th>Paid Date</Th>
                       <Th right>Advance Amount</Th>
@@ -2167,13 +2131,13 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   <tbody>
                     {loading ? (
                       <tr>
-                        <Td colSpan={15} style={{ textAlign: "center", padding: 28, color: T.muted }}>
+                        <Td colSpan={14} style={{ textAlign: "center", padding: 28, color: T.muted }}>
                           ⏳ Loading records…
                         </Td>
                       </tr>
                     ) : paginatedPayments.length === 0 ? (
                       <tr>
-                        <Td colSpan={15} style={{ textAlign: "center", padding: 28, color: T.muted }}>
+                        <Td colSpan={14} style={{ textAlign: "center", padding: 28, color: T.muted }}>
                           {tSearch
                             ? `No records matching "${tSearch}"`
                             : "No advance records found for the selected date range / filters"}
@@ -2186,7 +2150,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                         const billDate    = p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN") : "—";
                         const patientName = p.patient_name || p.name || p.patientName || "—";
                         const ipNo        = p.ip_number    || p.ipNumber || "—";
-                        const billTypeStr = p.bill_type ? `${p.bill_type} (${p.billTypeNo || ""})` : "—";
                         const menuId      = String(p.bill_no || `${ipNo}_${p.advance_id || i}_${i}`);
                         const totalRefunded = getTotalRefunded(p);
                         const netBalance    = (parseFloat(p.advance_amount) || 0) - totalRefunded;
@@ -2207,7 +2170,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                             <Td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
                               {patientName}
                             </Td>
-                            <Td style={{ fontSize: "0.68rem" }}>{billTypeStr}</Td>
                             <Td>{p.payment_mode || "-"}</Td>
                             <Td>
                               {p.paid_date ? new Date(p.paid_date).toLocaleString("en-IN") : "-"}
@@ -2396,10 +2358,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   <RefundSummaryRow>
                     <RefundSummaryLabel>Bill No</RefundSummaryLabel>
                     <RefundSummaryValue style={{ fontFamily: "monospace" }}>{refundRecord.bill_no || "—"}</RefundSummaryValue>
-                  </RefundSummaryRow>
-                  <RefundSummaryRow>
-                    <RefundSummaryLabel>Bill Type</RefundSummaryLabel>
-                    <RefundSummaryValue>{`${refundRecord.bill_type || "-"} (${refundRecord.billTypeNo || "-"})`}</RefundSummaryValue>
                   </RefundSummaryRow>
                   <div style={{ height: 1, background: "#d8b4fe", margin: "4px 0" }} />
                   <RefundSummaryRow>
@@ -2655,7 +2613,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         onSelect={handlePatientSelect}
         initialQuery={patientSearchQuery}
         mode={patientSearchMode}
-        defaultAdmitted={true}
       />
     </>
   );

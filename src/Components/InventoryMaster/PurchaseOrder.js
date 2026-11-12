@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import {  InvTopToolbar, getTodayDateString, InvSelect, SearchSelect , InvPagination } from "./InventoryUIHelper"
+import { InvTopToolbar, getTodayDateString, InvSelect, SearchSelect, InvPagination, InvDeleteBtn } from "./InventoryUIHelper"
 import SendEmailModal from "./SendEmailModal"
 
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
@@ -811,8 +811,8 @@ export default function PurchaseOrder() {
                             {errs[`qty_${idx}`] && <ErrMsg>{errs[`qty_${idx}`]}</ErrMsg>}
                           </LTd>
 
-                          <LTd>
-                            <DelB onClick={() => removeLine(line._id)} title="Remove line">✕</DelB>
+                          <LTd style={{ textAlign: "center" }}>
+                            <InvDeleteBtn size={16} onClick={() => removeLine(line._id)} title="Remove line" />
                           </LTd>
                         </LTr>
                       ))}

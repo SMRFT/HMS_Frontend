@@ -9,7 +9,7 @@ import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import { Plus, Trash2, X, ShoppingCart, Lock, Camera, Upload, ScanLine, AlertCircle, CheckCircle, RefreshCw, Edit2, Check } from "lucide-react"
 import styled, { keyframes } from "styled-components"
-import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
+import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvActionGroup, InvEditBtn, InvDeleteBtn } from "./InventoryUIHelper"
 import SearchSelect from "../Common/SearchSelect"
 
 const Select = SearchSelect;
@@ -427,7 +427,7 @@ const EMPTY_ITEM = {
   name:"",item_id:"",hsn:"",batch:"",
   expiry_month:"",expiry_year:"",expiry:"",
   packing:"",unit:"",quantity:"0",free:"0",
-  item_value:"0.00",packing_price:"",unit_price:"0.00",
+  item_value:"0.00",packing_price:"",unit_price:"0.00",_priceSource:"packing_price",
   purchase_tax_label:"RATE OF 5%",purchase_tax_rate:"5",
   cgst_percent:"2.50",sgst_percent:"2.50",
   cgst_amt:"0.00",sgst_amt:"0.00",
@@ -445,29 +445,64 @@ const EMPTY_ITEM = {
 }
 
 /* ─── Recalc helper ────────────────────────────────────────────────────── */
-function recalcItem(item) {
+function recalcItem(item, editedField = null) {
   const packing      = parseFloat(item.packing)          || 0
   const unit         = parseFloat(item.unit)             || 0
-  const packingPrice = parseFloat(item.packing_price)    || 0
   const taxRate      = parseFloat(item.purchase_tax_rate)|| 0
   const discount     = parseFloat(item.purchase_discount)|| 0
   const deductDisc   = item.deduct_discount_for_tax !== false
 
-  const quantity   = packing * unit
-  const item_value = quantity * packingPrice
-  const unit_price = quantity > 0 ? item_value / quantity : 0
+  const priceSource =
+    editedField === "item_value" || editedField === "packing_price" || editedField === "unit_price"
+      ? editedField
+      : (item._priceSource || "packing_price")
 
-  const disc_amt     = item_value * (discount / 100)
+  const quantity = packing * unit
+  let item_value = 0
+  let packingPrice = 0
+  let unitPrice = 0
+  let finalItemValue = "0.0000"
+  let finalPackingPrice = ""
+  let finalUnitPrice = "0.0000"
+
+  if (priceSource === "item_value") {
+    item_value = parseFloat(item.item_value) || 0
+    packingPrice = unit > 0 ? item_value / unit : 0
+    unitPrice = quantity > 0 ? item_value / quantity : (packing > 0 ? packingPrice / packing : 0)
+    finalItemValue = String(item.item_value ?? "")
+    finalPackingPrice = packingPrice > 0 ? packingPrice.toFixed(4) : ""
+    finalUnitPrice = unitPrice.toFixed(4)
+  } else if (priceSource === "unit_price") {
+    unitPrice = parseFloat(item.unit_price) || 0
+    packingPrice = packing > 0 ? unitPrice * packing : 0
+    item_value = quantity * unitPrice
+    finalUnitPrice = String(item.unit_price ?? "")
+    finalPackingPrice = packingPrice > 0 ? packingPrice.toFixed(4) : ""
+    finalItemValue = item_value.toFixed(4)
+  } else {
+    packingPrice = parseFloat(item.packing_price) || 0
+    item_value = unit * packingPrice
+    unitPrice = packing > 0 ? packingPrice / packing : (quantity > 0 ? item_value / quantity : 0)
+    finalPackingPrice = String(item.packing_price ?? "")
+    finalItemValue = item_value.toFixed(4)
+    finalUnitPrice = unitPrice.toFixed(4)
+  }
+
+  const disc_amt     = Number((item_value * (discount / 100)).toFixed(2))
   const taxable_base = deductDisc ? (item_value - disc_amt) : item_value
 
-  const cgst_pct       = taxRate / 2
-  const cgst_amt_total = taxable_base * (cgst_pct / 100)
-  const sgst_amt_total = taxable_base * (cgst_pct / 100)
+  const cgst_pct         = taxRate / 2
+  const cgst_amt_display = quantity > 0
+    ? Number(((taxable_base / quantity) * (cgst_pct / 100)).toFixed(4))
+    : Number((taxable_base * (cgst_pct / 100)).toFixed(4))
+  const sgst_amt_display = cgst_amt_display
 
-  const cgst_amt_display = quantity > 0 ? cgst_amt_total / quantity : cgst_amt_total
-  const sgst_amt_display = quantity > 0 ? sgst_amt_total / quantity : sgst_amt_total
+  const cgst_amt_total = quantity > 0
+    ? Number((cgst_amt_display * quantity).toFixed(2))
+    : Number(cgst_amt_display.toFixed(2))
+  const sgst_amt_total = cgst_amt_total
 
-  const purchase_cost_total   = taxable_base + cgst_amt_total + sgst_amt_total
+  const purchase_cost_total   = Number((taxable_base + cgst_amt_total + sgst_amt_total).toFixed(2))
   const purchase_cost_display = quantity > 0 ? purchase_cost_total / quantity : purchase_cost_total
 
   const sellingTaxRate  = parseFloat(item.selling_tax_rate) || 0
@@ -487,9 +522,11 @@ function recalcItem(item) {
 
   return {
     ...item,
+    _priceSource:          priceSource,
     quantity:              String(quantity),
-    item_value:            item_value.toFixed(4),
-    unit_price:            unit_price.toFixed(4),
+    packing_price:         finalPackingPrice,
+    item_value:            finalItemValue,
+    unit_price:            finalUnitPrice,
     cgst_percent:          cgst_pct.toFixed(2),
     sgst_percent:          cgst_pct.toFixed(2),
     cgst_amt:              cgst_amt_total.toFixed(2),
@@ -972,7 +1009,7 @@ const GRNGeneration = () => {
   useEffect(()=>{
     if(items.length===0){
       setGrnData(p=>({...p,taxable_amount:"0.00",non_taxable_amount:"0.00",cgst:"0.00",sgst:"0.00",
-        tax_paid_to_supplier:"0.00",total_discount:"0.00",total_amount:"0.00",net_invoice_amount:"0.00"}))
+        tax_paid_to_supplier:"0.00",total_discount:"0.00",round_amount:"0.00",total_amount:"0.00",net_invoice_amount:"0.00"}))
       return
     }
     const t = items.reduce((a,i)=>{
@@ -983,20 +1020,21 @@ const GRNGeneration = () => {
       a.tot  += parseFloat(i.purchase_cost)||0
       return a
     },{tax:0,cgst:0,sgst:0,disc:0,tot:0})
-    setGrnData(p=>{
-      const net = t.tot + (parseFloat(p.round_amount)||0)
-      return {
-        ...p,
-        taxable_amount:      t.tax.toFixed(2),
-        non_taxable_amount:  t.tax.toFixed(2),
-        cgst:                t.cgst.toFixed(2),
-        sgst:                t.sgst.toFixed(2),
-        tax_paid_to_supplier:(t.cgst+t.sgst).toFixed(2),
-        total_discount:      t.disc.toFixed(2),
-        total_amount:        t.tot.toFixed(2),
-        net_invoice_amount:  net.toFixed(2),
-      }
-    })
+    const totRounded = Number(t.tot.toFixed(2))
+    const netWhole = Math.floor(totRounded)
+    const autoRound = Number((netWhole - totRounded).toFixed(2))
+    setGrnData(p=>({
+      ...p,
+      taxable_amount:      t.tax.toFixed(2),
+      non_taxable_amount:  t.tax.toFixed(2),
+      cgst:                t.cgst.toFixed(2),
+      sgst:                t.sgst.toFixed(2),
+      tax_paid_to_supplier:(t.cgst+t.sgst).toFixed(2),
+      total_discount:      t.disc.toFixed(2),
+      round_amount:        autoRound === 0 ? "0.00" : autoRound.toFixed(2),
+      total_amount:        totRounded.toFixed(2),
+      net_invoice_amount:  netWhole.toFixed(2),
+    }))
   },[items])
 
   useEffect(()=>{
@@ -1114,15 +1152,23 @@ const GRNGeneration = () => {
     }
     if(name==="expiry_month"){ u.expiry = value && u.expiry_year ? `${value}/${u.expiry_year}` : "" }
     if(name==="expiry_year"){  u.expiry = u.expiry_month && value ? `${u.expiry_month}/${value}` : "" }
-    setCurItem(recalcItem(u))
+    setCurItem(recalcItem(u, name))
+  }
+
+  const validateCurItem = () => {
+    if(!curItem.name){ toast.error("Select a medicine"); return false }
+    if(!curItem.batch?.trim()){ toast.error("Batch number is required"); return false }
+    if(expiryTooShort){ toast.error("Expiry is too short — items expiring within 6 months cannot be added"); return false }
+    if(!curItem.packing || parseFloat(curItem.packing)<=0){ toast.error("Packing is mandatory and must be greater than 0"); return false }
+    if(!curItem.unit || parseFloat(curItem.unit)<=0){ toast.error("No. of Units is mandatory and must be greater than 0"); return false }
+    if(!curItem.packing_price || parseFloat(curItem.packing_price)<=0){ toast.error("Packing Price is mandatory and must be greater than 0"); return false }
+    if(!curItem.mrp || parseFloat(curItem.mrp)<=0){ toast.error("MRP is mandatory and must be greater than 0"); return false }
+    return true
   }
 
   const addItem = () => {
     if(isVerified) return
-    if(!curItem.name){ toast.error("Select a medicine"); return }
-    if(!curItem.batch?.trim()){ toast.error("Batch number is required"); return }
-    if(expiryTooShort){ toast.error("Expiry is too short — items expiring within 6 months cannot be added"); return }
-    if(!curItem.packing_price||parseFloat(curItem.packing_price)<=0){ toast.error("Enter packing price"); return }
+    if(!validateCurItem()) return
     setItems(p=>[...p,{...curItem,id:Date.now()}])
     setCurItem(EMPTY_ITEM); setMedSearch(""); setLastStock(null); setTimeout(() => medSearchInputRef.current?.focus(), 50);
   }
@@ -1131,7 +1177,7 @@ const GRNGeneration = () => {
     if (isVerified) return
     setEditingItemId(it.id)
     setMedSearch(it.name || "")
-    setCurItem({ ...it })
+    setCurItem({ ...it, _priceSource: it._priceSource || "packing_price" })
     fetchLastStock(it.item_id)
     const el = document.getElementById("item-entry-card")
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
@@ -1146,10 +1192,7 @@ const GRNGeneration = () => {
 
   const saveEditItem = () => {
     if (isVerified) return
-    if (!curItem.name) { toast.error("Select a medicine"); return }
-    if (!curItem.batch?.trim()) { toast.error("Batch number is required"); return }
-    if (expiryTooShort) { toast.error("Expiry is too short — items expiring within 6 months cannot be added"); return }
-    if (!curItem.packing_price || parseFloat(curItem.packing_price) <= 0) { toast.error("Enter packing price"); return }
+    if (!validateCurItem()) return
 
     setItems(p => p.map(item => item.id === editingItemId ? { ...curItem, id: editingItemId } : item))
     setEditingItemId(null)
@@ -1183,7 +1226,7 @@ const GRNGeneration = () => {
     setItems(prev => prev.map(it => {
       if (it.id !== id) return it
       const updated = { ...it, [field]: value }
-      return recalcItem(updated)
+      return recalcItem(updated, field)
     }))
   }
 
@@ -1198,7 +1241,7 @@ const GRNGeneration = () => {
       invoice_date: toDateTime(grnData.invoice_date),
       grn_number:   "",
       draft_number: isEdit ? editDraftNo : undefined,
-      items:        JSON.stringify(items),
+      items:        JSON.stringify(items.map(({ _useUnitPrice, _priceSource, ...rest }) => rest)),
       payment_status: JSON.stringify([{
         status: "Not Paid", amount_paid: 0.0,
         pending_amount: parseFloat(grnData.net_invoice_amount),
@@ -1612,14 +1655,16 @@ const GRNGeneration = () => {
 
                           <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
-                              <Lbl>Packing</Lbl>
+                              <Lbl>Packing <span style={{color:"#dc2626"}}>*</span></Lbl>
                               <Input name="packing" value={curItem.packing}
-                                onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
+                                onChange={handleItemChange} placeholder="0"
+                                style={{fontSize:"0.8rem", borderColor: curItem.name && !(parseFloat(curItem.packing) > 0) ? "#fca5a5" : undefined}} />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
-                              <Lbl>No. of Units</Lbl>
+                              <Lbl>No. of Units <span style={{color:"#dc2626"}}>*</span></Lbl>
                               <Input name="unit" value={curItem.unit}
-                                onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
+                                onChange={handleItemChange} placeholder="0"
+                                style={{fontSize:"0.8rem", borderColor: curItem.name && !(parseFloat(curItem.unit) > 0) ? "#fca5a5" : undefined}} />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Qty (auto)</Lbl>
@@ -1632,20 +1677,23 @@ const GRNGeneration = () => {
                             </InputWrapper>
                           </GridRow>
 
-                          <GridRow cols="repeat(4,1fr)" style={{marginBottom:0}}>
+                          <GridRow cols="repeat(3,1fr)" style={{marginBottom:0}}>
                             <InputWrapper style={{margin:0}}>
-                              <Lbl>Packing Price ₹</Lbl>
-                              <Input name="packing_price" value={curItem.packing_price}
+                              <Lbl>Item Value ₹</Lbl>
+                              <Input name="item_value" value={curItem.item_value}
                                 onChange={handleItemChange} placeholder="0.0000" style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Packing Price ₹ <span style={{color:"#dc2626"}}>*</span></Lbl>
+                              <Input name="packing_price" value={curItem.packing_price}
+                                onChange={handleItemChange} placeholder="0.0000"
+                                style={{fontSize:"0.8rem", borderColor: curItem.name && !(parseFloat(curItem.packing_price) > 0) ? "#fca5a5" : undefined}} />
                               <LastHint>Last Purchase: {lastPurchasePrice}</LastHint>
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
-                              <Lbl>Item Value (auto)</Lbl>
-                              <CalcInput value={`₹ ${parseFloat(curItem.item_value).toFixed(4)}`} readOnly />
-                            </InputWrapper>
-                            <InputWrapper style={{margin:0}}>
-                              <Lbl>Unit Price (auto)</Lbl>
-                              <CalcInput value={`₹ ${parseFloat(curItem.unit_price).toFixed(4)}`} readOnly />
+                              <Lbl>Unit Price ₹</Lbl>
+                              <Input name="unit_price" value={curItem.unit_price}
+                                onChange={handleItemChange} placeholder="0.0000" style={{fontSize:"0.8rem"}} />
                             </InputWrapper>
                           </GridRow>
 
@@ -1702,9 +1750,10 @@ const GRNGeneration = () => {
                         <Panel>
                           <PanelTitle>Tax Details</PanelTitle>
                           <InputWrapper style={{margin:0}}>
-                            <Lbl>MRP ₹</Lbl>
+                            <Lbl>MRP ₹ <span style={{color:"#dc2626"}}>*</span></Lbl>
                             <Input name="mrp" value={curItem.mrp}
-                              onChange={handleItemChange} placeholder="0.00" style={{fontSize:"0.8rem"}} />
+                              onChange={handleItemChange} placeholder="0.00"
+                              style={{fontSize:"0.8rem", borderColor: curItem.name && !(parseFloat(curItem.mrp) > 0) ? "#fca5a5" : undefined}} />
                             <LastHint>Last MRP: {lastMRP}</LastHint>
                           </InputWrapper>
 
@@ -1960,24 +2009,18 @@ const GRNGeneration = () => {
                                   ₹{parseFloat(it.selling_price||0).toFixed(2)}
                                 </Td>
                                 {!isVerified && (
-                                  <Td style={{whiteSpace:"nowrap"}}>
-                                    <Edit2
-                                      size={13}
-                                      color={colors.primary}
-                                      style={{cursor:"pointer", marginRight: 10}}
-                                      title="Edit item"
-                                      onClick={() => handleEditItem(it)}
-                                    />
-                                    <Trash2
-                                      size={13}
-                                      color={colors.danger}
-                                      style={{cursor:"pointer"}}
-                                      title="Delete item"
-                                      onClick={() => {
-                                        if (editingItemId === it.id) cancelEditItem();
-                                        removeItem(it.id);
-                                      }}
-                                    />
+                                  <Td style={{whiteSpace:"nowrap", textAlign:"center"}}>
+                                    <InvActionGroup>
+                                      <InvEditBtn size={16} title="Edit item" onClick={() => handleEditItem(it)} />
+                                      <InvDeleteBtn
+                                        size={16}
+                                        title="Delete item"
+                                        onClick={() => {
+                                          if (editingItemId === it.id) cancelEditItem();
+                                          removeItem(it.id);
+                                        }}
+                                      />
+                                    </InvActionGroup>
                                   </Td>
                                 )}
                               </Tr>

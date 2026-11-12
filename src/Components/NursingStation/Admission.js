@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import styled, { keyframes, css } from "styled-components";
+import JsBarcode from "jsbarcode";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
@@ -438,23 +439,33 @@ const PMC = styled(ModalContainer)`max-width:520px;`;
 const PMB = styled(ModalBody)`padding:0;background:#fff;`;
 const Slip = styled.div`
   width: 97.5mm;
-  min-height: 51.0mm;
+  height: 51.0mm;
   max-width: 100%;
-  padding: 3mm 4mm;
+  padding: 2.5mm 4mm 2mm 4mm;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 10px;
   color: #000;
-  border: 1.5px dashed #000;
+  border: 1px dashed #94a3b8;
   margin: 16px auto;
   box-sizing: border-box;
   background: #fff;
+  overflow: hidden;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+`;
+const SlipTopRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 4px;
+  gap: 8px;
 `;
 const SR = styled.div`display:flex;justify-content:space-between;gap:10px;align-items:flex-start;`;
-const SL = styled.div`flex:1.55;display:flex;flex-direction:column;gap:1.5px;`;
-const SRt = styled.div`flex:1;text-align:right;display:flex;flex-direction:column;gap:1.5px;`;
-const SBig = styled.div`font-size:12px;font-weight:900;letter-spacing:.3px;line-height:1.1;`;
-const SLn = styled.div`margin:0;font-size:9.5px;line-height:1.2;`;
-const SBold = styled.div`font-weight:700;margin:1px 0;font-size:10.5px;line-height:1.2;`;
+const SL = styled.div`flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;`;
+const SRt = styled.div`flex:0 0 auto;text-align:left;display:flex;flex-direction:column;gap:1px;white-space:nowrap;`;
+const SBig = styled.div`font-size:13px;font-weight:900;letter-spacing:.3px;line-height:1.15;white-space:nowrap;text-align:right;`;
+const SLn = styled.div`margin:0;font-size:10.5px;font-weight:800;line-height:1.32;letter-spacing:.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
+const SBold = styled.div`font-weight:900;margin:0 0 1px 0;font-size:11.5px;line-height:1.3;letter-spacing:.15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
 const PA = styled.div`display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e5e7eb;`;
 const PBt = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p => p.sec ? '#e5e7eb' : '#7c3aed'};color:${p => p.sec ? '#374151' : '#fff'};&:hover{opacity:.88;}`;
 
@@ -508,30 +519,31 @@ function encodeCode128(text) {
   bars.push("1100011101011");
   return bars.join("");
 }
-function BarcodeSVG({ value = "", width = 240, height = 64, showText = true }) {
+function BarcodeSVG({ value = "", width = 140, height = 25, showText = false }) {
+  const svgRef = useRef(null);
+  useEffect(() => {
+    if (!value || !svgRef.current) return;
+    try {
+      JsBarcode(svgRef.current, String(value).trim(), {
+        format: "CODE128",
+        displayValue: Boolean(showText),
+        height: showText ? Math.max(height - 14, 16) : height,
+        width: 1.5,
+        margin: 0,
+        fontSize: 10,
+      });
+      svgRef.current.setAttribute("preserveAspectRatio", "none");
+      svgRef.current.setAttribute("shape-rendering", "crispEdges");
+    } catch (e) {
+      console.error("Barcode preview error:", e);
+    }
+  }, [value, height, showText]);
+
   if (!value) return null;
-  const encoded = encodeCode128(value);
-  const modW = width / (encoded.length || 1);
-  const barH = showText ? height - 16 : height;
-  const rects = [];
-  let x = 0;
-  for (let i = 0; i < encoded.length; i++) {
-    if (i % 2 === 0) rects.push({ x, w: modW });
-    x += modW;
-  }
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={width} height={height}
-      style={{ display: "block" }} viewBox={`0 0 ${width} ${height}`}>
-      {rects.map((r, i) => (
-        <rect key={i} x={r.x.toFixed(2)} y={0} width={Math.max(r.w, 0.6).toFixed(2)} height={barH} fill="#000" />
-      ))}
-      {showText && (
-        <text x={width / 2} y={height} textAnchor="middle"
-          fontFamily="'Courier New',monospace" fontSize="10" fill="#000" letterSpacing="1.5">
-          {value}
-        </text>
-      )}
-    </svg>
+    <div style={{ width: `${width}px`, height: `${height}px`, display: "flex", alignItems: "center", overflow: "hidden", flexShrink: 0 }}>
+      <svg ref={svgRef} style={{ display: "block", width: "100%", height: "100%" }} />
+    </div>
   );
 }
 
@@ -686,6 +698,12 @@ const parseTimestamp = (d) => {
   const str = String(d).trim();
   if (!str) return 0;
 
+  // Bare ISO datetime without timezone offset (e.g. naive UTC datetime serialized without Z/+HH:MM)
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(str)) {
+    const utcTs = new Date(str.replace(" ", "T") + "Z").getTime();
+    if (!isNaN(utcTs)) return utcTs;
+  }
+
   let t = new Date(str).getTime();
   if (!isNaN(t)) return t;
 
@@ -722,23 +740,27 @@ const parseTimestamp = (d) => {
   return 0;
 };
 
+const IST_TZ = "Asia/Kolkata";
 const fmtDate = d => {
   if (!d) return "-";
   const ts = parseTimestamp(d);
   if (!ts) return typeof d === "string" ? d : "-";
-  try { return new Date(ts).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return "-"; }
+  try { return new Date(ts).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: IST_TZ }); } catch { return "-"; }
 };
 const fmtTime = d => {
   if (!d) return "-";
   const ts = parseTimestamp(d);
   if (!ts) return "-";
-  try { return new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }); } catch { return "-"; }
+  try { return new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: IST_TZ }); } catch { return "-"; }
 };
 const fmtDateTime = d => { if (!d) return "—"; try { return `${fmtDate(d)}, ${fmtTime(d)}`; } catch { return "—"; } };
 
 function calcDuration(start, end) {
   if (!start) return null;
-  const ms = (end ? new Date(end) : new Date()) - new Date(start);
+  const startTs = parseTimestamp(start);
+  const endTs = end ? parseTimestamp(end) : Date.now();
+  if (!startTs || !endTs) return null;
+  const ms = endTs - startTs;
   if (ms < 0) return { days: 0, hours: 0 };
   return { days: Math.floor(ms / 86400000), hours: Math.floor((ms % 86400000) / 3600000) };
 }
@@ -1934,7 +1956,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: IST_TZ });
 
   // ── Today Registered Patients / Admission Requests State ───────────────────
   const [registeredPatients, setRegisteredPatients] = useState([]);
@@ -2585,11 +2607,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     if (!d) return false;
     const ts = parseTimestamp(d);
     if (!ts) return false;
-    const dateObj = new Date(ts);
-    const now = new Date();
-    return dateObj.getFullYear() === now.getFullYear() &&
-           dateObj.getMonth() === now.getMonth() &&
-           dateObj.getDate() === now.getDate();
+    return fmtDate(ts) === fmtDate(Date.now());
   };
 
   const isTodayAdmission = (a) => {
@@ -3100,46 +3118,73 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
   const doPrint = () => {
     const pd = printData || {};
-    const admDT = pd.admissionDateTime ? new Date(pd.admissionDateTime) : new Date();
-    const ipStr = pd.ipNumber || "";
+    const admTs = parseTimestamp(pd.admissionDateTime);
+    const admDT = new Date(admTs || Date.now());
+    const ipStr = String(pd.ipNumber || pd.ip_number || "").trim();
     const { roomNo, bedNo } = getActiveRoom(pd);
-    const encoded = encodeCode128(ipStr);
-    const bW = 160, modW = bW / encoded.length;
-    let barsHtml = "", xPos = 0;
-    for (let i = 0; i < encoded.length; i++) {
-      if (i % 2 === 0) barsHtml += `<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW, 0.6).toFixed(2)}" height="26" fill="black"/>`;
-      xPos += modW;
+
+    // Generate razor-sharp Code128 Barcode SVG synchronously using JsBarcode
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    try {
+      JsBarcode(svg, ipStr || "0000", {
+        format: "CODE128",
+        displayValue: false,
+        height: 25,
+        width: 1.5,
+        margin: 0,
+      });
+      svg.setAttribute("preserveAspectRatio", "none");
+      svg.setAttribute("shape-rendering", "crispEdges");
+    } catch (bcErr) {
+      console.error("Barcode generation error:", bcErr);
     }
+    const barcodeSvgHtml = new XMLSerializer().serializeToString(svg);
+
+    // Patient Name / Age / Gender line
+    const cleanGender = String(pd.gender || "").toUpperCase().startsWith("F")
+      ? "FEMALE"
+      : (String(pd.gender || "").toUpperCase().startsWith("M") ? "MALE" : String(pd.gender || "").toUpperCase());
+    const ageUnit = pd.age_type === "M" ? "MONTHS" : pd.age_type === "D" ? "DAYS" : "YEARS";
+    const ageVal = pd.age !== undefined && pd.age !== null && pd.age !== "" ? `${pd.age} ${ageUnit}` : "";
+    const patientLine = [pName(pd).toUpperCase(), [ageVal, cleanGender].filter(Boolean).join("/")].filter(Boolean).join(" / ");
 
     // Relationship line (W/o, S/o, D/o, H/o, or Attender)
     let relLine = "";
     if (pd.spouseName) {
-      const prefix = String(pd.gender || "").toUpperCase() === "MALE" ? "H/o" : "W/o";
-      relLine = `<div class="line bold">${prefix} . ${pd.spouseName.toUpperCase()}</div>`;
+      const prefix = cleanGender === "MALE" ? "H/o" : "W/o";
+      relLine = `<div class="sticker-line">${prefix} ${pd.spouseName.toUpperCase()}</div>`;
     } else if (pd.fatherName) {
-      const prefix = String(pd.gender || "").toUpperCase() === "FEMALE" ? "D/o" : "S/o";
-      relLine = `<div class="line bold">${prefix} . ${pd.fatherName.toUpperCase()}</div>`;
+      const prefix = cleanGender === "FEMALE" ? "D/o" : "S/o";
+      relLine = `<div class="sticker-line">${prefix} ${pd.fatherName.toUpperCase()}</div>`;
     } else if (pd.attender_name) {
       const rel = pd.attender_relationship ? (
-        pd.attender_relationship.toLowerCase() === "spouse" ? (String(pd.gender || "").toUpperCase() === "MALE" ? "H/o" : "W/o") :
-        pd.attender_relationship.toLowerCase() === "father" ? (String(pd.gender || "").toUpperCase() === "FEMALE" ? "D/o" : "S/o") :
-        pd.attender_relationship.toLowerCase() === "mother" ? (String(pd.gender || "").toUpperCase() === "FEMALE" ? "D/o" : "S/o") :
-        `${pd.attender_relationship} :`
-      ) : "W/o .";
-      relLine = `<div class="line bold">${rel} ${pd.attender_name.toUpperCase()}</div>`;
+        pd.attender_relationship.toLowerCase() === "spouse" ? (cleanGender === "MALE" ? "H/o" : "W/o") :
+        pd.attender_relationship.toLowerCase() === "father" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
+        pd.attender_relationship.toLowerCase() === "mother" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
+        `${pd.attender_relationship}:`
+      ) : "W/o";
+      relLine = `<div class="sticker-line">${rel} ${pd.attender_name.toUpperCase()}</div>`;
     }
 
     // Address
-    const addr1 = (pd.permanent_address || "").toUpperCase();
-    const addrParts = [pd.area, pd.city, pd.state].filter(Boolean).map(s => s.toUpperCase());
-    const addr2 = addrParts.join(" ,");
+    const addr1 = (pd.permanent_address || "").trim().toUpperCase();
+    const addrParts = [pd.area, pd.city, pd.state].filter(Boolean).map(s => String(s).trim().toUpperCase());
+    const uniqueAddrParts = [];
+    addrParts.forEach(p => { if (p && !uniqueAddrParts.includes(p)) uniqueAddrParts.push(p); });
+    const addr2 = uniqueAddrParts.join(" ");
+
+    // Phone
+    const rawMobile = String(pd.mobilePhone || "").trim();
+    const cleanMobile = rawMobile.replace(/^(\+91|91)/, "").trim();
+    const phoneLine = cleanMobile ? `Ph.+91${cleanMobile}` : (rawMobile ? `Ph.${rawMobile}` : "");
 
     // Company / Insurance
     const compName = (pd.insuranceCompanyName || pd.insurance_company || (pd.customerType !== "General" ? pd.customerType : "") || "").toUpperCase();
 
     // Doctor
-    const rawDr = (pd.admittingDoctorName || getDrName(pd.admittingDoctor) || "").toUpperCase();
-    const docDisplay = rawDr ? (rawDr.startsWith("DR") ? rawDr : `DR.${rawDr}`) : "";
+    let rawDr = String(pd.admittingDoctorName || getDrName(pd.admittingDoctor) || "").trim();
+    rawDr = rawDr.replace(/^(dr|doctor)[\s.]+/i, "").replace(/^(dr|doctor)[\s.]+/i, "").trim();
+    const docDisplay = rawDr ? (/^[a-z]\./i.test(rawDr) ? `DR.${rawDr.toUpperCase()}` : `DR. ${rawDr.toUpperCase()}`) : "";
 
     // Aadhaar / Adhar
     const adharNo = pd.aadhaar || pd.aadhar || "";
@@ -3147,14 +3192,39 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     // Room
     const roomDisplay = roomNo !== "-" ? `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}` : "-";
 
-    const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }); // DD/MM/YYYY
-    const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }); // HH:MM:SS
+    const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: IST_TZ });
+    const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ });
 
-    const w = window.open("", "_blank", "width=500,height=340");
-    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip - ${ipStr}</title><style>
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "97.5mm";
+    iframe.style.height = "51mm";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const printDoc = iframe.contentWindow.document;
+    printDoc.open();
+    printDoc.write(`<!DOCTYPE html><html><head><title>IP Admission Slip - ${ipStr}</title><style>
       @page {
-        size: 97.5mm 51.0mm;
-        margin: 0;
+        size: 97.5mm 51mm;
+        margin: 0 !important;
+      }
+      @media print {
+        @page {
+          size: 97.5mm 51mm;
+          margin: 0 !important;
+        }
+        html, body {
+          width: 97.5mm !important;
+          height: 51mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+        }
       }
       * {
         margin: 0;
@@ -3163,157 +3233,157 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       }
       html, body {
         width: 97.5mm;
-        height: 51.0mm;
+        height: 51mm;
         margin: 0;
         padding: 0;
-        overflow: hidden;
-        background: #fff;
-        color: #000;
+        box-sizing: border-box;
         font-family: Arial, Helvetica, sans-serif;
+        color: #000;
+        background-color: #fff;
+        overflow: hidden;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
-      .slip {
-        width: 97.5mm;
-        height: 51.0mm;
+      .sticker-content {
+        width: 100%;
+        height: 51mm;
         max-width: 97.5mm;
-        max-height: 51.0mm;
-        padding: 2mm 3mm;
-        background: #fff;
         box-sizing: border-box;
+        padding: 2.5mm 4mm 2mm 4mm;
         overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
+        background: #fff;
       }
-      .header-row {
+      .top-row {
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
+        align-items: center;
+        width: 100%;
         margin-bottom: 3px;
-        padding-bottom: 2px;
-        border-bottom: 1px dashed #000;
+        gap: 8px;
       }
-      .bc-box {
+      .barcode-svg-wrap {
+        width: 140px;
+        height: 25px;
+        flex-shrink: 0;
         display: flex;
-        flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
+        overflow: hidden;
+      }
+      .barcode-svg-wrap svg {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+        shape-rendering: crispEdges;
       }
       .ip-box {
         text-align: right;
+        min-width: 0;
+        flex-shrink: 0;
       }
       .ip-title {
-        font-size: 11.5px;
+        font-size: 13px;
         font-weight: 900;
-        letter-spacing: .3px;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
         line-height: 1.1;
       }
       .comp-title {
         font-size: 9.5px;
-        font-weight: 800;
-        margin-top: 2px;
-        line-height: 1.1;
-        max-width: 170px;
+        font-weight: 900;
+        margin-top: 1.5px;
+        line-height: 1.15;
+        max-width: 175px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      .grid {
-        display: grid;
-        grid-template-columns: 1.55fr 1fr;
-        gap: 2px 8px;
-        margin-top: 2px;
+      .body-cols {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 8px;
+        width: 100%;
       }
       .col-left {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5px;
+        flex: 1;
+        min-width: 0;
       }
       .col-right {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5px;
+        flex: 0 0 auto;
         text-align: left;
+        white-space: nowrap;
       }
-      .bold {
+      .sticker-line {
+        font-size: 10.5px;
+        line-height: 1.32;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: 800;
+        letter-spacing: 0.1px;
+        color: #000;
+      }
+      .patient-line {
+        font-size: 11.5px;
+        font-weight: 900;
+        line-height: 1.28;
+        margin-bottom: 1px;
+        letter-spacing: 0.15px;
+      }
+      .doc-line {
+        font-size: 10.5px;
+        font-weight: 900;
+        margin-top: 1px;
+      }
+      .meta-line {
+        font-size: 10.5px;
+        line-height: 1.34;
+        font-weight: 800;
+        letter-spacing: 0.1px;
+        white-space: nowrap;
+        color: #000;
+      }
+      .meta-uhid {
         font-weight: 900;
       }
-      .line {
-        font-size: 9.5px;
-        line-height: 1.2;
-        word-break: break-word;
-      }
-      .line-main {
-        font-size: 10.5px;
-        line-height: 1.2;
-      }
-      @media screen {
-        body {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 100vh;
-          background: #e2e8f0;
-          padding: 20px;
-        }
-        .slip {
-          border: 1px dashed #64748b;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-      }
-      @media print {
-        html, body {
-          width: 97.5mm !important;
-          height: 51.0mm !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: hidden !important;
-        }
-        .slip {
-          border: none !important;
-          box-shadow: none !important;
-          width: 97.5mm !important;
-          height: 51.0mm !important;
-          max-width: 97.5mm !important;
-          max-height: 51.0mm !important;
-          margin: 0 !important;
-          padding: 2mm 3mm !important;
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-        }
-      }
     </style></head><body>
-      <div class="slip">
-        <div class="header-row">
-          <div class="bc-box">
-            <svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="26" viewBox="0 0 ${bW} 26">${barsHtml}</svg>
-          </div>
+      <div class="sticker-content">
+        <div class="top-row">
+          <div class="barcode-svg-wrap">${barcodeSvgHtml}</div>
           <div class="ip-box">
-            <div class="ip-title">IP NO: ${ipStr}</div>
+            <div class="ip-title">IP NO : ${ipStr}</div>
             ${compName ? `<div class="comp-title">${compName}</div>` : ""}
           </div>
         </div>
-        <div class="grid">
+        <div class="body-cols">
           <div class="col-left">
-            <div class="line line-main bold">${pName(pd).toUpperCase()} / ${pd.age || ""} ${String(pd.gender || "").toUpperCase()}</div>
+            <div class="sticker-line patient-line">${patientLine}</div>
             ${relLine}
-            ${addr1 ? `<div class="line bold">${addr1}</div>` : ""}
-            ${addr2 ? `<div class="line bold">${addr2}</div>` : ""}
-            ${pd.mobilePhone ? `<div class="line bold">${pd.mobilePhone}</div>` : ""}
-            <div class="line bold">Admitted : ${docDisplay}</div>
-            ${adharNo ? `<div class="line bold">Adhar Number : ${adharNo}</div>` : ""}
+            ${addr1 ? `<div class="sticker-line">${addr1}</div>` : ""}
+            ${addr2 ? `<div class="sticker-line">${addr2}</div>` : ""}
+            ${phoneLine ? `<div class="sticker-line">${phoneLine}</div>` : ""}
+            ${docDisplay ? `<div class="sticker-line doc-line">${docDisplay}</div>` : ""}
+            ${adharNo ? `<div class="sticker-line">Adhar : ${adharNo}</div>` : ""}
           </div>
           <div class="col-right">
-            <div class="line bold">UHID : ${pd.uhid || ""}</div>
-            <div class="line bold">DOA  : ${doaDate}</div>
-            <div class="line bold">AD.TIME: ${doaTime}</div>
-            <div class="line bold">Room : ${roomDisplay}</div>
+            <div class="meta-line meta-uhid">UHID : ${pd.uhid || ""}</div>
+            <div class="meta-line">DOA  : ${doaDate}</div>
+            <div class="meta-line">TIME : ${doaTime}</div>
+            <div class="meta-line">Room : ${roomDisplay}</div>
           </div>
         </div>
       </div>
-      <script>window.onload=function(){window.print();window.close();};<\/script>
+      <script>
+        window.onload = function() {
+          window.focus();
+          window.print();
+          setTimeout(function() {
+            if (window.frameElement) window.frameElement.remove();
+          }, 1200);
+        };
+      <\/script>
     </body></html>`);
-    w.document.close();
+    printDoc.close();
   };
 
   const openRoomModal = () => {
@@ -4763,26 +4833,39 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
               <ModalHeader><ModalTitle>🖨️ Admission Slip</ModalTitle><CloseButton onClick={() => setPrintData(null)}>×</CloseButton></ModalHeader>
               <PMB>
                 <Slip>
+                  <SlipTopRow>
+                    <BarcodeSVG value={printData.ipNumber || printData.ip_number || ""} width={140} height={25} />
+                    <div style={{ textAlign: "right", minWidth: 0 }}>
+                      <SBig>IP NO : {printData.ipNumber || printData.ip_number || ""}</SBig>
+                      {(printData.insuranceCompanyName || printData.insurance_company) && (
+                        <SLn style={{ textAlign: "right", fontSize: "9.5px", maxWidth: "175px" }}>
+                          {String(printData.insuranceCompanyName || printData.insurance_company).toUpperCase()}
+                        </SLn>
+                      )}
+                    </div>
+                  </SlipTopRow>
                   <SR>
                     <SL>
-                      <BarcodeSVG value={printData.ipNumber || printData.ip_number || ""} width={160} height={30} showText />
-                      <SBold>{pName(printData)}</SBold>
-                      <SLn>
-                        {printData.dob ? `DOB: ${printData.dob}  ` : ""}
-                        {printData.age ? `Age: ${printData.age}` : ""}
-                        {printData.gender ? `  ${printData.gender}` : ""}
-                      </SLn>
-                      <SLn>{printData.permanent_address || ""}</SLn>
-                      <SLn>{[printData.area, printData.city, printData.state].filter(Boolean).join(", ")}</SLn>
-                      <SLn>{printData.mobilePhone || ""}</SLn>
-                      <SLn>Admitted: Dr. {printData.admittingDoctorName || getDrName(printData.admittingDoctor)}</SLn>
+                      <SBold>
+                        {[
+                          pName(printData).toUpperCase(),
+                          [
+                            printData.age ? `${printData.age} ${printData.age_type === "M" ? "MONTHS" : printData.age_type === "D" ? "DAYS" : "YEARS"}` : "",
+                            String(printData.gender || "").toUpperCase(),
+                          ].filter(Boolean).join("/"),
+                        ].filter(Boolean).join(" / ")}
+                      </SBold>
+                      {printData.permanent_address && <SLn>{String(printData.permanent_address).toUpperCase()}</SLn>}
+                      {[printData.area, printData.city, printData.state].filter(Boolean).length > 0 && (
+                        <SLn>{[printData.area, printData.city, printData.state].filter(Boolean).map(s => String(s).toUpperCase()).join(" ")}</SLn>
+                      )}
+                      {printData.mobilePhone && <SLn>Ph.+91{String(printData.mobilePhone).replace(/^(\+91|91)/, "").trim()}</SLn>}
+                      <SLn>DR. {String(printData.admittingDoctorName || getDrName(printData.admittingDoctor) || "").replace(/^(dr|doctor)[\s.]+/i, "").trim().toUpperCase()}</SLn>
                     </SL>
                     <SRt>
-                      <SBig>IP NO: {printData.ipNumber || printData.ip_number || ""}</SBig>
-                      <SLn>{printData.insuranceCompanyName || ""}</SLn>
-                      <SLn>UHID : {printData.uhid || ""}</SLn>
+                      <SLn style={{ fontWeight: 900 }}>UHID : {printData.uhid || ""}</SLn>
                       <SLn>DOA  : {printData.admissionDateTime ? fmtDate(printData.admissionDateTime) : "-"}</SLn>
-                      <SLn>TIME : {printData.admissionDateTime ? new Date(printData.admissionDateTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "-"}</SLn>
+                      <SLn>TIME : {parseTimestamp(printData.admissionDateTime) ? new Date(parseTimestamp(printData.admissionDateTime)).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ }) : "-"}</SLn>
                       <SLn>Room : {roomNo} / {bedNo}</SLn>
                     </SRt>
                   </SR>

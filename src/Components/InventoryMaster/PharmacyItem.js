@@ -17,7 +17,9 @@ import {
   InvTr,
   InvBadge,
   InvActionGroup,
-  InvActionBtn,
+  InvEditBtn,
+  InvDeleteBtn,
+  InvHistoryBtn,
   InvModalOverlay,
   InvModalContainer,
   InvModalHeader,
@@ -1012,7 +1014,7 @@ const PharmacyItem = () => {
                 <InvTh>Chemical Composition</InvTh>
                 <InvTh>HSN</InvTh>
                 <InvTh>Reorder</InvTh>
-                <InvTh style={{ textAlign: "center", width: 220 }}>Actions</InvTh>
+                <InvTh style={{ textAlign: "center", width: 120 }}>Action</InvTh>
               </tr>
             </thead>
             <tbody>
@@ -1057,15 +1059,9 @@ const PharmacyItem = () => {
                     </InvTd>
                     <InvTd style={{ textAlign: "center" }}>
                       <InvActionGroup>
-                        <InvActionBtn variant="history" onClick={() => handleOpenPurchaseHistory(item)} title="Purchase History">
-                          📋 Purchase History
-                        </InvActionBtn>
-                        <InvActionBtn variant="edit" onClick={() => handleEdit(item)} title="Edit Pharmacy Item">
-                          ✏️ Edit
-                        </InvActionBtn>
-                        <InvActionBtn variant="delete" onClick={() => handleDelete(item.item_id)} title="Delete Item">
-                          ✕
-                        </InvActionBtn>
+                        <InvEditBtn onClick={() => handleEdit(item)} title="Edit Pharmacy Item" />
+                        <InvDeleteBtn onClick={() => handleDelete(item.item_id)} title="Delete Item" />
+                        <InvHistoryBtn onClick={() => handleOpenPurchaseHistory(item)} title="Purchase History" />
                       </InvActionGroup>
                     </InvTd>
                   </InvTr>

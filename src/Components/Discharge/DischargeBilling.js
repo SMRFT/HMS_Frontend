@@ -107,6 +107,79 @@ const Badge = styled.span`
   color: ${p => ({ estimate: T.amber, billed: T.success, pending: T.blue, manual: T.textMuted, converting: "#7c3aed" }[p.$v] || T.textMuted)};
 `;
 
+const ReqCountBadge = styled.span`
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  font-size: 0.7rem; font-weight: 800;
+  background: ${p => (p.$active ? "rgba(255,255,255,0.24)" : "#dcfce7")};
+  color: ${p => (p.$active ? "#fff" : "#15803d")};
+`;
+
+const TTBar = styled.div`
+  padding: 12px 18px; background: #fff; border-bottom: 1px solid ${T.border};
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+`;
+
+const TableSelect = styled.select`
+  height: 32px; padding: 0 8px; border: 1px solid ${T.border};
+  border-radius: 6px; font-size: 0.82rem; font-weight: 600;
+  color: ${T.textMain}; background: #fff; outline: none; cursor: pointer;
+  &:focus { border-color: ${T.primary}; }
+`;
+
+const TWrap = styled.div`overflow-x: auto; width: 100%;`;
+
+const Tbl = styled.table`width: 100%; border-collapse: collapse; font-size: 0.83rem;`;
+
+const Thead = styled.thead`background: #f8fafc; border-bottom: 1.5px solid ${T.border};`;
+
+const SortTh = styled.th`
+  padding: 10px 14px; text-align: left; font-size: 0.72rem; font-weight: 800;
+  color: ${T.textMid}; text-transform: uppercase; letter-spacing: 0.5px;
+  white-space: nowrap; cursor: pointer; user-select: none;
+  &:hover { color: ${T.primary}; }
+`;
+
+const Th = styled.th`
+  padding: 10px 14px; text-align: left; font-size: 0.72rem; font-weight: 800;
+  color: ${T.textMid}; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+`;
+
+const Tr = styled.tr`
+  border-bottom: 1px solid #f1f5f9; transition: background 0.12s;
+  &:hover { background: #f8fafc; }
+`;
+
+const Td = styled.td`padding: 11px 14px; color: ${T.textMain}; vertical-align: middle;`;
+
+const ConvertActionBtn = styled.button`
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 7px;
+  border: 1px solid #bbf7d0; background: #f0fdf4; color: #16a34a;
+  cursor: pointer; transition: all 0.15s ease;
+  &:hover {
+    background: #16a34a; color: #fff; border-color: #16a34a;
+    transform: translateY(-1px); box-shadow: 0 2px 6px rgba(22,163,74,0.28);
+  }
+  &:active { transform: translateY(0); }
+`;
+
+const Pager = styled.div`
+  padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px; background: #f8fafc; border-top: 1px solid ${T.border};
+  font-size: 0.78rem; color: ${T.textMid};
+`;
+
+const PB = styled.button`
+  padding: 5px 10px; min-width: 30px; border-radius: 6px;
+  border: 1px solid ${p => (p.$active ? T.primary : T.border)};
+  background: ${p => (p.$active ? T.primary : "#fff")};
+  color: ${p => (p.$active ? "#fff" : T.textMain)};
+  font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+`;
+
 const Toast = styled.div`
   position: fixed; top: 14px; right: 16px; z-index: 9999;
   padding: 10px 18px; border-radius: ${T.radius}; color: #fff;
@@ -554,7 +627,8 @@ const EMPTY_FORM = {
 const EMPTY_ITEM = {
   itemName: "", code: "", nabh_code: "", nabh_rate: null, non_nabh_rate: null,
   rate_category: "NABH", quantity: 1, rate: "", discount: 0, amount: 0,
-  doctor: "", doctor_fee: "", item_description: "", package_name: ""
+  doctor: "", doctor_fee: "", item_description: "", package_name: "",
+  billTypeNo: "DIS01", bill_type: 2
 };
 
 const fmt = v => {
@@ -617,6 +691,8 @@ const calcTotals = (items, f) => {
 
 const buildPayload = (items, f, totals, status, patient, editReason = "", insurance = null, paymentMethod = "Cash") => ({
   status,
+  billTypeNo: "DIS01",
+  bill_type: 2,
   uhid: patient?.uhid || null,
   ip_number: patient?.ip_number || null,
   is_insurance_bill: Boolean(insurance?.isInsuranceBill),
@@ -626,6 +702,8 @@ const buildPayload = (items, f, totals, status, patient, editReason = "", insura
   company_name: insurance?.companyName || patient?.company || "",
   items: items.map(({ _key, _fromInvest, _baseRate, _appliedWard, _rateCategory, ...r }) => ({
     ...r,
+    billTypeNo: r.billTypeNo || "DIS01",
+    bill_type: (r.bill_type != null && r.bill_type !== "") ? r.bill_type : 2,
     nabh_code: r.nabh_code || "",
     nabh_rate: r.nabh_rate != null ? r.nabh_rate : null,
     non_nabh_rate: r.non_nabh_rate != null ? r.non_nabh_rate : null,
@@ -1665,6 +1743,96 @@ const DischargeBilling = () => {
   const [estRefresh, setEstRefresh] = useState(0);
   const [billRefresh, setBillRefresh] = useState(0);
 
+  // ── Discharge Requests ("Sent for billing" & is_admitted: true) ──────────
+  const [dischargeRequests, setDischargeRequests] = useState([]);
+  const [reqLoading, setReqLoading] = useState(false);
+  const [reqDateFilter, setReqDateFilter] = useState("all"); // "all" | YYYY-MM-DD
+  const [reqSearch, setReqSearch] = useState("");
+  const [reqPageSize, setReqPageSize] = useState(10);
+  const [reqPage, setReqPage] = useState(1);
+  const [reqSortField, setReqSortField] = useState("uhid");
+  const [reqSortDir, setReqSortDir] = useState("desc");
+
+  const getLocalTodayStr = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const fetchDischargeRequests = useCallback(async (dateOverride) => {
+    const activeDate = dateOverride !== undefined ? dateOverride : reqDateFilter;
+    setReqLoading(true);
+    try {
+      const qs = new URLSearchParams();
+      if (activeDate && activeDate !== "all") qs.set("date", activeDate);
+      else qs.set("date", "all");
+      const res = await apiRequest(`${BASE}discharge-billing/requests/?${qs.toString()}`, "GET");
+      const list = Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.data)
+        ? res.data
+        : [];
+      setDischargeRequests(list);
+    } catch {
+      setDischargeRequests([]);
+    } finally {
+      setReqLoading(false);
+    }
+  }, [reqDateFilter]);
+
+  useEffect(() => {
+    fetchDischargeRequests();
+  }, [fetchDischargeRequests, billRefresh, estRefresh]);
+
+  const handleReqSort = (field) => {
+    if (reqSortField === field) {
+      setReqSortDir(d => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setReqSortField(field);
+      setReqSortDir("asc");
+    }
+    setReqPage(1);
+  };
+
+  const filteredRequests = useMemo(() => {
+    const q = reqSearch.trim().toLowerCase();
+    const filtered = q
+      ? dischargeRequests.filter(r =>
+          [
+            r.uhid,
+            r.ipNumber,
+            r.patientName,
+            r.doctorName,
+            r.roomNo,
+            r.customerType,
+            r.insuranceCompany,
+          ]
+            .filter(Boolean)
+            .some(v => String(v).toLowerCase().includes(q))
+        )
+      : dischargeRequests;
+
+    return [...filtered].sort((a, b) => {
+      const av = String(a[reqSortField] || "").toLowerCase();
+      const bv = String(b[reqSortField] || "").toLowerCase();
+      if (av < bv) return reqSortDir === "asc" ? -1 : 1;
+      if (av > bv) return reqSortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [dischargeRequests, reqSearch, reqSortField, reqSortDir]);
+
+  const reqTotalPages = Math.max(1, Math.ceil(filteredRequests.length / reqPageSize));
+  const paginatedRequests = useMemo(() => {
+    const start = (reqPage - 1) * reqPageSize;
+    return filteredRequests.slice(start, start + reqPageSize);
+  }, [filteredRequests, reqPage, reqPageSize]);
+
+  useEffect(() => {
+    if (reqPage > reqTotalPages) setReqPage(1);
+  }, [reqPage, reqTotalPages]);
+
   const [toast, setToast] = useState(null);
   const showToast = (msg, err = false) => { setToast({ msg, err }); setTimeout(() => setToast(null), 3800); };
 
@@ -2106,6 +2274,17 @@ const DischargeBilling = () => {
     });
   };
 
+  const handleProceedToBilling = useCallback(async (req) => {
+    if (!req) return;
+    handleReset();
+    const targetIp = String(req.ipNumber || "").trim();
+    const targetUhid = String(req.uhid || "").trim();
+    setUhid(targetUhid);
+    setIpNumber(targetIp);
+    setTab("create");
+    await doSearch(targetIp ? "ipNumber" : "uhid", targetIp || targetUhid);
+  }, [doSearch]);
+
   // ── Edit / Convert from estimates list ─────────────────────────────────────
   const handleEditConvert = useCallback(async est => {
     if (!est?.id) return;
@@ -2288,9 +2467,202 @@ const DischargeBilling = () => {
       <Content>
         <TabBar>
           <Tab $active={tab === "create"} onClick={() => setTab("create")}>CREATE BILL</Tab>
+          <Tab $active={tab === "requests"} onClick={() => setTab("requests")}>
+            DISCHARGE REQUESTS
+            <ReqCountBadge $active={tab === "requests"}>{dischargeRequests.length}</ReqCountBadge>
+          </Tab>
           <Tab $active={tab === "estimates"} onClick={() => setTab("estimates")}>VIEW ESTIMATE</Tab>
           <Tab $active={tab === "bills"} onClick={() => setTab("bills")}>VIEW BILLS</Tab>
         </TabBar>
+
+        {/* ═══ DISCHARGE REQUESTS TAB ═══ */}
+        {tab === "requests" && (
+          <Card>
+            <CardHead>
+              <CardTitle>Discharge Requests (Sent for Billing)</CardTitle>
+              <Badge $v="billed">{filteredRequests.length} Pending Request{filteredRequests.length === 1 ? "" : "s"}</Badge>
+            </CardHead>
+
+            <TTBar>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.82rem", color: T.textMid, fontWeight: 600 }}>Show up to</span>
+                <TableSelect
+                  value={reqPageSize}
+                  onChange={e => { setReqPageSize(Number(e.target.value)); setReqPage(1); }}
+                >
+                  {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                </TableSelect>
+                <span style={{ fontSize: "0.82rem", color: T.textMid, fontWeight: 600, marginLeft: 4 }}>Date:</span>
+                <input
+                  type="date"
+                  value={reqDateFilter === "all" ? "" : reqDateFilter}
+                  onChange={e => {
+                    const val = e.target.value || "all";
+                    setReqDateFilter(val);
+                    setReqPage(1);
+                  }}
+                  style={{
+                    height: 32, padding: "0 10px", fontSize: "0.82rem",
+                    border: `1px solid ${T.border}`, borderRadius: 6,
+                    color: T.textMain, background: "#fff", cursor: "pointer",
+                  }}
+                />
+                <Btn
+                  $ghost
+                  $sm
+                  type="button"
+                  onClick={() => { setReqDateFilter(getLocalTodayStr()); setReqPage(1); }}
+                  style={{
+                    height: 32,
+                    borderColor: reqDateFilter === getLocalTodayStr() ? T.primary : T.border,
+                    color: reqDateFilter === getLocalTodayStr() ? T.primary : T.textMid,
+                    background: reqDateFilter === getLocalTodayStr() ? "#f0fdfa" : "#fff",
+                  }}
+                >
+                  Today
+                </Btn>
+                <Btn
+                  $ghost
+                  $sm
+                  type="button"
+                  onClick={() => { setReqDateFilter("all"); setReqPage(1); }}
+                  style={{
+                    height: 32,
+                    borderColor: reqDateFilter === "all" ? T.primary : T.border,
+                    color: reqDateFilter === "all" ? T.primary : T.textMid,
+                    background: reqDateFilter === "all" ? "#f0fdfa" : "#fff",
+                  }}
+                >
+                  All Dates
+                </Btn>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.82rem", color: T.textMid, fontWeight: 600 }}>Search:</span>
+                <FInput
+                  type="text"
+                  placeholder="Search UHID / IP No / Patient Name / Doctor..."
+                  value={reqSearch}
+                  onChange={e => { setReqSearch(e.target.value); setReqPage(1); }}
+                  style={{ width: 280, height: 32 }}
+                />
+                <Btn
+                  $ghost
+                  $sm
+                  type="button"
+                  onClick={() => fetchDischargeRequests()}
+                  disabled={reqLoading}
+                  title="Refresh Discharge Requests"
+                  style={{ height: 32, padding: "0 10px" }}
+                >
+                  {reqLoading ? <MiniSpinner /> : "🔄"}
+                </Btn>
+              </div>
+            </TTBar>
+
+            <TWrap>
+              <Tbl>
+                <Thead>
+                  <tr>
+                    <SortTh onClick={() => handleReqSort("uhid")}>
+                      UHID {reqSortField === "uhid" ? (reqSortDir === "asc" ? "▲" : "▼") : "⇅"}
+                    </SortTh>
+                    <SortTh onClick={() => handleReqSort("patientName")}>
+                      PATIENT NAME {reqSortField === "patientName" ? (reqSortDir === "asc" ? "▲" : "▼") : "⇅"}
+                    </SortTh>
+                    <SortTh onClick={() => handleReqSort("doctorName")}>
+                      DOCTOR {reqSortField === "doctorName" ? (reqSortDir === "asc" ? "▲" : "▼") : "⇅"}
+                    </SortTh>
+                    <Th>ACTIONS</Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {reqLoading ? (
+                    <tr>
+                      <Td colSpan={4} style={{ textAlign: "center", padding: "36px 14px", color: T.textMuted }}>
+                        <MiniSpinner /> Loading discharge requests...
+                      </Td>
+                    </tr>
+                  ) : paginatedRequests.length === 0 ? (
+                    <tr>
+                      <Td colSpan={4} style={{ textAlign: "center", padding: "36px 14px", color: T.textMuted }}>
+                        No pending discharge requests found
+                      </Td>
+                    </tr>
+                  ) : (
+                    paginatedRequests.map((req, idx) => (
+                      <Tr key={req.id || req.ipNumber || idx}>
+                        <Td style={{ fontWeight: 700, color: T.primary, whiteSpace: "nowrap" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span>{req.uhid || "—"}</span>
+                            <span style={{
+                              fontSize: "0.7rem", fontWeight: 700, padding: "2px 9px",
+                              borderRadius: "12px", background: "#dcfce7", color: "#15803d",
+                              border: "1px solid #bbf7d0"
+                            }}>
+                              Sent for billing (IP: {req.ipNumber || "—"})
+                            </span>
+                            {req.roomNo && (
+                              <span style={{
+                                fontSize: "0.7rem", fontWeight: 600, padding: "2px 8px",
+                                borderRadius: "10px", background: "#f1f5f9", color: T.textMid,
+                                border: `1px solid ${T.border}`
+                              }}>
+                                Room: {req.roomNo}{req.bedNo ? ` / Bed ${req.bedNo}` : ""}
+                              </span>
+                            )}
+                          </div>
+                        </Td>
+                        <Td>
+                          <span style={{ fontWeight: 700, color: T.textMain }}>{req.patientName || "—"}</span>
+                          <span style={{ fontSize: "0.78rem", color: T.textMid, marginLeft: 8 }}>
+                            ({req.age || "—"} {req.age_type || "Y"}, {req.gender || "—"})
+                          </span>
+                          {(req.requestTime || req.requestDateDisplay) && (
+                            <span style={{ fontSize: "0.74rem", color: T.textMuted, marginLeft: 10 }}>
+                              🕒 {req.requestDateDisplay ? `${req.requestDateDisplay} ` : ""}{req.requestTime || ""}
+                            </span>
+                          )}
+                        </Td>
+                        <Td style={{ fontWeight: 600, color: T.textMid }}>
+                          {req.doctorName || "—"}
+                        </Td>
+                        <Td>
+                          <ConvertActionBtn
+                            type="button"
+                            onClick={() => handleProceedToBilling(req)}
+                            title="Proceed to Discharge Billing — Loads patient into Create Bill"
+                          >
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                              <polyline points="15 3 21 3 21 9" />
+                              <line x1="10" y1="14" x2="21" y2="3" />
+                            </svg>
+                          </ConvertActionBtn>
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </tbody>
+              </Tbl>
+            </TWrap>
+
+            {filteredRequests.length > 0 && (
+              <Pager>
+                <div>
+                  Showing {((reqPage - 1) * reqPageSize) + 1} to {Math.min(reqPage * reqPageSize, filteredRequests.length)} of {filteredRequests.length} discharge requests
+                </div>
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <PB type="button" onClick={() => setReqPage(p => Math.max(1, p - 1))} disabled={reqPage === 1}>Prev</PB>
+                  {Array.from({ length: Math.min(reqTotalPages, 5) }, (_, i) => i + 1).map(n => (
+                    <PB key={n} type="button" $active={reqPage === n} onClick={() => setReqPage(n)}>{n}</PB>
+                  ))}
+                  <PB type="button" onClick={() => setReqPage(p => Math.min(reqTotalPages, p + 1))} disabled={reqPage === reqTotalPages}>Next</PB>
+                </div>
+              </Pager>
+            )}
+          </Card>
+        )}
 
         {/* ═══ CREATE / EDIT TAB ═══ */}
         {tab === "create" && (<>
