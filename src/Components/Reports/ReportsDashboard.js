@@ -1,7 +1,7 @@
-import React, { useState, useEffect, Suspense, lazy } from "react";
+import React, { useState, useEffect, useMemo, Suspense, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
-import { fetchMyReportPermissions } from "../../Auth/reportConfigApi";
+import { fetchMyReportPermissions, fetchReportMasters } from "../../Auth/reportConfigApi";
 import { 
     FileText, 
     Users, 
@@ -56,11 +56,92 @@ const AuditReport = lazy(() => import("../Accounts/AuditReport"));
 const SalesTaxRegister = lazy(() => import("../Accounts/SalesTaxRegister"));
 const DaywiseSalesTaxRegister = lazy(() => import("../Accounts/DaywiseSalesTaxRegister"));
 const PurchaseGSTReport = lazy(() => import("../Accounts/PurchaseGSTReport"));
+const OPPharmacySalesReport = lazy(() => import("../Accounts/OPPharmacySalesReport"));
 const StockReportIpOp = lazy(() => import("../Accounts/StockReportIpOp"));
 const DepartmentWiseReport = lazy(() => import("../Accounts/DepartmentWiseReport"));
 const DiscountBillsReport = lazy(() => import("../Accounts/DiscountBillsReport"));
 const PharmacyExpiryReport = lazy(() => import("./PharmacyExpiryReport"));
 const SalesReturnReport = lazy(() => import("./SalesReturnReport"));
+
+// Dynamic mapping of routes to lazy-loaded components
+const componentMap = {
+    "/BillWiseReport": BillWiseReport,
+    "/CashierWiseReport": CashierWiseReport,
+    "/CashierWiseDetailedReport": CashierWiseDetailedReport,
+    "/ShiftBasisReport": ShiftBasisReport,
+    "/IPAdvanceReport": IPAdvanceReport,
+    "/DischargeBills": DischargeBills,
+    "/DischargeBillsDetailed": DischargeBillsDetailed,
+    "/AdvanceRegistration": AdvanceRegistration,
+    "/AdvanceRegistrationInsurence": AdvanceRegistrationInsurence,
+    "/BillCancelReport": BillCancelReport,
+    "/CreditCardReport": CreditCardReport,
+    "/CashBillsReport": CashBillsReport,
+    "/DatewiseCollectionSummary": DatewiseCollectionSummary,
+    "/MiscellaneousPaymentReport": MiscellaneousPaymentReport,
+    "/DailyCashReport": DailyCashReport,
+    "/DebitBillsReport": DebitBillsReport,
+    "/AuditReport": AuditReport,
+    "/SalesTaxRegister": SalesTaxRegister,
+    "/DaywiseSalesTaxRegister": DaywiseSalesTaxRegister,
+    "/PurchaseGSTReport": PurchaseGSTReport,
+    "/DrugB2BReport": PurchaseGSTReport,
+    "/DrugHSNReport": PurchaseGSTReport,
+    "/DrugDocsReport": PurchaseGSTReport,
+    "/StoreB2BReport": PurchaseGSTReport,
+    "/StoreHSNReport": PurchaseGSTReport,
+    "/StoreDocsReport": PurchaseGSTReport,
+    "/OPPharmacySalesReport": OPPharmacySalesReport,
+    "/OPPharmacyInvoicesReport": OPPharmacySalesReport,
+    "/OPPharmacyB2BReport": OPPharmacySalesReport,
+    "/OPPharmacyHSNReport": OPPharmacySalesReport,
+    "/OPPharmacyDocsReport": OPPharmacySalesReport,
+    "/StockReportIpOp": StockReportIpOp,
+    "/DepartmentWiseReport": DepartmentWiseReport,
+    "/DiscountBillsReport": DiscountBillsReport,
+    "/PharmacyExpiryReport": PharmacyExpiryReport,
+    "/SalesReturnReport": SalesReturnReport,
+};
+
+// Route-specific props for specialized modal and register views
+const routeMetaMap = {
+    "/DrugB2BReport": { defaultSourceType: "drug", defaultTab: "b2b", lockedView: true },
+    "/DrugHSNReport": { defaultSourceType: "drug", defaultTab: "hsn", lockedView: true },
+    "/DrugDocsReport": { defaultSourceType: "drug", defaultTab: "docs", lockedView: true },
+    "/StoreB2BReport": { defaultSourceType: "stores", defaultTab: "b2b", lockedView: true },
+    "/StoreHSNReport": { defaultSourceType: "stores", defaultTab: "hsn", lockedView: true },
+    "/StoreDocsReport": { defaultSourceType: "stores", defaultTab: "docs", lockedView: true },
+    "/PurchaseGSTReport": { defaultSourceType: "all", defaultTab: "b2b", lockedView: false },
+    "/OPPharmacyB2BReport": { defaultTab: "invoices", lockedView: true },
+    "/OPPharmacyInvoicesReport": { defaultTab: "invoices", lockedView: true },
+    "/OPPharmacyHSNReport": { defaultTab: "hsn", lockedView: true },
+    "/OPPharmacyDocsReport": { defaultTab: "docs", lockedView: true },
+    "/OPPharmacySalesReport": { defaultTab: "invoices", lockedView: false },
+};
+
+// Icon map for dynamically rendering Lucide icons from Report Configuration DB
+const iconMap = {
+    FileText: <FileText size={24} />,
+    Users: <Users size={24} />,
+    Calendar: <Calendar size={24} />,
+    TrendingUp: <TrendingUp size={24} />,
+    CreditCard: <CreditCard size={24} />,
+    BarChart3: <BarChart3 size={24} />,
+    ClipboardList: <ClipboardList size={24} />,
+    Clock: <Clock size={24} />,
+    UserCheck: <UserCheck size={24} />,
+    ShieldCheck: <ShieldCheck size={24} />,
+    Banknote: <Banknote size={24} />,
+    Wallet: <Wallet size={24} />,
+    MinusCircle: <MinusCircle size={24} />,
+    Percent: <Percent size={24} />,
+    Package: <Package size={24} />,
+    FileSpreadsheet: <FileSpreadsheet size={24} />,
+    Boxes: <Boxes size={24} />,
+    Layers: <Layers size={24} />,
+    X: <X size={24} />,
+    RotateCcw: <RotateCcw size={24} />,
+};
 
 const Container = styled(PageWrapper)`
 
@@ -713,6 +794,10 @@ const ReportsDashboard = () => {
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+    // Dynamic reports loaded from database Report Configuration (hospital_reportmaster)
+    const [dbReports, setDbReports] = useState([]);
+    const [loadingDbReports, setLoadingDbReports] = useState(true);
+
     // Load active employee report permissions
     useEffect(() => {
         const loadUserPermissions = async () => {
@@ -731,6 +816,48 @@ const ReportsDashboard = () => {
             }
         };
         loadUserPermissions();
+    }, []);
+
+    // Load Accounts Reports dynamically from database Report Configuration
+    useEffect(() => {
+        const loadAccountsReportsFromDb = async () => {
+            try {
+                setLoadingDbReports(true);
+                const groups = await fetchReportMasters("Accounts");
+                if (Array.isArray(groups) && groups.length > 0) {
+                    const pages = [];
+                    for (const g of groups) {
+                        if (Array.isArray(g.pages)) {
+                            for (const page of g.pages) {
+                                const route = page.route;
+                                const comp = componentMap[route];
+                                if (!comp) continue;
+                                const iconElement = iconMap[page.icon] || <FileText size={24} />;
+                                const extraProps = routeMetaMap[route] || {};
+                                pages.push({
+                                    id: page.page_id ? String(page.page_id) : route,
+                                    route: route,
+                                    title: page.name || page.title || route,
+                                    description: page.description || "",
+                                    icon: iconElement,
+                                    component: comp,
+                                    color: colors.primary,
+                                    ...extraProps
+                                });
+                            }
+                        }
+                    }
+                    if (pages.length > 0) {
+                        setDbReports(pages);
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading accounts reports from report configuration:", err);
+            } finally {
+                setLoadingDbReports(false);
+            }
+        };
+        loadAccountsReportsFromDb();
     }, []);
 
     useEffect(() => {
@@ -1067,7 +1194,15 @@ const ReportsDashboard = () => {
         }
     ];
 
-    const filteredReports = reportsList.filter(report => {
+    // Priority: Dynamic Report Configuration loaded from DB; fallback: baseline reportsList
+    const activeReportsList = useMemo(() => {
+        if (dbReports && dbReports.length > 0) {
+            return dbReports;
+        }
+        return reportsList;
+    }, [dbReports]);
+
+    const filteredReports = activeReportsList.filter(report => {
         // Evaluate dynamic report permissions strictly for display inside this dashboard
         if (hasCustomConfig && userReportPerms && typeof userReportPerms === "object") {
             const rRoute = report.route;
