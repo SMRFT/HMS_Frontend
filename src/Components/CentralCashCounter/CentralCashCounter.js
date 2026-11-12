@@ -1627,6 +1627,15 @@ export default function CentralCashCounter() {
         ? response.data
         : [];
 
+      const billTypeDetails = Array.isArray(response?.data?.allowed_bill_type_details)
+        ? response.data.allowed_bill_type_details
+        : Array.isArray(response?.allowed_bill_type_details)
+        ? response.allowed_bill_type_details
+        : [];
+      if (billTypeDetails.length > 0) {
+        setAllowedBillTypes(billTypeDetails);
+      }
+
       const formatted = billsArray.map((item, index) => {
         const rawDate = item.billed_date || item.raw?.billed_date || item.raw?.investBillDate || item.raw?.bill_date || item.date || item.raw?.created_date;
         const dateObj = parseUtcDate(rawDate);
@@ -1653,7 +1662,7 @@ export default function CentralCashCounter() {
           doctor: item.doctor || item.doctor_name || item.raw?.doctor_name || item.raw?.doctor || "-",
           total: parseFloat(item.total || item.amount || 0),
           payment_method: item.payment_method || item.raw?.payment_method || item.raw?.payment_details?.method || "-",
-          payment_breakdown: item.payment_breakdown || null,
+          payment_breakdown: item.payment_breakdown || item.payment_details?.breakdown || item.raw?.payment_details?.breakdown || null,
           raw: item.raw || {},
           Bill_id: item.raw?.patient_id || null,
           uhid: item.uhid || item.raw?.uhid || "-",
@@ -1691,6 +1700,15 @@ export default function CentralCashCounter() {
         ? response.data
         : [];
 
+      const billTypeDetails = Array.isArray(response?.data?.allowed_bill_type_details)
+        ? response.data.allowed_bill_type_details
+        : Array.isArray(response?.allowed_bill_type_details)
+        ? response.allowed_bill_type_details
+        : [];
+      if (billTypeDetails.length > 0) {
+        setAllowedBillTypes(billTypeDetails);
+      }
+
       const formatted = billsArray.map((item, index) => {
         const rawDate = item.billed_date || item.raw?.billed_date || item.raw?.investBillDate || item.raw?.bill_date || item.date || item.raw?.created_date;
         const dateObj = parseUtcDate(rawDate);
@@ -1717,7 +1735,7 @@ export default function CentralCashCounter() {
           doctor: item.doctor || item.doctor_name || item.raw?.doctor_name || item.raw?.doctor || "-",
           total: parseFloat(item.total || item.amount || 0),
           payment_method: item.payment_method || item.raw?.payment_method || item.raw?.payment_details?.method || "-",
-          payment_breakdown: item.payment_breakdown || null,
+          payment_breakdown: item.payment_breakdown || item.payment_details?.breakdown || item.raw?.payment_details?.breakdown || null,
           raw: item.raw || {},
           Bill_id: item.raw?.patient_id || null,
           uhid: item.uhid || item.raw?.uhid || "-",
@@ -1748,6 +1766,15 @@ export default function CentralCashCounter() {
           ? response.data
           : [];
 
+        const billTypeDetails = Array.isArray(response?.data?.allowed_bill_type_details)
+          ? response.data.allowed_bill_type_details
+          : Array.isArray(response?.allowed_bill_type_details)
+          ? response.allowed_bill_type_details
+          : [];
+        if (billTypeDetails.length > 0) {
+          setAllowedBillTypes(billTypeDetails);
+        }
+
         const formatted = billsArray.map((item, index) => {
           const rawDate = item.paid_date || item.raw?.paid_date || item.raw?.paid_at || item.date || item.billed_date || item.raw?.billed_date;
           const dateObj = parseUtcDate(rawDate);
@@ -1774,7 +1801,7 @@ export default function CentralCashCounter() {
             doctor: item.doctor || item.doctor_name || item.raw?.doctor_name || item.raw?.doctor || "-",
             total: parseFloat(item.total || item.amount || 0),
             payment_method: item.payment_method || item.raw?.payment_method || item.raw?.payment_details?.method || "-",
-            payment_breakdown: item.payment_breakdown || null,
+            payment_breakdown: item.payment_breakdown || item.payment_details?.breakdown || item.raw?.payment_details?.breakdown || null,
             raw: item.raw || {},
             Bill_id: item.raw?.patient_id || null,
             uhid: item.uhid || item.raw?.uhid || "-",
@@ -2393,12 +2420,35 @@ export default function CentralCashCounter() {
 
     let filtered = bills;
     if (billType !== "ALL") {
-      filtered = filtered.filter((bill) =>
-        bill.bill_type
-          .toString()
-          .toLowerCase()
-          .includes(billType.toLowerCase()),
+      const clean = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const opt = allowedBillTypes.find(
+        (o) => String(o.bill_type) === String(billType) || clean(o.bill_name) === clean(billType)
       );
+
+      filtered = filtered.filter((bill) => {
+        if (opt) {
+          if (
+            (bill.bill_type_id != null && String(bill.bill_type_id) === String(opt.bill_type)) ||
+            (bill.raw?.bill_type != null && String(bill.raw?.bill_type) === String(opt.bill_type))
+          ) {
+            return true;
+          }
+          if (
+            clean(bill.bill_type) === clean(opt.bill_name) ||
+            clean(bill.bill_name) === clean(opt.bill_name) ||
+            clean(bill.bill_type_name) === clean(opt.bill_name)
+          ) {
+            return true;
+          }
+        }
+        const targetClean = clean(billType);
+        return (
+          clean(bill.bill_type).includes(targetClean) ||
+          clean(bill.bill_name).includes(targetClean) ||
+          clean(bill.bill_type_name).includes(targetClean) ||
+          targetClean.includes(clean(bill.bill_type))
+        );
+      });
     }
     if (searchTerm) {
       filtered = filtered.filter(
@@ -2428,6 +2478,7 @@ export default function CentralCashCounter() {
     returnPendingBills,
     returnReceivedBills,
     billType,
+    allowedBillTypes,
     searchTerm,
   ]);
 
@@ -3314,6 +3365,38 @@ export default function CentralCashCounter() {
                         />
                         Received Bills
                       </RadioLabel>
+
+                      {/* ✅ Allowed Bill Types (bill_name) dropdown placed in the same row after Received Bills */}
+                      {allowedBillTypes && allowedBillTypes.length > 0 && (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginLeft: "14px" }}>
+                          <Label style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "#374151" }}>Bill Type</Label>
+                          <Select
+                            value={billType}
+                            onChange={(e) => setBillType(e.target.value)}
+                            style={{
+                              minWidth: "160px",
+                              padding: "6px 12px",
+                              borderRadius: "8px",
+                              border: "1.5px solid #cbd5e1",
+                              background: "#ffffff",
+                              fontSize: "13px",
+                              fontWeight: "500",
+                              color: "#1e293b",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <option value="ALL">All Bill Types</option>
+                            {allowedBillTypes.map((item, idx) => {
+                              const bName = item.bill_name || item.bill_type_name || `Bill Type ${item.bill_type}`;
+                              return (
+                                <option key={`${item.bill_type}-${idx}`} value={bName}>
+                                  {bName}
+                                </option>
+                              );
+                            })}
+                          </Select>
+                        </div>
+                      )}
                     </ControlGroup>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -3566,13 +3649,17 @@ export default function CentralCashCounter() {
                                   <>
                                     <TableCell>{bill.doctor}</TableCell>
                                     <TableCell>
-                                      {bill.payment_breakdown ? (
+                                      {bill.payment_breakdown && bill.payment_breakdown.length > 0 ? (
                                         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                                          {bill.payment_breakdown.map((b, i) => (
-                                            <span key={i} style={{ fontSize: "11.5px", whiteSpace: "nowrap" }}>
-                                              {b.method.charAt(0).toUpperCase() + b.method.slice(1)}-{b.amount}
-                                            </span>
-                                          ))}
+                                          {bill.payment_breakdown.map((b, i) => {
+                                            const method = b.method ? (b.method.charAt(0).toUpperCase() + b.method.slice(1).toLowerCase()) : "Payment";
+                                            const bAmt = b.amount !== undefined ? b.amount : (b.Paid_amount !== undefined ? b.Paid_amount : (b.paid_amount !== undefined ? b.paid_amount : 0));
+                                            return (
+                                              <span key={i} style={{ fontSize: "11.5px", whiteSpace: "nowrap", fontWeight: 550 }}>
+                                                {method} - ₹{Number(bAmt || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                                              </span>
+                                            );
+                                          })}
                                         </div>
                                       ) : (
                                         <span style={{ fontWeight: 600 }}>₹{(bill.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
