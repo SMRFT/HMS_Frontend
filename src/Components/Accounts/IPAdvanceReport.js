@@ -310,9 +310,9 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
 
-    // Filters state
+    // Filters state - defaults to today for as on date (to date)
     const [asOnDate, setAsOnDate] = useState(
-        endDate || startDate || dayjs().format("YYYY-MM-DD")
+        endDate || dayjs().format("YYYY-MM-DD")
     );
     const [selectedFloor, setSelectedFloor] = useState("all");
     const [advanceFilter, setAdvanceFilter] = useState("all"); // 'all' | 'with_advance' | 'zero_advance'
@@ -395,11 +395,11 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
         fetchReport();
     }, [fetchReport]);
 
-    // Update date if props change
+    // Update date if props change (use endDate / today default)
     useEffect(() => {
         if (endDate) setAsOnDate(endDate);
-        else if (startDate) setAsOnDate(startDate);
-    }, [startDate, endDate]);
+        else setAsOnDate(dayjs().format("YYYY-MM-DD"));
+    }, [endDate]);
 
     // Excel Export
     const handleExportExcel = () => {
