@@ -110,11 +110,15 @@ const PageHeaderRow = styled.div`
 
 const KpiGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
   margin-bottom: 20px;
 
-  @media (max-width: 900px) {
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (max-width: 768px) {
     grid-template-columns: repeat(2, 1fr);
   }
 `;
@@ -1068,6 +1072,23 @@ const getPatientFullName = (adm) => {
   return full || "Patient";
 };
 
+const getIsHighRisk = (adm) => {
+  if (!adm) return false;
+  const val = adm.is_high_risk ?? adm.isHighRisk ?? adm.high_risk ?? adm.highRisk ?? adm.patient_details?.is_high_risk ?? adm.patient_details?.high_risk;
+  return val === true || val === "true" || val === 1 || val === "1";
+};
+
+const getHighRiskReason = (adm) => {
+  if (!adm) return "";
+  return (
+    adm.high_risk_reason ||
+    adm.highRiskReason ||
+    adm.patient_details?.high_risk_reason ||
+    adm.patient_details?.highRiskReason ||
+    ""
+  );
+};
+
 // Main WardRequest Component
 const WardRequest = () => {
   const navigate = useNavigate();
@@ -1369,10 +1390,11 @@ const WardRequest = () => {
 
       if (!matchesSearch) return false;
 
-      // 2. Status pill tab matching (All, Admitted, Discharged)
+      // 2. Status pill tab matching (All, Admitted, Discharged, High Risk)
       const isDischarged = Boolean(getField(item, "is_discharged"));
       if (statusFilter === "admitted" && isDischarged) return false;
       if (statusFilter === "discharged" && !isDischarged) return false;
+      if (statusFilter === "high_risk" && !getIsHighRisk(item)) return false;
 
       // 3. Advanced Filter drawer matching
       if (selectedNursingStation !== "ALL") {
@@ -1543,6 +1565,13 @@ const WardRequest = () => {
           beds: room.beds.filter(b => b.admission && getField(b.admission, "is_discharged"))
         }))
         .filter(room => room.beds.length > 0);
+    } else if (statusFilter === "high_risk") {
+      rooms = rooms
+        .map(room => ({
+          ...room,
+          beds: room.beds.filter(b => b.admission && getIsHighRisk(b.admission))
+        }))
+        .filter(room => room.beds.length > 0);
     }
 
     return rooms;
@@ -1551,6 +1580,9 @@ const WardRequest = () => {
   // Compute KPI Summary Metrics
   const kpiRoomsCount = roomGroups.length;
   const kpiPatientsCount = filteredAdmissions.filter(a => !getField(a, "is_discharged")).length;
+  const kpiHighRiskCount = useMemo(() => {
+    return admissions.filter(a => !getField(a, "is_discharged") && getIsHighRisk(a)).length;
+  }, [admissions]);
 
   const allMasterBedsCount = useMemo(() => {
     if (!Array.isArray(locationMapping) || locationMapping.length === 0) return 0;
@@ -1652,7 +1684,7 @@ const WardRequest = () => {
         </button>
       </PageHeaderRow>
 
-      {/* KPI Metrics Cards (4 Cards) */}
+      {/* KPI Metrics Cards (5 Cards) */}
       <KpiGrid>
         <KpiCard>
           <span className="kpi-title">Rooms</span>
@@ -1685,6 +1717,26 @@ const WardRequest = () => {
             <span className="sub">pending</span>
           </div>
         </KpiCard>
+
+        <KpiCard
+          color="#ef4444"
+          style={{
+            cursor: "pointer",
+            borderColor: statusFilter === "high_risk" ? "#ef4444" : undefined,
+            background: statusFilter === "high_risk" ? "#fef2f2" : undefined,
+            transition: "all 0.2s"
+          }}
+          onClick={() => setStatusFilter(prev => prev === "high_risk" ? "all" : "high_risk")}
+          title="Click to toggle High Risk filter"
+        >
+          <span className="kpi-title" style={{ color: "#dc2626", fontWeight: 700 }}>
+            🚨 High Risk
+          </span>
+          <div className="kpi-value-row">
+            <span className="val" style={{ color: "#dc2626" }}>{kpiHighRiskCount}</span>
+            <span className="sub">{kpiHighRiskCount === 1 ? "patient" : "patients"}</span>
+          </div>
+        </KpiCard>
       </KpiGrid>
 
       {/* Filter Controls Row */}
@@ -1693,6 +1745,17 @@ const WardRequest = () => {
           <button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}>All</button>
           <button className={statusFilter === "admitted" ? "active" : ""} onClick={() => setStatusFilter("admitted")}>Admitted</button>
           <button className={statusFilter === "discharged" ? "active" : ""} onClick={() => setStatusFilter("discharged")}>Discharged</button>
+          <button
+            className={statusFilter === "high_risk" ? "active" : ""}
+            style={
+              statusFilter === "high_risk"
+                ? { background: "#dc2626", borderColor: "#dc2626", color: "white", fontWeight: 700 }
+                : (kpiHighRiskCount > 0 ? { borderColor: "#fca5a5", color: "#dc2626", fontWeight: 600 } : {})
+            }
+            onClick={() => setStatusFilter(prev => prev === "high_risk" ? "all" : "high_risk")}
+          >
+            🚨 High Risk {kpiHighRiskCount > 0 ? `(${kpiHighRiskCount})` : ""}
+          </button>
         </div>
 
         <div className="ns-select-wrapper">
@@ -1743,6 +1806,7 @@ const WardRequest = () => {
         <div className="legend-item"><span className="dot" style={{ background: "#ec4899" }} /> Discharge confirm</div>
         <div className="legend-item"><span className="dot" style={{ background: "#a855f7" }} /> Sent to billing</div>
         <div className="legend-item"><span className="dot" style={{ background: "#64748b" }} /> Blocked</div>
+        <div className="legend-item"><span className="dot" style={{ background: "#ef4444" }} /> 🚨 High Risk</div>
       </LegendRow>
 
       {/* MAIN VIEW: Beds Grid (Image 1) OR Patients List (Image 3) */}
@@ -1777,6 +1841,8 @@ const WardRequest = () => {
                 <div className="beds-subgrid">
                   {room.beds.map((bed, bIdx) => {
                     const adm = bed.admission;
+                    const isHighRisk = adm ? getIsHighRisk(adm) : false;
+                    const hrReason = adm ? getHighRiskReason(adm) : "";
                     const isBlocked = Boolean(bed.is_blocked || (adm && getField(adm, "ward_status") === "Blocked"));
                     const isFree = !adm && !isBlocked;
                     const pName = isBlocked ? "Blocked" : (adm ? getPatientFullName(adm) : "Free");
@@ -1787,10 +1853,16 @@ const WardRequest = () => {
                     return (
                       <BedBox
                         key={bIdx}
-                        $bg={statusConfig.bg}
-                        $border={statusConfig.border}
-                        $dot={statusConfig.dot}
-                        $textColor={statusConfig.textColor}
+                        $bg={isHighRisk ? "#fff5f5" : statusConfig.bg}
+                        $border={isHighRisk ? "#ef4444" : statusConfig.border}
+                        $dot={isHighRisk ? "#dc2626" : statusConfig.dot}
+                        $textColor={isHighRisk ? "#dc2626" : statusConfig.textColor}
+                        style={isHighRisk ? {
+                          border: "2px solid #ef4444",
+                          boxShadow: "0 0 0 1px rgba(239, 68, 68, 0.25), 0 2px 4px rgba(239, 68, 68, 0.12)",
+                          background: "#fff5f5"
+                        } : {}}
+                        title={isHighRisk ? `🚨 HIGH RISK: ${hrReason || "Active High Risk Patient"}` : undefined}
                         onClick={() => {
                           if (adm) {
                             handleOpenActionModal(adm);
@@ -1803,9 +1875,33 @@ const WardRequest = () => {
                       >
                         <div className="bed-top">
                           <span className="bed-no">Bed {bed.bed_no}</span>
-                          <span className="status-dot" />
+                          {isHighRisk ? (
+                            <span style={{
+                              background: "#fee2e2",
+                              color: "#b91c1c",
+                              border: "1px solid #fca5a5",
+                              padding: "1px 4px",
+                              borderRadius: "3px",
+                              fontSize: "8px",
+                              fontWeight: 800,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "2px"
+                            }}>
+                              🚨 HIGH RISK
+                            </span>
+                          ) : (
+                            <span className="status-dot" />
+                          )}
                         </div>
-                        <div className="patient-name">{pName}</div>
+                        <div className="patient-name" style={isHighRisk ? { color: "#b91c1c", fontWeight: 800 } : {}}>
+                          {pName}
+                        </div>
+                        {isHighRisk && hrReason && (
+                          <div style={{ fontSize: "8.5px", color: "#dc2626", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={hrReason}>
+                            ⚠️ {hrReason}
+                          </div>
+                        )}
                         <div className="status-text">{statusConfig.label}</div>
                       </BedBox>
                     );
@@ -1840,6 +1936,9 @@ const WardRequest = () => {
               ) : (
                 filteredAdmissions.map((adm, idx) => {
                   const fullName = getPatientFullName(adm);
+                  const isHighRisk = getIsHighRisk(adm);
+                  const hrReason = getHighRiskReason(adm);
+                  const hrDate = adm.high_risk_date || adm.patient_details?.high_risk_date;
                   const ageGender = [getField(adm, "gender") || "Male", getField(adm, "age") ? `${getField(adm, "age")} yrs` : ""].filter(Boolean).join(" · ");
                   const uhid = getField(adm, "uhid") || "-";
                   const ip = adm.ipNumber || getField(adm, "ipNumber") || "-";
@@ -1866,10 +1965,43 @@ const WardRequest = () => {
                   }
 
                   return (
-                    <tr key={adm._id || adm.id || idx}>
+                    <tr
+                      key={adm._id || adm.id || idx}
+                      style={isHighRisk ? {
+                        background: "#fff5f5",
+                        borderLeft: "4px solid #ef4444"
+                      } : {}}
+                    >
                       <td>
-                        <div style={{ fontWeight: 700, color: "#0f172a" }}>{fullName}</div>
-                        <div style={{ fontSize: "11px", color: "#64748b" }}>{ageGender}</div>
+                        <div style={{ fontWeight: 700, color: isHighRisk ? "#991b1b" : "#0f172a", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <span>{fullName}</span>
+                          {isHighRisk && (
+                            <span
+                              style={{
+                                background: "#fee2e2",
+                                color: "#b91c1c",
+                                border: "1px solid #fca5a5",
+                                padding: "1px 6px",
+                                borderRadius: "4px",
+                                fontSize: "10px",
+                                fontWeight: 800,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "3px"
+                              }}
+                              title={hrReason ? `High Risk Reason: ${hrReason}` : "High Risk Patient"}
+                            >
+                              🚨 HIGH RISK
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: "11px", color: isHighRisk ? "#7f1d1d" : "#64748b" }}>{ageGender}</div>
+                        {isHighRisk && (
+                          <div style={{ fontSize: "11px", color: "#dc2626", fontWeight: 700, marginTop: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span>⚠️ {hrReason || "High Risk active"}</span>
+                            {hrDate && <span style={{ color: "#991b1b", fontSize: "10px", fontWeight: 500 }}>({hrDate})</span>}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div style={{ fontWeight: 600, color: "#0f172a" }}>{uhid}</div>
@@ -1893,7 +2025,10 @@ const WardRequest = () => {
                         </StatusPillBadge>
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <RequestActionButton onClick={() => handleOpenActionModal(adm)}>
+                        <RequestActionButton
+                          style={isHighRisk ? { background: "#dc2626", borderColor: "#dc2626" } : {}}
+                          onClick={() => handleOpenActionModal(adm)}
+                        >
                           Request
                         </RequestActionButton>
                       </td>
@@ -1910,14 +2045,33 @@ const WardRequest = () => {
       {showActionModal && selectedPatient && (
         <ModalOverlayContainer onClick={() => setShowActionModal(false)}>
           <ActionModalCard onClick={e => e.stopPropagation()}>
-            <div className="modal-banner">
+            <div className="modal-banner" style={getIsHighRisk(selectedPatient) ? { borderBottom: "2px solid #fca5a5" } : {}}>
               <div className="patient-header">
-                <div className="circle-avatar">
+                <div
+                  className="circle-avatar"
+                  style={getIsHighRisk(selectedPatient) ? { background: "#fee2e2", color: "#b91c1c", border: "2px solid #ef4444" } : {}}
+                >
                   {getPatientFullName(selectedPatient).split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2) || "P"}
                 </div>
                 <div className="info">
-                  <div className="name">
-                    {getPatientFullName(selectedPatient)}
+                  <div className="name" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <span>{getPatientFullName(selectedPatient)}</span>
+                    {getIsHighRisk(selectedPatient) && (
+                      <span style={{
+                        background: "#fee2e2",
+                        color: "#b91c1c",
+                        border: "1px solid #fca5a5",
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px"
+                      }}>
+                        🚨 HIGH RISK
+                      </span>
+                    )}
                   </div>
                   <div className="bed-details">
                     Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"} · Dr. {getField(selectedPatient, "doctorName") || "-"} · {getField(selectedPatient, "insurance") || "Normal Pay"}
@@ -1926,6 +2080,35 @@ const WardRequest = () => {
               </div>
               <button className="close-btn" onClick={() => setShowActionModal(false)}>✕</button>
             </div>
+
+            {getIsHighRisk(selectedPatient) && (
+              <div style={{
+                margin: "14px 20px 0 20px",
+                padding: "10px 14px",
+                background: "#fef2f2",
+                border: "1px solid #fca5a5",
+                borderLeft: "4px solid #dc2626",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px"
+              }}>
+                <span style={{ fontSize: "20px" }}>🚨</span>
+                <div>
+                  <div style={{ fontSize: "12px", fontWeight: 800, color: "#991b1b" }}>
+                    PATIENT HIGH RISK ALERT
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#b91c1c", marginTop: "2px" }}>
+                    <strong>Reason:</strong> {getHighRiskReason(selectedPatient) || "Identified as High Risk during Admission"}
+                    {(selectedPatient?.high_risk_date || selectedPatient?.patient_details?.high_risk_date) && (
+                      <span style={{ marginLeft: "8px", color: "#7f1d1d" }}>
+                        · Risk Date: {selectedPatient.high_risk_date || selectedPatient.patient_details?.high_risk_date}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="modal-body">
               <div className="section-title">MOST USED</div>
@@ -2217,7 +2400,14 @@ const WardRequest = () => {
                 </button>
                 <div className="title-group">
                   <h3>Lab Ward Request</h3>
-                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                  <span className="patient-sub">
+                    {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}
+                    {getIsHighRisk(selectedPatient) && (
+                      <span style={{ marginLeft: "8px", background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5", padding: "1px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "800" }}>
+                        🚨 HIGH RISK
+                      </span>
+                    )}
+                  </span>
                 </div>
               </div>
               <button className="close-btn" onClick={() => setShowLabModal(false)} title="Close">✕</button>
@@ -2254,7 +2444,14 @@ const WardRequest = () => {
                 </button>
                 <div className="title-group">
                   <h3>Medicine / Pharmacy Ward Request</h3>
-                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                  <span className="patient-sub">
+                    {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}
+                    {getIsHighRisk(selectedPatient) && (
+                      <span style={{ marginLeft: "8px", background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5", padding: "1px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "800" }}>
+                        🚨 HIGH RISK
+                      </span>
+                    )}
+                  </span>
                 </div>
               </div>
               <button className="close-btn" onClick={() => setShowMedicineModal(false)} title="Close">✕</button>
@@ -2291,7 +2488,14 @@ const WardRequest = () => {
                 </button>
                 <div className="title-group">
                   <h3>Radiology Ward Request</h3>
-                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                  <span className="patient-sub">
+                    {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}
+                    {getIsHighRisk(selectedPatient) && (
+                      <span style={{ marginLeft: "8px", background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5", padding: "1px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "800" }}>
+                        🚨 HIGH RISK
+                      </span>
+                    )}
+                  </span>
                 </div>
               </div>
               <button className="close-btn" onClick={() => setShowRadiologyModal(false)} title="Close">✕</button>
@@ -2328,7 +2532,14 @@ const WardRequest = () => {
                 </button>
                 <div className="title-group">
                   <h3>Laundry Ward Request</h3>
-                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                  <span className="patient-sub">
+                    {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}
+                    {getIsHighRisk(selectedPatient) && (
+                      <span style={{ marginLeft: "8px", background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5", padding: "1px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "800" }}>
+                        🚨 HIGH RISK
+                      </span>
+                    )}
+                  </span>
                 </div>
               </div>
               <button className="close-btn" onClick={() => setShowLaundryModal(false)} title="Close">✕</button>
@@ -2365,7 +2576,14 @@ const WardRequest = () => {
                 </button>
                 <div className="title-group">
                   <h3>Implant Ward Request</h3>
-                  <span className="patient-sub">{getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}</span>
+                  <span className="patient-sub">
+                    {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"}
+                    {getIsHighRisk(selectedPatient) && (
+                      <span style={{ marginLeft: "8px", background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5", padding: "1px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "800" }}>
+                        🚨 HIGH RISK
+                      </span>
+                    )}
+                  </span>
                 </div>
               </div>
               <button className="close-btn" onClick={() => setShowImplantModal(false)} title="Close">✕</button>
@@ -2466,16 +2684,90 @@ const WardRequest = () => {
                     {getPatientFullName(selectedPatient).split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2) || "P"}
                   </div>
                   <div className="info">
-                    <div className="name">Update Status</div>
+                    <div className="name" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span>Update Status</span>
+                      {getIsHighRisk(selectedPatient) && (
+                        <span style={{
+                          background: "#fee2e2",
+                          color: "#b91c1c",
+                          border: "1px solid #fca5a5",
+                          padding: "1px 6px",
+                          borderRadius: "4px",
+                          fontSize: "10px",
+                          fontWeight: "800"
+                        }}>
+                          🚨 HIGH RISK
+                        </span>
+                      )}
+                    </div>
                     <div className="bed-details">
                       {getPatientFullName(selectedPatient)} · Room {getField(selectedPatient, "room_no") || "-"} Bed {getField(selectedPatient, "bed_no") || "-"}
                     </div>
                   </div>
                 </div>
               </div>
-              <button className="close-btn" onClick={() => { setShowStatusModal(false); setClearanceData(null); }}>✕</button>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <button
+                  type="button"
+                  disabled={clearanceLoading}
+                  onClick={() => {
+                    const pIp = getField(selectedPatient, "ipNumber") || getField(selectedPatient, "ipNo") || selectedPatient?.ipNumber || selectedPatient?.ipNo;
+                    const pUhid = getField(selectedPatient, "uhid") || selectedPatient?.uhid;
+                    fetchBillingClearance(pIp, pUhid);
+                    fetchAdmissions();
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    color: "#0f766e",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    cursor: clearanceLoading ? "not-allowed" : "pointer"
+                  }}
+                  title="Refresh status & clearance"
+                >
+                  <FiRefreshCcw size={12} className={clearanceLoading ? "spin" : ""} />
+                  Refresh
+                </button>
+                <button className="close-btn" onClick={() => { setShowStatusModal(false); setClearanceData(null); }}>✕</button>
+              </div>
             </div>
             <div className="modal-body" style={{ padding: "20px", overflowY: "auto" }}>
+              {/* High Risk Alert Banner */}
+              {getIsHighRisk(selectedPatient) && (
+                <div style={{
+                  marginBottom: "16px",
+                  padding: "10px 14px",
+                  background: "#fef2f2",
+                  borderRadius: "10px",
+                  border: "1px solid #fca5a5",
+                  borderLeft: "4px solid #dc2626",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px"
+                }}>
+                  <span style={{ fontSize: "18px" }}>🚨</span>
+                  <div>
+                    <div style={{ fontSize: "12px", fontWeight: 800, color: "#991b1b" }}>
+                      HIGH RISK PATIENT ALERT
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#b91c1c", marginTop: "2px" }}>
+                      <strong>Reason:</strong> {getHighRiskReason(selectedPatient) || "Identified as High Risk during Admission"}
+                      {(selectedPatient?.high_risk_date || selectedPatient?.patient_details?.high_risk_date) && (
+                        <span style={{ marginLeft: "8px", color: "#7f1d1d" }}>
+                          · Date: {selectedPatient.high_risk_date || selectedPatient.patient_details?.high_risk_date}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Patient Info & Current Status */}
               <div style={{ marginBottom: "16px", padding: "12px 16px", background: "#f0fdf4", borderRadius: "10px", border: "1px solid #bbf7d0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
@@ -2507,21 +2799,50 @@ const WardRequest = () => {
                             Billing & Service Clearance Check
                           </span>
                         </div>
-                        {clearanceLoading ? (
-                          <span style={{ fontSize: "11px", color: "#0d9488", fontWeight: "700" }}>
-                            <i className="bi bi-arrow-repeat spin" style={{ marginRight: "4px" }}></i> Verifying...
-                          </span>
-                        ) : clearance ? (
-                          clearance.is_clear_for_billing ? (
-                            <span style={{ fontSize: "11px", fontWeight: "800", background: "#dcfce7", color: "#15803d", padding: "3px 8px", borderRadius: "20px", border: "1px solid #86efac", display: "flex", alignItems: "center", gap: "4px" }}>
-                              <i className="bi bi-check-circle-fill"></i> Ready for Billing
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <button
+                            type="button"
+                            disabled={clearanceLoading}
+                            onClick={() => {
+                              const pIp = getField(selectedPatient, "ipNumber") || getField(selectedPatient, "ipNo") || selectedPatient?.ipNumber || selectedPatient?.ipNo;
+                              const pUhid = getField(selectedPatient, "uhid") || selectedPatient?.uhid;
+                              fetchBillingClearance(pIp, pUhid);
+                              fetchAdmissions();
+                            }}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              border: "1px solid #cbd5e1",
+                              background: "#ffffff",
+                              color: "#0f766e",
+                              fontSize: "11px",
+                              fontWeight: "700",
+                              cursor: clearanceLoading ? "not-allowed" : "pointer"
+                            }}
+                            title="Re-check clearance"
+                          >
+                            <FiRefreshCcw size={11} className={clearanceLoading ? "spin" : ""} />
+                            Re-check
+                          </button>
+                          {clearanceLoading ? (
+                            <span style={{ fontSize: "11px", color: "#0d9488", fontWeight: "700" }}>
+                              <i className="bi bi-arrow-repeat spin" style={{ marginRight: "4px" }}></i> Verifying...
                             </span>
-                          ) : (
-                            <span style={{ fontSize: "11px", fontWeight: "800", background: "#fee2e2", color: "#b91c1c", padding: "3px 8px", borderRadius: "20px", border: "1px solid #fca5a5", display: "flex", alignItems: "center", gap: "4px" }}>
-                              <i className="bi bi-exclamation-triangle-fill"></i> {clearance.pending_total || 0} Item{Number(clearance.pending_total) === 1 ? "" : "s"} Pending
-                            </span>
-                          )
-                        ) : null}
+                          ) : clearance ? (
+                            clearance.is_clear_for_billing ? (
+                              <span style={{ fontSize: "11px", fontWeight: "800", background: "#dcfce7", color: "#15803d", padding: "3px 8px", borderRadius: "20px", border: "1px solid #86efac", display: "flex", alignItems: "center", gap: "4px" }}>
+                                <i className="bi bi-check-circle-fill"></i> Ready for Billing
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: "11px", fontWeight: "800", background: "#fee2e2", color: "#b91c1c", padding: "3px 8px", borderRadius: "20px", border: "1px solid #fca5a5", display: "flex", alignItems: "center", gap: "4px" }}>
+                                <i className="bi bi-exclamation-triangle-fill"></i> {clearance.pending_total || 0} Item{Number(clearance.pending_total) === 1 ? "" : "s"} Pending
+                              </span>
+                            )
+                          ) : null}
+                        </div>
                       </div>
 
                 {clearanceLoading ? (
