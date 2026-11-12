@@ -1,28 +1,27 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { Plus, X, Package as PackageIcon, Eye, Printer, Search } from "lucide-react";
+import {
+  Package as PackageIcon,
+  Eye,
+  Printer,
+  Search,
+  ClipboardList,
+  Plus,
+  X,
+} from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 import OTPrintModal from "./OTPrintModal";
 import {
   generateMedicineOverallPrintHtml,
   generateMedicineSingleSlipHtml,
+  getQty,
+  getDispatchedQty,
+  getPendingQty,
+  getItemDispatchStatus,
+  getRequestDispatchStatus,
+  getDispatchStatusColor,
 } from "./otPrintUtils";
-
-import {
-  colors as globalColors,
-  Container,
-  Button,
-  Label,
-  Input,
-  Select,
-  Table,
-  Th,
-  Td,
-  Tr,
-  TableWrapper,
-  NoResults,
-} from "../GlobalStyles";
 
 const colors = {
   primary: "#136A63",
@@ -49,6 +48,125 @@ const colors = {
   packageTag: "#1d4ed8",
 };
 
+// ─── Pending Print HTML generator (bill-wise pending list) ────────────────────
+const escHtml = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+      c
+      ],
+  );
+
+const generateMedicinePendingPrintHtml = ({ patient = {}, requests = [] }) => {
+  const bills = (requests || [])
+    .filter((r) => (r.billingStatus || "Pending") !== "Cancelled")
+    .map((r) => ({
+      req: r,
+      items: (r.medicines || []).filter((m) => getPendingQty(m) > 0),
+    }))
+    .filter((b) => b.items.length > 0);
+
+  const totalPendingItems = bills.reduce((a, b) => a + b.items.length, 0);
+  const printedOn = new Date().toLocaleString("en-IN");
+
+  const billBlocks = bills
+    .map(({ req, items }) => {
+      const rows = items
+        .map(
+          (m, i) => `
+        <tr>
+          <td class="c">${i + 1}</td>
+          <td>${escHtml(m.itemName || m.name)}</td>
+          <td class="r">${getQty(m)}</td>
+          <td class="r">${getDispatchedQty(m)}</td>
+          <td class="r pend">${getPendingQty(m)}</td>
+          <td>${escHtml(m.remark || "-")}</td>
+        </tr>`,
+        )
+        .join("");
+      return `
+      <div class="bill">
+        <div class="bill-head">
+          <span><b>Bill No:</b> ${escHtml(req.bill_id || req.Bill_id || "-")}</span>
+          <span><b>Date:</b> ${escHtml(req.reqDate || "")} ${escHtml(req.reqTime || "")}</span>
+          <span><b>Doctor:</b> ${escHtml(req.doctorName || req.doctor || "-")}</span>
+          <span><b>Dispatch:</b> ${escHtml(getRequestDispatchStatus(req))}</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px">#</th>
+              <th>Medicine / Item</th>
+              <th style="width:80px">Qty</th>
+              <th style="width:110px">Dispatched Qty</th>
+              <th style="width:90px">Pending Qty</th>
+              <th style="width:160px">Remark</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    })
+    .join("");
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>OT Medicine Pending List</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 12px; margin: 0; padding: 0; }
+  h2 { margin: 0 0 4px 0; text-align: center; font-size: 17px; color: #136A63; }
+  .sub { text-align: center; font-size: 11px; color: #555; margin-bottom: 10px; }
+  .patient { border: 1px solid #999; padding: 8px 10px; margin-bottom: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 14px; }
+  .patient div span { color: #555; }
+  .bill { margin-bottom: 14px; page-break-inside: avoid; }
+  .bill-head { background: #eef3f4; border: 1px solid #999; border-bottom: none; padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #999; padding: 5px 7px; text-align: left; }
+  th { background: #546E7A; color: #fff; font-size: 11px; }
+  td.r, th.r { text-align: right; }
+  td.c { text-align: center; }
+  td.pend { font-weight: 700; color: #c2410c; }
+  .summary { margin-top: 10px; font-weight: 700; }
+  .empty { text-align: center; padding: 40px; color: #666; border: 1px dashed #999; }
+  .foot { margin-top: 30px; display: flex; justify-content: space-between; font-size: 11px; color: #444; }
+</style>
+</head>
+<body>
+  <h2>OT Medicine - Pending Items (Bill Wise)</h2>
+  <div class="sub">Printed on ${escHtml(printedOn)}</div>
+
+  <div class="patient">
+    <div><span>IP No:</span> <b>${escHtml(patient.ipNo)}</b></div>
+    <div><span>UHID:</span> <b>${escHtml(patient.uhid)}</b></div>
+    <div><span>Patient:</span> <b>${escHtml(patient.name)}</b></div>
+    <div><span>Age / Gender:</span> <b>${escHtml(patient.age)} / ${escHtml(patient.gender)}</b></div>
+    <div><span>Admitting Dr:</span> <b>${escHtml(patient.admittingDr)}</b></div>
+    <div><span>Room | Bed:</span> <b>${escHtml(patient.roomBed)}</b></div>
+    <div><span>Customer Type:</span> <b>${escHtml(patient.customerType)}</b></div>
+    <div><span>Company:</span> <b>${escHtml(patient.companyName)}</b></div>
+    ${patient.surgeryRef ? `<div><span>Surgery Ref:</span> <b>${escHtml(patient.surgeryRef)}</b></div>` : ""}
+  </div>
+
+  ${bills.length
+      ? billBlocks +
+      `<div class="summary">Total bills with pending items: ${bills.length} &nbsp;|&nbsp; Total pending item lines: ${totalPendingItems}</div>`
+      : `<div class="empty">No pending items found.</div>`
+    }
+
+  <div class="foot">
+    <span>Prepared by: ____________________</span>
+    <span>Received by: ____________________</span>
+  </div>
+</body>
+</html>`;
+};
+
+// ─── Styled components ────────────────────────────────────────────────────────
 const PageWrapper = styled.div`
   width: 100%;
   min-height: 100vh;
@@ -360,6 +478,7 @@ const StyledInput = styled.input`
     box-shadow: 0 0 0 2px rgba(19, 106, 99, 0.1);
   }
 `;
+
 const StyledSelect = styled.select`
   border: 1px solid ${colors.border};
   padding: 8px 12px;
@@ -547,7 +666,6 @@ const SearchableDropdown = ({
   const wrapperRef = useRef(null);
   const listRef = useRef(null);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
@@ -559,7 +677,6 @@ const SearchableDropdown = ({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Sync display when value changes externally
   useEffect(() => {
     if (value) {
       const sel = options.find((o) =>
@@ -571,7 +688,6 @@ const SearchableDropdown = ({
     }
   }, [value, options, displayKey, valueKey]);
 
-  // Scroll highlighted item into view
   useEffect(() => {
     if (activeIdx >= 0 && listRef.current) {
       const item = listRef.current.querySelector(`[data-idx="${activeIdx}"]`);
@@ -617,14 +733,12 @@ const SearchableDropdown = ({
       setIsOpen(false);
       setActiveIdx(-1);
     } else if (e.key === "Tab") {
-      // Auto-select top match on Tab so user can move forward without Enter
       if (isOpen && filtered.length > 0) {
         const pick = activeIdx >= 0 ? filtered[activeIdx] : filtered[0];
         selectOption(pick);
       }
       setIsOpen(false);
       setActiveIdx(-1);
-      // Do NOT preventDefault — let Tab move focus naturally
     }
   };
 
@@ -671,8 +785,6 @@ const SearchableDropdown = ({
 };
 
 // ─── Medicine Name Field — inline keyboard-navigable dropdown ─────────────────
-// No modal. Type 2+ chars → debounced search → inline dropdown.
-// Keys: ↓/↑ navigate, Enter selects, Escape closes, Tab closes & moves focus.
 const MedicineNameField = ({
   searchQuery,
   setSearchQuery,
@@ -680,8 +792,8 @@ const MedicineNameField = ({
   setSelectedDrug,
   onOpenPackageList,
   disabled,
-  onSearch, // async (query: string) => void  — updates searchResults in parent
-  searchResults, // array of { item_id, name }
+  onSearch,
+  searchResults,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -689,7 +801,6 @@ const MedicineNameField = ({
   const listRef = useRef(null);
   const debounceRef = useRef(null);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
@@ -701,7 +812,6 @@ const MedicineNameField = ({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Scroll highlighted item into view
   useEffect(() => {
     if (activeIdx >= 0 && listRef.current) {
       const item = listRef.current.querySelector(`[data-idx="${activeIdx}"]`);
@@ -732,7 +842,6 @@ const MedicineNameField = ({
   };
 
   const handleKeyDown = (e) => {
-    // row 0 = "Select from Package", rows 1..n = search results
     const total = 1 + searchResults.length;
 
     if (e.key === "ArrowDown") {
@@ -752,17 +861,14 @@ const MedicineNameField = ({
       } else if (activeIdx > 0) {
         selectItem(searchResults[activeIdx - 1]);
       } else if (searchResults.length === 1) {
-        // nothing highlighted but only one result — auto-pick it
         selectItem(searchResults[0]);
       }
     } else if (e.key === "Escape") {
       setIsOpen(false);
       setActiveIdx(-1);
     } else if (e.key === "Tab") {
-      // Let Tab move focus naturally — just close the dropdown
       setIsOpen(false);
       setActiveIdx(-1);
-      // Do NOT preventDefault — browser handles focus movement
     }
   };
 
@@ -788,7 +894,6 @@ const MedicineNameField = ({
 
       {isOpen && !disabled && (
         <DropdownList ref={listRef} role="listbox">
-          {/* Pinned "Select from Package" row — always index 0 */}
           <PackageOptionItem
             data-idx={0}
             role="option"
@@ -807,7 +912,6 @@ const MedicineNameField = ({
             <PackageIcon size={15} aria-hidden="true" /> Select from Package
           </PackageOptionItem>
 
-          {/* Results */}
           {searchResults.length === 0 && searchQuery.length >= 2 && (
             <DropdownItem
               style={{
@@ -846,15 +950,29 @@ const MedicineNameField = ({
   );
 };
 
-// ─── View Medicines Modal ─────────────────────────────────────────────────────
+// ─── View Medicines Modal (Qty / Dispatched Qty / Pending Qty / Status) ───────
 const ViewMedicinesModal = ({ request, onClose, onPrint }) => {
   if (!request) return null;
   const medicines = request.medicines || [];
 
+  const totals = medicines.reduce(
+    (a, m) => ({
+      qty: a.qty + getQty(m),
+      dispatched: a.dispatched + getDispatchedQty(m),
+      pending: a.pending + getPendingQty(m),
+    }),
+    { qty: 0, dispatched: 0, pending: 0 },
+  );
+
+  const requestStatus = getRequestDispatchStatus(request);
+
+  const thStyle = { padding: "10px", textAlign: "left" };
+  const thRight = { padding: "10px", textAlign: "right" };
+
   return (
     <ModalOverlay style={{ zIndex: 2100 }}>
       <ModalContainer
-        style={{ width: "70%", height: "70%", maxWidth: "900px" }}
+        style={{ width: "75%", height: "70%", maxWidth: "1000px" }}
         onClick={(e) => e.stopPropagation()}
       >
         <Header>
@@ -911,12 +1029,30 @@ const ViewMedicinesModal = ({ request, onClose, onPrint }) => {
               marginBottom: "16px",
               fontSize: "0.85rem",
               color: colors.textMuted,
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
             }}
           >
-            {request.reqDate} {request.reqTime} · Doctor:{" "}
-            <strong style={{ color: colors.textMain }}>
-              {request.doctorName || request.doctor || "-"}
-            </strong>
+            <span>
+              {request.reqDate} {request.reqTime} · Doctor:{" "}
+              <strong style={{ color: colors.textMain }}>
+                {request.doctorName || request.doctor || "-"}
+              </strong>
+            </span>
+            <span
+              style={{
+                background: getDispatchStatusColor(requestStatus),
+                color: "white",
+                fontWeight: 700,
+                fontSize: "0.72rem",
+                padding: "2px 10px",
+                borderRadius: "12px",
+              }}
+            >
+              {requestStatus}
+            </span>
           </div>
           {medicines.length > 0 ? (
             <div
@@ -935,63 +1071,114 @@ const ViewMedicinesModal = ({ request, onClose, onPrint }) => {
               >
                 <thead>
                   <tr style={{ background: colors.headerBg, color: "#fff" }}>
-                    <th style={{ padding: "10px", textAlign: "left" }}>
-                      Medicine Name
-                    </th>
-                    <th style={{ padding: "10px", textAlign: "left" }}>
-                      Dosage
-                    </th>
-                    <th style={{ padding: "10px", textAlign: "right" }}>
-                      No. of Days
-                    </th>
-                    <th style={{ padding: "10px", textAlign: "right" }}>Qty</th>
-                    <th style={{ padding: "10px", textAlign: "left" }}>Dose</th>
-                    <th style={{ padding: "10px", textAlign: "left" }}>
-                      Route
-                    </th>
-                    <th style={{ padding: "10px", textAlign: "left" }}>
-                      Remark
-                    </th>
+                    <th style={thStyle}>#</th>
+                    <th style={thStyle}>Medicine Name</th>
+                    <th style={thStyle}>Dosage</th>
+                    <th style={thRight}>No. of Days</th>
+                    <th style={thRight}>Quantity</th>
+                    <th style={thRight}>Dispatched Qty</th>
+                    <th style={thRight}>Pending Qty</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Remark</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {medicines.map((m, i) => (
-                    <tr
-                      key={i}
-                      style={{ borderBottom: `1px solid ${colors.border}` }}
-                    >
-                      <td
-                        style={{
-                          padding: "10px",
-                          fontWeight: 600,
-                          color: colors.primary,
-                        }}
+                  {medicines.map((m, i) => {
+                    const pending = getPendingQty(m);
+                    const itemStatus = getItemDispatchStatus(m);
+                    return (
+                      <tr
+                        key={i}
+                        style={{ borderBottom: `1px solid ${colors.border}` }}
                       >
-                        {m.itemName || m.name}
-                      </td>
-                      <td style={{ padding: "10px" }}>{m.dosage || "-"}</td>
-                      <td style={{ padding: "10px", textAlign: "right" }}>
-                        {m.noOfDays || "-"}
-                      </td>
-                      <td style={{ padding: "10px", textAlign: "right" }}>
-                        {m.qty}
-                      </td>
-                      <td style={{ padding: "10px" }}>
-                        {m.dose ? `${m.dose} ${m.doseUnit || ""}`.trim() : "-"}
-                      </td>
-                      <td style={{ padding: "10px" }}>{m.route || "-"}</td>
-                      <td
-                        style={{
-                          padding: "10px",
-                          fontStyle: m.remark ? "italic" : "normal",
-                          color: m.remark ? colors.orange : colors.textMuted,
-                        }}
-                      >
-                        {m.remark || "-"}
-                      </td>
-                    </tr>
-                  ))}
+                        <td style={{ padding: "10px", color: colors.textMuted }}>
+                          {i + 1}
+                        </td>
+                        <td
+                          style={{
+                            padding: "10px",
+                            fontWeight: 600,
+                            color: colors.primary,
+                          }}
+                        >
+                          {m.itemName || m.name}
+                        </td>
+                        <td style={{ padding: "10px" }}>{m.dosage || "-"}</td>
+                        <td style={{ padding: "10px", textAlign: "right" }}>
+                          {m.noOfDays || "-"}
+                        </td>
+                        <td style={{ padding: "10px", textAlign: "right" }}>
+                          {getQty(m)}
+                        </td>
+                        <td style={{ padding: "10px", textAlign: "right" }}>
+                          {getDispatchedQty(m)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "10px",
+                            textAlign: "right",
+                            fontWeight: 700,
+                            color: pending > 0 ? "#c2410c" : colors.legBilled,
+                          }}
+                        >
+                          {pending}
+                        </td>
+                        <td
+                          style={{
+                            padding: "10px",
+                            fontWeight: 700,
+                            fontSize: "0.8rem",
+                            color: getDispatchStatusColor(itemStatus),
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {itemStatus}
+                        </td>
+                        <td
+                          style={{
+                            padding: "10px",
+                            fontStyle: m.remark ? "italic" : "normal",
+                            color: m.remark ? colors.orange : colors.textMuted,
+                          }}
+                        >
+                          {m.remark || "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
+                <tfoot>
+                  <tr style={{ background: "#f1f5f7", fontWeight: 700 }}>
+                    <td style={{ padding: "10px" }} colSpan={4}>
+                      Total
+                    </td>
+                    <td style={{ padding: "10px", textAlign: "right" }}>
+                      {totals.qty}
+                    </td>
+                    <td style={{ padding: "10px", textAlign: "right" }}>
+                      {totals.dispatched}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px",
+                        textAlign: "right",
+                        color: totals.pending > 0 ? "#c2410c" : colors.legBilled,
+                      }}
+                    >
+                      {totals.pending}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px",
+                        color: getDispatchStatusColor(requestStatus),
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {requestStatus}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           ) : (
@@ -1052,6 +1239,7 @@ const OTMedicineBilling = () => {
 
   const [viewingRequest, setViewingRequest] = useState(null);
   const [overallPrintOpen, setOverallPrintOpen] = useState(false);
+  const [pendingPrintOpen, setPendingPrintOpen] = useState(false);
   const [printSingleRequest, setPrintSingleRequest] = useState(null);
 
   const pharmacyDept = "OLET001";
@@ -1059,17 +1247,14 @@ const OTMedicineBilling = () => {
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [doctor, setDoctor] = useState("");
   const [doctorName, setDoctorName] = useState("");
+  const [qty, setQty] = useState("");
+  const [remark, setRemark] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [dosage, setDosage] = useState("");
   const [noOfDays, setNoOfDays] = useState("");
-  const [qty, setQty] = useState("");
-  const [dose, setDose] = useState("");
-  const [doseUnit, setDoseUnit] = useState("");
-  const [route, setRoute] = useState("");
-  const [remark, setRemark] = useState("");
   const [dosageOptions, setDosageOptions] = useState([]);
   const [showDosageModal, setShowDosageModal] = useState(false);
   const [newDosageName, setNewDosageName] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
 
   // ── Init ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1183,7 +1368,7 @@ const OTMedicineBilling = () => {
     return packages.filter(
       (p) =>
         (p.medPackage_name || "").toLowerCase().includes(q) ||
-        String(p.medPackage_id || "").toLowerCase().includes(q)
+        String(p.medPackage_id || "").toLowerCase().includes(q),
     );
   }, [packages, packageSearch]);
 
@@ -1208,6 +1393,14 @@ const OTMedicineBilling = () => {
   };
 
   const handleSelectPackage = async (pkg) => {
+    if (
+      selectedMedicines.length > 0 &&
+      !window.confirm(
+        "This will replace the items already selected with the package items. Continue?",
+      )
+    )
+      return;
+
     setPackageLoading(true);
     setIsPackageModalOpen(false);
     const items = pkg.items || [];
@@ -1219,11 +1412,9 @@ const OTMedicineBilling = () => {
           itemName: it.item_name,
           qty: it.qty,
           price,
-          noOfDays: "",
+          dispatched_qty: null,
           dosage: "",
-          dose: "",
-          doseUnit: "",
-          route: "",
+          noOfDays: "",
           remark: "",
         };
       }),
@@ -1236,12 +1427,17 @@ const OTMedicineBilling = () => {
   };
 
   const handleClearPackage = () => {
+    if (
+      selectedMedicines.length > 0 &&
+      !window.confirm("Clear the package and all selected items?")
+    )
+      return;
     setSelectedPackageId(null);
     setSelectedPackageName("");
     setSelectedMedicines([]);
   };
 
-  // ── Auto-calculate qty ─────────────────────────────────────────────────────
+  // ── Auto-calculate qty when BOTH dosage and days are entered (optional) ───
   useEffect(() => {
     if (dosage && noOfDays) {
       const times = dosage.includes("-")
@@ -1252,24 +1448,30 @@ const OTMedicineBilling = () => {
     }
   }, [dosage, noOfDays]);
 
-  // ── Add medicine ───────────────────────────────────────────────────────────
+  // ── Add medicine (works with or without a package selected) ───────────────
   const handleAddMedicine = () => {
-    if (selectedPackageId) return;
     if (!selectedDrug) return alert("Select a drug from search.");
-    if (!dosage) return alert("Enter Dosage.");
-    if (!noOfDays) return alert("Enter No. of days.");
-    if (!qty) return alert("Enter Quantity.");
+    if (!qty || Number(qty) <= 0) return alert("Enter Quantity.");
+
+    const exists = selectedMedicines.some(
+      (m) => String(m.item_id) === String(selectedDrug.item_id),
+    );
+    if (
+      exists &&
+      !window.confirm(
+        `${selectedDrug.name} is already in the list. Add it again?`,
+      )
+    )
+      return;
 
     const newMed = {
       item_id: selectedDrug.item_id,
       itemName: selectedDrug.name,
       qty: Number(qty),
       price: 0, // price resolved at billing time
-      noOfDays,
-      dosage,
-      dose,
-      doseUnit,
-      route,
+      dispatched_qty: null,
+      dosage, // optional
+      noOfDays, // optional
       remark,
     };
     setSelectedMedicines((p) => [...p, newMed]);
@@ -1278,13 +1480,10 @@ const OTMedicineBilling = () => {
 
   const resetDrugFields = () => {
     setSelectedDrug(null);
-    setNoOfDays("");
     setQty("");
-    setDose("");
-    setDoseUnit("");
-    setRoute("");
-    setRemark("");
     setDosage("");
+    setNoOfDays("");
+    setRemark("");
     setSearchQuery("");
     setSearchResults([]);
   };
@@ -1315,11 +1514,10 @@ const OTMedicineBilling = () => {
       itemName: m.itemName || m.name,
       qty: m.qty,
       price: m.price || 0,
-      noOfDays: m.noOfDays || "",
+      // keep whatever the backend already has (null when nothing dispatched)
+      dispatched_qty: m.dispatched_qty ?? m.dispatchedQty ?? null,
       dosage: m.dosage || "",
-      dose: m.dose || "",
-      doseUnit: m.doseUnit || "",
-      route: m.route || "",
+      noOfDays: m.noOfDays || "",
       remark: m.remark || "",
     }));
     setSelectedMedicines(prefilled);
@@ -1373,15 +1571,27 @@ const OTMedicineBilling = () => {
   const handleConfirm = async () => {
     if (!selectedMedicines.length) return alert("No medicines added.");
 
-    const total = selectedMedicines.reduce(
-      (a, m) => a + (Number(m.price) || 0) * (Number(m.qty) || 0),
+    // Normalised payload — dispatched_qty is always sent (null for new items)
+    const medicine_particulars = selectedMedicines.map((m) => ({
+      item_id: m.item_id,
+      itemName: m.itemName,
+      qty: Number(m.qty) || 0,
+      price: Number(m.price) || 0,
+      dispatched_qty: m.dispatched_qty ?? null,
+      dosage: m.dosage || "",
+      noOfDays: m.noOfDays || "",
+      remark: m.remark || "",
+    }));
+
+    const total = medicine_particulars.reduce(
+      (a, m) => a + m.price * m.qty,
       0,
     );
 
     if (editMode) {
       const payload = {
         bill_id: editingRequestId,
-        medicine_particulars: selectedMedicines,
+        medicine_particulars,
         total_amount: total,
         doctor_id: doctor,
         Package_id: selectedPackageId || "",
@@ -1403,7 +1613,7 @@ const OTMedicineBilling = () => {
         ipNumber: resolvedPatient.ipNo,
         patient_name: resolvedPatient.name,
         wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
-        medicine_particulars: selectedMedicines,
+        medicine_particulars,
         total_amount: total,
         doctor_id: doctor,
         surgeryRef: resolvedPatient.surgeryRef,
@@ -1419,15 +1629,12 @@ const OTMedicineBilling = () => {
         resetForm();
         setShowForm(false);
         fetchRequests();
-      }
+      } else alert(res.error || "Save failed");
     }
   };
 
+  // Removing an item no longer drops the package — the user can keep editing
   const removeSelectedMed = (i) => {
-    if (selectedPackageId) {
-      setSelectedPackageId(null);
-      setSelectedPackageName("");
-    }
     setSelectedMedicines((p) => p.filter((_, idx) => idx !== i));
   };
 
@@ -1439,8 +1646,12 @@ const OTMedicineBilling = () => {
     return colors.legRegular;
   };
 
-  const getDispatchColor = (isDispatched) =>
-    isDispatched ? "#136A63" : "#F88C22";
+  // Dispatch badge colour — driven by the quantity-based status
+  const getDispatchBadgeColor = (status) => {
+    if (status === "Dispatched") return "#136A63";
+    if (status === "Partially Dispatched") return "#0288D1";
+    return "#F88C22";
+  };
 
   const handleToggleForm = () => {
     if (showForm) {
@@ -1451,6 +1662,17 @@ const OTMedicineBilling = () => {
       setShowForm(true);
     }
   };
+
+  // How many bills still have pending (undispatched) quantity
+  const pendingBillCount = useMemo(
+    () =>
+      requests.filter(
+        (r) =>
+          (r.billingStatus || "Pending") !== "Cancelled" &&
+          (r.medicines || []).some((m) => getPendingQty(m) > 0),
+      ).length,
+    [requests],
+  );
 
   // ─── JSX ───────────────────────────────────────────────────────────────────
   return (
@@ -1517,8 +1739,8 @@ const OTMedicineBilling = () => {
               <PackageModeBanner>
                 <span>
                   📦 Package selected: <strong>{selectedPackageName}</strong>{" "}
-                  (ID: {selectedPackageId}). Individual medicine entry is
-                  disabled while a package is active.
+                  (ID: {selectedPackageId}). You can still search and add more
+                  medicines, or remove items from the list.
                 </span>
                 <ClearPackageBtn onClick={handleClearPackage}>
                   ✕ Clear Package
@@ -1543,12 +1765,11 @@ const OTMedicineBilling = () => {
                     />
                   </FormItem>
 
-
-                  {/* ── Medicine Name — inline dropdown, no modal ── */}
+                  {/* Medicine Name — inline dropdown */}
                   <FormItem style={{ gridColumn: "span 2" }}>
                     <FormLabel>
                       Medicine Name{" "}
-                      {editMode && (
+                      {(editMode || selectedPackageId) && (
                         <span
                           style={{
                             color: colors.orange,
@@ -1566,7 +1787,7 @@ const OTMedicineBilling = () => {
                       selectedDrug={selectedDrug}
                       setSelectedDrug={setSelectedDrug}
                       onOpenPackageList={handleOpenPackageList}
-                      disabled={!!selectedPackageId}
+                      disabled={false}
                       onSearch={handleMedicineSearch}
                       searchResults={searchResults}
                     />
@@ -1589,14 +1810,13 @@ const OTMedicineBilling = () => {
                     />
                   </FormItem>
 
-                  {/* Dosage */}
+                  {/* Dosage (optional) */}
                   <FormItem>
-                    <FormLabel>Dosage</FormLabel>
+                    <FormLabel>Dosage (optional)</FormLabel>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <StyledSelect
                         value={dosage}
                         onChange={(e) => setDosage(e.target.value)}
-                        disabled={!!selectedPackageId}
                         style={{ flex: 1 }}
                       >
                         <option value="">Select Dosage</option>
@@ -1613,18 +1833,16 @@ const OTMedicineBilling = () => {
                       </StyledSelect>
                       <button
                         type="button"
-                        disabled={!!selectedPackageId}
+                        title="Add new dosage"
                         onClick={() => setShowDosageModal(true)}
                         style={{
-                          background: selectedPackageId
-                            ? "#cbd5e1"
-                            : colors.primary,
+                          background: colors.primary,
                           color: "white",
                           width: "38px",
                           height: "38px",
                           borderRadius: "4px",
                           border: "none",
-                          cursor: selectedPackageId ? "not-allowed" : "pointer",
+                          cursor: "pointer",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -1635,73 +1853,54 @@ const OTMedicineBilling = () => {
                     </div>
                   </FormItem>
 
+                  {/* No. of Days (optional) */}
                   <FormItem>
-                    <FormLabel>No. of Days</FormLabel>
+                    <FormLabel>No. of Days (optional)</FormLabel>
                     <StyledInput
                       type="number"
+                      min="1"
                       value={noOfDays}
-                      disabled={!!selectedPackageId}
                       onChange={(e) => setNoOfDays(e.target.value)}
                     />
                   </FormItem>
+
+                  {/* Quantity — the only mandatory per-item entry */}
                   <FormItem>
                     <FormLabel>Quantity</FormLabel>
                     <StyledInput
                       type="number"
+                      min="1"
                       value={qty}
-                      disabled={!!selectedPackageId}
+                      placeholder="Enter quantity"
                       onChange={(e) => setQty(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddMedicine();
+                        }
+                      }}
                     />
                   </FormItem>
-                  <FormItem>
-                    <FormLabel>Dose</FormLabel>
+
+                  {/* Remark (optional) */}
+                  <FormItem style={{ gridColumn: "span 2" }}>
+                    <FormLabel>Remark (optional)</FormLabel>
                     <StyledInput
-                      value={dose}
-                      disabled={!!selectedPackageId}
-                      onChange={(e) => setDose(e.target.value)}
-                    />
-                  </FormItem>
-                  <FormItem>
-                    <FormLabel>Dose Unit</FormLabel>
-                    <StyledSelect
-                      value={doseUnit}
-                      disabled={!!selectedPackageId}
-                      onChange={(e) => setDoseUnit(e.target.value)}
-                    >
-                      <option value="">Select Unit</option>
-                      <option value="mg">mg</option>
-                      <option value="ml">ml</option>
-                      <option value="tab">Tablet</option>
-                      <option value="cap">Capsule</option>
-                    </StyledSelect>
-                  </FormItem>
-                  <FormItem>
-                    <FormLabel>Route</FormLabel>
-                    <StyledInput
-                      value={route}
-                      disabled={!!selectedPackageId}
-                      onChange={(e) => setRoute(e.target.value)}
+                      value={remark}
+                      onChange={(e) => setRemark(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddMedicine();
+                        }
+                      }}
                     />
                   </FormItem>
                 </FormGrid>
 
-                <FormItem style={{ marginBottom: "20px" }}>
-                  <FormLabel>Remark</FormLabel>
-                  <StyledInput
-                    value={remark}
-                    disabled={!!selectedPackageId}
-                    onChange={(e) => setRemark(e.target.value)}
-                  />
-                </FormItem>
-
                 <ActionButtons>
                   <CancelBtn onClick={resetDrugFields}>✕ Reset</CancelBtn>
-                  <AddBtn
-                    disabled={!!selectedPackageId}
-                    onClick={handleAddMedicine}
-                  >
-                    ＋ Add Medicine
-                  </AddBtn>
+                  <AddBtn onClick={handleAddMedicine}>＋ Add Medicine</AddBtn>
                 </ActionButtons>
               </FormPanel>
 
@@ -1767,14 +1966,9 @@ const OTMedicineBilling = () => {
                             marginTop: "4px",
                           }}
                         >
-                          {selectedPackageId ? (
-                            <>Qty: {m.qty}</>
-                          ) : (
-                            <>
-                              {m.dosage} | {m.noOfDays} Days | Qty: {m.qty}
-                              {m.route && ` | ${m.route}`}
-                            </>
-                          )}
+                          {m.dosage ? `${m.dosage} | ` : ""}
+                          {m.noOfDays ? `${m.noOfDays} Days | ` : ""}
+                          Qty: {m.qty}
                         </div>
                         {m.remark && (
                           <div
@@ -1837,32 +2031,75 @@ const OTMedicineBilling = () => {
             <Tab active={true}>📋 Request History ({requests.length})</Tab>
           </TabsBar>
 
-          <button
-            type="button"
-            disabled={requests.length === 0}
-            onClick={() => setOverallPrintOpen(true)}
-            style={{
-              background: requests.length === 0 ? "#cbd5e1" : colors.primary,
-              color: "white",
-              border: "none",
-              borderRadius: "6px",
-              padding: "7px 16px",
-              fontWeight: 700,
-              fontSize: "0.85rem",
-              cursor: requests.length === 0 ? "not-allowed" : "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              boxShadow:
-                requests.length === 0
-                  ? "none"
-                  : "0 2px 6px rgba(19, 106, 99, 0.25)",
-              transition: "all 0.15s",
-            }}
-            title="Print consolidated statement of all medicine requests"
-          >
-            <Printer size={15} /> 🖨️ Overall Print
-          </button>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {/* Pending Print */}
+            <button
+              type="button"
+              disabled={pendingBillCount === 0}
+              onClick={() => setPendingPrintOpen(true)}
+              style={{
+                background: pendingBillCount === 0 ? "#cbd5e1" : colors.orange,
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                padding: "7px 16px",
+                fontWeight: 700,
+                fontSize: "0.85rem",
+                cursor: pendingBillCount === 0 ? "not-allowed" : "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow:
+                  pendingBillCount === 0
+                    ? "none"
+                    : "0 2px 6px rgba(248, 140, 34, 0.3)",
+                transition: "all 0.15s",
+              }}
+              title="Print bill-wise pending items list"
+            >
+              <ClipboardList size={15} /> Pending Print
+              {pendingBillCount > 0 && (
+                <span
+                  style={{
+                    background: "rgba(255,255,255,0.3)",
+                    borderRadius: "10px",
+                    padding: "0 7px",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  {pendingBillCount}
+                </span>
+              )}
+            </button>
+
+            {/* Overall Print */}
+            <button
+              type="button"
+              disabled={requests.length === 0}
+              onClick={() => setOverallPrintOpen(true)}
+              style={{
+                background: requests.length === 0 ? "#cbd5e1" : colors.primary,
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                padding: "7px 16px",
+                fontWeight: 700,
+                fontSize: "0.85rem",
+                cursor: requests.length === 0 ? "not-allowed" : "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow:
+                  requests.length === 0
+                    ? "none"
+                    : "0 2px 6px rgba(19, 106, 99, 0.25)",
+                transition: "all 0.15s",
+              }}
+              title="Print consolidated statement of all medicine requests"
+            >
+              <Printer size={15} /> Overall Print
+            </button>
+          </div>
         </div>
 
         <StyledTable>
@@ -1893,181 +2130,186 @@ const OTMedicineBilling = () => {
                 </td>
               </tr>
             ) : (
-              requests.map((req, i) => (
-                <tr key={i}>
-                  <td>
-                    {req.reqDate} {req.reqTime}
-                  </td>
-                  <td>
-                    <button
-                      title="View medicine details"
-                      onClick={() => setViewingRequest(req)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: colors.primary,
-                        cursor: "pointer",
-                        padding: "4px",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Eye size={16} />
-                    </button>
-                  </td>
-                  <td>{req.wardName || ""}</td>
-                  <td>{req.doctorName || req.doctor}</td>
-                  <td>{req.billName}</td>
-                  <td>
-                    <LegendItem color={getDispatchColor(req.is_dispatched)}>
-                      {req.is_dispatched ? "Dispatched" : "Pending"}
-                    </LegendItem>
-                  </td>
-                  <td>
-                    <LegendItem
-                      color={getStatusColor(req.billingStatus || "Pending")}
-                    >
-                      {req.billingStatus || "Pending"}
-                    </LegendItem>
-                  </td>
-                  <td>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "6px",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                      }}
-                    >
+              requests.map((req, i) => {
+                // Quantity-based dispatch status (Dispatched / Partially Dispatched / Pending)
+                const dispatchStatus = getRequestDispatchStatus(req);
+                return (
+                  <tr key={i}>
+                    <td>
+                      {req.reqDate} {req.reqTime}
+                    </td>
+                    <td>
                       <button
-                        type="button"
-                        title="Print requisition slip"
-                        onClick={() => setPrintSingleRequest(req)}
+                        title="View medicine details"
+                        onClick={() => setViewingRequest(req)}
                         style={{
-                          background: "#f0fdfa",
+                          background: "none",
+                          border: "none",
                           color: colors.primary,
-                          border: `1px solid ${colors.primary}`,
-                          borderRadius: "5px",
-                          padding: "5px 10px",
-                          fontSize: "0.78rem",
-                          fontWeight: 600,
                           cursor: "pointer",
-                          display: "inline-flex",
+                          padding: "4px",
+                          display: "flex",
                           alignItems: "center",
-                          gap: "4px",
-                          transition: "all 0.15s",
                         }}
                       >
-                        <Printer size={13} /> Print
+                        <Eye size={16} />
                       </button>
-
-                      <button
-                        disabled={
-                          (req.billingStatus || "Pending") !== "Pending"
-                        }
-                        onClick={() => openEditModal(req)}
+                    </td>
+                    <td>{req.wardName || ""}</td>
+                    <td>{req.doctorName || req.doctor}</td>
+                    <td>{req.billName}</td>
+                    <td>
+                      <LegendItem color={getDispatchBadgeColor(dispatchStatus)}>
+                        {dispatchStatus}
+                      </LegendItem>
+                    </td>
+                    <td>
+                      <LegendItem
+                        color={getStatusColor(req.billingStatus || "Pending")}
+                      >
+                        {req.billingStatus || "Pending"}
+                      </LegendItem>
+                    </td>
+                    <td>
+                      <div
                         style={{
-                          background:
-                            (req.billingStatus || "Pending") === "Pending"
-                              ? colors.primary
-                              : "#cbd5e1",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "5px",
-                          padding: "5px 12px",
-                          fontSize: "0.78rem",
-                          fontWeight: 600,
-                          cursor:
-                            (req.billingStatus || "Pending") === "Pending"
-                              ? "pointer"
-                              : "not-allowed",
-                          opacity:
-                            (req.billingStatus || "Pending") === "Pending"
-                              ? 1
-                              : 0.5,
+                          display: "flex",
+                          gap: "6px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
                         }}
                       >
-                        ✏️ Edit
-                      </button>
-                      <button
-                        disabled={
-                          (req.billingStatus || "Pending") !== "Pending"
-                        }
-                        onClick={() => handleDelete(req)}
-                        style={{
-                          background:
-                            (req.billingStatus || "Pending") === "Pending"
-                              ? "#e53935"
-                              : "#cbd5e1",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "5px",
-                          padding: "5px 12px",
-                          fontSize: "0.78rem",
-                          fontWeight: 600,
-                          cursor:
-                            (req.billingStatus || "Pending") === "Pending"
-                              ? "pointer"
-                              : "not-allowed",
-                          opacity:
-                            (req.billingStatus || "Pending") === "Pending"
-                              ? 1
-                              : 0.5,
-                        }}
-                      >
-                        🗑️ Delete
-                      </button>
-
-                      {req.is_dispatched && !req.is_received && (
-                        <label
+                        <button
+                          type="button"
+                          title="Print requisition slip"
+                          onClick={() => setPrintSingleRequest(req)}
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "5px",
+                            background: "#f0fdfa",
+                            color: colors.primary,
+                            border: `1px solid ${colors.primary}`,
+                            borderRadius: "5px",
+                            padding: "5px 10px",
                             fontSize: "0.78rem",
                             fontWeight: 600,
-                            color: colors.primary,
                             cursor: "pointer",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={false}
-                            onChange={() => handleMarkReceived(req)}
-                            style={{
-                              cursor: "pointer",
-                              accentColor: colors.primary,
-                            }}
-                          />
-                          Received
-                        </label>
-                      )}
-
-                      {req.is_dispatched && req.is_received && (
-                        <span
-                          style={{
-                            fontSize: "0.78rem",
-                            fontWeight: 700,
-                            color: colors.legBilled,
-                            display: "flex",
+                            display: "inline-flex",
                             alignItems: "center",
                             gap: "4px",
+                            transition: "all 0.15s",
                           }}
                         >
-                          ✅ Received
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                          <Printer size={13} /> Print
+                        </button>
+
+                        <button
+                          disabled={
+                            (req.billingStatus || "Pending") !== "Pending"
+                          }
+                          onClick={() => openEditModal(req)}
+                          style={{
+                            background:
+                              (req.billingStatus || "Pending") === "Pending"
+                                ? colors.primary
+                                : "#cbd5e1",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "5px",
+                            padding: "5px 12px",
+                            fontSize: "0.78rem",
+                            fontWeight: 600,
+                            cursor:
+                              (req.billingStatus || "Pending") === "Pending"
+                                ? "pointer"
+                                : "not-allowed",
+                            opacity:
+                              (req.billingStatus || "Pending") === "Pending"
+                                ? 1
+                                : 0.5,
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          disabled={
+                            (req.billingStatus || "Pending") !== "Pending"
+                          }
+                          onClick={() => handleDelete(req)}
+                          style={{
+                            background:
+                              (req.billingStatus || "Pending") === "Pending"
+                                ? "#e53935"
+                                : "#cbd5e1",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "5px",
+                            padding: "5px 12px",
+                            fontSize: "0.78rem",
+                            fontWeight: 600,
+                            cursor:
+                              (req.billingStatus || "Pending") === "Pending"
+                                ? "pointer"
+                                : "not-allowed",
+                            opacity:
+                              (req.billingStatus || "Pending") === "Pending"
+                                ? 1
+                                : 0.5,
+                          }}
+                        >
+                          🗑️ Delete
+                        </button>
+
+                        {req.is_dispatched && !req.is_received && (
+                          <label
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              fontSize: "0.78rem",
+                              fontWeight: 600,
+                              color: colors.primary,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={false}
+                              onChange={() => handleMarkReceived(req)}
+                              style={{
+                                cursor: "pointer",
+                                accentColor: colors.primary,
+                              }}
+                            />
+                            Received
+                          </label>
+                        )}
+
+                        {req.is_dispatched && req.is_received && (
+                          <span
+                            style={{
+                              fontSize: "0.78rem",
+                              fontWeight: 700,
+                              color: colors.legBilled,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            ✅ Received
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </StyledTable>
 
         <LegendContainer>
           <LegendItem color={colors.legPending}>Pending</LegendItem>
+          <LegendItem color="#0288D1">Partially Dispatched</LegendItem>
           <LegendItem color={colors.legSubstituted}>Substituted</LegendItem>
           <LegendItem color={colors.legBilled}>Billed</LegendItem>
           <LegendItem color={colors.legCancelled}>Cancelled</LegendItem>
@@ -2081,7 +2323,6 @@ const OTMedicineBilling = () => {
       </div>
 
       {/* Package Selection Modal */}
-      {/* ── Upgraded Select Medicine Package Modal ── */}
       {isPackageModalOpen && (
         <ModalOverlay
           style={{ zIndex: 2000 }}
@@ -2129,7 +2370,8 @@ const OTMedicineBilling = () => {
                     marginTop: "3px",
                   }}
                 >
-                  Pre-configured surgery kits with standard drug quantities &amp; live prices
+                  Pre-configured surgery kits with standard drug quantities
+                  &amp; live prices
                 </div>
               </div>
               <button
@@ -2226,7 +2468,8 @@ const OTMedicineBilling = () => {
                   whiteSpace: "nowrap",
                 }}
               >
-                {filteredPackages.length} package{filteredPackages.length !== 1 ? "s" : ""}
+                {filteredPackages.length} package
+                {filteredPackages.length !== 1 ? "s" : ""}
               </span>
             </div>
 
@@ -2248,10 +2491,13 @@ const OTMedicineBilling = () => {
                     fontWeight: 600,
                   }}
                 >
-                  ⏳ Loading package items &amp; calculating pharmacy stock prices...
+                  ⏳ Loading package items &amp; calculating pharmacy stock
+                  prices...
                 </div>
               ) : filteredPackages.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+                >
                   {filteredPackages.map((pkg) => {
                     const isSelected =
                       String(selectedPackageId) === String(pkg.medPackage_id);
@@ -2335,7 +2581,6 @@ const OTMedicineBilling = () => {
                             )}
                           </div>
 
-                          {/* Medicine pills preview */}
                           {items.length > 0 ? (
                             <div
                               style={{
@@ -2389,12 +2634,14 @@ const OTMedicineBilling = () => {
                           )}
                         </div>
 
-                        {/* Action Buttons */}
                         <div>
                           {isSelected ? (
                             <button
                               type="button"
-                              onClick={handleClearPackage}
+                              onClick={() => {
+                                handleClearPackage();
+                                setIsPackageModalOpen(false);
+                              }}
                               style={{
                                 background: "#fee2e2",
                                 color: "#dc2626",
@@ -2478,6 +2725,19 @@ const OTMedicineBilling = () => {
         />
       )}
 
+      {/* Pending Items (Bill-wise) Print Modal */}
+      {pendingPrintOpen && (
+        <OTPrintModal
+          title={`OT Medicine Pending List - ${resolvedPatient.ipNo || "IP"}`}
+          htmlGenerator={generateMedicinePendingPrintHtml}
+          data={{
+            patient: resolvedPatient,
+            requests: requests,
+          }}
+          onClose={() => setPendingPrintOpen(false)}
+        />
+      )}
+
       {/* Single Request Slip Print Modal */}
       {printSingleRequest && (
         <OTPrintModal
@@ -2490,7 +2750,6 @@ const OTMedicineBilling = () => {
           onClose={() => setPrintSingleRequest(null)}
         />
       )}
-
       {/* Add Dosage Modal */}
       {showDosageModal && (
         <div
@@ -2504,7 +2763,7 @@ const OTMedicineBilling = () => {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1100,
+            zIndex: 2200,
           }}
         >
           <div

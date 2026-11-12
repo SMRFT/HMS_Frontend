@@ -2126,6 +2126,21 @@ const EditSectionItem = ({ section, index, onChange }) => {
 
 // ─── PDF Print Helper ─────────────────────────────────────────────────────────
 
+const cleanReportHtml = (html) => {
+  if (!html) return "";
+  return String(html)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/<\/?(?!b\b)[a-z][^>]*>/gi, "") // drop mark/span/font/etc, keep <b>
+    .replace(/&amp;/g, "&");
+};
+
 const handlePrintReport = async (row, withLetterpad = true) => {
   try {
     const report = row.report;
@@ -2151,7 +2166,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     const sections = buildSectionsFromValueDetails(
       report.valuedetails,
       row._titleMap,
-      row.radiology_format?.format_titles, // ← add this
+      row.radiology_format?.format_titles,
     );
     const impression = report.impression || "";
     const pnaDetails = row._pnaDetails || [];
@@ -2159,14 +2174,55 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
     const doc = new jsPDF();
     let pageCount = 1;
+    const pageLineYs = {}; // Y of the separator line under patient info, per page
+    const pageNoY = {}; // page number -> Y where "Page X of Y" is drawn (under patient info line)
 
     const leftMargin = 10;
     const rightMargin = leftMargin + 190;
     const contentWidth = rightMargin - leftMargin;
-    const headerHeight = 25;
-    const footerHeight = 20;
+    // Header/footer heights follow the images' real aspect ratio (full page width),
+    // so neither is stretched and both match each other.
+    const pageW = doc.internal.pageSize.width;
+    const getScaledHeight = (img, fallback, width = pageW) => {
+      try {
+        const p = doc.getImageProperties(img);
+        if (p?.width && p?.height) return width * (p.height / p.width);
+      } catch (e) {
+        console.warn("Could not read image size, using default:", e);
+      }
+      return fallback;
+    };
+    const headerHeight = withLetterpad ? getScaledHeight(headerImage, 25) : 25;
+    // Footer is drawn inside the left/right margins, so its height scales to contentWidth
+    const footerWidth = contentWidth;
+    const footerX = leftMargin;
+    const footerHeight = withLetterpad
+      ? getScaledHeight(FooterImage, 20, footerWidth)
+      : 20;
     const contentYStart = headerHeight + 15;
 
+    // ── Font sizes (pt) — change these to resize the whole report ──────────────
+    const FS = {
+      patientInfo: 11,
+      department: 13,
+      pna: 11,
+      heading: 12,
+      subHeading: 11,
+      ancLabel: 9,
+      ancValue: 11,
+      body: 11,
+      sectionTitle: 11,
+      table: 11,
+      impressionTitle: 12,
+      impressionBody: 11,
+      endReport: 11,
+      sigName: 11,
+      sigDesignation: 10,
+      sigReg: 9,
+      disclaimerTitle: 10,
+      disclaimerBody: 9,
+      pageNo: 9,
+    };
 
     const billDateFormatted = row.investBillDate
       ? format(new Date(row.investBillDate), "dd MMM yy / HH:mm")
@@ -2215,42 +2271,22 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return doc.splitTextToSize(text, maxWidth);
     };
 
-    const htmlToPlainText = (html) => {
-      if (!html) return "";
-      return html
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<\/p>/gi, "\n")
-        .replace(/<\/div>/gi, "\n")
-        .replace(/<[^>]*>/g, "")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&#39;/g, "'")
-        .trim();
-    };
+    // Plain text (all tags removed)
+    const htmlToPlainText = (html) =>
+      cleanReportHtml(html).replace(/<\/?b>/gi, "").trim();
 
+    // Bold / normal segments (only <b> is kept)
     const parseHtmlSegments = (html) => {
       if (!html) return [];
-      const normalized = html
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<\/p>/gi, "\n")
-        .replace(/<\/div>/gi, "\n")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&#39;/g, "'");
+      const normalized = cleanReportHtml(html);
       const segments = [];
       const regex = /<b>(.*?)<\/b>|([^<]+)/gis;
       let match;
       while ((match = regex.exec(normalized)) !== null) {
         if (match[1] !== undefined)
           segments.push({ text: match[1], bold: true });
-        else if (match[2] !== undefined) {
-          const plain = match[2].replace(/<[^>]*>/g, "");
-          if (plain) segments.push({ text: plain, bold: false });
-        }
+        else if (match[2] !== undefined && match[2])
+          segments.push({ text: match[2], bold: false });
       }
       return segments;
     };
@@ -2268,19 +2304,18 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         doc.addImage(
           FooterImage,
           "PNG",
-          0,
+          footerX,
           doc.internal.pageSize.height - footerHeight,
-          doc.internal.pageSize.width,
+          footerWidth,
           footerHeight,
         );
       }
     };
 
-
     const calculateMaxLabelWidth = (details) => {
       const tempDoc = new jsPDF();
       tempDoc.setFont("helvetica", "bold");
-      tempDoc.setFontSize(10);
+      tempDoc.setFontSize(FS.patientInfo);
       return Math.max(...details.map((d) => tempDoc.getTextWidth(d.label)));
     };
 
@@ -2290,17 +2325,19 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       const leftLabelX = leftMargin;
       const leftColonX = leftLabelX + leftMaxW + 2;
       const leftValueX = leftColonX + 3;
-      const rightLabelX = 133;
+      const rightLabelX = 115;
       const rightColonX = rightLabelX + rightMaxW + 2;
       const rightValueX = rightColonX + 3;
+      const infoLineH = 5;
+      const infoRowMin = 6;
 
-      doc.setFontSize(10);
+      doc.setFontSize(FS.patientInfo);
       let infoY = yPos;
       const maxLen = Math.max(leftDetails.length, rightDetails.length);
       for (let i = 0; i < maxLen; i++) {
         const left = leftDetails[i];
         const right = rightDetails[i];
-        let leftRowH = 5;
+        let leftRowH = infoRowMin;
         if (left) {
           doc.setFont("helvetica", "bold");
           doc.text(left.label, leftLabelX, infoY);
@@ -2309,11 +2346,11 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           const maxLeftW = rightLabelX - 4 - leftValueX;
           const leftLines = wrapText(String(left.value || ""), maxLeftW);
           leftLines.forEach((line, li) =>
-            doc.text(line, leftValueX, infoY + li * 4),
+            doc.text(line, leftValueX, infoY + li * infoLineH),
           );
-          leftRowH = leftLines.length * 4;
+          leftRowH = leftLines.length * infoLineH;
         }
-        let rightRowH = 5;
+        let rightRowH = infoRowMin;
         if (right) {
           doc.setFont("helvetica", "bold");
           doc.text(right.label, rightLabelX, infoY);
@@ -2322,11 +2359,11 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           const maxRightW = rightMargin - rightValueX;
           const rightLines = wrapText(String(right.value || ""), maxRightW);
           rightLines.forEach((line, li) =>
-            doc.text(line, rightValueX, infoY + li * 4),
+            doc.text(line, rightValueX, infoY + li * infoLineH),
           );
-          rightRowH = rightLines.length * 4;
+          rightRowH = rightLines.length * infoLineH;
         }
-        infoY += Math.max(leftRowH, rightRowH, 5);
+        infoY += Math.max(leftRowH, rightRowH, infoRowMin);
       }
       return infoY;
     };
@@ -2353,28 +2390,28 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       doc.setDrawColor(100, 100, 100);
       doc.line(sigX, sy, sigX + 52, sy);
       doc.setDrawColor(0, 0, 0);
-      sy += 3;
+      sy += 4;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
+      doc.setFontSize(FS.sigName);
       doc.text(signatureData.employeeName || "", sigX + 29, sy, {
         align: "center",
       });
-      sy += 3;
+      sy += 5;
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
+      doc.setFontSize(FS.sigDesignation);
       doc.text(signatureData.designation || "", sigX + 29, sy, {
         align: "center",
       });
-      sy += 3;
+      sy += 4.5;
       if (signatureData.registrationNumber) {
-        doc.setFontSize(7);
+        doc.setFontSize(FS.sigReg);
         doc.text(
           `Reg. No: ${signatureData.registrationNumber}`,
           sigX + 29,
           sy,
           { align: "center" },
         );
-        sy += 3;
+        sy += 4.5;
       }
       doc.setFont("helvetica", "normal");
       return sy;
@@ -2382,16 +2419,15 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
     const checkNewPage = (yPos, needed = 0) => {
       const pageH = doc.internal.pageSize.height;
-      const footerStart = pageH - footerHeight - 12; // extra 12px safety margin
+      const footerStart = pageH - footerHeight - 12; // extra safety margin
       if (yPos + needed > footerStart) {
-        // Redraw footer over any content bleed on current page
         if (withLetterpad) {
           doc.addImage(
             FooterImage,
             "PNG",
-            0,
+            footerX,
             pageH - footerHeight,
-            doc.internal.pageSize.width,
+            footerWidth,
             footerHeight,
           );
         }
@@ -2400,9 +2436,10 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         addHeaderFooter();
         let ny = contentYStart;
         ny = addPatientInfo(ny);
-        ny += 10;
+        ny += 13;
+        pageLineYs[pageCount] = ny - 7;
         doc.setDrawColor(200, 200, 200);
-        doc.line(leftMargin, ny - 4, rightMargin, ny - 4);
+        doc.line(leftMargin, ny - 7, rightMargin, ny - 7);
         doc.setDrawColor(0, 0, 0);
         return ny;
       }
@@ -2414,10 +2451,11 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     addHeaderFooter();
     let yPos = addPatientInfo(contentYStart);
 
+    pageLineYs[1] = yPos;
     doc.setDrawColor(180, 180, 180);
     doc.line(leftMargin, yPos, rightMargin, yPos);
     doc.setDrawColor(0, 0, 0);
-    yPos += 6;
+    yPos += 7;
 
     const centerX = leftMargin + contentWidth / 2;
     const department = row.department ? row.department.toUpperCase() : "";
@@ -2427,21 +2465,21 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     // ── Department ────────────────────────────────────────────────────────────
     if (department) {
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
+      doc.setFontSize(FS.department);
       doc.setTextColor(0, 0, 0);
       doc.text(department, centerX, yPos, { align: "center" });
-      yPos += 7;
+      yPos += 8;
     }
 
-    // ── PNA Details (centered, between department and heading) ────────────────
+    // ── PNA Details ───────────────────────────────────────────────────────────
     if (pnaDetails && pnaDetails.length > 0) {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
+      doc.setFontSize(FS.pna);
       doc.setTextColor(60, 60, 60);
       pnaDetails.forEach((pna) => {
         const pnaText = `PNA: ${pna.pna}   Registration date: ${pna.registration_date}`;
         doc.text(pnaText, centerX, yPos, { align: "center" });
-        yPos += 4.5;
+        yPos += 6;
       });
       doc.setTextColor(0, 0, 0);
     }
@@ -2449,31 +2487,31 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     // ── Heading with underline ─────────────────────────────────────────────────
     if (headingStr) {
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
+      doc.setFontSize(FS.heading);
       doc.setTextColor(0, 0, 0);
       const headingLines = doc.splitTextToSize(headingStr, contentWidth - 10);
       headingLines.forEach((line, li) => {
-        doc.text(line, centerX, yPos + li * 6, { align: "center" });
+        doc.text(line, centerX, yPos + li * 7, { align: "center" });
         const lineW = doc.getTextWidth(line);
         doc.line(
           centerX - lineW / 2,
-          yPos + li * 6 + 1.5,
+          yPos + li * 7 + 1.5,
           centerX + lineW / 2,
-          yPos + li * 6 + 1.5,
+          yPos + li * 7 + 1.5,
         );
       });
-      yPos += headingLines.length * 6 + 1;
+      yPos += headingLines.length * 7 + 1;
     }
 
     // ── Sub heading ────────────────────────────────────────────────────────────
     if (subHeading) {
       doc.setFont("helvetica", "italic");
-      doc.setFontSize(8.5);
+      doc.setFontSize(FS.subHeading);
       doc.setTextColor(100, 100, 100);
       doc.text(subHeading, centerX, yPos, { align: "center" });
       doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "normal");
-      yPos += 5;
+      yPos += 6;
     }
     yPos += 2;
 
@@ -2483,7 +2521,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       ancData &&
       (ancData.guh || ancData.lmp || ancData.ga_weeks || ancData.edd_usg)
     ) {
-      const ancRowH = 16;
+      const ancRowH = 18;
       const ancCellW = contentWidth / 5;
       const ancLabels = [
         "NO OF CHILDREN",
@@ -2492,36 +2530,24 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         "GA (By USG)",
         "EDD (By USG)",
       ];
+      const fmtAncDate = (v) => {
+        if (!v) return "—";
+        try {
+          return new Date(v).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+        } catch {
+          return v;
+        }
+      };
       const ancVals = [
         ancData.guh || "—",
-        ancData.lmp
-          ? (() => {
-            try {
-              return new Date(ancData.lmp).toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              });
-            } catch {
-              return ancData.lmp;
-            }
-          })()
-          : "—",
+        fmtAncDate(ancData.lmp),
         ancData.ga_lmp || "—",
         ancData.ga_usg || "—",
-        ancData.edd_usg
-          ? (() => {
-            try {
-              return new Date(ancData.edd_usg).toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              });
-            } catch {
-              return ancData.edd_usg;
-            }
-          })()
-          : "—",
+        fmtAncDate(ancData.edd_usg),
       ];
 
       doc.setFillColor(232, 245, 233);
@@ -2538,13 +2564,13 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         const cellX = leftMargin + i * ancCellW;
         if (i > 0) doc.line(cellX, yPos, cellX, yPos + ancRowH);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
+        doc.setFontSize(FS.ancLabel);
         doc.setTextColor(0, 105, 92);
-        doc.text(label, cellX + ancCellW / 2, yPos + 5, { align: "center" });
+        doc.text(label, cellX + ancCellW / 2, yPos + 6, { align: "center" });
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(8.5);
+        doc.setFontSize(FS.ancValue);
         doc.setTextColor(40, 40, 40);
-        doc.text(ancVals[i], cellX + ancCellW / 2, yPos + 11.5, {
+        doc.text(String(ancVals[i]), cellX + ancCellW / 2, yPos + 13.5, {
           align: "center",
         });
       });
@@ -2557,9 +2583,9 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     // ── Sections ───────────────────────────────────────────────────────────────
 
     if (sections.length > 0) {
-      sections.forEach((section, idx) => {
+      sections.forEach((section) => {
         if (section.isTable) {
-          // ── TABLE SECTION — ALL rows as data rows ─────────────────────────
+          // ── TABLE SECTION ─────────────────────────────────────────────────
           const entry = section.value;
           const { rows: tRows, cols } = parseTableDimensions(entry.table_id);
           const grid = extractTableCells(entry, tRows, cols);
@@ -2567,18 +2593,19 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
           const cellPadX = 3;
           const cellPadY = 2.5;
-          const lineH = 5;
+          const lineH = 5.5;
           const minRowH = 9;
-          const fontSize = 8.5;
+          const fontSize = FS.table;
 
           doc.setFontSize(fontSize);
           const colWidth = contentWidth / cols;
 
           // Pre-calculate row heights
-          const rowHeights = grid.map((row) => {
+          const rowHeights = grid.map((rowCells) => {
             let maxLines = 1;
-            row.forEach((cell) => {
+            rowCells.forEach((cell) => {
               const plain = htmlToPlainText(cell).replace(/\/\/\//g, "");
+              doc.setFont("helvetica", "normal");
               const wrapped = doc.splitTextToSize(
                 plain,
                 colWidth - cellPadX * 2,
@@ -2596,22 +2623,20 @@ const handlePrintReport = async (row, withLetterpad = true) => {
             rowHeights.reduce((a, b) => a + b, 0) + tableNameHeight + 6;
           yPos = checkNewPage(yPos, totalTableHeight);
 
-          // Render table name if present
           if (tableName) {
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(8.5);
+            doc.setFontSize(FS.sectionTitle);
             doc.setTextColor(0, 105, 92);
             doc.text(tableName.toUpperCase(), leftMargin, yPos);
             doc.setTextColor(0, 0, 0);
             doc.setFont("helvetica", "normal");
-            yPos += 6;
+            yPos += 7;
           }
 
-          grid.forEach((row, ri) => {
+          grid.forEach((rowCells, ri) => {
             const rowH = rowHeights[ri];
             yPos = checkNewPage(yPos, rowH + 2);
 
-            // ALL rows get the same mild alternating background
             doc.setFillColor(
               ri % 2 === 0 ? 240 : 248,
               ri % 2 === 0 ? 248 : 252,
@@ -2619,7 +2644,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
             );
             doc.rect(leftMargin, yPos, contentWidth, rowH, "F");
 
-            row.forEach((cell, ci) => {
+            rowCells.forEach((cell, ci) => {
               const x = leftMargin + ci * colWidth;
               doc.setDrawColor(200, 225, 220);
               doc.rect(x, yPos, colWidth, rowH, "S");
@@ -2634,7 +2659,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
                 parts.forEach((part, pi) => {
                   if (pi > 0) words.push({ text: "\n", bold: false });
                   part.split(" ").forEach((w) => {
-                    if (w) words.push({ text: w, bold });
+                    if (w) words.push({ text: w.replace(/\/\/\//g, ""), bold });
                   });
                 });
               });
@@ -2653,6 +2678,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
                   pushLine();
                   return;
                 }
+                if (!word.text) return;
                 doc.setFont("helvetica", word.bold ? "bold" : "normal");
                 const spaceW = curLine.length > 0 ? doc.getTextWidth(" ") : 0;
                 const wordW = doc.getTextWidth(word.text);
@@ -2662,7 +2688,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
                   curLine.length > 0 ? " " + word.text : word.text;
                 const last = curLine[curLine.length - 1];
                 if (last && last.bold === word.bold) {
-                  last.text += curLine.length > 0 ? " " + word.text : word.text;
+                  last.text += " " + word.text;
                   last.w += doc.getTextWidth(spacedText);
                 } else {
                   curLine.push({
@@ -2704,49 +2730,25 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           // ── TEXT SECTION ──────────────────────────────────────────────────
           if (!section.value) return;
 
-          const lineH = 4.8;
-          const segments = (() => {
-            // Parse HTML into bold/normal segments line by line
-            const html = section.value;
-            if (!html) return [];
-            const normalized = html
-              .replace(/<br\s*\/?>/gi, "\n")
-              .replace(/<\/p>/gi, "\n")
-              .replace(/<\/div>/gi, "\n")
-              .replace(/&amp;/g, "&")
-              .replace(/&lt;/g, "<")
-              .replace(/&gt;/g, ">")
-              .replace(/&nbsp;/g, " ")
-              .replace(/&#39;/g, "'");
-            const segs = [];
-            const regex = /<b>(.*?)<\/b>|([^<]+)/gis;
-            let match;
-            while ((match = regex.exec(normalized)) !== null) {
-              if (match[1] !== undefined)
-                segs.push({ text: match[1], bold: true });
-              else if (match[2] !== undefined) {
-                const plain = match[2].replace(/<[^>]*>/g, "");
-                if (plain) segs.push({ text: plain, bold: false });
-              }
-            }
-            return segs;
-          })();
+          const lineH = 5.5;
+          const segments = parseHtmlSegments(section.value);
 
-          // Build all lines first (same word-wrap logic as renderRichText)
+          // Build all lines first (word-wrap)
           const maxW = contentWidth - 6;
           const allLines = [];
           let currentLine = [];
           let currentLineWidth = 0;
-          const pushLine = () => {
-            allLines.push(currentLine);
+          // justify = true only when the line was ended by auto-wrapping
+          const pushLine = (justify = false) => {
+            allLines.push({ segs: currentLine, justify });
             currentLine = [];
             currentLineWidth = 0;
           };
-          doc.setFontSize(9);
+          doc.setFontSize(FS.body);
           segments.forEach(({ text, bold }) => {
             const parts = text.split("\n");
             parts.forEach((part, partIdx) => {
-              if (partIdx > 0) pushLine();
+              if (partIdx > 0) pushLine(false); // hard line break
               const words = part.split(" ");
               words.forEach((word, wi) => {
                 if (word === "" && wi === 0 && currentLine.length === 0) return;
@@ -2758,7 +2760,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
                   currentLineWidth + spaceW + wordW > maxW &&
                   currentLine.length > 0
                 )
-                  pushLine();
+                  pushLine(true); // wrapped line, so justify
                 const space = currentLine.length > 0 ? " " : "";
                 const last = currentLine[currentLine.length - 1];
                 if (last && last.bold === bold) {
@@ -2776,35 +2778,68 @@ const handlePrintReport = async (row, withLetterpad = true) => {
               });
             });
           });
-          if (currentLine.length > 0) pushLine();
+          if (currentLine.length > 0) pushLine(false); // last line, never justified
 
           const nonEmptyLines = allLines.filter(
-            (l) => l.length > 0 && l.some((s) => s.text.trim()),
+            (l) => l.segs.length > 0 && l.segs.some((s) => s.text.trim()),
           );
 
           if (nonEmptyLines.length === 0) return;
 
-          // Always check for new page before title
-          yPos = checkNewPage(yPos, 6 + lineH);
+          yPos = checkNewPage(yPos, 7 + lineH);
 
           // Section title
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
+          doc.setFontSize(FS.sectionTitle);
           doc.setTextColor(0, 105, 92);
           doc.text(section.title.toUpperCase(), leftMargin, yPos);
           doc.setTextColor(0, 0, 0);
-          yPos += 6;
+          yPos += 7;
 
-          // Render each line individually, checking for page break each time
-          doc.setFontSize(9);
-          nonEmptyLines.forEach((line) => {
+          doc.setFontSize(FS.body);
+          nonEmptyLines.forEach(({ segs, justify }) => {
             yPos = checkNewPage(yPos, lineH);
-            let cx = leftMargin + 3;
-            line.forEach(({ text, bold }) => {
-              doc.setFont("helvetica", bold ? "bold" : "normal");
-              doc.text(text, cx, yPos);
-              cx += doc.getTextWidth(text);
+            const startX = leftMargin + 3;
+
+            // Split into word tokens, keeping bold info
+            const tokens = [];
+            segs.forEach(({ text, bold }) => {
+              text
+                .split(" ")
+                .filter(Boolean)
+                .forEach((w) => tokens.push({ w, bold }));
             });
+
+            let drawn = false;
+            if (justify && tokens.length > 1) {
+              let wordsW = 0;
+              tokens.forEach(({ w, bold }) => {
+                doc.setFont("helvetica", bold ? "bold" : "normal");
+                wordsW += doc.getTextWidth(w);
+              });
+              const gap = (maxW - wordsW) / (tokens.length - 1);
+              doc.setFont("helvetica", "normal");
+              const normalSpace = doc.getTextWidth(" ");
+              // skip justification if it would create ugly big gaps
+              if (gap <= normalSpace * 3) {
+                let x = startX;
+                tokens.forEach(({ w, bold }) => {
+                  doc.setFont("helvetica", bold ? "bold" : "normal");
+                  doc.text(w, x, yPos);
+                  x += doc.getTextWidth(w) + gap;
+                });
+                drawn = true;
+              }
+            }
+
+            if (!drawn) {
+              let cx = startX;
+              segs.forEach(({ text, bold }) => {
+                doc.setFont("helvetica", bold ? "bold" : "normal");
+                doc.text(text, cx, yPos);
+                cx += doc.getTextWidth(text);
+              });
+            }
             yPos += lineH;
           });
           doc.setFont("helvetica", "normal");
@@ -2815,71 +2850,59 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
     // ── Impression ─────────────────────────────────────────────────────────────
 
-    const getAvailableSpace = (currentY) => {
-      return doc.internal.pageSize.height - footerHeight - 5 - currentY;
-    };
-
-    yPos = checkNewPage(yPos, 12);
+    yPos = checkNewPage(yPos, 14);
     if (impression) {
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
+      doc.setFontSize(FS.impressionTitle);
       doc.setTextColor(0, 105, 92);
       doc.text("IMPRESSION:", leftMargin + 3, yPos + 3);
       doc.setTextColor(0, 0, 0);
-      yPos += 8;
+      yPos += 9;
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      const impressionLines = impression
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<\/p>/gi, "\n")
-        .replace(/<\/div>/gi, "\n")
+      doc.setFontSize(FS.impressionBody);
+      const impressionLines = htmlToPlainText(impression)
         .split("\n")
-        .map((line) =>
-          line
-            .replace(/<[^>]*>/g, "")
-            .replace(/&amp;/g, "&")
-            .replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">")
-            .replace(/&nbsp;/g, " ")
-            .trim(),
-        )
+        .map((l) => l.trim())
         .filter(Boolean);
 
+      const impLineH = 6;
       const bulletX = leftMargin + 3;
       const textX = leftMargin + 9;
       const bulletMaxWidth = contentWidth - 9;
 
       impressionLines.forEach((line) => {
         doc.setFont("helvetica", "bold");
+        doc.setFontSize(FS.impressionBody);
         const wrapped = doc.splitTextToSize(line, bulletMaxWidth);
-        yPos = checkNewPage(yPos, 5.2);
+        yPos = checkNewPage(yPos, impLineH);
         doc.setTextColor(0, 105, 92);
         doc.text("•", bulletX, yPos);
         doc.setTextColor(0, 0, 0);
         doc.setFont("helvetica", "bold");
         wrapped.forEach((wline, wi) => {
           if (wi > 0) {
-            yPos += 5.2;
-            yPos = checkNewPage(yPos, 5.2);
+            yPos += impLineH;
+            yPos = checkNewPage(yPos, impLineH);
           }
           doc.text(wline, textX, yPos);
         });
-        yPos += 5.2 + 0.2;
+        yPos += impLineH + 0.5;
       });
       doc.setFont("helvetica", "normal");
-      yPos += 0.5;
+      yPos += 1;
     }
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
+    doc.setFontSize(FS.endReport);
     doc.setTextColor(0, 0, 0);
     doc.text("**End of the Report**", leftMargin + contentWidth / 2, yPos, {
       align: "center",
     });
-    yPos += 6;
+    yPos += 7;
 
     // ── Signatures ─────────────────────────────────────────────────────────────
+    yPos = checkNewPage(yPos, signatureData ? 36 : 0);
     const afterSigY = addSignatures(yPos);
     yPos = afterSigY + 8;
 
@@ -2887,18 +2910,18 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     if (disclaimerList && disclaimerList.length > 0) {
       disclaimerList.forEach((disc) => {
         const titleText = disc.title || "DISCLAIMER";
-        const rawText = htmlToPlainText(disc.title_value || "");
-        const bodyText = rawText
+        const bodyText = htmlToPlainText(disc.title_value || "")
           .replace(/\r?\n+/g, " ")
           .replace(/\s{2,}/g, " ")
           .trim();
         if (!bodyText) return;
 
+        const discLineH = 5;
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
+        doc.setFontSize(FS.disclaimerBody);
 
         const bodyLines = doc.splitTextToSize(bodyText, contentWidth);
-        const discH = 6 + 5 + bodyLines.length * 4.5 + 6;
+        const discH = 6 + 6 + bodyLines.length * discLineH + 6;
         yPos = checkNewPage(yPos, discH + 10);
 
         // Separator
@@ -2909,28 +2932,26 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
         // Title
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(8.5);
+        doc.setFontSize(FS.disclaimerTitle);
         doc.setTextColor(0, 0, 0);
         doc.text(titleText, leftMargin, yPos);
         const titleW = doc.getTextWidth(titleText);
         doc.line(leftMargin, yPos + 1, leftMargin + titleW, yPos + 1);
         yPos += 6;
 
-        // ── Justified body text ───────────────────────────────────────────────
+        // Justified body text
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
+        doc.setFontSize(FS.disclaimerBody);
         doc.setTextColor(50, 50, 50);
 
         bodyLines.forEach((line, lineIdx) => {
-          yPos = checkNewPage(yPos, 5);
+          yPos = checkNewPage(yPos, discLineH + 1);
 
           const isLastLine = lineIdx === bodyLines.length - 1;
 
-          // Last line or very short line — left align, no justification
           if (isLastLine || doc.getTextWidth(line) < contentWidth * 0.6) {
             doc.text(line, leftMargin, yPos);
           } else {
-            // Justify: distribute extra space evenly between words
             const words = line.split(" ").filter((w) => w.length > 0);
             if (words.length <= 1) {
               doc.text(line, leftMargin, yPos);
@@ -2942,19 +2963,20 @@ const handlePrintReport = async (row, withLetterpad = true) => {
               const totalSpace = contentWidth - totalWordsWidth;
               const spacePerGap = totalSpace / (words.length - 1);
               let x = leftMargin;
-              words.forEach((word, wi) => {
+              words.forEach((word) => {
                 doc.text(word, x, yPos);
                 x += doc.getTextWidth(word) + spacePerGap;
               });
             }
           }
-          yPos += 4.5;
+          yPos += discLineH;
         });
 
         doc.setTextColor(0, 0, 0);
         yPos += 4;
       });
     }
+
     // ── Page numbers ───────────────────────────────────────────────────────────
     const finalPageCount = pageCount;
     for (let i = 1; i <= finalPageCount; i++) {
@@ -2962,26 +2984,25 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       const pageH = doc.internal.pageSize.height;
 
       if (withLetterpad) {
-        // Redraw footer image on EVERY page to cover any content overflow
         doc.addImage(
           FooterImage,
           "PNG",
-          0,
+          footerX,
           pageH - footerHeight,
-          doc.internal.pageSize.width,
+          footerWidth,
           footerHeight,
         );
       }
 
-      // Draw page number ABOVE the footer (not inside it)
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
+      doc.setFontSize(FS.pageNo);
       doc.setTextColor(100, 100, 100);
+      // Right corner, just under the patient info separator line
       doc.text(
         `Page ${i} of ${finalPageCount}`,
-        leftMargin + contentWidth / 2,
-        pageH - footerHeight - 3, // sits just above footer
-        { align: "center" },
+        rightMargin,
+        (pageLineYs[i] ?? contentYStart) + 4,
+        { align: "right" },
       );
       doc.setTextColor(0, 0, 0);
     }
