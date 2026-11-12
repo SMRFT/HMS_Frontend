@@ -145,6 +145,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
   const [loading,        setLoading]        = useState(false);
   const [checkingShift,  setCheckingShift]  = useState(false);
   const [alerts,         setAlerts]         = useState([]);
+  const [startBlockedReason, setStartBlockedReason] = useState(null);
   const [isActive,       setIsActive]       = useState(false);   // driven by API is_active
   const [currentShiftId, setCurrentShiftId] = useState(null);
   const [shiftStartISO,  setShiftStartISO]  = useState(null);
@@ -236,9 +237,12 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       );
       console.log("🔍 [ShiftDetails] get_active_shift:", res);
       
+      const dataObj = res?.data;
+
       // Check if counter is allocated in employee profile
-      if (res?.data?.counter_allocated === false) {
-        addAlert("error", res?.data?.message || "No cash counter is allocated to your profile. Please assign a cash counter in Employee Master before starting a shift.");
+      if (dataObj?.counter_allocated === false) {
+        addAlert("error", dataObj?.message || "No cash counter is allocated to your profile. Please assign a cash counter in Employee Master before starting a shift.");
+        setStartBlockedReason("no_counter");
         setIsActive(false);
         setCurrentShiftId(null);
         setShiftStartISO(null);
@@ -249,13 +253,34 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
         return null;
       }
 
+      // Check outlet match against counter's allotted outlet
+      if (dataObj?.outlet_match === false) {
+        addAlert("error", dataObj?.outlet_mismatch_message || "Outlet mismatch: you cannot start this cash counter in the current outlet.");
+        setStartBlockedReason("outlet_mismatch");
+      } else if (dataObj?.counter_occupied === true) {
+        addAlert("error", dataObj?.occupied_message || "Counter already has an active running shift started by another cashier.");
+        setStartBlockedReason("counter_occupied");
+      } else {
+        setStartBlockedReason(null);
+      }
+
+      // Update counter & outlet name in form from allocated profile details
+      if (dataObj?.cashcounter) {
+        setFormData((prev) => ({
+          ...prev,
+          cashCounter: dataObj.cashcounter.counter_id || prev.cashCounter,
+          cashCounterName: dataObj.cashcounter.counter_name || dataObj.cashcounter.counter_id || prev.cashCounterName,
+          outletCode: dataObj.cashcounter.outlet || prev.outletCode,
+        }));
+      }
+
       // We apply data if we get a record OR if we get the 'expected' values
-      if (res?.success && res?.data?.data) {
-        applyShiftData(res.data.data);
-        return res.data.data;
-      } else if (res?.data?.expected_opening != null) {
+      if (res?.success && dataObj?.data) {
+        applyShiftData(dataObj.data);
+        return dataObj.data;
+      } else if (dataObj?.expected_opening != null) {
         // Handle the case where no active shift is found, but we have expected values
-        applyShiftData(res.data); 
+        applyShiftData(dataObj); 
         return null;
       }
       
@@ -627,7 +652,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
               <ActionButton
                 variant="start"
                 onClick={handleStartCounter}
-                disabled={loading || checkingShift}
+                disabled={loading || checkingShift || Boolean(startBlockedReason)}
               >
                 {loading ? <LoadingSpinner /> : "▶"}
                 Start Counter

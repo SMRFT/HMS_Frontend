@@ -1017,6 +1017,12 @@ const ReportsDashboard = () => {
             navigate(report.path);
         } else {
             setSelectedReport(report);
+            if (report.id === "ip_advance") {
+                // IP Advance Report is an as-on-date snapshot report: don't get from, to date in UI, use today default for to date
+                setDateRange([dayjs(), dayjs()]);
+                setIsReportModalVisible(true);
+                return;
+            }
             if (report.id === "bill_wise" || report.id === "credit_card" || report.id === "cash_bills" || report.id === "discount_bills") {
                 setBillType("All");
             }
@@ -1126,28 +1132,43 @@ const ReportsDashboard = () => {
                 closable={false}
             >
                 <DatePickerWrapper>
-                    <FormRow>
-                        <InputWrapper>
-                            <Label>From Date</Label>
-                            <DatePicker 
-                                value={dateRange[0]} 
-                                onChange={(date) => date && setDateRange([date, dateRange[1]])}
-                                format="DD/MM/YYYY"
-                                allowClear={false}
-                                style={{ width: '100%', borderRadius: '8px', padding: '10px 12px' }}
-                            />
-                        </InputWrapper>
-                        <InputWrapper>
-                            <Label>To Date</Label>
-                            <DatePicker 
-                                value={dateRange[1]} 
-                                onChange={(date) => date && setDateRange([dateRange[0], date])}
-                                format="DD/MM/YYYY"
-                                allowClear={false}
-                                style={{ width: '100%', borderRadius: '8px', padding: '10px 12px' }}
-                            />
-                        </InputWrapper>
-                    </FormRow>
+                    {selectedReport?.id === "ip_advance" ? (
+                        <FormRow>
+                            <InputWrapper style={{ width: '100%' }}>
+                                <Label>As on Date</Label>
+                                <DatePicker 
+                                    value={dateRange[1] || dayjs()} 
+                                    onChange={(date) => date && setDateRange([date, date])}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                    style={{ width: '100%', borderRadius: '8px', padding: '10px 12px' }}
+                                />
+                            </InputWrapper>
+                        </FormRow>
+                    ) : (
+                        <FormRow>
+                            <InputWrapper>
+                                <Label>From Date</Label>
+                                <DatePicker 
+                                    value={dateRange[0]} 
+                                    onChange={(date) => date && setDateRange([date, dateRange[1]])}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                    style={{ width: '100%', borderRadius: '8px', padding: '10px 12px' }}
+                                />
+                            </InputWrapper>
+                            <InputWrapper>
+                                <Label>To Date</Label>
+                                <DatePicker 
+                                    value={dateRange[1]} 
+                                    onChange={(date) => date && setDateRange([dateRange[0], date])}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                    style={{ width: '100%', borderRadius: '8px', padding: '10px 12px' }}
+                                />
+                            </InputWrapper>
+                        </FormRow>
+                    )}
 
                     {!["ip_advance", "discharge_detailed", "advance_reg", "insurance_advance"].includes(selectedReport?.id) && (
                         <FormRow style={{ marginTop: '16px' }}>

@@ -940,25 +940,44 @@ const A4MultiPageViewer = ({
             {/* In-Viewer Quick Filter Bar */}
             {showFilterBar && (
                 <InViewerFilterBar>
-                    <div className="filter-item">
-                        <span className="filter-label">From:</span>
-                        <DatePicker 
-                            value={tempFromDate}
-                            onChange={(d) => d && setTempFromDate(d)}
-                            format="DD/MM/YYYY"
-                            allowClear={false}
-                        />
-                    </div>
+                    {selectedReport?.id === "ip_advance" ? (
+                        <div className="filter-item">
+                            <span className="filter-label">As On Date:</span>
+                            <DatePicker 
+                                value={tempToDate || dayjs()}
+                                onChange={(d) => {
+                                    if (d) {
+                                        setTempFromDate(d);
+                                        setTempToDate(d);
+                                    }
+                                }}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                            />
+                        </div>
+                    ) : (
+                        <>
+                            <div className="filter-item">
+                                <span className="filter-label">From:</span>
+                                <DatePicker 
+                                    value={tempFromDate}
+                                    onChange={(d) => d && setTempFromDate(d)}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                />
+                            </div>
 
-                    <div className="filter-item">
-                        <span className="filter-label">To:</span>
-                        <DatePicker 
-                            value={tempToDate}
-                            onChange={(d) => d && setTempToDate(d)}
-                            format="DD/MM/YYYY"
-                            allowClear={false}
-                        />
-                    </div>
+                            <div className="filter-item">
+                                <span className="filter-label">To:</span>
+                                <DatePicker 
+                                    value={tempToDate}
+                                    onChange={(d) => d && setTempToDate(d)}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                />
+                            </div>
+                        </>
+                    )}
 
                     {!isNoOutletReport && outlets && outlets.length > 0 && (
                         <div className="filter-item">
@@ -1129,7 +1148,10 @@ const A4MultiPageViewer = ({
                             <div className="page-header-block">
                                 <h2 className="hosp-name">{hospitalName}</h2>
                                 <h3 className="report-subtitle">
-                                    {selectedReport?.title} From {dateRange[0]?.format("DD/MM/YYYY")} To {dateRange[1]?.format("DD/MM/YYYY")}
+                                    {selectedReport?.id === "ip_advance"
+                                        ? `${selectedReport?.title} As On ${dateRange[1]?.format("DD/MM/YYYY") || dayjs().format("DD/MM/YYYY")}`
+                                        : `${selectedReport?.title} From ${dateRange[0]?.format("DD/MM/YYYY")} To ${dateRange[1]?.format("DD/MM/YYYY")}`
+                                    }
                                 </h3>
                                 <div className="printed-date">
                                     Printed As On {new Date().toLocaleDateString("en-GB")} {new Date().toLocaleTimeString()}
