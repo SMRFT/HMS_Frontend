@@ -549,7 +549,7 @@ const RemarksTextarea = styled.textarea`
     border-color: ${({ $error }) => ($error ? colors.danger : colors.primary)};
     box-shadow: 0 0 0 2px
       ${({ $error }) =>
-        $error ? "rgba(239,68,68,0.12)" : "rgba(13,148,136,0.1)"};
+    $error ? "rgba(239,68,68,0.12)" : "rgba(13,148,136,0.1)"};
   }
 `;
 
@@ -659,6 +659,9 @@ const BillsReport = () => {
 
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  const isBarcodeLocked = (bill) =>
+    bill.is_barcode === true;
 
   const formatBillDate = (dateStr) => {
     if (!dateStr) return "";
@@ -880,9 +883,9 @@ const BillsReport = () => {
 
   const refundTotal = refundBill
     ? refundSelected.reduce((sum, idx) => {
-        const it = refundBill.item[idx];
-        return sum + parseFloat(it.price || 0) * parseInt(it.quantity || 1, 10);
-      }, 0)
+      const it = refundBill.item[idx];
+      return sum + parseFloat(it.price || 0) * parseInt(it.quantity || 1, 10);
+    }, 0)
     : 0;
 
   const handleRefundConfirm = async () => {
@@ -1122,45 +1125,45 @@ const BillsReport = () => {
                     <Td>
                       {bill.history && bill.history.length > 0
                         ? bill.history[bill.history.length - 1].modified_by ||
-                          "—"
+                        "—"
                         : "—"}
                     </Td>
                     <RemarksTd>
                       {bill.history && bill.history.length > 0
                         ? bill.history.map((h, i) => (
-                            <div
-                              key={i}
+                          <div
+                            key={i}
+                            style={{
+                              marginBottom:
+                                i < bill.history.length - 1 ? 6 : 0,
+                            }}
+                          >
+                            <span
                               style={{
-                                marginBottom:
-                                  i < bill.history.length - 1 ? 6 : 0,
+                                fontWeight: 600,
+                                color: colors.textMain,
                               }}
                             >
+                              {h.editRemarks || "—"}
+                            </span>
+                            {h.modified_by && (
                               <span
                                 style={{
-                                  fontWeight: 600,
-                                  color: colors.textMain,
+                                  display: "block",
+                                  fontSize: "0.7rem",
+                                  color: colors.textMuted,
                                 }}
                               >
-                                {h.editRemarks || "—"}
+                                by {h.modified_by} ·{" "}
+                                {h.modified_date
+                                  ? new Date(
+                                    h.modified_date + "Z",
+                                  ).toLocaleDateString("en-IN")
+                                  : ""}
                               </span>
-                              {h.modified_by && (
-                                <span
-                                  style={{
-                                    display: "block",
-                                    fontSize: "0.7rem",
-                                    color: colors.textMuted,
-                                  }}
-                                >
-                                  by {h.modified_by} ·{" "}
-                                  {h.modified_date
-                                    ? new Date(
-                                        h.modified_date + "Z",
-                                      ).toLocaleDateString("en-IN")
-                                    : ""}
-                                </span>
-                              )}
-                            </div>
-                          ))
+                            )}
+                          </div>
+                        ))
                         : "—"}
                     </RemarksTd>
                     <Td>{bill.paymentStatus}</Td>
@@ -1178,53 +1181,65 @@ const BillsReport = () => {
                         >
                           👁
                         </ViewIcon>
-                        {canEdit && (
-                          <EditIcon
-                            onClick={() =>
-                              bill.paymentStatus === "Pending" &&
-                              handleEdit(bill)
-                            }
-                            title={
-                              bill.paymentStatus !== "Pending"
-                                ? "Edit not allowed"
-                                : "Edit"
-                            }
-                            $disabled={bill.paymentStatus !== "Pending"}
-                          >
-                            ✏️
-                          </EditIcon>
-                        )}
+                        {canEdit && (() => {
+                          const editDisabled =
+                            bill.paymentStatus !== "Pending" || isBarcodeLocked(bill);
+                          return (
+                            <EditIcon
+                              onClick={() => !editDisabled && handleEdit(bill)}
+                              title={
+                                isBarcodeLocked(bill)
+                                  ? "Edit not allowed (Barcode generated)"
+                                  : bill.paymentStatus !== "Pending"
+                                    ? "Edit not allowed"
+                                    : "Edit"
+                              }
+                              $disabled={editDisabled}
+                            >
+                              ✏️
+                            </EditIcon>
+                          );
+                        })()}
 
-                        {canDelete && (
-                          <DeleteIcon
-                            onClick={() =>
-                              bill.paymentStatus === "Pending" &&
-                              handleDelete(bill)
-                            }
-                            title={
-                              bill.paymentStatus !== "Pending"
-                                ? "Delete not allowed"
-                                : "Delete"
-                            }
-                            $disabled={bill.paymentStatus !== "Pending"}
-                          >
-                            🗑️
-                          </DeleteIcon>
-                        )}
-                        <RefundIcon
-                          onClick={() =>
-                            bill.paymentStatus !== "Pending" &&
-                            handleRefund(bill)
-                          }
-                          title={
-                            bill.paymentStatus === "Pending"
-                              ? "Refund not allowed (Pending)"
-                              : "Refund"
-                          }
-                          $disabled={bill.paymentStatus === "Pending"}
-                        >
-                          💸
-                        </RefundIcon>
+                        {canDelete && (() => {
+                          const deleteDisabled =
+                            bill.paymentStatus !== "Pending" || isBarcodeLocked(bill);
+                          return (
+                            <DeleteIcon
+                              onClick={() => !deleteDisabled && handleDelete(bill)}
+                              title={
+                                isBarcodeLocked(bill)
+                                  ? "Delete not allowed (Barcode generated)"
+                                  : bill.paymentStatus !== "Pending"
+                                    ? "Delete not allowed"
+                                    : "Delete"
+                              }
+                              $disabled={deleteDisabled}
+                            >
+                              🗑️
+                            </DeleteIcon>
+                          );
+                        })()}
+
+                        {(() => {
+                          const refundDisabled =
+                            bill.paymentStatus === "Pending" || isBarcodeLocked(bill);
+                          return (
+                            <RefundIcon
+                              onClick={() => !refundDisabled && handleRefund(bill)}
+                              title={
+                                isBarcodeLocked(bill)
+                                  ? "Refund not allowed (Barcode generated)"
+                                  : bill.paymentStatus === "Pending"
+                                    ? "Refund not allowed (Pending)"
+                                    : "Refund"
+                              }
+                              $disabled={refundDisabled}
+                            >
+                              💸
+                            </RefundIcon>
+                          );
+                        })()}
                         {bill.refunds && bill.refunds.length > 0 && (
                           <RefundHistoryIconBtn
                             onClick={() => setViewRefundBill(bill)}
@@ -1641,7 +1656,7 @@ const BillsReport = () => {
                         (s, it) =>
                           s +
                           parseFloat(it.price || 0) *
-                            parseInt(it.quantity || 1, 10),
+                          parseInt(it.quantity || 1, 10),
                         0,
                       )
                       .toFixed(2)}

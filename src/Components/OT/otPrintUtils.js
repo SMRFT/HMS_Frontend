@@ -8,6 +8,43 @@ export const HOSPITAL_INFO = {
   phone: "Phone: 0427-2706666 | 2706600",
 };
 
+// ─── Dispatch quantity helpers (dispatched_qty may be null / "" / undefined) ──
+export const getQty = (m) => Number(m?.qty ?? m?.quantity) || 0;
+
+export const getDispatchedQty = (m) =>
+  Number(m?.dispatched_qty ?? m?.dispatchedQty ?? 0) || 0;
+
+export const getPendingQty = (m) => Math.max(getQty(m) - getDispatchedQty(m), 0);
+
+// Item-level status
+export const getItemDispatchStatus = (m) => {
+  if (getQty(m) > 0 && getPendingQty(m) === 0) return "Dispatched";
+  if (getDispatchedQty(m) > 0) return "Partially Dispatched";
+  return "Pending";
+};
+
+// Request / bill-level status, based on the quantity calculation
+//   • every item has Pending Qty = 0         → "Dispatched"
+//   • some pending qty left, some dispatched → "Partially Dispatched"
+//   • nothing dispatched yet                 → "Pending"
+export const getRequestDispatchStatus = (req) => {
+  const meds = req?.medicines || req?.items || [];
+  if (!meds.length) return req?.is_dispatched ? "Dispatched" : "Pending";
+
+  const totalPending = meds.reduce((a, m) => a + getPendingQty(m), 0);
+  const totalDispatched = meds.reduce((a, m) => a + getDispatchedQty(m), 0);
+
+  if (totalPending === 0) return "Dispatched";
+  if (totalDispatched > 0) return "Partially Dispatched";
+  return "Pending";
+};
+
+export const getDispatchStatusColor = (status) => {
+  if (status === "Dispatched") return "#047857";
+  if (status === "Partially Dispatched") return "#0369a1";
+  return "#b45309";
+};
+
 export const numberToWords = (num) => {
   if (num === null || num === undefined || isNaN(num)) return "Zero";
   const n = Math.floor(Math.abs(Number(num)));
@@ -205,6 +242,8 @@ const getBaseStyles = (size = "a4") => {
     .data-table tr:nth-child(even) td {
       background: #f8fafc;
     }
+    .data-table.compact th { padding: 6px 5px; font-size: 9px; }
+    .data-table.compact td { padding: 5px 5px; font-size: 10px; }
     .text-center { text-align: center !important; }
     .text-right { text-align: right !important; }
     .kpi-row {
@@ -531,13 +570,15 @@ export const generateMedicineOverallPrintHtml = ({ patient, requests = [], size 
         reqId: req.bill_id || req.Bill_id || "—",
         reqDateTime: `${req.reqDate || ""} ${req.reqTime || ""}`.trim() || formatDateTime(req.created_date),
         doctor: req.doctorName || req.doctor || "—",
-        dispatchStatus: req.is_dispatched ? "Dispatched" : "Pending",
+        dispatchStatus: getItemDispatchStatus(m),
         receivedStatus: req.is_received ? "Received" : "Not Received",
         paymentStatus: req.billingStatus || "Pending",
         itemName: m.itemName || m.item_name || m.name || "—",
         dosage: m.dosage || "—",
         days: m.noOfDays || m.days || "—",
-        qty: m.qty || m.quantity || 1,
+        qty: getQty(m) || 1,
+        dispatchedQty: getDispatchedQty(m),
+        pendingQty: getPendingQty(m),
         route: m.route || "—",
         remark: m.remark || "",
       });
@@ -545,29 +586,33 @@ export const generateMedicineOverallPrintHtml = ({ patient, requests = [], size 
   });
 
   const totalQty = allMeds.reduce((acc, m) => acc + (Number(m.qty) || 1), 0);
+  const totalDispatched = allMeds.reduce((acc, m) => acc + m.dispatchedQty, 0);
+  const totalPending = allMeds.reduce((acc, m) => acc + m.pendingQty, 0);
 
   const rowsHtml = allMeds.length > 0
     ? allMeds.map((m, idx) => `
         <tr>
-          <td class="text-center" style="width: 35px;">${idx + 1}</td>
-          <td style="width: 105px;">${m.reqDateTime}</td>
+          <td class="text-center" style="width: 28px;">${idx + 1}</td>
+          <td style="width: 92px;">${m.reqDateTime}</td>
           <td style="font-weight: 700; color: #136A63;">${m.itemName}</td>
-          <td class="text-center" style="width: 65px;">${m.dosage}</td>
-          <td class="text-center" style="width: 45px;">${m.days}</td>
-          <td class="text-center" style="width: 45px; font-weight: 700;">${m.qty}</td>
-          <td style="width: 60px;">${m.route}</td>
-          <td style="width: 110px;">${m.doctor}</td>
-          <td class="text-center" style="width: 80px;">
-            <span style="font-weight: 700; font-size: 10px; color: ${m.dispatchStatus === "Dispatched" ? "#047857" : "#b45309"};">
+          <td class="text-center" style="width: 52px;">${m.dosage}</td>
+          <td class="text-center" style="width: 34px;">${m.days}</td>
+          <td class="text-center" style="width: 34px; font-weight: 700;">${m.qty}</td>
+          <td class="text-center" style="width: 48px; font-weight: 700; color: #047857;">${m.dispatchedQty}</td>
+          <td class="text-center" style="width: 44px; font-weight: 700; color: ${m.pendingQty > 0 ? "#c2410c" : "#047857"};">${m.pendingQty}</td>
+          <td style="width: 46px;">${m.route}</td>
+          <td style="width: 90px;">${m.doctor}</td>
+          <td class="text-center" style="width: 74px;">
+            <span style="font-weight: 700; font-size: 9.5px; color: ${getDispatchStatusColor(m.dispatchStatus)};">
               ${m.dispatchStatus}
             </span>
           </td>
-          <td class="text-center" style="width: 75px;">
-            <span style="font-size: 10px; font-weight: 600;">${m.paymentStatus}</span>
+          <td class="text-center" style="width: 56px;">
+            <span style="font-size: 9.5px; font-weight: 600;">${m.paymentStatus}</span>
           </td>
         </tr>
       `).join("")
-    : `<tr><td colspan="10" class="text-center" style="padding: 25px; color: #94a3b8;">No medicine requisitions recorded.</td></tr>`;
+    : `<tr><td colspan="12" class="text-center" style="padding: 25px; color: #94a3b8;">No medicine requisitions recorded.</td></tr>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -642,12 +687,12 @@ export const generateMedicineOverallPrintHtml = ({ patient, requests = [], size 
       <strong>${allMeds.length} Items (${totalQty} Total Qty)</strong>
     </div>
     <div class="kpi-card">
-      <span>Dispense Status</span>
-      <strong style="color: #047857;">Pharmacy Credit Route</strong>
+      <span>Dispatched / Pending Qty</span>
+      <strong><span style="color: #047857; font-size: 13px; text-transform: none;">${totalDispatched}</span> / <span style="color: ${totalPending > 0 ? "#c2410c" : "#047857"}; font-size: 13px; text-transform: none;">${totalPending}</span></strong>
     </div>
   </div>
 
-  <table class="data-table">
+  <table class="data-table compact">
     <thead>
       <tr>
         <th class="text-center">#</th>
@@ -656,6 +701,8 @@ export const generateMedicineOverallPrintHtml = ({ patient, requests = [], size 
         <th class="text-center">Dosage</th>
         <th class="text-center">Days</th>
         <th class="text-center">Qty</th>
+        <th class="text-center">Disp. Qty</th>
+        <th class="text-center">Pend. Qty</th>
         <th>Route</th>
         <th>Doctor</th>
         <th class="text-center">Dispatch</th>
@@ -711,17 +758,37 @@ export const generateMedicineSingleSlipHtml = ({ patient, request, size = "a4" }
   });
 
   const meds = request.medicines || request.items || [];
-  const rowsHtml = meds.map((m, idx) => `
+  const requestStatus = getRequestDispatchStatus(request);
+
+  const totals = meds.reduce(
+    (a, m) => ({
+      qty: a.qty + (getQty(m) || 1),
+      dispatched: a.dispatched + getDispatchedQty(m),
+      pending: a.pending + getPendingQty(m),
+    }),
+    { qty: 0, dispatched: 0, pending: 0 },
+  );
+
+  const rowsHtml = meds.map((m, idx) => {
+    const pending = getPendingQty(m);
+    const itemStatus = getItemDispatchStatus(m);
+    return `
     <tr>
-      <td class="text-center" style="width: 35px;">${idx + 1}</td>
+      <td class="text-center" style="width: 32px;">${idx + 1}</td>
       <td style="font-weight: 700; color: #136A63;">${m.itemName || m.item_name || m.name || "—"}</td>
-      <td class="text-center" style="width: 80px;">${m.dosage || "—"}</td>
-      <td class="text-center" style="width: 60px;">${m.noOfDays || m.days || "—"}</td>
-      <td class="text-center" style="width: 60px; font-weight: 700; font-size: 13px;">${m.qty || m.quantity || 1}</td>
-      <td style="width: 75px;">${m.route || "—"}</td>
+      <td class="text-center" style="width: 66px;">${m.dosage || "—"}</td>
+      <td class="text-center" style="width: 44px;">${m.noOfDays || m.days || "—"}</td>
+      <td class="text-center" style="width: 48px; font-weight: 700; font-size: 12px;">${getQty(m) || 1}</td>
+      <td class="text-center" style="width: 62px; font-weight: 700; font-size: 12px; color: #047857;">${getDispatchedQty(m)}</td>
+      <td class="text-center" style="width: 58px; font-weight: 700; font-size: 12px; color: ${pending > 0 ? "#c2410c" : "#047857"};">${pending}</td>
+      <td class="text-center" style="width: 92px;">
+        <span style="font-weight: 700; font-size: 10px; color: ${getDispatchStatusColor(itemStatus)};">${itemStatus}</span>
+      </td>
+      <td style="width: 60px;">${m.route || "—"}</td>
       <td>${m.remark || "—"}</td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 
   return `<!DOCTYPE html>
 <html>
@@ -777,8 +844,8 @@ export const generateMedicineSingleSlipHtml = ({ patient, request, size = "a4" }
       </div>
       <div class="meta-item">
         <span class="meta-label">Status</span>
-        <span class="meta-val" style="color: ${request.is_dispatched ? "#047857" : "#b45309"}; font-weight: 700;">
-          ${request.is_dispatched ? "Dispatched" : "Pending Dispatch"} (${request.billingStatus || "Pending"})
+        <span class="meta-val" style="color: ${getDispatchStatusColor(requestStatus)}; font-weight: 700;">
+          ${requestStatus} (${request.billingStatus || "Pending"})
         </span>
       </div>
       <div class="meta-item">
@@ -788,7 +855,7 @@ export const generateMedicineSingleSlipHtml = ({ patient, request, size = "a4" }
     </div>
   </div>
 
-  <table class="data-table">
+  <table class="data-table compact">
     <thead>
       <tr>
         <th class="text-center">#</th>
@@ -796,6 +863,9 @@ export const generateMedicineSingleSlipHtml = ({ patient, request, size = "a4" }
         <th class="text-center">Dosage</th>
         <th class="text-center">Days</th>
         <th class="text-center">Qty</th>
+        <th class="text-center">Dispatched Qty</th>
+        <th class="text-center">Pending Qty</th>
+        <th class="text-center">Dispatch</th>
         <th>Route</th>
         <th>Remarks</th>
       </tr>
@@ -803,6 +873,17 @@ export const generateMedicineSingleSlipHtml = ({ patient, request, size = "a4" }
     <tbody>
       ${rowsHtml}
     </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" style="font-weight: 800; background: #f1f5f9;">Total</td>
+        <td class="text-center" style="font-weight: 800; background: #f1f5f9;">${totals.qty}</td>
+        <td class="text-center" style="font-weight: 800; background: #f1f5f9; color: #047857;">${totals.dispatched}</td>
+        <td class="text-center" style="font-weight: 800; background: #f1f5f9; color: ${totals.pending > 0 ? "#c2410c" : "#047857"};">${totals.pending}</td>
+        <td class="text-center" style="font-weight: 800; background: #f1f5f9; color: ${getDispatchStatusColor(requestStatus)};">${requestStatus}</td>
+        <td style="background: #f1f5f9;"></td>
+        <td style="background: #f1f5f9;"></td>
+      </tr>
+    </tfoot>
   </table>
 
   <div class="signature-row" style="margin-top: 55px;">
@@ -896,14 +977,14 @@ export const generateImplantOverallPrintHtml = ({ patient, requests = [], size =
 
   const rowsHtml = reqGroups.length > 0
     ? reqGroups
-        .map((group, groupIdx) => {
-          const spanCount = group.items.length;
-          return group.items
-            .map((it, itemIdx) => {
-              const isFirst = itemIdx === 0;
-              const topBorder = groupIdx > 0 && isFirst ? "border-top: 2px solid #cbd5e1;" : "";
+      .map((group, groupIdx) => {
+        const spanCount = group.items.length;
+        return group.items
+          .map((it, itemIdx) => {
+            const isFirst = itemIdx === 0;
+            const topBorder = groupIdx > 0 && isFirst ? "border-top: 2px solid #cbd5e1;" : "";
 
-              const itemDetailCells = `
+            const itemDetailCells = `
                 <td style="font-weight: 600; ${topBorder}">${it.itemName}</td>
                 <td style="width: 90px; ${topBorder}">${it.hsn}</td>
                 <td class="text-center" style="width: 55px; font-weight: 800; font-size: 12px; ${topBorder}">${it.quantity}</td>
@@ -914,8 +995,8 @@ export const generateImplantOverallPrintHtml = ({ patient, requests = [], size =
                 </td>
               `;
 
-              if (isFirst) {
-                return `
+            if (isFirst) {
+              return `
                   <tr>
                     <td class="text-center" rowspan="${spanCount}" style="width: 35px; vertical-align: middle; font-weight: 700; color: #64748b; background: #ffffff; ${topBorder}">
                       ${groupIdx + 1}
@@ -932,17 +1013,17 @@ export const generateImplantOverallPrintHtml = ({ patient, requests = [], size =
                     </td>
                   </tr>
                 `;
-              } else {
-                return `
+            } else {
+              return `
                   <tr>
                     ${itemDetailCells}
                   </tr>
                 `;
-              }
-            })
-            .join("");
-        })
-        .join("")
+            }
+          })
+          .join("");
+      })
+      .join("")
     : `<tr><td colspan="8" class="text-center" style="padding: 25px; color: #94a3b8;">No implant requests recorded.</td></tr>`;
 
   return `<!DOCTYPE html>

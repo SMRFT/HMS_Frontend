@@ -898,6 +898,7 @@ const InvestigationBilling = () => {
         ...item,
         price: item.price || 0,
         quantity: item.quantity || 1,
+        status: item.status || "Result Pending",
         ...(pkgId ? { package_id: pkgId } : {}),
       }));
       const packageTotalPrice = result.data.totalPrice || "0.00";
@@ -965,6 +966,7 @@ const InvestigationBilling = () => {
       quantity: quantity,
       billTypeNo: formData.billTypeNo,
       nabh_code: obj?.nabh_code || "",
+      status: "Result Pending",
       ...(obj?.test_id && { test_id: obj.test_id }),
       ...(obj?.item_id && { item_id: obj.item_id }),
     };

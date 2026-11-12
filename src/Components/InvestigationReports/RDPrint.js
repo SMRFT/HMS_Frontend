@@ -554,11 +554,11 @@ const printCountHTML = (countData, fromDate, toDate, billTypeLabel) => {
       <thead><tr><th>Sl.No</th><th>Item Name</th><th>Count</th></tr></thead>
       <tbody>
         ${countData
-          .map(
-            (r) =>
-              `<tr><td>${r.slNo}</td><td>${r.itemName}</td><td><b>${r.count}</b></td></tr>`,
-          )
-          .join("")}
+      .map(
+        (r) =>
+          `<tr><td>${r.slNo}</td><td>${r.itemName}</td><td><b>${r.count}</b></td></tr>`,
+      )
+      .join("")}
         <tr class="total"><td colspan="2">Total</td><td>${countData.reduce((a, r) => a + r.count, 0)}</td></tr>
       </tbody>
     </table>
@@ -811,39 +811,39 @@ const printTATHTML = (rows, fromDate, toDate, billTypeLabel, filterLabel) => {
         </thead>
         <tbody>
           ${rows
-            .map((r, i) => {
-              const ts = r.tat_info?.status || "";
-              const tatLabel = tatStatusLabel[ts] || "—";
+      .map((r, i) => {
+        const ts = r.tat_info?.status || "";
+        const tatLabel = tatStatusLabel[ts] || "—";
 
-              const statusLabel = !r.hasReport
-                ? "Pending"
-                : r.report?.is_Dispatched
-                  ? "Dispatched"
-                  : r.report?.is_approved
-                    ? "Approved"
-                    : "Reported";
+        const statusLabel = !r.hasReport
+          ? "Pending"
+          : r.report?.is_Dispatched
+            ? "Dispatched"
+            : r.report?.is_approved
+              ? "Approved"
+              : "Reported";
 
-              const statusCls = !r.hasReport
-                ? "b-blue"
-                : r.report?.is_Dispatched
-                  ? "b-disp"
-                  : r.report?.is_approved
-                    ? "b-appr"
-                    : "b-orange";
+        const statusCls = !r.hasReport
+          ? "b-blue"
+          : r.report?.is_Dispatched
+            ? "b-disp"
+            : r.report?.is_approved
+              ? "b-appr"
+              : "b-orange";
 
-              const tatCls =
-                {
-                  completed: "b-green",
-                  completed_late: "b-orange",
-                  overdue: "b-red",
-                  on_track: "b-blue",
-                  waiting: "b-grey",
-                }[ts] || "b-grey";
+        const tatCls =
+          {
+            completed: "b-green",
+            completed_late: "b-orange",
+            overdue: "b-red",
+            on_track: "b-blue",
+            waiting: "b-grey",
+          }[ts] || "b-grey";
 
-              const payCls = r.paymentStatus === "Paid" ? "b-paid" : "b-pend";
-              const payLbl = r.paymentStatus === "Paid" ? "Paid" : "Pending";
+        const payCls = r.paymentStatus === "Paid" ? "b-paid" : "b-pend";
+        const payLbl = r.paymentStatus === "Paid" ? "Paid" : "Pending";
 
-              return `
+        return `
                 <tr>
                   <td class="sl">${i + 1}</td>
                   <td>
@@ -863,43 +863,38 @@ const printTATHTML = (rows, fromDate, toDate, billTypeLabel, filterLabel) => {
                   <td><span class="badge ${payCls}">${payLbl}</span></td>
                   <td>${timeCell(r.report?.patientIn_DateTime, r.report?.scan_started_DateTime, r.report?.approved_date, r.report?.dispatch_DateTime)}</td>
                   <td>
-                    ${
-                      r.report?.slot_DateTime
-                        ? `<div class="t-row" style="margin-bottom:3px"><span class="t-lbl" style="width:auto;margin-right:2px">&#128336;</span><span class="t-val">${fmt(r.report.slot_DateTime)}</span></div>
-                         ${
-                           r.tat_info?.slot_info
-                             ? `<span class="badge ${r.tat_info.slot_info.status === "on_time" ? "b-green" : r.tat_info.slot_info.status === "late" ? "b-red" : "b-grey"}">${r.tat_info.slot_info.status === "on_time" ? "&#10003;" : r.tat_info.slot_info.status === "late" ? "&#10005;" : "&#9675;"} ${r.tat_info.slot_info.label}</span>`
-                             : ""
-                         }`
-                        : `<span style="color:#ccc">—</span>`
-                    }
+                    ${r.report?.slot_DateTime
+            ? `<div class="t-row" style="margin-bottom:3px"><span class="t-lbl" style="width:auto;margin-right:2px">&#128336;</span><span class="t-val">${fmt(r.report.slot_DateTime)}</span></div>
+                         ${r.tat_info?.slot_info
+              ? `<span class="badge ${r.tat_info.slot_info.status === "on_time" ? "b-green" : r.tat_info.slot_info.status === "late" ? "b-red" : "b-grey"}">${r.tat_info.slot_info.status === "on_time" ? "&#10003;" : r.tat_info.slot_info.status === "late" ? "&#10005;" : "&#9675;"} ${r.tat_info.slot_info.label}</span>`
+              : ""
+            }`
+            : `<span style="color:#ccc">—</span>`
+          }
                   </td>
                   <td>
-                    ${
-                      r.tat_info?.waiting_seconds != null
-                        ? `<span class="badge b-grey">${fmtTAT(r.tat_info.waiting_seconds)}</span>`
-                        : `<span style="color:#ccc">—</span>`
-                    }
+                    ${r.tat_info?.waiting_seconds != null
+            ? `<span class="badge b-grey">${fmtTAT(r.tat_info.waiting_seconds)}</span>`
+            : `<span style="color:#ccc">—</span>`
+          }
                   </td>
                   <td><span class="badge ${statusCls}">${statusLabel}</span></td>
                   <td>
-                    ${
-                      r.tat_info && ts !== "unknown"
-                        ? `<span class="badge ${tatCls}">${tatStatusIcon[ts] || ""} ${fmtTAT(r.tat_info.elapsed_seconds)}</span>`
-                        : `<span style="color:#ccc">—</span>`
-                    }
+                    ${r.tat_info && ts !== "unknown"
+            ? `<span class="badge ${tatCls}">${tatStatusIcon[ts] || ""} ${fmtTAT(r.tat_info.elapsed_seconds)}</span>`
+            : `<span style="color:#ccc">—</span>`
+          }
                   </td>
                   <td class="tat-lim">
-                    ${
-                      r.tat_info?.tat_seconds != null
-                        ? fmtTAT(r.tat_info.tat_seconds)
-                        : `<span style="color:#ccc">—</span>`
-                    }
+                    ${r.tat_info?.tat_seconds != null
+            ? fmtTAT(r.tat_info.tat_seconds)
+            : `<span style="color:#ccc">—</span>`
+          }
                   </td>
                 </tr>
               `;
-            })
-            .join("")}
+      })
+      .join("")}
         </tbody>
       </table>
 
@@ -1073,22 +1068,22 @@ const printPatientListHTML = (rows, fromDate, toDate, billTypeLabel) => {
         </thead>
         <tbody>
           ${rows
-            .map((r, i) => {
-              const isIP = Boolean(r.ipNumber && String(r.ipNumber).trim() !== "");
-              const pTypeBadge = isIP
-                ? `<span class="badge b-ip">IP ${r.ipNumber ? `(${r.ipNumber})` : ""}</span>`
-                : `<span class="badge b-op">OP</span>`;
+      .map((r, i) => {
+        const isIP = Boolean(r.ipNumber && String(r.ipNumber).trim() !== "");
+        const pTypeBadge = isIP
+          ? `<span class="badge b-ip">IP ${r.ipNumber ? `(${r.ipNumber})` : ""}</span>`
+          : `<span class="badge b-op">OP</span>`;
 
-              const cType = r.customer_type || r.customerType || "General";
-              const isIns = cType.toUpperCase().includes("INSURANCE");
-              const isCorp = cType.toUpperCase().includes("CORPORATE");
-              const cTypeClass = isIns ? "b-cust-ins" : (isCorp ? "b-cust-corp" : "b-cust-gen");
-              const cTypeBadge = `<span class="badge ${cTypeClass}">${cType}</span>`;
-              const compNameHTML = ((isIns || r.company_name) && r.company_name)
-                ? `<span class="ins-comp">🏢 ${r.company_name}</span>`
-                : "";
+        const cType = r.customer_type || r.customerType || "General";
+        const isIns = cType.toUpperCase().includes("INSURANCE");
+        const isCorp = cType.toUpperCase().includes("CORPORATE");
+        const cTypeClass = isIns ? "b-cust-ins" : (isCorp ? "b-cust-corp" : "b-cust-gen");
+        const cTypeBadge = `<span class="badge ${cTypeClass}">${cType}</span>`;
+        const compNameHTML = ((isIns || r.company_name) && r.company_name)
+          ? `<span class="ins-comp">🏢 ${r.company_name}</span>`
+          : "";
 
-              return `
+        return `
                 <tr>
                   <td class="sl">${i + 1}</td>
                   <td class="bill-dt">${fmtDate(r.investBillDate)}</td>
@@ -1110,17 +1105,16 @@ const printPatientListHTML = (rows, fromDate, toDate, billTypeLabel) => {
                     <div style="font-weight:700; color:#111;">${r.itemName || "—"}</div>
                     <div style="display:flex; align-items:center; gap:5px; margin-top:3px; flex-wrap:wrap;">
                       ${r.scan_type ? `<span class="badge b-scan">${r.scan_type}</span>` : ""}
-                      ${
-                        (r.finalPrice != null && r.finalPrice !== "") || (r.total != null && r.total !== "")
-                          ? `<span class="badge b-price">₹${Number(r.finalPrice != null && r.finalPrice !== "" ? r.finalPrice : r.total).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`
-                          : ""
-                      }
+                      ${(r.finalPrice != null && r.finalPrice !== "") || (r.total != null && r.total !== "")
+            ? `<span class="badge b-price">₹${Number(r.finalPrice != null && r.finalPrice !== "" ? r.finalPrice : r.total).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`
+            : ""
+          }
                     </div>
                   </td>
                 </tr>
               `;
-            })
-            .join("")}
+      })
+      .join("")}
         </tbody>
       </table>
 
@@ -1493,9 +1487,8 @@ const printRadiologyReportHTML = (row) => {
       </div>
 
       <!-- ── ANC Details ── -->
-      ${
-        row.report?.anc_fields
-          ? `
+      ${row.report?.anc_fields
+      ? `
         <div class="anc-bar">
           ${row.report.anc_fields.guh ? `<div class="anc-field"><span class="anc-lbl">GUH:</span><span class="anc-val">${row.report.anc_fields.guh}</span></div>` : ""}
           ${row.report.anc_fields.lmp ? `<div class="anc-field"><span class="anc-lbl">LMP:</span><span class="anc-val">${row.report.anc_fields.lmp}</span></div>` : ""}
@@ -1504,23 +1497,22 @@ const printRadiologyReportHTML = (row) => {
           ${row.report.anc_fields.edd_usg ? `<div class="anc-field"><span class="anc-lbl">EDD (USG):</span><span class="anc-val">${row.report.anc_fields.edd_usg}</span></div>` : ""}
         </div>
       `
-          : ""
-      }
+      : ""
+    }
 
       <!-- ── Report Sections ── -->
       ${buildSectionHTML(sections)}
 
       <!-- ── Impression ── -->
-      ${
-        impression
-          ? `
+      ${impression
+      ? `
         <div class="impression-block">
           <div class="impression-title">Impression</div>
           <div class="impression-content">${impressionHTML}</div>
         </div>
       `
-          : ""
-      }
+      : ""
+    }
 
       <!-- ── Signature ── -->
       <div class="signature-area">
@@ -2236,18 +2228,18 @@ const RDPrint = () => {
                             )}
                             {((r.finalPrice != null && r.finalPrice !== "") ||
                               (r.total != null && r.total !== "")) && (
-                              <PriceBadge>
-                                ₹
-                                {Number(
-                                  r.finalPrice != null && r.finalPrice !== ""
-                                    ? r.finalPrice
-                                    : r.total
-                                ).toLocaleString("en-IN", {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </PriceBadge>
-                            )}
+                                <PriceBadge>
+                                  ₹
+                                  {Number(
+                                    r.finalPrice != null && r.finalPrice !== ""
+                                      ? r.finalPrice
+                                      : r.total
+                                  ).toLocaleString("en-IN", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </PriceBadge>
+                              )}
                           </div>
                         </PTd>
                       </tr>
