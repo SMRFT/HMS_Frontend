@@ -191,13 +191,13 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       hospitalCode:    d.hospital_code    || "",
       outletCode:      d.outlet_code      || "",
       date:            d.date             || "",
-      openingBalance:  d.OpeningBalance   != null ? String(d.OpeningBalance)  : (d.expected_opening != null ? String(d.expected_opening) : "0.00"),
-      pettyCashBalance: d.PettyCashBalance  != null ? String(d.PettyCashBalance) : (d.default_petty_cash != null ? String(d.default_petty_cash) : "0.00"),
+      openingBalance:  d.OpeningBalance   != null ? String(d.OpeningBalance)  : "0.00",
+      previousClosingBalance: (d.previous_closing_balance ?? d.expected_opening) != null ? String(d.previous_closing_balance ?? d.expected_opening) : "0.00",
+      pettyCashBalance: d.PettyCashBalance  != null ? String(d.PettyCashBalance) : (d.default_petty_cash != null ? String(d.default_petty_cash) : "1000.00"),
       collectedAmount: d.collected_Amount != null ? parseFloat(d.collected_Amount).toFixed(2) : "0.00",
       creditAmount:    (d.CreditAmount ?? d.credit_amount ?? d.total_credit) != null ? parseFloat(d.CreditAmount ?? d.credit_amount ?? d.total_credit).toFixed(2) : "0.00",
+      salesReturnAmount: d.SalesReturnAmount != null ? parseFloat(d.SalesReturnAmount).toFixed(2) : "0.00",
       closingBalance:  d.ClosingBalance   != null ? String(d.ClosingBalance)  : "0.00",
-      remittedToBank:  d.RemittedToBank    != null ? String(d.RemittedToBank)   : "0.00",
-      submittedToAccount: d.SubmittedToAccount != null ? String(d.SubmittedToAccount) : "0.00",
       shiftStatus:     d.ShiftStatus      || (active ? "active" : "not_started"),
     });
 
@@ -278,7 +278,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       if (res?.success && dataObj?.data) {
         applyShiftData(dataObj.data);
         return dataObj.data;
-      } else if (dataObj?.expected_opening != null) {
+      } else if (dataObj?.expected_opening != null || dataObj?.previous_closing_balance != null) {
         // Handle the case where no active shift is found, but we have expected values
         applyShiftData(dataObj); 
         return null;
@@ -316,10 +316,12 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       ...prev,
       cashCounter:     cashCounterId || resolvedOutlet,
       cashCounterName: cashCounterId || resolvedName,
-      openingBalance:  prev.openingBalance  || "0.00",
+      openingBalance:  "0.00",
+      previousClosingBalance: prev.previousClosingBalance || "0.00",
       closingBalance:  prev.closingBalance  || "0.00",
       collectedAmount: prev.collectedAmount || "0.00",
       creditAmount:    prev.creditAmount    || "0.00",
+      salesReturnAmount: prev.salesReturnAmount || "0.00",
     }));
 
     // If parent passed fresh data, paint immediately (no flicker)
@@ -417,11 +419,16 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       return isNaN(p) ? 0 : p;
     };
 
+    // Auto-calculate exact closing balance: Opening + Cash Collected - Sales Return
+    const openBal = safeParse(formData.openingBalance);
+    const collAmt = safeParse(formData.collectedAmount);
+    const retAmt = safeParse(formData.salesReturnAmount);
+    const calculatedClosing = Math.max(0, openBal + collAmt - retAmt);
+
     const payload = {
       shiftno:        currentShiftId,
-      ClosingBalance: safeParse(formData.closingBalance),
-      RemittedToBank: safeParse(formData.remittedToBank),
-      SubmittedToAccount: safeParse(formData.submittedToAccount),
+      ClosingBalance: calculatedClosing,
+      SalesReturnAmount: retAmt,
       closingTime:    new Date().toISOString(),
       "auth-outlet-code": resolvedOutlet,
       outlet_code:    resolvedOutlet,
@@ -524,7 +531,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
               <FormInput type="text" value={formData.branchCode || "—"} readOnly />
             </FormGroup>
 
-            {/* ROW 2: Opening, Petty cash, Collected */}
+            {/* ROW 2: Opening Balance, Previous Closing, Petty Cash */}
             <FormGroup>
               <FormLabel>OPENING BALANCE</FormLabel>
               <FormInput
@@ -534,19 +541,32 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
                 readOnly={isActive}
                 placeholder="0.00"
               />
+              <SubLabel>Default ₹0.00 for all shifts</SubLabel>
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>PREVIOUS CLOSING BALANCE</FormLabel>
+              <FormInput
+                type="text"
+                value={`₹ ${parseFloat(formData.previousClosingBalance || "0.00").toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                readOnly
+                style={{ backgroundColor: "#f8fafc", color: "#334155", fontWeight: "700" }}
+              />
+              <SubLabel>Last shift closing balance</SubLabel>
             </FormGroup>
 
             <FormGroup>
               <FormLabel>PETTY CASH BALANCE</FormLabel>
               <FormInput
                 type="number" min="0" step="0.01"
-                value={formData.pettyCashBalance || "0.00"}
+                value={formData.pettyCashBalance || "1000.00"}
                 onChange={(e) => handleInputChange("pettyCashBalance", e.target.value)}
                 readOnly={isActive}
-                placeholder="0.00"
+                placeholder="1000.00"
               />
             </FormGroup>
 
+            {/* ROW 3: Collected Amount, Credit Amount, Sales Return */}
             <FormGroup>
               <FormLabel>COLLECTED AMOUNT</FormLabel>
               <FormInput
@@ -569,39 +589,36 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
               <SubLabel>UPI / Card / Cheque / Credit</SubLabel>
             </FormGroup>
 
-            {/* ROW 3: Closing, Remitted, Handover */}
+            <FormGroup>
+              <FormLabel>SALES RETURN</FormLabel>
+              <FormInput
+                type="text"
+                value={formData.salesReturnAmount || "0.00"}
+                readOnly
+                style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontWeight: "bold" }}
+              />
+              <SubLabel>Total Sales Return Refunded</SubLabel>
+            </FormGroup>
+
+            {/* ROW 4: Closing Balance, Date, Starting time */}
             <FormGroup>
               <FormLabel>CLOSING BALANCE</FormLabel>
               <FormInput
-                type="number" min="0" step="0.01"
-                value={formData.closingBalance || "0.00"}
-                onChange={(e) => handleInputChange("closingBalance", e.target.value)}
-                readOnly={!isActive}
-                placeholder="0.00"
+                type="text"
+                value={
+                  isActive
+                    ? Math.max(
+                        0,
+                        (parseFloat(formData.openingBalance) || 0) +
+                        (parseFloat(formData.collectedAmount) || 0) -
+                        (parseFloat(formData.salesReturnAmount) || 0)
+                      ).toFixed(2)
+                    : formData.closingBalance || "0.00"
+                }
+                readOnly
+                style={{ backgroundColor: "#fefce8", color: "#854d0e", fontWeight: "800" }}
               />
-              <SubLabel>Opening + Cash Collected - Remitted - Handover</SubLabel>
-            </FormGroup>
-
-            <FormGroup>
-              <FormLabel>REMITTED TO BANK</FormLabel>
-              <FormInput
-                type="number" min="0" step="0.01"
-                value={formData.remittedToBank || "0.00"}
-                onChange={(e) => handleInputChange("remittedToBank", e.target.value)}
-                readOnly={!isActive}
-                placeholder="0.00"
-              />
-            </FormGroup>
-
-            <FormGroup>
-              <FormLabel>HANDOVER AMOUNT</FormLabel>
-              <FormInput
-                type="number" min="0" step="0.01"
-                value={formData.submittedToAccount || "0.00"}
-                onChange={(e) => handleInputChange("submittedToAccount", e.target.value)}
-                readOnly={!isActive}
-                placeholder="0.00"
-              />
+              <SubLabel>Opening + Cash Collected - Sales Return</SubLabel>
             </FormGroup>
 
             {/* ROW 4: Date, Starting time, Closing time */}

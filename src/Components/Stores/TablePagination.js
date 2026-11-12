@@ -111,23 +111,30 @@ const EllipsisSpan = styled.span`
 `;
 
 // ─── Custom Hook ───────────────────────────────────────────────────────────────
-export const usePagination = (data = [], defaultPageSize = 15) => {
+export const usePagination = (dataOrCount = [], defaultPageSize = 15) => {
+  const isArray = Array.isArray(dataOrCount);
+  const totalItems = isArray ? dataOrCount.length : (Number(dataOrCount) || 0);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [data.length, pageSize]);
+  }, [totalItems, pageSize]);
 
-  const totalItems = data.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   // Ensure valid current page
   const validCurrentPage = Math.min(currentPage, totalPages);
   const startIdx = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIdx + pageSize, totalItems);
+
   const pageData = useMemo(() => {
-    return data.slice(startIdx, startIdx + pageSize);
-  }, [data, startIdx, pageSize]);
+    if (isArray && typeof dataOrCount.slice === 'function') {
+      return dataOrCount.slice(startIdx, endIndex);
+    }
+    return [];
+  }, [isArray, dataOrCount, startIdx, endIndex]);
 
   const goTo = (page) => {
     if (page >= 1 && page <= totalPages) {
@@ -149,6 +156,9 @@ export const usePagination = (data = [], defaultPageSize = 15) => {
     goTo,
     handlePageSizeChange,
     startIdx,
+    startIndex: startIdx,
+    endIndex,
+    endIdx: endIndex,
     totalItems
   };
 };

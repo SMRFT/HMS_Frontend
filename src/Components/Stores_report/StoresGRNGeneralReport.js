@@ -156,9 +156,9 @@ const StoresGRNGeneralReport = () => {
     }, [filteredGrns]);
 
     // Pagination
-    const pagination = usePagination(filteredGrns.length, 15);
+    const pagination = usePagination(filteredGrns, 15);
     const paginatedGrns = useMemo(() => {
-        return filteredGrns.slice(pagination.startIndex, pagination.endIndex);
+        return (filteredGrns || []).slice(pagination.startIndex, pagination.endIndex);
     }, [filteredGrns, pagination.startIndex, pagination.endIndex]);
 
     const handleClearFilters = () => {

@@ -221,19 +221,6 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate, initialOutle
 
     return (
         <PageWrapper style={isModalView ? { padding: 0 } : {}}>
-            {isModalView && (
-                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
-                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
-                        {hospital_name}
-                    </h2>
-                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
-                        Pharmacy Stock Report (IP vs OP) From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
-                    </div>
-                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
-                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
-                    </div>
-                </div>
-            )}
 
             {!isModalView && (
                 <SectionTitle className="no-print">

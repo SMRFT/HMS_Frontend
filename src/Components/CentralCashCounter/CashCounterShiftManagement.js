@@ -508,9 +508,6 @@ const CashCounterShiftManagement = () => {
 
   // Close shift modal state
   const [selectedShiftToClose, setSelectedShiftToClose] = useState(null);
-  const [closingRemitted, setClosingRemitted] = useState("0.00");
-  const [closingSubmitted, setClosingSubmitted] = useState("0.00");
-  const [closingHandOver, setClosingHandOver] = useState("0.00");
   const [adminRemarks, setAdminRemarks] = useState("Closed by Administrator");
   const [isClosing, setIsClosing] = useState(false);
 
@@ -600,9 +597,6 @@ const CashCounterShiftManagement = () => {
   // Open Close Shift Modal
   const handleOpenCloseModal = (shift) => {
     setSelectedShiftToClose(shift);
-    setClosingRemitted(String(shift.RemittedToBank || "0.00"));
-    setClosingSubmitted(String(shift.SubmittedToAccount || "0.00"));
-    setClosingHandOver(String(shift.HandOverAmount || "0.00"));
     setAdminRemarks(`Closed by Admin (${current_employee})`);
   };
 
@@ -615,9 +609,6 @@ const CashCounterShiftManagement = () => {
         _id: selectedShiftToClose._id || selectedShiftToClose.id,
         shiftno: selectedShiftToClose.shiftno,
         admin_id: current_employee,
-        RemittedToBank: parseFloat(closingRemitted) || 0,
-        SubmittedToAccount: parseFloat(closingSubmitted) || 0,
-        HandOverAmount: parseFloat(closingHandOver) || 0,
         closingTime: new Date().toISOString(),
         remarks: adminRemarks || "Closed by Administrator",
         "auth-hospital-code": hospital_code,
@@ -1012,39 +1003,13 @@ const CashCounterShiftManagement = () => {
                     ₹ {formatINR(selectedShiftToClose.CreditAmount ?? selectedShiftToClose.credit_amount ?? 0)}
                   </span>
                 </div>
+                <div className="item">
+                  <span className="k">Sales Return</span>
+                  <span className="v" style={{ color: "#dc2626", fontWeight: "700" }}>
+                    ₹ {formatINR(selectedShiftToClose.SalesReturnAmount || 0)}
+                  </span>
+                </div>
               </InfoCard>
-
-              <FormRow>
-                <FormGroup>
-                  <label>Remitted to Bank (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={closingRemitted}
-                    onChange={(e) => setClosingRemitted(e.target.value)}
-                  />
-                </FormGroup>
-
-                <FormGroup>
-                  <label>Submitted to Account (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={closingSubmitted}
-                    onChange={(e) => setClosingSubmitted(e.target.value)}
-                  />
-                </FormGroup>
-              </FormRow>
-
-              <FormGroup>
-                <label>Hand Over Amount (₹)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={closingHandOver}
-                  onChange={(e) => setClosingHandOver(e.target.value)}
-                />
-              </FormGroup>
 
               <FormGroup>
                 <label>Admin Remarks / Reason for Closing</label>
@@ -1065,14 +1030,18 @@ const CashCounterShiftManagement = () => {
                 justifyContent: "space-between",
                 alignItems: "center"
               }}>
-                <span style={{ fontSize: "13px", fontWeight: "700", color: "#166534" }}>Calculated Closing Balance:</span>
-                <span style={{ fontSize: "15px", fontWeight: "800", color: "#166534" }}>
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: "#166534" }}>Calculated Closing Balance:</div>
+                  <div style={{ fontSize: "10.5px", color: "#15803d", marginTop: "2px" }}>Opening Balance + Cash Collected - Sales Return</div>
+                </div>
+                <span style={{ fontSize: "16px", fontWeight: "800", color: "#166534" }}>
                   ₹ {formatINR(
-                    (parseFloat(selectedShiftToClose.OpeningBalance) || 0) +
-                    (parseFloat(selectedShiftToClose.collected_Amount) || 0) -
-                    (parseFloat(closingRemitted) || 0) -
-                    (parseFloat(closingSubmitted) || 0) -
-                    (parseFloat(closingHandOver) || 0)
+                    Math.max(
+                      0,
+                      (parseFloat(selectedShiftToClose.OpeningBalance) || 0) +
+                      (parseFloat(selectedShiftToClose.collected_Amount) || 0) -
+                      (parseFloat(selectedShiftToClose.SalesReturnAmount) || 0)
+                    )
                   )}
                 </span>
               </div>

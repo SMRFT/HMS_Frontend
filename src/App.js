@@ -183,6 +183,14 @@ import IPAdvanceReport from "./Components/Accounts/IPAdvanceReport";
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
 import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
+import PurchaseGSTReport, {
+  DrugB2BReport,
+  DrugHSNReport,
+  DrugDocsReport,
+  StoreB2BReport,
+  StoreHSNReport,
+  StoreDocsReport,
+} from "./Components/Accounts/PurchaseGSTReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import MarketingReport from "./Components/Reports/MarketingReport";
@@ -532,6 +540,13 @@ function App() {
       "/DoctorReport": "Doctor Day/Month Report",
       "/pharmacytabs": "OP Pharmacy Tabs",
       "/ShiftBasisReport": "Shift Basis Report",
+      "/DrugB2BReport": "Drug Purchase B2B Invoices Report",
+      "/DrugHSNReport": "Drug Purchase HSN Wise Summary Report",
+      "/DrugDocsReport": "Drug Purchase Document Summary Report",
+      "/StoreB2BReport": "General Stores B2B Invoices Report",
+      "/StoreHSNReport": "General Stores HSN Wise Summary Report",
+      "/StoreDocsReport": "General Stores Document Summary Report",
+      "/PurchaseGSTReport": "Purchase GST Register (GSTR-1 Format)",
       "/CashCounterManager": "Cash Counter Manager",
       "/CashCounterShiftManagement": "Cash Counter Shift Management",
       "/BillWiseReport": "BillWiseReport",
@@ -1839,6 +1854,76 @@ function App() {
                   <Route
                     path="/ShiftBasisReport"
                     element={<ShiftBasisReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/PurchaseGSTReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseGSTReport"
+                    element={<PurchaseGSTReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/DrugB2BReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/DrugB2BReport"
+                    element={<DrugB2BReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/DrugHSNReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/DrugHSNReport"
+                    element={<DrugHSNReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/DrugDocsReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/DrugDocsReport"
+                    element={<DrugDocsReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/StoreB2BReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/StoreB2BReport"
+                    element={<StoreB2BReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/StoreHSNReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/StoreHSNReport"
+                    element={<StoreHSNReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/StoreDocsReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/StoreDocsReport"
+                    element={<StoreDocsReport />}
                   />
                 )}
               {hasPagePermission(

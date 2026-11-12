@@ -363,19 +363,6 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
 
     return (
         <PageWrapper style={isModalView ? { padding: 0 } : {}}>
-            {isModalView && (
-                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
-                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
-                        {localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
-                    </h2>
-                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
-                        Insurance Discharge Bills Status Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
-                    </div>
-                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
-                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
-                    </div>
-                </div>
-            )}
 
             {!isModalView && (
                 <>
