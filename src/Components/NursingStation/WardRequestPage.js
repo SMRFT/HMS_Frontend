@@ -2206,6 +2206,8 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                   const isExpanded = expandedRow === rowId;
                   const activeMeds = (req.medicines || []).filter((m) => !m.is_deleted);
                   const hasPendingReturn = Array.isArray(req.pending_returns) && req.pending_returns.some((pr) => pr.status === "Pending");
+                  const hasApprovedReturn = Array.isArray(req.pending_returns) && req.pending_returns.some((pr) => pr.status === "Approved");
+                  const hasRejectedReturn = Array.isArray(req.pending_returns) && req.pending_returns.some((pr) => pr.status === "Rejected");
                   const canReturn = ["Billed", "Paid"].includes(req.status) && !hasPendingReturn;
                   const canCancel = (req.status === "Pending" || !req.status);
 
@@ -2294,6 +2296,21 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                 style={{ fontSize: "0.68rem", fontWeight: 700, background: "#ecfeff", color: "#0891b2", padding: "1px 6px", borderRadius: "4px", border: "1px solid #a5f3fc", whiteSpace: "nowrap" }}
                               >
                                 Discharge Med
+                              </span>
+                            )}
+                            {hasPendingReturn && (
+                              <span style={{ fontSize: "0.68rem", fontWeight: 700, background: "#fef3c7", color: "#b45309", padding: "1px 6px", borderRadius: "4px", border: "1px solid #fcd34d", display: "inline-flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap" }}>
+                                ⌛ Return Pending
+                              </span>
+                            )}
+                            {!hasPendingReturn && hasApprovedReturn && (
+                              <span style={{ fontSize: "0.68rem", fontWeight: 700, background: "#dcfce7", color: "#15803d", padding: "1px 6px", borderRadius: "4px", border: "1px solid #86efac", display: "inline-flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap" }}>
+                                ✓ Return Approved
+                              </span>
+                            )}
+                            {!hasPendingReturn && !hasApprovedReturn && hasRejectedReturn && (
+                              <span style={{ fontSize: "0.68rem", fontWeight: 700, background: "#fee2e2", color: "#b91c1c", padding: "1px 6px", borderRadius: "4px", border: "1px solid #fca5a5", display: "inline-flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap" }}>
+                                ✕ Return Rejected
                               </span>
                             )}
                           </div>
@@ -2465,6 +2482,117 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                   )}
                                 </tbody>
                               </SubTable>
+
+                              {/* Pharmacy Return Requests & Processing Status */}
+                              {Array.isArray(req.pending_returns) && req.pending_returns.length > 0 && (
+                                <div style={{ marginTop: "16px", background: "#ffffff", border: "1.5px solid #fed7aa", borderRadius: "8px", padding: "12px" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "1px solid #ffedd5", paddingBottom: "6px" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, fontSize: "0.85rem", color: "#c2410c" }}>
+                                      <span>↺ Ward Return Requests & Pharmacy Status ({req.pending_returns.length})</span>
+                                    </div>
+                                  </div>
+
+                                  {req.pending_returns.map((ret, rIdx) => {
+                                    const isApp = ret.status === "Approved";
+                                    const isRej = ret.status === "Rejected";
+                                    const retItems = Array.isArray(ret.items) ? ret.items : [];
+                                    const reqDateStr = ret.requested_at ? new Date(ret.requested_at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+                                    const procDateStr = ret.processed_at ? new Date(ret.processed_at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+
+                                    return (
+                                      <div key={ret.return_request_id || rIdx} style={{ background: isApp ? "#f0fdf4" : isRej ? "#fef2f2" : "#fffbeb", border: `1px solid ${isApp ? "#bbf7d0" : isRej ? "#fecaca" : "#fef08a"}`, borderRadius: "6px", padding: "10px", marginBottom: rIdx < req.pending_returns.length - 1 ? "10px" : "0" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
+                                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                            <span style={{
+                                              background: isApp ? "#dcfce7" : isRej ? "#fee2e2" : "#fef3c7",
+                                              color: isApp ? "#15803d" : isRej ? "#b91c1c" : "#b45309",
+                                              border: `1px solid ${isApp ? "#86efac" : isRej ? "#fca5a5" : "#fcd34d"}`,
+                                              padding: "2px 8px",
+                                              borderRadius: "4px",
+                                              fontSize: "0.75rem",
+                                              fontWeight: 800,
+                                              display: "inline-flex",
+                                              alignItems: "center",
+                                              gap: "3px"
+                                            }}>
+                                              {isApp ? "✓ Return Approved" : isRej ? "✕ Return Rejected" : "⌛ Pending Pharmacy Approval"}
+                                            </span>
+
+                                            {ret.return_bill_no && (
+                                              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#15803d", background: "#ffffff", padding: "2px 8px", borderRadius: "4px", border: "1px solid #86efac" }}>
+                                                Return Bill #{ret.return_bill_no}
+                                              </span>
+                                            )}
+
+                                            {reqDateStr && (
+                                              <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                                Requested: {reqDateStr}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {procDateStr && (
+                                            <span style={{ fontSize: "0.75rem", color: isApp ? "#15803d" : "#b91c1c", fontWeight: 600 }}>
+                                              Processed: {procDateStr} {ret.processed_by ? `(by User #${ret.processed_by})` : ""}
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Returned Items mini-table */}
+                                        <div style={{ overflowX: "auto" }}>
+                                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem", background: "#ffffff", borderRadius: "4px", overflow: "hidden" }}>
+                                            <thead>
+                                              <tr style={{ background: isApp ? "#dcfce7" : isRej ? "#fee2e2" : "#fef3c7", color: isApp ? "#166534" : isRej ? "#991b1b" : "#854d0e", textAlign: "left" }}>
+                                                <th style={{ padding: "6px 8px", width: "30px", textAlign: "center" }}>#</th>
+                                                <th style={{ padding: "6px 8px" }}>Returned Medicine</th>
+                                                <th style={{ padding: "6px 8px" }}>Batch No</th>
+                                                <th style={{ padding: "6px 8px", textAlign: "center" }}>Return Qty</th>
+                                                <th style={{ padding: "6px 8px" }}>Reason</th>
+                                                <th style={{ padding: "6px 8px", textAlign: "center" }}>Status</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {retItems.length === 0 ? (
+                                                <tr>
+                                                  <td colSpan="6" style={{ padding: "8px", textAlign: "center", color: "#94a3b8" }}>
+                                                    No items recorded in this return request.
+                                                  </td>
+                                                </tr>
+                                              ) : (
+                                                retItems.map((rit, ritIdx) => (
+                                                  <tr key={ritIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                                                    <td style={{ padding: "6px 8px", textAlign: "center", color: "#94a3b8" }}>{ritIdx + 1}</td>
+                                                    <td style={{ padding: "6px 8px", fontWeight: 700, color: "#0f172a" }}>
+                                                      {rit.item_name || rit.name || `Item #${rit.item_id}`}
+                                                    </td>
+                                                    <td style={{ padding: "6px 8px", color: "#475569" }}>{rit.batch_number || "-"}</td>
+                                                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: "#c2410c" }}>
+                                                      {rit.return_qty || rit.returned_qty || rit.qty || 0}
+                                                    </td>
+                                                    <td style={{ padding: "6px 8px", color: "#64748b" }}>{rit.reason || "-"}</td>
+                                                    <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                                                      <span style={{
+                                                        fontSize: "0.7rem",
+                                                        fontWeight: 700,
+                                                        padding: "1px 6px",
+                                                        borderRadius: "4px",
+                                                        background: isApp ? "#dcfce7" : isRej ? "#fee2e2" : "#fef3c7",
+                                                        color: isApp ? "#15803d" : isRej ? "#b91c1c" : "#b45309"
+                                                      }}>
+                                                        {ret.status || "Pending"}
+                                                      </span>
+                                                    </td>
+                                                  </tr>
+                                                ))
+                                              )}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </SubTableWrapper>
                           </td>
                         </tr>
