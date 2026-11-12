@@ -15,7 +15,8 @@ import {
   InvTd,
   InvTr,
   InvActionGroup,
-  InvActionBtn,
+  InvEditBtn,
+  InvDeleteBtn,
   InvModalOverlay,
   InvModalContainer,
   InvModalHeader,
@@ -243,7 +244,7 @@ const ChemicalComposition = () => {
                 <InvTh style={{ width: 60 }}>#</InvTh>
                 <InvTh style={{ width: 140 }}>Composition ID</InvTh>
                 <InvTh>Chemical / Generic Composition Name</InvTh>
-                <InvTh style={{ textAlign: "center", width: 150 }}>Actions</InvTh>
+                <InvTh style={{ textAlign: "center", width: 100 }}>Action</InvTh>
               </tr>
             </thead>
             <tbody>
@@ -273,12 +274,8 @@ const ChemicalComposition = () => {
                     </InvTd>
                     <InvTd style={{ textAlign: "center" }}>
                       <InvActionGroup>
-                        <InvActionBtn variant="edit" onClick={() => handleEdit(comp)} title="Edit Composition">
-                          ✏️ Edit
-                        </InvActionBtn>
-                        <InvActionBtn variant="delete" onClick={() => handleDelete(comp)} title="Delete Composition">
-                          🗑️ Delete
-                        </InvActionBtn>
+                        <InvEditBtn onClick={() => handleEdit(comp)} title="Edit Composition" />
+                        <InvDeleteBtn onClick={() => handleDelete(comp)} title="Delete Composition" />
                       </InvActionGroup>
                     </InvTd>
                   </InvTr>

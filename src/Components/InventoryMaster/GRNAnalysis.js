@@ -6,10 +6,12 @@ import {
 } from "../GlobalStyles"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
-import { Eye, CheckCircle, X, Printer } from "lucide-react"
+import { Eye, CheckCircle, X, Printer, ZoomIn, ZoomOut, RotateCcw, Download, FileText } from "lucide-react"
 import styled from "styled-components"
 import dayjs from "dayjs"
-import {  InvTopToolbar, InvPagination, getTodayDateString , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
+import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
+import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvNativeSelect } from "./InventoryUIHelper"
 
 /* ─── Styled Components ─────────────────────────────────────────────────── */
 const PageHeader = styled.div`
@@ -112,20 +114,29 @@ const Overlay = styled.div`
   z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 12px;
 `
 const ModalBox = styled.div`
-  background: white; border-radius: 8px; width: 100%; max-width: 1100px;
+  background: white; border-radius: 8px; width: 100%; max-width: 1320px;
   max-height: 96vh; display: flex; flex-direction: column;
   box-shadow: 0 16px 50px rgba(0,0,0,0.22);
 `
 const ModalHeader = styled.div`
   background: linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%);
   color: white; padding: 10px 16px; border-radius: 8px 8px 0 0;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
 `
 const ModalTitle = styled.h2`margin: 0; font-size: 0.95rem; font-weight: 700;`
-const ModalBody = styled.div`flex: 1; overflow-y: auto; padding: 14px;`
-const ModalFooter = styled.div`
-  padding: 8px 14px; border-top: 1px solid ${colors.border};
-  display: flex; justify-content: flex-end; gap: 8px;
+const ModalBody = styled.div`flex: 1; overflow: auto; padding: 14px; background: #f1f5f9;`
+const ZoomControls = styled.div`
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 5px; padding: 2px 6px;
+`
+const ZoomBtn = styled.button`
+  background: rgba(255,255,255,0.2); border: none; color: white;
+  border-radius: 4px; width: 24px; height: 22px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; font-weight: 700; line-height: 1;
+  &:hover:not(:disabled) { background: rgba(255,255,255,0.35); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
 `
 const CloseBtn = styled.button`
   background: rgba(255,255,255,0.2); border: none; color: white;
@@ -135,7 +146,7 @@ const CloseBtn = styled.button`
 `
 
 /* ══════════════════════════════════════════════════════════════════════════
-   GRN PRINT DOCUMENT — matches screenshot layout exactly
+   GRN PRINT DOCUMENT — matches screenshot layout with legible print sizes
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
@@ -144,12 +155,28 @@ const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 const PURCHASE_CATEGORIES = [
   { value: "MEDICINE_PURCHASE", label: "Medicine Purchase (OP)" },
   { value: "MEDICINE_PURCHASE_IP", label: "Medicine Purchase (IP)" },
+  { value: "OP PHARMACY", label: "OP Pharmacy" },
+  { value: "IP PHARMACY", label: "IP Pharmacy" },
+  { value: "DRUG PURCHASE", label: "Drug Purchase" },
   { value: "OPENING_STOCK_DRUG", label: "Opening Stock (Drug)" },
+]
+
+const GRN_TYPE_FILTERS = [
+  { value: "", label: "All Types (IP / OP)" },
+  { value: "IP", label: "IP Pharmacy" },
+  { value: "OP", label: "OP Pharmacy" },
+  { value: "DRUG PURCHASE", label: "Drug Purchase" },
+  { value: "OPENING_STOCK_DRUG", label: "Opening Stock" },
 ]
 
 const todayStr = () => new Date().toISOString().split("T")[0]
 const fmtDate = (d) => d ? d.split("T")[0] : "—"
-const fmt2 = (v) => parseFloat(v || 0).toFixed(2)
+const fmt2 = (v) => {
+  const n = parseFloat(v || 0);
+  if (!Number.isFinite(n)) return "0.00";
+  const sign = n < 0 ? -1 : 1;
+  return ((sign * Math.round((Math.abs(n) + 1e-9) * 100)) / 100).toFixed(2);
+};
 
 /* ── Number to words ── */
 function numberToWords(num) {
@@ -184,7 +211,7 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
     const qty = parseFloat(it.quantity || it.qty || 0);
     const pack = it.packing || it.pack || 1;
     const free = parseFloat(it.free || it.free_qty || 0);
-    const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
+    const pRate = parseFloat(it.unitPrice || it.unit_price || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
     const pCost = parseFloat(it.unitCost || it.purchase_cost_display || (qty ? (parseFloat(it.purchaseCost || it.purchase_cost || 0) / qty) : 0) || pRate);
     const mrp = parseFloat(it.mrp || 0);
     const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
@@ -235,42 +262,47 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
   const totalDisc = normalizedItems.reduce((s, i) => s + i.disc, 0) || parseFloat(grn.total_discount || 0);
   const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0) || parseFloat(grn.total_amount || 0);
   const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
-  const roundOff = parseFloat(grn.round_amount || 0);
+  const rawRoundOff = parseFloat(grn.round_amount || 0);
   const totalGst = totalCgst + totalSgst + totalIgst;
-  const netAmt = parseFloat(grn.net_invoice_amount || grn.net_amount || (totalItemAmounts + taxOnFree + roundOff));
+  const rawNetAmt = Number(
+    parseFloat(grn.net_invoice_amount || grn.net_amount || (totalItemAmounts + taxOnFree + rawRoundOff)).toFixed(2)
+  );
+  const netAmt = Math.floor(rawNetAmt);
+  const pointDiff = Number((netAmt - rawNetAmt).toFixed(2));
+  const roundOff = Number((rawRoundOff + pointDiff).toFixed(2));
 
   /* Shared cell styles */
   const th = (extra = {}) => ({
     background: "#dbeafe",
     color: "#0c4a6e",
     border: "1px solid #7dd3fc",
-    padding: "3px 4px",
-    fontSize: 7.5,
+    padding: "5px 6px",
+    fontSize: 10.5,
     fontWeight: 700,
     whiteSpace: "nowrap",
     textAlign: "center",
     verticalAlign: "middle",
     ...extra,
   });
-  const td = (extra = {}) => ({ border: "1px solid #cbd5e1", padding: "3px 4px", fontSize: 8, whiteSpace: "nowrap", verticalAlign: "middle", ...extra });
+  const td = (extra = {}) => ({ border: "1px solid #cbd5e1", padding: "5px 6px", fontSize: 11, whiteSpace: "nowrap", verticalAlign: "middle", ...extra });
   const tdr = (extra = {}) => td({ textAlign: "right", ...extra });
   const tdc = (extra = {}) => td({ textAlign: "center", ...extra });
 
   return (
-    <div id="grn-print-area" style={{ fontFamily: "Arial, sans-serif", fontSize: 9, color: "#000", border: "1.5px solid #0c4a6e", background: "#ffffff" }}>
+    <div id="grn-print-area" style={{ fontFamily: "Arial, sans-serif", fontSize: 12, color: "#000", border: "1.5px solid #0c4a6e", background: "#ffffff" }}>
       {/* ── Hospital Header ── */}
-      <div style={{ textAlign: "center", padding: "10px 12px 6px", borderBottom: "1.5px solid #0c4a6e", background: "#ffffff" }}>
-        <div style={{ fontSize: 16, fontWeight: 900, color: "#0c4a6e", letterSpacing: "0.5px" }}>SHANMUGA HOSPITAL LIMITED</div>
-        <div style={{ fontSize: 9.5, color: "#334155", marginTop: 2 }}>51/24.Saradha College Road, Salem - 636007,,</div>
-        <div style={{ fontSize: 9.5, color: "#334155" }}>Phone : 04272706666,info@smrft.org</div>
-        <div style={{ fontSize: 9.5, fontWeight: 700, color: "#334155", marginTop: 2 }}>GST Number : {grn.hospital_gst || ""}</div>
+      <div style={{ textAlign: "center", padding: "12px 14px 8px", borderBottom: "1.5px solid #0c4a6e", background: "#ffffff" }}>
+        <div style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", letterSpacing: "0.5px" }}>SHANMUGA HOSPITAL LIMITED</div>
+        <div style={{ fontSize: 12, color: "#334155", marginTop: 3 }}>51/24.Saradha College Road, Salem - 636007,,</div>
+        <div style={{ fontSize: 12, color: "#334155" }}>Phone : 04272706666,info@smrft.org</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", marginTop: 2 }}>GST Number : {grn.hospital_gst || ""}</div>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13.5,
             fontWeight: 800,
             textTransform: "uppercase",
             letterSpacing: "0.4px",
-            marginTop: 6,
+            marginTop: 7,
             color: "#0c4a6e",
           }}
         >
@@ -283,7 +315,7 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
         <tbody>
           <tr>
             {/* Left Column */}
-            <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: 8.5, borderRight: "1px solid #7dd3fc", width: "33%" }}>
+            <td style={{ verticalAlign: "top", padding: "7px 10px", fontSize: 11.5, borderRight: "1px solid #7dd3fc", width: "33%" }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                 {[
                   ["Invoice No", grn.invoice_no || grn.invoice_number],
@@ -292,24 +324,24 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
                   ["Purchase Date", fmtDate(grn.date)],
                 ].map(([k, val]) => (
                   <tr key={k}>
-                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 86 }}>{k}</td>
-                    <td style={{ fontSize: 8.5, verticalAlign: "top" }}>: {val || "—"}</td>
+                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 6, fontSize: 11.5, verticalAlign: "top", minWidth: 105 }}>{k}</td>
+                    <td style={{ fontSize: 11.5, verticalAlign: "top" }}>: {val || "—"}</td>
                   </tr>
                 ))}
               </tbody></table>
             </td>
 
             {/* Centre Column */}
-            <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: 8.5, borderRight: "1px solid #7dd3fc", width: "34%" }}>
+            <td style={{ verticalAlign: "top", padding: "7px 10px", fontSize: 11.5, borderRight: "1px solid #7dd3fc", width: "34%" }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                 <tr>
-                  <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 86 }}>Supplier Name</td>
-                  <td style={{ fontSize: 8.5, fontWeight: 700, verticalAlign: "top" }}>: {v.name || grn.vendor_name || "OPENING STOCK"}</td>
+                  <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 6, fontSize: 11.5, verticalAlign: "top", minWidth: 105 }}>Supplier Name</td>
+                  <td style={{ fontSize: 11.5, fontWeight: 700, verticalAlign: "top" }}>: {v.name || grn.vendor_name || "OPENING STOCK"}</td>
                 </tr>
                 {addr && (
                   <tr>
-                    <td style={{ fontWeight: 700, fontSize: 8.5, verticalAlign: "top" }}></td>
-                    <td style={{ fontSize: 8.5, verticalAlign: "top" }}>{addr}</td>
+                    <td style={{ fontWeight: 700, fontSize: 11.5, verticalAlign: "top" }}></td>
+                    <td style={{ fontSize: 11.5, verticalAlign: "top" }}>{addr}</td>
                   </tr>
                 )}
                 {[
@@ -318,15 +350,15 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
                   ["GST Number", v.gstin || grn.vendor_gstin || "******"],
                 ].map(([k, val]) => (
                   <tr key={k}>
-                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 86 }}>{k}</td>
-                    <td style={{ fontSize: 8.5, verticalAlign: "top" }}>: {val || "—"}</td>
+                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 6, fontSize: 11.5, verticalAlign: "top", minWidth: 105 }}>{k}</td>
+                    <td style={{ fontSize: 11.5, verticalAlign: "top" }}>: {val || "—"}</td>
                   </tr>
                 ))}
               </tbody></table>
             </td>
 
             {/* Right Column */}
-            <td style={{ verticalAlign: "top", padding: "5px 8px", fontSize: 8.5, width: "33%" }}>
+            <td style={{ verticalAlign: "top", padding: "7px 10px", fontSize: 11.5, width: "33%" }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
                 {[
                   ["Order Number", grn.order_number || ""],
@@ -334,8 +366,8 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
                   ["Approved Date", grn.is_approved ? fmtDate(grn.approved_date || grn.date) : (grn.approved_date ? fmtDate(grn.approved_date) : "—")],
                 ].map(([k, val]) => (
                   <tr key={k}>
-                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 4, fontSize: 8.5, verticalAlign: "top", minWidth: 86 }}>{k}</td>
-                    <td style={{ fontSize: 8.5, verticalAlign: "top" }}>: {val || "—"}</td>
+                    <td style={{ fontWeight: 700, whiteSpace: "nowrap", paddingRight: 6, fontSize: 11.5, verticalAlign: "top", minWidth: 105 }}>{k}</td>
+                    <td style={{ fontSize: 11.5, verticalAlign: "top" }}>: {val || "—"}</td>
                   </tr>
                 ))}
               </tbody></table>
@@ -348,11 +380,11 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
       <div style={{ display: "flex", borderBottom: "1px solid #7dd3fc" }}>
         {/* 17-column Items table */}
         <div style={{ flex: 1, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 8 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
             <thead>
               <tr>
-                <th rowSpan={2} style={th({ width: 22 })}>Sl.</th>
-                <th rowSpan={2} style={th({ minWidth: 95, textAlign: "left" })}>Product</th>
+                <th rowSpan={2} style={th({ width: 28 })}>Sl.</th>
+                <th rowSpan={2} style={th({ minWidth: 115, textAlign: "left" })}>Product</th>
                 <th rowSpan={2} style={th()}>HSN</th>
                 <th rowSpan={2} style={th()}>Batch</th>
                 <th rowSpan={2} style={th()}>Expiry</th>
@@ -379,7 +411,7 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
               {normalizedItems.map((it) => (
                 <tr key={it.sl}>
                   <td style={tdc()}>{it.sl}</td>
-                  <td style={td({ fontWeight: 600, maxWidth: 120, whiteSpace: "normal", textAlign: "left" })}>{it.product}</td>
+                  <td style={td({ fontWeight: 600, maxWidth: 150, whiteSpace: "normal", textAlign: "left" })}>{it.product}</td>
                   <td style={tdc()}>{it.hsn}</td>
                   <td style={tdc()}>{it.batch}</td>
                   <td style={tdc()}>{it.expiry}</td>
@@ -428,7 +460,7 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
         </div>
 
         {/* Right totals panel */}
-        <table style={{ borderLeft: "1px solid #7dd3fc", borderCollapse: "collapse", fontSize: 8.5, minWidth: 140, alignSelf: "stretch" }}>
+        <table style={{ borderLeft: "1px solid #7dd3fc", borderCollapse: "collapse", fontSize: 11.5, minWidth: 175, alignSelf: "stretch" }}>
           <tbody>
             {[
               ["Total", fmt2(totalTaxable), false],
@@ -439,8 +471,8 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
               ["Net Amount", fmt2(netAmt), true, "#e8f5e9", "#0f766e"],
             ].map(([lbl, val, bold, bg, col]) => (
               <tr key={lbl} style={{ background: bg || "transparent" }}>
-                <td style={{ padding: "3px 6px", borderBottom: "1px solid #e2e8f0", fontWeight: bold ? 800 : 600, color: col || "#334155", whiteSpace: "nowrap" }}>{lbl}</td>
-                <td style={{ padding: "3px 6px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: bold ? 800 : 700, color: col || "#0f172a", whiteSpace: "nowrap" }}>{val}</td>
+                <td style={{ padding: "5px 8px", borderBottom: "1px solid #e2e8f0", fontWeight: bold ? 800 : 600, color: col || "#334155", whiteSpace: "nowrap" }}>{lbl}</td>
+                <td style={{ padding: "5px 8px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: bold ? 800 : 700, color: col || "#0f172a", whiteSpace: "nowrap" }}>{val}</td>
               </tr>
             ))}
           </tbody>
@@ -451,26 +483,26 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
       <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid #0c4a6e" }}>
         <tbody>
           <tr>
-            <td style={{ padding: "4px 8px", fontSize: 8, borderRight: "1px solid #7dd3fc", whiteSpace: "nowrap", width: "42%" }}>
+            <td style={{ padding: "6px 10px", fontSize: 11, borderRight: "1px solid #7dd3fc", whiteSpace: "nowrap", width: "42%" }}>
               <strong>GST Amount</strong>&nbsp;&nbsp;
               CGST Amount : {fmt2(totalCgst)}&nbsp;&nbsp;
               SGST Amount : {fmt2(totalSgst)}&nbsp;&nbsp;
               IGST Amount : {fmt2(totalIgst)}
             </td>
-            <td style={{ padding: "4px 8px", fontSize: 8, borderRight: "1px solid #7dd3fc" }}>
+            <td style={{ padding: "6px 10px", fontSize: 11, borderRight: "1px solid #7dd3fc" }}>
               <strong>Amount In Words</strong>&nbsp;&nbsp;
               Rupee(s) {numberToWords(netAmt)}
             </td>
-            <td style={{ padding: "4px 10px", fontSize: 8.5, textAlign: "right", whiteSpace: "nowrap", minWidth: 110 }}>
+            <td style={{ padding: "6px 12px", fontSize: 11.5, textAlign: "right", whiteSpace: "nowrap", minWidth: 140 }}>
               <strong>Net Amount</strong>&nbsp;
-              <span style={{ fontWeight: 800, fontSize: "0.85rem", color: "#0f766e" }}>{fmt2(netAmt)}</span>
+              <span style={{ fontWeight: 800, fontSize: 14, color: "#0f766e" }}>{fmt2(netAmt)}</span>
             </td>
           </tr>
         </tbody>
       </table>
 
       {/* ── Signature strip ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 16px", fontSize: 8.5, background: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 16px", fontSize: 11.5, background: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
         <span><strong>Entered By :</strong> {grn.entered_by_name || grn.entered_by || grn.created_by_name || grn.created_by || "—"}</span>
         <span><strong>Verified By :</strong> {grn.verified_by_name || grn.verified_by || (grn.status === "Verified" ? (grn.lastmodified_by_name || grn.lastmodified_by || "APPROVED") : (grn.is_approved ? "APPROVED" : "—"))}</span>
       </div>
@@ -486,9 +518,12 @@ const GRNAnalysis = () => {
   const [fromDate, setFromDate] = useState(getTodayDateString())
   const [toDate, setToDate] = useState(getTodayDateString())
   const [search, setSearch] = useState("")
+  const [typeFilter, setTypeFilter] = useState("")
   const [viewGrn, setViewGrn] = useState(null)
   const [viewItems, setViewItems] = useState([])
   const [confirmId, setConfirmId] = useState(null)
+  const [zoom, setZoom] = useState(1)
+  const [exporting, setExporting] = useState(false)
   const printRef = useRef()
 
   const [page, setPage] = useState(1);
@@ -505,7 +540,7 @@ const GRNAnalysis = () => {
     } catch { }
   }, [])
 
-  const fetchGRNList = useCallback(async (p = page, size = pageSize, q = search, from = fromDate, to = toDate) => {
+  const fetchGRNList = useCallback(async (p = page, size = pageSize, q = search, from = fromDate, to = toDate, type = typeFilter) => {
     try {
       const query = new URLSearchParams({
         page: p,
@@ -514,6 +549,7 @@ const GRNAnalysis = () => {
       if (q && q.trim()) query.append("search", q.trim());
       if (from) query.append("from_date", from);
       if (to) query.append("to_date", to);
+      if (type) query.append("purchase_category", type);
       const r = await apiRequest(`${baseUrl}grn/?${query.toString()}`, "GET");
       if (r && r.success) {
         const payload = r.data;
@@ -526,15 +562,15 @@ const GRNAnalysis = () => {
         setPage(payload?.current_page || p);
       }
     } catch { }
-  }, [page, pageSize, search, fromDate, toDate])
+  }, [page, pageSize, search, fromDate, toDate, typeFilter])
 
   useEffect(() => {
     fetchVendors();
   }, [fetchVendors]);
 
   useEffect(() => {
-    fetchGRNList(page, pageSize, search, fromDate, toDate);
-  }, [page, pageSize, search, fromDate, toDate, fetchGRNList]);
+    fetchGRNList(page, pageSize, search, fromDate, toDate, typeFilter);
+  }, [page, pageSize, search, fromDate, toDate, typeFilter, fetchGRNList]);
 
   const getVendor = (id) => vendors.find(x => Number(x.vendor_id) === Number(id)) || null
   const getVendorName = (id) => { const v = getVendor(id); return v ? v.name : String(id || "") }
@@ -555,25 +591,137 @@ const GRNAnalysis = () => {
 
   const openView = (grn) => {
     setViewItems(parseItems(grn.items));
+    setZoom(1);
     setViewGrn(grn);
   };
-  const closeView = () => { setViewGrn(null); setViewItems([]) }
+  const closeView = () => { setViewGrn(null); setViewItems([]); setZoom(1); }
+
+  const handleZoomOut = () => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)));
+  const handleZoomIn = () => setZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)));
+  const handleResetZoom = () => setZoom(1);
+
+  const getDocFilename = () => {
+    const raw = viewGrn?.grn_number || viewGrn?.draft_number || "Report";
+    return `GRN_${String(raw).replace(/[\\/:\s]+/g, "_")}`;
+  };
 
   const handlePrint = () => {
     const content = document.getElementById("grn-print-area")
     if (!content) return
-    const win = window.open("", "_blank", "width=1100,height=750")
+    const win = window.open("", "_blank", "width=1200,height=800")
+    if (!win) { toast.error("Please allow popups to print"); return }
     win.document.write(`<!DOCTYPE html><html><head>
       <title>GRN - ${viewGrn?.grn_number || viewGrn?.draft_number}</title>
       <style>
         *{box-sizing:border-box;}
-        body{font-family:Arial,sans-serif;font-size:9px;color:#000;margin:0;padding:8px;}
+        body{font-family:Arial,sans-serif;font-size:12px;color:#000;margin:0;padding:8px;}
         table{border-collapse:collapse;}
-        @media print{@page{margin:6mm;} body{padding:0;}}
+        @media print{@page{size:A4 landscape;margin:6mm;} body{padding:0;}}
       </style>
     </head><body>${content.outerHTML}</body></html>`)
     win.document.close()
     setTimeout(() => win.print(), 400)
+  }
+
+  const handleDownloadPDF = async () => {
+    const content = document.getElementById("grn-print-area")
+    if (!content || exporting) return
+    setExporting(true)
+    const offscreen = document.createElement("div")
+    try {
+      offscreen.style.cssText = "position:fixed;left:-99999px;top:0;width:1240px;background:#ffffff;z-index:-1;"
+      const clone = content.cloneNode(true)
+      clone.removeAttribute("id")
+      offscreen.appendChild(clone)
+      document.body.appendChild(offscreen)
+
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        windowWidth: 1240,
+      })
+
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const margin = 8
+      const usableW = pageW - margin * 2
+      const usableH = pageH - margin * 2
+      const pxPerMm = canvas.width / usableW
+      const sliceHeightPx = Math.floor(usableH * pxPerMm)
+
+      let yOffsetPx = 0
+      let pageIdx = 0
+      while (yOffsetPx < canvas.height) {
+        const curSlicePx = Math.min(sliceHeightPx, canvas.height - yOffsetPx)
+        const sliceCanvas = document.createElement("canvas")
+        sliceCanvas.width = canvas.width
+        sliceCanvas.height = curSlicePx
+        const ctx = sliceCanvas.getContext("2d")
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height)
+        ctx.drawImage(canvas, 0, yOffsetPx, canvas.width, curSlicePx, 0, 0, canvas.width, curSlicePx)
+
+        if (pageIdx > 0) pdf.addPage()
+        const sliceHeightMm = curSlicePx / pxPerMm
+        pdf.addImage(sliceCanvas.toDataURL("image/png"), "PNG", margin, margin, usableW, sliceHeightMm)
+        yOffsetPx += curSlicePx
+        pageIdx += 1
+      }
+
+      pdf.save(`${getDocFilename()}.pdf`)
+      toast.success("GRN downloaded as PDF")
+    } catch (err) {
+      console.error("PDF export failed:", err)
+      toast.error("Failed to generate PDF")
+    } finally {
+      if (offscreen.parentNode) offscreen.parentNode.removeChild(offscreen)
+      setExporting(false)
+    }
+  }
+
+  const handleDownloadWord = () => {
+    const content = document.getElementById("grn-print-area")
+    if (!content) return
+    try {
+      const html = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta charset="utf-8" />
+  <title>GRN - ${viewGrn?.grn_number || viewGrn?.draft_number}</title>
+  <style>
+    @page Section1 {
+      size: 29.7cm 21.0cm;
+      mso-page-orientation: landscape;
+      margin: 0.7cm 0.7cm 0.7cm 0.7cm;
+    }
+    div.Section1 { page: Section1; }
+    body { font-family: Arial, sans-serif; font-size: 11pt; color: #000000; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #cbd5e1; }
+  </style>
+</head>
+<body>
+  <div class="Section1">${content.outerHTML}</div>
+</body>
+</html>`
+      const blob = new Blob(["\ufeff", html], { type: "application/msword" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${getDocFilename()}.doc`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success("GRN downloaded as Word document")
+    } catch (err) {
+      console.error("Word export failed:", err)
+      toast.error("Failed to generate Word document")
+    }
   }
 
   const handleGenerateGRN = async (grn) => {
@@ -627,6 +775,24 @@ const GRNAnalysis = () => {
               setPage(1);
             }}
             totalRecords={totalCount}
+            customFilters={
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>Type:</span>
+                <InvNativeSelect
+                  value={typeFilter}
+                  onChange={(e) => {
+                    setTypeFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{ minWidth: 150, height: 30, fontSize: "0.78rem" }}
+                  aria-label="Filter by IP or OP Type"
+                >
+                  {GRN_TYPE_FILTERS.map((opt) => (
+                    <option key={opt.value || "all"} value={opt.value}>{opt.label}</option>
+                  ))}
+                </InvNativeSelect>
+              </div>
+            }
           />
 
           <ScrollTable>
@@ -699,7 +865,29 @@ const GRNAnalysis = () => {
           <ModalBox>
             <ModalHeader>
               <ModalTitle>🧾 {viewGrn.grn_number || viewGrn.draft_number}</ModalTitle>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <ZoomControls>
+                  <ZoomBtn type="button" onClick={handleZoomOut} disabled={zoom <= 0.5} title="Zoom Out (-)">
+                    <ZoomOut size={13} />
+                  </ZoomBtn>
+                  <span style={{ fontSize: "0.74rem", fontWeight: 700, minWidth: 42, textAlign: "center", color: "white" }}>
+                    {Math.round(zoom * 100)}%
+                  </span>
+                  <ZoomBtn type="button" onClick={handleZoomIn} disabled={zoom >= 2} title="Zoom In (+)">
+                    <ZoomIn size={13} />
+                  </ZoomBtn>
+                  <ZoomBtn type="button" onClick={handleResetZoom} title="Reset Zoom (100%)">
+                    <RotateCcw size={12} />
+                  </ZoomBtn>
+                </ZoomControls>
+                <ActionBtn onClick={handleDownloadPDF} disabled={exporting}
+                  style={{ background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.35)", fontSize: "0.73rem", padding: "3px 10px" }}>
+                  <Download size={12} /> {exporting ? "Exporting..." : "PDF"}
+                </ActionBtn>
+                <ActionBtn onClick={handleDownloadWord}
+                  style={{ background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.35)", fontSize: "0.73rem", padding: "3px 10px" }}>
+                  <FileText size={12} /> Word
+                </ActionBtn>
                 <ActionBtn onClick={handlePrint}
                   style={{ background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.35)", fontSize: "0.73rem", padding: "3px 10px" }}>
                   <Printer size={12} /> Print
@@ -709,13 +897,10 @@ const GRNAnalysis = () => {
             </ModalHeader>
 
             <ModalBody ref={printRef}>
-              <GRNDocument grn={viewGrn} vendorInfo={getVendor(viewGrn.vendor_id)} items={viewItems} />
+              <div style={{ zoom, minWidth: 960, transformOrigin: "top left", background: "#ffffff" }}>
+                <GRNDocument grn={viewGrn} vendorInfo={getVendor(viewGrn.vendor_id)} items={viewItems} />
+              </div>
             </ModalBody>
-
-            <ModalFooter>
-              <Button secondary onClick={closeView} style={{ fontSize: "0.8rem", padding: "5px 14px" }}><X size={12} />&nbsp;Close</Button>
-              <Button onClick={handlePrint} style={{ fontSize: "0.8rem", padding: "5px 14px" }}><Printer size={12} />&nbsp;Print / PDF</Button>
-            </ModalFooter>
           </ModalBox>
         </Overlay>
       )}

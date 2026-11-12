@@ -1,5 +1,6 @@
 import React from "react";
 import styled, { keyframes, css } from "styled-components";
+import { SquarePen, Trash2, History, Save } from "lucide-react";
 import SearchSelect from "../Common/SearchSelect";
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -697,14 +698,15 @@ export const InvActionGroup = styled.div`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: nowrap;
   white-space: nowrap;
 `;
 
 export const InvActionBtn = styled.button`
+  min-width: 28px;
   height: 28px;
-  padding: 0 9px;
+  padding: ${p => p.$iconOnly ? "0" : "0 6px"};
   border-radius: 6px;
   font-size: 0.74rem;
   font-weight: 600;
@@ -714,82 +716,74 @@ export const InvActionBtn = styled.button`
   justify-content: center;
   gap: 4px;
   white-space: nowrap;
-  transition: all 0.16s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: background-color 0.16s ease, color 0.16s ease, transform 0.14s ease;
+  background: transparent;
+  border: none;
+  box-shadow: none;
   line-height: 1;
 
   ${(p) => {
     if (p.danger || p.variant === "danger" || p.variant === "delete") {
       return css`
-        background: #fef2f2;
-        color: #dc2626;
-        border: 1px solid #fecaca;
-        &:hover {
-          background: #dc2626;
-          color: #ffffff;
-          border-color: #dc2626;
-          box-shadow: 0 2px 6px rgba(220, 38, 38, 0.22);
+        color: #ef4444;
+        &:hover:not(:disabled) {
+          background: #fee2e2;
+          color: #dc2626;
           transform: translateY(-1px);
         }
       `;
     }
-    if (p.variant === "track" || p.variant === "info") {
+    if (p.variant === "history" || p.variant === "track" || p.variant === "info") {
       return css`
-        background: #f0fdfa;
-        color: #0d9488;
-        border: 1px solid #99f6e4;
-        &:hover {
-          background: #0d9488;
-          color: #ffffff;
-          border-color: #0d9488;
-          box-shadow: 0 2px 6px rgba(13, 148, 136, 0.22);
+        color: #0369a1;
+        &:hover:not(:disabled) {
+          background: #e0f2fe;
+          color: #0c4a6e;
           transform: translateY(-1px);
         }
       `;
     }
     if (p.variant === "edit") {
       return css`
-        background: #f0f9ff;
         color: #0284c7;
-        border: 1px solid #bae6fd;
-        &:hover {
-          background: #0284c7;
-          color: #ffffff;
-          border-color: #0284c7;
-          box-shadow: 0 2px 6px rgba(2, 132, 199, 0.22);
+        &:hover:not(:disabled) {
+          background: #e0f2fe;
+          color: #0369a1;
+          transform: translateY(-1px);
+        }
+      `;
+    }
+    if (p.variant === "save") {
+      return css`
+        color: #0d9488;
+        &:hover:not(:disabled) {
+          background: #ccfbf1;
+          color: #0f766e;
           transform: translateY(-1px);
         }
       `;
     }
     if (p.secondary || p.variant === "secondary") {
       return css`
-        background: #f8fafc;
         color: #475569;
-        border: 1px solid #cbd5e1;
-        &:hover {
-          background: #475569;
-          color: #ffffff;
-          border-color: #475569;
+        &:hover:not(:disabled) {
+          background: #f1f5f9;
+          color: #1e293b;
           transform: translateY(-1px);
         }
       `;
     }
-    // Default
     return css`
-      background: #f0fdfa;
       color: #0f766e;
-      border: 1px solid #ccfbf1;
-      &:hover {
-        background: #0d9488;
-        color: #ffffff;
-        border-color: #0d9488;
-        box-shadow: 0 2px 6px rgba(13, 148, 136, 0.2);
+      &:hover:not(:disabled) {
+        background: #ccfbf1;
+        color: #0d9488;
         transform: translateY(-1px);
       }
     `;
   }}
 
-  &:active {
+  &:active:not(:disabled) {
     transform: translateY(0);
   }
   &:disabled {
@@ -798,6 +792,30 @@ export const InvActionBtn = styled.button`
     transform: none !important;
   }
 `;
+
+export const InvEditBtn = ({ title = "Edit", size = 17, ...props }) => (
+  <InvActionBtn type="button" variant="edit" $iconOnly title={title} aria-label={title} {...props}>
+    <SquarePen size={size} strokeWidth={2} />
+  </InvActionBtn>
+);
+
+export const InvDeleteBtn = ({ title = "Delete", size = 17, ...props }) => (
+  <InvActionBtn type="button" variant="delete" $iconOnly title={title} aria-label={title} {...props}>
+    <Trash2 size={size} strokeWidth={2} />
+  </InvActionBtn>
+);
+
+export const InvHistoryBtn = ({ title = "Purchase History", size = 17, ...props }) => (
+  <InvActionBtn type="button" variant="history" $iconOnly title={title} aria-label={title} {...props}>
+    <History size={size} strokeWidth={2} />
+  </InvActionBtn>
+);
+
+export const InvSaveBtn = ({ title = "Save", size = 17, ...props }) => (
+  <InvActionBtn type="button" variant="save" $iconOnly title={title} aria-label={title} {...props}>
+    <Save size={size} strokeWidth={2} />
+  </InvActionBtn>
+);
 
 export const getTodayDateString = () => {
   const d = new Date();
