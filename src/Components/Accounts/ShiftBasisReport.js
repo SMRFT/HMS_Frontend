@@ -8,12 +8,7 @@ import {
     FaEye, 
     FaPrint, 
     FaFileExcel, 
-    FaCalendarAlt, 
-    FaCoins, 
-    FaCreditCard, 
-    FaReceipt, 
-    FaUniversity, 
-    FaMoneyBillWave 
+    FaCalendarAlt 
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import {
@@ -58,48 +53,6 @@ const FilterSection = styled.div`
     padding: 20px;
     margin-bottom: 20px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-`;
-
-const KPIContainer = styled.div`
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 14px;
-    margin-bottom: 20px;
-`;
-
-const KPICard = styled.div`
-    background: ${colors.surface || "#ffffff"};
-    border-radius: 10px;
-    padding: 14px 16px;
-    border-left: 4px solid ${props => props.color || colors.primary || "#133d34"};
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-
-    .title {
-        font-size: 0.72rem;
-        font-weight: 600;
-        color: ${colors.textMuted || "#64748b"};
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .value {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: ${props => props.color || colors.textMain || "#0f172a"};
-    }
-
-    .sub {
-        font-size: 0.7rem;
-        color: ${colors.textMuted || "#94a3b8"};
-        margin-top: 2px;
-    }
 `;
 
 const DateGroupRow = styled.tr`
@@ -408,9 +361,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                         creditColl: 0,
                         totalColl: 0,
                         closing: 0,
-                        returnAmount: 0,
-                        remitted: 0,
-                        handover: 0
+                        returnAmount: 0
                     }
                 };
             }
@@ -421,8 +372,6 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
             const totalCol = cash + credit;
             const closeBal = parseFloat(s.ClosingBalance || 0);
             const ret = parseFloat(s.SalesReturnAmount || 0);
-            const remit = parseFloat(s.RemittedToBank || 0);
-            const hand = parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0);
 
             const shiftBills = Array.isArray(reportData) ? reportData.filter(b => b.shiftno === s.shiftno) : [];
 
@@ -435,8 +384,6 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                 totalColl: totalCol,
                 closeBal,
                 retAmt: ret,
-                remitAmt: remit,
-                handAmt: hand,
                 bills: shiftBills
             };
 
@@ -450,8 +397,6 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
             sub.totalColl += totalCol;
             sub.closing += closeBal;
             sub.returnAmount += ret;
-            sub.remitted += remit;
-            sub.handover += hand;
         });
 
         // 1. Sort shifts within each date group properly by shift number
@@ -482,9 +427,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
             creditColl: 0,
             totalColl: 0,
             closing: 0,
-            returnAmount: 0,
-            remitted: 0,
-            handover: 0
+            returnAmount: 0
         };
 
         sortedGroups.forEach(g => {
@@ -494,8 +437,6 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
             gTotals.totalColl += g.subtotals.totalColl;
             gTotals.closing += g.subtotals.closing;
             gTotals.returnAmount += g.subtotals.returnAmount;
-            gTotals.remitted += g.subtotals.remitted;
-            gTotals.handover += g.subtotals.handover;
         });
 
         return {
@@ -524,10 +465,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                 "Cash Collection (₹)": Number(s.cashColl.toFixed(2)),
                 "Credit Collection (₹)": Number(s.creditColl.toFixed(2)),
                 "Total Collection (₹)": Number(s.totalColl.toFixed(2)),
+                "Sales Return (₹)": Number(s.retAmt.toFixed(2)),
                 "Closing Balance (₹)": Number(s.closeBal.toFixed(2)),
-                "Return (₹)": Number(s.retAmt.toFixed(2)),
-                "Remitted to Bank (₹)": Number(s.remitAmt.toFixed(2)),
-                "Handover Amount (₹)": Number(s.handAmt.toFixed(2)),
                 "Status": (s.ShiftStatus || "").toUpperCase()
             }));
 
@@ -573,19 +512,6 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
     return (
         <>
             <PageWrapper style={isModalView ? { padding: 0 } : {}}>
-                {isModalView && (
-                    <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
-                        <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
-                            {hospital_name}
-                        </h2>
-                        <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
-                            Shift Details For {getOutletName(outlet) === '-' || outlet === 'all' ? 'Cashcounter' : getOutletName(outlet)} From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
-                        </div>
-                        <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
-                            Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
-                        </div>
-                    </div>
-                )}
 
                 {!isModalView && (
                     <SectionTitle>
@@ -680,39 +606,6 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                     </FormRow>
                 </FilterSection>
 
-                {/* KPI FINANCIAL SUMMARY CARDS */}
-                <KPIContainer className="no-print">
-                    <KPICard color="#133d34">
-                        <div className="title"><FaReceipt /> Total Shifts</div>
-                        <div className="value">{grandTotals.shiftsCount}</div>
-                        <div className="sub">Across {dateGroups.length} Active {dateGroups.length === 1 ? "Date" : "Dates"}</div>
-                    </KPICard>
-
-                    <KPICard color="#16a34a">
-                        <div className="title"><FaCoins /> Cash Collection</div>
-                        <div className="value">₹{grandTotals.cashColl.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-                        <div className="sub">Direct Counter Cash</div>
-                    </KPICard>
-
-                    <KPICard color="#0284c7">
-                        <div className="title"><FaCreditCard /> Credit Collection</div>
-                        <div className="value">₹{grandTotals.creditColl.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-                        <div className="sub">UPI / Card / Cheque / Credit</div>
-                    </KPICard>
-
-                    <KPICard color="#b45309">
-                        <div className="title"><FaMoneyBillWave /> Total Collection</div>
-                        <div className="value">₹{grandTotals.totalColl.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-                        <div className="sub">Cash + Credit Net Inflow</div>
-                    </KPICard>
-
-                    <KPICard color="#6366f1">
-                        <div className="title"><FaUniversity /> Remitted & Handover</div>
-                        <div className="value">₹{(grandTotals.remitted + grandTotals.handover).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-                        <div className="sub">Bank: ₹{grandTotals.remitted.toFixed(2)} | Acc: ₹{grandTotals.handover.toFixed(2)}</div>
-                    </KPICard>
-                </KPIContainer>
-
                 {/* ── VIEW TYPE: GROUPED (SHIFT WISE REPORT) ────────────────────── */}
                 {viewType === "grouped" ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: "30px" }}>
@@ -732,8 +625,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                             <span>Cash Coll: ₹{group.subtotals.cashColl.toFixed(2)}</span>
                                             <span>Credit Coll: ₹{group.subtotals.creditColl.toFixed(2)}</span>
                                             <span className="highlight">Total Coll: ₹{group.subtotals.totalColl.toFixed(2)}</span>
-                                            <span>Remitted: ₹{group.subtotals.remitted.toFixed(2)}</span>
-                                            <span>Handover: ₹{group.subtotals.handover.toFixed(2)}</span>
+                                            <span style={{ color: colors.danger, fontWeight: "700" }}>Sales Return: ₹{group.subtotals.returnAmount.toFixed(2)}</span>
+                                            <span style={{ fontWeight: "700" }}>Closing Bal: ₹{group.subtotals.closing.toFixed(2)}</span>
                                         </div>
                                     </DateSectionBanner>
 
@@ -773,16 +666,12 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                                         <div style={{ fontWeight: "700", color: colors.primary }}>₹{shift.totalColl.toFixed(2)}</div>
                                                     </div>
                                                     <div>
+                                                        <SummaryLabel>Sales Return</SummaryLabel>
+                                                        <div style={{ fontWeight: "700", color: colors.danger }}>₹{shift.retAmt.toFixed(2)}</div>
+                                                    </div>
+                                                    <div>
                                                         <SummaryLabel>Closing Bal</SummaryLabel>
                                                         <div style={{ fontWeight: "700" }}>₹{shift.closeBal.toFixed(2)}</div>
-                                                    </div>
-                                                    <div>
-                                                        <SummaryLabel>Remitted</SummaryLabel>
-                                                        <div style={{ fontWeight: "700", color: "#6366f1" }}>₹{shift.remitAmt.toFixed(2)}</div>
-                                                    </div>
-                                                    <div>
-                                                        <SummaryLabel>Handover</SummaryLabel>
-                                                        <div style={{ fontWeight: "700", color: "#8b5cf6" }}>₹{shift.handAmt.toFixed(2)}</div>
                                                     </div>
                                                     <div>
                                                         <SummaryLabel>Counter</SummaryLabel>
@@ -872,10 +761,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                     <Th style={{ textAlign: "right" }}>Cash Coll.</Th>
                                     <Th style={{ textAlign: "right" }}>Credit Coll.</Th>
                                     <Th style={{ textAlign: "right" }}>Total Coll.</Th>
+                                    <Th style={{ textAlign: "right" }}>Sales Return</Th>
                                     <Th style={{ textAlign: "right" }}>Closing Bal</Th>
-                                    <Th style={{ textAlign: "right" }}>Return</Th>
-                                    <Th style={{ textAlign: "right" }}>Remitted</Th>
-                                    <Th style={{ textAlign: "right" }}>Handover</Th>
                                     <Th style={{ textAlign: "center" }} className="hide-on-print">Action</Th>
                                 </Tr>
                             </thead>
@@ -885,7 +772,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                         <React.Fragment key={group.dateKey}>
                                             {/* DATE GROUP HEADER */}
                                             <DateGroupRow>
-                                                <td colSpan={15}>
+                                                <td colSpan={13}>
                                                     <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
                                                         <FaCalendarAlt style={{ color: colors.primary }} /> 
                                                         <strong>Date: {group.displayDate}</strong>
@@ -909,10 +796,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                                     <Td style={{ textAlign: "right", color: colors.success, fontWeight: "600" }}>₹{s.cashColl.toFixed(2)}</Td>
                                                     <Td style={{ textAlign: "right", color: "#0284c7", fontWeight: "600" }}>₹{s.creditColl.toFixed(2)}</Td>
                                                     <Td style={{ textAlign: "right", fontWeight: "700", color: colors.primary }}>₹{s.totalColl.toFixed(2)}</Td>
-                                                    <Td style={{ textAlign: "right", fontWeight: "600" }}>₹{s.closeBal.toFixed(2)}</Td>
-                                                    <Td style={{ textAlign: "right", color: colors.danger }}>₹{s.retAmt.toFixed(2)}</Td>
-                                                    <Td style={{ textAlign: "right", color: "#6366f1" }}>₹{s.remitAmt.toFixed(2)}</Td>
-                                                    <Td style={{ textAlign: "right", color: "#8b5cf6" }}>₹{s.handAmt.toFixed(2)}</Td>
+                                                    <Td style={{ textAlign: "right", color: colors.danger, fontWeight: "600" }}>₹{s.retAmt.toFixed(2)}</Td>
+                                                    <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{s.closeBal.toFixed(2)}</Td>
                                                     <Td style={{ textAlign: "center" }} className="hide-on-print">
                                                         <FaEye
                                                             style={{ cursor: "pointer", color: colors.primary, fontSize: "1.1rem" }}
@@ -935,17 +820,15 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                                 <Td style={{ textAlign: "right", fontWeight: "700", color: colors.success }}>₹{group.subtotals.cashColl.toFixed(2)}</Td>
                                                 <Td style={{ textAlign: "right", fontWeight: "700", color: "#0284c7" }}>₹{group.subtotals.creditColl.toFixed(2)}</Td>
                                                 <Td style={{ textAlign: "right", fontWeight: "800", color: colors.primary }}>₹{group.subtotals.totalColl.toFixed(2)}</Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{group.subtotals.closing.toFixed(2)}</Td>
                                                 <Td style={{ textAlign: "right", fontWeight: "700", color: colors.danger }}>₹{group.subtotals.returnAmount.toFixed(2)}</Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700", color: "#6366f1" }}>₹{group.subtotals.remitted.toFixed(2)}</Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700", color: "#8b5cf6" }}>₹{group.subtotals.handover.toFixed(2)}</Td>
+                                                <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{group.subtotals.closing.toFixed(2)}</Td>
                                                 <Td className="hide-on-print"></Td>
                                             </SubtotalRow>
                                         </React.Fragment>
                                     ))
                                 ) : (
                                     <Tr>
-                                        <Td colSpan="15" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                        <Td colSpan="13" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
                                             No shift records found for the selected filter.
                                         </Td>
                                     </Tr>
@@ -961,10 +844,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                         <Td style={{ textAlign: "right", color: colors.success, fontWeight: "800" }}>₹{grandTotals.cashColl.toFixed(2)}</Td>
                                         <Td style={{ textAlign: "right", color: "#0284c7", fontWeight: "800" }}>₹{grandTotals.creditColl.toFixed(2)}</Td>
                                         <Td style={{ textAlign: "right", fontWeight: "800", color: colors.primary }}>₹{grandTotals.totalColl.toFixed(2)}</Td>
-                                        <Td style={{ textAlign: "right", fontWeight: "800" }}>₹{grandTotals.closing.toFixed(2)}</Td>
                                         <Td style={{ textAlign: "right", color: colors.danger, fontWeight: "800" }}>₹{grandTotals.returnAmount.toFixed(2)}</Td>
-                                        <Td style={{ textAlign: "right", color: "#6366f1", fontWeight: "800" }}>₹{grandTotals.remitted.toFixed(2)}</Td>
-                                        <Td style={{ textAlign: "right", color: "#8b5cf6", fontWeight: "800" }}>₹{grandTotals.handover.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", fontWeight: "800" }}>₹{grandTotals.closing.toFixed(2)}</Td>
                                         <Td className="hide-on-print"></Td>
                                     </GrandTotalRow>
                                 </tfoot>
@@ -1166,10 +1047,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                             <th style={{ textAlign: "right" }}>Cash Coll.</th>
                             <th style={{ textAlign: "right" }}>Credit Coll.</th>
                             <th style={{ textAlign: "right" }}>Total Coll.</th>
+                            <th style={{ textAlign: "right" }}>Sales Return</th>
                             <th style={{ textAlign: "right" }}>Closing Bal</th>
-                            <th style={{ textAlign: "right" }}>Return</th>
-                            <th style={{ textAlign: "right" }}>Remitted</th>
-                            <th style={{ textAlign: "right" }}>Handover</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1177,7 +1056,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                             dateGroups.map((group) => (
                                 <React.Fragment key={group.dateKey}>
                                     <tr style={{ background: "#e2e8f0", fontWeight: "bold" }}>
-                                        <td colSpan={14} style={{ padding: "6px 8px", background: "#e2e8f0" }}>
+                                        <td colSpan={12} style={{ padding: "6px 8px", background: "#e2e8f0" }}>
                                             Date: {group.displayDate} ({group.shifts.length} {group.shifts.length === 1 ? "Shift" : "Shifts"})
                                         </td>
                                     </tr>
@@ -1193,10 +1072,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                             <td style={{ textAlign: "right" }}>₹{s.cashColl.toFixed(2)}</td>
                                             <td style={{ textAlign: "right" }}>₹{s.creditColl.toFixed(2)}</td>
                                             <td style={{ textAlign: "right", fontWeight: "bold" }}>₹{s.totalColl.toFixed(2)}</td>
-                                            <td style={{ textAlign: "right" }}>₹{s.closeBal.toFixed(2)}</td>
                                             <td style={{ textAlign: "right" }}>₹{s.retAmt.toFixed(2)}</td>
-                                            <td style={{ textAlign: "right" }}>₹{s.remitAmt.toFixed(2)}</td>
-                                            <td style={{ textAlign: "right" }}>₹{s.handAmt.toFixed(2)}</td>
+                                            <td style={{ textAlign: "right" }}>₹{s.closeBal.toFixed(2)}</td>
                                         </tr>
                                     ))}
                                     <tr style={{ background: "#f8fafc", fontWeight: "bold", borderTop: "1px solid #000" }}>
@@ -1205,16 +1082,14 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                         <td style={{ textAlign: "right" }}>₹{group.subtotals.cashColl.toFixed(2)}</td>
                                         <td style={{ textAlign: "right" }}>₹{group.subtotals.creditColl.toFixed(2)}</td>
                                         <td style={{ textAlign: "right" }}>₹{group.subtotals.totalColl.toFixed(2)}</td>
-                                        <td style={{ textAlign: "right" }}>₹{group.subtotals.closing.toFixed(2)}</td>
                                         <td style={{ textAlign: "right" }}>₹{group.subtotals.returnAmount.toFixed(2)}</td>
-                                        <td style={{ textAlign: "right" }}>₹{group.subtotals.remitted.toFixed(2)}</td>
-                                        <td style={{ textAlign: "right" }}>₹{group.subtotals.handover.toFixed(2)}</td>
+                                        <td style={{ textAlign: "right" }}>₹{group.subtotals.closing.toFixed(2)}</td>
                                     </tr>
                                 </React.Fragment>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={14} style={{ textAlign: "center", padding: "15px" }}>No data available for print.</td>
+                                <td colSpan={12} style={{ textAlign: "center", padding: "15px" }}>No data available for print.</td>
                             </tr>
                         )}
                         {dateGroups && dateGroups.length > 0 && (
@@ -1224,10 +1099,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                 <td style={{ textAlign: "right" }}>₹{grandTotals.cashColl.toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{grandTotals.creditColl.toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{grandTotals.totalColl.toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{grandTotals.closing.toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{grandTotals.returnAmount.toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{grandTotals.remitted.toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{grandTotals.handover.toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{grandTotals.closing.toFixed(2)}</td>
                             </tr>
                         )}
                     </tbody>

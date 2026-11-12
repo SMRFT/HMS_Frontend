@@ -229,9 +229,9 @@ const StoresIntentReturnReport = () => {
 
     // Pagination
     const currentList = activeTab === 'indents' ? filteredIndents : filteredReturns;
-    const pagination = usePagination(currentList.length, 15);
+    const pagination = usePagination(currentList, 15);
     const paginatedItems = useMemo(() => {
-        return currentList.slice(pagination.startIndex, pagination.endIndex);
+        return (currentList || []).slice(pagination.startIndex, pagination.endIndex);
     }, [currentList, pagination.startIndex, pagination.endIndex]);
 
     const handlePrint = () => {

@@ -24,7 +24,10 @@ import {
     Inbox,
     Building2,
     X,
-    RotateCcw
+    RotateCcw,
+    FileSpreadsheet,
+    Boxes,
+    Layers
 } from "lucide-react";
 import styled from "styled-components";
 import { Modal, DatePicker, Button, Spin } from "antd";
@@ -52,6 +55,7 @@ const DebitBillsReport = lazy(() => import("../Accounts/DebitBillsReport"));
 const AuditReport = lazy(() => import("../Accounts/AuditReport"));
 const SalesTaxRegister = lazy(() => import("../Accounts/SalesTaxRegister"));
 const DaywiseSalesTaxRegister = lazy(() => import("../Accounts/DaywiseSalesTaxRegister"));
+const PurchaseGSTReport = lazy(() => import("../Accounts/PurchaseGSTReport"));
 const StockReportIpOp = lazy(() => import("../Accounts/StockReportIpOp"));
 const DepartmentWiseReport = lazy(() => import("../Accounts/DepartmentWiseReport"));
 const DiscountBillsReport = lazy(() => import("../Accounts/DiscountBillsReport"));
@@ -960,6 +964,90 @@ const ReportsDashboard = () => {
             color: colors.primary
         },
         {
+            id: "drug_b2b_report",
+            route: "/DrugB2BReport",
+            defaultSourceType: "drug",
+            defaultTab: "b2b",
+            lockedView: true,
+            title: "Drug Purchase - B2B Invoices",
+            description: "Drug Purchase B2B invoice-level tax register in Winman format (hospital_grn & hospital_vendor)",
+            icon: <FileText size={24} />,
+            component: PurchaseGSTReport,
+            color: colors.primary
+        },
+        {
+            id: "drug_hsn_report",
+            route: "/DrugHSNReport",
+            defaultSourceType: "drug",
+            defaultTab: "hsn",
+            lockedView: true,
+            title: "Drug Purchase - HSN Wise Summary",
+            description: "HSN-wise medicine product summaries with quantity, rate, and ITC breakdowns",
+            icon: <Boxes size={24} />,
+            component: PurchaseGSTReport,
+            color: colors.primary
+        },
+        {
+            id: "drug_docs_report",
+            route: "/DrugDocsReport",
+            defaultSourceType: "drug",
+            defaultTab: "docs",
+            lockedView: true,
+            title: "Drug Purchase - Document Summary",
+            description: "Document summary of Pharmacy inward supply invoices, min/max series, and voucher counts",
+            icon: <Layers size={24} />,
+            component: PurchaseGSTReport,
+            color: colors.primary
+        },
+        {
+            id: "store_b2b_report",
+            route: "/StoreB2BReport",
+            defaultSourceType: "stores",
+            defaultTab: "b2b",
+            lockedView: true,
+            title: "General Stores - B2B Invoices",
+            description: "General stores inward purchase invoice register by tax rate (hospital_storesgrn & hospital_generalstorevendor)",
+            icon: <FileText size={24} />,
+            component: PurchaseGSTReport,
+            color: colors.primary
+        },
+        {
+            id: "store_hsn_report",
+            route: "/StoreHSNReport",
+            defaultSourceType: "stores",
+            defaultTab: "hsn",
+            lockedView: true,
+            title: "General Stores - HSN Wise Summary",
+            description: "General stores product HSN summary with UOM, quantity, taxable value, and tax lines",
+            icon: <Boxes size={24} />,
+            component: PurchaseGSTReport,
+            color: colors.primary
+        },
+        {
+            id: "store_docs_report",
+            route: "/StoreDocsReport",
+            defaultSourceType: "stores",
+            defaultTab: "docs",
+            lockedView: true,
+            title: "General Stores - Document Summary",
+            description: "Stores inward invoice series, serial number ranges, cancellation counts, and net valid count",
+            icon: <Layers size={24} />,
+            component: PurchaseGSTReport,
+            color: colors.primary
+        },
+        {
+            id: "purchase_gst_report",
+            route: "/PurchaseGSTReport",
+            defaultSourceType: "all",
+            defaultTab: "b2b",
+            lockedView: false,
+            title: "Purchase GST Register - Consolidated (GSTR-1)",
+            description: "Consolidated multi-tab register covering both Drug Purchase & General Stores in Winman GSTR-1 format",
+            icon: <FileSpreadsheet size={24} />,
+            component: PurchaseGSTReport,
+            color: colors.primary
+        },
+        {
             id: "stock_report_ip_op",
             route: "/StockReportIpOp",
             title: "Stock Report — IP vs OP",
@@ -1056,6 +1144,9 @@ const ReportsDashboard = () => {
                     patientType={billType}
                     initialOutlet={isNoOutletReport ? undefined : selectedOutlet}
                     outlet={isNoOutletReport ? undefined : selectedOutlet}
+                    defaultSourceType={selectedReport.defaultSourceType || "all"}
+                    defaultTab={selectedReport.defaultTab || "b2b"}
+                    lockedView={selectedReport.lockedView || false}
                 />
             </Suspense>
         );

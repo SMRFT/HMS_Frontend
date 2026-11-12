@@ -501,19 +501,6 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                 </SectionTitle>
             )}
 
-            {isModalView && (
-                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
-                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
-                        {hospital_name}
-                    </h2>
-                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
-                        IP Advance Report As On {dayjs(asOnDate).format("DD/MM/YYYY")}.
-                    </div>
-                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
-                        Printed As On {currentPrintTime}.
-                    </div>
-                </div>
-            )}
 
             {/* Filter Controls Bar */}
             {!isModalView && (
@@ -963,4 +950,4 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
     );
 };
 
-export default IPAdvanceReport;
+export default IPAdvanceReport;

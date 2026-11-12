@@ -245,19 +245,6 @@ const CashierWiseDetailedReport = ({
 
     return (
         <PageWrapper style={isModalView ? { padding: "10px", background: "transparent" } : {}}>
-            {isModalView && (
-                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
-                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
-                        {hospital_name || localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
-                    </h2>
-                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
-                        Cashier Wise Detailed Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
-                    </div>
-                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
-                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
-                    </div>
-                </div>
-            )}
 
             {!isModalView && (
                 <SectionTitle className="no-print">
@@ -330,11 +317,10 @@ const CashierWiseDetailedReport = ({
                         <InfoItem><InfoLabel>Start Time</InfoLabel><InfoValue>{selectedShift.StartTime}</InfoValue></InfoItem>
                         <InfoItem><InfoLabel>End Time</InfoLabel><InfoValue>{selectedShift.EndTime || "Active"}</InfoValue></InfoItem>
                         <InfoItem><InfoLabel>Opening Balance</InfoLabel><InfoValue>₹{parseFloat(selectedShift.OpeningBalance || 0).toFixed(2)}</InfoValue></InfoItem>
-                        <InfoItem><InfoLabel>Closing Balance</InfoLabel><InfoValue>₹{parseFloat(selectedShift.ClosingBalance || 0).toFixed(2)}</InfoValue></InfoItem>
-                        <InfoItem><InfoLabel>Remitted To Bank</InfoLabel><InfoValue>₹{parseFloat(selectedShift.RemittedToBank || 0).toFixed(2)}</InfoValue></InfoItem>
-                        <InfoItem><InfoLabel>Hand Over Amount</InfoLabel><InfoValue>₹{parseFloat(selectedShift.HandOverAmount || 0).toFixed(2)}</InfoValue></InfoItem>
-                        <InfoItem><InfoLabel>Total Collection</InfoLabel><InfoValue style={{ color: colors.success }}>₹{parseFloat(selectedShift.collected_Amount || 0).toFixed(2)}</InfoValue></InfoItem>
+                        <InfoItem><InfoLabel>Cash Collection</InfoLabel><InfoValue style={{ color: colors.success }}>₹{parseFloat(selectedShift.collected_Amount || 0).toFixed(2)}</InfoValue></InfoItem>
                         <InfoItem><InfoLabel>Credit Amount</InfoLabel><InfoValue style={{ color: "#2563eb", fontWeight: "700" }}>₹{parseFloat(selectedShift.CreditAmount || selectedShift.credit_amount || 0).toFixed(2)}</InfoValue></InfoItem>
+                        <InfoItem><InfoLabel>Sales Return</InfoLabel><InfoValue style={{ color: colors.danger, fontWeight: "700" }}>₹{parseFloat(selectedShift.SalesReturnAmount || 0).toFixed(2)}</InfoValue></InfoItem>
+                        <InfoItem><InfoLabel>Closing Balance</InfoLabel><InfoValue style={{ fontWeight: "700" }}>₹{parseFloat(selectedShift.ClosingBalance || 0).toFixed(2)}</InfoValue></InfoItem>
                     </InfoGrid>
                 </SummaryCard>
             )}
@@ -449,7 +435,7 @@ const CashierWiseDetailedReport = ({
                                     <strong>Shift Start:</strong> {selectedShift.StartTime} | <strong>Shift End:</strong> {selectedShift.EndTime || "Active"}
                                 </td>
                                 <td style={{ textAlign: "right" }}>
-                                    <strong>Shift Total Coll:</strong> ₹{parseFloat(selectedShift.collected_Amount || 0).toFixed(2)} | <strong>Credit Amount:</strong> ₹{parseFloat(selectedShift.CreditAmount || selectedShift.credit_amount || 0).toFixed(2)}
+                                    <strong>Shift Cash Coll:</strong> ₹{parseFloat(selectedShift.collected_Amount || 0).toFixed(2)} | <strong>Sales Return:</strong> ₹{parseFloat(selectedShift.SalesReturnAmount || 0).toFixed(2)} | <strong>Credit Amount:</strong> ₹{parseFloat(selectedShift.CreditAmount || selectedShift.credit_amount || 0).toFixed(2)}
                                 </td>
                             </tr>
                         )}

@@ -133,9 +133,9 @@ const StoresRackClassificationReport = () => {
     const uniqueLocations = new Set(itemsList.filter(i => i.rack_no).map(i => `${i.rack_no}-${i.shelf_no || ''}`)).size;
 
     // Pagination
-    const pagination = usePagination(filteredItems.length, 25);
+    const pagination = usePagination(filteredItems, 25);
     const paginatedItems = useMemo(() => {
-        return filteredItems.slice(pagination.startIndex, pagination.endIndex);
+        return (filteredItems || []).slice(pagination.startIndex, pagination.endIndex);
     }, [filteredItems, pagination.startIndex, pagination.endIndex]);
 
     const handleClearFilters = () => {
