@@ -437,15 +437,19 @@ const PharmacyStockDashboard = () => {
     const navigate = useNavigate();
 
     const activeOutletCode = (localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim();
-    const isLoggedDrugPurchase = activeOutletCode === "OLET006" || activeOutletCode === "";
+    const activeOutletName = (localStorage.getItem("outlet_name") || "").trim().toLowerCase();
+    const isLoggedDrugPurchase = activeOutletCode === "OLET006" || activeOutletCode === "" || activeOutletName === "drug purchase";
+
     const [selectedOutlet, setSelectedOutlet] = useState(() => {
         if (isLoggedDrugPurchase) return "ALL";
-        if (activeOutletCode === "OLET001" || activeOutletCode === "OLET002") return activeOutletCode;
-        return "ALL";
+        return activeOutletCode || "ALL";
     });
 
     const [loading, setLoading] = useState(true);
-    const [outletName, setOutletName] = useState("All Outlets (Consolidated)");
+    const [outletName, setOutletName] = useState(() => {
+        if (isLoggedDrugPurchase) return "All Outlets (Consolidated)";
+        return activeOutletCode || "Dispensary";
+    });
 
     // All data states
     const [allTimeData, setAllTimeData] = useState([]);
@@ -586,7 +590,7 @@ const PharmacyStockDashboard = () => {
 
     // Navigate to detail report with preset and selected outlet
     const goToReport = (preset) => {
-        const outletParam = selectedOutlet && selectedOutlet !== "ALL" ? `&outlet=${selectedOutlet}` : "";
+        const outletParam = isLoggedDrugPurchase && selectedOutlet && selectedOutlet !== "ALL" ? `&outlet=${selectedOutlet}` : "";
         navigate(`/PharmacyExpiryReport?filter=${preset}${outletParam}`);
     };
 
@@ -615,41 +619,43 @@ const PharmacyStockDashboard = () => {
                 </div>
             </Header>
 
-            {/* ── OUTLET FILTER TOOLBAR ── */}
-            <FilterBar>
-                <div className="filter-group">
-                    <span className="filter-label">
-                        <Filter size={14} /> Filter Outlet:
-                    </span>
-                    <div className="filter-pills">
-                        {OUTLET_OPTIONS.map(opt => {
-                            const isActive = selectedOutlet === opt.code;
-                            return (
-                                <FilterPill
-                                    key={opt.code}
-                                    type="button"
-                                    $active={isActive}
-                                    onClick={() => handleSelectOutlet(opt.code)}
-                                    title={opt.desc}
-                                >
-                                    <span className="pill-icon">{opt.icon}</span>
-                                    <span>{opt.label}</span>
-                                    {isActive && <Check size={13} style={{ strokeWidth: 3 }} />}
-                                </FilterPill>
-                            );
-                        })}
+            {/* ── OUTLET FILTER TOOLBAR (Only shown for Drug Purchase) ── */}
+            {isLoggedDrugPurchase && (
+                <FilterBar>
+                    <div className="filter-group">
+                        <span className="filter-label">
+                            <Filter size={14} /> Filter Outlet:
+                        </span>
+                        <div className="filter-pills">
+                            {OUTLET_OPTIONS.map(opt => {
+                                const isActive = selectedOutlet === opt.code;
+                                return (
+                                    <FilterPill
+                                        key={opt.code}
+                                        type="button"
+                                        $active={isActive}
+                                        onClick={() => handleSelectOutlet(opt.code)}
+                                        title={opt.desc}
+                                    >
+                                        <span className="pill-icon">{opt.icon}</span>
+                                        <span>{opt.label}</span>
+                                        {isActive && <Check size={13} style={{ strokeWidth: 3 }} />}
+                                    </FilterPill>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
 
-                <div className="scope-meta">
-                    <span>Active Scope:</span>
-                    <span className="scope-tag">
-                        {OUTLET_OPTIONS.find(o => o.code === selectedOutlet)?.label || selectedOutlet}
-                    </span>
-                    <span style={{ color: "#cbd5e1" }}>•</span>
-                    <span>{loading ? "Refreshing..." : `${totalItems} items (${totalBatches} batches)`}</span>
-                </div>
-            </FilterBar>
+                    <div className="scope-meta">
+                        <span>Active Scope:</span>
+                        <span className="scope-tag">
+                            {OUTLET_OPTIONS.find(o => o.code === selectedOutlet)?.label || selectedOutlet}
+                        </span>
+                        <span style={{ color: "#cbd5e1" }}>•</span>
+                        <span>{loading ? "Refreshing..." : `${totalItems} items (${totalBatches} batches)`}</span>
+                    </div>
+                </FilterBar>
+            )}
 
             {/* ── KPI CARDS ── */}
             <KpiGrid>
