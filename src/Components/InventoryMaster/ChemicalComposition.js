@@ -242,7 +242,6 @@ const ChemicalComposition = () => {
             <thead>
               <tr>
                 <InvTh style={{ width: 60 }}>#</InvTh>
-                <InvTh style={{ width: 140 }}>Composition ID</InvTh>
                 <InvTh>Chemical / Generic Composition Name</InvTh>
                 <InvTh style={{ textAlign: "center", width: 100 }}>Action</InvTh>
               </tr>
@@ -250,13 +249,13 @@ const ChemicalComposition = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <InvTd colSpan={4} style={{ textAlign: "center", padding: "40px" }}>
+                  <InvTd colSpan={3} style={{ textAlign: "center", padding: "40px" }}>
                     Loading chemical compositions...
                   </InvTd>
                 </tr>
               ) : compositions.length === 0 ? (
                 <tr>
-                  <InvTd colSpan={4}>
+                  <InvTd colSpan={3}>
                     <InvEmptyState>
                       No chemical compositions found for the selected criteria.
                     </InvEmptyState>
@@ -266,9 +265,6 @@ const ChemicalComposition = () => {
                 compositions.map((comp, idx) => (
                   <InvTr key={comp.composition_id || idx}>
                     <InvTd>{startIdx + idx}</InvTd>
-                    <InvTd style={{ fontWeight: 700, color: InvTheme.primaryDark }}>
-                      CMP-{comp.composition_id}
-                    </InvTd>
                     <InvTd style={{ fontWeight: 600, textTransform: "uppercase" }}>
                       {String(comp.composition_name || "").toUpperCase()}
                     </InvTd>

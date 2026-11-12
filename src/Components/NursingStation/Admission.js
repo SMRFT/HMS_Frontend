@@ -10,6 +10,7 @@ import IPAdvance from "./IPAdvance";                // ← IP Advance component
 import AdmissionGrid from "./AdmissionGrid";
 import PatientSearchModal from "../Common/PatientSearchModal";
 import OccupiedBedDetailModal from "./OccupiedBedDetailModal";
+import BedSelectionModal, { RoomSummaryCardBody, RoomPaginationBar, groupRoomsList, sortRoomsByFloorOrder } from "../Rooms/BedSelectionModal";
 import {
   PageWrapper, Container, ModalOverlay, ModalContainer,
   ModalHeader, ModalTitle, CloseButton, ModalBody,
@@ -300,8 +301,8 @@ const Pager = styled.div`display:flex;align-items:center;justify-content:space-b
 const PB = styled.button`height:28px;padding:0 13px;font-size:.75rem;border:1px solid #e5e7eb;border-radius:4px;background:${p => p.active ? '#0d9488' : '#fff'};color:${p => p.active ? '#fff' : '#374151'};cursor:pointer;&:disabled{opacity:.45;cursor:default;}&:hover:not(:disabled){background:${p => p.active ? '#0d9488' : '#f3f4f6'};}`;
 
 // ─── Room Picker ───────────────────────────────────────────────────────────────
-const RMC = styled(ModalContainer)`max-width:960px;max-height:88vh;`;
-const RMB = styled(ModalBody)`background:#f8fafc;padding:14px;`;
+const RMC = styled(ModalContainer)`width:96vw;max-width:1400px;max-height:94vh;`;
+const RMB = styled(ModalBody)`background:#f8fafc;padding:10px 14px;`;
 const FBR = styled.div`
   display: flex;
   gap: 8px;
@@ -325,10 +326,10 @@ const FBR2 = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weig
 const LBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:6px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;`;
 const LI = styled.div`display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:500;color:#6b7280;`;
 const LD = styled.span`display:inline-block;width:12px;height:12px;border-radius:3px;background:${p => p.c};flex-shrink:0;`;
-const BS2 = styled.div`background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:14px;overflow:hidden;animation:${slideUp2} .25s ease both;animation-delay:${p => p.i * 40}ms;`;
-const BH2 = styled.div`padding:7px 12px;background:#f0fdf4;border-bottom:1px solid #e5e7eb;font-size:.78rem;font-weight:700;color:#0d9488;`;
-const FG2 = styled.div`padding:10px 12px;`;
-const FL2 = styled.div`font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;&::after{content:"";flex:1;height:1px;background:#e5e7eb;}`;
+const BS2 = styled.div`background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden;animation:${slideUp2} .25s ease both;animation-delay:${p => p.i * 40}ms;`;
+const BH2 = styled.div`padding:5px 10px;background:#f0fdf4;border-bottom:1px solid #e5e7eb;font-size:.76rem;font-weight:700;color:#0d9488;`;
+const FG2 = styled.div`padding:7px 10px;`;
+const FL2 = styled.div`font-size:.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;display:flex;align-items:center;gap:6px;&::after{content:"";flex:1;height:1px;background:#e5e7eb;}`;
 const BedMiniSVG = ({ color = "#64748b", size = 16 }) => (
   <svg width={size} height={Math.round(size * 0.7)} viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
     <path d="M1 14V3C1 2.45 1.45 2 2 2C2.55 2 3 2.45 3 3V9H13V5C13 4.45 13.45 4 14 4H22C22.55 4 23 4.45 23 5V14" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -338,7 +339,14 @@ const BedMiniSVG = ({ color = "#64748b", size = 16 }) => (
   </svg>
 );
 
-const RG2 = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:10px;`;
+const RG2 = styled.div`
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:7px;
+  margin-bottom:4px;
+  @media (max-width:1100px){grid-template-columns:repeat(4,minmax(0,1fr));}
+  @media (max-width:820px){grid-template-columns:repeat(2,minmax(0,1fr));}
+`;
 const RC = styled.div`
   border:1.5px solid ${p => p.hasOccupied ? '#fca5a5' : '#e2e8f0'};
   border-radius:7px;overflow:hidden;background:#fff;
@@ -2040,6 +2048,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const [loadRooms, setLoadRooms] = useState(false);
   const [showBed, setShowBed] = useState(false);
   const [selRoom, setSelRoom] = useState(null);
+  const [roomPage, setRoomPage] = useState(1);
+  const [roomPageSize, setRoomPageSize] = useState(15);
   const [occupiedBedDetail, setOccupiedBedDetail] = useState(null);
 
   const [printData, setPrintData] = useState(null);
@@ -3427,9 +3437,12 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     return { total, available, occupied, notCleaned, reserved, maintenance };
   }, [allRooms]);
 
-  const grouped = useMemo(() => {
-    const g = {};
-    allRooms
+  useEffect(() => {
+    setRoomPage(1);
+  }, [rFilter, roomModalStatus]);
+
+  const filteredRoomsList = useMemo(() => {
+    const filtered = allRooms
       .filter(r => {
         if (rFilter.block && rFilter.block !== "ALL" && String(r.block || "").toLowerCase() !== rFilter.block.toLowerCase()) return false;
         if (rFilter.category && rFilter.category !== "ALL") {
@@ -3456,16 +3469,17 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         });
         return { ...r, filteredBeds: beds };
       })
-      .filter(r => roomModalStatus === "ALL" || r.filteredBeds.length > 0)
-      .forEach(r => {
-        const bl = r.block || "MAIN BLOCK";
-        const fl = r.nursing_station || (r.floor ? `Floor ${r.floor}` : "General Ward");
-        if (!g[bl]) g[bl] = {};
-        if (!g[bl][fl]) g[bl][fl] = [];
-        g[bl][fl].push(r);
-      });
-    return g;
+      .filter(r => roomModalStatus === "ALL" || r.filteredBeds.length > 0);
+    return sortRoomsByFloorOrder(filtered);
   }, [allRooms, rFilter, roomModalStatus]);
+
+  const totalRoomPages = Math.max(1, Math.ceil(filteredRoomsList.length / roomPageSize));
+  const safeRoomPage = Math.min(roomPage, totalRoomPages);
+
+  const grouped = useMemo(() => {
+    const start = (safeRoomPage - 1) * roomPageSize;
+    return groupRoomsList(filteredRoomsList.slice(start, start + roomPageSize));
+  }, [filteredRoomsList, safeRoomPage, roomPageSize]);
   const handleRoomClick = room => {
     if (getRoomStatus(room.beds) === "maintenance") return;
     const hasAvail = (room.beds || []).some(b => b.status === "Available");
@@ -4667,7 +4681,16 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                             const hasOcc = occupiedBeds > 0;
 
                             return (
-                              <RC key={room.room_number} hasOccupied={hasOcc}>
+                              <RC
+                                key={room.room_number}
+                                hasOccupied={hasOcc}
+                                style={{ cursor: "pointer" }}
+                                onClick={() => {
+                                  setSelRoom(room);
+                                  setShowBed(true);
+                                }}
+                                title={`Click to view ${room.beds?.length || 0} bed(s) in Room ${room.room_number}`}
+                              >
                                 <RCT hasOccupied={hasOcc}>
                                   <RNum>Room {room.room_number}</RNum>
                                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -4677,91 +4700,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                                     </BedCountPill>
                                   </div>
                                 </RCT>
-                                <BRow>
-                                  {(room.filteredBeds || room.beds || []).map((bed, i) => {
-                                    const bs = (bed.status || bed.bed_status || "Available").trim();
-                                    const bsLower = bs.toLowerCase();
-                                    const isAv = bsLower === "available";
-                                    const isOcc = bsLower === "occupied";
-                                    const isCl = bsLower.includes("clean");
-                                    const isRes = bsLower === "reserved" || bsLower === "booked";
-
-                                    const cfg = isAv
-                                      ? { color: "#16a34a", light: "#dcfce7", border: "#86efac", label: "Ready" }
-                                      : isOcc
-                                      ? { color: "#dc2626", light: "#fee2e2", border: "#fca5a5", label: "Occupied" }
-                                      : isCl
-                                      ? { color: "#d97706", light: "#fef3c7", border: "#fde047", label: "Unclean" }
-                                      : isRes
-                                      ? { color: "#7c3aed", light: "#ede9fe", border: "#d8b4fe", label: "Reserved" }
-                                      : { color: "#64748b", light: "#f1f5f9", border: "#cbd5e1", label: "Blocked" };
-
-                                    const pName = bed.patient?.patientname || bed.patient?.name || "";
-                                    const admDt = bed.patient?.admissionDateTime;
-                                    const admDoc = bed.patient?.admittingDoctor;
-                                    const uhid = bed.patient?.uhid;
-                                    const ipNo = bed.ip_number || bed.patient?.ip_number;
-
-                                    const bedTooltip = isAv
-                                      ? `✅ Bed ${bed.bed_number} — Available (Click to assign)`
-                                      : isOcc || pName
-                                      ? `🛏️ Bed ${bed.bed_number} (${bs})\n👤 Occupied by: ${pName || "Admitted Patient"}\n🆔 UHID: ${uhid || "—"} | IP: ${ipNo || "—"}\n📅 Admitted: ${admDt ? admDt.replace("T", " ").slice(0, 16) : "—"}\n👨‍⚕️ Doctor: ${admDoc || "—"}\nℹ️ (Click to view full occupant details)`
-                                      : `Bed ${bed.bed_number} (${bs})`;
-
-                                    return (
-                                      <BC
-                                        key={i}
-                                        cfg={cfg}
-                                        isAv={isAv}
-                                        isOcc={isOcc}
-                                        hasPatient={Boolean(pName)}
-                                        disabled={!isAv && !isOcc && !pName}
-                                        title={bedTooltip}
-                                        onClick={e => {
-                                          e.stopPropagation();
-                                          if (isAv) {
-                                            handleBedSelect(bed.bed_number, room);
-                                          } else if (isOcc || pName) {
-                                            setOccupiedBedDetail({ bed, room });
-                                          }
-                                        }}
-                                      >
-                                        <BedMiniSVG color={cfg.color} size={15} />
-                                        <span style={{ fontSize: ".66rem", fontWeight: 800, color: cfg.color, lineHeight: 1 }}>
-                                          B{bed.bed_number}
-                                        </span>
-                                        {(isOcc || pName) && pName ? (
-                                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", overflow: "hidden", marginTop: 1 }}>
-                                            <span
-                                              style={{
-                                                fontSize: ".48rem",
-                                                fontWeight: 700,
-                                                color: cfg.color,
-                                                maxWidth: "100%",
-                                                overflow: "hidden",
-                                                textOverflow: "ellipsis",
-                                                whiteSpace: "nowrap",
-                                                lineHeight: 1.1,
-                                              }}
-                                              title={`Occupied by: ${pName}`}
-                                            >
-                                              👤 {pName.split(" ")[0]}
-                                            </span>
-                                            {admDt && (
-                                              <span style={{ fontSize: ".42rem", color: "#64748b", lineHeight: 1, marginTop: 1 }}>
-                                                {admDt.replace("T", " ").slice(5, 10)}
-                                              </span>
-                                            )}
-                                          </div>
-                                        ) : (
-                                          <span style={{ fontSize: ".48rem", fontWeight: 700, color: cfg.color, textTransform: "uppercase" }}>
-                                            {cfg.label}
-                                          </span>
-                                        )}
-                                      </BC>
-                                    );
-                                  })}
-                                </BRow>
+                                <RoomSummaryCardBody room={room} />
                               </RC>
                             );
                           })}
@@ -4770,49 +4709,31 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     ))}
                   </BS2>
                 ))}
+              <RoomPaginationBar
+                page={safeRoomPage}
+                totalPages={totalRoomPages}
+                totalItems={filteredRoomsList.length}
+                pageSize={roomPageSize}
+                onPageChange={setRoomPage}
+                onPageSizeChange={(sz) => {
+                  setRoomPageSize(sz);
+                  setRoomPage(1);
+                }}
+              />
             </RMB>
           </RMC>
         </ModalOverlay>
       )}
 
-      {/* ══ BED FALLBACK ══ */}
+      {/* ══ BED SELECTION MODAL ══ */}
       {showBed && selRoom && (
-        <ModalOverlay onClick={() => setShowBed(false)}>
-          <ModalContainer onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <ModalHeader>
-              <ModalTitle>Select Bed — Room {selRoom.room_number}</ModalTitle>
-              <CloseButton onClick={() => setShowBed(false)}>×</CloseButton>
-            </ModalHeader>
-            <ModalBody>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: 12 }}>
-                {(selRoom.beds || []).map((bed, i) => {
-                  const avail = bed.status === "Available";
-                  const pName = bed.patient?.patientname || bed.patient?.name || "";
-                  const isOcc = (bed.status || "").toLowerCase() === "occupied" || Boolean(pName);
-                  return (
-                    <BC key={i} bs={bed.status} disabled={!avail && !isOcc}
-                      isAv={avail} isOcc={isOcc} hasPatient={Boolean(pName)}
-                      style={{ minWidth: 72, minHeight: 46, fontSize: ".82rem", flex: "1 1 72px" }}
-                      title={avail ? `✅ Bed ${bed.bed_number} — Available` : isOcc ? `🛏️ Bed ${bed.bed_number} — Occupied by ${pName || "Patient"} (Click to view)` : `Bed ${bed.bed_number} (${bed.status})`}
-                      onClick={() => {
-                        if (avail) {
-                          handleBedSelect(bed.bed_number, selRoom);
-                        } else if (isOcc) {
-                          setOccupiedBedDetail({ bed, room: selRoom });
-                        }
-                      }}>
-                      {bed.bed_number}<br />
-                      <span style={{ fontSize: ".6rem", opacity: .85 }}>
-                        {pName ? `👤 ${pName.split(" ")[0]}` : bed.status}
-                      </span>
-                    </BC>
-                  );
-                })}
-                {(!selRoom.beds || selRoom.beds.length === 0) && <NR>No beds configured.</NR>}
-              </div>
-            </ModalBody>
-          </ModalContainer>
-        </ModalOverlay>
+        <BedSelectionModal
+          room={selRoom}
+          onClose={() => setShowBed(false)}
+          onBack={() => setShowBed(false)}
+          onSelectBed={(bedNo, room) => handleBedSelect(bedNo, room)}
+          onViewOccupant={(detail) => setOccupiedBedDetail(detail)}
+        />
       )}
 
       {/* ══ OCCUPIED BED DETAIL MODAL (WHEN OCCUPIED BY WHOM) ══ */}

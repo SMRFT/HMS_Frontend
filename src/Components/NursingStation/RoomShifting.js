@@ -16,6 +16,7 @@ import {
 import apiRequest from "../../Auth/apiRequest";
 import PatientSearchModal from "../Common/PatientSearchModal";
 import OccupiedBedDetailModal from "./OccupiedBedDetailModal";
+import BedSelectionModal, { RoomSummaryCardBody, RoomPaginationBar, groupRoomsList, sortRoomsByFloorOrder } from "../Rooms/BedSelectionModal";
 import { AdmittedPatientsPanel, AdmittedPatientSummaryCard } from "./AdmittedPatientsPanel";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
@@ -386,8 +387,8 @@ const ActionBtn = styled.button`
 `;
 
 // ─── Room Picker Styled Components ────────────────────────────────────────────
-const RMC = styled(ModalContainer)`max-width: 980px; max-height: 88vh;`;
-const RMB = styled(ModalBody)`background: ${T.gray50}; padding: 16px;`;
+const RMC = styled(ModalContainer)`width: 96vw; max-width: 1400px; max-height: 94vh;`;
+const RMB = styled(ModalBody)`background: ${T.gray50}; padding: 10px 14px;`;
 
 const FBR = styled.div`
   display: flex;
@@ -486,9 +487,11 @@ const BedMiniSVG = ({ color = "#64748b", size = 16 }) => (
 
 const RG2 = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 8px;
-  margin-bottom: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 4px;
+  @media (max-width: 1100px) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 820px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 `;
 
 const RC = styled.div`
@@ -676,6 +679,8 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
   const [occupiedBedDetail, setOccupiedBedDetail] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [filter,   setFilter]   = useState({ room_number: "", block: "", category: "", nursing_station: "" });
+  const [roomPage, setRoomPage] = useState(1);
+  const [roomPageSize, setRoomPageSize] = useState(15);
 
   const fetchRooms = async (fo = {}) => {
     setLoading(true);
@@ -725,9 +730,12 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
     };
   }, [allRooms]);
 
-  const grouped = useMemo(() => {
-    const g = {};
-    allRooms
+  useEffect(() => {
+    setRoomPage(1);
+  }, [filter, statusFilter]);
+
+  const filteredRoomsList = useMemo(() => {
+    const filtered = allRooms
       .filter(r => {
         if (filter.block && filter.block !== "ALL" && String(r.block || "").toLowerCase() !== filter.block.toLowerCase()) return false;
         if (filter.category && filter.category !== "ALL") {
@@ -754,16 +762,17 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
         });
         return { ...r, filteredBeds: beds };
       })
-      .filter(r => statusFilter === "ALL" || r.filteredBeds.length > 0)
-      .forEach(r => {
-        const bl = r.block || "MAIN BLOCK";
-        const fl = r.nursing_station || (r.floor ? `Floor ${r.floor}` : "General Ward");
-        if (!g[bl]) g[bl] = {};
-        if (!g[bl][fl]) g[bl][fl] = [];
-        g[bl][fl].push(r);
-      });
-    return g;
+      .filter(r => statusFilter === "ALL" || r.filteredBeds.length > 0);
+    return sortRoomsByFloorOrder(filtered);
   }, [allRooms, filter, statusFilter]);
+
+  const totalRoomPages = Math.max(1, Math.ceil(filteredRoomsList.length / roomPageSize));
+  const safeRoomPage = Math.min(roomPage, totalRoomPages);
+
+  const grouped = useMemo(() => {
+    const start = (safeRoomPage - 1) * roomPageSize;
+    return groupRoomsList(filteredRoomsList.slice(start, start + roomPageSize));
+  }, [filteredRoomsList, safeRoomPage, roomPageSize]);
 
   const roomStats = useMemo(() => {
     let total = 0, available = 0, occupied = 0, notCleaned = 0, reserved = 0, maintenance = 0;
@@ -943,7 +952,16 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
                         const hasOcc = occupiedBeds > 0;
 
                         return (
-                          <RC key={room.room_number} hasOccupied={hasOcc}>
+                          <RC
+                            key={room.room_number}
+                            hasOccupied={hasOcc}
+                            style={{ cursor: "pointer" }}
+                            onClick={() => {
+                              setSelRoom(room);
+                              setShowBed(true);
+                            }}
+                            title={`Click to view ${room.beds?.length || 0} bed(s) in Room ${room.room_number}`}
+                          >
                             <RCT hasOccupied={hasOcc}>
                               <RNum>Room {room.room_number}</RNum>
                               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -953,91 +971,7 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
                                 </BedCountPill>
                               </div>
                             </RCT>
-                            <BRow>
-                              {(room.filteredBeds || room.beds || []).map((bed, i) => {
-                                const bs = (bed.status || bed.bed_status || "Available").trim();
-                                const bsLower = bs.toLowerCase();
-                                const isAv = bsLower === "available";
-                                const isOcc = bsLower === "occupied";
-                                const isCl = bsLower.includes("clean");
-                                const isRes = bsLower === "reserved" || bsLower === "booked";
-
-                                const cfg = isAv
-                                  ? { color: "#16a34a", light: "#dcfce7", border: "#86efac", label: "Ready" }
-                                  : isOcc
-                                  ? { color: "#dc2626", light: "#fee2e2", border: "#fca5a5", label: "Occupied" }
-                                  : isCl
-                                  ? { color: "#d97706", light: "#fef3c7", border: "#fde047", label: "Unclean" }
-                                  : isRes
-                                  ? { color: "#7c3aed", light: "#ede9fe", border: "#d8b4fe", label: "Reserved" }
-                                  : { color: "#64748b", light: "#f1f5f9", border: "#cbd5e1", label: "Blocked" };
-
-                                const pName = bed.patient?.patientname || bed.patient?.name || "";
-                                const admDt = bed.patient?.admissionDateTime;
-                                const admDoc = bed.patient?.admittingDoctor;
-                                const uhid = bed.patient?.uhid;
-                                const ipNo = bed.ip_number || bed.patient?.ip_number;
-
-                                const bedTooltip = isAv
-                                  ? `✅ Bed ${bed.bed_number} — Available (Click to select)`
-                                  : isOcc || pName
-                                  ? `🛏️ Bed ${bed.bed_number} (${bs})\n👤 Occupied by: ${pName || "Admitted Patient"}\n🆔 UHID: ${uhid || "—"} | IP: ${ipNo || "—"}\n📅 Admitted: ${admDt ? admDt.replace("T", " ").slice(0, 16) : "—"}\n👨‍⚕️ Doctor: ${admDoc || "—"}\nℹ️ (Click to view full occupant details)`
-                                  : `Bed ${bed.bed_number} (${bs})`;
-
-                                return (
-                                  <BC
-                                    key={i}
-                                    cfg={cfg}
-                                    isAv={isAv}
-                                    isOcc={isOcc}
-                                    hasPatient={Boolean(pName)}
-                                    disabled={!isAv && !isOcc && !pName}
-                                    title={bedTooltip}
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      if (isAv) {
-                                        handleBedSelect(bed.bed_number, room);
-                                      } else if (isOcc || pName) {
-                                        setOccupiedBedDetail({ bed, room });
-                                      }
-                                    }}
-                                  >
-                                    <BedMiniSVG color={cfg.color} size={15} />
-                                    <span style={{ fontSize: ".66rem", fontWeight: 800, color: cfg.color, lineHeight: 1 }}>
-                                      B{bed.bed_number}
-                                    </span>
-                                    {(isOcc || pName) && pName ? (
-                                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", overflow: "hidden", marginTop: 1 }}>
-                                        <span
-                                          style={{
-                                            fontSize: ".48rem",
-                                            fontWeight: 700,
-                                            color: cfg.color,
-                                            maxWidth: "100%",
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                            lineHeight: 1.1,
-                                          }}
-                                          title={`Occupied by: ${pName}`}
-                                        >
-                                          👤 {pName.split(" ")[0]}
-                                        </span>
-                                        {admDt && (
-                                          <span style={{ fontSize: ".42rem", color: "#64748b", lineHeight: 1, marginTop: 1 }}>
-                                            {admDt.replace("T", " ").slice(5, 10)}
-                                          </span>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span style={{ fontSize: ".48rem", fontWeight: 700, color: cfg.color, textTransform: "uppercase" }}>
-                                        {cfg.label}
-                                      </span>
-                                    )}
-                                  </BC>
-                                );
-                              })}
-                            </BRow>
+                            <RoomSummaryCardBody room={room} />
                           </RC>
                         );
                       })}
@@ -1046,14 +980,29 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
                 ))}
               </BS2>
             ))}
+            <RoomPaginationBar
+              page={safeRoomPage}
+              totalPages={totalRoomPages}
+              totalItems={filteredRoomsList.length}
+              pageSize={roomPageSize}
+              onPageChange={setRoomPage}
+              onPageSizeChange={(sz) => {
+                setRoomPageSize(sz);
+                setRoomPage(1);
+              }}
+            />
           </RMB>
         </RMC>
       </ModalOverlay>
       {showBed && selRoom && (
-        <BedModal
+        <BedSelectionModal
           room={selRoom}
           onClose={() => setShowBed(false)}
-          onSelect={handleBedSelect}
+          onBack={() => setShowBed(false)}
+          onSelectBed={(bNo, rm) => {
+            handleBedSelect(bNo, rm);
+            setShowBed(false);
+          }}
           onViewOccupant={setOccupiedBedDetail}
         />
       )}

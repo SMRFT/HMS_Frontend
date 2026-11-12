@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import { PageWrapper } from "../GlobalStyles";
 import SearchSelect from "../Common/SearchSelect";
+import { getFloorSortRank } from "./BedSelectionModal";
 
 /* ─────────────────────────────────────────────────────────────
    DESIGN TOKENS — Vivid & Clean Hospital Palette
@@ -415,17 +416,75 @@ const RoomGrid = styled.div`
 const RoomCard = styled.div`
   background: ${T.white};
   border: 1.5px solid ${p => p.hasOccupied ? T.redBorder : T.border};
-  border-radius: 8px;
+  border-radius: 10px;
   box-shadow: ${T.shadowSm};
   overflow: hidden;
-  transition: all 0.14s ease;
+  transition: all 0.16s ease;
   display: flex;
   flex-direction: column;
+  cursor: pointer;
 
   &:hover {
     border-color: ${p => p.hasOccupied ? T.red : T.primary};
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.1);
+    transform: translateY(-2px);
   }
+`;
+
+const RoomCardBody = styled.div`
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+`;
+
+const RoomSummaryRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.74rem;
+  color: ${T.textMuted};
+`;
+
+const RoomProgressTrack = styled.div`
+  width: 100%;
+  height: 6px;
+  border-radius: 99px;
+  background: ${T.grayLt};
+  overflow: hidden;
+  display: flex;
+`;
+
+const RoomStatusChips = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+`;
+
+const RoomMiniChip = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: ${p => p.bg || T.grayLt};
+  color: ${p => p.color || T.grayDk};
+  border: 1px solid ${p => p.border || T.border};
+`;
+
+const RoomCardFoot = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px dashed ${T.border};
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: ${T.primaryDk};
 `;
 
 const RoomHeader = styled.div`
@@ -540,7 +599,7 @@ const Overlay = styled.div`
   position: fixed; inset: 0;
   background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(4px);
-  z-index: 10000;
+  z-index: ${p => p.zIndex || 10000};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -552,7 +611,7 @@ const ModalBox = styled.div`
   background: ${T.white};
   border-radius: 12px;
   width: 100%;
-  max-width: 480px;
+  max-width: ${p => p.maxWidth || "480px"};
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: ${T.shadowLg};
@@ -945,11 +1004,162 @@ const BedDetailModal = ({ bed, room, onClose, onCleanedChange, onBook }) => {
 };
 
 /* ─────────────────────────────────────────────────────────────
+   ROOM BEDS MODAL (Opens when a Room Card is clicked)
+   ───────────────────────────────────────────────────────────── */
+const RoomBedsModal = ({ room, onClose, onSelectBed }) => {
+  const [bedSearch, setBedSearch] = useState("");
+  const [bedStatus, setBedStatus] = useState("ALL");
+
+  if (!room) return null;
+
+  const beds = room.beds || [];
+  const counts = {
+    ALL: beds.length,
+    [BED_STATUS.AVAILABLE]: beds.filter(b => b.status === BED_STATUS.AVAILABLE).length,
+    [BED_STATUS.OCCUPIED]: beds.filter(b => b.status === BED_STATUS.OCCUPIED).length,
+    [BED_STATUS.NOT_CLEANED]: beds.filter(b => b.status === BED_STATUS.NOT_CLEANED).length,
+    [BED_STATUS.RESERVED]: beds.filter(b => b.status === BED_STATUS.RESERVED).length,
+    [BED_STATUS.MAINTENANCE]: beds.filter(b => b.status === BED_STATUS.MAINTENANCE).length,
+  };
+
+  const q = bedSearch.toLowerCase().trim();
+  const visibleBeds = beds.filter(b => {
+    if (bedStatus !== "ALL" && b.status !== bedStatus) return false;
+    if (!q) return true;
+    const bNo = String(b.bed_number || "").toLowerCase();
+    const pName = String(b.patient?.patientname || "").toLowerCase();
+    const uhid = String(b.patient?.uhid || "").toLowerCase();
+    const ipNo = String(b.ip_number || b.booking?.ip_number || "").toLowerCase();
+    return bNo.includes(q) || pName.includes(q) || uhid.includes(q) || ipNo.includes(q);
+  });
+
+  return (
+    <Overlay zIndex={9990} onClick={onClose}>
+      <ModalBox maxWidth="820px" onClick={e => e.stopPropagation()}>
+        <ModalHead bg={T.primaryLt}>
+          <ModalTitle>
+            <span>🛏️ Room {room.room_number} — Beds ({beds.length})</span>
+            <CategoryTag>{room.room_category || room.room_type || "General"}</CategoryTag>
+          </ModalTitle>
+          <CloseBtn onClick={onClose}>×</CloseBtn>
+        </ModalHead>
+
+        <ModalBody>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            <div style={{ fontSize: "0.76rem", color: T.textMuted, fontWeight: 600 }}>
+              📍 {room.nursing_station || "General Ward"} &nbsp;•&nbsp; 🏢 {room.block || "MAIN BLOCK"}
+            </div>
+            {beds.length > 6 && (
+              <div style={{ position: "relative", minWidth: 220, flex: "0 1 260px" }}>
+                <SearchIcon>🔍</SearchIcon>
+                <SearchInp
+                  type="text"
+                  placeholder="Search bed #, patient, UHID..."
+                  value={bedSearch}
+                  onChange={e => setBedSearch(e.target.value)}
+                  style={{ padding: "6px 10px 6px 30px", fontSize: "0.76rem" }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+            {[
+              { key: "ALL", label: "All", color: T.primary, light: T.primaryLt, border: T.primaryMd },
+              { key: BED_STATUS.AVAILABLE, ...STATUS_CFG[BED_STATUS.AVAILABLE] },
+              { key: BED_STATUS.OCCUPIED, ...STATUS_CFG[BED_STATUS.OCCUPIED] },
+              { key: BED_STATUS.NOT_CLEANED, ...STATUS_CFG[BED_STATUS.NOT_CLEANED] },
+              { key: BED_STATUS.RESERVED, ...STATUS_CFG[BED_STATUS.RESERVED] },
+              { key: BED_STATUS.MAINTENANCE, ...STATUS_CFG[BED_STATUS.MAINTENANCE] },
+            ]
+              .filter(item => item.key === "ALL" || counts[item.key] > 0)
+              .map(item => {
+                const active = bedStatus === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setBedStatus(prev => (prev === item.key ? "ALL" : item.key))}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      padding: "4px 10px",
+                      borderRadius: 99,
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      border: `1.5px solid ${active ? item.color : item.border}`,
+                      background: active ? item.color : item.light,
+                      color: active ? "#fff" : item.color,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    <span style={{
+                      fontSize: "0.64rem",
+                      fontWeight: 800,
+                      padding: "0 5px",
+                      borderRadius: 99,
+                      background: active ? "rgba(255,255,255,0.28)" : "#fff",
+                      color: active ? "#fff" : item.color,
+                    }}>
+                      {counts[item.key]}
+                    </span>
+                  </button>
+                );
+              })}
+          </div>
+
+          {visibleBeds.length === 0 ? (
+            <EmptyNotice style={{ padding: 24 }}>No beds match the selected filter.</EmptyNotice>
+          ) : (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))",
+              gap: 10,
+              maxHeight: "55vh",
+              overflowY: "auto",
+              padding: "4px 2px",
+            }}>
+              {visibleBeds.map((bed, bdIdx) => {
+                const isOcc = bed.status === BED_STATUS.OCCUPIED;
+                const isMaint = bed.status === BED_STATUS.MAINTENANCE;
+                const cfg = STATUS_CFG[bed.status] || STATUS_CFG[BED_STATUS.MAINTENANCE];
+                const pName = bed.patient?.patientname || "";
+
+                return (
+                  <BedTile
+                    key={bdIdx}
+                    status={bed.status}
+                    cfg={cfg}
+                    style={{ minHeight: 74, padding: "8px 6px", cursor: isMaint ? "not-allowed" : "pointer" }}
+                    title={`Bed ${bed.bed_number} — ${bed.status}${pName ? ` (${pName})` : ""}`}
+                    onClick={() => !isMaint && onSelectBed({ bed, room })}
+                  >
+                    {isOcc && <OccupiedDot />}
+                    <BedMiniSVG color={cfg.color} size={20} />
+                    <BedNoText cfg={cfg} style={{ fontSize: "0.78rem" }}>Bed {bed.bed_number}</BedNoText>
+                    <BedStatusText cfg={cfg} style={{ fontSize: "0.62rem", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {pName ? pName.split(" ")[0] : cfg.label}
+                    </BedStatusText>
+                  </BedTile>
+                );
+              })}
+            </div>
+          )}
+        </ModalBody>
+      </ModalBox>
+    </Overlay>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────────
    MAIN ENQUIRY ROOM COMPONENT
    ───────────────────────────────────────────────────────────── */
 const EnquiryRoom = () => {
   const [data,           setData]           = useState([]);
   const [loading,        setLoading]        = useState(true);
+  const [selectedRoomNo, setSelectedRoomNo] = useState(null);
   const [selectedBed,     setSelectedBed]     = useState(null);
   const [searchTerm,      setSearchTerm]      = useState("");
   const [selectedStatus,  setSelectedStatus]  = useState("ALL");
@@ -1142,6 +1352,17 @@ const EnquiryRoom = () => {
     setSelectedStatus(prev => (prev === status ? "ALL" : status));
   };
 
+  const activeRoom = useMemo(() => {
+    if (!selectedRoomNo) return null;
+    for (const b of data) {
+      for (const rooms of Object.values(b.floors || {})) {
+        const found = rooms.find(r => r.room_number === selectedRoomNo);
+        if (found) return found;
+      }
+    }
+    return null;
+  }, [data, selectedRoomNo]);
+
   return (
     <PageWrapper>
       <PageInner>
@@ -1250,54 +1471,91 @@ const EnquiryRoom = () => {
               <BlockTitle>🏢 {b.block.block_name}</BlockTitle>
 
               {Object.entries(b.floors)
+                .sort(([fa], [fb]) => {
+                  const ra = getFloorSortRank(fa);
+                  const rb = getFloorSortRank(fb);
+                  return ra !== rb ? ra - rb : fa.localeCompare(fb);
+                })
                 .map(([floor, rooms]) => (
                   <FloorWrap key={floor}>
                     <FloorTitle>📍 {floor}</FloorTitle>
 
                     <RoomGrid>
                       {rooms.map(room => {
-                        const occupiedCount = (room.beds || []).filter(bd => bd.status === BED_STATUS.OCCUPIED).length;
+                        const beds = room.beds || [];
+                        const totalBeds = beds.length;
+                        const availCount = beds.filter(bd => bd.status === BED_STATUS.AVAILABLE).length;
+                        const occupiedCount = beds.filter(bd => bd.status === BED_STATUS.OCCUPIED).length;
+                        const uncleanCount = beds.filter(bd => bd.status === BED_STATUS.NOT_CLEANED).length;
+                        const reservedCount = beds.filter(bd => bd.status === BED_STATUS.RESERVED).length;
+                        const maintCount = beds.filter(bd => bd.status === BED_STATUS.MAINTENANCE).length;
                         const hasOcc = occupiedCount > 0;
+                        const occPct = totalBeds > 0 ? Math.round((occupiedCount / totalBeds) * 100) : 0;
 
                         return (
-                          <RoomCard key={room.room_number} hasOccupied={hasOcc}>
+                          <RoomCard
+                            key={room.room_number}
+                            hasOccupied={hasOcc}
+                            onClick={() => setSelectedRoomNo(room.room_number)}
+                            title={`Click to view ${totalBeds} bed${totalBeds === 1 ? "" : "s"} in Room ${room.room_number}`}
+                          >
                             <RoomHeader hasOccupied={hasOcc}>
                               <RoomNo>Room {room.room_number}</RoomNo>
                               <RoomMeta>
                                 <CategoryTag>{room.room_category || room.room_type || "General"}</CategoryTag>
                                 <BedCountPill occupied={occupiedCount}>
-                                  {occupiedCount}/{room.beds?.length || 0}
+                                  {availCount}/{totalBeds} Ready
                                 </BedCountPill>
                               </RoomMeta>
                             </RoomHeader>
 
-                            <BedTilesGrid>
-                              {(room.beds || []).map((bed, bdIdx) => {
-                                const isOcc = bed.status === BED_STATUS.OCCUPIED;
-                                const isMaint = bed.status === BED_STATUS.MAINTENANCE;
-                                const cfg = STATUS_CFG[bed.status] || STATUS_CFG[BED_STATUS.MAINTENANCE];
+                            <RoomCardBody>
+                              <RoomSummaryRow>
+                                <span>Total Beds: <strong style={{ color: T.textMain }}>{totalBeds}</strong></span>
+                                <span>{occPct}% Occupied</span>
+                              </RoomSummaryRow>
 
-                                return (
-                                  <BedTile
-                                    key={bdIdx}
-                                    status={bed.status}
-                                    cfg={cfg}
-                                    title={`Bed ${bed.bed_number} — ${bed.status}${bed.patient?.patientname ? ` (${bed.patient.patientname})` : ""}`}
-                                    onClick={() => !isMaint && setSelectedBed({ bed, room })}
-                                  >
-                                    {isOcc && <OccupiedDot />}
-                                    <BedMiniSVG
-                                      color={cfg.color}
-                                      size={18}
-                                    />
-                                    <BedNoText cfg={cfg}>B{bed.bed_number}</BedNoText>
-                                    <BedStatusText cfg={cfg}>
-                                      {cfg.label}
-                                    </BedStatusText>
-                                  </BedTile>
-                                );
-                              })}
-                            </BedTilesGrid>
+                              <RoomProgressTrack>
+                                {occupiedCount > 0 && <div style={{ width: `${(occupiedCount / totalBeds) * 100}%`, background: T.red }} />}
+                                {reservedCount > 0 && <div style={{ width: `${(reservedCount / totalBeds) * 100}%`, background: T.purple }} />}
+                                {uncleanCount > 0 && <div style={{ width: `${(uncleanCount / totalBeds) * 100}%`, background: T.amber }} />}
+                                {availCount > 0 && <div style={{ width: `${(availCount / totalBeds) * 100}%`, background: T.green }} />}
+                                {maintCount > 0 && <div style={{ width: `${(maintCount / totalBeds) * 100}%`, background: T.gray }} />}
+                              </RoomProgressTrack>
+
+                              <RoomStatusChips>
+                                {availCount > 0 && (
+                                  <RoomMiniChip bg={T.greenLt} color={T.greenDk} border={T.greenBorder}>
+                                    ✓ {availCount} Available
+                                  </RoomMiniChip>
+                                )}
+                                {occupiedCount > 0 && (
+                                  <RoomMiniChip bg={T.redLt} color={T.redDk} border={T.redBorder}>
+                                    ● {occupiedCount} Occupied
+                                  </RoomMiniChip>
+                                )}
+                                {uncleanCount > 0 && (
+                                  <RoomMiniChip bg={T.amberLt} color={T.amberDk} border={T.amberBorder}>
+                                    🧹 {uncleanCount} Unclean
+                                  </RoomMiniChip>
+                                )}
+                                {reservedCount > 0 && (
+                                  <RoomMiniChip bg={T.purpleLt} color={T.purpleDk} border={T.purpleBorder}>
+                                    ◆ {reservedCount} Reserved
+                                  </RoomMiniChip>
+                                )}
+                                {maintCount > 0 && (
+                                  <RoomMiniChip bg={T.grayLt} color={T.grayDk} border={T.grayBorder}>
+                                    🔧 {maintCount} Maint.
+                                  </RoomMiniChip>
+                                )}
+                              </RoomStatusChips>
+
+                              <RoomCardFoot>
+                                <span>{totalBeds === 1 ? "View Bed Details" : `View All ${totalBeds} Beds`}</span>
+                                <span>→</span>
+                              </RoomCardFoot>
+                            </RoomCardBody>
                           </RoomCard>
                         );
                       })}
@@ -1310,7 +1568,16 @@ const EnquiryRoom = () => {
 
       </PageInner>
 
-      {/* ── Patient & Bed Detail Modal (Opens when clicked) ── */}
+      {/* ── Room Beds Modal (Opens when a Room Card is clicked) ── */}
+      {activeRoom && (
+        <RoomBedsModal
+          room={activeRoom}
+          onClose={() => setSelectedRoomNo(null)}
+          onSelectBed={(bedObj) => setSelectedBed(bedObj)}
+        />
+      )}
+
+      {/* ── Patient & Bed Detail Modal (Opens when a bed is clicked) ── */}
       {selectedBed && (
         <BedDetailModal
           bed={selectedBed.bed}
