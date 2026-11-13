@@ -780,6 +780,53 @@ const PatientRegistrationForm = () => {
     printDocument.close();
   };
 
+  const numberToWords = (num) => {
+    if (num === null || num === undefined || isNaN(num)) return "Zero Rupees Only";
+    const n = Math.floor(Math.abs(Number(num)));
+    if (n === 0) return "Zero Rupees Only";
+
+    const a = [
+      "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+      "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+      "Seventeen", "Eighteen", "Nineteen"
+    ];
+    const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+    const inWords = (val) => {
+      let str = "";
+      if (val > 9999999) {
+        str += inWords(Math.floor(val / 10000000)) + " Crore ";
+        val %= 10000000;
+      }
+      if (val > 99999) {
+        str += inWords(Math.floor(val / 100000)) + " Lakh ";
+        val %= 100000;
+      }
+      if (val > 999) {
+        str += inWords(Math.floor(val / 1000)) + " Thousand ";
+        val %= 1000;
+      }
+      if (val > 99) {
+        str += inWords(Math.floor(val / 100)) + " Hundred ";
+        val %= 100;
+      }
+      if (val > 0) {
+        if (str !== "") str += "and ";
+        if (val < 20) {
+          str += a[val];
+        } else {
+          str += b[Math.floor(val / 10)];
+          if (val % 10 > 0) {
+            str += " " + a[val % 10];
+          }
+        }
+      }
+      return str.trim();
+    };
+
+    return inWords(n) + " Rupees Only";
+  };
+
   const handlePrintBill = (visit) => {
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
@@ -793,9 +840,10 @@ const PatientRegistrationForm = () => {
     const printDocument = iframe.contentWindow.document;
     printDocument.open();
 
-    const consFee = parseFloat(visit.consultingFee) || 0;
-    const regFee = parseFloat(visit.registrationFee) || 0;
-    let sNo = 1;
+    const rawBillNo = visit.billNumber || visit.bill_number || visit.bill_no || 'N/A';
+    const cleanBillNo = String(rawBillNo).replace(/\//g, '');
+    const preparedByName = visit.preparedBy || visit.prepared_by || visit.created_by || localStorage.getItem("name") || localStorage.getItem("employeeName") || "Staff";
+    const totalAmount = parseFloat(visit.billAmount || 0);
 
     printDocument.write(`
       <!DOCTYPE html>
@@ -803,74 +851,120 @@ const PatientRegistrationForm = () => {
         <head>
           <title>Print Bill</title>
           <style>
-            @page { size: auto; margin: 5mm; }
-            body { font-family: 'Arial', sans-serif; margin: 0; padding: 10px; background-color: white; width: 320px; }
+            @page { size: auto; margin: 4mm; }
+            * { box-sizing: border-box; }
+            body { font-family: 'Arial', sans-serif; margin: 0; padding: 12px; background-color: white; width: 320px; font-size: 12px; color: #000; }
             .center { text-align: center; }
-            .header { font-size: 14px; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; }
-            .sub-header { font-size: 12px; margin-bottom: 2px; }
-            .bill-type { margin: 8px 0; font-weight: bold; font-size: 14px; }
-            .info-table { width: 100%; font-size: 13px; margin-bottom: 10px; }
-            .info-table td { padding: 2px 0; vertical-align: top; }
-            .info-table td:first-child { width: 90px; }
-            .items-table { width: 100%; font-size: 13px; border-collapse: collapse; margin-bottom: 10px; border-top: 1px solid black; border-bottom: 1px solid black; }
-            .items-table th, .items-table td { padding: 5px; text-align: left; }
-            .items-table th { border-bottom: 1px solid black; }
+            .header { font-size: 15px; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; letter-spacing: 0.3px; }
+            .sub-header { font-size: 11px; margin-bottom: 2px; }
+            .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
+            .bill-type { margin: 6px 0; font-weight: bold; font-size: 13px; letter-spacing: 0.5px; }
+            
+            .info-table { width: 100%; font-size: 12px; border-collapse: collapse; margin-bottom: 6px; }
+            .info-table td { padding: 2.5px 0; vertical-align: top; }
+            .info-table .label { width: 95px; font-weight: 500; color: #111; }
+            .info-table .colon { width: 12px; text-align: center; }
+            .info-table .val { font-weight: 600; word-break: break-word; color: #000; }
+
+            .items-table { width: 100%; font-size: 12px; border-collapse: collapse; margin: 6px 0; }
+            .items-table th { padding: 5px 2px; text-align: left; border-top: 1px dashed #000; border-bottom: 1px dashed #000; font-size: 11px; text-transform: uppercase; }
+            .items-table td { padding: 6px 2px; vertical-align: middle; }
+            .text-center { text-align: center !important; }
             .text-right { text-align: right !important; }
-            .totals-table { width: 100%; font-size: 14px; border-collapse: collapse; margin-bottom: 5px; }
-            .totals-table td { padding: 5px; }
-            .footer { margin-top: 15px; font-size: 11px; font-style: italic; line-height: 1.3; }
-            .signature { margin-top: 20px; display: flex; justify-content: space-between; font-size: 13px; }
+            
+            .totals-table { width: 100%; font-size: 13px; border-collapse: collapse; margin-top: 4px; }
+            .totals-table td { padding: 3px 0; }
+            
+            .words-section { font-size: 11px; margin: 6px 0; padding: 6px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; line-height: 1.35; }
+            .words-label { font-weight: bold; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; }
+            
+            .signature { margin-top: 24px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 11px; }
+            
+            .footer { margin-top: 14px; font-size: 9.5px; font-style: italic; line-height: 1.3; text-align: center; }
           </style>
         </head>
         <body>
           <div class="center">
             <div class="header">SHANMUGA HOSPITAL LIMITED</div>
-            <div class="sub-header">51/24. Saradha College Road, Salem - 636007</div>
+            <div class="sub-header">51/24, Saradha College Road, Salem - 636007</div>
             <div class="sub-header"><u>CIN: L85110TZ2020PLC033974</u></div>
             <div class="sub-header"><u>GST No : 33ABDCS8326A1ZP</u></div>
-            <div class="bill-type">*${visit.paymentMethod || 'Cash'} Bill*</div>
-            <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: ${visit.paymentStatus === 'Paid' ? '#16a34a' : '#d97706'}">
-              STATUS: ${(visit.paymentStatus === 'Paid') ? 'PAID' : 'PENDING'}
-            </div>
+            <div class="divider"></div>
+            <div class="bill-type">*REGISTRATION BILL*</div>
+            <div class="divider"></div>
           </div>
           <table class="info-table">
-            <tr><td>Bill Number</td><td>: ${visit.billNumber || visit.bill_number || visit.bill_no || 'N/A'}</td></tr>
-            <tr><td>UHID</td><td>: ${visit.uhid || 'N/A'}</td></tr>
-            <tr><td>Bill Date</td><td>: ${visit.date}</td></tr>
-            <tr><td>Name</td><td>: ${visit.patientName}</td></tr>
-            <tr><td>Doctor</td><td>: ${formatDoctorDisplayName(visit.doctorName || visit.doctor)}</td></tr>
-            ${visit.company_name ? `<tr><td>Company/TPA</td><td>: ${visit.company_name}</td></tr>` : ''}
+            <tr>
+              <td class="label">Bill Number</td>
+              <td class="colon">:</td>
+              <td class="val">${cleanBillNo}</td>
+            </tr>
+            <tr>
+              <td class="label">UHID</td>
+              <td class="colon">:</td>
+              <td class="val">${visit.uhid || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td class="label">Bill Date</td>
+              <td class="colon">:</td>
+              <td class="val">${visit.date}</td>
+            </tr>
+            <tr>
+              <td class="label">Name</td>
+              <td class="colon">:</td>
+              <td class="val">${visit.patientName}</td>
+            </tr>
+            <tr>
+              <td class="label">Doctor</td>
+              <td class="colon">:</td>
+              <td class="val">${formatDoctorDisplayName(visit.doctorName || visit.doctor)}</td>
+            </tr>
+            ${visit.company_name ? `
+            <tr>
+              <td class="label">Company/TPA</td>
+              <td class="colon">:</td>
+              <td class="val">${visit.company_name}</td>
+            </tr>` : ''}
           </table>
           <table class="items-table">
             <thead>
               <tr>
-                <th>SlNo</th><th>Description</th><th class="text-right">Qty</th><th class="text-right">Cost</th><th class="text-right">Amount</th>
+                <th style="width: 26px;" class="text-center">#</th>
+                <th>Description</th>
+                <th class="text-center" style="width: 32px;">Qty</th>
+                <th class="text-right" style="width: 55px;">Rate</th>
+                <th class="text-right" style="width: 65px;">Amount</th>
               </tr>
             </thead>
             <tbody>
-              ${consFee > 0 ? "<tr><td>" + (sNo++) + "</td><td>CONSULTATION FEE</td><td class='text-right'>1</td><td class='text-right'>" + consFee.toFixed(2) + "</td><td class='text-right'>" + consFee.toFixed(2) + "</td></tr>" : ""}
-              ${regFee > 0 ? "<tr><td>" + (sNo++) + "</td><td>REGISTRATION FEE</td><td class='text-right'>1</td><td class='text-right'>" + regFee.toFixed(2) + "</td><td class='text-right'>" + regFee.toFixed(2) + "</td></tr>" : ""}
-              ${(consFee === 0 && regFee === 0 && parseFloat(visit.billAmount) > 0) ? "<tr><td>" + (sNo++) + "</td><td>OTHER FEES</td><td class='text-right'>1</td><td class='text-right'>" + parseFloat(visit.billAmount).toFixed(2) + "</td><td class='text-right'>" + parseFloat(visit.billAmount).toFixed(2) + "</td></tr>" : ""}
+              <tr>
+                <td class="text-center">1</td>
+                <td style="font-weight: 500;">REGISTRATION &amp; CONSULTATION</td>
+                <td class="text-center">1</td>
+                <td class="text-right">${totalAmount.toFixed(2)}</td>
+                <td class="text-right" style="font-weight: 600;">${totalAmount.toFixed(2)}</td>
+              </tr>
             </tbody>
           </table>
+          <div class="divider"></div>
           <table class="totals-table">
             <tr>
-              <td class="text-right" style="width: 70%; font-weight: bold; padding-right: 15px;">Total</td>
-              <td class="text-right" style="width: 10px;">:</td>
-              <td class="text-right" style="font-weight: bold;">${parseFloat(visit.billAmount || 0).toFixed(2)}</td>
+              <td class="text-right" style="font-weight: 500;">Total</td>
+              <td class="text-center" style="width: 14px;">:</td>
+              <td class="text-right" style="width: 80px; font-weight: 500;">${totalAmount.toFixed(2)}</td>
+            </tr>
+            <tr style="font-size: 14px;">
+              <td class="text-right" style="font-weight: bold; padding-top: 4px;">Net Amount</td>
+              <td class="text-center" style="width: 14px; font-weight: bold; padding-top: 4px;">:</td>
+              <td class="text-right" style="width: 80px; font-weight: bold; padding-top: 4px;">₹ ${totalAmount.toFixed(2)}</td>
             </tr>
           </table>
-          <div style="border-bottom: 1px solid black; margin: 5px 0;"></div>
-          <table class="totals-table">
-            <tr>
-              <td class="text-right" style="width: 70%; font-weight: bold; padding-right: 15px;">Net Amount</td>
-              <td class="text-right" style="width: 10px;">:</td>
-              <td class="text-right" style="font-weight: bold;">${parseFloat(visit.billAmount || 0).toFixed(2)}</td>
-            </tr>
-          </table>
-          <div style="border-bottom: 1px solid black; margin: 5px 0;"></div>
+          <div class="words-section">
+            <div class="words-label">Rupees in Words:</div>
+            <div>${numberToWords(totalAmount)}</div>
+          </div>
           <div class="signature">
-            <div>60222</div>
+            <div>Prepared By: <b>${preparedByName}</b></div>
             <div>(Signature)</div>
           </div>
           <div class="footer">
@@ -1159,7 +1253,8 @@ const PatientRegistrationForm = () => {
           dateTime: new Date().toLocaleString('en-GB'),
           company_name: patient.insuranceProviderCode || patient.company_name || "",
           paymentMethod: paymentMethod,
-          paymentStatus: "Pending"
+          paymentStatus: "Pending",
+          preparedBy: localStorage.getItem("name") || localStorage.getItem("employeeName") || localStorage.getItem("employeeId") || "Staff"
         };
 
         // Automatically generate and print the barcode label (Vikas format)
