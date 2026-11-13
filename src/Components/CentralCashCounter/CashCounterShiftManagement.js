@@ -37,6 +37,10 @@ const PageContainer = styled.div`
   padding: 24px;
   font-family: inherit;
   color: #0f172a;
+
+  @media (max-width: 768px) {
+    padding: 14px 12px;
+  }
 `;
 
 const HeaderSection = styled.div`
@@ -56,6 +60,10 @@ const HeaderSection = styled.div`
       display: flex;
       align-items: center;
       gap: 10px;
+
+      @media (max-width: 640px) {
+        font-size: 1.35rem;
+      }
     }
     p {
       margin: 4px 0 0;
@@ -68,6 +76,15 @@ const HeaderSection = styled.div`
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
+
+    @media (max-width: 640px) {
+      width: 100%;
+      button {
+        flex: 1;
+        justify-content: center;
+      }
+    }
   }
 `;
 
@@ -85,6 +102,7 @@ const BackButton = styled.button`
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
+  white-space: nowrap;
 
   &:hover {
     background: #0f766e;
@@ -108,6 +126,7 @@ const RefreshButton = styled.button`
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
+  white-space: nowrap;
 
   &:hover {
     background: #f0fdfa;
@@ -124,40 +143,54 @@ const StatsGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 `;
 
 const StatCard = styled.div`
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  }
 
   .icon-box {
-    width: 48px;
-    height: 48px;
+    width: 46px;
+    height: 46px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: ${(p) => p.bg || "#f0fdfa"};
     color: ${(p) => p.color || "#0d9488"};
+    flex-shrink: 0;
   }
 
   .stat-info {
     display: flex;
     flex-direction: column;
+    min-width: 0;
     .val {
-      font-size: 1.45rem;
+      font-size: 1.35rem;
       font-weight: 800;
       color: #0f172a;
-      line-height: 1.1;
+      line-height: 1.2;
+      word-break: break-word;
     }
     .lbl {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 700;
       color: #64748b;
       text-transform: uppercase;
@@ -172,18 +205,25 @@ const TabBar = styled.div`
   gap: 12px;
   border-bottom: 2px solid #e2e8f0;
   margin-bottom: 20px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
 
 const TabItem = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px;
-  font-size: 0.95rem;
+  padding: 12px 18px;
+  font-size: 0.92rem;
   font-weight: 700;
   border: none;
   background: transparent;
   cursor: pointer;
+  white-space: nowrap;
   color: ${(p) => (p.$active ? "#0d9488" : "#64748b")};
   border-bottom: 3px solid ${(p) => (p.$active ? "#0d9488" : "transparent")};
   margin-bottom: -2px;
@@ -209,17 +249,24 @@ const FilterCard = styled.div`
   border-radius: 14px;
   padding: 18px 20px;
   margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
   gap: 16px;
+  align-items: flex-end;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    padding: 14px 16px;
+    gap: 12px;
+  }
 
   .filter-group {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    min-width: 170px;
+    width: 100%;
+
     label {
       font-size: 11px;
       font-weight: 700;
@@ -231,6 +278,7 @@ const FilterCard = styled.div`
 
   select, input {
     height: 38px;
+    width: 100%;
     border: 1.5px solid #cbd5e1;
     border-radius: 8px;
     padding: 0 12px;
@@ -238,9 +286,21 @@ const FilterCard = styled.div`
     color: #0f172a;
     background: #ffffff;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
     &:focus {
       border-color: #0d9488;
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    }
+  }
+
+  .filter-actions {
+    display: flex;
+    align-items: flex-end;
+    width: 100%;
+    button {
+      width: 100%;
+      height: 38px;
+      justify-content: center;
     }
   }
 `;
@@ -253,8 +313,31 @@ const ContentCard = styled.div`
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
 `;
 
+const TableScrollWrapper = styled.div`
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  /* Custom modern scrollbar */
+  &::-webkit-scrollbar {
+    height: 7px;
+    width: 7px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+`;
+
 const Table = styled.table`
   width: 100%;
+  min-width: 1100px;
   border-collapse: collapse;
   text-align: left;
   font-size: 13px;
@@ -265,27 +348,51 @@ const Table = styled.table`
   }
 
   th {
-    padding: 12px 16px;
+    padding: 13px 16px;
     font-size: 11.5px;
     font-weight: 700;
     color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     white-space: nowrap;
+    background: #f8fafc;
   }
 
   tbody tr {
     border-bottom: 1px solid #f1f5f9;
     transition: background 0.15s ease;
     &:hover {
-      background: #f8fafc;
+      background: #f0fdfa;
     }
   }
 
   td {
-    padding: 14px 16px;
+    padding: 13px 16px;
     color: #1e293b;
     vertical-align: middle;
+    white-space: nowrap;
+  }
+`;
+
+const TableFooterMeta = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .scroll-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #0d9488;
+    font-size: 11.5px;
   }
 `;
 
@@ -323,6 +430,7 @@ const CloseShiftBtn = styled.button`
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 
   &:hover {
     background: #ef4444;
@@ -341,16 +449,20 @@ const ModalOverlay = styled.div`
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(4px);
+  padding: 16px;
 `;
 
 const ModalContent = styled.div`
   background: #ffffff;
   border-radius: 16px;
-  width: 92%;
+  width: 100%;
   max-width: 580px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   border: 1px solid #e2e8f0;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
 `;
 
 const ModalHeader = styled.div`
@@ -360,6 +472,7 @@ const ModalHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 
   h3 {
     margin: 0;
@@ -383,10 +496,12 @@ const ModalHeader = styled.div`
 `;
 
 const ModalBody = styled.div`
-  padding: 22px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 `;
 
 const InfoCard = styled.div`
@@ -398,6 +513,11 @@ const InfoCard = styled.div`
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   font-size: 12.5px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 
   .item {
     display: flex;
@@ -413,6 +533,7 @@ const InfoCard = styled.div`
       font-weight: 700;
       font-size: 13px;
       margin-top: 2px;
+      word-break: break-word;
     }
   }
 `;
@@ -448,6 +569,7 @@ const FormGroup = styled.div`
     font-size: 13.5px;
     color: #0f172a;
     outline: none;
+    transition: border-color 0.2s;
     &:focus {
       border-color: #0d9488;
     }
@@ -465,6 +587,15 @@ const ModalFooter = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    flex-direction: column-reverse;
+    button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 
   button {
     padding: 9px 18px;
@@ -832,7 +963,7 @@ const CashCounterShiftManagement = () => {
             </select>
           </div>
 
-          <div className="filter-group" style={{ flex: 1 }}>
+          <div className="filter-group">
             <label>Search Shift Number</label>
             <input
               type="text"
@@ -842,7 +973,7 @@ const CashCounterShiftManagement = () => {
             />
           </div>
 
-          <div style={{ display: "flex", alignItems: "flex-end", height: "100%", marginTop: "18px" }}>
+          <div className="filter-actions">
             <RefreshButton onClick={fetchDateShifts} disabled={loading}>
               <Search size={14} /> Filter
             </RefreshButton>
@@ -852,100 +983,106 @@ const CashCounterShiftManagement = () => {
 
       {/* SHIFTS TABLE */}
       <ContentCard>
-        <Table>
-          <thead>
-            <tr>
-              <th>Shift No</th>
-              <th>Date (IST)</th>
-              <th>Outlet / Counter</th>
-              <th>Cashier</th>
-              <th>Start Time (IST)</th>
-              <th>End Time (IST)</th>
-              <th style={{ textAlign: "right" }}>Opening (₹)</th>
-              <th style={{ textAlign: "right" }}>Cash Coll (₹)</th>
-              <th style={{ textAlign: "right" }}>Credit Coll (₹)</th>
-              <th style={{ textAlign: "right" }}>Closing (₹)</th>
-              <th>Status</th>
-              <th style={{ textAlign: "center" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentList.length > 0 ? (
-              currentList.map((shift, idx) => {
-                const isActive = shift.ShiftStatus === "active";
-                return (
-                  <tr key={shift.shiftno || idx}>
-                    <td style={{ fontWeight: "700", fontFamily: "monospace", color: "#0d9488" }}>
-                      {shift.shiftno}
-                    </td>
-                    <td>{formatISTDate(shift)}</td>
-                    <td>
-                      <div style={{ fontWeight: "600" }}>
-                        {shift.CashCounterName || getOutletName(shift.SelectedOutlet || shift.outlet_code) || "—"}
-                      </div>
-                      {shift.CashCounterName && getOutletName(shift.SelectedOutlet || shift.outlet_code) &&
-                       shift.CashCounterName.trim().toLowerCase() !== getOutletName(shift.SelectedOutlet || shift.outlet_code).trim().toLowerCase() && (
-                        <div style={{ fontSize: "11px", color: "#64748b" }}>
-                          {getOutletName(shift.SelectedOutlet || shift.outlet_code)}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: "600" }}>{shift.User || shift.CashierID || "—"}</div>
-                    </td>
-                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                      {formatISTTime(shift.StartingTime, shift.StartTime)}
-                    </td>
-                    <td style={{ color: shift.closingTime || shift.EndTime ? "#0f172a" : "#94a3b8" }}>
-                      {formatISTTime(shift.closingTime, shift.EndTime)}
-                    </td>
-                    <td style={{ textAlign: "right", fontWeight: "600" }}>
-                      {formatINR(shift.OpeningBalance)}
-                    </td>
-                    <td style={{ textAlign: "right", fontWeight: "700", color: "#16a34a" }}>
-                      {formatINR(shift.collected_Amount)}
-                    </td>
-                    <td style={{ textAlign: "right", fontWeight: "700", color: "#2563eb" }}>
-                      {formatINR(shift.CreditAmount ?? shift.credit_amount ?? 0)}
-                    </td>
-                    <td style={{ textAlign: "right", fontWeight: "700", color: "#0f172a" }}>
-                      {formatINR(shift.ClosingBalance)}
-                    </td>
-                    <td>
-                      <StatusPill $active={isActive}>
-                        <span className="dot" />
-                        {isActive ? "Active" : "Closed"}
-                      </StatusPill>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      {isActive ? (
-                        <CloseShiftBtn onClick={() => handleOpenCloseModal(shift)} title="Close Shift">
-                          <PowerOff size={13} /> Close Shift
-                        </CloseShiftBtn>
-                      ) : (
-                        <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "600" }}>Settled</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
+        <TableScrollWrapper>
+          <Table>
+            <thead>
               <tr>
-                <td colSpan="12" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
-                  {loading ? (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-                      <RefreshCw size={18} className="animate-spin text-teal-600" /> Loading shift records...
-                    </div>
-                  ) : activeTab === "active_shifts" ? (
-                    "No active shifts currently running. All cash counters are closed."
-                  ) : (
-                    "No shift records found matching the selected date and filter criteria."
-                  )}
-                </td>
+                <th>Shift No</th>
+                <th>Date (IST)</th>
+                <th>Outlet / Counter</th>
+                <th>Cashier</th>
+                <th>Start Time (IST)</th>
+                <th>End Time (IST)</th>
+                <th style={{ textAlign: "right" }}>Opening (₹)</th>
+                <th style={{ textAlign: "right" }}>Cash Coll (₹)</th>
+                <th style={{ textAlign: "right" }}>Credit Coll (₹)</th>
+                <th style={{ textAlign: "right" }}>Closing (₹)</th>
+                <th>Status</th>
+                <th style={{ textAlign: "center" }}>Actions</th>
               </tr>
-            )}
-          </tbody>
-        </Table>
+            </thead>
+            <tbody>
+              {currentList.length > 0 ? (
+                currentList.map((shift, idx) => {
+                  const isActive = shift.ShiftStatus === "active";
+                  return (
+                    <tr key={shift.shiftno || idx}>
+                      <td style={{ fontWeight: "700", fontFamily: "monospace", color: "#0d9488" }}>
+                        {shift.shiftno}
+                      </td>
+                      <td>{formatISTDate(shift)}</td>
+                      <td>
+                        <div style={{ fontWeight: "600" }}>
+                          {shift.CashCounterName || getOutletName(shift.SelectedOutlet || shift.outlet_code) || "—"}
+                        </div>
+                        {shift.CashCounterName && getOutletName(shift.SelectedOutlet || shift.outlet_code) &&
+                         shift.CashCounterName.trim().toLowerCase() !== getOutletName(shift.SelectedOutlet || shift.outlet_code).trim().toLowerCase() && (
+                          <div style={{ fontSize: "11px", color: "#64748b" }}>
+                            {getOutletName(shift.SelectedOutlet || shift.outlet_code)}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: "600" }}>{shift.User || shift.CashierID || "—"}</div>
+                      </td>
+                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                        {formatISTTime(shift.StartingTime, shift.StartTime)}
+                      </td>
+                      <td style={{ color: shift.closingTime || shift.EndTime ? "#0f172a" : "#94a3b8" }}>
+                        {formatISTTime(shift.closingTime, shift.EndTime)}
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: "600" }}>
+                        {formatINR(shift.OpeningBalance)}
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: "700", color: "#16a34a" }}>
+                        {formatINR(shift.collected_Amount)}
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: "700", color: "#2563eb" }}>
+                        {formatINR(shift.CreditAmount ?? shift.credit_amount ?? 0)}
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: "700", color: "#0f172a" }}>
+                        {formatINR(shift.ClosingBalance)}
+                      </td>
+                      <td>
+                        <StatusPill $active={isActive}>
+                          <span className="dot" />
+                          {isActive ? "Active" : "Closed"}
+                        </StatusPill>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        {isActive ? (
+                          <CloseShiftBtn onClick={() => handleOpenCloseModal(shift)} title="Close Shift">
+                            <PowerOff size={13} /> Close Shift
+                          </CloseShiftBtn>
+                        ) : (
+                          <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "600" }}>Settled</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="12" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                    {loading ? (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                        <RefreshCw size={18} className="animate-spin text-teal-600" /> Loading shift records...
+                      </div>
+                    ) : activeTab === "active_shifts" ? (
+                      "No active shifts currently running. All cash counters are closed."
+                    ) : (
+                      "No shift records found matching the selected date and filter criteria."
+                    )}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </Table>
+        </TableScrollWrapper>
+        <TableFooterMeta>
+          <span>Showing <strong>{currentList.length}</strong> shift records</span>
+          <span className="scroll-hint">← Scroll horizontally for more details →</span>
+        </TableFooterMeta>
       </ContentCard>
 
       {/* CLOSE SHIFT CONFIRMATION MODAL */}

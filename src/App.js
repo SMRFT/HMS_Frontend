@@ -191,6 +191,11 @@ import PurchaseGSTReport, {
   StoreHSNReport,
   StoreDocsReport,
 } from "./Components/Accounts/PurchaseGSTReport";
+import OPPharmacySalesReport, {
+  OPPharmacyB2BReport,
+  OPPharmacyHSNReport,
+  OPPharmacyDocsReport,
+} from "./Components/Accounts/OPPharmacySalesReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import MarketingReport from "./Components/Reports/MarketingReport";
@@ -209,6 +214,27 @@ import AdvanceRegistrationInsurence from "./Components/Accounts/AdvanceRegistrat
 import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
 import BillCancelReport from "./Components/Accounts/BillCancelReport";
 import AccountsReports from "./Components/Reports/AccountsReports";
+import DrugPurchaseReportsDashboard from "./Components/Reports/DrugPurchaseReportsDashboard";
+import InsuranceReportsDashboard from "./Components/Reports/InsuranceReportsDashboard";
+import InsuranceBillsDueList from "./Components/Insurance_report/InsuranceBillsDueList";
+import InsuranceBillsStatus from "./Components/Insurance_report/InsuranceBillsStatus";
+import InsuranceBillsStatusReport from "./Components/Insurance_report/InsuranceBillsStatusReport";
+import {
+  DrugPurchaseReturnReport,
+  DrugPurchaseAnalysisReport,
+  DrugPreviousDayStockReport,
+  DrugSupplierWiseReport,
+  DrugNonMovingReport,
+  DrugShortExpiryReport,
+  DrugReorderLevelReport,
+  DrugRackClassificationReport,
+  DrugSupplierGrnReport,
+  DrugDepartmentIndentReport,
+  DrugGRNGeneralReport,
+  DrugIntentReturnReport,
+  DrugAbcVedReport,
+  DrugOpeningStockReport
+} from "./Components/Drug_purchase_report";
 import DiscountBillsReport from "./Components/Accounts/DiscountBillsReport";
 import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
@@ -517,6 +543,28 @@ function App() {
       "/StoresAbcVedReport": "Stores ABC & VED Analysis Report",
       "/VendingMachineReport": "Vending Machine Sales & Stock Reconciliation Report",
       "/StoresReportsDashboard": "Stores Reports Dashboard",
+      "/DrugPurchaseReportsDashboard": "Drug Purchase Report Dashboard",
+      "/DrugPurchaseReports": "Drug Purchase Report Dashboard",
+      "/DrugPurchaseReturnReport": "Drug Purchase Return & Debit Notes",
+      "/DrugPurchaseAnalysisReport": "Drug Purchase Analysis Report",
+      "/DrugPreviousDayStockReport": "Drug Previous Day / Daily Stock Report",
+      "/DrugSupplierWiseReport": "Drug Supplier-Wise List & Ledger",
+      "/DrugNonMovingReport": "Drug Non-Moving Items Report (Dead Stock)",
+      "/DrugShortExpiryReport": "Drug Short Expiry & Expired List",
+      "/DrugReorderLevelReport": "Drug Reorder Level Indication",
+      "/DrugRackClassificationReport": "Drug Barcode Entry & Rack Classification",
+      "/DrugSupplierGrnReport": "Drug Supplier-Based GRN Report",
+      "/DrugDepartmentIndentReport": "Drug Department-Based Indent Report",
+      "/DrugGRNGeneralReport": "Drug Purchase GRN General Report",
+      "/DrugIntentReturnReport": "Drug Purchase Intent Approval Report",
+      "/DrugAbcVedReport": "Drug Purchase ABC & VED Analysis Report",
+      "/DrugOpeningStockReport": "Drug Opening Stock Audit Report",
+      "/InsuranceReportsDashboard": "Insurance Report Dashboard",
+      "/InsuranceReports": "Insurance Report Dashboard",
+      "/InsuranceBillsDueList": "Insurance Bills Due List",
+      "/InsuranceBillsDueListReport": "Insurance Bills Due List",
+      "/InsuranceBillsStatus": "Insurance Bills Status",
+      "/InsuranceBillsStatusReport": "Insurance Bills Status Report",
       "/StoresSupplierGrnReport": "Supplier-Based Stores GRN Report",
       "/StoresDepartmentIndentReport": "Department-Based Stores Indent Report",
       "/StoresPurchaseOrderFormat": "Stores Purchase Order Format",
@@ -547,6 +595,10 @@ function App() {
       "/StoreHSNReport": "General Stores HSN Wise Summary Report",
       "/StoreDocsReport": "General Stores Document Summary Report",
       "/PurchaseGSTReport": "Purchase GST Register (GSTR-1 Format)",
+      "/OPPharmacySalesReport": "OP Pharmacy Sales GST Register (GSTR-1)",
+      "/OPPharmacyB2BReport": "OP Pharmacy Sales - B2B Invoices Report",
+      "/OPPharmacyHSNReport": "OP Pharmacy Sales - HSN Wise Summary Report",
+      "/OPPharmacyDocsReport": "OP Pharmacy Sales - Document Summary Report",
       "/CashCounterManager": "Cash Counter Manager",
       "/CashCounterShiftManagement": "Cash Counter Shift Management",
       "/BillWiseReport": "BillWiseReport",
@@ -1712,6 +1764,28 @@ function App() {
               <Route path="/StoresAbcVedReport" element={<StoresAbcVedReport />} />
               <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
               <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
+              <Route path="/DrugPurchaseReportsDashboard" element={<DrugPurchaseReportsDashboard />} />
+              <Route path="/DrugPurchaseReports" element={<DrugPurchaseReportsDashboard />} />
+              <Route path="/DrugPurchaseReturnReport" element={<DrugPurchaseReturnReport />} />
+              <Route path="/DrugPurchaseAnalysisReport" element={<DrugPurchaseAnalysisReport />} />
+              <Route path="/DrugPreviousDayStockReport" element={<DrugPreviousDayStockReport />} />
+              <Route path="/DrugSupplierWiseReport" element={<DrugSupplierWiseReport />} />
+              <Route path="/DrugNonMovingReport" element={<DrugNonMovingReport />} />
+              <Route path="/DrugShortExpiryReport" element={<DrugShortExpiryReport />} />
+              <Route path="/DrugReorderLevelReport" element={<DrugReorderLevelReport />} />
+              <Route path="/DrugRackClassificationReport" element={<DrugRackClassificationReport />} />
+              <Route path="/DrugSupplierGrnReport" element={<DrugSupplierGrnReport />} />
+              <Route path="/DrugDepartmentIndentReport" element={<DrugDepartmentIndentReport />} />
+              <Route path="/DrugGRNGeneralReport" element={<DrugGRNGeneralReport />} />
+              <Route path="/DrugIntentReturnReport" element={<DrugIntentReturnReport />} />
+              <Route path="/DrugAbcVedReport" element={<DrugAbcVedReport />} />
+              <Route path="/DrugOpeningStockReport" element={<DrugOpeningStockReport />} />
+               <Route path="/InsuranceReportsDashboard" element={<InsuranceReportsDashboard />} />
+              <Route path="/InsuranceReports" element={<InsuranceReportsDashboard />} />
+              <Route path="/InsuranceBillsDueList" element={<InsuranceBillsDueList />} />
+              <Route path="/InsuranceBillsDueListReport" element={<InsuranceBillsDueList />} />
+              <Route path="/InsuranceBillsStatus" element={<InsuranceBillsStatus />} />
+              <Route path="/InsuranceBillsStatusReport" element={<InsuranceBillsStatusReport />} />
               <Route path="/StoresGRNGeneralReport" element={<StoresGRNGeneralReport />} />
               <Route path="/StoresIntentReturnReport" element={<StoresIntentReturnReport />} />
               <Route path="/StoresPurchaseOrderReport" element={<StoresPurchaseOrderReport />} />
@@ -1719,6 +1793,10 @@ function App() {
               <Route path="/StoresRackClassificationReport" element={<StoresRackClassificationReport />} />
               <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
               <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
+              <Route path="/OPPharmacySalesReport" element={<OPPharmacySalesReport />} />
+              <Route path="/OPPharmacyB2BReport" element={<OPPharmacyB2BReport />} />
+              <Route path="/OPPharmacyHSNReport" element={<OPPharmacyHSNReport />} />
+              <Route path="/OPPharmacyDocsReport" element={<OPPharmacyDocsReport />} />
               <Route path="/StoresPurchaseOrderFormat" element={<StoresPurchaseOrderFormat />} />
               <Route path="/StoresPurchaseReturn" element={<StoresPurchaseReturn />} />
               <Route path="/StoresPurchaseAnalysisReport" element={<StoresPurchaseAnalysisReport />} />
@@ -1924,6 +2002,46 @@ function App() {
                   <Route
                     path="/StoreDocsReport"
                     element={<StoreDocsReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/OPPharmacySalesReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/OPPharmacySalesReport"
+                    element={<OPPharmacySalesReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/OPPharmacyB2BReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/OPPharmacyB2BReport"
+                    element={<OPPharmacyB2BReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/OPPharmacyHSNReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/OPPharmacyHSNReport"
+                    element={<OPPharmacyHSNReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/OPPharmacyDocsReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/OPPharmacyDocsReport"
+                    element={<OPPharmacyDocsReport />}
                   />
                 )}
               {hasPagePermission(

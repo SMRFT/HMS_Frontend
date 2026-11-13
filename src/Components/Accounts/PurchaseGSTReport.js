@@ -475,8 +475,7 @@ export default function PurchaseGSTReport({
         "Cess",
         "State of supply",
         "Reverse Charge",
-        "GRN No.",
-        "Store Type"
+        "GRN No."
       ];
       const b2bRows = filteredB2B.map((r) => [
         r.invoice_no || "",
@@ -492,8 +491,7 @@ export default function PurchaseGSTReport({
         r.cess || "",
         r.state_of_supply || "Tamil Nadu",
         r.reverse_charge || "N",
-        r.grn_number || "",
-        r.source_type || ""
+        r.grn_number || ""
       ]);
       const ws = XLSX.utils.aoa_to_sheet([b2bHeaders, ...b2bRows]);
       XLSX.utils.book_append_sheet(wb, ws, "B2B");
@@ -519,8 +517,7 @@ export default function PurchaseGSTReport({
         "IGST",
         "Central Tax",
         "State Tax",
-        "Cess",
-        "Store Type"
+        "Cess"
       ];
       const hsnRows = filteredHSN.map((r) => [
         r.description || "",
@@ -532,8 +529,7 @@ export default function PurchaseGSTReport({
         r.igst || "",
         r.cgst || 0,
         r.sgst || 0,
-        r.cess || "",
-        r.source_type || ""
+        r.cess || ""
       ]);
       const ws = XLSX.utils.aoa_to_sheet([hsnHeaders, ...hsnRows]);
       XLSX.utils.book_append_sheet(wb, ws, "HSN - regd. supplies");
@@ -721,13 +717,12 @@ export default function PurchaseGSTReport({
                   <th>State of Supply</th>
                   <th style={{ textAlign: "center" }}>Reverse Charge</th>
                   <th>GRN No.</th>
-                  <th>Store Type</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredB2B.length === 0 ? (
                   <tr>
-                    <td colSpan={16} style={{ textAlign: "center", padding: "36px 12px", color: "#64748b" }}>
+                    <td colSpan={15} style={{ textAlign: "center", padding: "36px 12px", color: "#64748b" }}>
                       {loading
                         ? "Loading purchase records..."
                         : `No ${sourceType === "drug" ? "Drug Purchase" : sourceType === "stores" ? "General Stores" : ""} B2B invoices found for the selected criteria.`}
@@ -769,9 +764,6 @@ export default function PurchaseGSTReport({
                       <td>{r.state_of_supply || "Tamil Nadu"}</td>
                       <td style={{ textAlign: "center" }}>{r.reverse_charge || "N"}</td>
                       <td style={{ color: "#475569" }}>{r.grn_number || "-"}</td>
-                      <td>
-                        <SourceTag $type={r.source_type}>{r.source_type}</SourceTag>
-                      </td>
                     </tr>
                   ))
                 )}
@@ -790,7 +782,7 @@ export default function PurchaseGSTReport({
                     </td>
                     <td style={{ textAlign: "right", color: "#10b981" }}>₹{b2bTotals.cgst.toFixed(2)}</td>
                     <td style={{ textAlign: "right", color: "#f59e0b" }}>₹{b2bTotals.sgst.toFixed(2)}</td>
-                    <td colSpan={5}></td>
+                    <td colSpan={4}></td>
                   </tr>
                 </tfoot>
               )}
@@ -813,13 +805,12 @@ export default function PurchaseGSTReport({
                   <th style={{ textAlign: "right" }}>Central Tax (CGST)</th>
                   <th style={{ textAlign: "right" }}>State Tax (SGST)</th>
                   <th style={{ textAlign: "right" }}>Cess</th>
-                  <th>Store Type</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredHSN.length === 0 ? (
                   <tr>
-                    <td colSpan={12} style={{ textAlign: "center", padding: "36px 12px", color: "#64748b" }}>
+                    <td colSpan={11} style={{ textAlign: "center", padding: "36px 12px", color: "#64748b" }}>
                       {loading
                         ? "Loading HSN records..."
                         : `No ${sourceType === "drug" ? "Drug Purchase" : sourceType === "stores" ? "General Stores" : ""} HSN data found for the selected criteria.`}
@@ -853,9 +844,6 @@ export default function PurchaseGSTReport({
                       <td style={{ textAlign: "right", color: "#94a3b8" }}>
                         {r.cess ? `₹${Number(r.cess).toFixed(2)}` : "-"}
                       </td>
-                      <td>
-                        <SourceTag $type={r.source_type}>{r.source_type}</SourceTag>
-                      </td>
                     </tr>
                   ))
                 )}
@@ -874,7 +862,7 @@ export default function PurchaseGSTReport({
                     </td>
                     <td style={{ textAlign: "right", color: "#10b981" }}>₹{hsnTotals.cgst.toFixed(2)}</td>
                     <td style={{ textAlign: "right", color: "#f59e0b" }}>₹{hsnTotals.sgst.toFixed(2)}</td>
-                    <td colSpan={2}></td>
+                    <td colSpan={1}></td>
                   </tr>
                 </tfoot>
               )}
