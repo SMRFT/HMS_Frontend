@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import dayjs from "dayjs";
@@ -13,6 +13,9 @@ import {
     RefreshCw, 
     ArrowRight,
     ArrowLeft,
+    ArrowUp,
+    ArrowDown,
+    ArrowUpDown,
     User, 
     Building2, 
     Layers, 
@@ -636,6 +639,7 @@ const CashCounterShiftManagement = () => {
   const [selectedOutlet, setSelectedOutlet] = useState("all");
   const [searchShiftNo, setSearchShiftNo] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("desc"); // 'desc' (high to low / latest) | 'asc' (low to high / earliest)
 
   // Close shift modal state
   const [selectedShiftToClose, setSelectedShiftToClose] = useState(null);
@@ -673,6 +677,8 @@ const CashCounterShiftManagement = () => {
     try {
       const payload = {
         status: "active",
+        sort_by: "shiftno",
+        sort_order: sortOrder,
         "auth-hospital-code": hospital_code,
         "auth-branch-code": branch_code
       };
@@ -686,7 +692,7 @@ const CashCounterShiftManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [hospital_code, branch_code]);
+  }, [hospital_code, branch_code, sortOrder]);
 
   // Fetch Date-wise Shifts
   const fetchDateShifts = useCallback(async () => {
@@ -698,6 +704,8 @@ const CashCounterShiftManagement = () => {
         outlet_code: selectedOutlet,
         shiftno: searchShiftNo,
         status: statusFilter,
+        sort_by: "shiftno",
+        sort_order: sortOrder,
         "auth-hospital-code": hospital_code,
         "auth-branch-code": branch_code
       };
@@ -711,7 +719,7 @@ const CashCounterShiftManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, selectedOutlet, searchShiftNo, statusFilter, hospital_code, branch_code]);
+  }, [fromDate, toDate, selectedOutlet, searchShiftNo, statusFilter, sortOrder, hospital_code, branch_code]);
 
   useEffect(() => {
     fetchOutlets();
@@ -839,6 +847,16 @@ const CashCounterShiftManagement = () => {
 
   // Computed statistics
   const currentList = activeTab === "active_shifts" ? filteredActiveShifts : dateShifts;
+
+  // Shifts sorted by Shift Number order (natural numeric comparison)
+  const sortedList = useMemo(() => {
+    return [...currentList].sort((a, b) => {
+      const sA = (a.shiftno || "").trim();
+      const sB = (b.shiftno || "").trim();
+      const cmp = sA.localeCompare(sB, undefined, { numeric: true, sensitivity: "base" });
+      return sortOrder === "asc" ? cmp : -cmp;
+    });
+  }, [currentList, sortOrder]);
   const totalCollections = currentList.reduce((acc, s) => acc + (parseFloat(s.collected_Amount) || 0), 0);
   const totalCredits = currentList.reduce((acc, s) => acc + (parseFloat(s.CreditAmount ?? s.credit_amount ?? 0) || 0), 0);
   const totalOpenings = currentList.reduce((acc, s) => acc + (parseFloat(s.OpeningBalance) || 0), 0);
@@ -973,6 +991,14 @@ const CashCounterShiftManagement = () => {
             />
           </div>
 
+          <div className="filter-group">
+            <label>Order Wise</label>
+            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+              <option value="desc">Shift No: High to Low (Latest First)</option>
+              <option value="asc">Shift No: Low to High (Earliest First)</option>
+            </select>
+          </div>
+
           <div className="filter-actions">
             <RefreshButton onClick={fetchDateShifts} disabled={loading}>
               <Search size={14} /> Filter
@@ -987,7 +1013,20 @@ const CashCounterShiftManagement = () => {
           <Table>
             <thead>
               <tr>
-                <th>Shift No</th>
+                <th
+                  onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+                  style={{ cursor: "pointer", userSelect: "none" }}
+                  title="Click to toggle Shift Number order (High to Low / Low to High)"
+                >
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <span>Shift No</span>
+                    {sortOrder === "desc" ? (
+                      <ArrowDown size={14} color="#0d9488" />
+                    ) : (
+                      <ArrowUp size={14} color="#0d9488" />
+                    )}
+                  </div>
+                </th>
                 <th>Date (IST)</th>
                 <th>Outlet / Counter</th>
                 <th>Cashier</th>
@@ -1002,8 +1041,8 @@ const CashCounterShiftManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {currentList.length > 0 ? (
-                currentList.map((shift, idx) => {
+              {sortedList.length > 0 ? (
+                sortedList.map((shift, idx) => {
                   const isActive = shift.ShiftStatus === "active";
                   return (
                     <tr key={shift.shiftno || idx}>
@@ -1080,7 +1119,9 @@ const CashCounterShiftManagement = () => {
           </Table>
         </TableScrollWrapper>
         <TableFooterMeta>
-          <span>Showing <strong>{currentList.length}</strong> shift records</span>
+          <span>
+            Showing <strong>{sortedList.length}</strong> shift records (Ordered by Shift Number: {sortOrder === "desc" ? "High to Low" : "Low to High"})
+          </span>
           <span className="scroll-hint">← Scroll horizontally for more details →</span>
         </TableFooterMeta>
       </ContentCard>
