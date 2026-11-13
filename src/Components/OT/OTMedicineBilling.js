@@ -1372,27 +1372,8 @@ const OTMedicineBilling = () => {
     );
   }, [packages, packageSearch]);
 
-  const lookupItemPrice = async (itemId, itemName) => {
-    try {
-      const res = await apiRequest(
-        `${HmsBaseUrl}get_ippharmacy_stock/?outlet_code=${pharmacyDept}&search=${encodeURIComponent(itemName)}`,
-        "GET",
-      );
-      const list = res.success
-        ? Array.isArray(res.data?.data)
-          ? res.data.data
-          : Array.isArray(res.data)
-            ? res.data
-            : []
-        : [];
-      const match = list.find((i) => i.item_id === itemId) || list[0];
-      return match ? Number(match.mrp) || 0 : 0;
-    } catch {
-      return 0;
-    }
-  };
 
-  const handleSelectPackage = async (pkg) => {
+  const handleSelectPackage = (pkg) => {
     if (
       selectedMedicines.length > 0 &&
       !window.confirm(
@@ -1401,29 +1382,23 @@ const OTMedicineBilling = () => {
     )
       return;
 
-    setPackageLoading(true);
     setIsPackageModalOpen(false);
-    const items = pkg.items || [];
-    const priced = await Promise.all(
-      items.map(async (it) => {
-        const price = await lookupItemPrice(it.item_id, it.item_name);
-        return {
-          item_id: it.item_id,
-          itemName: it.item_name,
-          qty: it.qty,
-          price,
-          dispatched_qty: null,
-          dosage: "",
-          noOfDays: "",
-          remark: "",
-        };
-      }),
-    );
-    setSelectedMedicines(priced);
+
+    const items = (pkg.items || []).map((it) => ({
+      item_id: it.item_id,
+      itemName: it.item_name,
+      qty: it.qty,
+      price: 0, // price resolved at billing time
+      dispatched_qty: null,
+      dosage: "",
+      noOfDays: "",
+      remark: "",
+    }));
+
+    setSelectedMedicines(items);
     setSelectedPackageId(pkg.medPackage_id);
     setSelectedPackageName(pkg.medPackage_name);
     resetDrugFields();
-    setPackageLoading(false);
   };
 
   const handleClearPackage = () => {
