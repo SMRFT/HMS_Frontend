@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -258,6 +264,226 @@ const CheckLabel = styled.label`
   cursor: pointer;
   color: ${colors.textMain};
 `;
+
+// ─── Searchable (type-to-filter) dropdown ─────────────────────────────────────
+const SSWrap = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const SSInput = styled.input`
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
+  padding: 6px 26px 6px 10px;
+  font-size: 0.84rem;
+  color: ${colors.textMain};
+  background: #fff;
+  outline: none;
+  &:focus {
+    border-color: ${colors.primary};
+  }
+`;
+
+const SSCaret = styled.span`
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  color: #64748b;
+  pointer-events: none;
+`;
+
+const SSList = styled.ul`
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 3000;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.15);
+  max-height: 220px;
+  overflow-y: auto;
+  min-width: 180px;
+`;
+
+const SSItem = styled.li`
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: ${({ muted }) => (muted ? "#94a3b8" : "#1e293b")};
+  background: ${({ active }) => (active ? "#e0f2fe" : "transparent")};
+  font-weight: ${({ selected }) => (selected ? 700 : 400)};
+  &:hover {
+    background: #e0f2fe;
+  }
+`;
+
+const SSEmpty = styled.li`
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-style: italic;
+`;
+
+const staffLabel = (name, id) => (id ? `${name} (${id})` : name);
+
+/**
+ * Type-to-search dropdown.
+ * options: [{ id, name }]
+ * onChange receives a select-like event: { target: { name, value } }
+ */
+const SearchableSelect = ({
+  name,
+  value,
+  onChange,
+  options = [],
+  placeholder = "-- Select --",
+  style,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const wrapRef = useRef(null);
+  const listRef = useRef(null);
+
+  const selected = useMemo(
+    () => options.find((o) => String(o.id) === String(value)),
+    [options, value],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    const starts = [];
+    const contains = [];
+    options.forEach((o) => {
+      const n = String(o.name || "").toLowerCase();
+      if (n.startsWith(q)) starts.push(o);
+      else if (n.includes(q)) contains.push(o);
+    });
+    return [...starts, ...contains];
+  }, [options, query]);
+
+  // Close when clicking outside
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // Keep highlighted item in view
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const el = listRef.current.querySelector('[data-active="true"]');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+  }, [highlight, open]);
+
+  const commit = (id) => {
+    if (typeof onChange === "function") {
+      onChange({ target: { name, value: id } });
+    }
+    setOpen(false);
+    setQuery("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      setHighlight((h) => Math.min(h + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter") {
+      if (open) {
+        e.preventDefault();
+        if (filtered[highlight]) commit(filtered[highlight].id);
+      }
+    } else if (e.key === "Escape") {
+      if (open) {
+        e.stopPropagation();
+        setOpen(false);
+        setQuery("");
+      }
+    } else if (e.key === "Tab") {
+      setOpen(false);
+      setQuery("");
+    }
+  };
+
+  return (
+    <SSWrap ref={wrapRef} style={style}>
+      <SSInput
+        type="text"
+        autoComplete="off"
+        placeholder={placeholder}
+        value={open ? query : selected ? selected.name : ""}
+        onFocus={() => {
+          setOpen(true);
+          setQuery("");
+          setHighlight(0);
+        }}
+        onClick={() => {
+          if (!open) {
+            setOpen(true);
+            setQuery("");
+            setHighlight(0);
+          }
+        }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setHighlight(0);
+          if (!open) setOpen(true);
+        }}
+        onKeyDown={handleKeyDown}
+      />
+      <SSCaret>▼</SSCaret>
+      {open && (
+        <SSList ref={listRef}>
+          {value && (
+            <SSItem muted onMouseDown={(e) => e.preventDefault()} onClick={() => commit("")}>
+              {placeholder}
+            </SSItem>
+          )}
+          {filtered.length === 0 ? (
+            <SSEmpty>No matching doctor found</SSEmpty>
+          ) : (
+            filtered.map((o, idx) => (
+              <SSItem
+                key={o.id}
+                data-active={idx === highlight ? "true" : "false"}
+                active={idx === highlight}
+                selected={String(o.id) === String(value)}
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setHighlight(idx)}
+                onClick={() => commit(o.id)}
+              >
+                {o.name}
+              </SSItem>
+            ))
+          )}
+        </SSList>
+      )}
+    </SSWrap>
+  );
+};
 
 // ─── Additional Staff Section ──────────────────────────────────────────────────
 const StaffSection = styled.div`
@@ -542,6 +768,10 @@ const generateTimeOptions = () => {
   return options;
 };
 const timeOptions = generateTimeOptions();
+const BILL_TYPE_OPTIONS = [
+  { value: "SUR01", label: "Surgery" },
+  { value: "CAT01", label: "Cath Lab" },
+];
 
 const emptyForm = {
   uhid_no: "",
@@ -568,7 +798,7 @@ const emptyForm = {
   anesthesia_id: "",
   diagnosis: "",
   remarks: "",
-  billTypeNo: "",
+  billTypeNo: "SUR01",
   is_pack_request_CSSD: false,
   is_pack_return_CSSD: false,
 };
@@ -1608,19 +1838,15 @@ const SurgerySchedule = () => {
   }, []);
 
   // ── Fetch masters ─────────────────────────────────────────────────────────
+  // ── Fetch masters ─────────────────────────────────────────────────────────
   useEffect(() => {
     const fetchMasters = async () => {
       try {
-        const [otRes, doctorRes, anesNameRes, surgicalRes, diagnosisRes, otStaffRes] =
+        const [otRes, doctorRes, anesNameRes, diagnosisRes, otStaffRes] =
           await Promise.all([
             apiRequest(`${HMSURL}list_ots/`, "GET"),
             apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET"),
             apiRequest(`${HMSURL}list_anes/`, "GET"),
-            apiRequest(
-              `${HMSURL}investigation-items/?billTypeNo=SUR01&billType=60`,
-              "GET",
-            ),
-
             apiRequest(`${HMSURL}list_diagnosis/`, "GET"),
             apiRequest(`${HMSURL}ot_staffs/`, "GET"),
           ]);
@@ -1628,22 +1854,13 @@ const SurgerySchedule = () => {
         setOtOptions(toArray(otRes));
         setAnesNameOptions(toArray(anesNameRes));
 
-        // One doctor list feeds: Scheduled Surgeon, Anaesthetist, and both staff cards
         const doctors = normalizeDoctors(toArray(doctorRes));
         setDoctorOptions(doctors);
 
-        // OT staff list (department DEPT021)
+        // OT staff list (departments DEPT021 + DEPT027, handled in backend)
         const otStaffs = normalizeDoctors(toArray(otStaffRes));
         setOtStaffOptions(otStaffs);
 
-        // Surgery Name items — API returns { items: [...] } with itemName + price
-        const rawSurgical =
-          surgicalRes?.items ||
-          surgicalRes?.data?.items ||
-          toArray(surgicalRes);
-        setSurgicalItems(Array.isArray(rawSurgical) ? rawSurgical : []);
-
-        // Diagnosis list — { diagnostics_id, diagnostics_name }
         setDiagnosisOptions(toArray(diagnosisRes));
       } catch {
         // Non-blocking — dropdowns stay empty if API fails
@@ -1651,6 +1868,31 @@ const SurgerySchedule = () => {
     };
     fetchMasters();
   }, [HMSURL]);
+
+  // ── Fetch Surgery / Cath Lab items based on selected Bill Type ───────────
+  useEffect(() => {
+    if (!showForm) return;
+    const billTypeNo = formData.billTypeNo || "SUR01"; // SUR01 = Surgery, CAT01 = Cath Lab
+    let cancelled = false;
+
+    const fetchSurgicalItems = async () => {
+      try {
+        const res = await apiRequest(
+          `${HMSURL}investigation-items/?billTypeNo=${billTypeNo}&billType=57`,
+          "GET",
+        );
+        const raw = res?.items || res?.data?.items || toArray(res);
+        if (!cancelled) setSurgicalItems(Array.isArray(raw) ? raw : []);
+      } catch {
+        if (!cancelled) setSurgicalItems([]);
+      }
+    };
+
+    fetchSurgicalItems();
+    return () => {
+      cancelled = true;
+    };
+  }, [HMSURL, showForm, formData.billTypeNo]);
 
   // ── Fetch schedule list ───────────────────────────────────────────────────
   const fetchSchedules = useCallback(
@@ -1844,7 +2086,7 @@ const SurgerySchedule = () => {
       anesthesia_id: item.anesthesia_id || "",
       diagnosis: item.diagnosis || "",
       remarks: item.remarks || "",
-      billTypeNo: item.billTypeNo || "",
+      billTypeNo: item.billTypeNo || "SUR01",
       is_pack_request_CSSD: !!item.is_pack_request_CSSD,
       is_pack_return_CSSD: !!item.is_pack_return_CSSD,
     });
@@ -1876,7 +2118,17 @@ const SurgerySchedule = () => {
       [name]: type === "checkbox" ? checked : value,
     }));
   };
-
+  // Changing Bill Type clears the selected surgery, since the item list changes
+  const handleBillTypeChange = (e) => {
+    const { value } = e.target;
+    setErrorMsg("");
+    setSurgicalItems([]);
+    setFormData((prev) => ({
+      ...prev,
+      billTypeNo: value,
+      surgery_name: "",
+    }));
+  };
   // ── Additional staff ──────────────────────────────────────────────────────
   const addAnesEntry = () => {
     if (!anesInput) return;
@@ -2790,7 +3042,23 @@ const SurgerySchedule = () => {
                 </Select>
               </FormGroup>
 
-              {/* Surgery Name — populated from investigation-items API */}
+              {/* Bill Type — Surgery / Cath Lab */}
+              <FormGroup span={2}>
+                <Label>Bill Type</Label>
+                <Select
+                  name="billTypeNo"
+                  value={formData.billTypeNo}
+                  onChange={handleBillTypeChange}
+                >
+                  {BILL_TYPE_OPTIONS.map((b) => (
+                    <option key={b.value} value={b.value}>
+                      {b.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormGroup>
+
+              {/* Surgery Name — loaded from investigation-items for the chosen bill type */}
               <FormGroup span={2}>
                 <Label>
                   Surgery Name <Required>*</Required>
@@ -2806,26 +3074,29 @@ const SurgerySchedule = () => {
                       {s.itemName}
                     </option>
                   ))}
+                  {/* Keep the saved name visible while editing, before the list loads */}
+                  {formData.surgery_name &&
+                    !surgicalItems.some(
+                      (s) => s.itemName === formData.surgery_name,
+                    ) && (
+                      <option value={formData.surgery_name}>
+                        {formData.surgery_name}
+                      </option>
+                    )}
                 </Select>
               </FormGroup>
-
-              {/* Scheduled Surgeon — uses doctorOptions */}
+              {/* Scheduled Surgeon — type to search doctors */}
               <FormGroup span={3}>
                 <Label>
                   Scheduled Surgeon <Required>*</Required>
                 </Label>
-                <Select
+                <SearchableSelect
                   name="surgeon_id"
                   value={formData.surgeon_id}
                   onChange={handleChange}
-                >
-                  <option value="">-- Select --</option>
-                  {doctorOptions.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </Select>
+                  options={doctorOptions}
+                  placeholder="-- Select --"
+                />
               </FormGroup>
 
               {/* Scheduled Date */}
@@ -2938,21 +3209,16 @@ const SurgerySchedule = () => {
                 </CheckLabel>
               </FormGroup>
 
-              {/* Anaesthetist — uses doctorOptions */}
+              {/* Anaesthetist — type to search doctors */}
               <FormGroup span={2}>
                 <Label>Anaesthetist</Label>
-                <Select
+                <SearchableSelect
                   name="anaesthetist_id"
                   value={formData.anaesthetist_id}
                   onChange={handleChange}
-                >
-                  <option value="">-- Select --</option>
-                  {doctorOptions.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </Select>
+                  options={doctorOptions}
+                  placeholder="-- Select --"
+                />
               </FormGroup>
 
               {/* Anesthesia Name */}
@@ -3100,24 +3366,19 @@ const SurgerySchedule = () => {
 
             {/* ── Additional Staff ──────────────────────────────────────── */}
             <StaffSection>
-              {/* Anaesthetist card — uses doctorOptions */}
+              {/* Anaesthetist card — type to search doctors */}
               <StaffCard>
                 <StaffTitle>
                   Anesthetist <Required>*</Required>
                 </StaffTitle>
                 <StaffRow>
-                  <Select
+                  <SearchableSelect
                     value={anesInput}
                     onChange={(e) => setAnesInput(e.target.value)}
-                    style={{ flex: 1, fontSize: "0.82rem" }}
-                  >
-                    <option value="">-- Select --</option>
-                    {doctorOptions.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </Select>
+                    options={doctorOptions}
+                    placeholder="-- Select --"
+                    style={{ flex: 1 }}
+                  />
                   <GreenBtn
                     onClick={addAnesEntry}
                     style={{ padding: "6px 12px" }}
@@ -3135,24 +3396,19 @@ const SurgerySchedule = () => {
                 </div>
               </StaffCard>
 
-              {/* Doctor card — uses doctorOptions */}
+              {/* Doctor card — type to search doctors */}
               <StaffCard>
                 <StaffTitle>
                   Doctor <Required>*</Required>
                 </StaffTitle>
                 <StaffRow>
-                  <Select
+                  <SearchableSelect
                     value={docInput}
                     onChange={(e) => setDocInput(e.target.value)}
-                    style={{ flex: 1, fontSize: "0.82rem" }}
-                  >
-                    <option value="">-- Select --</option>
-                    {doctorOptions.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </Select>
+                    options={doctorOptions}
+                    placeholder="-- Select --"
+                    style={{ flex: 1 }}
+                  />
                   <GreenBtn
                     onClick={addDoctorEntry}
                     style={{ padding: "6px 12px" }}
@@ -3265,18 +3521,14 @@ const SurgerySchedule = () => {
             </div>
 
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <Select
+              {/* Filter by Doctor — type to search */}
+              <SearchableSelect
                 value={selectedDoctorFilter}
                 onChange={(e) => setSelectedDoctorFilter(e.target.value)}
-                style={{ fontSize: "0.78rem", minWidth: 160 }}
-              >
-                <option value="">-- Filter by Doctor --</option>
-                {doctorOptions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </Select>
+                options={doctorOptions}
+                placeholder="-- Filter by Doctor --"
+                style={{ width: 200, fontSize: "0.78rem" }}
+              />
 
               <GreenBtn
                 onClick={handleExport}
@@ -3513,8 +3765,8 @@ const SurgerySchedule = () => {
                             const textColor = s.rescheduled_remarks || s.is_rescheduled
                               ? "#0284c7"
                               : s.postponed_remarks || s.is_postponed
-                              ? "#7c3aed"
-                              : "#475569";
+                                ? "#7c3aed"
+                                : "#475569";
                             return (
                               <div style={{ fontSize: "0.74rem", color: textColor, fontStyle: "italic", marginTop: 4 }}>
                                 <strong>Remarks:</strong> {displayRemarks}
@@ -3943,7 +4195,7 @@ const SurgerySchedule = () => {
                     const disabled = isStaffDisabledInModal(st.id);
                     return (
                       <option key={st.id} value={st.id} disabled={disabled}>
-                        {st.name} {disabled ? "(Already Assigned)" : ""}
+                        {staffLabel(st.name, st.id)} {disabled ? "(Already Assigned)" : ""}
                       </option>
                     );
                   })}
@@ -3980,16 +4232,8 @@ const SurgerySchedule = () => {
               >
                 {scrubNurses.map((n) => (
                   <TagChip key={n.id}>
-                    {n.name}
-                    <button
-                      onClick={() =>
-                        setScrubNurses((prev) =>
-                          prev.filter((item) => item.id !== n.id),
-                        )
-                      }
-                    >
-                      ×
-                    </button>
+                    {staffLabel(n.name, n.id)}
+                    <button onClick={() => setScrubNurses((prev) => prev.filter((item) => item.id !== n.id))}>×</button>
                   </TagChip>
                 ))}
               </div>
@@ -3998,7 +4242,7 @@ const SurgerySchedule = () => {
             {/* Anesthesia Technician */}
             <div style={{ marginBottom: 12 }}>
               <Label style={{ fontSize: "0.82rem", fontWeight: 600 }}>
-                Anesthesia Technician
+                Anesthesia / Cath Lab Technician
               </Label>
               <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
                 <Select
@@ -4011,7 +4255,7 @@ const SurgerySchedule = () => {
                     const disabled = isStaffDisabledInModal(st.id);
                     return (
                       <option key={st.id} value={st.id} disabled={disabled}>
-                        {st.name} {disabled ? "(Already Assigned)" : ""}
+                        {staffLabel(st.name, st.id)} {disabled ? "(Already Assigned)" : ""}
                       </option>
                     );
                   })}
@@ -4051,16 +4295,8 @@ const SurgerySchedule = () => {
               >
                 {anesthesiaTechs.map((n) => (
                   <TagChip key={n.id}>
-                    {n.name}
-                    <button
-                      onClick={() =>
-                        setAnesthesiaTechs((prev) =>
-                          prev.filter((item) => item.id !== n.id),
-                        )
-                      }
-                    >
-                      ×
-                    </button>
+                    {staffLabel(n.name, n.id)}
+                    <button onClick={() => setAnesthesiaTechs((prev) => prev.filter((item) => item.id !== n.id))}>×</button>
                   </TagChip>
                 ))}
               </div>
@@ -4082,7 +4318,7 @@ const SurgerySchedule = () => {
                     const disabled = isStaffDisabledInModal(st.id);
                     return (
                       <option key={st.id} value={st.id} disabled={disabled}>
-                        {st.name} {disabled ? "(Already Assigned)" : ""}
+                        {staffLabel(st.name, st.id)} {disabled ? "(Already Assigned)" : ""}
                       </option>
                     );
                   })}
@@ -4122,16 +4358,8 @@ const SurgerySchedule = () => {
               >
                 {floorNurses.map((n) => (
                   <TagChip key={n.id}>
-                    {n.name}
-                    <button
-                      onClick={() =>
-                        setFloorNurses((prev) =>
-                          prev.filter((item) => item.id !== n.id),
-                        )
-                      }
-                    >
-                      ×
-                    </button>
+                    {staffLabel(n.name, n.id)}
+                    <button onClick={() => setFloorNurses((prev) => prev.filter((item) => item.id !== n.id))}>×</button>
                   </TagChip>
                 ))}
               </div>
@@ -4177,4 +4405,3 @@ const SurgerySchedule = () => {
 };
 
 export default SurgerySchedule;
-
