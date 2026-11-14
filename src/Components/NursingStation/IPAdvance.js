@@ -1087,7 +1087,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       const hh = String(dt.getHours()).padStart(2, "0");
       const min = String(dt.getMinutes()).padStart(2, "0");
       const ss = String(dt.getSeconds()).padStart(2, "0");
-      return `${dd}/${mm}/${yyyy}:${hh}:${min}:${ss}`;
+      return `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
     } catch {
       return String(d);
     }
@@ -1966,7 +1966,6 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
               font-size: 12px;
               font-weight: 800;
               margin-top: 4px;
-              color: #b91c1c;
             }
             .divider {
               border-top: 1.5px solid #000;
@@ -1982,7 +1981,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
               padding: 1px 0;
             }
             .lbl {
-              width: 95px;
+              width: 90px;
               font-weight: 700;
               flex-shrink: 0;
             }
@@ -2029,28 +2028,28 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             }
             .user-lbl {
               font-size: 11px;
+              white-space: nowrap;
             }
             .total-wrap {
               display: flex;
-              gap: 16px;
+              gap: 24px;
               align-items: baseline;
             }
             .total-lbl {
               font-weight: 800;
               font-size: 12px;
-              color: #b91c1c;
             }
             .total-val {
               font-size: 11px;
               width: 85px;
               text-align: right;
-              font-weight: 700;
+              font-weight: 600;
             }
             .signatures {
               display: flex;
               justify-content: space-between;
               margin-top: 36px;
-              font-size: 10px;
+              font-size: 11px;
               font-weight: 600;
               padding: 0 4px;
             }
@@ -2097,7 +2096,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             <div class="total-row">
               <span class="user-lbl">Prepared by : ${preparedByName}</span>
               <div class="total-wrap">
-                <span class="total-lbl">Refund Total</span>
+                <span class="total-lbl">Total</span>
                 <span class="total-val">${amountVal}</span>
               </div>
             </div>
@@ -3243,7 +3242,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         return (
           <ModalOverlay onClick={closePrintRefundModal}>
             <ModalBox style={{ maxWidth: "400px" }} onClick={e => e.stopPropagation()}>
-              <ModalHeader color="purple">
+              <ModalHeader>
                 <ModalTitle>Advance Refund Slip</ModalTitle>
                 <CloseBtn onClick={closePrintRefundModal}>×</CloseBtn>
               </ModalHeader>
@@ -3263,7 +3262,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                     <div style={{ fontSize: "11px", lineHeight: "1.35" }}>
                       GST No : 33ABDCS8326A1ZP
                     </div>
-                    <div style={{ fontSize: "12px", fontWeight: "800", marginTop: "4px", color: "#b91c1c" }}>
+                    <div style={{ fontSize: "12px", fontWeight: "800", marginTop: "4px" }}>
                       Advance Refund Slip
                     </div>
                   </div>
@@ -3274,42 +3273,42 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   {/* Info table */}
                   <div style={{ margin: "4px 0", fontSize: "11px" }}>
                     <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>UHID</span>
+                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>UHID</span>
                       <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
                       <span style={{ flex: 1, fontWeight: "500" }}>{uhidVal}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Name</span>
+                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Name</span>
                       <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
                       <span style={{ flex: 1, fontWeight: "500" }}>{nameVal}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Room</span>
+                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Room</span>
                       <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
                       <span style={{ flex: 1, fontWeight: "500" }}>{roomVal}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Refund Date</span>
+                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Refund Date</span>
                       <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
                       <span style={{ flex: 1, fontWeight: "500" }}>{refundDate}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Refund Bill No</span>
+                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Refund Bill No</span>
                       <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
-                      <span style={{ flex: 1, fontWeight: "700", color: "#b91c1c" }}>{refundBillNoVal}</span>
+                      <span style={{ flex: 1, fontWeight: "500" }}>{refundBillNoVal}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Original Bill</span>
+                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Original Bill</span>
                       <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
                       <span style={{ flex: 1, fontWeight: "500" }}>{origBillNoVal}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>IP No</span>
+                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>IP No</span>
                       <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
                       <span style={{ flex: 1, fontWeight: "500" }}>{ipNoVal}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Payment Mode</span>
+                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Payment Mode</span>
                       <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
                       <span style={{ flex: 1, fontWeight: "500" }}>{modeVal}</span>
                     </div>
@@ -3332,7 +3331,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   <div style={{ display: "flex", fontSize: "11px", padding: "3px 0" }}>
                     <span style={{ width: "38px" }}>1</span>
                     <span style={{ flex: 1 }}>IP Advance Refund {remarksVal ? `(${remarksVal})` : ""}</span>
-                    <span style={{ width: "85px", textAlign: "right", fontWeight: "700", color: "#b91c1c" }}>{amountVal}</span>
+                    <span style={{ width: "85px", textAlign: "right" }}>{amountVal}</span>
                   </div>
 
                   {/* Spacer */}
@@ -3343,15 +3342,15 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
 
                   {/* Total Row */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "11px", padding: "3px 0" }}>
-                    <span style={{ fontSize: "11px" }}>Prepared by : {preparedByName}</span>
-                    <div style={{ display: "flex", gap: "16px", alignItems: "baseline" }}>
-                      <span style={{ fontWeight: "800", fontSize: "12px", color: "#b91c1c" }}>Refund Total</span>
-                      <span style={{ fontSize: "11px", width: "85px", textAlign: "right", fontWeight: "700" }}>{amountVal}</span>
+                    <span style={{ fontSize: "11px", whiteSpace: "nowrap" }}>Prepared by : {preparedByName}</span>
+                    <div style={{ display: "flex", gap: "24px", alignItems: "baseline" }}>
+                      <span style={{ fontWeight: "800", fontSize: "12px" }}>Total</span>
+                      <span style={{ fontSize: "11px", width: "85px", textAlign: "right", fontWeight: "600" }}>{amountVal}</span>
                     </div>
                   </div>
 
                   {/* Signatures */}
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "36px", fontSize: "10px", fontWeight: "600", padding: "0 4px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "36px", fontSize: "11px", fontWeight: "600", padding: "0 4px" }}>
                     <span>Patient / Attender Signature</span>
                     <span>Signature Of Cashier</span>
                   </div>
@@ -3359,7 +3358,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
 
                 <ModalActions>
                   <Btn v="reset" onClick={closePrintRefundModal}>Close</Btn>
-                  <Btn c="purple" onClick={handlePrintRefund}>🖨️ Print Refund Slip</Btn>
+                  <Btn c="blue" onClick={handlePrintRefund}>🖨️ Print Refund Slip</Btn>
                 </ModalActions>
               </ModalBody>
             </ModalBox>
