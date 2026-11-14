@@ -374,7 +374,7 @@ const TableScrollContainer = styled.div`
 const StyledPrescriptionTable = styled.table`
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   text-align: left;
 
   thead {
@@ -382,8 +382,8 @@ const StyledPrescriptionTable = styled.table`
     border-bottom: 1.5px solid #e2e8f0;
 
     th {
-      padding: 12px 14px;
-      font-size: 0.72rem;
+      padding: 9px 12px;
+      font-size: 0.69rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
@@ -407,7 +407,7 @@ const StyledPrescriptionTable = styled.table`
       }
 
       td {
-        padding: 12px 14px;
+        padding: 9px 12px;
         vertical-align: middle;
         color: #1e293b;
       }
@@ -420,10 +420,10 @@ const UhidTableBadge = styled.span`
   color: #1d4ed8;
   font-weight: 700;
   font-family: "JetBrains Mono", monospace, -apple-system;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   background: #eff6ff;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2px 7px;
+  border-radius: 5px;
   border: 1px solid #dbeafe;
   white-space: nowrap;
 `;
@@ -433,38 +433,37 @@ const IpTableBadge = styled.span`
   color: #b45309;
   font-weight: 700;
   font-family: "JetBrains Mono", monospace, -apple-system;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   background: #fef3c7;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2px 7px;
+  border-radius: 5px;
   border: 1px solid #fde68a;
   white-space: nowrap;
 `;
 
 const InsuranceTableBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  display: inline-block;
   background: #ecfdf5;
   color: #047857;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2px 7px;
+  border-radius: 5px;
   border: 1px solid #a7f3d0;
   font-weight: 600;
-  font-size: 0.73rem;
+  font-size: 0.69rem;
   white-space: nowrap;
-  max-width: 190px;
+  max-width: 170px;
   overflow: hidden;
   text-overflow: ellipsis;
+  vertical-align: middle;
 `;
 
 const GeneralTableBadge = styled.span`
   display: inline-block;
   background: #f1f5f9;
   color: #475569;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 0.73rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 0.69rem;
   font-weight: 600;
   white-space: nowrap;
 `;
@@ -558,12 +557,12 @@ const StatusPill = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 0.74rem;
+  gap: 5px;
+  font-size: 0.70rem;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 9999px;
-  width: 96px;
+  width: 86px;
   box-sizing: border-box;
   text-align: center;
   white-space: nowrap;
@@ -572,8 +571,8 @@ const StatusPill = styled.span`
   border: 1px solid ${({ $status }) => ($status === "Processing" ? "#ede9fe" : "#ffedd5")};
 
   .dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: ${({ $status }) => ($status === "Processing" ? "#8b5cf6" : "#f97316")};
   }
@@ -582,9 +581,9 @@ const StatusPill = styled.span`
 const CardPrintBtn = styled.button`
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  width: 34px;
-  height: 34px;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -604,14 +603,14 @@ const CardViewBtn = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   background: #0f766e;
   color: #ffffff;
   border: none;
-  border-radius: 8px;
-  height: 34px;
-  padding: 0 14px;
-  font-size: 0.78rem;
+  border-radius: 6px;
+  height: 30px;
+  padding: 0 11px;
+  font-size: 0.73rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1668,6 +1667,109 @@ const formatExpiryForBill = (val) => {
   return s;
 };
 
+const numberToWords = (num) => {
+  const n = Math.floor(Math.abs(Number(num) || 0));
+  if (n === 0) return "Rupees Zero Only";
+
+  const a = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+    "Seventeen", "Eighteen", "Nineteen"
+  ];
+  const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  const inWords = (val) => {
+    let str = "";
+    if (val > 9999999) {
+      str += inWords(Math.floor(val / 10000000)) + " Crore ";
+      val %= 10000000;
+    }
+    if (val > 99999) {
+      str += inWords(Math.floor(val / 100000)) + " Lakh ";
+      val %= 100000;
+    }
+    if (val > 999) {
+      str += inWords(Math.floor(val / 1000)) + " Thousand ";
+      val %= 1000;
+    }
+    if (val > 99) {
+      str += inWords(Math.floor(val / 100)) + " Hundred ";
+      val %= 100;
+    }
+    if (val > 0) {
+      if (str !== "") str += "and ";
+      if (val < 20) {
+        str += a[val] + " ";
+      } else {
+        str += b[Math.floor(val / 10)] + (val % 10 !== 0 ? " " + a[val % 10] : "") + " ";
+      }
+    }
+    return str;
+  };
+
+  return "Rupees " + inWords(n).trim() + " Only";
+};
+
+// Reverse GST Pharmacy Pricing Calculation Helper
+const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) => {
+  const qty = customQty !== null ? (parseFloat(customQty) || 0) : (parseFloat(item?.qty ?? item?.quantity ?? 0) || 0);
+  const mrp = parseFloat(item?.mrp || item?.price || item?.rate || item?.Selling_Price || item?.selling_price || 0);
+  const gross = parseFloat((qty * mrp).toFixed(2));
+
+  const cgstRate = parseFloat(item?.cgst_rate ?? item?.CGST_Percentage ?? item?.cgst_percentage ?? item?.cgst_pct ?? 2.5);
+  const sgstRate = parseFloat(item?.sgst_rate ?? item?.SGST_Percentage ?? item?.sgst_percentage ?? item?.sgst_pct ?? 2.5);
+  const totalGstRate = cgstRate + sgstRate;
+
+  // Product Value = undiscounted base value without GST (Gross MRP / (1 + GST% / 100))
+  const productValue = totalGstRate > 0 ? (gross / (1 + totalGstRate / 100)) : gross;
+
+  const discVal = customDiscVal !== null
+    ? (parseFloat(customDiscVal) || 0)
+    : parseFloat(item?.discount_value ?? item?.discount_percent ?? item?.discount ?? 0);
+  const discType = item?.discount_type || "percent";
+
+  // Discount is calculated on Product Value (without GST amount)
+  let discAmtOnBase = 0;
+  if (discType === "amount") {
+    discAmtOnBase = totalGstRate > 0 ? (discVal / (1 + totalGstRate / 100)) : discVal;
+  } else {
+    discAmtOnBase = productValue * (discVal / 100);
+  }
+  discAmtOnBase = Math.min(productValue, Math.max(0, discAmtOnBase));
+
+  const taxableValue = productValue - discAmtOnBase;
+
+  // GST calculated on discounted taxable value
+  const cgstAmt = (taxableValue * cgstRate) / 100;
+  const sgstAmt = (taxableValue * sgstRate) / 100;
+  const totalGstAmt = cgstAmt + sgstAmt;
+
+  // Total bill value = Taxable Value + GST Amount
+  const lineTotal = parseFloat((taxableValue + totalGstAmt).toFixed(2));
+
+  // Total discount on MRP (including GST savings)
+  const totalDiscountOnMrp = parseFloat(Math.max(0, gross - lineTotal).toFixed(2));
+
+  return {
+    qty,
+    mrp,
+    gross,
+    cgstRate,
+    sgstRate,
+    totalGstRate,
+    productValue: parseFloat(productValue.toFixed(4)),
+    discVal,
+    discType,
+    discAmtOnBase: parseFloat(discAmtOnBase.toFixed(4)),
+    taxableValue: parseFloat(taxableValue.toFixed(4)),
+    cgstAmt: parseFloat(cgstAmt.toFixed(2)),
+    sgstAmt: parseFloat(sgstAmt.toFixed(2)),
+    totalGstAmt: parseFloat(totalGstAmt.toFixed(2)),
+    lineTotal,
+    totalDiscountOnMrp,
+  };
+};
+
 const formatBillDateTime = (val) => {
   if (!val) return "—";
   try {
@@ -1755,6 +1857,37 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       return `${day}/${month}/${year} • ${strHours}:${minutes} ${ampm}`;
     } catch {
       return String(dateVal);
+    }
+  };
+
+  const formatDateOnly = (dateVal) => {
+    if (!dateVal) return "—";
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return String(dateVal);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return String(dateVal);
+    }
+  };
+
+  const formatTimeOnly = (dateVal) => {
+    if (!dateVal) return "";
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return "";
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      const ampm = hours >= 12 ? "pm" : "am";
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const strHours = String(hours).padStart(2, "0");
+      return `${strHours}:${minutes} ${ampm}`;
+    } catch {
+      return "";
     }
   };
 
@@ -2248,6 +2381,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         (it.medicine_name && !String(it.medicine_name).startsWith("Item #") ? it.medicine_name : null) ||
         (it.name && !String(it.name).startsWith("Item #") ? it.name : null) ||
         it.item_name || it.medicine_name || it.name || "";
+      const pendingQ = it.pending_qty ?? it.qty ?? it.quantity ?? 0;
       return {
         ...it,
         item_name: resName,
@@ -2256,6 +2390,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         mrp: up > 0 ? up : (Number(it.mrp) || 0),
         selling_price: up,
         Selling_Price: up,
+        qty: pendingQ,
+        quantity: pendingQ,
+        requested_qty: it.requested_qty ?? it.qty ?? pendingQ,
+        dispatched_qty: it.dispatched_qty ?? 0,
+        pending_qty: pendingQ,
       };
     });
 
@@ -2556,6 +2695,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <th>Patient Name</th>
                       <th>Insurance Name</th>
                       <th>Ward & Room Number</th>
+                      <th>Request Date & Time</th>
                       <th style={{ textAlign: "center" }}>Status</th>
                       <th style={{ textAlign: "center" }}>Actions</th>
                     </tr>
@@ -2598,17 +2738,17 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             {ipNo && ipNo !== "—" ? (
                               <IpTableBadge>{ipNo}</IpTableBadge>
                             ) : (
-                              <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>—</span>
+                              <span style={{ color: "#94a3b8", fontSize: "0.72rem" }}>—</span>
                             )}
                           </td>
 
                           {/* 3. Patient Name */}
                           <td>
-                            <strong style={{ color: "#0f172a", fontSize: "0.88rem", display: "block", whiteSpace: "nowrap" }}>
+                            <strong style={{ color: "#0f172a", fontSize: "0.80rem", display: "block", whiteSpace: "nowrap" }}>
                               {pName}
                             </strong>
                             {(patient.patient_details?.age || patient.patient_details?.gender) && (
-                              <span style={{ fontSize: "0.72rem", color: "#64748b", display: "block", marginTop: 2 }}>
+                              <span style={{ fontSize: "0.68rem", color: "#64748b", display: "block", marginTop: 2 }}>
                                 {[
                                   patient.patient_details?.age && `${patient.patient_details.age} yrs`,
                                   patient.patient_details?.gender,
@@ -2622,9 +2762,8 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           {/* 4. Insurance Name */}
                           <td>
                             {isInsurance ? (
-                              <InsuranceTableBadge title={custType}>
-                                <Shield size={12} style={{ flexShrink: 0 }} />
-                                <span>{insCompany || "Insurance"}</span>
+                              <InsuranceTableBadge title={insCompany || custType}>
+                                {insCompany || "Insurance"}
                               </InsuranceTableBadge>
                             ) : (
                               <GeneralTableBadge>{patient.customer_type || "General"}</GeneralTableBadge>
@@ -2634,13 +2773,13 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           {/* 5. Ward & Room Number */}
                           <td>
                             <div>
-                              <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.82rem" }}>
+                              <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.76rem" }}>
                                 Room {ward}
                               </div>
                               {(roomCat || block || nursingStation) && (
-                                <div style={{ fontSize: "0.68rem", color: "#0f766e", marginTop: 2, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", lineHeight: 1.2 }}>
+                                <div style={{ fontSize: "0.65rem", color: "#0f766e", marginTop: 2, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", lineHeight: 1.2 }}>
                                   {roomCat && (
-                                    <span style={{ background: "#ccfbf1", color: "#0f766e", padding: "1px 5px", borderRadius: 4, fontWeight: 700, fontSize: "0.65rem", textTransform: "uppercase" }}>
+                                    <span style={{ background: "#ccfbf1", color: "#0f766e", padding: "1px 4px", borderRadius: 3, fontWeight: 700, fontSize: "0.62rem", textTransform: "uppercase" }}>
                                       {roomCat}
                                     </span>
                                   )}
@@ -2655,6 +2794,16 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             </div>
                           </td>
 
+                          {/* 6. Request Date & Time */}
+                          <td>
+                            <div style={{ fontWeight: 600, fontSize: "0.74rem", color: "#0f172a", whiteSpace: "nowrap" }}>
+                              {formatDateOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
+                            </div>
+                            <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: 2, whiteSpace: "nowrap" }}>
+                              {formatTimeOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
+                            </div>
+                          </td>
+
                           {/* 7. Status */}
                           <td style={{ textAlign: "center" }}>
                             <StatusPill $status={patient.billing_status || "Pending"}>
@@ -2663,10 +2812,10 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             </StatusPill>
                           </td>
 
-                          {/* 10. Actions */}
+                          {/* 8. Actions */}
                           <td style={{ textAlign: "center" }}>
                             <div
-                              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <CardPrintBtn
@@ -2677,7 +2826,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                                   setPrintPatient(patient);
                                 }}
                               >
-                                <Printer size={15} />
+                                <Printer size={13} />
                               </CardPrintBtn>
 
                               <CardViewBtn
@@ -2688,7 +2837,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                                   setSelectedPatientModal(patient);
                                 }}
                               >
-                                <Eye size={14} />
+                                <Eye size={13} />
                                 View Items
                               </CardViewBtn>
                             </div>
@@ -3093,7 +3242,18 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                                     <span style={{ color: "#94a3b8" }}>—</span>
                                   )}
                                 </td>
-                                <td style={{ textAlign: "center", fontWeight: 600 }}>{q}</td>
+                                <td style={{ textAlign: "center", fontWeight: 600 }}>
+                                  {Number(item.dispatched_qty || 0) > 0 ? (
+                                    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center" }}>
+                                      <span style={{ fontWeight: 700, color: "#0f766e", fontSize: "0.86rem" }}>{q}</span>
+                                      <span style={{ fontSize: "0.68rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                        (Req: {item.requested_qty ?? q} | Disp: {item.dispatched_qty})
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span>{q}</span>
+                                  )}
+                                </td>
                                 <td style={{ textAlign: "right", fontFamily: "'JetBrains Mono', monospace" }}>
                                   {formatCurrency(unitPrice)}
                                 </td>
@@ -3320,6 +3480,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         const uhid = p.uhid || "—";
         const ipNumber = p.inpatient_number || p.ip_number || p.ipNumber || "—";
         const doctorName = p.doctor_name || p.admittingDoctor || p.consultingDoctor || p.patient_details?.doctor_name || "DR.P.ARUNRAJ M.S MCH (SURG GASTRO)";
+        const insuranceDisplay = p.insurance_company || p.company_code || p.insurance || p.patient_details?.insurance_company || "";
         const billNo = p.bill_number || p.bill_no || p.Bill_id || "2627/007336";
         const rawDate = p.bill_date || p.ward_request_date || p.created_date;
         const billDateStr = formatBillDateTime(rawDate);
@@ -3333,20 +3494,16 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
         // Calculate Totals matching GST invoice
         let calcTotal = 0;
+        let totalCgstAmt = 0;
+        let totalSgstAmt = 0;
         items.forEach((it) => {
-          const q = Number(it.qty ?? it.quantity ?? 0);
-          const rate = getUnitPrice(it);
-          const baseAmt = q * rate;
-          const cgstPct = parseFloat(it.CGST_Percentage ?? it.cgst_percentage ?? it.cgst_pct ?? 2.5);
-          const sgstPct = parseFloat(it.SGST_Percentage ?? it.sgst_percentage ?? it.sgst_pct ?? 2.5);
-          const cgstAmt = parseFloat(it.CGST_Amt ?? it.cgst_amount ?? (baseAmt * cgstPct / 100));
-          const sgstAmt = parseFloat(it.SGST_Amt ?? it.sgst_amount ?? (baseAmt * sgstPct / 100));
-          const lineAmt = (it.amount != null && Number(it.amount) > 0)
-            ? Number(it.amount)
-            : (baseAmt + cgstAmt + sgstAmt);
-          calcTotal += lineAmt;
+          const pricing = calculateMedicinePricing(it);
+          calcTotal += pricing.lineTotal;
+          totalCgstAmt += pricing.cgstAmt;
+          totalSgstAmt += pricing.sgstAmt;
         });
 
+        const totalTaxAmt = totalCgstAmt + totalSgstAmt;
         const totalAmount = calcTotal > 0 ? calcTotal : (p.total_amount != null ? Number(p.total_amount) : 0);
         const discountAmt = parseFloat(p.overall_discount_amount || p.discount || 0);
         const netAmount = p.net_amount != null && Number(p.net_amount) > 0
@@ -3468,15 +3625,15 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                   {/* Divider Line */}
                   <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
 
-                  {/* DL NO, CIN on left | Duplicate in Center | GST NO, Invoice Type on Right */}
+                  {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: 11.5, letterSpacing: 0.5 }}>{billTypeLabel}</div>
                       <div>DL NO : TN/SLE/21/01107</div>
                       <div>CIN : L85110TZ2020PLC033974</div>
                     </div>
                     <div style={{ textAlign: "center" }}>
                       <div style={{ fontSize: 11, fontStyle: "italic", color: "#333", fontWeight: 700 }}>*** Duplicate ***</div>
+                      <div style={{ fontWeight: 800, fontSize: 11.5, letterSpacing: 0.5 }}>{billTypeLabel}</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>PHARMACY IP GST INVOICE</div>
@@ -3494,6 +3651,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <span style={{ color: "#222" }}>UHID No</span><span>:</span><span>{uhid}</span>
                       <span style={{ color: "#222" }}>IN Patient NO</span><span>:</span><span>{ipNumber}</span>
                       <span style={{ color: "#222" }}>Doctor</span><span>:</span><span>{doctorName}</span>
+                      {insuranceDisplay ? (
+                        <>
+                          <span style={{ color: "#222" }}>Insurance</span><span>:</span><span style={{ fontWeight: 600 }}>{insuranceDisplay}</span>
+                        </>
+                      ) : null}
                     </div>
                     <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: "70px 12px 1fr", rowGap: 2, alignItems: "baseline" }}>
                       <span style={{ color: "#222" }}>Bill No</span><span>:</span><span style={{ fontWeight: 700 }}>{billNo}</span>
@@ -3529,16 +3691,14 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     <tbody style={{ borderBottom: "1px solid #111" }}>
                       {items.length > 0 ? (
                         items.map((item, i) => {
-                          const q = Number(item.qty ?? item.quantity ?? 0);
-                          const rate = getUnitPrice(item);
-                          const baseAmt = q * rate;
-                          const cgstPct = parseFloat(item.CGST_Percentage ?? item.cgst_percentage ?? item.cgst_pct ?? 2.5);
-                          const sgstPct = parseFloat(item.SGST_Percentage ?? item.sgst_percentage ?? item.sgst_pct ?? 2.5);
-                          const cgstAmt = parseFloat(item.CGST_Amt ?? item.cgst_amount ?? (baseAmt * cgstPct / 100));
-                          const sgstAmt = parseFloat(item.SGST_Amt ?? item.sgst_amount ?? (baseAmt * sgstPct / 100));
-                          const lineAmt = (item.amount != null && Number(item.amount) > 0)
-                            ? Number(item.amount)
-                            : (baseAmt + cgstAmt + sgstAmt);
+                          const pricing = calculateMedicinePricing(item);
+                          const q = pricing.qty;
+                          const rate = pricing.mrp;
+                          const cgstPct = pricing.cgstRate;
+                          const sgstPct = pricing.sgstRate;
+                          const cgstAmt = pricing.cgstAmt;
+                          const sgstAmt = pricing.sgstAmt;
+                          const lineAmt = pricing.lineTotal;
                           return (
                             <tr key={i}>
                               <td style={{ padding: "2.5px 4px", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>
@@ -3565,13 +3725,28 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     </tbody>
                   </table>
 
-                  {/* Totals & Payment Section */}
+                  {/* Totals & Tax Breakdown Section */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>
-                    <div style={{ fontSize: 11.5, paddingTop: 2 }}>
-                      <span style={{ fontWeight: 700 }}>Payment Mode :</span> &nbsp; {paymentModeStr}
+                    <div style={{ flex: 1, paddingRight: 16 }}>
+                      <div style={{ fontSize: 11, fontStyle: "italic", color: "#222" }}>
+                        <span style={{ fontWeight: 700 }}>Rupees in Words:</span>{" "}
+                        {numberToWords(netAmount)}
+                      </div>
                     </div>
                     <table style={{ borderCollapse: "collapse", marginLeft: "auto", fontSize: 11.5 }}>
                       <tbody>
+                        <tr>
+                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Total CGST Amt :</td>
+                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                            {formatBillCurrency(totalCgstAmt)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Total SGST Amt :</td>
+                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                            {formatBillCurrency(totalSgstAmt)}
+                          </td>
+                        </tr>
                         <tr>
                           <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Total :</td>
                           <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
@@ -3579,7 +3754,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           </td>
                         </tr>
                         <tr>
-                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Discount Amt:</td>
+                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Discount :</td>
                           <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
                             {formatBillCurrency(discountAmt)}
                           </td>
@@ -3587,12 +3762,6 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                         <tr>
                           <td style={{ padding: "2.5px 12px 2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" }}>Net Amount (Payable) :</td>
                           <td style={{ padding: "2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, minWidth: 72 }}>
-                            {formatBillCurrency(netAmount)}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>IP CREDIT:</td>
-                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
                             {formatBillCurrency(netAmount)}
                           </td>
                         </tr>

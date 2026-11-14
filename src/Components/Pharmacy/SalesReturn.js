@@ -872,7 +872,7 @@ const buildPrintSlipHtml = (data) => {
     <div style="line-height: 1.5; font-size: 12px;">
       <div><span class="bold">SALES Refund Order No. :</span> ${return_bill_no}</div>
       <div><span class="bold">Patient   :</span> ${patient_name || "—"}</div>
-      <div><span class="bold">OP Number :</span> ${patientUhid}</div>
+      <div><span class="bold">UHID :</span> ${patientUhid}</div>
       <div style="display: flex; justify-content: space-between;">
         <div><span class="bold">Date&amp;Time :</span> ${formatted_datetime}</div>
         <div><span class="bold">Bill Number:</span> ${bill_no}</div>
@@ -1574,7 +1574,7 @@ const SalesReturn = () => {
         [],
         ["SALES Refund Order No.:", printSlipData.return_bill_no || "—"],
         ["Patient Name:", printSlipData.patient_name || "—"],
-        ["OP Number / UHID:", printSlipData.op_number || printSlipData.uhid || "—"],
+        ["UHID:", printSlipData.uhid || printSlipData.op_number || "—"],
         ["Date & Time:", printSlipData.formatted_datetime || "—", "Bill Number:", printSlipData.bill_no || "—"],
         [],
         ["Qty", "Particulars", "Re.cost", "Re.Qty", "Gst", "Batch", "Expiry", "Amount"]
@@ -1671,9 +1671,15 @@ const SalesReturn = () => {
       (sum, item) => sum + item.return_amount, 0
     );
 
+    const activeOutlet =
+      localStorage.getItem("selected_outlet") ||
+      localStorage.getItem("outlet_code") ||
+      "OLET002";
+
     const payload = {
       bill_no:               form.billNumber,
       uhid:                  form.uhidNo,
+      outlet_code:           activeOutlet,
       bill_type:             form.billType, 
       return_amount:         totalReturnAmount.toFixed(2),
       medicine_particulars,
@@ -2379,7 +2385,7 @@ const SalesReturn = () => {
                 <div style={{ marginTop: "16px", lineHeight: 1.5, fontSize: "12px" }}>
                   <div><span style={{ fontWeight: "bold" }}>SALES Refund Order No. :</span>{printSlipData.return_bill_no}</div>
                   <div><span style={{ fontWeight: "bold" }}>Patient   :</span> {cleanPatientName(printSlipData.patient_name) || "—"}</div>
-                  <div><span style={{ fontWeight: "bold" }}>OP Number :</span> {printSlipData.op_number || printSlipData.uhid || "—"}</div>
+                  <div><span style={{ fontWeight: "bold" }}>UHID :</span> {printSlipData.uhid || printSlipData.op_number || "—"}</div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <div><span style={{ fontWeight: "bold" }}>Date&amp;Time :</span> {printSlipData.formatted_datetime || formatDate(printSlipData.return_bill_date)}</div>
                     <div><span style={{ fontWeight: "bold" }}>Bill Number:</span> {printSlipData.bill_no}</div>
