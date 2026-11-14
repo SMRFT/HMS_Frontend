@@ -75,6 +75,11 @@ const HeaderContainer = styled.header`
     gap: 10px;
   }
 
+  @media print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
   @media (max-width: 480px) {
     padding: 0 8px;
     gap: 6px;

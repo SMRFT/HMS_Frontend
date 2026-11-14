@@ -483,7 +483,11 @@ const StoresReportsDashboard = () => {
                                         </div>
                                     }>
                                         {activeModalReport.component ? (
-                                            <activeModalReport.component />
+                                            <activeModalReport.component
+                                                department={selectedDepartment}
+                                                isModalView={true}
+                                                onClose={closeModal}
+                                            />
                                         ) : (
                                             <div style={{ textAlign: 'center', padding: '60px', color: colors.textMuted }}>
                                                 <p>No preview available for this report.</p>

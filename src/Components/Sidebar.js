@@ -108,6 +108,11 @@ const SidebarContainer = styled.div`
     $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
     transition: transform 0.3s ease;
   }
+
+  @media print {
+    display: none !important;
+    visibility: hidden !important;
+  }
 `;
 
 const Overlay = styled.div`

@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
 import { colors, PageWrapper, fadeIn } from '../GlobalStyles';
+import { printInsuranceReport } from './printInsuranceReport';
 
 const { RangePicker } = DatePicker;
 
@@ -512,7 +513,12 @@ const InsuranceBillsDueList = ({ embedded = false }) => {
     }, [groupedData]);
 
     const handlePrint = () => {
-        window.print();
+        printInsuranceReport(printRef.current, {
+            reportTitle: 'Insurance Bills Due List',
+            fromDate: fromDateStr,
+            toDate: toDateStr,
+            orientation: 'landscape'
+        });
     };
 
     const handleExportExcel = () => {
@@ -672,13 +678,47 @@ const InsuranceBillsDueList = ({ embedded = false }) => {
                 </KPICard>
             </KPIGrid>
 
+            {/* Global Print Isolation Stylesheet */}
+            <style>{`
+                @media print {
+                    @page {
+                        size: landscape;
+                        margin: 6mm 8mm;
+                    }
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    #printable-insurance-report-area,
+                    #printable-insurance-report-area * {
+                        visibility: visible !important;
+                    }
+                    #printable-insurance-report-area {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        display: block !important;
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                    }
+                    header, nav, aside, .sidebar, [class*="HeaderContainer"], [class*="SidebarContainer"], .no-print, button, input, select {
+                        display: none !important;
+                    }
+                }
+            `}</style>
+
             {/* Document Print Container */}
-            <PrintDocument ref={printRef}>
+            <PrintDocument ref={printRef} id="printable-insurance-report-area">
                 <HospitalHeader>
                     <h2>SHANMUGA HOSPITAL LIMITED</h2>
                     <div className="sub">51/24.Saradha College Road, Salem - 636007,</div>
                     <div className="report-title-line">
-                        Insurance Bills Due List From {fromDateStr} To {toDateStr}.
+                        Insurance Bills Status Report From {fromDateStr} To {toDateStr}.
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '11px', color: '#000', marginTop: '2px', fontWeight: 'bold' }}>
+                        Page : 1.
                     </div>
                 </HospitalHeader>
 
@@ -714,8 +754,8 @@ const InsuranceBillsDueList = ({ embedded = false }) => {
                             <tbody>
                                 {Object.keys(groupedData).length === 0 ? (
                                     <tr>
-                                        <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                                            No due records found for the selected date range and filter criteria.
+                                        <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
+                                            No record found
                                         </td>
                                     </tr>
                                 ) : (
@@ -726,43 +766,17 @@ const InsuranceBillsDueList = ({ embedded = false }) => {
 
                                         return (
                                             <React.Fragment key={compName}>
-                                                {/* Modern Sleek Company Header */}
-                                                <tr className="company-header-row">
-                                                    <td colSpan="8">
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                <Building2 size={16} color="#0891b2" />
-                                                                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
-                                                                    {compName}
-                                                                </span>
-                                                                <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: '#e0f2fe', color: '#0369a1' }}>
-                                                                    PVT
-                                                                </span>
-                                                                <span style={{ fontSize: '0.73rem', color: '#64748b', fontWeight: 600 }}>
-                                                                    ({items.length} {items.length === 1 ? 'record' : 'records'})
-                                                                </span>
-                                                            </div>
-                                                            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', fontSize: '0.78rem' }}>
-                                                                <span style={{ color: '#475569' }}>
-                                                                    Billed: <strong style={{ color: '#0f172a' }}>₹{compBilled.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                                                                </span>
-                                                                {compAdvance > 0 && (
-                                                                    <span style={{ color: '#059669' }}>
-                                                                        Advance: <strong>₹{compAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                                                                    </span>
-                                                                )}
-                                                                <span style={{ color: '#dc2626' }}>
-                                                                    Due: <strong style={{ color: '#dc2626' }}>₹{compDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                                                                </span>
-                                                            </div>
-                                                        </div>
+                                                {/* Formal Ledger Company Header Row */}
+                                                <tr className="company-header-row" style={{ background: '#f8fafc' }}>
+                                                    <td colSpan="8" style={{ fontWeight: 'bold', padding: '6px 8px', borderTop: '1px solid #000', borderBottom: '1px solid #000', fontSize: '11px' }}>
+                                                        Company Name : {compName} PVT
                                                     </td>
                                                 </tr>
 
                                                 {/* Items: 2 lines per record */}
                                                 {items.map((row, idx) => (
                                                     <React.Fragment key={`${compName}-${idx}`}>
-                                                        <tr className="item-row-1">
+                                                        <tr className="item-row-1" style={{ borderBottom: 'none' }}>
                                                             <td>{row.bill_date || ''}</td>
                                                             <td className="bold">{row.patient_name || ''}</td>
                                                             <td className="text-right">₹{Number(row.bill_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -770,49 +784,41 @@ const InsuranceBillsDueList = ({ embedded = false }) => {
                                                             <td>{row.settlement_date || ''}</td>
                                                             <td className="text-right">₹{Number(row.settled_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                             <td className="text-right">₹{Number(row.disallowed_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                            <td className="text-right bold" style={{ color: '#dc2626' }}>
+                                                            <td className="text-right bold">
                                                                 ₹{Number(row.due_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                             </td>
                                                         </tr>
-                                                        <tr className="item-row-2">
-                                                            <td colSpan="8">
-                                                                <div className="meta-chips">
-                                                                    {row.card_number && row.card_number !== '-' && (
-                                                                        <span className="info-chip"><strong>Card:</strong> {row.card_number}</span>
-                                                                    )}
-                                                                    {row.service_no && row.service_no !== '-' && (
-                                                                        <span className="info-chip"><strong>Service No:</strong> {row.service_no}</span>
-                                                                    )}
-                                                                    {row.claim_ref && row.claim_ref !== '-' && (
-                                                                        <span className="info-chip"><strong>Claim Ref:</strong> {row.claim_ref}</span>
-                                                                    )}
-                                                                    <span className="info-chip"><strong>IP No:</strong> {row.ip_number || '-'}</span>
-                                                                    <span className="info-chip"><strong>Bill ID:</strong> {row.bill_id || '-'}</span>
-                                                                    {row.sh_bill_no && row.sh_bill_no !== '-' && (
-                                                                        <span className="info-chip"><strong>Sh Bill:</strong> {row.sh_bill_no}</span>
-                                                                    )}
-                                                                    <span className="info-chip"><strong>Adm:</strong> {row.admitting_date || '-'}</span>
-                                                                    <span className="info-chip"><strong>Dis:</strong> {row.discharge_date || '-'}</span>
-                                                                    {row.place && row.place !== '-' && (
-                                                                        <span className="info-chip"><strong>Place:</strong> {row.place}</span>
-                                                                    )}
-                                                                    {Number(row.advance || 0) > 0 && (
-                                                                        <span className="info-chip success"><strong>Advance:</strong> ₹{Number(row.advance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                                                    )}
-                                                                    {Number(row.tds || 0) > 0 && (
-                                                                        <span className="info-chip"><strong>TDS:</strong> ₹{Number(row.tds).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                                                    )}
-                                                                    {Number(row.paid_by_patient || 0) > 0 && (
-                                                                        <span className="info-chip"><strong>Paid by Pat:</strong> ₹{Number(row.paid_by_patient).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                                                    )}
-                                                                    {row.settlement_duration && row.settlement_duration !== '-' && (
-                                                                        <span className="info-chip"><strong>Dur:</strong> {row.settlement_duration}</span>
-                                                                    )}
-                                                                </div>
+                                                        <tr className="item-row-2" style={{ borderBottom: '1px dashed #cbd5e1' }}>
+                                                            <td colSpan="8" style={{ padding: '3px 8px 6px 8px', fontSize: '10px', color: '#334155', background: '#fafafa' }}>
+                                                                {[
+                                                                    row.card_number && `Card: ${row.card_number}`,
+                                                                    row.service_no && `Service No: ${row.service_no}`,
+                                                                    row.claim_ref && `Claim Ref: ${row.claim_ref}`,
+                                                                    row.ip_number && `IP No: ${row.ip_number}`,
+                                                                    row.bill_id && `Bill ID: ${row.bill_id}`,
+                                                                    row.sh_bill_no && `Sh Bill: ${row.sh_bill_no}`,
+                                                                    row.admitting_date && `Adm: ${row.admitting_date}`,
+                                                                    row.discharge_date && `Dis: ${row.discharge_date}`,
+                                                                    row.place && `Place: ${row.place}`,
+                                                                    Number(row.advance || 0) > 0 && `Advance: ₹${Number(row.advance).toFixed(2)}`,
+                                                                    Number(row.tds || 0) > 0 && `TDS: ₹${Number(row.tds).toFixed(2)}`,
+                                                                    Number(row.paid_by_patient || 0) > 0 && `Paid By Pat: ₹${Number(row.paid_by_patient).toFixed(2)}`,
+                                                                    row.settlement_duration && `Dur: ${row.settlement_duration}`
+                                                                ].filter(Boolean).join('   •   ')}
                                                             </td>
                                                         </tr>
                                                     </React.Fragment>
                                                 ))}
+
+                                                {/* Company Subtotal */}
+                                                <tr className="company-subtotal-row" style={{ fontWeight: 'bold', borderTop: '1px dashed #000', borderBottom: '1px dashed #000', background: '#f8fafc' }}>
+                                                    <td colSpan="2">Total ({items.length} {items.length === 1 ? 'record' : 'records'})</td>
+                                                    <td className="text-right">₹{compBilled.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td colSpan="2"></td>
+                                                    <td className="text-right">₹{items.reduce((acc, it) => acc + (Number(it.settled_amount) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="text-right">₹{items.reduce((acc, it) => acc + (Number(it.disallowed_amount) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="text-right">₹{compDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                </tr>
                                             </React.Fragment>
                                         );
                                     })

@@ -35,6 +35,7 @@ import {
     TableWrapper,
 } from "../GlobalStyles";
 import * as XLSX from 'xlsx';
+import { printInsuranceReport } from "../Insurance_report/printInsuranceReport";
 
 const { RangePicker } = DatePicker;
 
@@ -501,7 +502,12 @@ const InsuranceCreditReport = () => {
     };
 
     const handlePrint = () => {
-        window.print();
+        printInsuranceReport('printable-insurance-credit-sheet', {
+            reportTitle: 'Insurance & Credit Billing Statement',
+            fromDate: dateRange[0].format("DD-MM-YYYY"),
+            toDate: dateRange[1].format("DD-MM-YYYY"),
+            orientation: 'landscape'
+        });
     };
 
     const openDetailModal = (patient) => {
@@ -892,7 +898,7 @@ const InsuranceCreditReport = () => {
             </Modal>
 
             {/* PRINT TEMPLATE (Auto-rendered during window.print()) */}
-            <PrintTemplate>
+            <PrintTemplate id="printable-insurance-credit-sheet">
                 <div style={{ textAlign: 'center', borderBottom: '2px solid black', paddingBottom: '10px', marginBottom: '16px' }}>
                     <h2 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '1px' }}>SHANMUGA HOSPITAL LIMITED</h2>
                     <p style={{ margin: '4px 0', fontSize: '12px' }}>51/24, Saradha College Road, Salem - 636007</p>
