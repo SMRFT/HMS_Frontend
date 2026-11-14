@@ -819,6 +819,9 @@ const today = () => {
 const ensureUtcIso = (iso) => {
   if (!iso) return iso;
   let s = String(iso).trim();
+  if (s.includes(' ') && !s.includes('T')) {
+    s = s.replace(' ', 'T');
+  }
   if (s && s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
     return s + "Z";
   }
