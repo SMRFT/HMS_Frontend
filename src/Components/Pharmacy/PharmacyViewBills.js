@@ -378,26 +378,26 @@ const TableWrapper = styled.div`overflow-x: auto;`;
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1400px;
+  min-width: 1200px;
 `;
 
 // Sales Return table is narrower
 const ReturnTable = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1100px;
+  min-width: 1000px;
 `;
 
 const Thead = styled.thead`background: #edf2f7;`;
 
 const Th = styled.th`
-  padding: 11px 12px;
+  padding: 8px 10px;
   text-align: left;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   color: #374151;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   border-bottom: 2px solid #e2e8f0;
   white-space: nowrap;
   cursor: pointer;
@@ -424,17 +424,17 @@ const ReturnTr = styled(Tr)`
 `;
 
 const Td = styled.td`
-  padding: 10px 12px;
-  font-size: 13.5px;
+  padding: 7px 10px;
+  font-size: 11.5px;
   color: #1f2937;
   white-space: nowrap;
 `;
 
 const Badge = styled.span`
   display: inline-block;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
   font-weight: 600;
   ${({ variant }) => {
     switch (variant) {
@@ -529,7 +529,7 @@ const EmptyMsg = styled.div`
 const AmountCell = styled.span`
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 11.5px;
 `;
 
 const StatPill = styled.span`
@@ -886,6 +886,111 @@ const formatBillCurrency = (val) => {
   return isNaN(num) ? "0.00" : num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+const numberToWords = (num) => {
+  const n = Math.floor(Math.abs(Number(num) || 0));
+  if (n === 0) return "Rupees Zero Only";
+
+  const a = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+    "Seventeen", "Eighteen", "Nineteen"
+  ];
+  const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  const inWords = (val) => {
+    let str = "";
+    if (val > 9999999) {
+      str += inWords(Math.floor(val / 10000000)) + " Crore ";
+      val %= 10000000;
+    }
+    if (val > 99999) {
+      str += inWords(Math.floor(val / 100000)) + " Lakh ";
+      val %= 100000;
+    }
+    if (val > 999) {
+      str += inWords(Math.floor(val / 1000)) + " Thousand ";
+      val %= 1000;
+    }
+    if (val > 99) {
+      str += inWords(Math.floor(val / 100)) + " Hundred ";
+      val %= 100;
+    }
+    if (val > 0) {
+      if (str !== "") str += "and ";
+      if (val < 20) str += a[val];
+      else str += b[Math.floor(val / 10)] + (val % 10 !== 0 ? " " + a[val % 10] : "");
+    }
+    return str.trim();
+  };
+
+  const words = inWords(n);
+  const paise = Math.round((Math.abs(Number(num) || 0) - n) * 100);
+  if (paise > 0) {
+    return `Rupees ${words} and ${inWords(paise)} Paise Only`;
+  }
+  return `Rupees ${words} Only`;
+};
+
+// Reverse GST Pharmacy Pricing Calculation Helper
+const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) => {
+  const qty = customQty !== null ? (parseFloat(customQty) || 0) : (parseFloat(item?.quantity ?? item?.qty ?? 0) || 0);
+  const mrp = parseFloat(item?.mrp || item?.price || item?.rate || item?.Selling_Price || item?.selling_price || 0);
+  const gross = parseFloat((qty * mrp).toFixed(2));
+
+  const cgstRate = parseFloat(item?.cgst_rate ?? item?.CGST_Percentage ?? item?.cgst_percentage ?? item?.cgst_pct ?? 2.5);
+  const sgstRate = parseFloat(item?.sgst_rate ?? item?.SGST_Percentage ?? item?.sgst_percentage ?? item?.sgst_pct ?? 2.5);
+  const totalGstRate = cgstRate + sgstRate;
+
+  // Product Value = undiscounted base value without GST (Gross MRP / (1 + GST% / 100))
+  const productValue = totalGstRate > 0 ? (gross / (1 + totalGstRate / 100)) : gross;
+
+  const discVal = customDiscVal !== null
+    ? (parseFloat(customDiscVal) || 0)
+    : parseFloat(item?.discount_value ?? item?.discount_percent ?? item?.discount ?? 0);
+  const discType = item?.discount_type || "percent";
+
+  // Discount is calculated on Product Value (without GST amount)
+  let discAmtOnBase = 0;
+  if (discType === "amount") {
+    discAmtOnBase = totalGstRate > 0 ? (discVal / (1 + totalGstRate / 100)) : discVal;
+  } else {
+    discAmtOnBase = productValue * (discVal / 100);
+  }
+  discAmtOnBase = Math.min(productValue, Math.max(0, discAmtOnBase));
+
+  const taxableValue = productValue - discAmtOnBase;
+
+  // GST calculated on discounted taxable value
+  const cgstAmt = (taxableValue * cgstRate) / 100;
+  const sgstAmt = (taxableValue * sgstRate) / 100;
+  const totalGstAmt = cgstAmt + sgstAmt;
+
+  // Total bill value = Taxable Value + GST Amount
+  const lineTotal = parseFloat((taxableValue + totalGstAmt).toFixed(2));
+
+  // Total discount on MRP (including GST savings)
+  const totalDiscountOnMrp = parseFloat(Math.max(0, gross - lineTotal).toFixed(2));
+
+  return {
+    qty,
+    mrp,
+    gross,
+    cgstRate,
+    sgstRate,
+    totalGstRate,
+    productValue: parseFloat(productValue.toFixed(4)),
+    discVal,
+    discType,
+    discAmtOnBase: parseFloat(discAmtOnBase.toFixed(4)),
+    taxableValue: parseFloat(taxableValue.toFixed(4)),
+    cgstAmt: parseFloat(cgstAmt.toFixed(2)),
+    sgstAmt: parseFloat(sgstAmt.toFixed(2)),
+    totalGstAmt: parseFloat(totalGstAmt.toFixed(2)),
+    lineTotal,
+    totalDiscountOnMrp,
+  };
+};
+
 const parsePaymentMethod = (raw) => {
   if (!raw) return null;
   if (typeof raw === "object" && raw !== null) {
@@ -1034,10 +1139,13 @@ const extractReturnRows = (bill, employeeName) => {
       uhid:           bill.uhid           || "",
       patient_name:   bill.patient_name   || bill.patientname || "",
       // Inherit parent bill's payment so Payment Mode column shows correctly
-      payment_method:  parentPaymentMethod,
+      payment_method:  parentPaymentMethod || bill.payment_mode || "Credit",
+      payment_mode:    bill.payment_mode   || parentPaymentMethod || "",
       payment_details: bill.payment_details || null,
       payment_entries: parentPaymentEntries,
       billing_mode:   bill.billing_mode    || "",
+      outlet_code:    bill.outlet_code     || "",
+      bill_type_name: bill.bill_type_name  || "",
       // Show parent status (e.g. "Paid") alongside "Sales Returned" badge
       billing_status:      "Sales Returned",
       parent_billing_status: parentBillingStatus,
@@ -1059,6 +1167,8 @@ const extractReturnRows = (bill, employeeName) => {
       inpatient_number: bill.inpatient_number || "",
       ip_serial_number: "",
       room_no:        bill.room_no        || "",
+      insurance_name:    bill.insurance_name || bill.insurance_company || "",
+      insurance_company: bill.insurance_company || bill.insurance_name || "",
       employee_name:  employeeName         || ret.edited_by || "",
       cashier_id:     ret.edited_by       || "",
       medicine_particulars: ret.items,
@@ -1077,11 +1187,14 @@ const formatBillData = (bills, employeeName = "") => {
       bill_date:      b.bill_date      || b.created_date || "",
       uhid:           b.uhid           || "",
       patient_name:   b.patient_name   || b.patientname || "",
-      payment_method: parsePaymentMethod(b.payment_details) || null,
+      payment_method: parsePaymentMethod(b.payment_details) || b.payment_mode || null,
+      payment_mode:   b.payment_mode   || parsePaymentMethod(b.payment_details) || "",
       payment_details: b.payment_details || null,
       payment_entries: parsePaymentEntries(b.payment_details),
       billing_mode:   b.billing_mode    || "",
       billing_status: b.billing_status || "",
+      outlet_code:    b.outlet_code     || "",
+      bill_type_name: b.bill_type_name  || "",
       is_deleted:     b.is_deleted     || false,
       delete_reason:  b.delete_reason  || "",
       bill_number:    b.bill_no        || "",
@@ -1100,12 +1213,17 @@ const formatBillData = (bills, employeeName = "") => {
       inpatient_number: b.inpatient_number || "",
       ip_serial_number: b.shiftno || b.ip_serial_number || "",
       room_no:        b.room_no        || "",
-      employee_name:  b.employee_name  || b.created_by_name || b.created_by || b.cashier_id || employeeName || "",
+      insurance_name:    b.insurance_name || b.insurance_company || "",
+      insurance_company: b.insurance_company || b.insurance_name || "",
+      billed_id:      b.billed_id,
+      billed_name:    b.billed_name || b.employee_name || b.prepared_by || "",
+      prepared_by:    b.prepared_by || b.billed_name || b.employee_name || "",
+      employee_name:  b.billed_name || b.employee_name || b.prepared_by || b.created_by_name || b.created_by || b.cashier_id || employeeName || "",
       cashier_id:     b.cashier_id     || b.created_by || "",
       medicine_particulars: parseMedicineParticulars(b.medicine_particulars),
     });
     // Inline return rows derived from edit_history
-    extractReturnRows(b, b.employee_name || b.created_by_name || b.created_by || b.cashier_id || employeeName).forEach((r) => rows.push(r));
+    extractReturnRows(b, b.billed_name || b.employee_name || b.prepared_by || b.created_by_name || b.created_by || b.cashier_id || employeeName).forEach((r) => rows.push(r));
   });
   return rows;
 };
@@ -1138,7 +1256,7 @@ const returnStatusVariant = (status) => {
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, activeTab, refreshTrigger }) {
+export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, activeTab, refreshTrigger, selectedOutlet }) {
   const { toasts, show: showToast, dismiss: dismissToast } = useToast();
 
   // ── Bills State ───────────────────────────────────────────────────────────
@@ -1399,7 +1517,15 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     }
   }, [fromDate, toDate, searchBy, searchText, billTypeFilter]);
 
-  const currentOutletCode = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+  const currentOutletCode = (
+    selectedOutlet ||
+    localStorage.getItem("selected_outlet") ||
+    localStorage.getItem("outlet_code") ||
+    ""
+  ).trim().toUpperCase();
+
+  const isOlet001 = currentOutletCode === "OLET001" || currentOutletCode.includes("OLET001");
+  const showAmountCollected = !isOlet001;
 
   // Auto-fetch bills on initial mount, when switching to View Bills tab, when outlet changes, or when a new bill is saved
   useEffect(() => {
@@ -1615,7 +1741,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                         <Th onClick={() => handleSort("billing_status")}>Status <SortIcon col="billing_status" currentKey={sortKey} dir={sortDir} /></Th>
                         <Th onClick={() => handleSort("bill_number")}>Bill Number <SortIcon col="bill_number" currentKey={sortKey} dir={sortDir} /></Th>
                         <Th onClick={() => handleSort("net_amount")}>Bill Amount <SortIcon col="net_amount" currentKey={sortKey} dir={sortDir} /></Th>
-                        <Th onClick={() => handleSort("net_amount")}>Amount Collected <SortIcon col="net_amount" currentKey={sortKey} dir={sortDir} /></Th>
+                        {showAmountCollected && (
+                          <Th onClick={() => handleSort("net_amount")}>Amount Collected <SortIcon col="net_amount" currentKey={sortKey} dir={sortDir} /></Th>
+                        )}
                         <Th onClick={() => handleSort("inpatient_number")}>IP Number <SortIcon col="inpatient_number" currentKey={sortKey} dir={sortDir} /></Th>
 
                         <Th onClick={() => handleSort("total_amount")}>Total Amount <SortIcon col="total_amount" currentKey={sortKey} dir={sortDir} /></Th>
@@ -1669,30 +1797,32 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                 </Badge>
                               )}
                             </Td>
-                            <Td style={{ fontFamily:"monospace", fontSize:12 }}>
+                            <Td style={{ fontFamily:"monospace", fontSize: 11 }}>
                               {bill.bill_number || "—"}
                               {bill._isReturn && bill.original_bill_no && (
-                                <div style={{ fontSize:10, color:"#9ca3af", marginTop:2 }}>
+                                <div style={{ fontSize: 9.5, color:"#9ca3af", marginTop: 2 }}>
                                   Orig: {bill.original_bill_no}
                                 </div>
                               )}
                             </Td>
                             <Td><AmountCell style={{ color: "#2d3748" }}>₹ {bill.net_amount.toFixed(2)}</AmountCell></Td>
-                            <Td>
-                              {bill._isReturn ? (
-                                <AmountCell style={{ color:"#276749", fontWeight:600 }}>
-                                  ₹ {bill.net_amount.toFixed(2)}
-                                </AmountCell>
-                              ) : (
-                                <AmountCell style={{ color: isPaidBill ? "#276749" : "#a0aec0", fontWeight: isPaidBill ? 600 : 400 }}>
-                                  {isPaidBill ? `₹ ${bill.net_amount.toFixed(2)}` : "—"}
-                                </AmountCell>
-                              )}
-                            </Td>
+                            {showAmountCollected && (
+                              <Td>
+                                {bill._isReturn ? (
+                                  <AmountCell style={{ color:"#276749", fontWeight:600 }}>
+                                    ₹ {bill.net_amount.toFixed(2)}
+                                  </AmountCell>
+                                ) : (
+                                  <AmountCell style={{ color: isPaidBill ? "#276749" : "#a0aec0", fontWeight: isPaidBill ? 600 : 400 }}>
+                                    {isPaidBill ? `₹ ${bill.net_amount.toFixed(2)}` : "—"}
+                                  </AmountCell>
+                                )}
+                              </Td>
+                            )}
                             <Td style={{ color:"#744210", fontWeight: bill.inpatient_number ? 500 : 400 }}>{bill.inpatient_number || "—"}</Td>
 
                             <Td><AmountCell>₹ {bill.total_amount.toFixed(2)}</AmountCell></Td>
-                            <Td style={{ color:"#4a5568", fontSize:12 }}>{bill.employee_name || "—"}</Td>
+                            <Td style={{ color:"#4a5568", fontSize: 11.5 }}>{bill.employee_name || "—"}</Td>
                             <Td>
                               <ActionGroup>
                                 {bill._isReturn ? (
@@ -1891,16 +2021,29 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                         <div style={{ textAlign: "center" }}>
                           <div style={{ fontSize: 11, fontStyle: "italic", color: "#333", fontWeight: 700 }}>*** Duplicate ***</div>
                           <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>
-                            {(printBill.payment_method || printBill.payment_mode || printBill.paymentMode || "").toLowerCase().includes("credit") ? "CREDIT BILL" : "CASH BILL"}
+                            {(() => {
+                              const pm = String(printBill.payment_mode || printBill.payment_method || printBill.paymentMode || "").trim().toLowerCase();
+                              const bm = String(printBill.billing_mode || printBill.billingMode || "").trim().toUpperCase();
+                              const isCredit = pm.includes("credit") || bm.includes("CREDIT") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT");
+                              return isCredit ? "CREDIT BILL" : "CASH BILL";
+                            })()}
                           </div>
                         </div>
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
-                            {((printBill.inpatient_number || printBill.ip_number || printBill.bill_type_name || "").toLowerCase().includes("ip")) ? "PHARMACY IP GST INVOICE" : "PHARMACY OP GST INVOICE"}
+                            {(() => {
+                              const billOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
+                              if (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001")) return "PHARMACY IP GST INVOICE";
+                              if (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002")) return "PHARMACY OP GST INVOICE";
+                              if (Boolean(printBill.inpatient_number || printBill.ip_number || printBill.ipNumber)) return "PHARMACY IP GST INVOICE";
+                              const btn = String(printBill.bill_type_name || "").toUpperCase();
+                              const bm = String(printBill.billing_mode || "").toUpperCase();
+                              if (btn.includes("IP") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT")) return "PHARMACY IP GST INVOICE";
+                              return "PHARMACY OP GST INVOICE";
+                            })()}
                           </div>
-                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 14 }}>
+                          <div style={{ display: "flex", justifyContent: "flex-end" }}>
                             <span>GST NO : 33ABDCS8326A1ZP</span>
-                            <span>No. RM/3G/012</span>
                           </div>
                         </div>
                       </div>
@@ -1960,13 +2103,14 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                         <tbody style={{ borderBottom: "1px solid #111" }}>
                           {pageMeds && pageMeds.length > 0 ? (
                             pageMeds.map((med, i) => {
-                              const qty      = parseFloat(med.qty   ?? med.quantity ?? 0);
-                              const price    = parseFloat(med.price ?? med.rate     ?? 0);
-                              const amt      = qty * price;
-                              const cgstPct  = parseFloat(med.CGST_Percentage ?? med.cgst_percentage ?? med.cgst_pct ?? 2.5);
-                              const sgstPct  = parseFloat(med.SGST_Percentage ?? med.sgst_percentage ?? med.sgst_pct ?? 2.5);
-                              const cgstAmt  = parseFloat(med.CGST_Amt ?? med.cgst_amount ?? (amt * cgstPct / 100).toFixed(2));
-                              const sgstAmt  = parseFloat(med.SGST_Amt ?? med.sgst_amount ?? (amt * sgstPct / 100).toFixed(2));
+                              const pricing  = calculateMedicinePricing(med);
+                              const qty      = pricing.qty;
+                              const price    = pricing.mrp;
+                              const amt      = pricing.lineTotal;
+                              const cgstPct  = pricing.cgstRate;
+                              const sgstPct  = pricing.sgstRate;
+                              const cgstAmt  = pricing.cgstAmt;
+                              const sgstAmt  = pricing.sgstAmt;
                               return (
                                 <tr key={i}>
                                   <td style={{ padding: "2.5px 4px", fontWeight: 500, maxWidth: 185, wordBreak: "break-word", lineHeight: 1.25 }}>
@@ -1977,9 +2121,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                       </div>
                                     )}
                                   </td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.hsn_code ?? "—"}</td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.batch_number ?? med.batch ?? "—"}</td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryForBill(med.expiry_date ?? med.expiry)}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.hsn_code || med.hsn || "—"}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.batch_number || med.batch || "—"}</td>
+                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryForBill(med.expiry_date || med.expiry)}</td>
                                   <td style={{ padding: "2.5px 3px", textAlign: "center", fontWeight: 700 }}>{qty}</td>
                                   <td style={{ padding: "2.5px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{price.toFixed(2)}</td>
                                   <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{cgstPct}</td>
@@ -2007,45 +2151,80 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                       ) : (
                         <>
                           {/* Totals & Payment */}
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>
-                            <div style={{ fontSize: 11.5, paddingTop: 2 }}>
-                              <span style={{ fontWeight: 700 }}>Payment Mode :</span> &nbsp; {(printBill.payment_method || printBill.payment_mode || printBill.paymentMode || "—").toUpperCase()}
-                            </div>
-                            {(() => {
-                              const computedGross = (allMeds || []).reduce((sum, m) => {
-                                const q = Number(m.qty || m.quantity || 0);
-                                const p = Number(m.price || m.mrp || m.Selling_Price || m.selling_price || 0);
-                                return sum + (q * p);
-                              }, 0);
-                              const previewGross = computedGross > 0 ? computedGross : Number(printBill.total_amount || 0);
-                              const previewNet = Number(printBill.net_amount || 0);
-                              const previewDisc = Math.max(
-                                0,
-                                previewGross - previewNet,
-                                Number(printBill.overall_discount_amount || printBill.discount || printBill.total_discount || 0)
-                              );
-                              const previewPct = previewGross > 0 ? (previewDisc / previewGross) * 100 : 0;
-                              const previewPctLabel = previewPct > 0
-                                ? ` (${previewPct % 1 === 0 ? previewPct.toFixed(0) : previewPct.toFixed(2).replace(/\.?0+$/, "")}%)`
-                                : "";
+                          {(() => {
+                            const computedGross = (allMeds || []).reduce((sum, m) => {
+                              const pricing = calculateMedicinePricing(m);
+                              return sum + pricing.gross;
+                            }, 0);
+                            const previewGross = computedGross > 0 ? computedGross : Number(printBill.total_amount || 0);
 
-                              return (
+                            const computedItemDisc = (allMeds || []).reduce((sum, m) => {
+                              const pricing = calculateMedicinePricing(m);
+                              return sum + pricing.totalDiscountOnMrp;
+                            }, 0);
+
+                            const explicitNet = Number(printBill.net_amount || 0);
+                            const explicitDisc = Number(printBill.overall_discount_amount || printBill.discount || printBill.total_discount || computedItemDisc || 0);
+                            const previewNet = explicitNet > 0 ? explicitNet : Math.max(0, previewGross - explicitDisc);
+                            const previewDisc = Math.max(
+                              0,
+                              explicitDisc,
+                              previewGross > previewNet ? (previewGross - previewNet) : 0
+                            );
+                            const previewPct = previewGross > 0 ? (previewDisc / previewGross) * 100 : 0;
+                            const previewPctLabel = previewPct > 0
+                              ? ` (${previewPct % 1 === 0 ? previewPct.toFixed(0) : previewPct.toFixed(2).replace(/\.?0+$/, "")}%)`
+                              : "";
+
+                            const totalCgst = (allMeds || []).reduce((sum, m) => {
+                              const pricing = calculateMedicinePricing(m);
+                              return sum + (isNaN(pricing.cgstAmt) ? 0 : pricing.cgstAmt);
+                            }, 0);
+
+                            const totalSgst = (allMeds || []).reduce((sum, m) => {
+                              const pricing = calculateMedicinePricing(m);
+                              return sum + (isNaN(pricing.sgstAmt) ? 0 : pricing.sgstAmt);
+                            }, 0);
+
+                            const totalTax = totalCgst + totalSgst;
+
+                            return (
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>
+                                <div style={{ fontSize: 11, color: "#111", lineHeight: 1.35, maxWidth: 360, paddingTop: 2 }}>
+                                  <span style={{ fontWeight: 700 }}>Rupees in Words:</span>
+                                  <div style={{ fontStyle: "italic", fontWeight: 600, color: "#1e293b", textTransform: "capitalize", marginTop: 1 }}>
+                                    {numberToWords(previewNet)}
+                                  </div>
+                                </div>
+
                                 <table style={{ borderCollapse: "collapse", marginLeft: "auto", fontSize: 11.5 }}>
                                   <tbody>
+                                    <tr>
+                                      <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Total CGST Amt :</td>
+                                      <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                        {formatBillCurrency(totalCgst)}
+                                      </td>
+                                    </tr>
+                                    <tr>
+                                      <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Total SGST Amt :</td>
+                                      <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                        {formatBillCurrency(totalSgst)}
+                                      </td>
+                                    </tr>
                                     <tr>
                                       <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Total :</td>
                                       <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
                                         {formatBillCurrency(previewGross)}
                                       </td>
                                     </tr>
-                                    {previewDisc > 0 && (
-                                      <tr>
-                                        <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Discount Amt{previewPctLabel}:</td>
-                                        <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
-                                          {formatBillCurrency(previewDisc)}
-                                        </td>
-                                      </tr>
-                                    )}
+                                    <tr>
+                                      <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                        {previewDisc > 0 ? `Discount Amt${previewPctLabel}:` : "Discount :"}
+                                      </td>
+                                      <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                        {formatBillCurrency(previewDisc || 0)}
+                                      </td>
+                                    </tr>
                                     <tr>
                                       <td style={{ padding: "2.5px 12px 2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" }}>Net Amount (Payable) :</td>
                                       <td style={{ padding: "2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, minWidth: 72 }}>
@@ -2054,9 +2233,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                     </tr>
                                   </tbody>
                                 </table>
-                              );
-                            })()}
-                          </div>
+                              </div>
+                            );
+                          })()}
 
                           {/* Divider Line Above Footer */}
                           <div style={{ borderTop: "1px solid #111", margin: "4px 0 3px 0" }} />
@@ -2064,7 +2243,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                           {/* Footer */}
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: 11, padding: "2px 0" }}>
                             <div style={{ fontWeight: 700, width: 75 }}>E &amp; OE</div>
-                            <div style={{ textAlign: "left", width: 180 }}>Prepared by : {printBill.prepared_by || printBill.created_by_name || printBill.employee_name || "—"}</div>
+                            <div style={{ textAlign: "left", width: 180 }}>Prepared by : {printBill.prepared_by || printBill.billed_name || printBill.employee_name || printBill.created_by_name || "—"}</div>
                             <div style={{ textAlign: "center", flex: 1, fontStyle: "italic", color: "#222" }}>"Goods once sold will not taken back"</div>
                             <div style={{ textAlign: "right", width: 140 }}>(Sign-pharmacist)</div>
                           </div>

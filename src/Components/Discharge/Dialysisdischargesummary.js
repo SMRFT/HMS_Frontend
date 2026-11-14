@@ -43,6 +43,14 @@ export default function DialysisDischargeSummary() {
   const [uhidLoading, setUhidLoading] = useState(false);
   const [uhidError, setUhidError] = useState(null);
 
+  // ── Patient Selection Modal (Pharmacy billing style) ──
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [patientModalTitle, setPatientModalTitle] = useState("Select Patient");
+  const [patientSearchInput, setPatientSearchInput] = useState("");
+  const [patientNamePhoneInput, setPatientNamePhoneInput] = useState("");
+  const [patientSearchResults, setPatientSearchResults] = useState([]);
+  const [patientSearchLoading, setPatientSearchLoading] = useState(false);
+
   // ── Toast helper using react-toastify + local banner fallback ──
   const showToast = (message, type = "success") => {
     if (type === "error") {
@@ -59,77 +67,161 @@ export default function DialysisDischargeSummary() {
     setTimeout(() => setToast(null), 5000);
   };
 
-  const fetchPatientByUhid = async (uhidValue) => {
-    if (!uhidValue.trim()) return;
+  const selectPatient = (patient, wasSavedToday = false) => {
+    if (!patient) return;
+    const fullName = [patient.salutation, patient.firstName, patient.lastName]
+      .filter(Boolean)
+      .join(" ");
+
+    // Consultant from latest billing doctor or doctor field
+    let consultantName = "";
+    if (Array.isArray(patient.billing) && patient.billing.length > 0) {
+      const withDoc = patient.billing.filter(b => b.doctor_name);
+      if (withDoc.length > 0) {
+        consultantName = withDoc[0].doctor_name;
+      }
+    }
+    if (!consultantName) {
+      consultantName = patient.consulting_doctor || patient.doctor_name || patient.consultant || "";
+    }
+
+    // Build address: deduplicate parts that repeat (e.g. permanent_address === city)
+    const rawAddressParts = [
+      patient.permanent_address,
+      patient.area,
+      patient.city,
+      patient.state,
+      patient.zipcode,
+    ]
+      .map((p) => (p ? String(p).trim() : ""))
+      .filter(Boolean);
+
+    const addressParts = rawAddressParts.filter(
+      (part, idx, arr) =>
+        idx === 0 || part.toLowerCase() !== arr[idx - 1].toLowerCase()
+    );
+
+    setForm((prev) => ({
+      ...prev,
+      name: fullName,
+      age: (() => {
+        if (patient.dob) {
+          const today = new Date();
+          const birth = new Date(patient.dob);
+          let years = today.getFullYear() - birth.getFullYear();
+          const m = today.getMonth() - birth.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) years--;
+          return String(years);
+        }
+        return patient.age ? String(patient.age) : prev.age;
+      })(),
+      gender: patient.gender || prev.gender,
+      uhid: patient.uhid || prev.uhid,
+      consultant: consultantName || prev.consultant,
+      insurance: patient.company_name || patient.insurance || prev.insurance,
+      address: addressParts.join(", "),
+    }));
+
+    if (wasSavedToday) {
+      showToast("Note: A dialysis discharge summary has already been saved for this patient today.", "warning");
+    }
+
+    setUhidError(null);
+    setShowPatientModal(false);
+  };
+
+  // Search patient by UHID (from form input or button)
+  const handleSearchPatient = async (directUhidVal) => {
+    const uhidVal = (directUhidVal !== undefined ? directUhidVal : form.uhid || "").trim();
+    if (!uhidVal) {
+      setPatientModalTitle("Search & Select Patient");
+      setPatientSearchInput("");
+      setPatientNamePhoneInput("");
+      setPatientSearchResults([]);
+      setShowPatientModal(true);
+      return;
+    }
+
     setUhidLoading(true);
     setUhidError(null);
     try {
       const res = await apiRequest(
-        `${Hmsbaseurl}dialysis_patient_details/?uhid=${encodeURIComponent(uhidValue.trim())}`,
+        `${Hmsbaseurl}dialysis_patient_details/?uhid=${encodeURIComponent(uhidVal)}`,
         "GET"
       );
       const resBody = res?.data || res;
-      if (resBody?.already_saved_today) {
-        showToast("Note: A dialysis discharge summary has already been saved for this patient today.", "warning");
-      }
       const list = Array.isArray(resBody?.data)
         ? resBody.data
         : Array.isArray(resBody)
         ? resBody
         : [];
-      const patient = list[0] || null;
-      if (!patient) {
-        setUhidError("No patient found for this UHID.");
-        return;
+
+      if (list.length === 0) {
+        showToast(`No patient found for '${uhidVal}'.`, "warning");
+        setPatientModalTitle(`Search Patient (No match for "${uhidVal}")`);
+        setPatientSearchInput(uhidVal);
+        setPatientNamePhoneInput("");
+        setPatientSearchResults([]);
+        setShowPatientModal(true);
+      } else if (list.length === 1) {
+        selectPatient(list[0], resBody?.already_saved_today);
+        const pName = [list[0].salutation, list[0].firstName, list[0].lastName].filter(Boolean).join(" ");
+        showToast(`Patient details loaded for ${pName || list[0].uhid}`, "success");
+      } else {
+        setPatientModalTitle(`Select Patient (${list.length} matches found)`);
+        setPatientSearchInput(uhidVal);
+        setPatientNamePhoneInput("");
+        setPatientSearchResults(list);
+        setShowPatientModal(true);
       }
-      const fullName = [patient.salutation, patient.firstName, patient.lastName]
-        .filter(Boolean)
-        .join(" ");
-      const consultantName =
-        patient.billing?.find((b) => b.doctor_name)?.doctor_name || "";
-      // Build address: deduplicate parts that repeat (e.g. permanent_address === city)
-      const rawAddressParts = [
-        patient.permanent_address,
-        patient.area,
-        patient.city,
-        patient.state,
-        patient.zipcode,
-      ]
-        .map((p) => (p ? String(p).trim() : ""))
-        .filter(Boolean);
-
-      // Drop a part if it is identical (case-insensitive) to the immediately preceding one
-      const addressParts = rawAddressParts.filter(
-        (part, idx, arr) =>
-          idx === 0 || part.toLowerCase() !== arr[idx - 1].toLowerCase()
-      );
-
-      setForm((prev) => ({
-        ...prev,
-        name: fullName,
-        age: (() => {
-          if (patient.dob) {
-            const today = new Date();
-            const birth = new Date(patient.dob);
-            let years = today.getFullYear() - birth.getFullYear();
-            const m = today.getMonth() - birth.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) years--;
-            return String(years);
-          }
-          return patient.age ? String(patient.age) : prev.age;
-        })(),
-        gender: patient.gender || prev.gender,
-        uhid: patient.uhid || prev.uhid,
-        consultant: consultantName || prev.consultant,
-        insurance: patient.company_name || prev.insurance,
-        address: addressParts.join(", "),
-      }));
     } catch (err) {
+      console.error("Patient search failed:", err);
+      showToast("Failed to search patient. Please try again.", "error");
       setUhidError(err?.message || "Failed to fetch patient details.");
     } finally {
       setUhidLoading(false);
     }
   };
+
+  // Live search inside modal by UHID and/or Name/Phone
+  const handleModalSearch = async (directUhid, directName) => {
+    const uVal = (directUhid !== undefined ? directUhid : patientSearchInput).trim();
+    const nVal = (directName !== undefined ? directName : patientNamePhoneInput).trim();
+
+    if (!uVal && !nVal) {
+      showToast("Please enter a UHID or name/phone to search.", "warning");
+      return;
+    }
+
+    setPatientSearchLoading(true);
+    try {
+      const params = [];
+      if (uVal) params.push(`uhid=${encodeURIComponent(uVal)}`);
+      if (nVal) {
+        params.push(`name=${encodeURIComponent(nVal)}`);
+      }
+      const url = `${Hmsbaseurl}dialysis_patient_details/?${params.join("&")}`;
+      const res = await apiRequest(url, "GET");
+      const resBody = res?.data || res;
+      const list = Array.isArray(resBody?.data)
+        ? resBody.data
+        : Array.isArray(resBody)
+        ? resBody
+        : [];
+      setPatientSearchResults(list);
+      if (list.length === 0) {
+        showToast("No patients found matching your search.", "info");
+      }
+    } catch (err) {
+      console.error("Modal search failed:", err);
+      showToast("Search failed. Please try again.", "error");
+    } finally {
+      setPatientSearchLoading(false);
+    }
+  };
+
+  // Backward compatibility wrapper
+  const fetchPatientByUhid = (uhidVal) => handleSearchPatient(uhidVal);
  
   
   const setField = (key, value) =>
@@ -560,22 +652,53 @@ export default function DialysisDischargeSummary() {
               <div className="grid-3">
                 <div>
                   <label className="dds-label">UHID *</label>
-                  <div style={{ position: "relative" }}>
+                  <div style={{ display: "flex", alignItems: "stretch" }}>
                     <input
                       className="dds-input"
-                      placeholder="Type UHID and press Enter"
+                      placeholder="e.g. 6459 or S026/006459"
                       value={form.uhid}
                       onChange={(e) => { setField("uhid", e.target.value); setUhidError(null); }}
-                      onKeyDown={(e) => { if (e.key === "Enter") fetchPatientByUhid(form.uhid); }}
-                      style={{ paddingRight: uhidLoading ? 36 : 12 }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSearchPatient(form.uhid);
+                        }
+                      }}
+                      style={{
+                        borderRadius: "8px 0 0 8px",
+                        borderRight: "none",
+                        flex: 1
+                      }}
                     />
-                    {uhidLoading && (
-                      <span style={{
-                        position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                        width: 14, height: 14, border: "2px solid #dde3ec", borderTopColor: "#0f766e",
-                        borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite"
-                      }} />
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleSearchPatient(form.uhid)}
+                      disabled={uhidLoading}
+                      title="Search patient by UHID (Press Enter)"
+                      style={{
+                        padding: "0 14px",
+                        background: "linear-gradient(135deg, #0f766e, #0d9488)",
+                        color: "#fff",
+                        border: "1.5px solid #0f766e",
+                        borderRadius: "0 8px 8px 0",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "14px",
+                        fontWeight: 700,
+                        transition: "opacity 0.2s"
+                      }}
+                    >
+                      {uhidLoading ? (
+                        <span style={{
+                          width: 14, height: 14, border: "2px solid #ffffff", borderTopColor: "transparent",
+                          borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite"
+                        }} />
+                      ) : (
+                        "🔍"
+                      )}
+                    </button>
                   </div>
                   {uhidError && (
                     <div style={{ marginTop: 5, fontSize: 12, color: "#ef4444", fontWeight: 600 }}>
@@ -1084,6 +1207,250 @@ export default function DialysisDischargeSummary() {
         </div>
       </div>
  
+      {/* ── Patient Selection Modal (Pharmacy billing style) ── */}
+      {showPatientModal && (
+        <div
+          onClick={() => setShowPatientModal(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(15, 23, 42, 0.6)",
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              width: "95%",
+              maxWidth: 960,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
+              overflow: "hidden"
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "#f8fafc"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18 }}>👤</span>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#0f172a", fontWeight: 700 }}>
+                  {patientModalTitle || "Select Patient"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPatientModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "1.4rem",
+                  color: "#94a3b8",
+                  cursor: "pointer",
+                  lineHeight: 1
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
+              {/* Search Bar inside Modal */}
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 16, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 180px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#475569" }}>UHID (Last numbers or /)</label>
+                  <input
+                    className="dds-input"
+                    type="text"
+                    placeholder="e.g. 6459 or /006459"
+                    value={patientSearchInput}
+                    onChange={(e) => setPatientSearchInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleModalSearch()}
+                    autoFocus
+                  />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 200px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#475569" }}>Name / Phone</label>
+                  <input
+                    className="dds-input"
+                    type="text"
+                    placeholder="Name or phone"
+                    value={patientNamePhoneInput}
+                    onChange={(e) => setPatientNamePhoneInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleModalSearch()}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleModalSearch()}
+                  disabled={patientSearchLoading}
+                  style={{
+                    padding: "9px 22px",
+                    borderRadius: 8,
+                    background: "linear-gradient(135deg, #0f766e, #0d9488)",
+                    color: "white",
+                    border: "none",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    height: 38,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6
+                  }}
+                >
+                  🔍 Search
+                </button>
+              </div>
+
+              {/* Patient Results Table */}
+              {patientSearchLoading ? (
+                <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>
+                  Searching patient records...
+                </div>
+              ) : patientSearchResults.length === 0 ? (
+                <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>
+                  No patients found. Try entering the last digits of UHID or patient name above.
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: 10, fontWeight: 600 }}>
+                    Showing {patientSearchResults.length} matching patient(s) — Click a row to select:
+                  </div>
+                  <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                          <th style={{ padding: "10px 12px", width: 60, textAlign: "center", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Action</th>
+                          <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>UHID</th>
+                          <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Patient Name</th>
+                          <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Age / Gender</th>
+                          <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Mobile</th>
+                          <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Doctor / Consultant</th>
+                          <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Address</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {patientSearchResults.map((p, idx) => {
+                          const fullName = [p.salutation, p.firstName, p.lastName].filter(Boolean).join(" ");
+                          const mobile = p.mobilePhone || p.mobile || p.phone || "—";
+                          const doc = p.billing?.find((b) => b.doctor_name)?.doctor_name || p.doctor_name || p.consultant || "—";
+                          const ageDisplay = p.dob ? (() => {
+                            const today = new Date();
+                            const birth = new Date(p.dob);
+                            let y = today.getFullYear() - birth.getFullYear();
+                            const m = today.getMonth() - birth.getMonth();
+                            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) y--;
+                            return `${y} Y`;
+                          })() : (p.age ? `${p.age} Y` : "—");
+
+                          return (
+                            <tr
+                              key={p.id || idx}
+                              onClick={() => selectPatient(p)}
+                              style={{
+                                borderBottom: "1px solid #f1f5f9",
+                                cursor: "pointer",
+                                transition: "background 0.15s"
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = "#f0fdfa")}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                            >
+                              <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    selectPatient(p);
+                                  }}
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: "50%",
+                                    background: "#0f766e",
+                                    color: "#fff",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 12,
+                                    fontWeight: 700
+                                  }}
+                                  title="Select Patient"
+                                >
+                                  ✓
+                                </button>
+                              </td>
+                              <td style={{ padding: "10px 12px", fontWeight: 700, color: "#0f766e" }}>{p.uhid}</td>
+                              <td style={{ padding: "10px 12px", fontWeight: 600, color: "#0f172a" }}>{fullName || "—"}</td>
+                              <td style={{ padding: "10px 12px", color: "#475569" }}>{ageDisplay} / {p.gender || "—"}</td>
+                              <td style={{ padding: "10px 12px", color: "#475569" }}>{mobile}</td>
+                              <td style={{ padding: "10px 12px", color: "#475569" }}>{doc}</td>
+                              <td style={{ padding: "10px 12px", color: "#64748b", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {[p.area, p.city].filter(Boolean).join(", ") || "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "12px 24px",
+                borderTop: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "flex-end",
+                background: "#f8fafc"
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowPatientModal(false)}
+                style={{
+                  padding: "7px 18px",
+                  borderRadius: 6,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  color: "#475569",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer"
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Toast ── */}
       {toast && (
         <div className="toast" style={{ background: toast.type === "error" ? "#ef4444" : toast.type === "warning" ? "#f59e0b" : "#22c55e" }}>

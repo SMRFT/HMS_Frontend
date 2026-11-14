@@ -263,19 +263,19 @@ const StyledTable = styled.table`
 
   th {
     background: #F8FAFC;
-    color: ${colors.textSecondary};
-    font-size: 0.8rem;
+    color: #475569;
+    font-size: 0.74rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 14px 16px;
+    padding: 9px 12px;
     border-bottom: 2px solid ${colors.border};
     white-space: nowrap;
   }
 
   td {
-    padding: 14px 16px;
-    font-size: 0.88rem;
+    padding: 8px 12px;
+    font-size: 0.78rem;
     color: ${colors.textPrimary};
     border-bottom: 1px solid ${colors.border};
     vertical-align: middle;
@@ -289,16 +289,34 @@ const StyledTable = styled.table`
 const PatientTag = styled.div`
   .name {
     font-weight: 700;
-    font-size: 0.92rem;
+    font-size: 0.82rem;
     color: ${colors.textPrimary};
+    line-height: 1.25;
   }
-  .sub {
-    font-size: 0.78rem;
-    color: ${colors.textSecondary};
-    margin-top: 3px;
+  .meta-grid {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .meta-col {
+    display: flex;
+    flex-direction: column;
+  }
+  .meta-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+  }
+  .meta-value {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #334155;
+    line-height: 1.2;
+    margin-top: 1px;
   }
 `;
 
@@ -306,36 +324,68 @@ const WardTag = styled.span`
   display: inline-block;
   background: #F1F5F9;
   color: #334155;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.74rem;
   font-weight: 600;
 `;
 
 const StatusPill = styled.span`
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.78rem;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
   font-weight: 700;
   background: ${props => props.$type === "Approved" ? colors.successLight : props.$type === "Pending" ? colors.accentLight : colors.dangerLight};
   color: ${props => props.$type === "Approved" ? colors.success : props.$type === "Pending" ? colors.accent : colors.danger};
 `;
 
-const ActionBtn = styled.button`
+const ActionRow = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+`;
+
+const CardViewBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
   border-radius: 6px;
-  font-size: 0.82rem;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: #115e59;
+  }
+`;
+
+const ActionBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 0.76rem;
   font-weight: 600;
+  height: 28px;
   cursor: pointer;
   border: none;
   transition: all 0.2s;
-  margin-right: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 
   &.approve {
     background: ${colors.success};
@@ -383,7 +433,7 @@ const ModalBackdrop = styled.div`
 const ModalContent = styled.div`
   background: #ffffff;
   border-radius: 12px;
-  width: 100%;
+  width: 95%;
   max-width: ${props => props.$maxWidth || "750px"};
   max-height: 90vh;
   display: flex;
@@ -438,6 +488,16 @@ const getTodayDate = () => {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const formatBillNo = (val) => {
+  if (!val && val !== 0) return "—";
+  const str = String(val).trim();
+  if (str.includes("/")) {
+    const parts = str.split("/");
+    return parts[parts.length - 1] || str;
+  }
+  return str;
 };
 
 export default function WardReturnApprovals() {
@@ -566,26 +626,89 @@ export default function WardReturnApprovals() {
   const executePrint = () => {
     const printContent = document.getElementById("ward-return-print-area");
     if (!printContent) return;
-    const printWindow = window.open("", "", "width=900,height=750");
+    const printWindow = window.open("", "", "width=960,height=720");
     if (printWindow) {
       printWindow.document.write(`
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
           <head>
-            <title>Ward Return Bill - ${selectedPrintBill?.ward_return_bill_no || "Print"}</title>
+            <meta charset="utf-8">
+            <title>Ward Return Bill - ${formatBillNo(selectedPrintBill?.ward_return_bill_no) || "Print"}</title>
             <style>
-              @page { size: auto; margin: 10mm 15mm; }
-              body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; color: #111; font-size: 12px; }
-              table { width: 100%; border-collapse: collapse; }
-              th, td { padding: 6px 8px; }
-              th { background: #f1f5f9; text-align: left; font-size: 11px; text-transform: uppercase; }
+              @page {
+                size: A5 landscape;
+                margin: 4mm 6mm;
+              }
+              * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+              }
+              html, body {
+                width: 210mm;
+                margin: 0;
+                padding: 0;
+                font-family: Arial, Helvetica, sans-serif;
+                color: #111;
+                background: #ffffff;
+                font-size: 10.5px;
+                line-height: 1.3;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              .bill-wrapper {
+                width: 100%;
+                max-width: 198mm;
+                margin: 0 auto;
+                padding: 2mm 3mm;
+                background: #ffffff;
+                box-sizing: border-box;
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+              }
+              th, td {
+                padding: 3px 5px !important;
+                vertical-align: middle;
+              }
+              th {
+                background: #edf2f7 !important;
+                color: #111 !important;
+                font-weight: 700;
+                font-size: 10px !important;
+                text-transform: uppercase;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
               @media print {
-                .no-print { display: none !important; }
+                body {
+                  padding: 0;
+                  background: #fff;
+                }
+                .bill-wrapper {
+                  border: none;
+                  padding: 0 !important;
+                  margin: 0 auto !important;
+                  width: 100% !important;
+                  max-width: 198mm !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
               }
             </style>
           </head>
           <body>
-            ${printContent.innerHTML}
+            <div class="bill-wrapper">
+              ${printContent.innerHTML}
+            </div>
           </body>
         </html>
       `);
@@ -594,7 +717,7 @@ export default function WardReturnApprovals() {
       setTimeout(() => {
         printWindow.print();
         printWindow.close();
-      }, 400);
+      }, 350);
     }
   };
 
@@ -641,8 +764,18 @@ export default function WardReturnApprovals() {
         const ip = (item.inpatient_number || item.ip_number || "").toLowerCase();
         const bNo = (item.bill_no || "").toLowerCase();
         const retNo = (item.ward_return_bill_no || "").toLowerCase();
+        const bNoFmt = formatBillNo(item.bill_no).toLowerCase();
+        const retNoFmt = formatBillNo(item.ward_return_bill_no).toLowerCase();
         const ward = (item.ward_name || item.room_no || "").toLowerCase();
-        match = pName.includes(q) || uhid.includes(q) || ip.includes(q) || bNo.includes(q) || retNo.includes(q) || ward.includes(q);
+        match =
+          pName.includes(q) ||
+          uhid.includes(q) ||
+          ip.includes(q) ||
+          bNo.includes(q) ||
+          retNo.includes(q) ||
+          bNoFmt.includes(q) ||
+          retNoFmt.includes(q) ||
+          ward.includes(q);
       }
       if (!match) return false;
 
@@ -829,7 +962,7 @@ export default function WardReturnApprovals() {
                   <th>Returning Items</th>
                   <th>Amounts</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  <th style={{ whiteSpace: "nowrap", minWidth: "185px" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -838,10 +971,19 @@ export default function WardReturnApprovals() {
                     <td>
                       <PatientTag>
                         <div className="name">{req.patient_name || "—"}</div>
-                        <div className="sub">
-                          <span>{req.uhid || "—"}</span>
-                          <span>|</span>
-                          <span>{req.ip_number || "—"}</span>
+                        <div className="meta-grid">
+                          <div className="meta-col">
+                            <span className="meta-label">UHID</span>
+                            <span className="meta-value">{req.uhid || "—"}</span>
+                          </div>
+                          {req.ip_number &&
+                            req.ip_number !== "—" &&
+                            !String(req.ip_number).trim().toUpperCase().startsWith("OP") && (
+                              <div className="meta-col">
+                                <span className="meta-label">IP NUMBER</span>
+                                <span className="meta-value">{req.ip_number}</span>
+                              </div>
+                            )}
                         </div>
                       </PatientTag>
                     </td>
@@ -849,49 +991,63 @@ export default function WardReturnApprovals() {
                     <td>
                       <WardTag>{req.ward_name || req.room_no || "General Ward"}</WardTag>
                       {req.doctor_name && (
-                        <div style={{ fontSize: "0.78rem", color: colors.textSecondary, marginTop: 4 }}>
+                        <div style={{ fontSize: "0.72rem", color: colors.textSecondary, marginTop: 3 }}>
                           Doc: {req.doctor_name}
                         </div>
                       )}
                     </td>
 
                     <td>
-                      <div style={{ fontWeight: 600 }}>{req.bill_no || `Bill #${req.Bill_id}`}</div>
-                      <div style={{ fontSize: "0.78rem", color: colors.textMuted }}>
+                      <div style={{ fontWeight: 600, fontSize: "0.78rem" }}>{formatBillNo(req.bill_no) || `Bill #${req.Bill_id}`}</div>
+                      <div style={{ fontSize: "0.72rem", color: colors.textMuted, marginTop: 2 }}>
                         Date: {formatDate(req.bill_date)}
                       </div>
                     </td>
 
                     <td>
-                      <div style={{ fontWeight: 600 }}>{req.requested_by || "Ward Staff"}</div>
-                      <div style={{ fontSize: "0.78rem", color: colors.textMuted }}>
+                      <div style={{ fontWeight: 600, fontSize: "0.78rem", color: colors.textPrimary }}>
+                        {req.requested_by_name || req.requested_by || "Ward Staff"}
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: colors.textMuted, marginTop: 2 }}>
                         {formatDateTime(req.requested_at)}
                       </div>
                     </td>
 
-                    <td style={{ maxWidth: 300 }}>
-                      {req.items && req.items.length > 0 ? (
-                        req.items.map((itm, idx) => (
-                          <div key={idx} style={{ fontSize: "0.82rem", marginBottom: 4, background: "#F1F5F9", padding: "4px 8px", borderRadius: 4 }}>
-                            <strong>{itm.return_qty || itm.qty}x</strong> {itm.item_name || `Item #${itm.item_id}`}
-                            <div style={{ fontSize: "0.75rem", color: colors.textSecondary }}>
-                              Batch: {itm.batch_number || "—"} • Rate: ₹{Number(itm.price || 0).toFixed(2)}
-                              {itm.reason ? ` • ${itm.reason}` : ""}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <span style={{ color: colors.textMuted }}>No items listed</span>
-                      )}
+                    <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                      <CardViewBtn
+                        type="button"
+                        title="View Returned Items"
+                        onClick={() => setSelectedViewItem({
+                          patient_name: req.patient_name,
+                          uhid: req.uhid,
+                          inpatient_number: req.ip_number || req.inpatient_number,
+                          ward_name: req.ward_name,
+                          room_no: req.room_no,
+                          doctor_name: req.doctor_name,
+                          bill_no: req.bill_no,
+                          ward_return_bill_no: req.return_request_id ? `REQ #${req.return_request_id}` : "Pending Return",
+                          original_bill_amount: req.original_bill_amount,
+                          return_amount: req.return_amount,
+                          balance_amount: req.balance_amount ?? (Number(req.original_bill_amount || 0) - Number(req.return_amount || 0)),
+                          medicine_particulars: req.items || [],
+                          items: req.items || [],
+                          Bill_id: req.Bill_id,
+                          return_request_id: req.return_request_id,
+                          is_pending: true,
+                        })}
+                      >
+                        <Eye size={13} />
+                        View Items ({(req.items || []).length})
+                      </CardViewBtn>
                     </td>
 
                     <td>
-                      <div style={{ fontSize: "0.82rem" }}>
+                      <div style={{ fontSize: "0.76rem", lineHeight: 1.35 }}>
                         <div>Orig Bill: <strong>₹{Number(req.original_bill_amount || 0).toFixed(2)}</strong></div>
-                        <div style={{ color: colors.accent, fontWeight: 700, marginTop: 2 }}>
+                        <div style={{ color: colors.accent, fontWeight: 700, marginTop: 1 }}>
                           Return: -₹{Number(req.return_amount || 0).toFixed(2)}
                         </div>
-                        <div style={{ color: colors.success, fontWeight: 700, marginTop: 2 }}>
+                        <div style={{ color: colors.success, fontWeight: 700, marginTop: 1 }}>
                           Net: ₹{Math.max(0, Number(req.original_bill_amount || 0) - Number(req.return_amount || 0)).toFixed(2)}
                         </div>
                       </div>
@@ -901,37 +1057,39 @@ export default function WardReturnApprovals() {
                       <StatusPill $type="Pending">Pending Approval</StatusPill>
                     </td>
 
-                    <td>
-                      <ActionBtn
-                        className="approve"
-                        disabled={actionLoading === req.return_request_id}
-                        onClick={() => setConfirmModal({
-                          billId: req.Bill_id,
-                          returnRequestId: req.return_request_id,
-                          action: "Approve",
-                          patientName: req.patient_name || req.uhid,
-                          itemCount: (req.items || []).length,
-                          returnAmount: req.return_amount
-                        })}
-                      >
-                        <CheckCircle2 size={14} />
-                        Approve
-                      </ActionBtn>
-                      <ActionBtn
-                        className="reject"
-                        disabled={actionLoading === req.return_request_id}
-                        onClick={() => setConfirmModal({
-                          billId: req.Bill_id,
-                          returnRequestId: req.return_request_id,
-                          action: "Reject",
-                          patientName: req.patient_name || req.uhid,
-                          itemCount: (req.items || []).length,
-                          returnAmount: req.return_amount
-                        })}
-                      >
-                        <XCircle size={14} />
-                        Reject
-                      </ActionBtn>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <ActionRow>
+                        <ActionBtn
+                          className="approve"
+                          disabled={actionLoading === req.return_request_id}
+                          onClick={() => setConfirmModal({
+                            billId: req.Bill_id,
+                            returnRequestId: req.return_request_id,
+                            action: "Approve",
+                            patientName: req.patient_name || req.uhid,
+                            itemCount: (req.items || []).length,
+                            returnAmount: req.return_amount
+                          })}
+                        >
+                          <CheckCircle2 size={13} />
+                          Approve
+                        </ActionBtn>
+                        <ActionBtn
+                          className="reject"
+                          disabled={actionLoading === req.return_request_id}
+                          onClick={() => setConfirmModal({
+                            billId: req.Bill_id,
+                            returnRequestId: req.return_request_id,
+                            action: "Reject",
+                            patientName: req.patient_name || req.uhid,
+                            itemCount: (req.items || []).length,
+                            returnAmount: req.return_amount
+                          })}
+                        >
+                          <XCircle size={13} />
+                          Reject
+                        </ActionBtn>
+                      </ActionRow>
                     </td>
                   </tr>
                 ))}
@@ -967,27 +1125,36 @@ export default function WardReturnApprovals() {
                 {filteredApproved.map((ret, i) => (
                   <tr key={ret.ward_return_bill_no || i}>
                     <td>
-                      <strong style={{ color: colors.primary }}>{ret.ward_return_bill_no}</strong>
+                      <strong style={{ color: colors.primary, fontSize: "0.78rem" }}>{formatBillNo(ret.ward_return_bill_no)}</strong>
                     </td>
 
                     <td>
-                      <div style={{ fontWeight: 600 }}>{formatDate(ret.ward_return_bill_date)}</div>
-                      <div style={{ fontSize: "0.78rem", color: colors.textMuted }}>
+                      <div style={{ fontWeight: 600, fontSize: "0.78rem" }}>{formatDate(ret.ward_return_bill_date)}</div>
+                      <div style={{ fontSize: "0.72rem", color: colors.textMuted, marginTop: 2 }}>
                         {new Date(ret.ward_return_bill_date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                       </div>
                     </td>
 
                     <td>
-                      <div style={{ fontWeight: 600 }}>{ret.bill_no || "—"}</div>
+                      <div style={{ fontWeight: 600, fontSize: "0.78rem" }}>{formatBillNo(ret.bill_no)}</div>
                     </td>
 
                     <td>
                       <PatientTag>
                         <div className="name">{ret.patient_name || "—"}</div>
-                        <div className="sub">
-                          <span>{ret.uhid || "—"}</span>
-                          <span>|</span>
-                          <span>{ret.inpatient_number || "—"}</span>
+                        <div className="meta-grid">
+                          <div className="meta-col">
+                            <span className="meta-label">UHID</span>
+                            <span className="meta-value">{ret.uhid || "—"}</span>
+                          </div>
+                          {ret.inpatient_number &&
+                            ret.inpatient_number !== "—" &&
+                            !String(ret.inpatient_number).trim().toUpperCase().startsWith("OP") && (
+                              <div className="meta-col">
+                                <span className="meta-label">IP NUMBER</span>
+                                <span className="meta-value">{ret.inpatient_number}</span>
+                              </div>
+                            )}
                         </div>
                       </PatientTag>
                     </td>
@@ -996,20 +1163,20 @@ export default function WardReturnApprovals() {
                       <WardTag>{ret.room_no || "—"}</WardTag>
                     </td>
 
-                    <td style={{ textAlign: "right", fontWeight: 600 }}>
+                    <td style={{ textAlign: "right", fontWeight: 600, fontSize: "0.78rem" }}>
                       ₹{Number(ret.original_bill_amount || 0).toFixed(2)}
                     </td>
 
-                    <td style={{ textAlign: "right", fontWeight: 700, color: colors.accent }}>
+                    <td style={{ textAlign: "right", fontWeight: 700, color: colors.accent, fontSize: "0.78rem" }}>
                       - ₹{Number(ret.return_amount || 0).toFixed(2)}
                     </td>
 
-                    <td style={{ textAlign: "right", fontWeight: 700, color: colors.success }}>
+                    <td style={{ textAlign: "right", fontWeight: 700, color: colors.success, fontSize: "0.78rem" }}>
                       ₹{Number(ret.balance_amount ?? (ret.original_bill_amount - ret.return_amount) ?? 0).toFixed(2)}
                     </td>
 
                     <td>
-                      <div>{ret.pharmacist_name || ret.created_by || "Pharmacist"}</div>
+                      <div style={{ fontSize: "0.78rem" }}>{ret.pharmacist_name || ret.created_by || "Pharmacist"}</div>
                     </td>
 
                     <td>
@@ -1017,22 +1184,24 @@ export default function WardReturnApprovals() {
                     </td>
 
                     <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                      <ActionBtn
-                        className="print"
-                        title="Print Return Bill"
-                        onClick={() => setSelectedPrintBill(ret)}
-                      >
-                        <Printer size={14} />
-                        Print Bill
-                      </ActionBtn>
-                      <ActionBtn
-                        className="view"
-                        title="View Items"
-                        onClick={() => setSelectedViewItem(ret)}
-                      >
-                        <Eye size={14} />
-                        Details
-                      </ActionBtn>
+                      <ActionRow style={{ justifyContent: "center" }}>
+                        <ActionBtn
+                          className="print"
+                          title="Print Return Bill"
+                          onClick={() => setSelectedPrintBill(ret)}
+                        >
+                          <Printer size={13} />
+                          Print Bill
+                        </ActionBtn>
+                        <ActionBtn
+                          className="view"
+                          title="View Items"
+                          onClick={() => setSelectedViewItem(ret)}
+                        >
+                          <Eye size={13} />
+                          View Items
+                        </ActionBtn>
+                      </ActionRow>
                     </td>
                   </tr>
                 ))}
@@ -1045,57 +1214,57 @@ export default function WardReturnApprovals() {
       {/* ── PRINT BILL MODAL ── */}
       {selectedPrintBill && (
         <ModalBackdrop onClick={() => setSelectedPrintBill(null)}>
-          <ModalContent $maxWidth="850px" onClick={(e) => e.stopPropagation()}>
+          <ModalContent $maxWidth="900px" onClick={(e) => e.stopPropagation()}>
             <ModalHeader>
               <h3>Ward Return Bill Print Preview</h3>
               <button onClick={() => setSelectedPrintBill(null)}>✕</button>
             </ModalHeader>
 
             <ModalBody>
-              <div id="ward-return-print-area" style={{ padding: "20px 24px", fontFamily: "Segoe UI, Arial, sans-serif", fontSize: "12px", color: "#111", background: "#fff" }}>
+              <div id="ward-return-print-area" style={{ padding: "14px 18px", fontFamily: "Arial, Helvetica, sans-serif", fontSize: "11px", color: "#111", background: "#fff", maxWidth: "800px", margin: "0 auto", boxSizing: "border-box" }}>
                 {/* Header with Hospital Logo and Info */}
-                <div style={{ textAlign: "center", marginBottom: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 4 }}>
+                <div style={{ textAlign: "center", marginBottom: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 2 }}>
                     <img
                       src={HospitalHeader}
                       alt="Shanmuga Hospital Limited"
-                      style={{ height: 48, objectFit: "contain" }}
+                      style={{ height: 42, objectFit: "contain" }}
                       onError={(e) => { e.target.style.display = "none"; }}
                     />
                     <div>
-                      <div style={{ fontSize: 17, fontWeight: 800, color: "#005b8e", letterSpacing: 0.5 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: "#005b8e", letterSpacing: 0.5 }}>
                         SHANMUGA HOSPITAL LIMITED
                       </div>
-                      <div style={{ fontSize: 11, color: "#333", marginTop: 1 }}>
+                      <div style={{ fontSize: 10.5, color: "#333", marginTop: 1 }}>
                         51/24, Saradha College Road, Salem - 636007
                       </div>
-                      <div style={{ fontSize: 11, color: "#333" }}>
+                      <div style={{ fontSize: 10.5, color: "#333" }}>
                         Ph No: 04272706666
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ marginTop: 6, fontWeight: 800, fontSize: 13, letterSpacing: 1, color: "#1e293b" }}>
+                  <div style={{ marginTop: 4, fontWeight: 800, fontSize: 12.5, letterSpacing: 0.8, color: "#1e293b" }}>
                     PHARMACY WARD RETURN BILL / CREDIT NOTE
                   </div>
-                  <div style={{ fontSize: 10.5, fontStyle: "italic", color: "#64748b", marginTop: 1 }}>
+                  <div style={{ fontSize: 10, fontStyle: "italic", color: "#64748b", marginTop: 1 }}>
                     *** Duplicate / Return Voucher ***
                   </div>
                 </div>
 
                 {/* DL NO, CIN, GST NO */}
-                <div style={{ borderTop: "1px solid #cbd5e0", paddingTop: 5, marginBottom: 2, display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "#111" }}>
+                <div style={{ borderTop: "1px solid #cbd5e0", paddingTop: 3, marginBottom: 2, display: "flex", justifyContent: "space-between", fontSize: 10.5, fontWeight: 700, color: "#111" }}>
                   <span>DL NO : TN-01-20-21-00202</span>
                   <span>PHARMACY IP WARD RETURN</span>
                 </div>
-                <div style={{ borderBottom: "1px solid #cbd5e0", paddingBottom: 5, marginBottom: 10, display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "#111" }}>
+                <div style={{ borderBottom: "1px solid #cbd5e0", paddingBottom: 3, marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 10.5, fontWeight: 700, color: "#111" }}>
                   <span>CIN : L85110TZ2020PLC033974</span>
                   <span>GST NO : 33ABDCS8326A1ZP</span>
                 </div>
 
                 {/* Patient & Bill Metadata */}
-                <div style={{ display: "flex", gap: 24, marginBottom: 12, borderBottom: "1px solid #cbd5e0", paddingBottom: 10 }}>
-                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 4, fontSize: 12 }}>
+                <div style={{ display: "flex", gap: 20, marginBottom: 8, borderBottom: "1px solid #cbd5e0", paddingBottom: 6 }}>
+                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "105px 1fr", rowGap: 2.5, fontSize: 11 }}>
                     <span style={{ color: "#555" }}>Patient</span>
                     <span style={{ fontWeight: 700 }}>: {selectedPrintBill.patient_name || "—"}</span>
                     <span style={{ color: "#555" }}>UHID No</span>
@@ -1108,33 +1277,31 @@ export default function WardReturnApprovals() {
                     <span>: {selectedPrintBill.doctor_name || "—"}</span>
                   </div>
 
-                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 4, fontSize: 12 }}>
+                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "115px 1fr", rowGap: 2.5, fontSize: 11 }}>
                     <span style={{ color: "#555" }}>Return Bill No</span>
-                    <span style={{ fontWeight: 700, color: colors.primary }}>: {selectedPrintBill.ward_return_bill_no || "—"}</span>
+                    <span style={{ fontWeight: 700, color: colors.primary }}>: {formatBillNo(selectedPrintBill.ward_return_bill_no)}</span>
                     <span style={{ color: "#555" }}>Return Date</span>
                     <span>: {formatDateTime(selectedPrintBill.ward_return_bill_date)}</span>
                     <span style={{ color: "#555" }}>Original Bill No</span>
-                    <span style={{ fontWeight: 700 }}>: {selectedPrintBill.bill_no || "—"}</span>
+                    <span style={{ fontWeight: 700 }}>: {formatBillNo(selectedPrintBill.bill_no)}</span>
                     <span style={{ color: "#555" }}>Original Bill Date</span>
                     <span>: {formatDate(selectedPrintBill.bill_date)}</span>
-                    <span style={{ color: "#555" }}>Approved By</span>
-                    <span>: {selectedPrintBill.pharmacist_name || selectedPrintBill.created_by || "Pharmacist"}</span>
                   </div>
                 </div>
 
                 {/* Items Table */}
-                <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
                   <thead>
                     <tr style={{ background: "#edf2f7", borderTop: "1px solid #cbd5e0", borderBottom: "1px solid #cbd5e0" }}>
-                      <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11 }}>S.No</th>
-                      <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11 }}>Particulars</th>
-                      <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11 }}>Batch</th>
-                      <th style={{ padding: "6px 8px", textAlign: "center", fontSize: 11 }}>Expiry</th>
-                      <th style={{ padding: "6px 8px", textAlign: "center", fontSize: 11 }}>Return Qty</th>
-                      <th style={{ padding: "6px 8px", textAlign: "right", fontSize: 11 }}>Rate (₹)</th>
-                      <th style={{ padding: "6px 8px", textAlign: "center", fontSize: 11 }}>CGST %</th>
-                      <th style={{ padding: "6px 8px", textAlign: "center", fontSize: 11 }}>SGST %</th>
-                      <th style={{ padding: "6px 8px", textAlign: "right", fontSize: 11 }}>Return Amt (₹)</th>
+                      <th style={{ padding: "4px 6px", textAlign: "left", fontSize: 10 }}>S.No</th>
+                      <th style={{ padding: "4px 6px", textAlign: "left", fontSize: 10 }}>Particulars</th>
+                      <th style={{ padding: "4px 6px", textAlign: "left", fontSize: 10 }}>Batch</th>
+                      <th style={{ padding: "4px 6px", textAlign: "center", fontSize: 10 }}>Expiry</th>
+                      <th style={{ padding: "4px 6px", textAlign: "center", fontSize: 10 }}>Return Qty</th>
+                      <th style={{ padding: "4px 6px", textAlign: "right", fontSize: 10 }}>Rate (₹)</th>
+                      <th style={{ padding: "4px 6px", textAlign: "center", fontSize: 10 }}>CGST %</th>
+                      <th style={{ padding: "4px 6px", textAlign: "center", fontSize: 10 }}>SGST %</th>
+                      <th style={{ padding: "4px 6px", textAlign: "right", fontSize: 10 }}>Return Amt (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1147,15 +1314,15 @@ export default function WardReturnApprovals() {
 
                       return (
                         <tr key={idx} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                          <td style={{ padding: "6px 8px", fontSize: 11 }}>{idx + 1}</td>
-                          <td style={{ padding: "6px 8px", fontSize: 11, fontWeight: 600 }}>{med.item_name || `Item #${med.item_id}`}</td>
-                          <td style={{ padding: "6px 8px", fontSize: 11 }}>{med.batch_number || "—"}</td>
-                          <td style={{ padding: "6px 8px", fontSize: 11, textAlign: "center" }}>{med.expiry_date || "—"}</td>
-                          <td style={{ padding: "6px 8px", fontSize: 11, textAlign: "center", fontWeight: 700 }}>{retQty}</td>
-                          <td style={{ padding: "6px 8px", fontSize: 11, textAlign: "right" }}>{rate.toFixed(2)}</td>
-                          <td style={{ padding: "6px 8px", fontSize: 11, textAlign: "center" }}>{cgst}</td>
-                          <td style={{ padding: "6px 8px", fontSize: 11, textAlign: "center" }}>{sgst}</td>
-                          <td style={{ padding: "6px 8px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{amt.toFixed(2)}</td>
+                          <td style={{ padding: "3.5px 6px", fontSize: 10.5 }}>{idx + 1}</td>
+                          <td style={{ padding: "3.5px 6px", fontSize: 10.5, fontWeight: 600 }}>{med.item_name || `Item #${med.item_id}`}</td>
+                          <td style={{ padding: "3.5px 6px", fontSize: 10.5 }}>{med.batch_number || "—"}</td>
+                          <td style={{ padding: "3.5px 6px", fontSize: 10.5, textAlign: "center" }}>{med.expiry_date || "—"}</td>
+                          <td style={{ padding: "3.5px 6px", fontSize: 10.5, textAlign: "center", fontWeight: 700 }}>{retQty}</td>
+                          <td style={{ padding: "3.5px 6px", fontSize: 10.5, textAlign: "right" }}>{rate.toFixed(2)}</td>
+                          <td style={{ padding: "3.5px 6px", fontSize: 10.5, textAlign: "center" }}>{cgst}</td>
+                          <td style={{ padding: "3.5px 6px", fontSize: 10.5, textAlign: "center" }}>{sgst}</td>
+                          <td style={{ padding: "3.5px 6px", fontSize: 10.5, textAlign: "right", fontWeight: 700 }}>{amt.toFixed(2)}</td>
                         </tr>
                       );
                     })}
@@ -1163,25 +1330,25 @@ export default function WardReturnApprovals() {
                 </table>
 
                 {/* Amount Comparison Box */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 8 }}>
-                  <div style={{ fontSize: 11, color: "#475569", maxWidth: 350 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 2 }}>Ward Return Credit Note</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 6 }}>
+                  <div style={{ fontSize: 10.5, color: "#475569", maxWidth: 350 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 1 }}>Ward Return Credit Note</div>
                     <div>Stock has been automatically restored/adjusted in IP Pharmacy blocked stock.</div>
-                    <div style={{ marginTop: 6, fontStyle: "italic" }}>E &amp; OE. Verified and approved by Pharmacy Department.</div>
+                    <div style={{ marginTop: 4, fontStyle: "italic", fontSize: 9.5 }}>E &amp; OE. Verified and approved by Pharmacy Department.</div>
                   </div>
 
-                  <div style={{ background: "#F8FAFC", border: "1.5px solid #CBD5E1", borderRadius: 8, padding: "10px 16px", minWidth: 320 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12 }}>
+                  <div style={{ background: "#F8FAFC", border: "1.5px solid #CBD5E1", borderRadius: 6, padding: "6px 14px", minWidth: 300 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, fontSize: 11 }}>
                       <span style={{ color: "#334155", fontWeight: 600 }}>Actual / Original Bill Amount:</span>
                       <span style={{ fontWeight: 700 }}>₹{Number(selectedPrintBill.original_bill_amount || 0).toFixed(2)}</span>
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12, color: colors.danger }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, fontSize: 11, color: colors.danger }}>
                       <span style={{ fontWeight: 600 }}>Less: Ward Return Amount:</span>
                       <span style={{ fontWeight: 700 }}>- ₹{Number(selectedPrintBill.return_amount || 0).toFixed(2)}</span>
                     </div>
 
-                    <div style={{ borderTop: "2px solid #94A3B8", paddingTop: 6, display: "flex", justifyContent: "space-between", fontSize: 13, color: colors.success }}>
+                    <div style={{ borderTop: "1.5px solid #94A3B8", paddingTop: 4, display: "flex", justifyContent: "space-between", fontSize: 12, color: colors.success }}>
                       <span style={{ fontWeight: 800 }}>Net Adjusted Bill Amount:</span>
                       <span style={{ fontWeight: 800 }}>
                         ₹{Number(selectedPrintBill.balance_amount ?? (selectedPrintBill.original_bill_amount - selectedPrintBill.return_amount) ?? 0).toFixed(2)}
@@ -1191,18 +1358,18 @@ export default function WardReturnApprovals() {
                 </div>
 
                 {/* Footer Signatures */}
-                <div style={{ marginTop: 36, display: "flex", justifyContent: "space-between", fontSize: 11, color: "#334155", paddingTop: 10, borderTop: "1px dashed #cbd5e0" }}>
+                <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "#334155", paddingTop: 6, borderTop: "1px dashed #cbd5e0" }}>
                   <div>
                     <div>Prepared By: <strong>{selectedPrintBill.pharmacist_name || selectedPrintBill.created_by || "Pharmacist"}</strong></div>
-                    <div style={{ fontSize: 10, color: "#64748b" }}>Date: {new Date().toLocaleDateString("en-IN")}</div>
+                    <div style={{ fontSize: 9.5, color: "#64748b" }}>Date: {new Date().toLocaleDateString("en-IN")}</div>
                   </div>
                   <div style={{ textAlign: "center" }}>
                     <div>Ward Incharge / Sister Sign</div>
-                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 14 }}>____________________</div>
+                    <div style={{ fontSize: 9.5, color: "#64748b", marginTop: 12 }}>____________________</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div>Authorised Pharmacist Sign</div>
-                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 14 }}>____________________</div>
+                    <div style={{ fontSize: 9.5, color: "#64748b", marginTop: 12 }}>____________________</div>
                   </div>
                 </div>
               </div>
@@ -1230,52 +1397,120 @@ export default function WardReturnApprovals() {
       {/* ── VIEW ITEMS DETAIL MODAL ── */}
       {selectedViewItem && (
         <ModalBackdrop onClick={() => setSelectedViewItem(null)}>
-          <ModalContent $maxWidth="650px" onClick={(e) => e.stopPropagation()}>
+          <ModalContent $maxWidth="980px" onClick={(e) => e.stopPropagation()}>
             <ModalHeader>
-              <h3>Returned Items Details ({selectedViewItem.ward_return_bill_no || "Return"})</h3>
+              <h3>Returned Items Details ({formatBillNo(selectedViewItem.ward_return_bill_no) || "Return"})</h3>
               <button onClick={() => setSelectedViewItem(null)}>✕</button>
             </ModalHeader>
 
             <ModalBody>
-              <div style={{ marginBottom: 14, display: "flex", justifyContent: "space-between", background: "#F1F5F9", padding: "10px 14px", borderRadius: 8 }}>
+              <div style={{
+                marginBottom: 14,
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                gap: 10,
+                background: "#f0fdfa",
+                border: "1px solid #ccfbf1",
+                padding: "10px 14px",
+                borderRadius: 8
+              }}>
                 <div>
-                  <div style={{ fontSize: "0.8rem", color: colors.textSecondary }}>Patient</div>
-                  <strong style={{ fontSize: "0.95rem" }}>{selectedViewItem.patient_name || "—"}</strong>
-                  <div style={{ fontSize: "0.78rem", color: colors.textSecondary }}>{selectedViewItem.uhid} | {selectedViewItem.inpatient_number}</div>
+                  <div style={{ fontSize: "0.72rem", color: "#0f766e", fontWeight: 700, textTransform: "uppercase" }}>Patient</div>
+                  <strong style={{ fontSize: "0.92rem", color: "#0f172a" }}>{selectedViewItem.patient_name || "—"}</strong>
+                  <div style={{ fontSize: "0.74rem", color: "#64748b" }}>{selectedViewItem.uhid} {selectedViewItem.inpatient_number ? `| ${selectedViewItem.inpatient_number}` : ""}</div>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "0.8rem", color: colors.textSecondary }}>Original Bill No</div>
-                  <strong style={{ fontSize: "0.95rem" }}>{selectedViewItem.bill_no || "—"}</strong>
+                {(selectedViewItem.ward_name || selectedViewItem.room_no) && (
+                  <div>
+                    <div style={{ fontSize: "0.72rem", color: "#0f766e", fontWeight: 700, textTransform: "uppercase" }}>Ward / Room</div>
+                    <strong style={{ fontSize: "0.92rem", color: "#0f172a" }}>{selectedViewItem.ward_name || selectedViewItem.room_no}</strong>
+                  </div>
+                )}
+                {selectedViewItem.doctor_name && (
+                  <div>
+                    <div style={{ fontSize: "0.72rem", color: "#0f766e", fontWeight: 700, textTransform: "uppercase" }}>Doctor</div>
+                    <strong style={{ fontSize: "0.85rem", color: "#0f172a" }}>{selectedViewItem.doctor_name}</strong>
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: "0.72rem", color: "#0f766e", fontWeight: 700, textTransform: "uppercase" }}>Original Bill</div>
+                  <strong style={{ fontSize: "0.92rem", color: "#0f172a" }}>{formatBillNo(selectedViewItem.bill_no)}</strong>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.72rem", color: "#0f766e", fontWeight: 700, textTransform: "uppercase" }}>Return Amount</div>
+                  <strong style={{ fontSize: "0.95rem", color: "#e11d48" }}>₹{Number(selectedViewItem.return_amount || 0).toFixed(2)}</strong>
                 </div>
               </div>
 
               <StyledTable>
                 <thead>
                   <tr>
-                    <th>Item Name</th>
+                    <th style={{ width: 45 }}>S.No</th>
+                    <th>Medicine / Item Name</th>
                     <th>Batch</th>
                     <th>Expiry</th>
-                    <th style={{ textAlign: "center" }}>Qty</th>
+                    <th style={{ textAlign: "center" }}>Return Qty</th>
                     <th style={{ textAlign: "right" }}>Rate</th>
                     <th style={{ textAlign: "right" }}>Return Amount</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(selectedViewItem.medicine_particulars || []).map((med, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <strong>{med.item_name || `Item #${med.item_id}`}</strong>
-                        {med.reason && <div style={{ fontSize: "0.75rem", color: colors.textMuted }}>Reason: {med.reason}</div>}
-                      </td>
-                      <td>{med.batch_number || "—"}</td>
-                      <td>{med.expiry_date || "—"}</td>
-                      <td style={{ textAlign: "center", fontWeight: 700 }}>{med.return_qty || med.qty}</td>
-                      <td style={{ textAlign: "right" }}>₹{Number(med.price || 0).toFixed(2)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 700, color: colors.accent }}>
-                        ₹{Number(med.return_amount || (med.return_qty * med.price) || 0).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                  {(selectedViewItem.medicine_particulars || []).map((med, idx) => {
+                    const retQty = med.return_qty || med.qty || 1;
+                    const price = Number(med.price || med.mrp || 0);
+                    const retAmt = Number(med.return_amount || (retQty * price) || 0);
+                    const batchNum = med.batch_number || med.batch || "—";
+                    const exp = med.expiry_date || med.expiry || "—";
+
+                    return (
+                      <tr key={idx}>
+                        <td style={{ color: "#64748b", fontWeight: 600 }}>{idx + 1}</td>
+                        <td>
+                          <strong style={{ color: "#0f172a" }}>{med.item_name || `Item #${med.item_id}`}</strong>
+                          {med.reason && (
+                            <div style={{ fontSize: "0.74rem", color: "#64748b", marginTop: 2 }}>
+                              Reason: {med.reason}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          {batchNum !== "—" ? (
+                            <span style={{
+                              background: "#f1f5f9",
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              border: "1px solid #e2e8f0",
+                              fontFamily: "'JetBrains Mono', monospace",
+                              color: "#1e293b",
+                              fontWeight: 700,
+                              fontSize: "0.75rem"
+                            }}>
+                              {batchNum}
+                            </span>
+                          ) : "—"}
+                        </td>
+                        <td>
+                          {exp !== "—" ? (
+                            <span style={{
+                              background: "#f8fafc",
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              border: "1px solid #e2e8f0",
+                              fontFamily: "'JetBrains Mono', monospace",
+                              color: "#475569",
+                              fontSize: "0.75rem"
+                            }}>
+                              {exp}
+                            </span>
+                          ) : "—"}
+                        </td>
+                        <td style={{ textAlign: "center", fontWeight: 700, color: "#0f172a" }}>{retQty}</td>
+                        <td style={{ textAlign: "right", fontFamily: "'JetBrains Mono', monospace" }}>₹{price.toFixed(2)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: colors.accent, fontFamily: "'JetBrains Mono', monospace" }}>
+                          ₹{retAmt.toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </StyledTable>
 
@@ -1298,10 +1533,52 @@ export default function WardReturnApprovals() {
             <ModalFooter>
               <button
                 onClick={() => setSelectedViewItem(null)}
-                style={{ padding: "8px 16px", border: "1px solid #CBD5E1", background: "#fff", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+                style={{ padding: "8px 18px", border: "1px solid #CBD5E1", background: "#fff", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
               >
                 Close
               </button>
+              {selectedViewItem.is_pending && (
+                <>
+                  <ActionBtn
+                    className="reject"
+                    disabled={actionLoading === selectedViewItem.return_request_id}
+                    onClick={() => {
+                      const req = selectedViewItem;
+                      setSelectedViewItem(null);
+                      setConfirmModal({
+                        billId: req.Bill_id,
+                        returnRequestId: req.return_request_id,
+                        action: "Reject",
+                        patientName: req.patient_name || req.uhid,
+                        itemCount: (req.medicine_particulars || []).length,
+                        returnAmount: req.return_amount
+                      });
+                    }}
+                  >
+                    <XCircle size={14} />
+                    Reject
+                  </ActionBtn>
+                  <ActionBtn
+                    className="approve"
+                    disabled={actionLoading === selectedViewItem.return_request_id}
+                    onClick={() => {
+                      const req = selectedViewItem;
+                      setSelectedViewItem(null);
+                      setConfirmModal({
+                        billId: req.Bill_id,
+                        returnRequestId: req.return_request_id,
+                        action: "Approve",
+                        patientName: req.patient_name || req.uhid,
+                        itemCount: (req.medicine_particulars || []).length,
+                        returnAmount: req.return_amount
+                      });
+                    }}
+                  >
+                    <CheckCircle2 size={14} />
+                    Approve Return
+                  </ActionBtn>
+                </>
+              )}
             </ModalFooter>
           </ModalContent>
         </ModalBackdrop>
