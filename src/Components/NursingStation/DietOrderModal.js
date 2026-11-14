@@ -44,15 +44,14 @@ const Overlay = styled.div`
 `;
 
 const ModalContainer = styled.div`
-  background: ${C.bgGlass};
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 24px;
-  width: 720px; max-width: 100%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  width: 780px; max-width: 95vw;
   max-height: 90vh;
   display: flex; flex-direction: column;
-  box-shadow: ${C.shadow};
-  animation: ${slideUp} 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  animation: ${slideUp} 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   position: relative;
 
@@ -67,18 +66,31 @@ const ModalContainer = styled.div`
 `;
 
 const Header = styled.div`
-  padding: 24px 30px;
-  background: rgba(255, 255, 255, 0.5);
-  border-bottom: 1px solid ${C.border};
+  padding: 16px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
   display: flex; justify-content: space-between; align-items: center;
+  flex-shrink: 0;
+  z-index: 10;
 `;
 
 const Title = styled.h2`
-  margin: 0; font-size: 1.25rem; font-weight: 800;
-  background: linear-gradient(135deg, ${C.primaryDark}, #14b8a6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  margin: 0; font-size: 1.2rem; font-weight: 800;
+  color: ${C.primaryDark};
   display: flex; align-items: center; gap: 10px;
+
+  .title-icon {
+    font-size: 1.35rem;
+    display: inline-flex;
+    align-items: center;
+    -webkit-text-fill-color: initial;
+  }
+
+  .title-text {
+    background: linear-gradient(135deg, ${C.primaryDark}, #14b8a6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 `;
 
 const CloseBtn = styled.button`
@@ -90,24 +102,25 @@ const CloseBtn = styled.button`
 `;
 
 const Body = styled.div`
-  padding: 16px 24px; overflow-y: auto; flex: 1;
-  display: flex; flex-direction: column; gap: 16px;
+  padding: 20px 24px; overflow-y: auto; flex: 1;
+  display: flex; flex-direction: column; gap: 20px;
   scroll-behavior: smooth;
   &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 `;
 
 const PatientPanel = styled.div`
-  background: white;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 8px 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 24px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   position: relative;
-  overflow: hidden;
+  flex-shrink: 0;
+  z-index: 5;
 
   &::before {
     content: '';
@@ -120,34 +133,34 @@ const PatientPanel = styled.div`
   .patient-left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     flex-shrink: 0;
   }
 
   .patient-divider {
     width: 1px;
-    height: 30px;
-    background: #e2e8f0;
+    height: 28px;
+    background: #cbd5e1;
     flex-shrink: 0;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 680px) {
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 10px 16px;
     .patient-divider { display: none; }
   }
 `;
 
 const PatientAvatar = styled.div`
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #ecfdf5;
   color: #10b981;
-  font-weight: 700;
-  font-size: 0.82rem;
+  font-weight: 800;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -158,9 +171,15 @@ const PatientAvatar = styled.div`
 const PatientGrid = styled.div`
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+  gap: 18px;
   flex: 1;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+
+  @media (max-width: 680px) {
+    justify-content: flex-start;
+    gap: 12px;
+  }
 `;
 
 const PatientMeta = styled.div`
@@ -176,12 +195,10 @@ const PatientMeta = styled.div`
     line-height: 1.1;
   }
   span.val {
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     font-weight: 700;
     color: #0f172a;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 `;
 
@@ -255,19 +272,35 @@ const SessionPill = styled.button`
 `;
 
 const ExtraCard = styled.div`
-  background: ${({ active }) => (active ? C.accentLight : "white")};
-  border: 2px solid ${({ active }) => (active ? C.accent : "transparent")};
-  padding: 16px 20px; border-radius: 16px; cursor: pointer;
-  display: flex; align-items: center; gap: 15px;
-  transition: all 0.3s;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-  &:hover { background: ${C.accentLight}50; }
+  background: ${({ active }) => (active ? "#ecfdf5" : "#ffffff")};
+  border: 1.5px solid ${({ active }) => (active ? "#10b981" : "#e2e8f0")};
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: ${({ active }) => (active ? "0 3px 10px rgba(16, 185, 129, 0.12)" : "0 1px 3px rgba(0, 0, 0, 0.02)")};
+  position: relative;
+
+  &:hover {
+    border-color: #10b981;
+    background: ${({ active }) => (active ? "#ecfdf5" : "#f8fafc")};
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
+  }
 `;
 
 const Footer = styled.div`
-  padding: 24px 30px; background: rgba(255, 255, 255, 0.5);
-  border-top: 1px solid ${C.border};
-  display: flex; justify-content: flex-end; gap: 12px;
+  padding: 16px 24px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+  z-index: 10;
 `;
 
 const Button = styled.button`
@@ -372,6 +405,7 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
   const [showExtraDropdown, setShowExtraDropdown] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [extraRoomTab, setExtraRoomTab] = useState("AUTO");
 
   const loadOrderForEditing = (order) => {
     if (!order) return;
@@ -444,6 +478,15 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
     ward: patient?.wardName || pd.wardName || patient?.ward_name || pd.ward_name || (patient?.roomBed ? patient.roomBed.split("|")[0].trim() : ""),
     roomBed: `${patient?.roomNo || pd.roomNo || patient?.room_no || "-"} | ${patient?.bedNo || pd.bedNo || patient?.bed_no || "-"}`,
   };
+
+  const roomCategoryUpper = String(patient?.room_category || patient?.roomCategory || pd.room_category || rp.ward || rp.room || "").toUpperCase();
+  const isVipRoom = roomCategoryUpper.includes("SINGLE") || roomCategoryUpper.includes("PRIVATE") || roomCategoryUpper.includes("VIP") || roomCategoryUpper.includes("SUITE") || String(rp.room).toUpperCase().startsWith("SR-");
+  const patientDefaultRoom = isVipRoom ? "VIP" : "NORMAL";
+  const activeRoomFilter = extraRoomTab === "AUTO" ? patientDefaultRoom : extraRoomTab;
+
+  useEffect(() => {
+    setExtraRoomTab("AUTO");
+  }, [patient]);
 
   useEffect(() => {
     document.body.classList.add("diet-modal-open");
@@ -525,7 +568,11 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
         .filter(e => extras[e.extra_id]?.checked)
         .map(e => ({ 
           item_id: e.item_id,
-          item: e.item_name, 
+          item: e.item_name,
+          clean_name: e.clean_name || e.item_name,
+          room_type: e.room_type,
+          serving_size: e.serving_size,
+          calories: e.calories,
           qty: extras[e.extra_id]?.qty || 1,
           price: e.price
         }));
@@ -597,46 +644,72 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
                 ← Back to Actions
               </button>
             )}
-            <Title>🥗 {isReadOnly ? "View Diet Order" : editingOrderId ? "Update Diet Order" : "Premium Diet Concierge"}</Title>
+            <Title>
+              <span className="title-icon">🥗</span>
+              <span className="title-text">
+                {isReadOnly ? "View Diet Order" : editingOrderId ? "Update Diet Order" : "Premium Diet Concierge"}
+              </span>
+            </Title>
           </div>
           <CloseBtn onClick={onClose}>✕</CloseBtn>
         </Header>
 
-        <Body>
-          {isReadOnly && (
-            <div style={{ background: "#fee2e2", color: "#b91c1c", padding: "12px 20px", borderRadius: "12px", fontSize: "0.85rem", fontWeight: 700, marginBottom: "20px", border: "1px solid #fecaca", display: "flex", alignItems: "center", gap: "10px" }}>
-              <span>⚠️</span> This order has been received by the kitchen and can no longer be edited.
-            </div>
-          )}
-          {/* Patient Profile */}
-          <PatientPanel>
-            <div className="patient-left">
-              <PatientAvatar>
-                {rp.name.split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2) || "P"}
-              </PatientAvatar>
-              <div>
-                <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                  {rp.name}
-                </div>
-                <div style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
-                  UHID: <span style={{ color: "#10b981" }}>{rp.uhid}</span> · IP: <span style={{ color: "#10b981" }}>{rp.ipNo}</span>
-                </div>
+        {isReadOnly && (
+          <div style={{ background: "#fee2e2", color: "#b91c1c", padding: "10px 24px", fontSize: "0.85rem", fontWeight: 700, borderBottom: "1px solid #fecaca", display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+            <span>⚠️</span> This order has been received by the kitchen and can no longer be edited.
+          </div>
+        )}
+
+        {/* Patient Profile - PINNED */}
+        <PatientPanel>
+          <div className="patient-left">
+            <PatientAvatar>
+              {rp.name.split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2) || "P"}
+            </PatientAvatar>
+            <div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
+                {rp.name}
+              </div>
+              <div style={{ fontSize: "0.74rem", color: "#64748b", fontWeight: 600, marginTop: "2px" }}>
+                UHID: <span style={{ color: "#059669", fontWeight: 700 }}>{rp.uhid}</span> · IP: <span style={{ color: "#059669", fontWeight: 700 }}>{rp.ipNo}</span>
               </div>
             </div>
+          </div>
 
-            <div className="patient-divider" />
+          <div className="patient-divider" />
 
-            <PatientGrid>
-              <PatientMeta>
-                <span className="label">Ward / Location</span>
-                <span className="val">{rp.ward || "General"}</span>
-              </PatientMeta>
-              <PatientMeta>
-                <span className="label">Room · Bed</span>
-                <span className="val">Room {rp.room} · Bed {rp.bed}</span>
-              </PatientMeta>
-            </PatientGrid>
-          </PatientPanel>
+          <PatientGrid>
+            <PatientMeta>
+              <span className="label">Ward / Location</span>
+              <span className="val">{rp.ward || "General"}</span>
+            </PatientMeta>
+            <PatientMeta>
+              <span className="label">Room · Bed</span>
+              <span className="val">Room {rp.room} · Bed {rp.bed}</span>
+            </PatientMeta>
+            <PatientMeta>
+              <span className="label">Room Category</span>
+              <span className="val">
+                <span style={{ 
+                  padding: "3px 9px", 
+                  borderRadius: "12px", 
+                  fontSize: "0.72rem", 
+                  fontWeight: 800, 
+                  background: isVipRoom ? "#fef3c7" : "#ecfdf5", 
+                  color: isVipRoom ? "#92400e" : "#047857",
+                  border: `1px solid ${isVipRoom ? "#fde68a" : "#a7f3d0"}`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px"
+                }}>
+                  {isVipRoom ? "⭐️ VIP Room" : "📋 Normal Ward"}
+                </span>
+              </span>
+            </PatientMeta>
+          </PatientGrid>
+        </PatientPanel>
+
+        <Body>
 
           {/* Session Selection */}
           <section>
@@ -724,7 +797,79 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
 
           {/* Extras */}
           <section>
-            <SectionHeader>A la Carte / Extras</SectionHeader>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
+              <SectionHeader style={{ margin: 0 }}>A la Carte / Extras</SectionHeader>
+              
+              {/* Room Filter Pills */}
+              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => setExtraRoomTab("VIP")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    border: "1.5px solid",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    borderColor: activeRoomFilter === "VIP" ? "#f59e0b" : "#e2e8f0",
+                    background: activeRoomFilter === "VIP" ? "#fef3c7" : "white",
+                    color: activeRoomFilter === "VIP" ? "#92400e" : "#64748b",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  <span>⭐️ VIP</span>
+                  <span style={{ fontSize: "0.7rem", padding: "1px 5px", borderRadius: "8px", background: activeRoomFilter === "VIP" ? "#fde68a" : "#f1f5f9" }}>
+                    {extraMasters.filter(e => e.room_type === "VIP").length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtraRoomTab("NORMAL")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    border: "1.5px solid",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    borderColor: activeRoomFilter === "NORMAL" ? C.primary : "#e2e8f0",
+                    background: activeRoomFilter === "NORMAL" ? "#f0fdfa" : "white",
+                    color: activeRoomFilter === "NORMAL" ? C.primaryDark : "#64748b",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  <span>📋 Normal</span>
+                  <span style={{ fontSize: "0.7rem", padding: "1px 5px", borderRadius: "8px", background: activeRoomFilter === "NORMAL" ? "#ccfbf1" : "#f1f5f9" }}>
+                    {extraMasters.filter(e => e.room_type === "NORMAL").length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtraRoomTab("ALL")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: "16px",
+                    border: "1.5px solid",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    borderColor: activeRoomFilter === "ALL" ? "#6366f1" : "#e2e8f0",
+                    background: activeRoomFilter === "ALL" ? "#eef2ff" : "white",
+                    color: activeRoomFilter === "ALL" ? "#4338ca" : "#64748b",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  All ({extraMasters.length})
+                </button>
+              </div>
+            </div>
             
             <SearchDropdown onClick={(e) => e.stopPropagation()} style={{ marginBottom: "16px" }}>
               <SearchInputWrapper>
@@ -732,7 +877,7 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
                   <FiSearch size={18} />
                 </div>
                 <SearchInput 
-                  placeholder={isReadOnly ? "Extra items" : "Quick add extras..."}
+                  placeholder={isReadOnly ? "Extra items" : `Search ${activeRoomFilter === "ALL" ? "all" : activeRoomFilter.toLowerCase()} extra foods...`}
                   value={extraSearch}
                   onChange={(e) => { if(!isReadOnly) { setExtraSearch(e.target.value); setShowExtraDropdown(true); } }}
                   onFocus={() => { if(!isReadOnly) setShowExtraDropdown(true); }}
@@ -743,7 +888,12 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
               {showExtraDropdown && extraSearch && (
                 <DropdownList>
                   {(Array.isArray(extraMasters) ? extraMasters : [])
-                    .filter(e => e.item_name.toLowerCase().includes(extraSearch.toLowerCase()))
+                    .filter(e => {
+                      if (activeRoomFilter !== "ALL" && e.room_type && e.room_type !== activeRoomFilter) return false;
+                      const q = extraSearch.toLowerCase();
+                      return (e.clean_name || e.item_name || "").toLowerCase().includes(q) ||
+                             (e.category || "").toLowerCase().includes(q);
+                    })
                     .map(e => (
                       <DropdownItem key={e.extra_id} onClick={() => {
                         setExtras(p => ({
@@ -754,8 +904,18 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
                         setShowExtraDropdown(false);
                       }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span style={{ fontSize: "1.1rem" }}>✨</span>
-                          <span style={{ fontWeight: 600 }}>{e.item_name}</span>
+                          <span style={{ fontSize: "1.1rem" }}>{e.room_type === "VIP" ? "⭐️" : "✨"}</span>
+                          <span style={{ fontWeight: 600 }}>{e.clean_name || e.item_name}</span>
+                          {e.serving_size && (
+                            <span style={{ fontSize: "0.72rem", background: "#f1f5f9", padding: "1px 6px", borderRadius: "4px", color: "#64748b" }}>
+                              {e.serving_size}
+                            </span>
+                          )}
+                          {e.calories > 0 && (
+                            <span style={{ fontSize: "0.72rem", color: "#0d9488", fontWeight: 700 }}>
+                              {e.calories} kcal
+                            </span>
+                          )}
                         </div>
                         <span style={{ fontSize: "0.8rem", color: C.primary, fontWeight: 700 }}>₹{e.price}</span>
                       </DropdownItem>
@@ -765,33 +925,127 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved, onBack }) => {
               )}
             </SearchDropdown>
 
-             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
               {Array.isArray(extraMasters) && extraMasters
-                .filter(e => (extras[e.extra_id]?.checked || e.item_name.toLowerCase().includes(extraSearch.toLowerCase())))
-                .map(e => (
-                <ExtraCard key={e.extra_id} active={!!extras[e.extra_id]?.checked} onClick={() => {
-                  if(isReadOnly) return;
-                  setExtras(p => ({
-                    ...p,
-                    [e.extra_id]: { checked: !p[e.extra_id]?.checked, qty: p[e.extra_id]?.qty || 1 }
-                  }));
-                }} style={{ cursor: isReadOnly ? "default" : "pointer" }}>
-                  <div style={{ fontSize: "1.3rem" }}>✨</div>
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                    <span style={{ fontWeight: 700 }}>{e.item_name}</span>
-                    <span style={{ fontSize: "0.75rem", color: C.textMuted }}>₹{e.price}</span>
-                  </div>
-                  {extras[e.extra_id]?.checked && (
-                    <input 
-                      type="number" min="1" value={extras[e.extra_id].qty} 
-                      onClick={ev => ev.stopPropagation()}
-                      onChange={ev => !isReadOnly && setExtras(p => ({ ...p, [e.extra_id]: { ...p[e.extra_id], qty: parseInt(ev.target.value) || 1 } }))}
-                      readOnly={isReadOnly}
-                      style={{ width: "45px", padding: "4px", border: "none", borderRadius: "6px", textAlign: "center", fontWeight: 800, background: isReadOnly ? "transparent" : "white" }}
-                    />
-                  )}
-                </ExtraCard>
-              ))}
+                .filter(e => {
+                  if (extras[e.extra_id]?.checked) return true;
+                  if (activeRoomFilter !== "ALL" && e.room_type && e.room_type !== activeRoomFilter) return false;
+                  if (extraSearch) {
+                    const q = extraSearch.toLowerCase();
+                    return (e.clean_name || e.item_name || "").toLowerCase().includes(q) ||
+                           (e.category || "").toLowerCase().includes(q);
+                  }
+                  return true;
+                })
+                .map(e => {
+                  const isChecked = !!extras[e.extra_id]?.checked;
+                  return (
+                    <ExtraCard 
+                      key={e.extra_id} 
+                      active={isChecked} 
+                      onClick={() => {
+                        if (isReadOnly) return;
+                        setExtras(p => ({
+                          ...p,
+                          [e.extra_id]: { checked: !isChecked, qty: p[e.extra_id]?.qty || 1 }
+                        }));
+                      }} 
+                      style={{ cursor: isReadOnly ? "default" : "pointer" }}
+                    >
+                      <div style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                        {e.room_type === "VIP" ? "⭐️" : "✨"}
+                      </div>
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+                        <span style={{ fontWeight: 700, fontSize: "0.85rem", color: isChecked ? "#065f46" : "#1f2937", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {e.clean_name || e.item_name}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px", flexWrap: "wrap" }}>
+                          {e.serving_size && (
+                            <span style={{ fontSize: "0.68rem", color: "#64748b", background: isChecked ? "#d1fae5" : "#f1f5f9", padding: "1px 5px", borderRadius: "4px" }}>
+                              {e.serving_size}
+                            </span>
+                          )}
+                          {e.calories > 0 && (
+                            <span style={{ fontSize: "0.68rem", color: "#0d9488", fontWeight: 700 }}>
+                              {e.calories} kcal
+                            </span>
+                          )}
+                          <span style={{ fontSize: "0.75rem", color: isChecked ? "#047857" : C.textMuted, marginLeft: "auto", fontWeight: 800 }}>
+                            ₹{e.price}
+                          </span>
+                        </div>
+                      </div>
+                      {isChecked && (
+                        <div 
+                          onClick={ev => ev.stopPropagation()}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            background: "#ffffff",
+                            border: "1.5px solid #10b981",
+                            borderRadius: "8px",
+                            overflow: "hidden",
+                            flexShrink: 0
+                          }}
+                        >
+                          <button
+                            type="button"
+                            disabled={isReadOnly}
+                            onClick={() => {
+                              const cur = extras[e.extra_id]?.qty || 1;
+                              if (cur <= 1) {
+                                setExtras(p => ({ ...p, [e.extra_id]: { checked: false, qty: 1 } }));
+                              } else {
+                                setExtras(p => ({ ...p, [e.extra_id]: { ...p[e.extra_id], qty: cur - 1 } }));
+                              }
+                            }}
+                            style={{
+                              background: "#f8fafc",
+                              border: "none",
+                              width: "22px",
+                              height: "24px",
+                              cursor: isReadOnly ? "default" : "pointer",
+                              fontWeight: 800,
+                              color: "#334155",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "13px"
+                            }}
+                          >
+                            -
+                          </button>
+                          <span style={{ width: "24px", textAlign: "center", fontWeight: 800, fontSize: "0.8rem", color: "#065f46" }}>
+                            {extras[e.extra_id]?.qty || 1}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={isReadOnly}
+                            onClick={() => {
+                              const cur = extras[e.extra_id]?.qty || 1;
+                              setExtras(p => ({ ...p, [e.extra_id]: { ...p[e.extra_id], qty: cur + 1 } }));
+                            }}
+                            style={{
+                              background: "#f8fafc",
+                              border: "none",
+                              width: "22px",
+                              height: "24px",
+                              cursor: isReadOnly ? "default" : "pointer",
+                              fontWeight: 800,
+                              color: "#334155",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "13px"
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      )}
+                    </ExtraCard>
+                  );
+                })}
             </div>
           </section>
 
