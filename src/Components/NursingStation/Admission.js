@@ -222,10 +222,61 @@ const TableSelect = styled.select`
     border-color: #0d9488;
   }
 `;
-const TWrap = styled.div`overflow-x:auto;`;
-const Tbl = styled.table`width:100%;border-collapse:collapse;font-size:.82rem;`;
+const TopScrollContainer = styled.div`
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 12px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #0d9488 #f1f5f9;
+
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #0d9488;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #0f766e;
+  }
+`;
+
+const TWrap = styled.div`
+  overflow-x: auto;
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: #0d9488 #f1f5f9;
+  &::-webkit-scrollbar { height: 8px; }
+  &::-webkit-scrollbar-track { background: #f1f5f9; }
+  &::-webkit-scrollbar-thumb { background: #0d9488; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb:hover { background: #0f766e; }
+`;
+const Tbl = styled.table`
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: .82rem;
+`;
 const Thead = styled.thead`background:#f9fafb;`;
-const Th = styled.th`padding:10px 12px;text-align:left;font-size:.72rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb;white-space:nowrap;`;
+const Th = styled.th`
+  padding: 10px 12px;
+  text-align: left;
+  font-size: .72rem;
+  font-weight: 700;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 2px solid #e5e7eb;
+  background: #f9fafb;
+  white-space: nowrap;
+`;
 const SortTh = styled(Th)`
   cursor: pointer;
   user-select: none;
@@ -235,8 +286,41 @@ const SortTh = styled(Th)`
     background-color: #f0fdf4;
   }
 `;
-const Tr = styled.tr`border-bottom:1px solid #f3f4f6;animation:${fadeIn} .28s ease both;animation-delay:${p => p.i * .035}s;&:hover{background:#f0fdf4;}`;
-const Td = styled.td`padding:9px 12px;color:#374151;white-space:nowrap;`;
+const StickyTh = styled(Th)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 10;
+  background: #f9fafb;
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid #e5e7eb;`}
+`;
+const StickySortTh = styled(SortTh)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 10;
+  background: #f9fafb;
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid #e5e7eb;`}
+`;
+const Tr = styled.tr`
+  border-bottom: 1px solid #f3f4f6;
+  animation: ${fadeIn} .28s ease both;
+  animation-delay: ${p => p.i * .035}s;
+  &:hover { background: #f0fdf4; }
+  &:hover > td { background: #f0fdf4 !important; }
+`;
+const Td = styled.td`
+  padding: 9px 12px;
+  color: #374151;
+  white-space: nowrap;
+  border-bottom: 1px solid #f3f4f6;
+  background: #ffffff;
+`;
+const StickyTd = styled(Td)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 5;
+  background: #ffffff;
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid #e5e7eb;`}
+`;
 const Badge = styled.span`padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:${p => p.t === 'admitted' ? '#dcfce7' : p.t === 'discharged' ? '#dbeafe' : '#fee2e2'};color:${p => p.t === 'admitted' ? '#166534' : p.t === 'discharged' ? '#1d4ed8' : '#991b1b'};`;
 const RoomHistBtn = styled.button`height:26px;padding:0 10px;font-size:.68rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;&:hover{background:#dbeafe;}`;
 const RoomSourceTag = styled.span`font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;background:${p => p.src === 'shifting' ? '#f3e8ff' : '#f0fdf4'};color:${p => p.src === 'shifting' ? '#7e22ce' : '#166534'};`;
@@ -2788,6 +2872,58 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
+  // ── Synchronized Top Horizontal Scrollbar ──
+  const topScrollRef = useRef(null);
+  const tableScrollRef = useRef(null);
+  const isSyncingTop = useRef(false);
+  const isSyncingTable = useRef(false);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const [hasHorizontalScroll, setHasHorizontalScroll] = useState(false);
+
+  const handleTopScroll = () => {
+    if (isSyncingTable.current) {
+      isSyncingTable.current = false;
+      return;
+    }
+    if (topScrollRef.current && tableScrollRef.current) {
+      isSyncingTop.current = true;
+      tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleTableScroll = () => {
+    if (isSyncingTop.current) {
+      isSyncingTop.current = false;
+      return;
+    }
+    if (topScrollRef.current && tableScrollRef.current) {
+      isSyncingTable.current = true;
+      topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
+    }
+  };
+
+  const updateScrollWidth = useCallback(() => {
+    if (tableScrollRef.current) {
+      const sw = tableScrollRef.current.scrollWidth;
+      const cw = tableScrollRef.current.clientWidth;
+      setTableScrollWidth(sw);
+      setHasHorizontalScroll(sw > cw);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateScrollWidth();
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => updateScrollWidth());
+    ro.observe(el);
+    window.addEventListener("resize", updateScrollWidth);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateScrollWidth);
+    };
+  }, [updateScrollWidth, filtered, paginated, viewMode]);
+
   // ── Form helpers ──────────────────────────────────────────────────────────
   const openNewForm = () => { setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); setFormOpen(true); fetchNextIp(); };
   const handleGridBedClick = (room, bed) => {
@@ -4215,20 +4351,35 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
               </div>
             </TTBar>
 
-            {/* ── Table ── */}
-            <TWrap>
+            {/* ── Table with Top Horizontal Scrollbar ── */}
+            {hasHorizontalScroll && (
+              <TopScrollContainer
+                ref={topScrollRef}
+                onScroll={handleTopScroll}
+                title="Scroll horizontally"
+              >
+                <div style={{ width: `${tableScrollWidth}px`, height: "1px" }} />
+              </TopScrollContainer>
+            )}
+            <TWrap ref={tableScrollRef} onScroll={handleTableScroll}>
               <Tbl>
                 <Thead>
                   <tr>
-                    <Th>Status</Th>
-                    <SortTh onClick={() => handleSort("admissionDateTime")}>
+                    <StickyTh $left="0px" style={{ width: "88px", minWidth: "88px" }}>Status</StickyTh>
+                    <StickySortTh $left="88px" style={{ width: "95px", minWidth: "95px" }} onClick={() => handleSort("admissionDateTime")}>
                       Adm Date {renderSortIcon("admissionDateTime")}
-                    </SortTh>
-                    <Th>Time</Th>
-                    <Th>UHID</Th>
-                    <Th>IP No.</Th>
-                    <Th>Name</Th><Th>Age</Th><Th>Gender</Th><Th style={{ minWidth: "150px" }}>Customer Type / Insurance</Th>
-                    <Th>Admitting Dr.</Th><Th>Room / Bed</Th><Th>Room History</Th><Th>Actions</Th>
+                    </StickySortTh>
+                    <StickyTh $left="183px" style={{ width: "82px", minWidth: "82px" }}>Time</StickyTh>
+                    <StickyTh $left="265px" style={{ width: "110px", minWidth: "110px" }}>UHID</StickyTh>
+                    <StickyTh $left="375px" style={{ width: "110px", minWidth: "110px" }}>IP No.</StickyTh>
+                    <StickyTh $left="485px" $shadow style={{ width: "160px", minWidth: "160px" }}>Name</StickyTh>
+                    <Th>Age</Th>
+                    <Th>Gender</Th>
+                    <Th style={{ minWidth: "150px" }}>Customer Type / Insurance</Th>
+                    <Th>Admitting Dr.</Th>
+                    <Th>Room / Bed</Th>
+                    <Th>Room History</Th>
+                    <Th>Actions</Th>
                   </tr>
                 </Thead>
                 <tbody>
@@ -4245,12 +4396,12 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
                     return (
                       <Tr key={adm.ipNumber || idx} i={idx}>
-                        <Td><Badge t={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</Badge></Td>
-                        <Td>{adm.admissionDateTime ? fmtDate(adm.admissionDateTime) : "-"}</Td>
-                        <Td>{adm.admissionDateTime ? fmtTime(adm.admissionDateTime) : "-"}</Td>
-                        <Td style={{ fontWeight: 600, color: "#0d9488" }}>{adm.uhid || "-"}</Td>
-                        <Td style={{ fontWeight: 600, color: "#6d28d9" }}>{adm.ipNumber || "-"}</Td>
-                        <Td style={{ fontWeight: 600 }}>
+                        <StickyTd $left="0px" style={{ width: "88px", minWidth: "88px" }}><Badge t={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</Badge></StickyTd>
+                        <StickyTd $left="88px" style={{ width: "95px", minWidth: "95px" }}>{adm.admissionDateTime ? fmtDate(adm.admissionDateTime) : "-"}</StickyTd>
+                        <StickyTd $left="183px" style={{ width: "82px", minWidth: "82px" }}>{adm.admissionDateTime ? fmtTime(adm.admissionDateTime) : "-"}</StickyTd>
+                        <StickyTd $left="265px" style={{ fontWeight: 600, color: "#0d9488", width: "110px", minWidth: "110px" }}>{adm.uhid || "-"}</StickyTd>
+                        <StickyTd $left="375px" style={{ fontWeight: 600, color: "#6d28d9", width: "110px", minWidth: "110px" }}>{adm.ipNumber || "-"}</StickyTd>
+                        <StickyTd $left="485px" $shadow style={{ fontWeight: 600, width: "160px", minWidth: "160px" }}>
                           {pName(adm)}
                           {adm.is_high_risk && (
                             <span
@@ -4274,7 +4425,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                               ⚠️ High Risk
                             </span>
                           )}
-                        </Td>
+                        </StickyTd>
                         <Td>{adm.age ? `${adm.age} ${adm.age_type || "Y"}` : "-"}</Td>
                         <Td>{adm.gender || "-"}</Td>
                         <Td>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import styled, { keyframes } from "styled-components";
 import DischargeBillPrintModal from "./DischargeBillPrintModal";
@@ -57,27 +57,83 @@ const CardTitle = styled.span`
   letter-spacing: 0.5px; color: ${T.primary}; display: flex; align-items: center; gap: 6px;
 `;
 
-const TScrollWrap = styled.div`
-  overflow-x: auto; width: 100%;
-  &::-webkit-scrollbar { height: 6px; }
-  &::-webkit-scrollbar-track { background: #f1f5f9; }
-  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-  &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+const TopScrollContainer = styled.div`
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 12px;
+  background: #f8fafc;
+  border-top: 1px solid ${T.border};
+  border-bottom: 1px solid ${T.border};
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: ${T.primary} #f1f5f9;
+
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #0f766e;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #0d5f58;
+  }
 `;
-const LTable = styled.table`width: 100%; border-collapse: collapse; font-size: 0.8rem;`;
+
+const TScrollWrap = styled.div`
+  overflow-x: auto;
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: ${T.primary} #f1f5f9;
+  &::-webkit-scrollbar { height: 8px; }
+  &::-webkit-scrollbar-track { background: #f1f5f9; }
+  &::-webkit-scrollbar-thumb { background: #0f766e; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb:hover { background: #0d5f58; }
+`;
+const LTable = styled.table`
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8rem;
+`;
 const LTH = styled.th`
   padding: 9px 12px; text-align: left; font-size: 0.65rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.4px; color: ${T.textMuted};
   border-bottom: 2px solid ${T.border}; background: #f8fafc; white-space: nowrap;
 `;
+const StickyLTH = styled(LTH)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 10;
+  background: #f8fafc;
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid ${T.border};`}
+`;
 const LTR = styled.tr`
   border-bottom: 1px solid ${T.border};
-  background: ${p => p.$cancelled ? "#fff5f5" : "inherit"};
+  background: ${p => p.$cancelled ? "#fff5f5" : "#ffffff"};
   opacity: ${p => p.$cancelled ? 0.75 : 1};
   &:hover { background: ${p => p.$cancelled ? "#ffebeb" : "#f8fbff"}; }
+  &:hover > td { background: ${p => p.$cancelled ? "#ffebeb" : "#f8fbff"} !important; }
   &:last-child { border-bottom: none; }
 `;
-const LTD = styled.td`padding: 9px 12px; color: ${T.textMain}; vertical-align: middle; white-space: nowrap;`;
+const LTD = styled.td`
+  padding: 9px 12px;
+  color: ${T.textMain};
+  vertical-align: middle;
+  white-space: nowrap;
+  border-bottom: 1px solid ${T.border};
+  background: #ffffff;
+`;
+const StickyLTD = styled(LTD)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 5;
+  background: ${p => p.$bg || "#ffffff"};
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid ${T.border};`}
+`;
 const Mono = styled.span`font-family: 'Courier New', monospace; font-size: 0.78rem;`;
 
 const DateBar = styled.div`
@@ -100,6 +156,12 @@ const FInput = styled.input`
   &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
   &[type=date] { cursor: pointer; }
   &::placeholder { color: ${T.textMuted}; }
+`;
+const FSelect = styled.select`
+  height: 32px; padding: 0 8px; font-size: 0.82rem;
+  border: 1px solid ${T.border}; border-radius: 6px; outline: none;
+  background: #fff; color: ${T.textMain}; cursor: pointer; transition: border 0.12s;
+  &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
 `;
 const Btn = styled.button`
   height: ${p => p.$sm ? "28px" : "34px"};
@@ -231,6 +293,31 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   const [inputFrom, setInputFrom] = useState(today());
   const [inputTo,   setInputTo]   = useState(today());
   const [inputQ,    setInputQ]    = useState("");
+  const [selectedCustomerType, setSelectedCustomerType] = useState("ALL");
+  const [selectedInsuranceType, setSelectedInsuranceType] = useState("ALL");
+
+  // Options for filters derived from data
+  const customerTypeOptions = useMemo(() => {
+    const set = new Set(["GENERAL", "INSURANCE", "CORPORATE"]);
+    bills.forEach(b => {
+      const ct = b.customer_type || b.patient_details?.customer_type;
+      if (ct && typeof ct === "string" && ct.trim()) {
+        set.add(ct.trim().toUpperCase());
+      }
+    });
+    return Array.from(set);
+  }, [bills]);
+
+  const insuranceTypeOptions = useMemo(() => {
+    const set = new Set();
+    bills.forEach(b => {
+      const comp = b.company_name || b.patient_details?.company_name || b.patient_details?.insurance_name;
+      if (comp && typeof comp === "string" && comp.trim()) {
+        set.add(comp.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [bills]);
 
   // Pagination
   const [page,    setPage]    = useState(1);
@@ -269,7 +356,13 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   const [menuPos, setMenuPos]   = useState({ top: 0, bottom: 0, left: 0, placement: "bottom", maxHeight: 280 });
   const menuRef = useRef(null);
 
-  const fetchBills = useCallback(async (fromDate = inputFrom, toDate = inputTo, searchQuery = inputQ) => {
+  const fetchBills = useCallback(async (
+    fromDate = inputFrom, 
+    toDate = inputTo, 
+    searchQuery = inputQ,
+    custType = selectedCustomerType,
+    insType = selectedInsuranceType
+  ) => {
     setListBusy(true);
     setListErr("");
     try {
@@ -277,6 +370,8 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
       if (fromDate) params.append("from_date", fromDate);
       if (toDate) params.append("to_date", toDate);
       if (searchQuery && searchQuery.trim()) params.append("search", searchQuery.trim());
+      if (custType && custType !== "ALL") params.append("customer_type", custType);
+      if (insType && insType !== "ALL") params.append("insurance_type", insType);
 
       const res = await apiRequest(`${BASE}discharge-billing/?${params.toString()}`, "GET");
       let list = [];
@@ -297,7 +392,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     } finally {
       setListBusy(false);
     }
-  }, [inputFrom, inputTo, inputQ]);
+  }, [inputFrom, inputTo, inputQ, selectedCustomerType, selectedInsuranceType]);
 
   const handleOpenPrint = async (b, defaultViewMode = "NORMAL") => {
     let updatedBill = { ...b };
@@ -326,7 +421,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
 
 
   useEffect(() => { 
-    fetchBills(inputFrom, inputTo, inputQ); 
+    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType, selectedInsuranceType); 
   }, [onRefreshTrigger]);
 
   useEffect(() => {
@@ -336,14 +431,28 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   }, [autoPrintBill]);
 
   const handleSearch = () => {
-    fetchBills(inputFrom, inputTo, inputQ);
+    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType, selectedInsuranceType);
+  };
+
+  const handleCustomerTypeChange = (e) => {
+    const val = e.target.value;
+    setSelectedCustomerType(val);
+    fetchBills(inputFrom, inputTo, inputQ, val, selectedInsuranceType);
+  };
+
+  const handleInsuranceTypeChange = (e) => {
+    const val = e.target.value;
+    setSelectedInsuranceType(val);
+    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType, val);
   };
 
   const handleReset = () => {
     setInputFrom(today());
     setInputTo(today());
     setInputQ("");
-    fetchBills(today(), today(), "");
+    setSelectedCustomerType("ALL");
+    setSelectedInsuranceType("ALL");
+    fetchBills(today(), today(), "", "ALL", "ALL");
   };
 
   const handleKeyDown = (e) => {
@@ -403,7 +512,27 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   }, [openMenu]);
 
   // ── Filtering (Safety local client-side filter) ──────────────────────────────
-  const filtered = bills;
+  const filtered = useMemo(() => {
+    return bills.filter(b => {
+      if (selectedCustomerType !== "ALL") {
+        const ct = (b.customer_type || b.patient_details?.customer_type || "").toUpperCase();
+        if (selectedCustomerType === "INSURANCE") {
+          if (!b.is_insurance_bill && !ct.includes("INSURANCE")) return false;
+        } else {
+          if (!ct.includes(selectedCustomerType.toUpperCase())) return false;
+        }
+      }
+      if (selectedInsuranceType !== "ALL") {
+        if (selectedInsuranceType === "NON_INSURANCE") {
+          if (b.is_insurance_bill) return false;
+        } else {
+          const comp = (b.company_name || b.patient_details?.company_name || b.patient_details?.insurance_name || "").toUpperCase();
+          if (!comp.includes(selectedInsuranceType.toUpperCase())) return false;
+        }
+      }
+      return true;
+    });
+  }, [bills, selectedCustomerType, selectedInsuranceType]);
 
   // ── Summary totals ─────────────────────────────────────────────────────────
   const summary = filtered.reduce((acc, b) => {
@@ -458,6 +587,58 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     }
   };
 
+  // ── Synchronized Top Horizontal Scrollbar ──────────────────────────────────
+  const topScrollRef = useRef(null);
+  const tableScrollRef = useRef(null);
+  const isSyncingTop = useRef(false);
+  const isSyncingTable = useRef(false);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const [hasHorizontalScroll, setHasHorizontalScroll] = useState(false);
+
+  const handleTopScroll = () => {
+    if (isSyncingTable.current) {
+      isSyncingTable.current = false;
+      return;
+    }
+    if (topScrollRef.current && tableScrollRef.current) {
+      isSyncingTop.current = true;
+      tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleTableScroll = () => {
+    if (isSyncingTop.current) {
+      isSyncingTop.current = false;
+      return;
+    }
+    if (topScrollRef.current && tableScrollRef.current) {
+      isSyncingTable.current = true;
+      topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
+    }
+  };
+
+  const updateScrollWidth = useCallback(() => {
+    if (tableScrollRef.current) {
+      const sw = tableScrollRef.current.scrollWidth;
+      const cw = tableScrollRef.current.clientWidth;
+      setTableScrollWidth(sw);
+      setHasHorizontalScroll(sw > cw);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateScrollWidth();
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => updateScrollWidth());
+    ro.observe(el);
+    window.addEventListener("resize", updateScrollWidth);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateScrollWidth);
+    };
+  }, [updateScrollWidth, filtered, paginated]);
+
 
   return (
     <Card>
@@ -477,7 +658,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
 
       {/* Filter bar */}
       <DateBar>
-        <FG $w="135px">
+        <FG $w="130px">
           <FL>From</FL>
           <FInput 
             type="date" 
@@ -486,7 +667,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             onKeyDown={handleKeyDown}
           />
         </FG>
-        <FG $w="135px">
+        <FG $w="130px">
           <FL>To</FL>
           <FInput 
             type="date" 
@@ -495,7 +676,32 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             onKeyDown={handleKeyDown}
           />
         </FG>
-        <FG $flex="1" style={{ minWidth: 210 }}>
+        <FG $w="140px">
+          <FL>Customer Type</FL>
+          <FSelect
+            value={selectedCustomerType}
+            onChange={handleCustomerTypeChange}
+          >
+            <option value="ALL">All Types</option>
+            {customerTypeOptions.map(ct => (
+              <option key={ct} value={ct}>{ct}</option>
+            ))}
+          </FSelect>
+        </FG>
+        <FG $w="160px">
+          <FL>Insurance Type</FL>
+          <FSelect
+            value={selectedInsuranceType}
+            onChange={handleInsuranceTypeChange}
+          >
+            <option value="ALL">All Insurance</option>
+            <option value="NON_INSURANCE">Non-Insurance</option>
+            {insuranceTypeOptions.map(it => (
+              <option key={it} value={it}>{it}</option>
+            ))}
+          </FSelect>
+        </FG>
+        <FG $flex="1" style={{ minWidth: 180 }}>
           <FL>Search</FL>
           <FInput
             value={inputQ}
@@ -511,7 +717,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
           <Btn $ghost onClick={handleReset}>
             ↺ Reset
           </Btn>
-          <Btn $outline onClick={() => fetchBills(inputFrom, inputTo, inputQ)} disabled={listBusy}>
+          <Btn $outline onClick={() => fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType, selectedInsuranceType)} disabled={listBusy}>
             {listBusy ? <Spinner /> : "↻"} Refresh
           </Btn>
         </div>
@@ -554,22 +760,33 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
         </SummaryRow>
       )}
 
+      {/* Top Horizontal Scrollbar */}
+      {hasHorizontalScroll && (
+        <TopScrollContainer
+          ref={topScrollRef}
+          onScroll={handleTopScroll}
+          title="Scroll table horizontally"
+        >
+          <div style={{ width: `${tableScrollWidth}px`, height: "1px" }} />
+        </TopScrollContainer>
+      )}
+
       {/* Table */}
-      <TScrollWrap>
+      <TScrollWrap ref={tableScrollRef} onScroll={handleTableScroll}>
         <LTable>
           <thead>
             <tr>
-              <LTH style={{ width: 42 }}>#</LTH>
-              <LTH>Bill No.</LTH>
-              <LTH>Estimate No.</LTH>
-              <LTH>UHID / IP</LTH>
-              <LTH>Patient</LTH>
+              <StickyLTH $left="0px" style={{ width: 46, minWidth: 46, maxWidth: 46 }}>#</StickyLTH>
+              <StickyLTH $left="46px" style={{ width: 96, minWidth: 96 }}>Bill Date</StickyLTH>
+              <StickyLTH $left="142px" style={{ width: 88, minWidth: 88 }}>Bill Time</StickyLTH>
+              <StickyLTH $left="230px" style={{ width: 140, minWidth: 140 }}>Bill No.</StickyLTH>
+              <StickyLTH $left="370px" style={{ width: 150, minWidth: 150 }}>UHID / IP</StickyLTH>
+              <StickyLTH $left="520px" $shadow style={{ width: 160, minWidth: 160 }}>Patient</StickyLTH>
               <LTH>Total</LTH>
               <LTH>Advance</LTH>
               <LTH>Discount</LTH>
               <LTH>GST</LTH>
               <LTH>Net Amount</LTH>
-              <LTH>Bill Date</LTH>
               <LTH>Status</LTH>
               <LTH style={{ textAlign: "center", width: 60 }}>Action</LTH>
             </tr>
@@ -599,12 +816,22 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             ) : paginated.map((b, i) => {
               const pd = b.patient_details || {};
               const isCanc = b.is_cancelled || b.status === "Cancelled";
+              const stickyBg = isCanc ? "#fff5f5" : "#ffffff";
               return (
                 <LTR key={b.id} $cancelled={isCanc}>
-                  <LTD style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.74rem" }}>
+                  <StickyLTD $left="0px" $bg={stickyBg} style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.74rem", width: 46, minWidth: 46, maxWidth: 46 }}>
                     {pageStart + i + 1}
-                  </LTD>
-                  <LTD>
+                  </StickyLTD>
+                  {/* Bill Date */}
+                  <StickyLTD $left="46px" $bg={stickyBg} style={{ fontSize: "0.77rem", fontWeight: 600, width: 96, minWidth: 96 }}>
+                    {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-GB") : "—"}
+                  </StickyLTD>
+                  {/* Bill Time */}
+                  <StickyLTD $left="142px" $bg={stickyBg} style={{ fontSize: "0.75rem", color: T.textMid, width: 88, minWidth: 88 }}>
+                    {b.bill_date ? new Date(b.bill_date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—"}
+                  </StickyLTD>
+                  {/* Bill No. */}
+                  <StickyLTD $left="230px" $bg={stickyBg} style={{ width: 140, minWidth: 140 }}>
                     {b.is_insurance_bill ? (
                       <div>
                         <Mono style={{ color: "#065f46", fontWeight: 700, fontSize: "0.82rem" }}>
@@ -632,31 +859,34 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                         {(b.bill_no || "").replace(/\//g, "")}
                       </Mono>
                     )}
-                  </LTD>
-                  <LTD>
-                    <Mono style={{ fontSize: "0.73rem", color: T.textMuted }}>
-                      {b.estimate_number || "—"}
-                    </Mono>
-                  </LTD>
-                  <LTD style={{ fontSize: "0.77rem" }}>
+                  </StickyLTD>
+                  {/* UHID / IP */}
+                  <StickyLTD $left="370px" $bg={stickyBg} style={{ fontSize: "0.77rem", width: 150, minWidth: 150 }}>
                     {b.uhid || "—"} / {b.ip_number || "—"}
-                  </LTD>
-                  <LTD style={{ fontWeight: 600 }}>{pd.patient_name || "—"}</LTD>
+                  </StickyLTD>
+                  {/* Patient */}
+                  <StickyLTD $left="520px" $shadow $bg={stickyBg} style={{ fontWeight: 600, width: 160, minWidth: 160 }}>
+                    {pd.patient_name || "—"}
+                  </StickyLTD>
+                  {/* Total */}
                   <LTD>₹{fmt(b.total_amount)}</LTD>
+                  {/* Advance */}
                   <LTD style={{ color: T.danger }}>₹{fmt(b.advance_amount)}</LTD>
+                  {/* Discount */}
                   <LTD style={{ color: T.danger }}>₹{fmt(b.discount_amount)}</LTD>
+                  {/* GST */}
                   <LTD style={{ color: T.blue }}>₹{fmt(b.gst_amount)}</LTD>
+                  {/* Net Amount */}
                   <LTD style={{ fontWeight: 700, color: isCanc ? T.textMuted : T.success }}>
                     ₹{fmt(b.net_amount)}
                   </LTD>
-                  <LTD style={{ fontSize: "0.77rem" }}>
-                    {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-IN") : "—"}
-                  </LTD>
+                  {/* Status */}
                   <LTD>
                     <Badge $v={isCanc ? "cancelled" : "billed"}>
                       {isCanc ? "Cancelled" : "Billed"}
                     </Badge>
                   </LTD>
+                  {/* Action */}
                   <LTD style={{ textAlign: "center" }}>
                     <AW>
                       <DotB onClick={e => handleMenuToggle(b.id, e)} title="Actions">⋮</DotB>
