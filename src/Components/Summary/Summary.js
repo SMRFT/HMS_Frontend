@@ -1441,6 +1441,7 @@ const Summary = () => {
   }
   const canEdit = allowedActions.includes("HMS-P-SUME-RW");
   const canDelete = allowedActions.includes("HMS-P-SUMD-RW");
+  const canPrelimApprove = allowedActions.includes("HMS-P-SUMPA-RW");
   const canApprove = allowedActions.includes("HMS-P-SUMA-RW");
 
   const [noteFields, setNoteFields] = useState([]);
@@ -2395,7 +2396,7 @@ const Summary = () => {
     const rows = selectedMedicines
       .map(
         (m) =>
-          `• ${m.itemName}  |  Dosage: ${m.dosage || "—"}  |  Days: ${m.noOfDays || "—"}  |  Unit: ${m.doseUnit || "—"}${m.route ? "  |  Route: " + m.route : ""}${m.remark && m.remark !== "Nil" ? "  |  Remark: " + m.remark : ""}`
+          `• ${m.itemName}${m.chemicalComposition ? ` - **${m.chemicalComposition}**` : ""}  |  Dosage: ${m.dosage || "—"}  |  Days: ${m.noOfDays || "—"}  |  Unit: ${m.doseUnit || "—"}${m.route ? "  |  Route: " + m.route : ""}${m.remark && m.remark !== "Nil" ? "  |  Remark: " + m.remark : ""}`
       )
       .join("\n");
     const newBlock = `${header}\n${rows}`;
@@ -3336,6 +3337,34 @@ const Summary = () => {
       } else {
         Swal.fire("Error", "Error deleting summary: " + (r.error || "Unknown error"), "error");
       }
+    }
+  };
+
+  const handlePreliminaryApprove = async (ipNo) => {
+    const result = await Swal.fire({
+      title: "Preliminary approve?",
+      text: "This marks the summary as prepared and ready for final approval.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#0284c7",
+      confirmButtonText: "Yes, preliminary approve",
+    });
+    if (!result.isConfirmed) return;
+
+    const r = await apiRequest(
+      `${HMSURL}preliminary-approve-summary/${encodeURIComponent(ipNo)}/`,
+      "PATCH",
+      { preliminary_approve: true }
+    );
+    if (r.success) {
+      Swal.fire("Done", "Summary preliminarily approved!", "success");
+      await fetchSummaries({
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+        summaryType: filters.summaryType,
+      });
+    } else {
+      Swal.fire("Error", r.error || "Failed to preliminary approve", "error");
     }
   };
 
@@ -4687,7 +4716,7 @@ const Summary = () => {
                   <datalist id="explained-by-doctors-list">
                     {doctors.map((doc, i) => {
                       const upperName = (doc.employeeName || "").toUpperCase();
-                      const prefix = upperName.startsWith("DR.") ? upperName : `DR. ${upperName}`;
+                      const prefix = upperName.startsWith("") ? upperName : ` ${upperName}`;
                       return <option key={doc.employeeId || i} value={prefix} />;
                     })}
                   </datalist>
@@ -5007,6 +5036,9 @@ const Summary = () => {
                           >
                             <strong style={{ fontSize: 13.5, color: T.teal }}>
                               {med.itemName}
+                              {med.chemicalComposition && (
+                                <span style={{ color: T.slate, fontWeight: 700 }}> - {med.chemicalComposition}</span>
+                              )}
                             </strong>
                             <div style={{ display: "flex", gap: 6 }}>
                               {med.is_discharge_medicine && (
@@ -5297,6 +5329,7 @@ const Summary = () => {
                       "UHID",
                       "IP No",
                       "Prepared By",
+                      "Prelim. Approved By",
                       "Approved By",
                       "Approved On",
                       "Actions",
@@ -5340,6 +5373,20 @@ const Summary = () => {
                       <td style={{ ...S.td, fontWeight: 700, color: "#0f172a" }}>{s.ipNo}</td>
                       <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600, color: "#334155" }}>
                         {resolveEmpName(s.created_by, s.created_by_name) || "—"}
+                      </td>
+                      <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600, color: s.preliminary_approved_by ? "#4338ca" : "#64748b" }}>
+                        {s.preliminary_approved_by ? (
+                          <>
+                            <div>{resolveEmpName(s.preliminary_approved_by, s.preliminary_approved_by_name)}</div>
+                            {s.preliminary_approve_time && (
+                              <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>
+                                {fmtDateTime(s.preliminary_approve_time)}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td style={{ ...S.td, fontSize: 12.5, fontWeight: (s.approved_by_name || s.approved_by) ? 600 : 500, color: (s.approved_by_name || s.approved_by) ? "#0f766e" : "#64748b" }}>
                         {resolveEmpName(s.approved_by, s.approved_by_name) || (s.approve ? "System" : "—")}
@@ -5450,6 +5497,14 @@ const Summary = () => {
                       <div>
                         <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Prepared By</span>
                         <span style={{ color: "#334155", fontWeight: 600 }}>{resolveEmpName(actionsModalSummary.created_by, actionsModalSummary.created_by_name) || "—"}</span>
+                      </div>
+                    )}
+                    {actionsModalSummary.preliminary_approve && (
+                      <div>
+                        <span style={{ color: "#64748b", display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>Prelim. Approved By</span>
+                        <span style={{ color: "#4338ca", fontWeight: 600 }}>
+                          {resolveEmpName(actionsModalSummary.preliminary_approved_by, actionsModalSummary.preliminary_approved_by_name) || "—"}
+                        </span>
                       </div>
                     )}
                     {actionsModalSummary.approve && (
@@ -5563,58 +5618,118 @@ const Summary = () => {
                         </div>
                       </div>
                     </button>
+                    {/* 2b. Preliminary Approve */}
+                    {canPrelimApprove && (() => {
+                      const s = actionsModalSummary;
+                      const locked = s.approve || s.preliminary_approve;
+                      return (
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => {
+                            const ip = s.ipNo;
+                            setActionsModalSummary(null);
+                            handlePreliminaryApprove(ip);
+                          }}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 12, padding: "14px 16px",
+                            borderRadius: 10,
+                            border: `1.5px solid ${locked ? "#e2e8f0" : "#c7d2fe"}`,
+                            background: locked ? "#f8fafc" : "#eef2ff",
+                            color: locked ? "#94a3b8" : "#4338ca",
+                            cursor: locked ? "not-allowed" : "pointer",
+                            opacity: locked ? 0.6 : 1,
+                            transition: "all 0.15s ease", textAlign: "left",
+                          }}
+                          title={locked ? "Already preliminarily approved" : "Preliminary Approve"}
+                        >
+                          <div style={{
+                            width: 36, height: 36, borderRadius: 8,
+                            background: locked ? "#e2e8f0" : "rgba(79,70,229,0.15)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            color: locked ? "#94a3b8" : "#4f46e5", flexShrink: 0,
+                          }}>
+                            <CheckCircle size={18} />
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 13.5 }}>
+                              {s.preliminary_approve || s.approve ? "Preliminary Approved" : "Preliminary Approve"}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                              {s.preliminary_approve || s.approve ? "Prepared by signed off" : "Prepared by sign-off"}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })()}
 
                     {/* 3. Approve */}
-                    {canApprove && (
-                      <button
-                        type="button"
-                        disabled={actionsModalSummary.approve}
-                        onClick={() => {
-                          const ip = actionsModalSummary.ipNo;
-                          setActionsModalSummary(null);
-                          handleApprove(ip);
-                        }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                          padding: "14px 16px",
-                          borderRadius: 10,
-                          border: `1.5px solid ${actionsModalSummary.approve ? "#e2e8f0" : "#bbf7d0"}`,
-                          background: actionsModalSummary.approve ? "#f8fafc" : "#f0fdf4",
-                          color: actionsModalSummary.approve ? "#94a3b8" : "#15803d",
-                          cursor: actionsModalSummary.approve ? "not-allowed" : "pointer",
-                          opacity: actionsModalSummary.approve ? 0.6 : 1,
-                          transition: "all 0.15s ease",
-                          textAlign: "left",
-                        }}
-                        title={actionsModalSummary.approve ? "Already Approved" : "Approve Summary"}
-                      >
-                        <div
+                    {/* 3. Approve */}
+                    {canApprove && (() => {
+                      const s = actionsModalSummary;
+                      const awaitingPrelim = !s.preliminary_approve && !s.approve;
+                      const locked = s.approve || awaitingPrelim;
+                      return (
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => {
+                            const ip = s.ipNo;
+                            setActionsModalSummary(null);
+                            handleApprove(ip);
+                          }}
                           style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 8,
-                            background: actionsModalSummary.approve ? "#e2e8f0" : "rgba(22, 163, 74, 0.15)",
                             display: "flex",
                             alignItems: "center",
-                            justifyContent: "center",
-                            color: actionsModalSummary.approve ? "#94a3b8" : "#16a34a",
-                            flexShrink: 0,
+                            gap: 12,
+                            padding: "14px 16px",
+                            borderRadius: 10,
+                            border: `1.5px solid ${locked ? "#e2e8f0" : "#bbf7d0"}`,
+                            background: locked ? "#f8fafc" : "#f0fdf4",
+                            color: locked ? "#94a3b8" : "#15803d",
+                            cursor: locked ? "not-allowed" : "pointer",
+                            opacity: locked ? 0.6 : 1,
+                            transition: "all 0.15s ease",
+                            textAlign: "left",
                           }}
+                          title={
+                            s.approve
+                              ? "Already Approved"
+                              : awaitingPrelim
+                                ? "Preliminary approval is required first"
+                                : "Approve Summary"
+                          }
                         >
-                          <CheckCircle size={18} />
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 13.5 }}>
-                            {actionsModalSummary.approve ? "Already Approved" : "Approve Summary"}
+                          <div
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 8,
+                              background: locked ? "#e2e8f0" : "rgba(22, 163, 74, 0.15)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: locked ? "#94a3b8" : "#16a34a",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <CheckCircle size={18} />
                           </div>
-                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                            {actionsModalSummary.approve ? "Summary is finalized" : "Finalize & sign off"}
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 13.5 }}>
+                              {s.approve ? "Already Approved" : "Approve Summary"}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                              {s.approve
+                                ? "Summary is finalized"
+                                : awaitingPrelim
+                                  ? "Needs preliminary approval first"
+                                  : "Finalize & sign off"}
+                            </div>
                           </div>
-                        </div>
-                      </button>
-                    )}
+                        </button>
+                      );
+                    })()}
 
                     {/* 4. Delete */}
                     {canDelete && (
