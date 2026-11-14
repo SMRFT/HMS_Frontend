@@ -21,3 +21,54 @@ input::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield !important;
 }
+
+/* Global Print Styles - Hide App Shell (Header, Sidebar, Navigation, Modals, Buttons) */
+@media print {
+  header,
+  nav,
+  aside,
+  .sidebar,
+  [class*="HeaderContainer"],
+  [class*="SidebarContainer"],
+  [class*="HeaderBar"],
+  [class*="HeaderWrapper"],
+  [class*="TopBar"],
+  [class*="Navbar"],
+  [class*="ControlsBar"],
+  [class*="ControlBar"],
+  [class*="ActionBtn"],
+  [class*="StatsGrid"],
+  [class*="KPIGrid"],
+  .no-print,
+  button,
+  input,
+  select,
+  .ant-picker,
+  .ant-select,
+  .ant-modal-mask,
+  .ant-modal-wrap:not(.printable-modal) {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    opacity: 0 !important;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  [class*="ContentWrapper"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    margin-left: 0 !important;
+    padding-top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+

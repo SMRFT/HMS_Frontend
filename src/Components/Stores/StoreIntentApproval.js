@@ -1434,6 +1434,22 @@ const StoresApprovalManager = () => {
                                                 </S.Td>
                                                 <S.Td style={{ fontWeight: '700', color: '#334155' }}>
                                                     <div>{item.department_name}</div>
+                                                    {item.ipnumber && (
+                                                        <div style={{ marginTop: '3px' }}>
+                                                            <span style={{ 
+                                                                display: 'inline-block',
+                                                                fontSize: '0.72rem', 
+                                                                color: '#1e40af', 
+                                                                fontWeight: 700, 
+                                                                background: '#dbeafe', 
+                                                                padding: '2px 8px', 
+                                                                borderRadius: '4px',
+                                                                border: '1px solid #bfdbfe'
+                                                            }}>
+                                                                👤 IP: {item.ipnumber}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     {(item.nursing_station_name || item.nursing_station) && (
                                                         <div style={{ marginTop: '3px' }}>
                                                             <span style={{ 
@@ -2118,6 +2134,11 @@ const StoresApprovalManager = () => {
                                             <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Department</div>
                                             <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                 <span>{selectedIntentForView.department_name || selectedIntentForView.department || '-'}</span>
+                                                {selectedIntentForView.ipnumber && (
+                                                    <span style={{ fontSize: '0.78rem', color: '#1e40af', fontWeight: '700', background: '#dbeafe', padding: '2px 8px', borderRadius: '4px', border: '1px solid #bfdbfe' }}>
+                                                        👤 IP: {selectedIntentForView.ipnumber}
+                                                    </span>
+                                                )}
                                                 {(selectedIntentForView.nursing_station_name || selectedIntentForView.nursing_station) && (
                                                     <span style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: '700', background: '#ccfbf1', padding: '2px 8px', borderRadius: '4px', border: '1px solid #99f6e4' }}>
                                                         🏥 {selectedIntentForView.nursing_station_name || selectedIntentForView.nursing_station}

@@ -39,11 +39,20 @@ import {
 import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
 import { colors, PageWrapper, fadeIn } from '../GlobalStyles';
+import { printInsuranceReport } from '../Insurance_report/printInsuranceReport';
 
 // Lazy-loaded specialized insurance reports
 const InsuranceBillsDueList = lazy(() => import('../Insurance_report/InsuranceBillsDueList'));
 const InsuranceBillsStatus = lazy(() => import('../Insurance_report/InsuranceBillsStatus'));
 const InsuranceBillsStatusReport = lazy(() => import('../Insurance_report/InsuranceBillsStatusReport'));
+const PatientWisePharmacyIpBillReport = lazy(() => import('../Insurance_report/PatientWisePharmacyIpBillReport'));
+const LabAbstractReportDetailed = lazy(() => import('../Insurance_report/LabAbstractReportDetailed'));
+const OccupancyListCompanyWiseReport = lazy(() => import('../Insurance_report/OccupancyListCompanyWiseReport'));
+const InsuranceBillsStatusReportPage = lazy(() => import('../Insurance_report/InsuranceBillsStatusReportPage'));
+const InsuranceBillsStatusBranchDuesReport = lazy(() => import('../Insurance_report/InsuranceBillsStatusBranchDuesReport'));
+const CompanywiseRegistrationReport = lazy(() => import('../Insurance_report/CompanywiseRegistrationReport'));
+const InsuranceDischargeBillAllReport = lazy(() => import('../Insurance_report/InsuranceDischargeBillAllReport'));
+const PrescriptionDetailsReport = lazy(() => import('../Insurance_report/PrescriptionDetailsReport'));
 
 const { RangePicker } = DatePicker;
 
@@ -607,6 +616,135 @@ const PrintWrapper = styled.div`
   }
 `;
 
+// Teal Parameter Filter Modal (Matching User Screenshots)
+const TealModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 16px;
+`;
+
+const TealModalContainer = styled.div`
+  background: #ffffff;
+  border-radius: 4px;
+  width: 580px;
+  max-width: 95vw;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  animation: ${fadeIn} 0.2s ease-out;
+`;
+
+const TealModalHeader = styled.div`
+  background: #1e5655;
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: 0.2px;
+  }
+
+  .close-btn {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    &:hover { opacity: 0.8; }
+  }
+`;
+
+const TealModalBody = styled.div`
+  padding: 24px;
+  background: #ffffff;
+
+  .fields-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 18px;
+
+    &.single {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .field-box {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    label {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, select {
+      height: 38px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 0 10px;
+      font-size: 0.88rem;
+      color: #0f172a;
+      outline: none;
+
+      &:focus {
+        border-color: #1e5655;
+      }
+    }
+
+    .ant-picker {
+      height: 38px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+    }
+  }
+
+  .footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 14px;
+
+    .btn-teal-print {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #1e5655;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 7px 18px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+
+      &:hover {
+        background: #16403f;
+      }
+    }
+  }
+`;
+
 // ALL 30 INSURANCE REPORTS
 const INSURANCE_REPORTS = [
     // 1. Bills & Dues
@@ -617,8 +755,8 @@ const INSURANCE_REPORTS = [
         icon: FileText,
         color: '#0891b2',
         category: 'Bills & Dues',
-        route: '/InsuranceBillsStatus',
-        component: InsuranceBillsStatus
+        route: '/InsuranceBillsStatusReportPage',
+        component: InsuranceBillsStatusReportPage
     },
     {
         id: 'insurance_bills_status_report',
@@ -646,7 +784,9 @@ const INSURANCE_REPORTS = [
         description: 'Hospital branch-level pending claim balances, due amounts, and settlement aging schedules.',
         icon: Building2,
         color: '#dc2626',
-        category: 'Bills & Dues'
+        category: 'Bills & Dues',
+        route: '/InsuranceBillsStatusBranchDuesReport',
+        component: InsuranceBillsStatusBranchDuesReport
     },
     {
         id: 'branch_wise_status',
@@ -728,7 +868,9 @@ const INSURANCE_REPORTS = [
         description: 'Master archive of all discharge bills across wards, specialties, and credit sponsors.',
         icon: ClipboardList,
         color: '#4f46e5',
-        category: 'Discharge Bills'
+        category: 'Discharge Bills',
+        route: '/InsuranceDischargeBillAllReport',
+        component: InsuranceDischargeBillAllReport
     },
     {
         id: 'status_op_patients',
@@ -805,7 +947,17 @@ const INSURANCE_REPORTS = [
         category: 'ECHS & Claims'
     },
 
-    // 4. Lab, Medicine & Investigations (5)
+    // 4. Lab, Medicine & Investigations
+    {
+        id: 'patient_wise_pharmacy_ip_bill',
+        title: 'PATIENT WISE PHARMACY IP BILL DETAILED',
+        description: 'Itemized IP pharmacy invoices per patient with HSN, batch, expiry, and GST breakdown.',
+        icon: Package,
+        color: '#0891b2',
+        category: 'Lab & Medicine',
+        route: '/PatientWisePharmacyIpBillReport',
+        component: PatientWisePharmacyIpBillReport
+    },
     {
         id: 'lab_investigation',
         title: 'Lab Investigation Report',
@@ -820,7 +972,9 @@ const INSURANCE_REPORTS = [
         description: 'Consolidated test volume, departmental revenue breakdown, and corporate tariff utilization.',
         icon: BarChart3,
         color: '#6366f1',
-        category: 'Lab & Medicine'
+        category: 'Lab & Medicine',
+        route: '/LabAbstractReportDetailed',
+        component: LabAbstractReportDetailed
     },
     {
         id: 'medicine_abstract',
@@ -847,14 +1001,16 @@ const INSURANCE_REPORTS = [
         category: 'Lab & Medicine'
     },
 
-    // 5. Registration & Occupancy (3)
+    // 5. Registration & Occupancy
     {
         id: 'occupancy_company_wise',
         title: 'Occupancy List Company Wise',
         description: 'Live and historical company-wise ward, ICU, and room bed occupancy with admitting doctor.',
         icon: BedDouble,
         color: '#dc2626',
-        category: 'Registration & Occupancy'
+        category: 'Registration & Occupancy',
+        route: '/OccupancyListCompanyWiseReport',
+        component: OccupancyListCompanyWiseReport
     },
     {
         id: 'companywise_registration',
@@ -862,7 +1018,9 @@ const INSURANCE_REPORTS = [
         description: 'Patient registrations grouped by insurance provider, employer organization, or corporate sponsor.',
         icon: Users,
         color: '#7c3aed',
-        category: 'Registration & Occupancy'
+        category: 'Registration & Occupancy',
+        route: '/CompanywiseRegistrationReport',
+        component: CompanywiseRegistrationReport
     },
     {
         id: 'prescription_details',
@@ -870,7 +1028,9 @@ const INSURANCE_REPORTS = [
         description: 'Doctor clinical prescriptions, dispensing slips, and fulfillment status for credit patients.',
         icon: FileText,
         color: '#16a34a',
-        category: 'Registration & Occupancy'
+        category: 'Registration & Occupancy',
+        route: '/PrescriptionDetailsReport',
+        component: PrescriptionDetailsReport
     }
 ];
 
@@ -890,6 +1050,16 @@ const InsuranceReportsDashboard = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [activeReport, setActiveReport] = useState(null);
+
+    // Dedicated parameter filter modal state (matching user screenshots)
+    const [filterModalOpen, setFilterModalOpen] = useState(false);
+    const [targetReport, setTargetReport] = useState(null);
+    const [modalFromDate, setModalFromDate] = useState(dayjs());
+    const [modalToDate, setModalToDate] = useState(dayjs());
+    const [modalUhid, setModalUhid] = useState('');
+    const [modalIpNumber, setModalIpNumber] = useState('');
+    const [modalCompanyName, setModalCompanyName] = useState('ALL');
+    const [modalOutletName, setModalOutletName] = useState('ALL');
 
     // Modal data state
     const [loadingData, setLoadingData] = useState(false);
@@ -947,14 +1117,40 @@ const InsuranceReportsDashboard = () => {
     }, [modalDateRange, dateRange, selectedCompany, modalSearch]);
 
     const handleOpenReport = (report) => {
-        setActiveReport(report);
-        setCurrentPage(1);
-        setModalSearch('');
-        setSelectedCompany('all');
-        setModalDateRange(dateRange);
-        if (!report.component) {
-            fetchReportData(report, dateRange, 'all', '');
+        setTargetReport(report);
+        setModalUhid('');
+        setModalIpNumber('');
+        setModalCompanyName('ALL');
+        setModalOutletName('ALL');
+        setFilterModalOpen(true);
+    };
+
+    const handleFilterModalPrint = () => {
+        if (!targetReport) return;
+        const fDate = modalFromDate ? modalFromDate.format('YYYY-MM-DD') : '';
+        const tDate = modalToDate ? modalToDate.format('YYYY-MM-DD') : '';
+
+        const params = new URLSearchParams();
+        if (['patient_wise_pharmacy_ip_bill', 'prescription_details'].includes(targetReport.id)) {
+            params.append('uhid', modalUhid);
+            params.append('from_date', fDate);
+            params.append('to_date', tDate);
+        } else if (['lab_abstract', 'discharge_all'].includes(targetReport.id)) {
+            params.append('ip_number', modalIpNumber);
+            params.append('from_date', fDate);
+            params.append('to_date', tDate);
+        } else if (targetReport.id === 'occupancy_company_wise') {
+            params.append('company_name', modalCompanyName);
+            params.append('outlet_name', modalOutletName);
+        } else {
+            params.append('from_date', fDate);
+            params.append('to_date', tDate);
+            params.append('company_name', modalCompanyName);
         }
+
+        const routeUrl = targetReport.route || '/InsuranceReportsDashboard';
+        setFilterModalOpen(false);
+        navigate(`${routeUrl}?${params.toString()}`);
     };
 
     const handleCloseModal = () => {
@@ -1032,7 +1228,12 @@ const InsuranceReportsDashboard = () => {
 
     // Print Report
     const handlePrint = () => {
-        window.print();
+        printInsuranceReport('insurance-modal-report-content', {
+            reportTitle: activeReport?.name || 'Insurance Report',
+            fromDate: modalDateRange?.[0]?.format('DD/MM/YYYY') || dateRange?.[0]?.format('DD/MM/YYYY'),
+            toDate: modalDateRange?.[1]?.format('DD/MM/YYYY') || dateRange?.[1]?.format('DD/MM/YYYY'),
+            orientation: 'landscape'
+        });
     };
 
     return (
@@ -1111,7 +1312,9 @@ const InsuranceReportsDashboard = () => {
                             </div>
 
                             <div className="footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span className="scheme-tag">Shanmuga Insurance Portal</span>
+                                <span className="scheme-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#0891b2', fontWeight: 600 }}>
+                                    <FileText size={14} /> Generate Report
+                                </span>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     {report.route && (
                                         <button
@@ -1152,6 +1355,149 @@ const InsuranceReportsDashboard = () => {
                     <h3 style={{ margin: '0 0 6px 0', color: colors.textMain }}>No Insurance Reports Found</h3>
                     <p style={{ margin: 0 }}>No insurance report matched "{searchTerm}".</p>
                 </div>
+            )}
+
+            {/* Exact Teal Parameter Filter Modal (Matching User Screenshots) */}
+            {filterModalOpen && targetReport && (
+                <TealModalOverlay onClick={() => setFilterModalOpen(false)}>
+                    <TealModalContainer onClick={(e) => e.stopPropagation()}>
+                        <TealModalHeader>
+                            <div className="title">{targetReport.title}</div>
+                            <button className="close-btn" onClick={() => setFilterModalOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        </TealModalHeader>
+
+                        <TealModalBody>
+                            {/* Inputs tailored per report */}
+                            {targetReport.id === 'occupancy_company_wise' ? (
+                                <div className="fields-row">
+                                    <div className="field-box">
+                                        <label>COMPANYNAME</label>
+                                        <select
+                                            value={modalCompanyName}
+                                            onChange={(e) => setModalCompanyName(e.target.value)}
+                                        >
+                                            <option value="ALL">ALL</option>
+                                            <option value="CGHS CASH">CGHS CASH</option>
+                                            <option value="CGHS CREDIT">CGHS CREDIT</option>
+                                            <option value="ECHS">ECHS</option>
+                                            <option value="ESI">ESI</option>
+                                            <option value="ESIC">ESIC</option>
+                                            <option value="FOOD CORPORATION OF INDIA (FCI),">FOOD CORPORATION OF INDIA (FCI),</option>
+                                            <option value="HEALTH INSURANCE TPA">HEALTH INSURANCE TPA</option>
+                                            <option value="M.A.GOVT EMPLOYEE">M.A.GOVT EMPLOYEE</option>
+                                            <option value="M.A.PENSIONER">M.A.PENSIONER</option>
+                                            <option value="MEDI ASSIST">MEDI ASSIST</option>
+                                            <option value="RAILWAY CTSE">RAILWAY CTSE</option>
+                                            <option value="SELF PACKAGE">SELF PACKAGE</option>
+                                            <option value="STAR HEALTH AND ALLIED INSURANCE LTD">STAR HEALTH AND ALLIED INSURANCE LTD</option>
+                                            <option value="TNCMCHIS">TNCMCHIS</option>
+                                            <option value="VIDAL HEALTH">VIDAL HEALTH</option>
+                                        </select>
+                                    </div>
+                                    <div className="field-box">
+                                        <label>OUTLETNAME</label>
+                                        <select
+                                            value={modalOutletName}
+                                            onChange={(e) => setModalOutletName(e.target.value)}
+                                        >
+                                            <option value="ALL">ALL</option>
+                                            <option value="MAIN">Main Hospital</option>
+                                            <option value="ANNEX">Annex Block</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="fields-row">
+                                        <div className="field-box">
+                                            <label>FROM_DATE</label>
+                                            <DatePicker
+                                                value={modalFromDate}
+                                                onChange={(dt) => setModalFromDate(dt)}
+                                                format="MM/DD/YYYY"
+                                                allowClear={false}
+                                            />
+                                        </div>
+                                        <div className="field-box">
+                                            <label>TO_DATE</label>
+                                            <DatePicker
+                                                value={modalToDate}
+                                                onChange={(dt) => setModalToDate(dt)}
+                                                format="MM/DD/YYYY"
+                                                allowClear={false}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {['patient_wise_pharmacy_ip_bill', 'prescription_details'].includes(targetReport.id) && (
+                                        <div className="fields-row single">
+                                            <div className="field-box">
+                                                <label>UHID</label>
+                                                <input
+                                                    type="text"
+                                                    value={modalUhid}
+                                                    onChange={(e) => setModalUhid(e.target.value)}
+                                                    placeholder="Enter UHID..."
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {['lab_abstract', 'discharge_all'].includes(targetReport.id) && (
+                                        <div className="fields-row single">
+                                            <div className="field-box">
+                                                <label>IP_NUMBER</label>
+                                                <input
+                                                    type="text"
+                                                    value={modalIpNumber}
+                                                    onChange={(e) => setModalIpNumber(e.target.value)}
+                                                    placeholder="Enter IP Number..."
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {['insurance_bills_status', 'branch_wise_dues', 'companywise_registration'].includes(targetReport.id) && (
+                                        <div className="fields-row single">
+                                            <div className="field-box">
+                                                <label>COMPANYNAME</label>
+                                                <select
+                                                    value={modalCompanyName}
+                                                    onChange={(e) => setModalCompanyName(e.target.value)}
+                                                >
+                                                    <option value="ALL">ALL</option>
+                                                    <option value="CGHS CASH">CGHS CASH</option>
+                                                    <option value="CGHS CREDIT">CGHS CREDIT</option>
+                                                    <option value="ECHS">ECHS</option>
+                                                    <option value="ESI">ESI</option>
+                                                    <option value="ESIC">ESIC</option>
+                                                    <option value="FOOD CORPORATION OF INDIA (FCI),">FOOD CORPORATION OF INDIA (FCI),</option>
+                                                    <option value="HEALTH INSURANCE TPA">HEALTH INSURANCE TPA</option>
+                                                    <option value="M.A.GOVT EMPLOYEE">M.A.GOVT EMPLOYEE</option>
+                                                    <option value="M.A.PENSIONER">M.A.PENSIONER</option>
+                                                    <option value="MEDI ASSIST">MEDI ASSIST</option>
+                                                    <option value="RAILWAY CTSE">RAILWAY CTSE</option>
+                                                    <option value="SELF PACKAGE">SELF PACKAGE</option>
+                                                    <option value="STAR HEALTH AND ALLIED INSURANCE LTD">STAR HEALTH AND ALLIED INSURANCE LTD</option>
+                                                    <option value="TNCMCHIS">TNCMCHIS</option>
+                                                    <option value="VIDAL HEALTH">VIDAL HEALTH</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            <div className="footer-actions">
+                                <button className="btn-teal-print" onClick={handleFilterModalPrint}>
+                                    <Printer size={15} /> Print
+                                </button>
+                            </div>
+                        </TealModalBody>
+                    </TealModalContainer>
+                </TealModalOverlay>
             )}
 
             {/* Interactive Insurance Report Viewer Modal */}
