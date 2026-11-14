@@ -86,15 +86,15 @@ const StatusBadge = styled.span`
   font-weight: 700;
   letter-spacing: 0.03em;
   background: ${({ $status }) =>
-    $status === "Approved" ? "#dcfce7"
+    $status === "Approved" || $status === "Verified" ? "#dcfce7"
     : $status === "Rejected" ? "#fee2e2"
     : "#fef9c3"};
   color: ${({ $status }) =>
-    $status === "Approved" ? "#166534"
+    $status === "Approved" || $status === "Verified" ? "#166534"
     : $status === "Rejected" ? "#991b1b"
     : "#854d0e"};
   border: 1px solid ${({ $status }) =>
-    $status === "Approved" ? "#86efac"
+    $status === "Approved" || $status === "Verified" ? "#86efac"
     : $status === "Rejected" ? "#fca5a5"
     : "#fde047"};
   &::before {
@@ -102,7 +102,7 @@ const StatusBadge = styled.span`
     width: 6px; height: 6px;
     border-radius: 50%;
     background: ${({ $status }) =>
-      $status === "Approved" ? "#16a34a"
+      $status === "Approved" || $status === "Verified" ? "#16a34a"
       : $status === "Rejected" ? "#dc2626"
       : "#ca8a04"};
   }
@@ -678,10 +678,12 @@ const normalizeTransferItems = (raw) => {
 // ─────────────────────────────────────────────────────────────────────────────
 function getAuthContext() {
   const raw =
+    localStorage.getItem("selected_outlet") ||
     localStorage.getItem("auth-outlet-code") ||
     localStorage.getItem("outletCode") ||
     localStorage.getItem("outlet_code") ||
     localStorage.getItem("Outlet-Code") ||
+    sessionStorage.getItem("selected_outlet") ||
     sessionStorage.getItem("auth-outlet-code") ||
     sessionStorage.getItem("outletCode") ||
     sessionStorage.getItem("outlet_code") ||
@@ -815,14 +817,6 @@ const buildPrintHtml = (slip, items, getOutletName) => {
   <div class="rule" style="margin-bottom:6px">${RULE}</div>
   <div style="font-size:11px;margin-bottom:2px">Prepared By : ${slip.created_by || "-"}</div>
   ${remarksRow}
-  <div class="rule">${RULE2}</div>
-  <div class="rule" style="margin-bottom:6px">${RULE2}</div>
-  <div class="footer-row">
-    <span>${totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
-    <span>${totalQty}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
-  </div>
-  <div class="rule" style="margin-top:5px">${RULE}</div>
-  <div class="rule">${RULE}</div>
   <script>window.onload = function() { window.print(); };</script>
 </body>
 </html>`;
@@ -906,14 +900,6 @@ const SlipContent = ({ slip, items, getOutletName }) => {
       <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE}</div>
       <div style={{ fontSize: 11, marginBottom: 2 }}>Prepared By : {slip.created_by || "-"}</div>
       <div style={{ fontSize: 11, marginBottom: 8 }}>Remarks : {slip.remarks || ""}</div>
-      <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
-      <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE2}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: "bold" }}>
-        <span>{totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
-        <span>{totalQty}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
-      </div>
-      <div style={{ fontSize: 11, whiteSpace: "pre", marginTop: 5, overflowX: "hidden" }}>{RULE}</div>
-      <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE}</div>
     </div>
   );
 };
@@ -994,13 +980,12 @@ const PrintSlipModal = ({ slip, getOutletName, onClose, HmsBaseUrl }) => {
 };
 
 // ─── Kebab Row Menu ───────────────────────────────────────────────────────────
-const RowKebabMenu = ({ transfer, canApprove, onApprove, onReject, onPrint }) => {
+const RowKebabMenu = ({ transfer, canApprove, onApprove, onPrint }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   const status     = transfer.is_verified || "Draft";
-  const isApproved = status === "Approved";
-  const isRejected = status === "Rejected";
+  const isApproved = status === "Approved" || status === "Verified";
   const isDraft    = status === "Draft";
 
   useEffect(() => {
@@ -1014,41 +999,30 @@ const RowKebabMenu = ({ transfer, canApprove, onApprove, onReject, onPrint }) =>
   const handle = (fn) => { setOpen(false); fn(); };
 
   const approveDisabled = !isDraft || !canApprove;
-  const rejectDisabled  = isApproved || isRejected;
 
   return (
     <KebabWrapper ref={ref}>
       <KebabBtn onClick={() => setOpen((v) => !v)} title="Actions">⋮</KebabBtn>
       {open && (
         <KebabMenu>
-          <KebabItem
-            $disabled={approveDisabled}
-            title={
-              isApproved ? "Already approved"
-              : isRejected ? "Cannot approve a cancelled transfer"
-              : !canApprove ? "Only the receiving outlet can approve"
-              : "Approve this transfer"
-            }
-            onClick={() => !approveDisabled && handle(onApprove)}
-          >
-            <span>✔</span> Approve
-          </KebabItem>
-          <KebabDivider />
+          {isDraft && (
+            <>
+              <KebabItem
+                $disabled={approveDisabled}
+                title={
+                  isApproved ? "Already verified"
+                  : !canApprove ? "Only the receiving outlet can verify"
+                  : "Verify this stock transfer"
+                }
+                onClick={() => !approveDisabled && handle(onApprove)}
+              >
+                <span>✔</span> Verify Stock
+              </KebabItem>
+              <KebabDivider />
+            </>
+          )}
           <KebabItem onClick={() => handle(onPrint)}>
             <span>🖨️</span> Print Slip
-          </KebabItem>
-          <KebabDivider />
-          <KebabItem
-            $danger
-            $disabled={rejectDisabled}
-            title={
-              isApproved ? "Approved transfers cannot be cancelled"
-              : isRejected ? "Already cancelled"
-              : "Cancel this transfer"
-            }
-            onClick={() => !rejectDisabled && handle(onReject)}
-          >
-            <span>✕</span> Cancel Transfer
           </KebabItem>
         </KebabMenu>
       )}
@@ -1426,15 +1400,17 @@ const StockTransfer = () => {
     if (isDept) {
       return (t.from_outlet ?? t.outlet_code) === outletCode || !outletCode;
     }
-    return t.to_outlet === outletCode;
+    const to = String(t.to_outlet || "").trim().toUpperCase();
+    const curr = String(outletCode || "").trim().toUpperCase();
+    return !curr || to === curr;
   }, [isDrugPurchase, outletCode, stockDepartments]);
 
-  // ── Approve ────────────────────────────────────────────────────────────────
+  // ── Verify / Approve ───────────────────────────────────────────────────────
   const handleApproveClick = (t) => {
     const status = t.is_verified || "Draft";
-    if (status === "Approved") { toast.info("Already approved"); return; }
-    if (status === "Rejected") { toast.error("Rejected transfers cannot be approved"); return; }
-    if (!canApprove(t)) { toast.warning("Only the receiving outlet can approve"); return; }
+    if (status === "Approved" || status === "Verified") { toast.info("Already verified"); return; }
+    if (status === "Rejected") { toast.error("Rejected transfers cannot be verified"); return; }
+    if (!canApprove(t)) { toast.warning(`Only the receiving outlet (${getOutletName(t.to_outlet)}) can verify`); return; }
     setConfirmModal({ type: "approve", transfer: t });
   };
 
@@ -1444,22 +1420,26 @@ const StockTransfer = () => {
     try {
       const res = await apiRequest(
         `${HmsBaseUrl}stock-transfer-action/`, "POST",
-        { action: "approve", transfer_ref_number: transfer.transfer_ref_number }
+        {
+          action: "verify",
+          transfer_ref_number: transfer.transfer_ref_number,
+          "auth-outlet-code": outletCode,
+        }
       );
       if (res?.success) {
-        toast.success("Transfer approved successfully");
+        toast.success("Transfer verified successfully");
         fetchTransfers();
       } else {
         const err = res?.error;
-        toast.error(Array.isArray(err) ? err.join(", ") : err || "Failed to approve");
+        toast.error(Array.isArray(err) ? err.join(", ") : err || "Failed to verify");
       }
-    } catch { toast.error("Failed to approve transfer"); }
+    } catch { toast.error("Failed to verify transfer"); }
   };
 
   // ── Reject (NOW accepts reason from RejectModal) ──────────────────────────
   const handleRejectClick = (t) => {
     const status = t.is_verified || "Draft";
-    if (status === "Approved") { toast.error("Approved transfers cannot be cancelled"); return; }
+    if (status === "Approved" || status === "Verified") { toast.error("Approved transfers cannot be cancelled"); return; }
     if (status === "Rejected") { toast.info("Already cancelled"); return; }
     setConfirmModal({ type: "reject", transfer: t });
   };
@@ -1822,7 +1802,7 @@ const StockTransfer = () => {
                     <Th>To</Th>
                     <Th>Items</Th>
                     <Th>Remarks</Th>
-                    <Th>Approved / Rejected Info</Th>
+                    <Th>Verified Info</Th>
                     <Th style={{ textAlign: "center" }}>Actions</Th>
                   </tr>
                 </thead>
@@ -1878,7 +1858,7 @@ const StockTransfer = () => {
 
                           {/* ── NEW: Approved / Rejected Info column ──────── */}
                           <Td style={{ minWidth: 160 }}>
-                            {status === "Approved" && (
+                            {(status === "Approved" || status === "Verified") && (
                               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                 {t.approved_by && (
                                   <InfoChip $color="#166534" $bg="#dcfce7" $border="#86efac">
@@ -1922,10 +1902,35 @@ const StockTransfer = () => {
                             )}
                           </Td>
 
-                          <Td style={{ textAlign: "center" }}>
-                            <InvDropBtn onClick={(e) => openMenu(e, t.transfer_ref_number || t.transfer_number)} title="Actions">
-                              ⋮
-                            </InvDropBtn>
+                          <Td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                            <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                              {status === "Draft" && canApprove(t) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveClick(t)}
+                                  style={{
+                                    padding: "5px 12px",
+                                    borderRadius: 6,
+                                    border: "1px solid #16a34a",
+                                    background: "#dcfce7",
+                                    color: "#166534",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 5,
+                                    boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                                  }}
+                                  title="Verify and receive this stock transfer"
+                                >
+                                  ✔ Verify Stock
+                                </button>
+                              )}
+                              <InvDropBtn onClick={(e) => openMenu(e, t.transfer_ref_number || t.transfer_number)} title="Actions">
+                                ⋮
+                              </InvDropBtn>
+                            </div>
                           </Td>
                         </Tr>
                       );
@@ -1947,23 +1952,14 @@ const StockTransfer = () => {
 
       </Container>
 
-      {/* ── Approve Confirm Modal ─────────────────────────────────────────── */}
+      {/* ── Verify Confirm Modal ─────────────────────────────────────────── */}
       {confirmModal?.type === "approve" && (
         <ConfirmModal
-          title="✔ Approve Stock Transfer"
-          message={`Approve ${confirmModal.transfer.transfer_ref_number}? Stock quantities will be updated and this cannot be undone.`}
-          confirmLabel="Approve"
-          confirmColor="#0d9488"
+          title="✔ Verify Stock Transfer"
+          message={`Verify ${confirmModal.transfer.transfer_ref_number}? Stock will be transferred to ${getOutletName(confirmModal.transfer.to_outlet)} and cannot be undone.`}
+          confirmLabel="Verify"
+          confirmColor="#16a34a"
           onConfirm={handleApproveConfirm}
-          onClose={() => setConfirmModal(null)}
-        />
-      )}
-
-      {/* ── Reject Modal (with reason input) ─────────────────────────────── */}
-      {confirmModal?.type === "reject" && (
-        <RejectModal
-          transfer={confirmModal.transfer}
-          onConfirm={handleRejectConfirm}
           onClose={() => setConfirmModal(null)}
         />
       )}
@@ -1982,21 +1978,17 @@ const StockTransfer = () => {
       {menuOpenId && (() => {
         const transfer = transfers.find((t) => (t.transfer_ref_number || t.transfer_number) === menuOpenId);
         if (!transfer) return null;
-        const isPending = transfer.status === "Pending" || transfer.status === "Draft";
+        const status = transfer.is_verified || "Draft";
+        const isDraft = status === "Draft";
         return (
           <InvDropMenu {...menuPos}>
             <InvMenuItem onClick={() => { closeMenu(); setPrintSlip(transfer); }}>
               🖨️ Print Transfer
             </InvMenuItem>
-            {isPending && (
-              <>
-                <InvMenuItem $success onClick={() => { closeMenu(); handleApproveClick(transfer); }}>
-                  ✔ Approve Transfer
-                </InvMenuItem>
-                <InvMenuItem danger onClick={() => { closeMenu(); handleRejectClick(transfer); }}>
-                  ✕ Reject Transfer
-                </InvMenuItem>
-              </>
+            {isDraft && canApprove(transfer) && (
+              <InvMenuItem $success onClick={() => { closeMenu(); handleApproveClick(transfer); }}>
+                ✔ Verify Stock
+              </InvMenuItem>
             )}
           </InvDropMenu>
         );

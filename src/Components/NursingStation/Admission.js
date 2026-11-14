@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import styled, { keyframes, css } from "styled-components";
 import JsBarcode from "jsbarcode";
@@ -561,7 +561,6 @@ function BarcodeSVG({ value = "", width = 140, height = 25, showText = false }) 
 const EMPTY = {
   uhid: "", ipNumber: "", admittingDoctor: "", consultingDoctor: "",
   roomNo: "", bedNo: "", reasonForAdmission: "",
-  packageNo: "", packageName: "",
   mlc_type: "", mlc_doc: null, mlc_remarks: "",
   attender_name: "", attender_relationship: "", attender_phone: "",
   is_high_risk: false, high_risk_reason: "", high_risk_date: new Date().toISOString().slice(0, 10),
@@ -569,7 +568,7 @@ const EMPTY = {
   dob: "", age: "", age_type: "Y", gender: "", mobilePhone: "", permanent_address: "",
   area: "", zipcode: "", city: "", state: "",
   spouseName: "", fatherName: "", relationship: "", aadhaar: "",
-  customerType: "General", insuranceCompanyName: "", company_code: "",
+  customerType: "GENERAL", insuranceCompanyName: "", company_code: "",
   room_details: [], roomShitingDetails: [], edit_history: [],
 };
 
@@ -1164,7 +1163,7 @@ function RoomHistoryModal({ adm, onClose }) {
   );
 }
 
-function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
+function ViewAdmissionModal({ adm, doctors, onClose }) {
   const [previewImage, setPreviewImage] = useState(null);
   if (!adm) return null;
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "";
@@ -1220,9 +1219,14 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
               <InfoItem>
                 <InfoLbl>Customer Type</InfoLbl>
                 <InfoVal>
-                  <span style={{ padding: "2px 8px", borderRadius: 4, background: (adm.customerType === "Insurance" || adm.customer_type === "Insurance") ? "#fef3c7" : "#e2e8f0", color: (adm.customerType === "Insurance" || adm.customer_type === "Insurance") ? "#92400e" : "#334155", fontWeight: 700, fontSize: ".75rem" }}>
-                    {adm.customerType || adm.customer_type || "General"}
+                  <span style={{ padding: "2px 8px", borderRadius: 4, background: ((adm.customerType || adm.customer_type || "").toUpperCase() === "INSURANCE") ? "#fef3c7" : "#e2e8f0", color: ((adm.customerType || adm.customer_type || "").toUpperCase() === "INSURANCE") ? "#92400e" : "#334155", fontWeight: 700, fontSize: ".75rem" }}>
+                    {String(adm.customerType || adm.customer_type || "GENERAL").toUpperCase()}
                   </span>
+                  {adm.is_day_care && (
+                    <span style={{ marginLeft: 6, padding: "2px 8px", borderRadius: 4, background: "#dbeafe", color: "#1e40af", fontWeight: 700, fontSize: ".75rem" }}>
+                      DAYCARE
+                    </span>
+                  )}
                 </InfoVal>
               </InfoItem>
             </InfoGrid>
@@ -1289,13 +1293,13 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
           )}
 
           {/* Insurance / Customer Info */}
-          {(adm.customerType === "Insurance" || adm.customer_type === "Insurance" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) && (
+          {((adm.customerType || adm.customer_type || "").toUpperCase() === "INSURANCE" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) && (
             <SectionBox>
               <SectionTitle>🛡️ Insurance Information</SectionTitle>
               <InfoGrid minWidth="180px">
                 <InfoItem>
                   <InfoLbl>Customer Type</InfoLbl>
-                  <InfoVal>{adm.customerType || adm.customer_type || "Insurance"}</InfoVal>
+                  <InfoVal>{String(adm.customerType || adm.customer_type || "INSURANCE").toUpperCase()}</InfoVal>
                 </InfoItem>
                 <InfoItem>
                   <InfoLbl>Insurance Provider</InfoLbl>
@@ -1322,10 +1326,6 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
               <InfoItem>
                 <InfoLbl>Consulting Doctor</InfoLbl>
                 <InfoVal>{adm.consultingDoctor ? getDoctorName(adm.consultingDoctor) : "—"}</InfoVal>
-              </InfoItem>
-              <InfoItem>
-                <InfoLbl>Package</InfoLbl>
-                <InfoVal>{adm.packageNo ? (packages?.find(p => String(p.packageNo) === String(adm.packageNo))?.packageName || adm.packageNo) : "—"}</InfoVal>
               </InfoItem>
               <InfoItem>
                 <InfoLbl>Ward Status</InfoLbl>
@@ -1958,7 +1958,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
   const [admissions, setAdmissions] = useState([]);
   const [doctors, setDoctors] = useState([]);
-  const [packages, setPackages] = useState([]);
   const [customerTypes, setCustomerTypes] = useState([]);
   const [insuranceProviders, setInsuranceProviders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -2022,16 +2021,24 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const [form, setForm] = useState(EMPTY);
   const [nextIpPreview, setNextIpPreview] = useState("");
 
-  const fetchNextIp = async () => {
+  const fetchNextIp = useCallback(async (roomVal = null) => {
     try {
-      const res = await apiRequest(`${HmsBaseUrl}autoipNumber/`, "GET");
+      const roomToUse = roomVal !== null ? roomVal : (form.roomNo || "");
+      const q = roomToUse ? `?roomNo=${encodeURIComponent(roomToUse)}` : "";
+      const res = await apiRequest(`${HmsBaseUrl}autoipNumber/${q}`, "GET");
       if (res && res.success && res.next_ipNumber) {
         setNextIpPreview(res.next_ipNumber);
       }
     } catch (e) {
       console.warn("Failed to fetch next IP preview:", e);
     }
-  };
+  }, [form.roomNo]);
+
+  useEffect(() => {
+    if (formOpen && !editingId) {
+      fetchNextIp(form.roomNo);
+    }
+  }, [form.roomNo, formOpen, editingId, fetchNextIp]);
 
   // ── When form is in edit mode, store the editReason until submit ──────────
   // ── Grid View ─────────────────────────────────────────────────────────────
@@ -2114,12 +2121,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   });
   const showInfo = (opts) => { setInfoModal({ ...opts, onClose: () => setInfoModal(null) }); };
 
-  const resolvePackageName = (packageNo) => {
-    if (!packageNo) return "";
-    const pkg = packages.find(p => String(p.packageNo) === String(packageNo));
-    return pkg ? pkg.packageName : "";
-  };
-
   const prefillPatientData = (pat) => {
     if (!pat || typeof pat !== "object") return;
     const uhid = pat.uhid || pat.patient_details?.uhid || pat.patient?.uhid || "";
@@ -2143,15 +2144,15 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     const fatherName = pat.fatherName || pat.patient_details?.fatherName || "";
     const relationship = pat.relationship || pat.attender_relationship || pat.patient_details?.relationship || "";
     const aadhaar = pat.aadhaar || pat.aadhar || pat.patient_details?.aadhaar || "";
-    const customerType = pat.customerType || pat.customer_type || pat.patient_details?.customerType || "General";
-    const insuranceCompanyName = pat.insuranceCompanyName || pat.company_name || pat.insurance_company || pat.patient_details?.insuranceCompanyName || "";
-    const company_code = pat.company_code || pat.patient_details?.company_code || "";
+    const rawCustType = pat.customerType || pat.customer_type || pat.insurance_type || pat.insuranceType || pat.patient_details?.customerType || pat.patient_details?.customer_type || pat.patient_details?.insurance_type || "GENERAL";
+    const customerType = String(rawCustType).trim().toUpperCase();
+    const insuranceCompanyName = pat.insuranceCompanyName || pat.company_name || pat.insurance_company || pat.patient_details?.insuranceCompanyName || pat.patient_details?.company_name || "";
+    const company_code = pat.company_code || pat.insuranceProviderCode || pat.patient_details?.company_code || "";
     const admittingDoctor = pat.admittingDoctor || pat.admitting_doctor || pat.doctorId || pat.doctor || "";
     const consultingDoctor = pat.consultingDoctor || pat.consulting_doctor || "";
     const roomNo = pat.roomNo || pat.room_no || pat.newRoomNo || "";
     const bedNo = pat.bedNo || pat.bed_no || pat.newBedNo || "";
     const reasonForAdmission = pat.reasonForAdmission || pat.reason_for_admission || pat.reason || "";
-    const packageNo = pat.packageNo || pat.package_no || "";
 
     setForm(prev => ({
       ...prev,
@@ -2183,8 +2184,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       roomNo: roomNo || prev.roomNo,
       bedNo: bedNo || prev.bedNo,
       reasonForAdmission: reasonForAdmission || prev.reasonForAdmission,
-      packageNo: packageNo || prev.packageNo,
-      packageName: packageNo ? resolvePackageName(packageNo) : prev.packageName,
     }));
   };
 
@@ -2212,7 +2211,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   useEffect(() => {
     fetchDoctors();
     fetchAdmissions();
-    fetchPackages();
     fetchCustomerTypes();
     fetchInsuranceProviders();
     fetchRegisteredPatients(today);
@@ -2406,15 +2404,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     return sortedRegistered.slice(start, start + regPerPage);
   }, [sortedRegistered, regPage, regPerPage]);
 
-
-  const fetchPackages = async () => {
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}packages/`, "GET");
-      const list = res?.packages || res?.data?.packages || res?.data || [];
-      setPackages(Array.isArray(list) ? list : []);
-    } catch { setPackages([]); }
-  };
-
   const fetchAllRooms = async (fo = {}) => {
     setLoadRooms(true);
     try {
@@ -2507,9 +2496,9 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           fatherName: d.fatherName || p.fatherName || "",
           relationship: d.relationship || p.relationship || "",
           aadhaar: d.aadhaar || d.aadhar || p.aadhaar || "",
-          customerType: d.customerType || d.customer_type || p.customerType || "General",
+          customerType: String(d.customerType || d.customer_type || d.insurance_type || d.insuranceType || p.customerType || "GENERAL").trim().toUpperCase(),
           insuranceCompanyName: d.insuranceCompanyName || d.company_name || d.insurance_company || p.insuranceCompanyName || "",
-          company_code: d.company_code || p.company_code || "",
+          company_code: d.company_code || d.insuranceProviderCode || p.company_code || "",
         }));
         if (!silent) toast.success("Patient loaded");
       }
@@ -2558,8 +2547,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   function loadAdmissionIntoForm(adm) {
     setEditingId(adm.ipNumber);
     const { roomNo, bedNo } = getActiveRoom(adm);
-    const storedPackageNo = adm.packageNo || "";
-    const resolvedName = resolvePackageName(storedPackageNo);
     const dobStr = adm.dob || "";
     const calcAge = calculateAgeFromDob(dobStr);
     const currentAge = calcAge.age !== "" ? calcAge.age : (adm.age || "");
@@ -2574,8 +2561,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       roomNo,
       bedNo,
       reasonForAdmission: adm.reasonForAdmission || "",
-      packageNo: storedPackageNo,
-      packageName: resolvedName,
       mlc_type: adm.mlc_type || "",
       mlc_doc: adm.mlc_doc || null,
       mlc_remarks: adm.mlc_remarks || "",
@@ -2600,7 +2585,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       fatherName: adm.fatherName || "",
       relationship: adm.relationship || adm.attender_relationship || "",
       aadhaar: adm.aadhaar || adm.aadhar || "",
-      customerType: adm.customerType || adm.customer_type || "General",
+      customerType: String(adm.customerType || adm.customer_type || "GENERAL").trim().toUpperCase(),
       insuranceCompanyName: adm.insuranceCompanyName || adm.insurance_company || "",
       company_code: adm.company_code || "",
       is_high_risk: !!adm.is_high_risk,
@@ -2765,8 +2750,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           a.insuranceCompanyName,
           a.insurance_company,
           a.company_code,
-          a.packageNo,
-          a.packageName,
           a.reasonForAdmission,
           a.attender_name,
           a.attender_phone,
@@ -2876,12 +2859,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     if (errors[name]) {
       setErrors(p => { const next = { ...p }; delete next[name]; return next; });
     }
-    if (name === "packageNo") {
-      const resolvedName = resolvePackageName(value);
-      setForm(p => ({ ...p, packageNo: value, packageName: resolvedName }));
-    } else {
-      setForm(p => ({ ...p, [name]: type === "file" ? files[0] : value }));
-    }
+    setForm(p => ({ ...p, [name]: type === "file" ? files[0] : value }));
   };
 
   // ── Submit (new or edit) ──────────────────────────────────────────────────
@@ -2899,8 +2877,9 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     if (!form.bedNo?.trim()) {
       newErrors.bedNo = "This field is required";
     }
-    if (form.customerType === "Insurance" && (!form.company_code && !form.insuranceCompanyName)) {
-      newErrors.insurance = "This field is required";
+    const isInsuranceForm = String(form.customerType || form.customer_type || "").trim().toUpperCase() === "INSURANCE";
+    if (isInsuranceForm && (!form.company_code?.trim() && !form.insuranceCompanyName?.trim())) {
+      newErrors.insurance = "Insurance Company is required";
     }
     if (form.is_high_risk) {
       if (!form.high_risk_reason?.trim()) {
@@ -2948,17 +2927,20 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
     const payload = new FormData();
     ["uhid", "admittingDoctor", "consultingDoctor", "roomNo", "bedNo",
-      "reasonForAdmission", "mlc_type", "mlc_remarks", "attender_name", "attender_relationship", "attender_phone", "customerType", "company_code",
+      "reasonForAdmission", "mlc_type", "mlc_remarks", "attender_name", "attender_relationship", "attender_phone", "company_code",
       "insuranceCompanyName"].forEach(k => {
         if (form[k] !== undefined && form[k] !== null && form[k] !== "") {
           payload.append(k, form[k]);
         }
       });
+    const cTypeUpper = String(form.customerType || form.customer_type || "GENERAL").trim().toUpperCase();
+    payload.append("customerType", cTypeUpper);
+    payload.append("customer_type", cTypeUpper);
+
     if (saveAge !== undefined && saveAge !== null && saveAge !== "") {
       payload.append("age", saveAge);
       payload.append("age_type", saveAgeType);
     }
-    if (form.packageNo) payload.append("packageNo", form.packageNo);
     payload.append("admissionDateTime", new Date().toISOString());
     payload.append("is_high_risk", form.is_high_risk ? "true" : "false");
     if (form.is_high_risk) {
@@ -2966,6 +2948,13 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       if (form.high_risk_date) payload.append("high_risk_date", form.high_risk_date);
     }
     if (form.mlc_doc instanceof File) payload.append("mlc_doc", form.mlc_doc);
+
+    const isDaycare = (cTypeUpper === "INSURANCE") &&
+      String(form.roomNo || "").trim().toUpperCase().includes("DAYCARE");
+    if (isDaycare) {
+      payload.append("is_day_care", "true");
+      payload.append("ward_status", "Sent for billing");
+    }
 
     if (editingId) {
       payload.append("action", "edit");
@@ -3009,11 +2998,13 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           fatherName: savedAdm.fatherName || form.fatherName || "",
           relationship: savedAdm.relationship || form.relationship || "",
           aadhaar: savedAdm.aadhaar || form.aadhaar || "",
-          customerType: savedAdm.customerType || form.customerType || "General",
+          customerType: String(savedAdm.customerType || form.customerType || "GENERAL").trim().toUpperCase(),
           insuranceCompanyName: savedAdm.insuranceCompanyName || form.insuranceCompanyName || "",
           admissionDateTime: admDateTime,
           admittingDoctor: admDoctor,
           admittingDoctorName: getDrName(admDoctor),
+          is_day_care: savedAdm.is_day_care !== undefined ? savedAdm.is_day_care : isDaycare,
+          ward_status: savedAdm.ward_status || (isDaycare ? "Sent for billing" : (form.ward_status || "")),
           roomNo: savedAdm.roomNo || form.roomNo,
           bedNo: savedAdm.bedNo || form.bedNo,
           room_details: safeParseList(savedAdm.room_details).length > 0
@@ -3626,10 +3617,18 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
               <FL>Customer Type</FL>
               <SearchSelect
                 options={[
-                  { value: "ALL", label: "All" },
-                  { value: "General", label: "General" },
-                  { value: "Insurance", label: "Insurance" },
-                  ...customerTypes.filter(ct => ct.type_name !== "General" && ct.type_name !== "Insurance").map(ct => ({ value: ct.type_name, label: ct.type_name }))
+                  { value: "ALL", label: "ALL" },
+                  { value: "GENERAL", label: "GENERAL" },
+                  { value: "INSURANCE", label: "INSURANCE" },
+                  ...customerTypes
+                    .filter(ct => {
+                      const u = (ct.type_name || "").trim().toUpperCase();
+                      return u !== "GENERAL" && u !== "INSURANCE";
+                    })
+                    .map(ct => {
+                      const u = (ct.type_name || "").trim().toUpperCase();
+                      return { value: u, label: u };
+                    })
                 ]}
                 value={fCustomerType}
                 onChange={e => setFCustomerType(e.target.value)}
@@ -3762,29 +3761,38 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                   <Lbl req>Customer Type</Lbl>
                   <SearchSelect
                     name="customerType"
-                    value={form.customerType || "General"}
+                    value={String(form.customerType || "GENERAL").toUpperCase()}
                     onChange={(e) => {
-                      const val = e.target.value;
+                      const val = (e.target.value || "").toUpperCase();
                       if (errors.insurance) {
                         setErrors(p => { const next = { ...p }; delete next.insurance; return next; });
                       }
                       setForm(p => ({
                         ...p,
                         customerType: val,
-                        ...(val !== "Insurance" ? { insuranceCompanyName: "", company_code: "" } : {})
+                        ...(val !== "INSURANCE" ? { insuranceCompanyName: "", company_code: "" } : {})
                       }));
                     }}
                     options={[
-                      { value: "General", label: "General" },
-                      ...customerTypes.filter(ct => ct.type_name !== "General").map(ct => ({ value: ct.type_name, label: ct.type_name }))
+                      { value: "GENERAL", label: "GENERAL" },
+                      { value: "INSURANCE", label: "INSURANCE" },
+                      ...customerTypes
+                        .filter(ct => {
+                          const u = (ct.type_name || "").trim().toUpperCase();
+                          return u !== "GENERAL" && u !== "INSURANCE";
+                        })
+                        .map(ct => {
+                          const u = (ct.type_name || "").trim().toUpperCase();
+                          return { value: u, label: u };
+                        })
                     ]}
                     placeholder="Search Customer Type..."
                     height="34px"
                   />
                 </Field>
                 <Field span={4}>
-                  <Lbl req={form.customerType === "Insurance"}>Insurance</Lbl>
-                  {(form.customerType === "Insurance" || form.customer_type === "Insurance") ? (
+                  <Lbl req={String(form.customerType || form.customer_type || "").trim().toUpperCase() === "INSURANCE"}>Insurance Company</Lbl>
+                  {(String(form.customerType || form.customer_type || "").trim().toUpperCase() === "INSURANCE") ? (
                     <>
                       <Inp
                         name="insuranceProviderSearch"
@@ -3968,29 +3976,10 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                   <RoomTimeline roomDetails={form.room_details} shiftingDetails={form.roomShitingDetails} isDischarged={Boolean(form.is_discharged)} />
                 )}
 
-                <SecDiv>Admission &amp; Package</SecDiv>
-                <Field span={3}>
+                <SecDiv>Admission Details</SecDiv>
+                <Field span={6}>
                   <Lbl>Reason for Admission</Lbl>
                   <Txta name="reasonForAdmission" value={form.reasonForAdmission} onChange={handleFormChange} rows={2} />
-                </Field>
-                <Field span={3}>
-                  <Lbl>Package</Lbl>
-                  <SearchSelect
-                    options={packages.map(pkg => ({
-                      value: String(pkg.packageNo),
-                      label: pkg.packageName,
-                      subLabel: pkg.totalPrice ? `₹${pkg.totalPrice}` : ""
-                    }))}
-                    value={form.packageNo}
-                    onChange={handleFormChange}
-                    placeholder="Type to search package..."
-                    name="packageNo"
-                  />
-                  {form.packageNo && (
-                    <span style={{ fontSize: ".68rem", color: "#6b7280", marginTop: 2 }}>
-                      Selected: {resolvePackageName(form.packageNo) || form.packageName || "—"}
-                    </span>
-                  )}
                 </Field>
 
                 <SecDiv>MLC (if applicable)</SecDiv>
@@ -4289,7 +4278,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                         <Td>{adm.age ? `${adm.age} ${adm.age_type || "Y"}` : "-"}</Td>
                         <Td>{adm.gender || "-"}</Td>
                         <Td>
-                          {(adm.customerType === "Insurance" || adm.customer_type === "Insurance" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) ? (
+                          {((adm.customerType || adm.customer_type || "").toUpperCase() === "INSURANCE" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                               <span style={{
                                 display: "inline-flex",
@@ -4335,7 +4324,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                               fontSize: ".72rem",
                               border: "1px solid #e2e8f0"
                             }}>
-                              {adm.customerType || adm.customer_type || "General"}
+                              {String(adm.customerType || adm.customer_type || "GENERAL").toUpperCase()}
                             </span>
                           )}
                         </Td>
@@ -4446,7 +4435,6 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         <ViewAdmissionModal
           adm={viewModalAdm}
           doctors={doctors}
-          packages={packages}
           onClose={() => setViewModalAdm(null)}
         />
       )}
