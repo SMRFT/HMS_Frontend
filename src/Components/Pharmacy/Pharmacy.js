@@ -901,6 +901,9 @@ const buildPrintBillHtml = (data) => {
     resolvedBillingMode.includes("WARD") ||
     resolvedBillingMode.includes("OT");
   const invoiceHeaderTitle = isIpBill ? "PHARMACY IP GST INVOICE" : "PHARMACY OP GST INVOICE";
+  const dlNumber = (resolvedOutlet === "OLET001" || resolvedOutlet === "1" || resolvedOutlet.includes("OLET001"))
+    ? "DL NO : TN/SLE/20/01107"
+    : "DL NO : TN/SLE/20/01109";
 
   const formatCurrency = (val) => {
     const num = Number(val || 0);
@@ -1048,7 +1051,7 @@ const buildPrintBillHtml = (data) => {
       <!-- DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right -->
       <div style="display: flex; justify-content: space-between; align-items: flex-end; font-size: 11px; font-weight: 600; line-height: 1.35; padding: 2px 0;">
         <div>
-          <div>TN/SLE/20/01109</div>
+          <div>${dlNumber}</div>
           <div>CIN : L85110TZ2020PLC033974</div>
         </div>
         <div style="text-align: center;">
@@ -5825,7 +5828,14 @@ const loadedMedicines = rawMeds.map((item) => {
                           {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
                             <div>
-                              <div>TN/SLE/20/01109</div>
+                              <div>
+                                {(() => {
+                                  const billOut = String(printBillData.outlet_code || printBillData.outletCode || printBillData.outlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                                  return (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001"))
+                                    ? "DL NO : TN/SLE/20/01107"
+                                    : "DL NO : TN/SLE/20/01109";
+                                })()}
+                              </div>
                               <div>CIN : L85110TZ2020PLC033974</div>
                             </div>
                             <div style={{ textAlign: "center" }}>
