@@ -913,7 +913,10 @@ const buildPrintBillHtml = (data) => {
   const extractDate = (raw) => {
     if (!raw || raw === "—" || raw === "N/A") return "—";
     try {
-      const s = String(raw).trim();
+      let s = String(raw).trim();
+      if (s.includes(' ') && !s.includes('T')) {
+        s = s.replace(' ', 'T');
+      }
       const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
       const d = new Date(iso);
       if (!isNaN(d.getTime())) {
@@ -926,7 +929,10 @@ const buildPrintBillHtml = (data) => {
   const extractTime = (raw) => {
     if (!raw || raw === "—" || raw === "N/A") return "—";
     try {
-      const s = String(raw).trim();
+      let s = String(raw).trim();
+      if (s.includes(' ') && !s.includes('T')) {
+        s = s.replace(' ', 'T');
+      }
       if (/^\d{1,2}:\d{2}(?::\d{2})?(\s*[AaPp][Mm])?$/.test(s)) {
         return s;
       }
@@ -938,12 +944,12 @@ const buildPrintBillHtml = (data) => {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
-          hour12: false
-        });
+          hour12: true
+        }).toUpperCase();
       }
     } catch (e) {}
     const now = new Date();
-    return now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+    return now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).toUpperCase();
   };
 
   // Calculate Gross Total (actual amount before any discount)

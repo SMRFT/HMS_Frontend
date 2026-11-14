@@ -1813,6 +1813,7 @@ const SalesReturn = () => {
                     <tr>
                       <ModalTh>#</ModalTh>
                       <ModalTh>Bill No</ModalTh>
+                      <ModalTh>Outlet</ModalTh>
                       <ModalTh>Bill Date</ModalTh>
                       <ModalTh>Billing Mode</ModalTh>
                       <ModalTh>Net Amount (₹)</ModalTh>
@@ -1823,7 +1824,19 @@ const SalesReturn = () => {
                     {uhidBills.map((bill, idx) => (
                       <tr key={idx}>
                         <ModalTd>{idx + 1}</ModalTd>
-                        <ModalTd>{bill.bill_no}</ModalTd>
+                        <ModalTd style={{ fontWeight: 600 }}>{bill.bill_no}</ModalTd>
+                        <ModalTd>
+                          <span style={{
+                            background: bill.outlet_code === 'OLET001' ? '#e3f2fd' : bill.outlet_code === 'OLET002' ? '#f3e5f5' : '#f5f5f5',
+                            color: bill.outlet_code === 'OLET001' ? '#0d47a1' : bill.outlet_code === 'OLET002' ? '#4a148c' : '#333',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontWeight: '600',
+                            fontSize: '12px'
+                          }}>
+                            {bill.outlet_code || '—'}
+                          </span>
+                        </ModalTd>
                         <ModalTd>{formatDate(bill.bill_date)}</ModalTd>
                         <ModalTd>{bill.billing_mode || "—"}</ModalTd>
                         <ModalTd>₹ {parseFloat(bill.net_amount || 0).toFixed(2)}</ModalTd>
