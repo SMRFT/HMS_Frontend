@@ -231,7 +231,7 @@ const TopScrollContainer = styled.div`
   border-bottom: 1px solid #e2e8f0;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #0d9488 #f1f5f9;
+  scrollbar-color: #cbd5e1 #f1f5f9;
 
   &::-webkit-scrollbar {
     height: 8px;
@@ -240,23 +240,25 @@ const TopScrollContainer = styled.div`
     background: #f1f5f9;
   }
   &::-webkit-scrollbar-thumb {
-    background: #0d9488;
+    background: #cbd5e1;
     border-radius: 4px;
   }
   &::-webkit-scrollbar-thumb:hover {
-    background: #0f766e;
+    background: #94a3b8;
   }
 `;
 
 const TWrap = styled.div`
   overflow-x: auto;
+  overflow-y: hidden;
   width: 100%;
-  scrollbar-width: thin;
-  scrollbar-color: #0d9488 #f1f5f9;
-  &::-webkit-scrollbar { height: 8px; }
-  &::-webkit-scrollbar-track { background: #f1f5f9; }
-  &::-webkit-scrollbar-thumb { background: #0d9488; border-radius: 4px; }
-  &::-webkit-scrollbar-thumb:hover { background: #0f766e; }
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
 `;
 const Tbl = styled.table`
   width: 100%;
