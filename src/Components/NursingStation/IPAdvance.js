@@ -726,7 +726,7 @@ const NoHistoryNote = styled.div`
 
 // ── Bill Slip ─────────────────────────────────────────────────────────────────
 const BillSlipContainer = styled.div`
-  width: 100%; max-width: 330px; margin: 0 auto;
+  width: 100%; max-width: 370px; margin: 0 auto;
   padding: 12px 14px; border: 1px solid #111;
   font-family: Arial, 'Segoe UI', sans-serif; background: #fff;
   color: #000;
@@ -1942,7 +1942,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             }
             .slip {
               width: 100%;
-              max-width: 330px;
+              max-width: 370px;
               padding: 10px 12px;
               background: #fff;
               font-size: 11px;
@@ -1976,24 +1976,43 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             }
             .info-row {
               display: flex;
+              justify-content: space-between;
               align-items: baseline;
               font-size: 11px;
-              padding: 1px 0;
+              padding: 1.5px 0;
             }
-            .lbl {
-              width: 90px;
+            .col-left {
+              display: flex;
+              align-items: baseline;
+              flex: 1;
+              min-width: 0;
+              padding-right: 6px;
+            }
+            .col-right {
+              display: flex;
+              align-items: baseline;
+              flex: 1.25;
+              min-width: 0;
+            }
+            .lbl-left {
+              width: 48px;
+              font-weight: 700;
+              flex-shrink: 0;
+            }
+            .lbl-right {
+              width: 88px;
               font-weight: 700;
               flex-shrink: 0;
             }
             .colon {
-              width: 12px;
+              width: 8px;
               font-weight: 700;
               flex-shrink: 0;
             }
             .val {
               flex: 1;
               font-weight: 500;
-              word-break: break-all;
+              word-break: break-word;
             }
             .items-header {
               display: flex;
@@ -2070,14 +2089,22 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             </div>
             <div class="divider"></div>
             <div class="info-table">
-              <div class="info-row"><span class="lbl">UHID</span><span class="colon">:</span><span class="val">${uhidVal}</span></div>
-              <div class="info-row"><span class="lbl">Name</span><span class="colon">:</span><span class="val">${nameVal}</span></div>
-              <div class="info-row"><span class="lbl">Room</span><span class="colon">:</span><span class="val">${roomVal}</span></div>
-              <div class="info-row"><span class="lbl">Refund Date</span><span class="colon">:</span><span class="val">${refundDate}</span></div>
-              <div class="info-row"><span class="lbl">Refund Bill No</span><span class="colon">:</span><span class="val">${refundBillNoVal}</span></div>
-              <div class="info-row"><span class="lbl">Original Bill</span><span class="colon">:</span><span class="val">${origBillNoVal}</span></div>
-              <div class="info-row"><span class="lbl">IP No</span><span class="colon">:</span><span class="val">${ipNoVal}</span></div>
-              <div class="info-row"><span class="lbl">Payment Mode</span><span class="colon">:</span><span class="val">${modeVal}</span></div>
+              <div class="info-row">
+                <div class="col-left"><span class="lbl-left">UHID</span><span class="colon">:</span><span class="val">${uhidVal}</span></div>
+                <div class="col-right"><span class="lbl-right">Refund Bill No</span><span class="colon">:</span><span class="val">${refundBillNoVal}</span></div>
+              </div>
+              <div class="info-row">
+                <div class="col-left"><span class="lbl-left">Name</span><span class="colon">:</span><span class="val">${nameVal}</span></div>
+                <div class="col-right"><span class="lbl-right">Original Bill</span><span class="colon">:</span><span class="val">${origBillNoVal}</span></div>
+              </div>
+              <div class="info-row">
+                <div class="col-left"><span class="lbl-left">IP No</span><span class="colon">:</span><span class="val">${ipNoVal}</span></div>
+                <div class="col-right"><span class="lbl-right">Refund Date</span><span class="colon">:</span><span class="val">${refundDate}</span></div>
+              </div>
+              <div class="info-row">
+                <div class="col-left"><span class="lbl-left">Room</span><span class="colon">:</span><span class="val">${roomVal}</span></div>
+                <div class="col-right"></div>
+              </div>
             </div>
             <div class="divider"></div>
             <div class="items-header">
@@ -3241,7 +3268,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
 
         return (
           <ModalOverlay onClick={closePrintRefundModal}>
-            <ModalBox style={{ maxWidth: "400px" }} onClick={e => e.stopPropagation()}>
+            <ModalBox style={{ maxWidth: "420px" }} onClick={e => e.stopPropagation()}>
               <ModalHeader>
                 <ModalTitle>Advance Refund Slip</ModalTitle>
                 <CloseBtn onClick={closePrintRefundModal}>×</CloseBtn>
@@ -3270,47 +3297,51 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   {/* Divider */}
                   <div style={{ borderTop: "1.5px solid #000", margin: "6px 0" }} />
 
-                  {/* Info table */}
+                  {/* Info table (Side by Side) */}
                   <div style={{ margin: "4px 0", fontSize: "11px" }}>
-                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>UHID</span>
-                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
-                      <span style={{ flex: 1, fontWeight: "500" }}>{uhidVal}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "1.5px 0" }}>
+                      <div style={{ display: "flex", alignItems: "baseline", flex: 1, minWidth: 0, paddingRight: "6px" }}>
+                        <span style={{ width: "48px", fontWeight: "700", flexShrink: 0 }}>UHID</span>
+                        <span style={{ width: "8px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                        <span style={{ flex: 1, fontWeight: "500", wordBreak: "break-word" }}>{uhidVal}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", flex: 1.25, minWidth: 0 }}>
+                        <span style={{ width: "88px", fontWeight: "700", flexShrink: 0 }}>Refund Bill No</span>
+                        <span style={{ width: "8px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                        <span style={{ flex: 1, fontWeight: "500", wordBreak: "break-word" }}>{refundBillNoVal}</span>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Name</span>
-                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
-                      <span style={{ flex: 1, fontWeight: "500" }}>{nameVal}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "1.5px 0" }}>
+                      <div style={{ display: "flex", alignItems: "baseline", flex: 1, minWidth: 0, paddingRight: "6px" }}>
+                        <span style={{ width: "48px", fontWeight: "700", flexShrink: 0 }}>Name</span>
+                        <span style={{ width: "8px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                        <span style={{ flex: 1, fontWeight: "500", wordBreak: "break-word" }}>{nameVal}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", flex: 1.25, minWidth: 0 }}>
+                        <span style={{ width: "88px", fontWeight: "700", flexShrink: 0 }}>Original Bill</span>
+                        <span style={{ width: "8px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                        <span style={{ flex: 1, fontWeight: "500", wordBreak: "break-word" }}>{origBillNoVal}</span>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Room</span>
-                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
-                      <span style={{ flex: 1, fontWeight: "500" }}>{roomVal}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "1.5px 0" }}>
+                      <div style={{ display: "flex", alignItems: "baseline", flex: 1, minWidth: 0, paddingRight: "6px" }}>
+                        <span style={{ width: "48px", fontWeight: "700", flexShrink: 0 }}>IP No</span>
+                        <span style={{ width: "8px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                        <span style={{ flex: 1, fontWeight: "500", wordBreak: "break-word" }}>{ipNoVal}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", flex: 1.25, minWidth: 0 }}>
+                        <span style={{ width: "88px", fontWeight: "700", flexShrink: 0 }}>Refund Date</span>
+                        <span style={{ width: "8px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                        <span style={{ flex: 1, fontWeight: "500", wordBreak: "break-word" }}>{refundDate}</span>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Refund Date</span>
-                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
-                      <span style={{ flex: 1, fontWeight: "500" }}>{refundDate}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Refund Bill No</span>
-                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
-                      <span style={{ flex: 1, fontWeight: "500" }}>{refundBillNoVal}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Original Bill</span>
-                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
-                      <span style={{ flex: 1, fontWeight: "500" }}>{origBillNoVal}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>IP No</span>
-                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
-                      <span style={{ flex: 1, fontWeight: "500" }}>{ipNoVal}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "90px", fontWeight: "700", flexShrink: 0 }}>Payment Mode</span>
-                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
-                      <span style={{ flex: 1, fontWeight: "500" }}>{modeVal}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "1.5px 0" }}>
+                      <div style={{ display: "flex", alignItems: "baseline", flex: 1, minWidth: 0, paddingRight: "6px" }}>
+                        <span style={{ width: "48px", fontWeight: "700", flexShrink: 0 }}>Room</span>
+                        <span style={{ width: "8px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                        <span style={{ flex: 1, fontWeight: "500", wordBreak: "break-word" }}>{roomVal}</span>
+                      </div>
+                      <div style={{ flex: 1.25 }} />
                     </div>
                   </div>
 
