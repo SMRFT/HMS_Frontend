@@ -3455,7 +3455,7 @@ const PatientRegistrationForm = () => {
                       <TableCell style={{ fontSize: '12px' }}>
                         <div style={{ fontWeight: 600, color: '#1e293b' }}>{visit.doctorName || visit.doctor}</div>
                         {visit.billNumber && (
-                          <div style={{ fontSize: '10px', color: '#94a3b8' }}>Bill: {visit.billNumber}</div>
+                          <div style={{ fontSize: '10px', color: '#94a3b8' }}>Bill: {String(visit.billNumber || "").replace(/\//g, "")}</div>
                         )}
                       </TableCell>
                       <TableCell>
@@ -3571,7 +3571,7 @@ const PatientRegistrationForm = () => {
             <DetailLine><span>Full Address:</span> <strong>{selectedVisit.address || selectedVisit.permanentAddress || "N/A"}</strong></DetailLine>
             <DetailLine><span>Visit Type:</span> <strong>{selectedVisit.visitType}</strong></DetailLine>
             <DetailLine><span>Consulting Doctor:</span> <strong>{selectedVisit.doctorName || selectedVisit.doctor}</strong></DetailLine>
-            <DetailLine><span>Bill Number:</span> <strong>{selectedVisit.billNumber}</strong></DetailLine>
+            <DetailLine><span>Bill Number:</span> <strong>{String(selectedVisit.billNumber || "").replace(/\//g, "")}</strong></DetailLine>
             <DetailLine><span>Registration Fee:</span> <strong>₹{selectedVisit.registrationFee}</strong></DetailLine>
             <DetailLine><span>Consulting Fee:</span> <strong>₹{selectedVisit.consultingFee}</strong></DetailLine>
             <DetailLine><span>Total Bill Amount:</span> <strong>₹{selectedVisit.billAmount}</strong></DetailLine>
@@ -3610,7 +3610,7 @@ const PatientRegistrationForm = () => {
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#0d9488', fontFamily: 'monospace' }}>UHID: {selectedVisit.uhid}</span>
               </div>
               <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#475569' }}>
-                <span>Bill: <strong>{selectedVisit.billNumber}</strong></span>
+                <span>Bill: <strong>{String(selectedVisit.billNumber || "").replace(/\//g, "")}</strong></span>
                 <span>Current Doctor: <strong>{selectedVisit.doctorName || selectedVisit.doctor}</strong></span>
                 <span>Amount: <strong>₹{selectedVisit.billAmount}</strong></span>
               </div>
@@ -3812,7 +3812,7 @@ const PatientRegistrationForm = () => {
                 <span style={{ color: '#0d9488', fontWeight: 700, marginLeft: '8px', fontFamily: 'monospace' }}>({selectedVisit.uhid})</span>
               </div>
               <div style={{ fontSize: '11px', color: '#475569' }}>
-                Bill No: <strong>{selectedVisit.billNumber}</strong> • Total: <strong>₹{selectedVisit.billAmount}</strong>
+                Bill No: <strong>{String(selectedVisit.billNumber || "").replace(/\//g, "")}</strong> • Total: <strong>₹{selectedVisit.billAmount}</strong>
               </div>
             </div>
 

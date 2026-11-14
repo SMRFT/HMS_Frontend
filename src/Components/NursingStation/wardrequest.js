@@ -2910,7 +2910,7 @@ const WardRequest = () => {
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
                                           <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                                             <span style={{ fontWeight: "800", color: "#9a3412", fontSize: "12px" }}>
-                                              📄 {bill.bill_no}
+                                              📄 {String(bill.bill_no || "").replace(/\//g, "")}
                                             </span>
                                             {bill.status && (
                                               <span style={{ fontSize: "9.5px", fontWeight: "700", background: "#ffedd5", color: "#c2410c", padding: "1px 5px", borderRadius: "4px", border: "1px solid #fed7aa" }}>
