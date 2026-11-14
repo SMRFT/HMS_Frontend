@@ -855,6 +855,8 @@ const buildPrintBillHtml = (data) => {
     insurance_company = "",
     billTypeName = "OP Pharmacy",
     paymentMode = "Cash",
+    billingMode = "",
+    billing_mode = "",
     employeeName = "Pharmacist",
     medicines = [],
     totalAmount = 0,
