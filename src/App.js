@@ -255,6 +255,7 @@ import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
 import InsuranceCreditReport from "./Components/Reports/InsuranceCreditReport";
 import SalesReturnReport from "./Components/Reports/SalesReturnReport";
+import AdmissionVsDischargeReport from "./Components/Accounts/AdmissionVsDischargeReport";
 import IPPatientAnalysis from "./Components/INPatientcare/IPPatientAnalysis";
 
 import Complaints from "./Components/ComplaintsTickets/complaints";
@@ -527,6 +528,7 @@ function App() {
       "/PharmacyBillAnalysis": "Pharmacy Bill Analysis",
       "/pharmacybillanalysis": "Pharmacy Bill Analysis",
       "/SalesReturnReport": "Sales Return Report",
+      "/AdmissionVsDischargeReport": "Admission vs Discharge Report",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
@@ -2229,6 +2231,20 @@ function App() {
                     element={<SalesReturnReport />}
                   />
                 )}
+              <Route path="/salesreturnreport" element={<SalesReturnReport />} />
+
+              {hasPagePermission(
+                "/AdmissionVsDischargeReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/AdmissionVsDischargeReport"
+                    element={<AdmissionVsDischargeReport />}
+                  />
+                )}
+              <Route path="/AdmissionVsDischargeReport" element={<AdmissionVsDischargeReport />} />
+              <Route path="/admissionvsdischargereport" element={<AdmissionVsDischargeReport />} />
 
               {hasPagePermission(
                 "/DialysisDischargeSummary",

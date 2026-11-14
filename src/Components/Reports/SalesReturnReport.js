@@ -17,7 +17,8 @@ import {
     Building2,
     Users,
     Pill,
-    ArrowLeft
+    ArrowLeft,
+    CreditCard
 } from "lucide-react";
 import {
     PageWrapper,
@@ -412,7 +413,10 @@ const EmptyContainer = styled.div`
 `;
 
 const tiles = [
-    { key: "all", label: "All Returns", icon: <RotateCcw size={16} /> },
+    { key: "all", label: "All Returns & Refunds", icon: <RotateCcw size={16} /> },
+    { key: "pharmacy", label: "Pharmacy Returns", icon: <Pill size={16} /> },
+    { key: "investigation", label: "Investigation Refunds", icon: <Activity size={16} /> },
+    { key: "advance", label: "IP Advance Refunds", icon: <CreditCard size={16} /> },
     { key: "op", label: "OP Returns", icon: <Users size={16} /> },
     { key: "ip", label: "IP Returns", icon: <Building2 size={16} /> },
 ];
@@ -436,7 +440,15 @@ const SalesReturnReport = ({
     ]);
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
-    const [summary, setSummary] = useState({ total_returns: 0, op_returns: 0, ip_returns: 0, total_amount: 0 });
+    const [summary, setSummary] = useState({
+        total_returns: 0,
+        op_returns: 0,
+        ip_returns: 0,
+        pharmacy_returns: 0,
+        investigation_refunds: 0,
+        advance_refunds: 0,
+        total_amount: 0
+    });
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
@@ -457,7 +469,7 @@ const SalesReturnReport = ({
         }
     }, [startDate, endDate, billType, patientType, category, outlet, initialOutlet]);
 
-    const fetchReport = async () => {
+    const fetchReport =  async () => {
         setLoading(true);
         try {
             const params = {
@@ -517,7 +529,8 @@ const SalesReturnReport = ({
             return;
         }
         const exportData = data.map(r => ({
-            "Return Bill No": r.return_bill_no,
+            "Category": r.return_category || "Pharmacy Return",
+            "Return / Refund No": r.return_bill_no,
             "Return Date": dayjs(r.return_bill_date).format('DD-MM-YYYY HH:mm'),
             "Original Bill No": r.bill_no,
             "Type": r.patient_type,
@@ -525,11 +538,11 @@ const SalesReturnReport = ({
             "UHID": r.uhid,
             "Patient Name": r.patient_name,
             "Doctor": r.doctor_name,
-            "Items": r.items_summary,
+            "Items / Details": r.items_summary,
             "Return Amount (₹)": r.return_amount,
             "Mode": r.mode,
             "Status": r.status,
-            "Pharmacist": r.pharmacist_name,
+            "Processed By": r.pharmacist_name,
         }));
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
@@ -544,9 +557,40 @@ const SalesReturnReport = ({
         ? <Badge bg="#eff6ff" color="#2563eb">IP</Badge>
         : <Badge bg="#f0fdfa" color="#0d9488">OP</Badge>;
 
-    const modeBadge = (mode) => mode === "Cash Return"
-        ? <Badge bg="#ecfdf5" color="#059669">{mode}</Badge>
-        : <Badge bg="#fffbeb" color="#d97706">{mode}</Badge>;
+    const categoryBadge = (cat) => {
+        if (cat === "Investigation Refund") {
+            return (
+                <Badge bg="#fdf2f8" color="#be185d" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Activity size={12} /> Investigation
+                </Badge>
+            );
+        }
+        if (cat === "IP Advance Refund") {
+            return (
+                <Badge bg="#eff6ff" color="#2563eb" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <CreditCard size={12} /> IP Advance
+                </Badge>
+            );
+        }
+        return (
+            <Badge bg="#f0fdfa" color="#0d9488" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Pill size={12} /> Pharmacy
+            </Badge>
+        );
+    };
+
+    const modeBadge = (mode) => {
+        if (mode === "Cash Return") {
+            return <Badge bg="#ecfdf5" color="#059669">{mode}</Badge>;
+        }
+        if (mode === "Investigation Refund") {
+            return <Badge bg="#fdf2f8" color="#be185d">{mode}</Badge>;
+        }
+        if (mode === "Advance Refund") {
+            return <Badge bg="#eff6ff" color="#2563eb">{mode}</Badge>;
+        }
+        return <Badge bg="#fffbeb" color="#d97706">{mode || "Return"}</Badge>;
+    };
 
     return (
         <ModernPageContainer $isModalView={isModalView}>
@@ -555,9 +599,9 @@ const SalesReturnReport = ({
                 <TitleGroup>
                     <h1>
                         <div className="icon-wrapper"><RotateCcw size={24} /></div>
-                        Sales Return Report
+                        Sales Return & Refund Report
                     </h1>
-                    <p>Pharmacy sales returns across IP and OP bills.</p>
+                    <p>Consolidated returns & refunds across Pharmacy, Investigation, and IP Advance.</p>
                 </TitleGroup>
                 <ActionButtons className="no-print">
                     <SecondaryButton onClick={() => window.history.back()}><ArrowLeft size={20} /> Back</SecondaryButton>
@@ -614,17 +658,24 @@ const SalesReturnReport = ({
                         </div>
                     </StatCard>
                     <StatCard color={colors.primary} lightBg="#f0fdfa">
-                        <div className="icon-box"><Users size={16} /></div>
+                        <div className="icon-box"><Pill size={16} /></div>
                         <div className="content-box">
-                            <div className="label">OP Returns</div>
-                            <div className="value">{summary.op_returns}</div>
+                            <div className="label">Pharmacy Returns</div>
+                            <div className="value">{summary.pharmacy_returns ?? summary.total_returns}</div>
+                        </div>
+                    </StatCard>
+                    <StatCard color="#be185d" lightBg="#fdf2f8">
+                        <div className="icon-box"><Activity size={16} /></div>
+                        <div className="content-box">
+                            <div className="label">Investigation Refunds</div>
+                            <div className="value">{summary.investigation_refunds ?? 0}</div>
                         </div>
                     </StatCard>
                     <StatCard color="#2563eb" lightBg="#eff6ff">
-                        <div className="icon-box"><Building2 size={16} /></div>
+                        <div className="icon-box"><CreditCard size={16} /></div>
                         <div className="content-box">
-                            <div className="label">IP Returns</div>
-                            <div className="value">{summary.ip_returns}</div>
+                            <div className="label">IP Advance Refunds</div>
+                            <div className="value">{summary.advance_refunds ?? 0}</div>
                         </div>
                     </StatCard>
                     <StatCard color={colors.success} lightBg="#f0fdf4">
@@ -652,23 +703,25 @@ const SalesReturnReport = ({
                         <ModernTable>
                             <thead>
                                 <Tr>
-                                    <Th>Return Bill No</Th>
+                                    <Th>Category</Th>
+                                    <Th>Return / Refund No</Th>
                                     <Th>Return Date</Th>
                                     <Th>Original Bill No</Th>
                                     <Th>Type</Th>
                                     <Th>UHID</Th>
                                     <Th>Patient Name</Th>
                                     <Th>Doctor</Th>
-                                    <Th><Pill size={13} style={{ verticalAlign: 'text-bottom', marginRight: 4 }} />Items Returned</Th>
+                                    <Th><RotateCcw size={13} style={{ verticalAlign: 'text-bottom', marginRight: 4 }} />Items / Details</Th>
                                     <Th style={{ textAlign: 'right' }}>Amount (₹)</Th>
                                     <Th>Mode</Th>
                                     <Th>Status</Th>
-                                    <Th>Pharmacist</Th>
+                                    <Th>Staff / Cashier</Th>
                                 </Tr>
                             </thead>
                             <tbody>
                                 {getPaginatedData().map((r, idx) => (
                                     <Tr key={idx}>
+                                        <Td>{categoryBadge(r.return_category)}</Td>
                                         <Td style={{ fontWeight: 700 }}>{r.return_bill_no}</Td>
                                         <Td>{dayjs(r.return_bill_date).format('DD-MM-YYYY HH:mm')}</Td>
                                         <Td>{r.bill_no}</Td>

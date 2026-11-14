@@ -32,7 +32,9 @@ import {
     ArrowRight,
     Maximize2,
     Award,
-    Inbox
+    Inbox,
+    RefreshCw,
+    RotateCcw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
@@ -884,6 +886,7 @@ const CATEGORIES = [
 const InsuranceReportsDashboard = () => {
     const navigate = useNavigate();
     const [dateRange, setDateRange] = useState([dayjs().subtract(30, 'days'), dayjs()]);
+    const [modalDateRange, setModalDateRange] = useState([dayjs().subtract(30, 'days'), dayjs()]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [activeReport, setActiveReport] = useState(null);
@@ -903,15 +906,18 @@ const InsuranceReportsDashboard = () => {
     const pageSize = 15;
 
     // Load specialized report data when activeReport changes
-    const fetchReportData = useCallback(async (rep, dates = dateRange, comp = selectedCompany) => {
+    const fetchReportData = useCallback(async (rep, dates = modalDateRange, comp = selectedCompany, search = modalSearch) => {
         if (!rep || rep.component) return;
         try {
             setLoadingData(true);
             const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
-            const startStr = dates && dates[0] ? dates[0].format('YYYY-MM-DD') : '';
-            const endStr = dates && dates[1] ? dates[1].format('YYYY-MM-DD') : '';
+            const activeDates = dates || modalDateRange || dateRange;
+            const startStr = activeDates && activeDates[0] ? activeDates[0].format('YYYY-MM-DD') : '';
+            const endStr = activeDates && activeDates[1] ? activeDates[1].format('YYYY-MM-DD') : '';
+            const compParam = comp || 'all';
+            const searchParam = search ? encodeURIComponent(search) : '';
             
-            const url = `${getBaseUrl.replace(/\/$/, '')}/insurance-credit-report/?report_key=${rep.id}&start_date=${startStr}&end_date=${endStr}&company_code=${comp}`;
+            const url = `${getBaseUrl.replace(/\/$/, '')}/insurance-credit-report/?report_key=${rep.id}&start_date=${startStr}&end_date=${endStr}&company_code=${compParam}&search=${searchParam}`;
             const res = await apiRequest(url, 'GET');
 
             if (res && res.success) {
@@ -938,15 +944,16 @@ const InsuranceReportsDashboard = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [dateRange, selectedCompany]);
+    }, [modalDateRange, dateRange, selectedCompany, modalSearch]);
 
     const handleOpenReport = (report) => {
         setActiveReport(report);
         setCurrentPage(1);
         setModalSearch('');
         setSelectedCompany('all');
+        setModalDateRange(dateRange);
         if (!report.component) {
-            fetchReportData(report, dateRange, 'all');
+            fetchReportData(report, dateRange, 'all', '');
         }
     };
 
@@ -973,10 +980,12 @@ const InsuranceReportsDashboard = () => {
         let rows = reportData.data;
 
         if (selectedCompany && selectedCompany !== 'all') {
-            rows = rows.filter((r) => 
-                (r.company_name && r.company_name.toLowerCase().includes(selectedCompany.toLowerCase())) ||
-                r.company_code === selectedCompany
-            );
+            const sel = String(selectedCompany).toLowerCase().trim();
+            rows = rows.filter((r) => {
+                const cName = String(r.company_name || '').toLowerCase();
+                const cCode = String(r.company_code || '').toLowerCase();
+                return cName.includes(sel) || cCode === sel || sel.includes(cName);
+            });
         }
 
         if (modalSearch && modalSearch.trim()) {
@@ -1197,57 +1206,99 @@ const InsuranceReportsDashboard = () => {
                             ) : (
                                 <>
                                     {/* Summary KPI Cards */}
-                            {reportData.summary && Object.keys(reportData.summary).length > 0 && (
-                                <StatsGrid>
-                                    {Object.entries(reportData.summary).map(([key, val]) => {
-                                        const label = key.replace(/_/g, ' ').replace('total', '').trim();
-                                        const isCurrency = typeof val === 'number' && (key.includes('amount') || key.includes('dues') || key.includes('credit'));
-                                        return (
-                                            <StatCard key={key} color={activeReport.color}>
-                                                <div className="label">{label}</div>
-                                                <div className="value">
-                                                    {isCurrency ? `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : val}
-                                                </div>
-                                            </StatCard>
-                                        );
-                                    })}
-                                </StatsGrid>
-                            )}
+                                    {reportData.summary && Object.keys(reportData.summary).length > 0 && (
+                                        <StatsGrid>
+                                            {Object.entries(reportData.summary).map(([key, val]) => {
+                                                const label = key.replace(/_/g, ' ').replace('total', '').trim();
+                                                const isCurrency = typeof val === 'number' && (
+                                                    key.includes('amount') || key.includes('due') || key.includes('dues') ||
+                                                    key.includes('credit') || key.includes('billed') || key.includes('settled') ||
+                                                    key.includes('advance') || key.includes('fee') || key.includes('fees')
+                                                );
+                                                return (
+                                                    <StatCard key={key} color={activeReport.color}>
+                                                        <div className="label">{label}</div>
+                                                        <div className="value">
+                                                            {isCurrency ? `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : val}
+                                                        </div>
+                                                    </StatCard>
+                                                );
+                                            })}
+                                        </StatsGrid>
+                                    )}
 
-                            {/* Filters Bar inside Modal */}
-                            <FilterRow>
-                                <div className="left">
-                                    <select
-                                        value={selectedCompany}
-                                        onChange={(e) => {
-                                            setSelectedCompany(e.target.value);
-                                            setCurrentPage(1);
-                                        }}
-                                    >
-                                        <option value="all">All Companies / Schemes</option>
-                                        {(reportData.companies || []).map((c) => (
-                                            <option key={c.code} value={c.code}>{c.name}</option>
-                                        ))}
-                                    </select>
+                                    {/* Filters Bar inside Modal */}
+                                    <FilterRow>
+                                        <div className="left" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <RangePicker
+                                                value={modalDateRange}
+                                                onChange={(dates) => {
+                                                    if (dates && dates[0] && dates[1]) {
+                                                        setModalDateRange(dates);
+                                                        setCurrentPage(1);
+                                                        fetchReportData(activeReport, dates, selectedCompany, modalSearch);
+                                                    }
+                                                }}
+                                                format="DD/MM/YYYY"
+                                                allowClear={false}
+                                                style={{ height: '36px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                            />
 
-                                    <div style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>
-                                        Date: {dateRange[0]?.format('DD/MM/YYYY')} - {dateRange[1]?.format('DD/MM/YYYY')}
-                                    </div>
-                                </div>
+                                            <select
+                                                value={selectedCompany}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setSelectedCompany(val);
+                                                    setCurrentPage(1);
+                                                    fetchReportData(activeReport, modalDateRange, val, modalSearch);
+                                                }}
+                                            >
+                                                <option value="all">All Companies / Schemes</option>
+                                                {(reportData.companies || []).map((c) => (
+                                                    <option key={c.code} value={c.code}>{c.name}</option>
+                                                ))}
+                                            </select>
 
-                                <SearchBox style={{ width: '260px' }}>
-                                    <Search size={15} />
-                                    <input
-                                        type="text"
-                                        placeholder="Filter records..."
-                                        value={modalSearch}
-                                        onChange={(e) => {
-                                            setModalSearch(e.target.value);
-                                            setCurrentPage(1);
-                                        }}
-                                    />
-                                </SearchBox>
-                            </FilterRow>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedCompany('all');
+                                                    setModalSearch('');
+                                                    fetchReportData(activeReport, modalDateRange, 'all', '');
+                                                }}
+                                                title="Reset Filters"
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '0 12px',
+                                                    height: '36px',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #e2e8f0',
+                                                    background: '#f8fafc',
+                                                    color: '#475569',
+                                                    fontSize: '0.82rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <RotateCcw size={14} /> Reset
+                                            </button>
+                                        </div>
+
+                                        <SearchBox style={{ width: '260px' }}>
+                                            <Search size={15} />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter records..."
+                                                value={modalSearch}
+                                                onChange={(e) => {
+                                                    setModalSearch(e.target.value);
+                                                    setCurrentPage(1);
+                                                }}
+                                            />
+                                        </SearchBox>
+                                    </FilterRow>
 
                             {/* Data Table */}
                             {loadingData ? (
