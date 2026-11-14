@@ -3628,7 +3628,14 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                   {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
                     <div>
-                      <div>DL NO : TN/SLE/21/01107</div>
+                      <div>
+                        {(() => {
+                          const billOut = String(printPatient?.outlet_code || printPatient?.outletCode || selectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                          return (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002"))
+                            ? "DL NO : TN/SLE/20/01109"
+                            : "DL NO : TN/SLE/20/01107";
+                        })()}
+                      </div>
                       <div>CIN : L85110TZ2020PLC033974</div>
                     </div>
                     <div style={{ textAlign: "center" }}>

@@ -2015,7 +2015,14 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                       {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
                         <div>
-                          <div>TN/SLE/20/01109</div>
+                          <div>
+                            {(() => {
+                              const billOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
+                              return (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001"))
+                                ? "DL NO : TN/SLE/20/01107"
+                                : "DL NO : TN/SLE/20/01109";
+                            })()}
+                          </div>
                           <div>CIN : L85110TZ2020PLC033974</div>
                         </div>
                         <div style={{ textAlign: "center" }}>
