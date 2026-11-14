@@ -62,6 +62,7 @@ const DepartmentWiseReport = lazy(() => import("../Accounts/DepartmentWiseReport
 const DiscountBillsReport = lazy(() => import("../Accounts/DiscountBillsReport"));
 const PharmacyExpiryReport = lazy(() => import("./PharmacyExpiryReport"));
 const SalesReturnReport = lazy(() => import("./SalesReturnReport"));
+const AdmissionVsDischargeReport = lazy(() => import("../Accounts/AdmissionVsDischargeReport"));
 
 // Dynamic mapping of routes to lazy-loaded components
 const componentMap = {
@@ -101,6 +102,7 @@ const componentMap = {
     "/DiscountBillsReport": DiscountBillsReport,
     "/PharmacyExpiryReport": PharmacyExpiryReport,
     "/SalesReturnReport": SalesReturnReport,
+    "/AdmissionVsDischargeReport": AdmissionVsDischargeReport,
 };
 
 // Route-specific props for specialized modal and register views
@@ -1001,6 +1003,15 @@ const ReportsDashboard = () => {
             color: colors.primary
         },
         {
+            id: "admission_vs_discharge",
+            route: "/AdmissionVsDischargeReport",
+            title: "Admission vs Discharge Report",
+            description: "Inpatient admission and discharge comparison sorted by IP Number, with room, stay duration, advance, and company name",
+            icon: <Users size={24} />,
+            component: AdmissionVsDischargeReport,
+            color: colors.primary
+        },
+        {
             id: "credit_card",
             route: "/CreditCardReport",
             title: "Credit Card Report",
@@ -1246,6 +1257,11 @@ const ReportsDashboard = () => {
                 setIsReportModalVisible(true);
                 return;
             }
+            if (report.id === "admission_vs_discharge" || report.id === "sales_return") {
+                // Reports with built-in comprehensive controls open directly into report view modal
+                setIsReportModalVisible(true);
+                return;
+            }
             if (report.id === "bill_wise" || report.id === "credit_card" || report.id === "cash_bills" || report.id === "discount_bills") {
                 setBillType("All");
             }
@@ -1262,7 +1278,7 @@ const ReportsDashboard = () => {
         if (!selectedReport) return null;
         const ReportComponent = selectedReport.component;
         
-        const isNoOutletReport = ["ip_advance", "discharge_detailed", "advance_reg", "insurance_advance"].includes(selectedReport?.id);
+        const isNoOutletReport = ["ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge"].includes(selectedReport?.id);
 
         return (
             <Suspense fallback={<div style={{ padding: '100px', textAlign: 'center' }}><Spin size="large" /></div>}>
@@ -1320,9 +1336,36 @@ const ReportsDashboard = () => {
                                 <h3>{report.title}</h3>
                                 <p>{report.description}</p>
                             </div>
-                            <div className="footer">
+                            <div className="footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span className="view-text">{report.path ? "Open Report" : "Generate Report"}</span>
-                                <ArrowRight className="arrow-icon" size={18} />
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    {report.route && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(report.route);
+                                            }}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '3px 8px',
+                                                background: '#f8fafc',
+                                                border: '1px solid #cbd5e1',
+                                                borderRadius: '6px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                                color: '#0f172a',
+                                                cursor: 'pointer'
+                                            }}
+                                            title="Open as separate full page"
+                                        >
+                                            Full Page <ArrowRight size={12} />
+                                        </button>
+                                    )}
+                                    <ArrowRight className="arrow-icon" size={18} />
+                                </div>
                             </div>
                         </ReportCard>
                     ))
