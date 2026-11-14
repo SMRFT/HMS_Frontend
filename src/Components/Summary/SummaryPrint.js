@@ -5,6 +5,7 @@ import html2canvas from "html2canvas";
 import SummaryHead from "../Images/SummaryHead.png";
 import Shanmuga360QR from "../Images/Shanmuga360QR.png";
 import apiRequest from "../../Auth/apiRequest";
+import { flushSync } from "react-dom";
 
 /* ─────────────────────────────────────────────────────────────
    Styles
@@ -246,11 +247,19 @@ const GLOBAL_CSS = `
 
   .sp-sig-block { display: flex; justify-content: flex-end; gap: 40px; padding: 5px 10px 3px; margin-top: 4px; border-top: 1px dashed #aab4c6; }
   .sp-sig-item  { text-align: center; min-width: 100px; }
-  .sp-sig-img   { height: 34px; max-width: 110px; object-fit: contain; display: block; margin: 0 auto 4px; }
+  .sp-sig-img { height: 48px; max-width: 140px; object-fit: contain; display: block; margin: 0 auto 4px; }
   .sp-sig-name  { font-size: 10px; font-weight: 700; color: #111; }
   .sp-sig-title { font-size: 9px; color: #555; }
 
   .sp-end-marker { text-align: center; font-size: 12px; font-weight: 700; color: #444; margin: 8px 0 5px; letter-spacing: 1px; }
+
+  .sp-signoff { display: flex; justify-content: space-between; margin-top: 28px; font-size: 12px; padding: 0 10px; }
+  .sp-signoff-col { width: 46%; }
+  .sp-signoff-title { font-weight: 700; margin-bottom: 4px; color: #1a3a6e; text-transform: uppercase; font-size: 12px; letter-spacing: .5px; }
+  .sp-signoff-sig { height: 70px; max-width: 200px; object-fit: contain; display: block; margin-bottom: 4px; }
+.sp-signoff-sigspace { height: 70px; }
+  .sp-signoff-name { font-weight: 700; color: #0f172a; }
+  .sp-signoff-desig { font-size: 10px; color: #555; }
 
   .sp-explained { display: flex; justify-content: space-between; margin-top: 40px; font-size: 12px; padding: 0 10px 16px; }
   .sp-explained-col { width: 46%; }
@@ -631,8 +640,36 @@ const SummaryPrint = () => {
   const [pageHeight, setPageHeight] = useState(1123);
   const previewScaleRef = useRef(1);
   previewScaleRef.current = zoomScale;
-
+  const [signoffs, setSignoffs] = useState({ prepared: null, approved: null });
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+
+  const fetchEmployeeSign = async (id) => {
+    const empId = String(id || "").trim();
+    if (!empId) return null;
+    const url = `${HMSURL}employee-signature/?employeeId=${encodeURIComponent(empId)}&employee_id=${encodeURIComponent(empId)}`;
+    try {
+      const r = await apiRequest(url, "GET");
+      console.log("employee-signature", empId, r);
+      const d = r?.data?.data || r?.data || r;
+      return d && d.employeeName ? d : null;
+    } catch (e) {
+      console.warn("employee-signature failed for", empId, e);
+      return null;
+    }
+  };
+
+  // Fetch both people, render them, then wait a beat so html2canvas sees the DOM
+  const loadSignoffs = async () => {
+    if (!summaryData) return;
+    if (signoffs.prepared || signoffs.approved) return; // already loaded on page open
+    const [prepared, approved] = await Promise.all([
+      fetchEmployeeSign(summaryData.preliminary_approved_by || summaryData.created_by),
+      fetchEmployeeSign(summaryData.approved_by),
+    ]);
+    flushSync(() => setSignoffs({ prepared, approved }));
+    await new Promise((res) => setTimeout(res, 150));
+  };
 
   const computeFitScale = () => {
     if (typeof window === "undefined") return 1;
@@ -774,6 +811,20 @@ const SummaryPrint = () => {
   }, [targetIpNo, HMSURL]);
 
   useEffect(() => {
+    if (!summaryData) return;
+    let cancelled = false;
+    (async () => {
+      const [prepared, approved] = await Promise.all([
+        // fall back to the creator when the summary was never preliminarily approved
+        fetchEmployeeSign(summaryData.preliminary_approved_by || summaryData.created_by),
+        fetchEmployeeSign(summaryData.approved_by),
+      ]);
+      if (!cancelled) setSignoffs({ prepared, approved });
+    })();
+    return () => { cancelled = true; };
+  }, [summaryData]);
+
+  useEffect(() => {
     const handleOutsideClick = (e) => {
       if (!e.target.closest(".sp-dropdown-container")) {
         setShowSendDropdown(false);
@@ -790,6 +841,7 @@ const SummaryPrint = () => {
     if (!summaryData || !bodyRef.current) return;
     setLoading(true);
     try {
+      await loadSignoffs();
       const SCALE = 2;
       const PX_W = 794;
       const PX_H = 1123;
@@ -1997,186 +2049,222 @@ const SummaryPrint = () => {
                 transformOrigin: "top left",
               }}
             >
-            <div className="sp-outer-border">
-              <img src={SummaryHead} alt="Header" className="sp-header-img" />
-              <div className="sp-doc-title">
-                {getDocTitle()}
-              </div>
-              <div className="sp-info-grid">
-                <InfoRow label="Name" value={safeStr(summaryData.patient)} />
-                <InfoRow
-                  label="Age / Gender"
-                  value={`${safeStr(summaryData.age)} Yrs / ${safeUpper(summaryData.gender)}`}
-                />
-                <InfoRow label="UHID" value={safeStr(summaryData.uhid)} />
-                <InfoRow
-                  label="Consultant"
-                  value={safeStr(summaryData.doctor)}
-                />
-                <InfoRow label="IP No" value={safeStr(summaryData.ipNo)} />
-                <InfoRow
-                  label="DOA & Time"
-                  value={`${fmtDate(summaryData.doa)} ${fmtTime(summaryData.doaTime)}`}
-                />
-                <InfoRow label="Address" value={safeStr(summaryData.address)} />
-                <InfoRow
-                  label="DOD & Time"
-                  value={`${fmtDate(summaryData.dod)} ${fmtTime(summaryData.dodTime)}`}
-                />
-                <InfoRow label="Room" value={safeStr(summaryData.roomNo)} />
-                {summaryData.mobilePhone && (
-                  <InfoRow
-                    label="Mobile"
-                    value={safeStr(summaryData.mobilePhone)}
-                  />
-                )}
-              </div>
-              {summaryData.diseaseCode && summaryData.disease && (
-                <div className="sp-icd">
-                  <span className="sp-icd-label">ICD :</span>
-                  <span>
-                    {safeStr(summaryData.diseaseCode)} —{" "}
-                    {safeStr(summaryData.disease)}
-                  </span>
+              <div className="sp-outer-border">
+                <img src={SummaryHead} alt="Header" className="sp-header-img" />
+                <div className="sp-doc-title">
+                  {getDocTitle()}
                 </div>
-              )}
+                <div className="sp-info-grid">
+                  <InfoRow label="Name" value={safeStr(summaryData.patient)} />
+                  <InfoRow
+                    label="Age / Gender"
+                    value={`${safeStr(summaryData.age)} Yrs / ${safeUpper(summaryData.gender)}`}
+                  />
+                  <InfoRow label="UHID" value={safeStr(summaryData.uhid)} />
+                  <InfoRow
+                    label="Consultant"
+                    value={safeStr(summaryData.doctor)}
+                  />
+                  <InfoRow label="IP No" value={safeStr(summaryData.ipNo)} />
+                  <InfoRow
+                    label="DOA & Time"
+                    value={`${fmtDate(summaryData.doa)} ${fmtTime(summaryData.doaTime)}`}
+                  />
+                  <InfoRow label="Address" value={safeStr(summaryData.address)} />
+                  <InfoRow
+                    label="DOD & Time"
+                    value={`${fmtDate(summaryData.dod)} ${fmtTime(summaryData.dodTime)}`}
+                  />
+                  <InfoRow label="Room" value={safeStr(summaryData.roomNo)} />
+                  {summaryData.mobilePhone && (
+                    <InfoRow
+                      label="Mobile"
+                      value={safeStr(summaryData.mobilePhone)}
+                    />
+                  )}
+                </div>
+                {summaryData.diseaseCode && summaryData.disease && (
+                  <div className="sp-icd">
+                    <span className="sp-icd-label">ICD :</span>
+                    <span>
+                      {safeStr(summaryData.diseaseCode)} —{" "}
+                      {safeStr(summaryData.disease)}
+                    </span>
+                  </div>
+                )}
 
-              <div className="sp-page-no-bar">
-                <span>Page 1 of {previewTotalPages}</span>
-              </div>
+                <div className="sp-page-no-bar">
+                  <span>Page 1 of {previewTotalPages}</span>
+                </div>
 
-              <div className="sp-body" ref={bodyRef}>
-                {fieldsData.map((item, idx) => {
-                  const key = item.key;
-                  if (!key) return null;
-                  const content = getFieldValue(fieldsData, key, summaryData) ?? item.value;
-                  const hasContent = content && String(content).trim();
-                  const hasLab =
-                    key === "INVESTIGATIONS" &&
-                    summaryData.testdetails?.length > 0;
-                  if (!hasContent && !hasLab) return null;
-                  return (
-                    <div key={key || idx} className="sp-section" data-block-top="true">
-                      <div className="sp-section-title">{key}</div>
-                      {hasContent && (
-                        <div className="sp-section-content">
-                          {String(content)
-                            .split("\n")
-                            .map((line, lIdx) => (
-                              <div key={lIdx} style={{ minHeight: "1.4em" }}>
-                                {renderFormattedText(line)}
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                      {key === "INVESTIGATIONS" && <LabReport />}
-                    </div>
-                  );
-                })}
-                <div className="sp-explained" data-block-top="true">
-                  <div className="sp-explained-col">
-                    <div className="sp-explained-title">Explained By</div>
-                    <div className="sp-explained-field">
-                      Doctor Name :{" "}
-                      <strong style={{ fontWeight: 700, color: "#0f172a" }}>
-                        {safeStr(
-                          summaryData.explainedBy ||
+                <div className="sp-body" ref={bodyRef}>
+                  {fieldsData.map((item, idx) => {
+                    const key = item.key;
+                    if (!key) return null;
+                    const content = getFieldValue(fieldsData, key, summaryData) ?? item.value;
+                    const hasContent = content && String(content).trim();
+                    const hasLab =
+                      key === "INVESTIGATIONS" &&
+                      summaryData.testdetails?.length > 0;
+                    if (!hasContent && !hasLab) return null;
+                    return (
+                      <div key={key || idx} className="sp-section" data-block-top="true">
+                        <div className="sp-section-title">{key}</div>
+                        {hasContent && (
+                          <div className="sp-section-content">
+                            {String(content)
+                              .split("\n")
+                              .map((line, lIdx) => (
+                                <div key={lIdx} style={{ minHeight: "1.4em" }}>
+                                  {renderFormattedText(line)}
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                        {key === "INVESTIGATIONS" && <LabReport />}
+                      </div>
+                    );
+                  })}
+                  {(() => {
+                    // API data wins; fall back to what get-printsummary already returned
+                    const preparedSig = signoffs.prepared || summaryData.prepared_by_sign;
+                    const approvedSig = signoffs.approved || summaryData.approved_by_sign;
+                    if (!preparedSig && !approvedSig) return null;
+
+                    return (
+                      <div className="sp-signoff" data-block-top="true">
+                        {[
+                          ["Prepared By", preparedSig],
+                          ["Approved By", approvedSig],
+                        ].map(([title, sig]) => (
+                          <div className="sp-signoff-col" key={title}>
+                            <div className="sp-signoff-title">{title}</div>
+                            {sig?.signatureBase64 ? (
+                              <img
+                                src={`data:image/png;base64,${sig.signatureBase64}`}
+                                alt={`${title} signature`}
+                                className="sp-signoff-sig"
+                              />
+                            ) : (
+                              <div className="sp-signoff-sigspace" />
+                            )}
+                            <div className="sp-signoff-name">{sig?.employeeName || "—"}</div>
+                            {sig?.designation && (
+                              <div className="sp-signoff-desig">{sig.designation}</div>
+                            )}
+                            {sig?.registrationNumber && (
+                              <div className="sp-signoff-desig">Reg. No: {sig.registrationNumber}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  <div className="sp-explained" data-block-top="true">
+                    <div className="sp-explained-col">
+                      <div className="sp-explained-title">Explained By</div>
+                      <div className="sp-explained-field">
+                        Doctor Name :{" "}
+                        <strong style={{ fontWeight: 700, color: "#0f172a" }}>
+                          {safeStr(
+                            summaryData.explainedBy ||
                             (summaryData.doctor
                               ? summaryData.doctor.toUpperCase().startsWith("DR.")
                                 ? summaryData.doctor
                                 : `Dr. ${summaryData.doctor}`
                               : "")
-                        )}
-                      </strong>
+                          )}
+                        </strong>
+                      </div>
+                      <div className="sp-explained-field">Signature :</div>
                     </div>
-                    <div className="sp-explained-field">Signature :</div>
-                  </div>
-                  <div className="sp-explained-col">
-                    <div className="sp-explained-title">
-                      Explained To Patient / Attender
-                    </div>
-                    <div className="sp-explained-field">
-                      Name :{" "}
-                      <strong style={{ fontWeight: 700, color: "#0f172a" }}>
-                        {safeStr(summaryData.explainedTo || summaryData.patient)}
-                      </strong>
-                    </div>
-                    <div className="sp-explained-field">Signature :</div>
-                  </div>
-                </div>
-
-                <div className="sp-home-services" data-block-top="true">
-                  <div className="sp-hs-grid">
-                    {/* Tamil Section */}
-                    <div className="sp-hs-col">
-                      <div className="sp-hs-title">
-                        வீட்டிலிருந்தபடியே சேவைகளைப் பெறலாம்!
+                    <div className="sp-explained-col">
+                      <div className="sp-explained-title">
+                        Explained To Patient / Attender
                       </div>
-                      <div className="sp-hs-item">
-                        <div className="sp-hs-item-title">
-                          <span>🩸</span> இரத்தப் பரிசோதனை &amp; மருந்து சேவை பெற
-                        </div>
-                        <div className="sp-hs-phone">
-                          <span>📞</span> அழைக்கவும்: 89258 11781
-                        </div>
+                      <div className="sp-explained-field">
+                        Name :{" "}
+                        <strong style={{ fontWeight: 700, color: "#0f172a" }}>
+                          {safeStr(summaryData.explainedTo || summaryData.patient)}
+                        </strong>
                       </div>
-                      <div className="sp-hs-item">
-                        <div className="sp-hs-item-title">
-                          <span>👨‍⚕️</span> மருத்துவர் ஆலோசனை &amp; நர்சிங் சேவை பெற
-                        </div>
-                        <div className="sp-hs-phone">
-                          <span>📞</span> அழைக்கவும்: 89258 11781
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* English Section */}
-                    <div className="sp-hs-col">
-                      <div className="sp-hs-title">
-                        HOME SERVICES
-                      </div>
-                      <div className="sp-hs-item">
-                        <div className="sp-hs-item-title">
-                          <span>🩸</span> Home Blood Collection &amp; Medicine Delivery
-                        </div>
-                        <div className="sp-hs-phone">
-                          <span>📞</span> Call: 89258 11781
-                        </div>
-                      </div>
-                      <div className="sp-hs-item">
-                        <div className="sp-hs-item-title">
-                          <span>👨‍⚕️</span> Home Doctor Visit &amp; Nursing Services
-                        </div>
-                        <div className="sp-hs-phone">
-                          <span>📞</span> Call: 89258 11781
-                        </div>
-                      </div>
+                      <div className="sp-explained-field">Signature :</div>
                     </div>
                   </div>
 
-                  {/* Shanmuga360 App Download Bar with QR Code */}
-                  <div className="sp-hs-app-bar">
-                    <div className="sp-hs-app-left">
-                      <div className="sp-hs-qr-box">
-                        <img
-                          src={Shanmuga360QR}
-                          alt="Shanmuga360 App QR"
-                          className="sp-hs-qr"
-                        />
-                        <span className="sp-hs-qr-sub">Scan QR</span>
-                      </div>
-                      <div className="sp-hs-app-text-block">
-                        <div className="sp-hs-app-en">
-                          <span>📲</span> Easy Access to Our Services Download the Shanmuga360 App
+                  <div className="sp-home-services" data-block-top="true">
+                    <div className="sp-hs-grid">
+                      {/* Tamil Section */}
+                      <div className="sp-hs-col">
+                        <div className="sp-hs-title">
+                          வீட்டிலிருந்தபடியே சேவைகளைப் பெறலாம்!
                         </div>
-                        <div className="sp-hs-app-ta">
-                          எங்கள் சேவைகளை எளிதாகப் பெற Shanmuga360 App-ஐ பதிவிறக்கம் செய்யுங்கள்
+                        <div className="sp-hs-item">
+                          <div className="sp-hs-item-title">
+                            <span>🩸</span> இரத்தப் பரிசோதனை &amp; மருந்து சேவை பெற
+                          </div>
+                          <div className="sp-hs-phone">
+                            <span>📞</span> அழைக்கவும்: 89258 11781
+                          </div>
+                        </div>
+                        <div className="sp-hs-item">
+                          <div className="sp-hs-item-title">
+                            <span>👨‍⚕️</span> மருத்துவர் ஆலோசனை &amp; நர்சிங் சேவை பெற
+                          </div>
+                          <div className="sp-hs-phone">
+                            <span>📞</span> அழைக்கவும்: 89258 11781
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* English Section */}
+                      <div className="sp-hs-col">
+                        <div className="sp-hs-title">
+                          HOME SERVICES
+                        </div>
+                        <div className="sp-hs-item">
+                          <div className="sp-hs-item-title">
+                            <span>🩸</span> Home Blood Collection &amp; Medicine Delivery
+                          </div>
+                          <div className="sp-hs-phone">
+                            <span>📞</span> Call: 89258 11781
+                          </div>
+                        </div>
+                        <div className="sp-hs-item">
+                          <div className="sp-hs-item-title">
+                            <span>👨‍⚕️</span> Home Doctor Visit &amp; Nursing Services
+                          </div>
+                          <div className="sp-hs-phone">
+                            <span>📞</span> Call: 89258 11781
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="sp-hs-scan-badge">
-                      <div className="sp-hs-scan-badge-title">SCAN TO DOWNLOAD</div>
-                      <div className="sp-hs-scan-badge-sub">Shanmuga360 App</div>
+
+                    {/* Shanmuga360 App Download Bar with QR Code */}
+                    <div className="sp-hs-app-bar">
+                      <div className="sp-hs-app-left">
+                        <div className="sp-hs-qr-box">
+                          <img
+                            src={Shanmuga360QR}
+                            alt="Shanmuga360 App QR"
+                            className="sp-hs-qr"
+                          />
+                          <span className="sp-hs-qr-sub">Scan QR</span>
+                        </div>
+                        <div className="sp-hs-app-text-block">
+                          <div className="sp-hs-app-en">
+                            <span>📲</span> Easy Access to Our Services Download the Shanmuga360 App
+                          </div>
+                          <div className="sp-hs-app-ta">
+                            எங்கள் சேவைகளை எளிதாகப் பெற Shanmuga360 App-ஐ பதிவிறக்கம் செய்யுங்கள்
+                          </div>
+                        </div>
+                      </div>
+                      <div className="sp-hs-scan-badge">
+                        <div className="sp-hs-scan-badge-title">SCAN TO DOWNLOAD</div>
+                        <div className="sp-hs-scan-badge-sub">Shanmuga360 App</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2184,7 +2272,6 @@ const SummaryPrint = () => {
             </div>
           </div>
         </div>
-      </div>
 
         {/* ══ HIDDEN STRIPS — PDF capture only ══ */}
 
