@@ -2279,7 +2279,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                           {req.reqDate} {req.reqTime}
                         </td>
                         <td style={{ fontWeight: 600, color: "#0d8a7a" }}>
-                          {req.bill_no || req.Bill_id || req.reqId || "-"}
+                          {String(req.bill_no || req.Bill_id || req.reqId || "-").replace(/\//g, "")}
                         </td>
                         <td style={{ color: "#334155" }}>
                           {req.doctorName || req.doctor || "-"}
@@ -2552,7 +2552,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
 
                                             {ret.return_bill_no && (
                                               <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#15803d", background: "#ffffff", padding: "2px 8px", borderRadius: "4px", border: "1px solid #86efac" }}>
-                                                Return Bill #{ret.return_bill_no}
+                                                Return Bill #{String(ret.return_bill_no || "").replace(/\//g, "")}
                                               </span>
                                             )}
 

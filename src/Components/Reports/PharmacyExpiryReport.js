@@ -416,8 +416,8 @@ const PharmacyExpiryReport = ({
     const urlFilter = searchParams.get("filter");
 
     const activeOutletCode = (localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim();
-    const activeOutletName = (localStorage.getItem("outlet_name") || "").trim().toLowerCase();
-    const isLoggedDrugPurchase = activeOutletCode === "OLET006" || activeOutletCode === "" || activeOutletName === "drug purchase";
+    const activeOutletName = (localStorage.getItem("selected_outlet_name") || localStorage.getItem("outlet_name") || "").trim().toLowerCase();
+    const isLoggedDrugPurchase = activeOutletCode === "OLET006" || activeOutletCode === "" || activeOutletName.includes("drug purchase");
 
     // Filters and Search States
     const [outlets, setOutlets] = useState([]);
@@ -474,20 +474,13 @@ const PharmacyExpiryReport = ({
         fetchOutlets();
     }, [HMS_BASE_URL]);
 
-    // Sync with localStorage when component mounts or gains focus (only when not in Drug Purchase)
+    // Initial outlet sync when props or active outlet change
     useEffect(() => {
-        const syncOutlet = () => {
-            if (!isLoggedDrugPurchase) {
-                const rawOutlet = (outlet || initialOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim();
-                const activeOutlet = (rawOutlet === "all" || rawOutlet === "All" || rawOutlet === "ALL") ? "" : rawOutlet;
-                setSelectedOutlet(activeOutlet);
-            }
-        };
-        syncOutlet();
-        
-        window.addEventListener("focus", syncOutlet);
-        return () => window.removeEventListener("focus", syncOutlet);
-    }, [isLoggedDrugPurchase, outlet, initialOutlet]);
+        const propO = outlet || initialOutlet || urlOutlet;
+        if (propO !== undefined && propO !== null) {
+            setSelectedOutlet(propO === "all" || propO === "All" || propO === "ALL" ? "" : propO);
+        }
+    }, [outlet, initialOutlet, urlOutlet]);
 
     // Fetch report data (with parameter overrides to avoid React batching delays)
     const fetchReport = async (overrideFilterType, overrideDateRange, overrideSearchQuery, overrideOutlet) => {
@@ -790,13 +783,12 @@ const PharmacyExpiryReport = ({
                         <Label>Select Outlet</Label>
                         <Select 
                             value={selectedOutlet} 
-                            disabled={!isLoggedDrugPurchase}
                             onChange={(e) => {
                                 const newOutlet = e.target.value;
                                 setSelectedOutlet(newOutlet);
                                 setCurrentPage(1);
                             }}
-                            style={!isLoggedDrugPurchase ? { background: "#f1f5f9", cursor: "not-allowed", opacity: 0.8 } : { cursor: "pointer" }}
+                            style={{ cursor: "pointer" }}
                         >
                             <option value="">All Outlets / Central Stores</option>
                             {outlets.map((o) => (
