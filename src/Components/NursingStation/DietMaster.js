@@ -230,6 +230,7 @@ const DietMaster = () => {
     const [diets, setDiets] = useState([]);
     const [extras, setExtras] = useState([]);
     const [activeTab, setActiveTab] = useState("categories");
+    const [extraRoomFilter, setExtraRoomFilter] = useState("ALL");
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [showExtraModal, setShowExtraModal] = useState(false);
@@ -251,6 +252,11 @@ const DietMaster = () => {
     const [extraFormData, setExtraFormData] = useState({
         item_id: "",
         item_name: "",
+        clean_name: "",
+        room_type: "NORMAL",
+        category: "",
+        serving_size: "",
+        calories: 0,
         price: 0,
         is_active: true
     });
@@ -275,10 +281,18 @@ const DietMaster = () => {
     }, [diets, searchTerm]);
 
     const filteredExtras = useMemo(() => {
-        if (!searchTerm) return extras;
+        let list = extras;
+        if (extraRoomFilter !== "ALL") {
+            list = list.filter(e => e.room_type === extraRoomFilter);
+        }
+        if (!searchTerm) return list;
         const s = searchTerm.toLowerCase();
-        return extras.filter(e => (e.item_name || "").toLowerCase().includes(s));
-    }, [extras, searchTerm]);
+        return list.filter(e => 
+            (e.item_name || "").toLowerCase().includes(s) ||
+            (e.clean_name || "").toLowerCase().includes(s) ||
+            (e.category || "").toLowerCase().includes(s)
+        );
+    }, [extras, searchTerm, extraRoomFilter]);
 
     const fetchDiets = async () => {
         setLoading(true);
@@ -345,6 +359,11 @@ const DietMaster = () => {
         setExtraFormData({
             item_id: extra?.item_id || "",
             item_name: extra?.item_name || "",
+            clean_name: extra?.clean_name || extra?.item_name || "",
+            room_type: extra?.room_type || "NORMAL",
+            category: extra?.category || "",
+            serving_size: extra?.serving_size || "",
+            calories: extra?.calories || 0,
             price: extra?.price || 0,
             is_active: extra ? extra.is_active : true
         });
@@ -373,23 +392,87 @@ const DietMaster = () => {
                             </NewBtn>
                         </div>
                     </HeaderSection>
-                    <TabContainer>
-                        <Tab active={activeTab === "categories"} onClick={() => { setActiveTab("categories"); setSearchTerm(""); }}>Diet Categories</Tab>
-                        <Tab active={activeTab === "extras"} onClick={() => { setActiveTab("extras"); setSearchTerm(""); }}>Extra Food Items</Tab>
-                    </TabContainer>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", marginBottom: "30px", flexWrap: "wrap", gap: "12px" }}>
+                        <div style={{ display: "flex", gap: "20px" }}>
+                            <Tab active={activeTab === "categories"} onClick={() => { setActiveTab("categories"); setSearchTerm(""); }}>Diet Categories ({diets.length})</Tab>
+                            <Tab active={activeTab === "extras"} onClick={() => { setActiveTab("extras"); setSearchTerm(""); }}>Extra Food Items ({extras.length})</Tab>
+                        </div>
+                        {activeTab === "extras" && (
+                            <div style={{ display: "flex", gap: "6px", alignItems: "center", paddingBottom: "10px" }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setExtraRoomFilter("ALL")}
+                                    style={{
+                                        padding: "4px 12px",
+                                        borderRadius: "16px",
+                                        border: "1.5px solid",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                        borderColor: extraRoomFilter === "ALL" ? T.primary : "#e2e8f0",
+                                        background: extraRoomFilter === "ALL" ? "#f0fdf4" : "white",
+                                        color: extraRoomFilter === "ALL" ? T.primary : "#64748b"
+                                    }}
+                                >
+                                    All ({extras.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setExtraRoomFilter("VIP")}
+                                    style={{
+                                        padding: "4px 12px",
+                                        borderRadius: "16px",
+                                        border: "1.5px solid",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                        borderColor: extraRoomFilter === "VIP" ? "#f59e0b" : "#e2e8f0",
+                                        background: extraRoomFilter === "VIP" ? "#fef3c7" : "white",
+                                        color: extraRoomFilter === "VIP" ? "#92400e" : "#64748b"
+                                    }}
+                                >
+                                    ⭐️ VIP ({extras.filter(e => e.room_type === "VIP").length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setExtraRoomFilter("NORMAL")}
+                                    style={{
+                                        padding: "4px 12px",
+                                        borderRadius: "16px",
+                                        border: "1.5px solid",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                        borderColor: extraRoomFilter === "NORMAL" ? "#0284c7" : "#e2e8f0",
+                                        background: extraRoomFilter === "NORMAL" ? "#e0f2fe" : "white",
+                                        color: extraRoomFilter === "NORMAL" ? "#0369a1" : "#64748b"
+                                    }}
+                                >
+                                    📋 Normal ({extras.filter(e => e.room_type === "NORMAL").length})
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                 <TableWrapper>
                     <SmartTable>
                         <thead>
                             <tr>
                                 <Th>Item ID</Th>
-                                <Th>{activeTab === "categories" ? "Diet Type" : "Item Name"}</Th>
-                                {activeTab === "categories" && (
+                                <Th>{activeTab === "categories" ? "Diet Type" : "Food Item"}</Th>
+                                {activeTab === "categories" ? (
                                     <>
                                         <Th>Morning</Th>
                                         <Th>Afternoon</Th>
                                         <Th>Evening</Th>
                                         <Th>Dinner</Th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Th>Room Type</Th>
+                                        <Th>Category</Th>
+                                        <Th>Serving Size</Th>
+                                        <Th>Calories</Th>
                                     </>
                                 )}
                                 <Th>Price (₹)</Th>
@@ -421,8 +504,33 @@ const DietMaster = () => {
                             ) : (
                                 filteredExtras.map((item, i) => (
                                     <Tr key={i}>
-                                        <Td>{item.item_id || "-"}</Td>
-                                        <Td><DietName>{item.item_name}</DietName></Td>
+                                        <Td style={{ fontWeight: 700, fontSize: "0.8rem", color: "#64748b" }}>{item.item_id || "-"}</Td>
+                                        <Td>
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <DietName>{item.clean_name || item.item_name}</DietName>
+                                                {item.clean_name && item.clean_name !== item.item_name && (
+                                                    <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>{item.item_name}</span>
+                                                )}
+                                            </div>
+                                        </Td>
+                                        <Td>
+                                            <span style={{
+                                                padding: "3px 10px",
+                                                borderRadius: "14px",
+                                                fontSize: "0.75rem",
+                                                fontWeight: 800,
+                                                background: item.room_type === "VIP" ? "#fef3c7" : "#e0f2fe",
+                                                color: item.room_type === "VIP" ? "#92400e" : "#0369a1",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "4px"
+                                            }}>
+                                                {item.room_type === "VIP" ? "⭐️ VIP" : "📋 NORMAL"}
+                                            </span>
+                                        </Td>
+                                        <Td><span style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 600 }}>{item.category || "—"}</span></Td>
+                                        <Td><span style={{ fontSize: "0.82rem", color: "#1e293b", fontWeight: 700 }}>{item.serving_size || "—"}</span></Td>
+                                        <Td><span style={{ fontSize: "0.82rem", color: "#0d9488", fontWeight: 800 }}>{item.calories > 0 ? `${item.calories} kcal` : "—"}</span></Td>
                                         <Td><div style={{ fontWeight: 800, color: T.secondary }}>{item.price.toFixed(2)}</div></Td>
                                         <Td>
                                             <div style={{ display: "flex", alignItems: "center", gap: "6px", color: item.is_active ? T.primary : "#94a3b8", fontWeight: 800, fontSize: "0.8rem" }}>
@@ -437,7 +545,7 @@ const DietMaster = () => {
                             )}
                             {((activeTab === "categories" && filteredDiets.length === 0) || (activeTab === "extras" && filteredExtras.length === 0)) && !loading && (
                                 <Tr>
-                                    <Td colSpan={activeTab === "categories" ? 8 : 4} style={{ textAlign: "center", padding: "40px", color: "#64748b", fontWeight: 600 }}>
+                                    <Td colSpan={activeTab === "categories" ? 8 : 9} style={{ textAlign: "center", padding: "40px", color: "#64748b", fontWeight: 600 }}>
                                         No items found. Click 'New' to add one.
                                     </Td>
                                 </Tr>
@@ -522,15 +630,42 @@ const DietMaster = () => {
                                     <Input value={extraFormData.item_id || "Auto-generated"} disabled style={{ background: '#f8fafc', color: '#94a3b8', cursor: 'not-allowed' }} />
                                 </div>
                                 <div>
-                                    <SessionLabel style={{ marginBottom: "8px" }}>Item Name</SessionLabel>
-                                    <Input placeholder="e.g. Health Soup" value={extraFormData.item_name} onChange={e => setExtraFormData({...extraFormData, item_name: e.target.value})} />
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Food Item Name</SessionLabel>
+                                    <Input placeholder="e.g. Idly" value={extraFormData.clean_name || extraFormData.item_name} onChange={e => setExtraFormData({...extraFormData, clean_name: e.target.value, item_name: e.target.value})} />
                                 </div>
                             </div>
-                            <div>
-                                <SessionLabel style={{ marginBottom: "8px" }}>Price (₹)</SessionLabel>
-                                <Input type="number" placeholder="0.00" value={extraFormData.price} onChange={e => setExtraFormData({...extraFormData, price: e.target.value})} />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                <div>
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Room Type</SessionLabel>
+                                    <select 
+                                        value={extraFormData.room_type || "NORMAL"} 
+                                        onChange={e => setExtraFormData({...extraFormData, room_type: e.target.value})}
+                                        style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid #cbd5e1", fontWeight: 700 }}
+                                    >
+                                        <option value="NORMAL">📋 Normal Ward</option>
+                                        <option value="VIP">⭐️ VIP Room</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Category</SessionLabel>
+                                    <Input placeholder="e.g. BREAKFAST & DINNER" value={extraFormData.category || ""} onChange={e => setExtraFormData({...extraFormData, category: e.target.value})} />
+                                </div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "15px", background: "#f8fafc", borderRadius: "14px" }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                <div>
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Serving Size</SessionLabel>
+                                    <Input placeholder="e.g. 150 g / 3 nos" value={extraFormData.serving_size || ""} onChange={e => setExtraFormData({...extraFormData, serving_size: e.target.value})} />
+                                </div>
+                                <div>
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Calories (kcal)</SessionLabel>
+                                    <Input type="number" placeholder="0" value={extraFormData.calories || 0} onChange={e => setExtraFormData({...extraFormData, calories: parseInt(e.target.value) || 0})} />
+                                </div>
+                                <div>
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Price (₹)</SessionLabel>
+                                    <Input type="number" placeholder="0.00" value={extraFormData.price} onChange={e => setExtraFormData({...extraFormData, price: e.target.value})} />
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "15px", background: "#f8fafc", borderRadius: "14px", marginBottom: "16px" }}>
                                 <input type="checkbox" id="extra_active" checked={extraFormData.is_active} onChange={e => setExtraFormData({...extraFormData, is_active: e.target.checked})} style={{ width: "18px", height: "18px" }} />
                                 <label htmlFor="extra_active" style={{ fontWeight: 700, fontSize: "0.9rem", color: "#475569" }}>Active</label>
                             </div>
