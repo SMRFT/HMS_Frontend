@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import { toast as rToast } from "react-toastify";
 import {
   TODAY,
-  buildDefaultBloodInvestigations,
   buildDefaultHdSessions,
   buildDefaultComplications,
   buildDefaultAdvice,
@@ -21,10 +20,13 @@ const initialFormState = () => ({
   id_no: "",
   insurance: "",
   address: "",
+  is_admitted: false,
+  admission_status: "NOT ADMITTED",
+  ip_number: "",
   diagnosis: "",
   date_of_first_dialysis: TODAY,
   date_of_last_dialysis: TODAY,
-  blood_investigations: buildDefaultBloodInvestigations(),
+  blood_investigations: [],
   hd_sessions: buildDefaultHdSessions(),
   complications_during_hd: buildDefaultComplications(),
   condition_on_discharge: "",
@@ -42,6 +44,74 @@ export default function DialysisDischargeSummary() {
   const [activeSection, setActiveSection] = useState(0);
   const [uhidLoading, setUhidLoading] = useState(false);
   const [uhidError, setUhidError] = useState(null);
+  const [patientLabReports, setPatientLabReports] = useState([]);
+  const [labSearchFilter, setLabSearchFilter] = useState("");
+  const [selectedLabDate, setSelectedLabDate] = useState("ALL");
+
+  // Helper to format date strings for display (e.g. 2026-11-02 -> 02 Nov 2026)
+  const formatLabDate = (dStr) => {
+    if (!dStr || dStr === "Other Dates" || dStr === "ALL") return dStr;
+    try {
+      const raw = String(dStr).split(" ")[0].split("T")[0];
+      const parts = raw.split("-");
+      if (parts.length === 3 && parts[0].length === 4) {
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+        }
+      }
+      const parsed = new Date(dStr);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+      }
+    } catch (e) {}
+    return dStr;
+  };
+
+  // Group lab reports by test date
+  const reportsByDate = useMemo(() => {
+    const map = {};
+    (patientLabReports || []).forEach((test) => {
+      const d = (
+        test.date ||
+        (test.test_date ? String(test.test_date).split(" ")[0] : "") ||
+        (test.approve_time ? String(test.approve_time).split(" ")[0] : "") ||
+        ""
+      ).trim();
+      const k = d || "Other Dates";
+      if (!map[k]) map[k] = [];
+      map[k].push(test);
+    });
+    return map;
+  }, [patientLabReports]);
+
+  // Sorted list of unique test dates (newest first)
+  const labDates = useMemo(() => {
+    return Object.keys(reportsByDate).sort((a, b) => {
+      if (a === "Other Dates") return 1;
+      if (b === "Other Dates") return -1;
+      return new Date(b) - new Date(a);
+    });
+  }, [reportsByDate]);
+
+  // Auto-select latest date when lab reports arrive
+  useEffect(() => {
+    if (labDates.length > 0) {
+      if (selectedLabDate === "ALL" || !reportsByDate[selectedLabDate]) {
+        setSelectedLabDate(labDates[0]);
+      }
+    } else {
+      setSelectedLabDate("ALL");
+    }
+  }, [labDates, reportsByDate]);
 
   // ── Patient Selection Modal (Pharmacy billing style) ──
   const [showPatientModal, setShowPatientModal] = useState(false);
@@ -50,6 +120,115 @@ export default function DialysisDischargeSummary() {
   const [patientNamePhoneInput, setPatientNamePhoneInput] = useState("");
   const [patientSearchResults, setPatientSearchResults] = useState([]);
   const [patientSearchLoading, setPatientSearchLoading] = useState(false);
+  const [admissionStatusMap, setAdmissionStatusMap] = useState({});
+
+  // Helper to fetch live admission status & insurance details for a UHID
+  const fetchPatientAdmissionAndInsurance = async (uhid, patientObj = null) => {
+    if (!uhid) return;
+    try {
+      const res = await apiRequest(`${Hmsbaseurl}admissionstatus/?uhid=${encodeURIComponent(uhid)}`, "GET");
+      const body = res?.data || res;
+      const admData = body?.data || {};
+      const isAdm = body?.admitted === true || admData?.is_admitted === true || Boolean(admData?.ipNumber);
+      const ins =
+        admData.insurance_company ||
+        admData.company_name ||
+        admData.company_code ||
+        (String(admData.customer_type || "").toLowerCase() === "insurance" ? "INSURANCE" : "") ||
+        patientObj?.insurance_company ||
+        patientObj?.company_name ||
+        patientObj?.insurance ||
+        "";
+      const ipNum = admData.ipNumber || admData.ip_number || patientObj?.ip_number || "";
+
+      setAdmissionStatusMap((prev) => ({
+        ...prev,
+        [uhid]: {
+          admitted: isAdm,
+          ipNumber: ipNum,
+          insurance: ins,
+        },
+      }));
+
+      // If this patient is currently selected in form, keep form in sync
+      setForm((prev) => {
+        if (prev.uhid === uhid) {
+          return {
+            ...prev,
+            is_admitted: isAdm,
+            admission_status: isAdm ? "ADMITTED" : "NOT ADMITTED",
+            ...(ipNum ? { ip_number: ipNum } : {}),
+            ...(ins ? { insurance: ins } : {}),
+          };
+        }
+        return prev;
+      });
+    } catch (err) {
+      console.error("Error fetching live admission & insurance status:", err);
+    }
+  };
+
+  // Synchronize admission status & insurance for patients in modal search results
+  useEffect(() => {
+    if (!patientSearchResults || patientSearchResults.length === 0) return;
+    const initialMap = {};
+    patientSearchResults.forEach((p) => {
+      const u = p.uhid || p.UHID;
+      if (u) {
+        initialMap[u] = {
+          admitted: typeof p.is_admitted === "boolean" ? p.is_admitted : Boolean(p.ip_number),
+          ipNumber: p.ip_number || "",
+          insurance: p.insurance_company || p.company_name || p.insurance || "",
+        };
+      }
+    });
+    if (Object.keys(initialMap).length > 0) {
+      setAdmissionStatusMap((prev) => ({ ...prev, ...initialMap }));
+    }
+
+    // Call admissionstatus API for each patient to guarantee live status
+    patientSearchResults.forEach(async (p) => {
+      const u = p.uhid || p.UHID;
+      if (!u) return;
+      try {
+        const res = await apiRequest(`${Hmsbaseurl}admissionstatus/?uhid=${encodeURIComponent(u)}`, "GET");
+        const body = res?.data || res;
+        const admData = body?.data || {};
+        const isAdm = body?.admitted === true || admData?.is_admitted === true || Boolean(admData?.ipNumber);
+        const ins =
+          admData.insurance_company ||
+          admData.company_name ||
+          admData.company_code ||
+          (String(admData.customer_type || "").toLowerCase() === "insurance" ? "INSURANCE" : "") ||
+          p.insurance_company ||
+          p.company_name ||
+          p.insurance ||
+          "";
+        const ipNum = admData.ipNumber || p.ip_number || "";
+        setAdmissionStatusMap((prev) => ({
+          ...prev,
+          [u]: {
+            admitted: isAdm,
+            ipNumber: ipNum,
+            insurance: ins,
+          },
+        }));
+
+        setForm((prev) => {
+          if (prev.uhid === u) {
+            return {
+              ...prev,
+              is_admitted: isAdm,
+              admission_status: isAdm ? "ADMITTED" : "NOT ADMITTED",
+              ...(ipNum ? { ip_number: ipNum } : {}),
+              ...(ins ? { insurance: ins } : {}),
+            };
+          }
+          return prev;
+        });
+      } catch (err) {}
+    });
+  }, [patientSearchResults]);
 
   // ── Toast helper using react-toastify + local banner fallback ──
   const showToast = (message, type = "success") => {
@@ -101,6 +280,27 @@ export default function DialysisDischargeSummary() {
         idx === 0 || part.toLowerCase() !== arr[idx - 1].toLowerCase()
     );
 
+    const labReports = Array.isArray(patient.lab_reports)
+      ? patient.lab_reports
+      : Array.isArray(patient.testdetails)
+      ? patient.testdetails
+      : [];
+    setPatientLabReports(labReports);
+
+    const uhidVal = patient.uhid || patient.UHID || "";
+    const admInfo = admissionStatusMap[uhidVal];
+    const isPatientAdmitted = admInfo !== undefined
+      ? admInfo.admitted
+      : (typeof patient.is_admitted === "boolean" ? patient.is_admitted : Boolean(patient.ip_number));
+
+    const resolvedInsurance =
+      admInfo?.insurance ||
+      patient.insurance_company ||
+      patient.company_name ||
+      patient.insurance ||
+      patient.company_code ||
+      "";
+
     setForm((prev) => ({
       ...prev,
       name: fullName,
@@ -118,9 +318,44 @@ export default function DialysisDischargeSummary() {
       gender: patient.gender || prev.gender,
       uhid: patient.uhid || prev.uhid,
       consultant: consultantName || prev.consultant,
-      insurance: patient.company_name || patient.insurance || prev.insurance,
+      insurance: resolvedInsurance || prev.insurance,
       address: addressParts.join(", "),
+      is_admitted: isPatientAdmitted,
+      admission_status: isPatientAdmitted ? "ADMITTED" : "NOT ADMITTED",
+      ip_number: admInfo?.ipNumber || patient.ip_number || prev.ip_number || "",
+      blood_investigations: labReports,
+      lab_reports: labReports,
+      testdetails: labReports,
     }));
+
+    if (uhidVal) {
+      fetchPatientAdmissionAndInsurance(uhidVal, patient);
+    }
+
+    if (labReports.length > 0) {
+      showToast(`Patient details & ${labReports.length} diagnostic lab report(s) loaded across dates.`, "success");
+    } else if (uhidVal) {
+      // If patient was selected from multi-result search without preloaded lab reports, load diagnostic tests now
+      apiRequest(`${Hmsbaseurl}dialysis_patient_details/?uhid=${encodeURIComponent(uhidVal)}&include_lab=true`, "GET")
+        .then((res) => {
+          const body = res?.data || res;
+          const list = Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
+          if (list.length > 0) {
+            const fetchedLabs = list[0].lab_reports || list[0].testdetails || [];
+            if (fetchedLabs.length > 0) {
+              setPatientLabReports(fetchedLabs);
+              setForm((prev) => ({
+                ...prev,
+                blood_investigations: fetchedLabs,
+                lab_reports: fetchedLabs,
+                testdetails: fetchedLabs,
+              }));
+              showToast(`Loaded ${fetchedLabs.length} diagnostic lab report(s) across dates.`, "success");
+            }
+          }
+        })
+        .catch((e) => console.error("Error loading lab reports on select:", e));
+    }
 
     if (wasSavedToday) {
       showToast("Note: A dialysis discharge summary has already been saved for this patient today.", "warning");
@@ -335,7 +570,12 @@ export default function DialysisDischargeSummary() {
         // ── New date fields sent explicitly ──
         date_of_first_dialysis: form.date_of_first_dialysis || null,
         date_of_last_dialysis: form.date_of_last_dialysis || null,
-        blood_investigations: form.blood_investigations.filter((b) => b.result.trim()),
+        blood_investigations:
+          Array.isArray(patientLabReports) && patientLabReports.length > 0
+            ? patientLabReports
+            : Array.isArray(form.blood_investigations)
+            ? form.blood_investigations
+            : [],
         hd_sessions: form.hd_sessions.filter(
           (s) =>
             s.bp_pre_hd ||
@@ -385,6 +625,7 @@ export default function DialysisDischargeSummary() {
 
       // Clear all fields on success
       setForm(initialFormState());
+      setPatientLabReports([]);
       setActiveSection(0);
       setUhidError(null);
     } catch (err) {
@@ -745,10 +986,41 @@ export default function DialysisDischargeSummary() {
                 </div>
               </div>
  
-              {/* Row 3: Address */}
-              <div>
-                <label className="dds-label">Address</label>
-                <textarea className="dds-input" rows={2} placeholder="Patient address" value={form.address} onChange={(e) => setField("address", e.target.value)} style={{ resize: "vertical" }} />
+              {/* Row 3: Admission Status & Address */}
+              <div className="grid-2">
+                <div>
+                  <label className="dds-label">Admission Status</label>
+                  <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 10 }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "5px 14px",
+                        borderRadius: "14px",
+                        fontSize: "0.82rem",
+                        fontWeight: 700,
+                        background: form.is_admitted ? "#dcfce7" : "#f1f5f9",
+                        color: form.is_admitted ? "#15803d" : "#64748b",
+                        border: `1px solid ${form.is_admitted ? "#86efac" : "#cbd5e1"}`,
+                      }}
+                    >
+                      {form.is_admitted ? "● Admitted" : "○ Not Admitted"}
+                    </span>
+                    {form.ip_number && (
+                      <span style={{ fontSize: "0.82rem", color: "#475569" }}>
+                        IP No: <strong>{form.ip_number}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="dds-label">Address</label>
+                  <input
+                    className="dds-input"
+                    placeholder="Patient address"
+                    value={form.address}
+                    onChange={(e) => setField("address", e.target.value)}
+                  />
+                </div>
               </div>
  
               <hr className="divider" />
@@ -786,30 +1058,458 @@ export default function DialysisDischargeSummary() {
         )}
  
         {/* ══════════════════════════════════════════
-            SECTION 1 — Blood Investigations
+            SECTION 1 — Blood Investigations (Diagnostic Lab Reports PDF Format)
         ══════════════════════════════════════════ */}
-        {activeSection === 1 && (
-          <div className="section-card">
-            <div className="section-header">
-              <span>🧪</span> Blood Investigations
-              <span className="tag">Lab Results</span>
-            </div>
-            <div className="section-body">
-              <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Enter result values for the following tests. Leave blank if not applicable.</p>
-              {form.blood_investigations.map((b, i) => (
-                <div className="blood-row" key={i}>
-                  <div className="blood-name">{b.test_name}</div>
-                  <input
-                    className="dds-input"
-                    placeholder="Enter result"
-                    value={b.result}
-                    onChange={(e) => updateBlood(i, e.target.value)}
-                  />
+        {activeSection === 1 && (() => {
+          const activeTests =
+            selectedLabDate === "ALL"
+              ? patientLabReports
+              : reportsByDate[selectedLabDate] || [];
+
+          const filteredTests = activeTests.filter((test) => {
+            if (!labSearchFilter.trim()) return true;
+            const q = labSearchFilter.toLowerCase();
+            return (
+              (test.testname || "").toLowerCase().includes(q) ||
+              (test.department || "").toLowerCase().includes(q) ||
+              (test.test_date || "").toLowerCase().includes(q) ||
+              (test.parameters || []).some(
+                (p) =>
+                  (p.name || "").toLowerCase().includes(q) ||
+                  (p.value || "").toLowerCase().includes(q)
+              )
+            );
+          });
+
+          return (
+            <div className="section-card">
+              <div
+                className="section-header"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 10,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>🧪</span> Blood Investigations
+                  <span className="tag">Diagnostics DB</span>
                 </div>
-              ))}
+                {patientLabReports.length > 0 && (
+                  <span
+                    style={{
+                      fontSize: "0.78rem",
+                      background: "#f0fdf4",
+                      color: "#166534",
+                      border: "1px solid #bbf7d0",
+                      padding: "3px 10px",
+                      borderRadius: 20,
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✓ {patientLabReports.length} Diagnostic Lab Test{patientLabReports.length === 1 ? "" : "s"} Across {labDates.length} Date{labDates.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+
+              <div className="section-body">
+                {/* Date-wise Investigation Selector Toolbar */}
+                {patientLabReports.length > 0 && (
+                  <div
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 10,
+                      padding: "12px 16px",
+                      marginBottom: 18,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 10,
+                        flexWrap: "wrap",
+                        gap: 8,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: "0.84rem",
+                          fontWeight: 700,
+                          color: "#1e293b",
+                        }}
+                      >
+                        <span>📅</span> Date-wise Reports (Click a date to view clinical report):
+                        <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "#64748b" }}>
+                          ({labDates.length} date{labDates.length === 1 ? "" : "s"} available)
+                        </span>
+                      </div>
+                      {/* Search box */}
+                      <input
+                        type="text"
+                        placeholder="Search test / parameter / range..."
+                        value={labSearchFilter}
+                        onChange={(e) => setLabSearchFilter(e.target.value)}
+                        style={{
+                          padding: "6px 12px",
+                          fontSize: "0.78rem",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: 6,
+                          outline: "none",
+                          width: 240,
+                          background: "#fff",
+                        }}
+                      />
+                    </div>
+
+                    {/* Date Pills / Buttons */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {labDates.map((dKey) => {
+                        const count = reportsByDate[dKey]?.length || 0;
+                        const isSelected = selectedLabDate === dKey;
+                        const formatted = formatLabDate(dKey);
+                        return (
+                          <button
+                            key={dKey}
+                            type="button"
+                            onClick={() => setSelectedLabDate(dKey)}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "8px 14px",
+                              borderRadius: 8,
+                              fontSize: "0.82rem",
+                              fontWeight: isSelected ? 700 : 600,
+                              border: isSelected ? "1.5px solid #0f766e" : "1px solid #cbd5e1",
+                              background: isSelected ? "#0f766e" : "#ffffff",
+                              color: isSelected ? "#ffffff" : "#334155",
+                              cursor: "pointer",
+                              boxShadow: isSelected ? "0 2px 8px rgba(15, 118, 110, 0.28)" : "0 1px 2px rgba(0,0,0,0.04)",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            <span>📅</span>
+                            <span>{formatted}</span>
+                            <span
+                              style={{
+                                fontSize: "0.72rem",
+                                padding: "2px 7px",
+                                borderRadius: 12,
+                                background: isSelected ? "rgba(255,255,255,0.25)" : "#f1f5f9",
+                                color: isSelected ? "#ffffff" : "#475569",
+                                fontWeight: 700,
+                              }}
+                            >
+                              {count} test{count === 1 ? "" : "s"}
+                            </span>
+                          </button>
+                        );
+                      })}
+
+                      {/* All Dates Button */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLabDate("ALL")}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "8px 14px",
+                          borderRadius: 8,
+                          fontSize: "0.82rem",
+                          fontWeight: selectedLabDate === "ALL" ? 700 : 600,
+                          border: selectedLabDate === "ALL" ? "1.5px solid #0f766e" : "1px solid #cbd5e1",
+                          background: selectedLabDate === "ALL" ? "#0f766e" : "#ffffff",
+                          color: selectedLabDate === "ALL" ? "#ffffff" : "#334155",
+                          cursor: "pointer",
+                          boxShadow: selectedLabDate === "ALL" ? "0 2px 8px rgba(15, 118, 110, 0.28)" : "0 1px 2px rgba(0,0,0,0.04)",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <span>📑</span>
+                        <span>All Dates</span>
+                        <span
+                          style={{
+                            fontSize: "0.72rem",
+                            padding: "2px 7px",
+                            borderRadius: 12,
+                            background: selectedLabDate === "ALL" ? "rgba(255,255,255,0.25)" : "#f1f5f9",
+                            color: selectedLabDate === "ALL" ? "#ffffff" : "#475569",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {patientLabReports.length}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* PDF Document Layout Container */}
+                <div
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 10,
+                    boxShadow: "0 4px 16px rgba(0, 0, 0, 0.05)",
+                    padding: "24px 28px",
+                    maxWidth: "100%",
+                    margin: "0 auto",
+                    fontFamily: "Arial, sans-serif",
+                  }}
+                >
+                  {/* Clinical Report Header Banner (Elegant, clean, hospital letterhead removed) */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: 12,
+                      borderBottom: "2px solid #0f766e",
+                      paddingBottom: 12,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "1.05rem",
+                          fontWeight: 800,
+                          color: "#0f766e",
+                          letterSpacing: "0.5px",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Diagnostic Laboratory Report
+                      </div>
+                      <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2 }}>
+                        Investigation Date:{" "}
+                        <strong style={{ color: "#0f172a" }}>
+                          {selectedLabDate === "ALL" ? "All Historical Dates" : formatLabDate(selectedLabDate)}
+                        </strong>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span
+                        style={{
+                          fontSize: "0.78rem",
+                          padding: "4px 12px",
+                          background: "#f0fdf4",
+                          color: "#166534",
+                          border: "1px solid #bbf7d0",
+                          borderRadius: 20,
+                          fontWeight: 700,
+                        }}
+                      >
+                        ✓ {filteredTests.length} Investigation Record{filteredTests.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Patient Summary Header */}
+                  <div
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 8,
+                      padding: "10px 16px",
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                      gap: 10,
+                      fontSize: "0.82rem",
+                      marginBottom: 16,
+                    }}
+                  >
+                    <div>
+                      <span style={{ color: "#64748b", fontWeight: 600 }}>UHID: </span>
+                      <strong style={{ color: "#0f172a" }}>{form.uhid || "—"}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", fontWeight: 600 }}>Patient Name: </span>
+                      <strong style={{ color: "#0f172a" }}>{form.name || "—"}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", fontWeight: 600 }}>Age / Gender: </span>
+                      <strong style={{ color: "#0f172a" }}>
+                        {form.age ? `${form.age} Y` : "—"} / {form.gender || "—"}
+                      </strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", fontWeight: 600 }}>Consultant: </span>
+                      <strong style={{ color: "#0f172a" }}>{form.consultant || "—"}</strong>
+                    </div>
+                  </div>
+
+                  {/* PDF Table or Empty State */}
+                  {filteredTests.length === 0 ? (
+                    <div
+                      style={{
+                        background: "#fafafa",
+                        border: "1.5px dashed #cbd5e1",
+                        borderRadius: 8,
+                        padding: "36px 20px",
+                        textAlign: "center",
+                        color: "#64748b",
+                      }}
+                    >
+                      <div style={{ fontSize: "2rem", marginBottom: 8 }}>📋</div>
+                      <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#334155", marginBottom: 4 }}>
+                        {patientLabReports.length === 0
+                          ? form.uhid
+                            ? `No diagnostic lab reports found in Diagnostics DB for UHID: ${form.uhid}`
+                            : "No patient UHID selected"
+                          : `No investigation records found matching "${labSearchFilter}" for ${formatLabDate(selectedLabDate)}`}
+                      </div>
+                      <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                        {patientLabReports.length === 0
+                          ? form.uhid
+                            ? "No blood sample investigation records have been found in the Diagnostics database for this UHID."
+                            : "Search and select a patient by UHID in Section 1 (Patient Info). All tests performed up to now across all dates will be automatically displayed here."
+                          : "Try searching with a different parameter or clear the search filter."}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: "auto" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: "0.82rem",
+                          border: "1px solid #cbd5e1",
+                        }}
+                      >
+                        <thead>
+                          <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #cbd5e1", textAlign: "left" }}>
+                            <th style={{ padding: "8px 12px", color: "#1e293b", fontWeight: 700, width: "24%" }}>
+                              Test Name & Dept
+                            </th>
+                            <th style={{ padding: "8px 12px", color: "#1e293b", fontWeight: 700, width: "22%" }}>
+                              Parameter
+                            </th>
+                            <th style={{ padding: "8px 12px", color: "#1e293b", fontWeight: 700, width: "16%" }}>
+                              Observed Value
+                            </th>
+                            <th style={{ padding: "8px 12px", color: "#1e293b", fontWeight: 700, width: "10%" }}>
+                              Units
+                            </th>
+                            <th style={{ padding: "8px 12px", color: "#1e293b", fontWeight: 700, width: "14%" }}>
+                              Reference Range
+                            </th>
+                            <th style={{ padding: "8px 12px", color: "#1e293b", fontWeight: 700, width: "14%" }}>
+                              Test Date & Time
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredTests.map((test, tIdx) => {
+                            const params =
+                              Array.isArray(test.parameters) && test.parameters.length > 0
+                                ? test.parameters
+                                : [
+                                    {
+                                      name: test.testname || "Result",
+                                      value: test.value || "-",
+                                      unit: test.unit || "",
+                                      reference_range: test.reference_range || "-",
+                                    },
+                                  ];
+                            return params.map((p, pIdx) => (
+                              <tr
+                                key={`${tIdx}-${pIdx}`}
+                                style={{
+                                  borderBottom: "1px solid #e2e8f0",
+                                  background: tIdx % 2 === 0 ? "#ffffff" : "#fcfcfd",
+                                }}
+                              >
+                                {pIdx === 0 && (
+                                  <td
+                                    rowSpan={params.length}
+                                    style={{
+                                      padding: "8px 12px",
+                                      fontWeight: 700,
+                                      verticalAlign: "top",
+                                      background: "#fafafa",
+                                      borderRight: "1px solid #e2e8f0",
+                                    }}
+                                  >
+                                    <div style={{ color: "#0f172a" }}>{test.testname || "Diagnostic Test"}</div>
+                                    {test.department && (
+                                      <div style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 500, marginTop: 2 }}>
+                                        {test.department}
+                                      </div>
+                                    )}
+                                    {test.verified_by && (
+                                      <div style={{ fontSize: "0.7rem", color: "#0d9488", marginTop: 2 }}>
+                                        ✓ Verified: {test.verified_by}
+                                      </div>
+                                    )}
+                                  </td>
+                                )}
+                                <td style={{ padding: "8px 12px", color: "#334155" }}>{p.name || "-"}</td>
+                                <td style={{ padding: "8px 12px", fontWeight: 800, color: "#0f766e" }}>
+                                  {p.value || "-"}
+                                </td>
+                                <td style={{ padding: "8px 12px", color: "#64748b" }}>{p.unit || "-"}</td>
+                                <td style={{ padding: "8px 12px", color: "#64748b" }}>{p.reference_range || "-"}</td>
+                                {pIdx === 0 && (
+                                  <td
+                                    rowSpan={params.length}
+                                    style={{
+                                      padding: "8px 12px",
+                                      verticalAlign: "top",
+                                      fontSize: "0.78rem",
+                                      color: "#475569",
+                                      background: "#fafafa",
+                                      borderLeft: "1px solid #e2e8f0",
+                                    }}
+                                  >
+                                    {test.test_date || test.date || "—"}
+                                  </td>
+                                )}
+                              </tr>
+                            ));
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Clinical Report Footer Note */}
+                  <div
+                    style={{
+                      marginTop: 20,
+                      paddingTop: 12,
+                      borderTop: "1px dashed #cbd5e1",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: "0.74rem",
+                      color: "#64748b",
+                      flexWrap: "wrap",
+                      gap: 8,
+                    }}
+                  >
+                    <div>
+                      Clinical Laboratory Report • Verified diagnostic investigations loaded directly from Diagnostics DB
+                    </div>
+                    <div style={{ fontWeight: 600, color: "#0f766e" }}>
+                      — End of Report {selectedLabDate !== "ALL" ? `(${formatLabDate(selectedLabDate)})` : ""} —
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
  
         {/* ══════════════════════════════════════════
             SECTION 2 — HD Sessions
@@ -1347,7 +2047,7 @@ export default function DialysisDischargeSummary() {
                           <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Age / Gender</th>
                           <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Mobile</th>
                           <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Doctor / Consultant</th>
-                          <th style={{ padding: "10px 12px", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Address</th>
+                          <th style={{ padding: "10px 12px", textAlign: "center", color: "#475569", fontWeight: 700, fontSize: "11px", textTransform: "uppercase" }}>Admission Status</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1364,10 +2064,16 @@ export default function DialysisDischargeSummary() {
                             return `${y} Y`;
                           })() : (p.age ? `${p.age} Y` : "—");
 
+                          const uhidKey = p.uhid || p.UHID || "";
+                          const admInfo = admissionStatusMap[uhidKey];
+                          const isAdmitted = admInfo !== undefined
+                            ? admInfo.admitted
+                            : (typeof p.is_admitted === "boolean" ? p.is_admitted : Boolean(p.ip_number));
+
                           return (
                             <tr
                               key={p.id || idx}
-                              onClick={() => selectPatient(p)}
+                              onClick={() => selectPatient({ ...p, is_admitted: isAdmitted, ...(admInfo?.insurance ? { insurance_company: admInfo.insurance } : {}) })}
                               style={{
                                 borderBottom: "1px solid #f1f5f9",
                                 cursor: "pointer",
@@ -1381,13 +2087,13 @@ export default function DialysisDischargeSummary() {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    selectPatient(p);
+                                    selectPatient({ ...p, is_admitted: isAdmitted, ...(admInfo?.insurance ? { insurance_company: admInfo.insurance } : {}) });
                                   }}
                                   style={{
                                     width: 28,
                                     height: 28,
                                     borderRadius: "50%",
-                                    background: "#0f766e",
+                                    background: isAdmitted ? "#0f766e" : "#64748b",
                                     color: "#fff",
                                     border: "none",
                                     cursor: "pointer",
@@ -1397,7 +2103,7 @@ export default function DialysisDischargeSummary() {
                                     fontSize: 12,
                                     fontWeight: 700
                                   }}
-                                  title="Select Patient"
+                                  title={isAdmitted ? "Admitted - Select" : "Not Admitted - Select"}
                                 >
                                   ✓
                                 </button>
@@ -1407,8 +2113,22 @@ export default function DialysisDischargeSummary() {
                               <td style={{ padding: "10px 12px", color: "#475569" }}>{ageDisplay} / {p.gender || "—"}</td>
                               <td style={{ padding: "10px 12px", color: "#475569" }}>{mobile}</td>
                               <td style={{ padding: "10px 12px", color: "#475569" }}>{doc}</td>
-                              <td style={{ padding: "10px 12px", color: "#64748b", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {[p.area, p.city].filter(Boolean).join(", ") || "—"}
+                              <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                                <span
+                                  style={{
+                                    display: "inline-block",
+                                    padding: "3px 12px",
+                                    borderRadius: "14px",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 700,
+                                    background: isAdmitted ? "#dcfce7" : "#f1f5f9",
+                                    color: isAdmitted ? "#15803d" : "#64748b",
+                                    border: `1px solid ${isAdmitted ? "#86efac" : "#cbd5e1"}`,
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {isAdmitted ? "Admitted" : "Not Admitted"}
+                                </span>
                               </td>
                             </tr>
                           );

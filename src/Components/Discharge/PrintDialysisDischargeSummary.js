@@ -544,9 +544,16 @@ export default function PrintDialysisDischargeSummary() {
 // ════════════════════════════════════════════════════
 function PrintReport({ record: r }) {
   const hdSessions = Array.isArray(r.hd_sessions) ? r.hd_sessions : [];
-  const blood = Array.isArray(r.blood_investigations) ? r.blood_investigations : [];
   const complications = Array.isArray(r.complications_during_hd) ? r.complications_during_hd : [];
   const advice = Array.isArray(r.advice_on_discharge) ? r.advice_on_discharge : [];
+  const labList =
+    Array.isArray(r.lab_reports) && r.lab_reports.length > 0
+      ? r.lab_reports
+      : Array.isArray(r.testdetails) && r.testdetails.length > 0
+      ? r.testdetails
+      : Array.isArray(r.blood_investigations)
+      ? r.blood_investigations
+      : [];
   const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
   return (
@@ -598,25 +605,81 @@ function PrintReport({ record: r }) {
         </div>
       </div>
 
-      {/* ── Blood Investigations ── */}
-      {blood.length > 0 && (
+      {/* ── Blood Investigations (Diagnostic Laboratory Reports Across Dates) ── */}
+      {labList.length > 0 && (
         <div className="rpt-card">
-          <div className="rpt-card-head">🧪 Blood Investigations</div>
-          <div className="rpt-card-body">
-            <table className="rpt-table">
+          <div className="rpt-card-head">🧪 Blood Investigations & Laboratory Reports</div>
+          <div className="rpt-card-body" style={{ padding: 0 }}>
+            <table className="rpt-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
               <thead>
-                <tr>
-                  <th style={{ width: "55%" }}>Investigation</th>
-                  <th>Result</th>
+                <tr style={{ background: "#f8fafc" }}>
+                  <th style={{ width: "22%" }}>Test Name</th>
+                  <th style={{ width: "20%" }}>Parameter</th>
+                  <th style={{ width: "16%" }}>Observed Value</th>
+                  <th style={{ width: "12%" }}>Units</th>
+                  <th style={{ width: "16%" }}>Reference Range</th>
+                  <th style={{ width: "14%" }}>Date & Time</th>
                 </tr>
               </thead>
               <tbody>
-                {blood.map((b, i) => (
-                  <tr key={i}>
-                    <td style={{ fontWeight: 600 }}>{b.test_name}</td>
-                    <td>{b.result || "—"}</td>
-                  </tr>
-                ))}
+                {labList.map((t, tIdx) => {
+                  const params =
+                    Array.isArray(t.parameters) && t.parameters.length > 0
+                      ? t.parameters
+                      : [
+                          {
+                            name: t.testname || "Result",
+                            value: t.value || "-",
+                            unit: t.unit || "",
+                            reference_range: t.reference_range || "-",
+                          },
+                        ];
+                  return params.map((p, pIdx) => (
+                    <tr key={`${tIdx}-${pIdx}`}>
+                      {pIdx === 0 && (
+                        <td
+                          rowSpan={params.length}
+                          style={{
+                            fontWeight: 700,
+                            verticalAlign: "top",
+                            background: "#fafafa",
+                            borderRight: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <div style={{ color: "#0f172a" }}>{t.testname || "Lab Test"}</div>
+                          {t.department && (
+                            <div style={{ fontSize: "9px", color: "#64748b", fontWeight: 400 }}>
+                              {t.department}
+                            </div>
+                          )}
+                          {t.verified_by && (
+                            <div style={{ fontSize: "9px", color: "#0d9488", marginTop: 2 }}>
+                              ✓ {t.verified_by}
+                            </div>
+                          )}
+                        </td>
+                      )}
+                      <td style={{ color: "#334155" }}>{p.name || "-"}</td>
+                      <td style={{ fontWeight: 700, color: "#0f766e" }}>{p.value || "-"}</td>
+                      <td style={{ color: "#64748b" }}>{p.unit || "-"}</td>
+                      <td style={{ color: "#64748b" }}>{p.reference_range || "-"}</td>
+                      {pIdx === 0 && (
+                        <td
+                          rowSpan={params.length}
+                          style={{
+                            verticalAlign: "top",
+                            fontSize: "10px",
+                            color: "#475569",
+                            background: "#fafafa",
+                            borderLeft: "1px solid #e2e8f0",
+                          }}
+                        >
+                          {t.test_date || t.date || "—"}
+                        </td>
+                      )}
+                    </tr>
+                  ));
+                })}
               </tbody>
             </table>
           </div>
