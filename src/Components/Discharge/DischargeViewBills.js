@@ -66,7 +66,7 @@ const TopScrollContainer = styled.div`
   border-bottom: 1px solid ${T.border};
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: ${T.primary} #f1f5f9;
+  scrollbar-color: #cbd5e1 #f1f5f9;
 
   &::-webkit-scrollbar {
     height: 8px;
@@ -75,23 +75,25 @@ const TopScrollContainer = styled.div`
     background: #f1f5f9;
   }
   &::-webkit-scrollbar-thumb {
-    background: #0f766e;
+    background: #cbd5e1;
     border-radius: 4px;
   }
   &::-webkit-scrollbar-thumb:hover {
-    background: #0d5f58;
+    background: #94a3b8;
   }
 `;
 
 const TScrollWrap = styled.div`
   overflow-x: auto;
+  overflow-y: hidden;
   width: 100%;
-  scrollbar-width: thin;
-  scrollbar-color: ${T.primary} #f1f5f9;
-  &::-webkit-scrollbar { height: 8px; }
-  &::-webkit-scrollbar-track { background: #f1f5f9; }
-  &::-webkit-scrollbar-thumb { background: #0f766e; border-radius: 4px; }
-  &::-webkit-scrollbar-thumb:hover { background: #0d5f58; }
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
 `;
 const LTable = styled.table`
   width: 100%;
