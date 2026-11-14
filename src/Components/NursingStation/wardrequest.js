@@ -1727,10 +1727,10 @@ const WardRequest = () => {
             transition: "all 0.2s"
           }}
           onClick={() => setStatusFilter(prev => prev === "high_risk" ? "all" : "high_risk")}
-          title="Click to toggle High Risk filter"
+          title="Click to toggle Isolation filter"
         >
           <span className="kpi-title" style={{ color: "#dc2626", fontWeight: 700 }}>
-            🚨 High Risk
+            🚨 Isolation
           </span>
           <div className="kpi-value-row">
             <span className="val" style={{ color: "#dc2626" }}>{kpiHighRiskCount}</span>
@@ -1754,7 +1754,7 @@ const WardRequest = () => {
             }
             onClick={() => setStatusFilter(prev => prev === "high_risk" ? "all" : "high_risk")}
           >
-            🚨 High Risk {kpiHighRiskCount > 0 ? `(${kpiHighRiskCount})` : ""}
+            🚨 Isolation {kpiHighRiskCount > 0 ? `(${kpiHighRiskCount})` : ""}
           </button>
         </div>
 
@@ -1806,7 +1806,7 @@ const WardRequest = () => {
         <div className="legend-item"><span className="dot" style={{ background: "#ec4899" }} /> Discharge confirm</div>
         <div className="legend-item"><span className="dot" style={{ background: "#a855f7" }} /> Sent to billing</div>
         <div className="legend-item"><span className="dot" style={{ background: "#64748b" }} /> Blocked</div>
-        <div className="legend-item"><span className="dot" style={{ background: "#ef4444" }} /> 🚨 High Risk</div>
+        <div className="legend-item"><span className="dot" style={{ background: "#ef4444" }} /> 🚨 Isolation</div>
       </LegendRow>
 
       {/* MAIN VIEW: Beds Grid (Image 1) OR Patients List (Image 3) */}
@@ -1862,7 +1862,7 @@ const WardRequest = () => {
                           boxShadow: "0 0 0 1px rgba(239, 68, 68, 0.25), 0 2px 4px rgba(239, 68, 68, 0.12)",
                           background: "#fff5f5"
                         } : {}}
-                        title={isHighRisk ? `🚨 HIGH RISK: ${hrReason || "Active High Risk Patient"}` : undefined}
+                        title={isHighRisk ? `🚨 ISOLATION: ${hrReason || "Active Isolation Patient"}` : undefined}
                         onClick={() => {
                           if (adm) {
                             handleOpenActionModal(adm);
@@ -1989,16 +1989,16 @@ const WardRequest = () => {
                                 alignItems: "center",
                                 gap: "3px"
                               }}
-                              title={hrReason ? `High Risk Reason: ${hrReason}` : "High Risk Patient"}
+                              title={hrReason ? `Isolation Reason: ${hrReason}` : "Isolation Patient"}
                             >
-                              🚨 HIGH RISK
+                              🚨 ISOLATION
                             </span>
                           )}
                         </div>
                         <div style={{ fontSize: "11px", color: isHighRisk ? "#7f1d1d" : "#64748b" }}>{ageGender}</div>
                         {isHighRisk && (
                           <div style={{ fontSize: "11px", color: "#dc2626", fontWeight: 700, marginTop: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
-                            <span>⚠️ {hrReason || "High Risk active"}</span>
+                            <span>⚠️ {hrReason || "Isolation active"}</span>
                             {hrDate && <span style={{ color: "#991b1b", fontSize: "10px", fontWeight: 500 }}>({hrDate})</span>}
                           </div>
                         )}
@@ -2096,13 +2096,13 @@ const WardRequest = () => {
                 <span style={{ fontSize: "20px" }}>🚨</span>
                 <div>
                   <div style={{ fontSize: "12px", fontWeight: 800, color: "#991b1b" }}>
-                    PATIENT HIGH RISK ALERT
+                    PATIENT ISOLATION ALERT
                   </div>
                   <div style={{ fontSize: "12px", color: "#b91c1c", marginTop: "2px" }}>
-                    <strong>Reason:</strong> {getHighRiskReason(selectedPatient) || "Identified as High Risk during Admission"}
+                    <strong>Reason:</strong> {getHighRiskReason(selectedPatient) || "Identified for Isolation during Admission"}
                     {(selectedPatient?.high_risk_date || selectedPatient?.patient_details?.high_risk_date) && (
                       <span style={{ marginLeft: "8px", color: "#7f1d1d" }}>
-                        · Risk Date: {selectedPatient.high_risk_date || selectedPatient.patient_details?.high_risk_date}
+                        · Isolation Date: {selectedPatient.high_risk_date || selectedPatient.patient_details?.high_risk_date}
                       </span>
                     )}
                   </div>
@@ -2754,10 +2754,10 @@ const WardRequest = () => {
                   <span style={{ fontSize: "18px" }}>🚨</span>
                   <div>
                     <div style={{ fontSize: "12px", fontWeight: 800, color: "#991b1b" }}>
-                      HIGH RISK PATIENT ALERT
+                      ISOLATION PATIENT ALERT
                     </div>
                     <div style={{ fontSize: "12px", color: "#b91c1c", marginTop: "2px" }}>
-                      <strong>Reason:</strong> {getHighRiskReason(selectedPatient) || "Identified as High Risk during Admission"}
+                      <strong>Reason:</strong> {getHighRiskReason(selectedPatient) || "Identified for Isolation during Admission"}
                       {(selectedPatient?.high_risk_date || selectedPatient?.patient_details?.high_risk_date) && (
                         <span style={{ marginLeft: "8px", color: "#7f1d1d" }}>
                           · Date: {selectedPatient.high_risk_date || selectedPatient.patient_details?.high_risk_date}
@@ -2910,7 +2910,7 @@ const WardRequest = () => {
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
                                           <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                                             <span style={{ fontWeight: "800", color: "#9a3412", fontSize: "12px" }}>
-                                              📄 {bill.bill_no}
+                                              📄 {String(bill.bill_no || "").replace(/\//g, "")}
                                             </span>
                                             {bill.status && (
                                               <span style={{ fontSize: "9.5px", fontWeight: "700", background: "#ffedd5", color: "#c2410c", padding: "1px 5px", borderRadius: "4px", border: "1px solid #fed7aa" }}>

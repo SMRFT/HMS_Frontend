@@ -2753,9 +2753,15 @@ export default function CentralCashCounter() {
               <ShiftItemDivider />
 
               <ShiftItemBox>
-                <ShiftItemLabel>Cash Collected</ShiftItemLabel>
+                <ShiftItemLabel>Closing Balance</ShiftItemLabel>
                 <ShiftCollectedAmount>
-                  ₹ {parseFloat(activeShift?.collected_Amount ?? activeShift?.collected_amount ?? activeShift?.CollectedAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ₹ {parseFloat(
+                    activeShift?.ClosingBalance !== undefined && activeShift?.ClosingBalance !== null
+                      ? activeShift.ClosingBalance
+                      : ((parseFloat(activeShift?.OpeningBalance) || 0) +
+                         (parseFloat(activeShift?.collected_Amount ?? activeShift?.collected_amount ?? activeShift?.CollectedAmount) || 0) -
+                         (parseFloat(activeShift?.SalesReturnAmount) || 0))
+                  ).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </ShiftCollectedAmount>
               </ShiftItemBox>
 
