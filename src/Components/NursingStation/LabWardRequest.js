@@ -789,12 +789,17 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
     ipNo: patientProp?.ipNumber || pd.ipNumber || "-",
     ipBadge: patientProp?.ipserial_number || pd.ipserial_number || "",
     uhid: patientProp?.uhid || pd.uhid || "-",
-    name: [
-      patientProp?.salutation ?? pd.salutation,
-      patientProp?.firstName ?? pd.firstName,
-      patientProp?.middleName ?? pd.middleName,
-      patientProp?.lastName ?? pd.lastName,
-    ].filter(Boolean).join(" ") || "Unknown Patient",
+    name:
+      patientProp?.patient_name ||
+      patientProp?.patientName ||
+      pd.patient_name ||
+      pd.name ||
+      [
+        patientProp?.salutation ?? pd.salutation,
+        patientProp?.firstName ?? pd.firstName,
+        patientProp?.middleName ?? pd.middleName,
+        patientProp?.lastName ?? pd.lastName,
+      ].filter(Boolean).join(" ") || "Unknown Patient",
     address: patientProp?.address || pd.permanent_address || "-",
     admitting: patientProp?.admissionDateTime
       ? new Date(patientProp.admissionDateTime).toLocaleString("en-GB", {

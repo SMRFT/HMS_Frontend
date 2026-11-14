@@ -113,12 +113,18 @@ const Footer = styled.div`
 `;
 
 const getIconForName = (name) => {
-  const n = name.toLowerCase();
+  const n = (name || "").toLowerCase();
   if (n.includes('bedsheet')) return "🛏️";
+  if (n.includes('saree')) return "🥻";
+  if (n.includes('shirt')) return "👔";
+  if (n.includes('pant')) return "👖";
+  if (n.includes('blouse')) return "👚";
+  if (n.includes('dhoti')) return "🧣";
+  if (n.includes('towel')) return "🧼";
+  if (n.includes('innerwear')) return "🩲";
   if (n.includes('pillow')) return "🛌";
   if (n.includes('cloth') || n.includes('gown')) return "👕";
-  if (n.includes('towel')) return "🧼";
-  if (n.includes('blanket')) return "🧣";
+  if (n.includes('blanket')) return "🧶";
   return "🧺";
 };
 
