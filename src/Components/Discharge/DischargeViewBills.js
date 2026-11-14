@@ -242,51 +242,26 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelBusy, setCancelBusy] = useState(false);
   const [auditBill,  setAuditBill]  = useState(null);
+  const [doctors,    setDoctors]    = useState([]);
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const res = await apiRequest(`${BASE}doctor_list_diagnostics/`, "GET");
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        setDoctors(list);
+      } catch (err) {
+        console.error("fetchDoctors error:", err);
+      }
+    };
+    fetchDoctors();
+  }, []);
 
   // Toast notification state
   const [toast, setToast] = useState(null);
   const showToast = (msg, err = false) => {
     setToast({ msg, err });
     setTimeout(() => setToast(null), 3800);
-  };
-
-  // Insurance Conversion
-  const handleDirectConvertToInsurance = async (b) => {
-    setOpenMenu(null);
-    const pd = b.patient_details || {};
-    const payload = {
-      claim_number: b.claim_number || pd.claim_number || pd.referral_number || "",
-      id_card_number: b.id_card_number || pd.id_card_number || pd.card_no || "",
-      insurance_bill_number: b.insurance_bill_number || "",
-      company_name: b.company_name || pd.company || pd.company_code || pd.insurance_company || "",
-    };
-
-    try {
-      const res = await apiRequest(
-        `${BASE}discharge-billing/${b.id}/convert-to-insurance/`,
-        "POST",
-        payload
-      );
-      if (res && res.success) {
-        showToast("✓ Bill converted to Insurance Bill successfully!");
-        const updated = res.data?.data || res.data || res;
-        const finalBill = {
-          ...b,
-          ...updated,
-          is_insurance_bill: true,
-          claim_number: updated.claim_number || payload.claim_number,
-          id_card_number: updated.id_card_number || payload.id_card_number,
-          insurance_bill_number: updated.insurance_bill_number || b.insurance_bill_number,
-          company_name: updated.company_name || payload.company_name,
-        };
-        setBills(prev => prev.map(x => x.id === b.id ? finalBill : x));
-        handleOpenPrint(finalBill);
-      } else {
-        showToast(res?.error || "Conversion failed", true);
-      }
-    } catch {
-      showToast("Network error during insurance conversion", true);
-    }
   };
 
   // 3-dots Menu State
@@ -337,6 +312,10 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             ...(b.patient_details || {}),
             ...res.patient,
           };
+        }
+        const meds = res?.pharmacy_medicines || res?.patient?.pharmacy_medicines;
+        if (Array.isArray(meds) && meds.length > 0) {
+          updatedBill.pharmacy_medicines = meds;
         }
       } catch (err) {
         console.error("Print patient details fetch error:", err);
@@ -629,10 +608,10 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                     {b.is_insurance_bill ? (
                       <div>
                         <Mono style={{ color: "#065f46", fontWeight: 700, fontSize: "0.82rem" }}>
-                          {b.insurance_bill_number || b.bill_no}
+                          {(b.insurance_bill_number || b.bill_no || "").replace(/\//g, "")}
                         </Mono>
                         <div style={{ fontSize: "0.68rem", color: T.textMuted }}>
-                          SH-Bill: {b.bill_no}
+                          SH-Bill: {(b.bill_no || "").replace(/\//g, "")}
                         </div>
                         <span style={{
                           display: "inline-block",
@@ -650,7 +629,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                       </div>
                     ) : (
                       <Mono style={{ color: isCanc ? T.textMuted : T.primary, fontWeight: 700 }}>
-                        {b.bill_no}
+                        {(b.bill_no || "").replace(/\//g, "")}
                       </Mono>
                     )}
                   </LTD>
@@ -742,11 +721,6 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             {!isCanc && onEditBill && (
               <DI onClick={() => { setOpenMenu(null); onEditBill(b); }}>
                 ✏️ Edit Bill
-              </DI>
-            )}
-            {!isCanc && !b.is_insurance_bill && (
-              <DI onClick={() => handleDirectConvertToInsurance(b)}>
-                🛡️ Convert to Insurance Bill
               </DI>
             )}
             <DI onClick={() => { setOpenMenu(null); handleOpenPrint(b, "NORMAL"); }}>
@@ -863,6 +837,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
         bill={printBill?.bill || printBill}
         defaultViewMode={printBill?.defaultViewMode || "NORMAL"}
         onClose={() => setPrintBill(null)}
+        doctors={doctors}
       />
 
     </Card>

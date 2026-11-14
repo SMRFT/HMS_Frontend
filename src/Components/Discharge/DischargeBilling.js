@@ -666,27 +666,31 @@ const getInitials = name => {
 };
 
 const calcTotals = (items, f) => {
-  const totalAmount = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
-  const discPct = parseFloat(f.discount_percent) || 0;
-  const discAmt = parseFloat(f.discount_amount) || (totalAmount * discPct / 100);
-  const totalDisc = discAmt;
-
+  const itemsTotal = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
   const medicines = parseFloat(f.medicines) || 0;
   const implantAmount = parseFloat(f.implant_amount) || 0;
   const gstAmount = parseFloat(f.gst_amount) || 0;
   const roomTax = parseFloat(f.room_tax) || 0;
   const taxable = parseFloat(f.taxable) || 0;
+
+  // Gross Bill Total = Items + Medicines + Implants + GST + Room Tax + Taxable
+  const grossTotal = itemsTotal + medicines + implantAmount + gstAmount + roomTax + taxable;
+
+  const discPct = parseFloat(f.discount_percent) || 0;
+  const discAmt = parseFloat(f.discount_amount) || (itemsTotal * discPct / 100);
+  const totalDisc = discAmt;
+
   const advanceAmount = parseFloat(f.advance_amount) || 0;
   const salesReturn = parseFloat(f.sales_return) || 0;
 
-  // Total Charges = (Total Items + Medicines + Implants + GST + Room Tax + Taxable) - Total Disc
-  const totalCharges = totalAmount + medicines + implantAmount + gstAmount + roomTax + taxable - totalDisc;
+  // Total Charges after discount = grossTotal - totalDisc
+  const totalCharges = grossTotal - totalDisc;
 
-  // Net Amount = totalCharges - advanceAmount - salesReturn
+  // Net Amount = Total Charges - Advance Amount - Sales Return
   // (If advance > totalCharges, netAmount will be negative -> Net Amount(Refund))
   const netAmount = totalCharges - advanceAmount - salesReturn;
 
-  return { totalAmount, discAmt, totalDisc, netAmount, totalCharges };
+  return { itemsTotal, totalAmount: grossTotal, grossTotal, discAmt, totalDisc, netAmount, totalCharges };
 };
 
 const buildPayload = (items, f, totals, status, patient, editReason = "", insurance = null, paymentMethod = "Cash") => ({
@@ -747,6 +751,11 @@ const investToRow = it => {
   const rate = parseFloat(it.rate != null ? it.rate : (it.price || 0)) || 0;
   const disc = parseFloat(it.discount) || 0;
   const amt = it.amount != null ? parseFloat(it.amount) : Math.max(0, qty * rate - disc);
+  const isAccom = Boolean(
+    (it.source && (it.source.includes("room_services") || it.source.includes("room_kits"))) ||
+    (it.invest_bill_no && (it.invest_bill_no.startsWith("ROOM-") || it.invest_bill_no.startsWith("KIT-"))) ||
+    /room|ward|nursing|maintenance|accommodation|bed|icu|ccu|day care|stay|admission fee/i.test(`${it.itemName || ""} ${it.item_description || ""}`)
+  );
   return {
     itemName: it.itemName || "",
     code: it.code || it.item_code || (it.test_id != null ? String(it.test_id) : "") || (it.sl_no != null ? String(it.sl_no) : "") || "",
@@ -755,7 +764,7 @@ const investToRow = it => {
     rate: rate,
     discount: disc,
     amount: amt,
-    doctor: it.doctor || "",
+    doctor: isAccom ? "" : (it.doctor || ""),
     doctor_fee: it.doctor_fee || "",
     doctors: Array.isArray(it.doctors) ? it.doctors : [],
     surgeon_id: it.surgeon_id || "",
@@ -1124,13 +1133,31 @@ const FinancialGrid = ({ f, onChange, totals }) => {
       <FinCol>
         <FinCardTitle>💳 Charges &amp; Credits</FinCardTitle>
         <FinRow>
-          <FinLbl>Total Amount</FinLbl>
+          <FinLbl title="Sum of all procedure and service items">Items Total</FinLbl>
           <Rupee>₹</Rupee>
-          <FinIn $ro value={fmt(totals.totalAmount)} readOnly />
+          <FinIn $ro value={fmt(totals.itemsTotal != null ? totals.itemsTotal : totals.totalAmount)} readOnly />
         </FinRow>
         <FinRow>
-          <FinLbl title="Advance amount received from patient">
-            Advance Amount <span style={{ cursor: "help", fontSize: "0.75rem" }}>ℹ️</span>
+          <FinLbl title="Pharmacy medicines charges to be added (+)">Medicines (+)</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            value={f.medicines}
+            onChange={e => onChange("medicines", e.target.value)}
+            placeholder="0.00"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl title="Surgery implant charges to be added (+)">Implants (+)</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            value={f.implant_amount}
+            onChange={e => onChange("implant_amount", e.target.value)}
+            placeholder="0.00"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl title="Advance amount received from patient to be subtracted (-)">
+            Advance Amount (-) <span style={{ cursor: "help", fontSize: "0.75rem" }}>ℹ️</span>
           </FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
@@ -1140,32 +1167,14 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           />
         </FinRow>
         <FinRow>
-          <FinLbl title="Sales return from pharmacy">
-            Sales Return <span style={{ cursor: "help", fontSize: "0.75rem" }}>ℹ️</span>
+          <FinLbl title="Sales return from pharmacy to be subtracted (-)">
+            Sales Return (-) <span style={{ cursor: "help", fontSize: "0.75rem" }}>ℹ️</span>
           </FinLbl>
           <Rupee>₹</Rupee>
           <FinIn
             value={f.sales_return}
             onChange={e => onChange("sales_return", e.target.value)}
             placeholder="0"
-          />
-        </FinRow>
-        <FinRow>
-          <FinLbl>Medicines</FinLbl>
-          <Rupee>₹</Rupee>
-          <FinIn
-            value={f.medicines}
-            onChange={e => onChange("medicines", e.target.value)}
-            placeholder="0.00"
-          />
-        </FinRow>
-        <FinRow>
-          <FinLbl title="Implant charges for surgery">Implants</FinLbl>
-          <Rupee>₹</Rupee>
-          <FinIn
-            value={f.implant_amount}
-            onChange={e => onChange("implant_amount", e.target.value)}
-            placeholder="0.00"
           />
         </FinRow>
       </FinCol>
@@ -1279,14 +1288,14 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           {isRefund ? "🛑 Settlement (Refund)" : "✅ Settlement Summary"}
         </FinCardTitle>
         <FinRow>
-          <FinLbl>Total Disc</FinLbl>
+          <FinLbl>Bill Total</FinLbl>
           <Rupee>₹</Rupee>
-          <FinIn $ro value={fmt(totals.totalDisc)} readOnly />
+          <FinIn $ro value={fmt(totals.grossTotal || totals.totalAmount)} readOnly />
         </FinRow>
         <FinRow>
-          <FinLbl>Total Charges</FinLbl>
+          <FinLbl>Total Disc (-)</FinLbl>
           <Rupee>₹</Rupee>
-          <FinIn $ro value={fmt(totals.totalCharges)} readOnly />
+          <FinIn $ro value={fmt(totals.totalDisc)} readOnly />
         </FinRow>
 
         <NetBadgeBox $refund={isRefund}>
@@ -2108,9 +2117,15 @@ const DischargeBilling = () => {
     const adjRate = parseFloat((baseRate * mult).toFixed(2));
     const adjAmount = Math.max(0, parseFloat((adjRate * qty - disc).toFixed(2)));
     const cleanPkg = (inv.package_name && !String(inv.package_name).toLowerCase().startsWith("room") && !String(inv.package_name).toLowerCase().includes("general ward") && !String(inv.package_name).toLowerCase().includes("private ward")) ? inv.package_name : "";
+    const isAccom = Boolean(
+      (inv.source && (inv.source.includes("room_services") || inv.source.includes("room_kits"))) ||
+      (inv.invest_bill_no && (inv.invest_bill_no.startsWith("ROOM-") || inv.invest_bill_no.startsWith("KIT-"))) ||
+      /room|ward|nursing|maintenance|accommodation|bed|icu|ccu|day care|stay|admission fee/i.test(`${inv.itemName || ""} ${inv.item_description || ""}`)
+    );
     return {
       ...EMPTY_ITEM,
       ...inv,
+      doctor: isAccom ? "" : (inv.doctor || ""),
       package_name: cleanPkg,
       code: inv.code || inv.item_code || (inv.test_id != null ? String(inv.test_id) : "") || (inv.sl_no != null ? String(inv.sl_no) : "") || "",
       nabh_code: inv.nabh_code || inv.nabhCode || "",
@@ -3178,6 +3193,7 @@ const DischargeBilling = () => {
         isOpen={Boolean(printBillModal)}
         bill={printBillModal}
         onClose={() => setPrintBillModal(null)}
+        doctors={doctors}
       />
     </PageWrap>
   );

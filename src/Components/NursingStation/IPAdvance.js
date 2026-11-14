@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import styled, { createGlobalStyle, keyframes } from "styled-components";
 import { toast } from "react-toastify";
@@ -156,6 +156,44 @@ const Grid = styled.div`
   grid-template-columns: repeat(${({ cols }) => cols || 6}, 1fr);
   gap: 7px 10px;
   align-items: end;
+`;
+
+const StatsWrap = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+`;
+
+const StatCard = styled.div`
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid ${(props) => props.borderColor || T.teal};
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+`;
+
+const StatTitle = styled.div`
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: ${T.muted};
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+`;
+
+const StatVal = styled.div`
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: ${T.text};
+  line-height: 1.2;
+`;
+
+const StatSub = styled.div`
+  font-size: 0.68rem;
+  color: ${T.muted};
+  margin-top: 3px;
 `;
 
 const F = styled.div`
@@ -984,6 +1022,41 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   const [refundSaving, setRefundSaving]         = useState(false);
   const [refundAmountError, setRefundAmountError] = useState("");
 
+  // ── Refund List Tab state ──────────────────────────────────────────────────
+  const [refunds, setRefunds]                   = useState([]);
+  const [filteredRefunds, setFilteredRefunds]   = useState([]);
+  const [refundsLoading, setRefundsLoading]     = useState(false);
+  const [refundSearch, setRefundSearch]         = useState("");
+  const [refundPage, setRefundPage]             = useState(1);
+  const [refundPerPage, setRefundPerPage]       = useState(15);
+
+  // ── Print Refund Slip state ────────────────────────────────────────────────
+  const [printRefundModalOpen, setPrintRefundModalOpen] = useState(false);
+  const [printRefundRecord, setPrintRefundRecord]       = useState(null);
+  const printRefundRef = useRef(null);
+
+  const openPrintRefundModal  = async (rec) => {
+    let r = { ...rec };
+    const creator = r.refunded_by || r.created_by;
+    if (!r.created_by_name && !r.refunded_by_name && creator) {
+      if (creator === localStorage.getItem("employeeId") && localStorage.getItem("name")) {
+        r.created_by_name = localStorage.getItem("name");
+        r.refunded_by_name = localStorage.getItem("name");
+      } else {
+        try {
+          const empRes = await apiRequest(`${BASE}get_employee_name/?employee_id=${encodeURIComponent(creator)}`, "GET");
+          if (empRes?.success && empRes.name) {
+            r.created_by_name = empRes.name;
+            r.refunded_by_name = empRes.name;
+          }
+        } catch {}
+      }
+    }
+    setPrintRefundRecord(r);
+    setPrintRefundModalOpen(true);
+  };
+  const closePrintRefundModal = ()    => { setPrintRefundModalOpen(false); setPrintRefundRecord(null); };
+
   const toggleMenu = (id, e) => {
     e.stopPropagation();
     setOpenMenuId(prev => prev === id ? null : id);
@@ -1053,6 +1126,10 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       const paramObj = {};
       if (fromDate) paramObj.from_date = fromDate;
       if (toDate)   paramObj.to_date   = toDate;
+      const selectedOutlet = localStorage.getItem("selected_outlet");
+      if (selectedOutlet && selectedOutlet !== "all" && selectedOutlet !== "system") {
+        paramObj.outlet_code = selectedOutlet;
+      }
       const qs  = new URLSearchParams(paramObj).toString();
       const res = await apiRequest(`${BASE}admission-advance/?${qs}`, "GET");
       if (!res.success) {
@@ -1097,6 +1174,65 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     setFilterPaymentMode(""); setFilterStatus("");
     fetchAdvancesByDate(today(), today());
   };
+
+  // ── Fetch Refunds ──────────────────────────────────────────────────────────
+  const fetchRefunds = useCallback(async (fromDate, toDate) => {
+    setRefundsLoading(true);
+    try {
+      const paramObj = {};
+      if (fromDate) paramObj.from_date = fromDate;
+      if (toDate)   paramObj.to_date   = toDate;
+      const selectedOutlet = localStorage.getItem("selected_outlet");
+      if (selectedOutlet && selectedOutlet !== "all" && selectedOutlet !== "system") {
+        paramObj.outlet_code = selectedOutlet;
+      }
+      const qs  = new URLSearchParams(paramObj).toString();
+      const res = await apiRequest(`${BASE}ip-advance-refunds/?${qs}`, "GET");
+      const list = Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+        ? res
+        : [];
+      setRefunds(list);
+      setFilteredRefunds(list);
+      setRefundPage(1);
+    } catch (e) {
+      console.error("Error fetching IP advance refunds:", e);
+      toast.error("Failed to load advance refunds");
+    } finally {
+      setRefundsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!refundSearch.trim()) {
+      setFilteredRefunds(refunds);
+      return;
+    }
+    const q = refundSearch.toLowerCase().trim();
+    const matches = refunds.filter(r => {
+      const uhid = String(r.uhid || "").toLowerCase();
+      const ip = String(r.ip_number || "").toLowerCase();
+      const name = String(r.patient_name || "").toLowerCase();
+      const rBill = String(r.refund_bill_no || "").toLowerCase().replace(/\//g, "");
+      const rBillOrig = String(r.refund_bill_no || "").toLowerCase();
+      const oBill = String(r.bill_no || "").toLowerCase().replace(/\//g, "");
+      const oBillOrig = String(r.bill_no || "").toLowerCase();
+      return (
+        uhid.includes(q) ||
+        ip.includes(q) ||
+        name.includes(q) ||
+        rBill.includes(q) ||
+        rBillOrig.includes(q) ||
+        oBill.includes(q) ||
+        oBillOrig.includes(q)
+      );
+    });
+    setFilteredRefunds(matches);
+    setRefundPage(1);
+  }, [refundSearch, refunds]);
 
   const getPaginationItems = (currentPage, total) => {
     if (total <= 7) {
@@ -1397,7 +1533,8 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
           patient_name: common.name,
           bill_date: new Date().toISOString(),
           paid_date: new Date().toISOString(),
-          created_by: (res.data && res.data.created_by) || (localStorage.getItem("user_name") || localStorage.getItem("username") || "PARS1"),
+          created_by: (res.data && res.data.created_by) || localStorage.getItem("employeeId") || "",
+          created_by_name: (res.data && res.data.created_by_name) || localStorage.getItem("name") || "",
         };
       }
       setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
@@ -1520,8 +1657,27 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       );
       if (!res.success) throw new Error(res.error || "Refund failed");
       toast.success(`Refund of ₹${fmt(refundAmount)} processed successfully!`);
+      const refBill = res.data?.refund_bill_no || res.data?.refund_record?.refund_bill_no || "";
+      const savedRefund = {
+        refund_bill_no: refBill,
+        bill_no: refundRecord.bill_no || refundRecord.bill_number,
+        uhid: refundRecord.uhid,
+        patient_name: refundRecord.patient_name || refundRecord.name,
+        room: refundRecord.room || refundRecord.roomNo,
+        ip_number: refundRecord.ip_number || refundRecord.ipNumber,
+        refund_amount: parseFloat(refundAmount),
+        payment_mode: refundPaymentMode,
+        remarks: refundRemarks.trim(),
+        created_date: new Date(),
+        refund_date: new Date(),
+        created_by: (res.data && res.data.created_by) || localStorage.getItem("employeeId") || "",
+        created_by_name: (res.data && res.data.created_by_name) || localStorage.getItem("name") || "",
+        refunded_by_name: (res.data && res.data.refunded_by_name) || (res.data && res.data.created_by_name) || localStorage.getItem("name") || "",
+      };
       closeRefundModal();
+      openPrintRefundModal(savedRefund);
       fetchAdvancesByDate(filterFromDate, filterToDate);
+      fetchRefunds(filterFromDate, filterToDate);
     } catch (e) {
       toast.error(e.message || "Failed to process refund");
     } finally {
@@ -1529,8 +1685,24 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     }
   };
 
-  // ── Print ─────────────────────────────────────────────────────────────────
-  const openPrintModal  = (record) => { setPrintRecord(record); setPrintModalOpen(true); };
+  // ── Print Advance Slip ────────────────────────────────────────────────────
+  const openPrintModal  = async (record) => {
+    let rec = { ...record };
+    if (!rec.created_by_name && rec.created_by) {
+      if (rec.created_by === localStorage.getItem("employeeId") && localStorage.getItem("name")) {
+        rec.created_by_name = localStorage.getItem("name");
+      } else {
+        try {
+          const empRes = await apiRequest(`${BASE}get_employee_name/?employee_id=${encodeURIComponent(rec.created_by)}`, "GET");
+          if (empRes?.success && empRes.name) {
+            rec.created_by_name = empRes.name;
+          }
+        } catch {}
+      }
+    }
+    setPrintRecord(rec);
+    setPrintModalOpen(true);
+  };
   const closePrintModal = ()       => { setPrintModalOpen(false); setPrintRecord(null); };
 
   const handlePrint = () => {
@@ -1540,10 +1712,14 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     const nameVal = (printRecord.patient_name || printRecord.name || "—").toUpperCase();
     const roomVal = printRecord.room || printRecord.roomNo || common.roomNo || "—";
     const billDate = formatSlipDate(printRecord.bill_date || printRecord.created_date || printRecord.date || new Date());
-    const billNoVal = printRecord.bill_no || printRecord.bill_number || "—";
+    const billNoVal = (printRecord.bill_no || printRecord.bill_number || "—").replace(/\//g, "");
     const ipNoVal = printRecord.ip_number || printRecord.ipNumber || "—";
     const amountVal = formatSlipAmount(printRecord.advance_amount);
-    const userVal = printRecord.created_by || localStorage.getItem("user_name") || localStorage.getItem("username") || "PARS1";
+    const preparedByName = (printRecord.created_by_name || "").trim() ||
+      ((printRecord.created_by && printRecord.created_by === localStorage.getItem("employeeId")) ? (localStorage.getItem("name") || "").trim() : "") ||
+      (localStorage.getItem("name") || "").trim() ||
+      printRecord.created_by ||
+      "";
 
     const w = window.open("", "", "height=700,width=450");
     w.document.write(`
@@ -1689,7 +1865,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             </div>
             <div class="divider"></div>
             <div class="info-table">
-              <div class="info-row"><span class="lbl">Op number</span><span class="colon">:</span><span class="val">${uhidVal}</span></div>
+              <div class="info-row"><span class="lbl">UHID</span><span class="colon">:</span><span class="val">${uhidVal}</span></div>
               <div class="info-row"><span class="lbl">Name</span><span class="colon">:</span><span class="val">${nameVal}</span></div>
               <div class="info-row"><span class="lbl">Room</span><span class="colon">:</span><span class="val">${roomVal}</span></div>
               <div class="info-row"><span class="lbl">Bill Date</span><span class="colon">:</span><span class="val">${billDate}</span></div>
@@ -1711,13 +1887,224 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             <div class="items-spacer"></div>
             <div class="divider"></div>
             <div class="total-row">
-              <span class="user-lbl">User : ${userVal}</span>
+              <span class="user-lbl">Prepared by : ${preparedByName}</span>
               <div class="total-wrap">
                 <span class="total-lbl">Total</span>
                 <span class="total-val">${amountVal}</span>
               </div>
             </div>
             <div class="signature">Signature Of Cashier</div>
+          </div>
+        </body>
+      </html>
+    `);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 300);
+  };
+
+  // ── Print Advance Refund Slip ─────────────────────────────────────────────
+  const handlePrintRefund = () => {
+    if (!printRefundRecord) return;
+
+    const uhidVal = printRefundRecord.uhid || "—";
+    const nameVal = (printRefundRecord.patient_name || printRefundRecord.name || "—").toUpperCase();
+    const roomVal = printRefundRecord.room || printRefundRecord.roomNo || "—";
+    const refundDate = formatSlipDate(printRefundRecord.refund_date || printRefundRecord.created_date || new Date());
+    const refundBillNoVal = String(printRefundRecord.refund_bill_no || "—").replace(/\//g, "");
+    const origBillNoVal = String(printRefundRecord.bill_no || printRefundRecord.bill_number || "—").replace(/\//g, "");
+    const ipNoVal = printRefundRecord.ip_number || printRefundRecord.ipNumber || "—";
+    const amountVal = formatSlipAmount(printRefundRecord.refund_amount || printRefundRecord.refunded_amount);
+    const modeVal = printRefundRecord.payment_mode || printRefundRecord.payment_details?.method || "Cash";
+    const preparedByName = (printRefundRecord.refunded_by_name || printRefundRecord.created_by_name || "").trim() ||
+      (((printRefundRecord.refunded_by || printRefundRecord.created_by) && (printRefundRecord.refunded_by || printRefundRecord.created_by) === localStorage.getItem("employeeId")) ? (localStorage.getItem("name") || "").trim() : "") ||
+      (localStorage.getItem("name") || "").trim() ||
+      printRefundRecord.refunded_by ||
+      printRefundRecord.created_by ||
+      "";
+    const remarksVal = printRefundRecord.remarks || "";
+
+    const w = window.open("", "", "height=700,width=450");
+    w.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Advance Refund Slip</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+              font-family: Arial, 'Segoe UI', sans-serif;
+              background: #fff;
+              display: flex;
+              justify-content: center;
+              padding: 10px;
+              color: #000;
+            }
+            .slip {
+              width: 100%;
+              max-width: 330px;
+              padding: 10px 12px;
+              background: #fff;
+              font-size: 11px;
+            }
+            .bill-header {
+              text-align: center;
+              margin-bottom: 6px;
+            }
+            .bill-title {
+              font-size: 13px;
+              font-weight: 800;
+              letter-spacing: 0.02em;
+              text-transform: uppercase;
+              margin-bottom: 2px;
+            }
+            .bill-subtitle {
+              font-size: 11px;
+              line-height: 1.35;
+            }
+            .bill-adv {
+              font-size: 12px;
+              font-weight: 800;
+              margin-top: 4px;
+              color: #b91c1c;
+            }
+            .divider {
+              border-top: 1.5px solid #000;
+              margin: 6px 0;
+            }
+            .info-table {
+              margin: 4px 0;
+            }
+            .info-row {
+              display: flex;
+              align-items: baseline;
+              font-size: 11px;
+              padding: 1px 0;
+            }
+            .lbl {
+              width: 95px;
+              font-weight: 700;
+              flex-shrink: 0;
+            }
+            .colon {
+              width: 12px;
+              font-weight: 700;
+              flex-shrink: 0;
+            }
+            .val {
+              flex: 1;
+              font-weight: 500;
+              word-break: break-all;
+            }
+            .items-header {
+              display: flex;
+              font-weight: 800;
+              font-size: 11px;
+              padding: 2px 0 4px 0;
+            }
+            .col-slno {
+              width: 38px;
+            }
+            .col-desc {
+              flex: 1;
+            }
+            .col-amount {
+              width: 85px;
+              text-align: right;
+            }
+            .items-row {
+              display: flex;
+              font-size: 11px;
+              padding: 3px 0;
+            }
+            .items-spacer {
+              height: 48px;
+            }
+            .total-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: baseline;
+              font-size: 11px;
+              padding: 3px 0;
+            }
+            .user-lbl {
+              font-size: 11px;
+            }
+            .total-wrap {
+              display: flex;
+              gap: 16px;
+              align-items: baseline;
+            }
+            .total-lbl {
+              font-weight: 800;
+              font-size: 12px;
+              color: #b91c1c;
+            }
+            .total-val {
+              font-size: 11px;
+              width: 85px;
+              text-align: right;
+              font-weight: 700;
+            }
+            .signatures {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 36px;
+              font-size: 10px;
+              font-weight: 600;
+              padding: 0 4px;
+            }
+            @media print {
+              body { padding: 0; }
+              .slip { width: 100%; max-width: 100%; border: none; padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="slip">
+            <div class="bill-header">
+              <div class="bill-title">SHANMUGA HOSPITAL LIMITED</div>
+              <div class="bill-subtitle">51/24.Saradha College Road, Salem - 636007</div>
+              <div class="bill-subtitle">04272706666</div>
+              <div class="bill-subtitle">GST No : 33ABDCS8326A1ZP</div>
+              <div class="bill-adv">Advance Refund Slip</div>
+            </div>
+            <div class="divider"></div>
+            <div class="info-table">
+              <div class="info-row"><span class="lbl">UHID</span><span class="colon">:</span><span class="val">${uhidVal}</span></div>
+              <div class="info-row"><span class="lbl">Name</span><span class="colon">:</span><span class="val">${nameVal}</span></div>
+              <div class="info-row"><span class="lbl">Room</span><span class="colon">:</span><span class="val">${roomVal}</span></div>
+              <div class="info-row"><span class="lbl">Refund Date</span><span class="colon">:</span><span class="val">${refundDate}</span></div>
+              <div class="info-row"><span class="lbl">Refund Bill No</span><span class="colon">:</span><span class="val">${refundBillNoVal}</span></div>
+              <div class="info-row"><span class="lbl">Original Bill</span><span class="colon">:</span><span class="val">${origBillNoVal}</span></div>
+              <div class="info-row"><span class="lbl">IP No</span><span class="colon">:</span><span class="val">${ipNoVal}</span></div>
+              <div class="info-row"><span class="lbl">Payment Mode</span><span class="colon">:</span><span class="val">${modeVal}</span></div>
+            </div>
+            <div class="divider"></div>
+            <div class="items-header">
+              <span class="col-slno">Slno</span>
+              <span class="col-desc">Description</span>
+              <span class="col-amount">Amount</span>
+            </div>
+            <div class="divider"></div>
+            <div class="items-row">
+              <span class="col-slno">1</span>
+              <span class="col-desc">IP Advance Refund ${remarksVal ? `(${remarksVal})` : ""}</span>
+              <span class="col-amount">${amountVal}</span>
+            </div>
+            <div class="items-spacer"></div>
+            <div class="divider"></div>
+            <div class="total-row">
+              <span class="user-lbl">Prepared by : ${preparedByName}</span>
+              <div class="total-wrap">
+                <span class="total-lbl">Refund Total</span>
+                <span class="total-val">${amountVal}</span>
+              </div>
+            </div>
+            <div class="signatures">
+              <span>Patient / Attender Signature</span>
+              <span>Signature Of Cashier</span>
+            </div>
           </div>
         </body>
       </html>
@@ -1766,7 +2153,8 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             {[
               { id: "create",   label: "+ IP Advance Entry" },
               { id: "admitted", label: "🏥 Admitted Patients", count: admittedCount },
-              { id: "list",     label: "📋 Advance List" }
+              { id: "list",     label: "📋 Advance List" },
+              { id: "refunds",  label: "💸 Advance Refund List" }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1775,6 +2163,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   setActiveTab(tab.id);
                   if (tab.id === "list") fetchAdvancesByDate(filterFromDate, filterToDate);
                   if (tab.id === "admitted") setAdmittedRefreshKey(k => k + 1);
+                  if (tab.id === "refunds") fetchRefunds(filterFromDate, filterToDate);
                 }}
                 style={
                   activeTab === tab.id
@@ -1912,7 +2301,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   <span>{editingRecord ? "✏️ Edit Advance" : "💵 Advance Input"}</span>
                   {editingRecord && (
                     <span style={{ fontSize: "0.68rem", opacity: 0.9, fontWeight: 500 }}>
-                      Editing: {editingRecord.advance_id} | Bill: {editingRecord.bill_no}
+                      Editing: {editingRecord.advance_id} | Bill: {(editingRecord.bill_no || "").replace(/\//g, "")}
                     </span>
                   )}
                 </CardHead>
@@ -2164,7 +2553,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                             <Td style={{ fontWeight: 700, color: T.muted }}>{rowIdx}</Td>
                             <Td>{billDate}</Td>
                             <Td style={{ fontFamily: "monospace", fontSize: "0.7rem", fontWeight: 700 }}>
-                              {p.bill_no || "—"}
+                              {(p.bill_no || "—").replace(/\//g, "")}
                             </Td>
                             <Td style={{ fontWeight: 700, color: T.tealDark }}>{ipNo}</Td>
                             <Td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -2247,10 +2636,33 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                                     )}
                                   </DropItem>
 
-                                  {/* PRINT */}
+                                  {/* PRINT ADVANCE SLIP */}
                                   <DropItem onClick={() => { setOpenMenuId(null); openPrintModal(p); }}>
                                     🖨️ Print Slip
                                   </DropItem>
+
+                                  {/* PRINT REFUND SLIP IF REFUNDED */}
+                                  {(p.is_refund || (p.refund_details || []).length > 0) && (
+                                    <DropItem
+                                      purple
+                                      onClick={() => {
+                                        setOpenMenuId(null);
+                                        const refData = (p.refund_details && p.refund_details[0]) || {};
+                                        openPrintRefundModal({
+                                          ...p,
+                                          refund_bill_no: refData.refund_bill_no || p.refund_bill_no,
+                                          bill_no: p.bill_no,
+                                          refund_amount: refData.refunded_amount || p.advance_amount,
+                                          refund_date: refData.refunded_date || p.fully_refunded_date,
+                                          remarks: refData.remarks || p.remarks,
+                                          payment_mode: refData.payment_mode || p.payment_mode,
+                                          refunded_by: refData.refunded_by,
+                                        });
+                                      }}
+                                    >
+                                      🧾 Print Refund Slip
+                                    </DropItem>
+                                  )}
 
                                   <DropDivider />
 
@@ -2325,6 +2737,204 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
             </Card>
           </>
         )}
+
+        {/* ── ADVANCE REFUND LIST TAB ── */}
+        {activeTab === "refunds" && (
+          <>
+            {/* ── FILTERS ── */}
+            <Card>
+              <CardHead color="purple">🔎 Filters &amp; Search Advance Refunds</CardHead>
+              <CardBody>
+                <Grid cols={6}>
+                  <F span={2}>
+                    <Lbl>From Date</Lbl>
+                    <Inp type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} />
+                  </F>
+                  <F span={2}>
+                    <Lbl>To Date</Lbl>
+                    <Inp type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} />
+                  </F>
+                  <F span={2}>
+                    <Lbl>Search (UHID / IP / Bill / Name)</Lbl>
+                    <Inp
+                      type="text"
+                      placeholder="Search patient, UHID, IP, Bill No…"
+                      value={refundSearch}
+                      onChange={e => setRefundSearch(e.target.value)}
+                    />
+                  </F>
+                  <F span={1}><Lbl>&nbsp;</Lbl>
+                    <Btn c="purple" onClick={() => fetchRefunds(filterFromDate, filterToDate)} disabled={refundsLoading}>
+                      {refundsLoading ? "Loading…" : "🔍 Search"}
+                    </Btn>
+                  </F>
+                  <F span={1}><Lbl>&nbsp;</Lbl>
+                    <Btn v="reset" onClick={() => { setRefundSearch(""); setFilterFromDate(""); setFilterToDate(""); fetchRefunds("", ""); }}>Reset</Btn>
+                  </F>
+                </Grid>
+              </CardBody>
+            </Card>
+
+            {/* ── STATS CARDS ── */}
+            <StatsWrap>
+              <StatCard borderColor={T.purple}>
+                <StatTitle>Total Refunds Processed</StatTitle>
+                <StatVal>{filteredRefunds.length}</StatVal>
+                <StatSub>Records in selected period</StatSub>
+              </StatCard>
+              <StatCard borderColor={T.red}>
+                <StatTitle>Total Refunded Amount</StatTitle>
+                <StatVal style={{ color: T.red }}>
+                  ₹{fmt(filteredRefunds.reduce((acc, r) => acc + (parseFloat(r.refund_amount || r.refunded_amount) || 0), 0))}
+                </StatVal>
+                <StatSub>Sum of all processed refunds</StatSub>
+              </StatCard>
+            </StatsWrap>
+
+            {/* ── REFUND RECORDS TABLE ── */}
+            <Card>
+              <CardHead color="purple" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>💸 IP Advance Refund Records</span>
+                <span style={{ fontSize: "0.75rem", background: "rgba(255,255,255,0.25)", padding: "2px 8px", borderRadius: 4 }}>
+                  {filteredRefunds.length} Refund(s)
+                </span>
+              </CardHead>
+
+              {/* Table Controls */}
+              <TTBar>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
+                  Show up to&nbsp;
+                  <TableSelect
+                    value={refundPerPage}
+                    onChange={e => {
+                      setRefundPerPage(Number(e.target.value));
+                      setRefundPage(1);
+                    }}
+                  >
+                    {[10, 15, 25, 50, 100].map(n => (
+                      <option key={n} value={n}>{n} rows</option>
+                    ))}
+                  </TableSelect>
+                  &nbsp;per page
+                </div>
+              </TTBar>
+
+              <div style={{ overflowX: "auto" }}>
+                <Tbl>
+                  <thead>
+                    <tr>
+                      <Th style={{ width: 40 }}>#</Th>
+                      <Th>Refund Date</Th>
+                      <Th>Refund Bill No</Th>
+                      <Th>Original Bill</Th>
+                      <Th>UHID</Th>
+                      <Th>IP Number</Th>
+                      <Th>Patient Name</Th>
+                      <Th>Room</Th>
+                      <Th style={{ textAlign: "right" }}>Refund Amount</Th>
+                      <Th>Payment Mode</Th>
+                      <Th>Remarks</Th>
+                      <Th>Processed By</Th>
+                      <Th style={{ textAlign: "center", width: 120 }}>Action</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {refundsLoading ? (
+                      <tr>
+                        <Td colSpan={13} style={{ textAlign: "center", padding: "32px", color: T.muted }}>
+                          ⏳ Loading refunds…
+                        </Td>
+                      </tr>
+                    ) : filteredRefunds.length === 0 ? (
+                      <tr>
+                        <Td colSpan={13} style={{ textAlign: "center", padding: "32px", color: T.muted }}>
+                          No advance refunds found for the selected criteria.
+                        </Td>
+                      </tr>
+                    ) : (
+                      filteredRefunds
+                        .slice((refundPage - 1) * refundPerPage, refundPage * refundPerPage)
+                        .map((r, idx) => {
+                          const slNo = (refundPage - 1) * refundPerPage + idx + 1;
+                          const rBill = String(r.refund_bill_no || "—").replace(/\//g, "");
+                          const oBill = String(r.bill_no || r.bill_number || "—").replace(/\//g, "");
+                          const rAmt = parseFloat(r.refund_amount || r.refunded_amount) || 0;
+                          return (
+                            <tr key={r._id || r.refund_bill_no || idx}>
+                              <Td style={{ fontWeight: 600 }}>{slNo}</Td>
+                              <Td style={{ whiteSpace: "nowrap" }}>
+                                {r.refund_date ? new Date(r.refund_date).toLocaleDateString("en-IN") : "—"}
+                              </Td>
+                              <Td style={{ fontWeight: 700, color: T.purple, fontFamily: "monospace" }}>
+                                {rBill}
+                              </Td>
+                              <Td style={{ fontFamily: "monospace", color: "#475569" }}>
+                                {oBill}
+                              </Td>
+                              <Td style={{ fontWeight: 600 }}>{r.uhid || "—"}</Td>
+                              <Td style={{ fontWeight: 600 }}>{r.ip_number || "—"}</Td>
+                              <Td style={{ fontWeight: 600 }}>{(r.patient_name || "—").toUpperCase()}</Td>
+                              <Td>{r.room || "—"}</Td>
+                              <Td style={{ textAlign: "right", fontWeight: 700, color: "#b91c1c" }}>
+                                ₹{fmt(rAmt)}
+                              </Td>
+                              <Td>
+                                <span style={{
+                                  background: "#f1f5f9", padding: "2px 6px", borderRadius: 4,
+                                  fontSize: "0.7rem", fontWeight: 600
+                                }}>
+                                  {r.payment_mode || "Cash"}
+                                </span>
+                              </Td>
+                              <Td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.remarks || ""}>
+                                {r.remarks || "—"}
+                              </Td>
+                              <Td style={{ fontSize: "0.75rem" }}>
+                                {r.created_by || r.refunded_by || "—"}
+                              </Td>
+                              <Td style={{ textAlign: "center" }}>
+                                <Btn
+                                  v="table"
+                                  c="purple"
+                                  onClick={() => openPrintRefundModal(r)}
+                                  title="Print Refund Bill Slip"
+                                  style={{ padding: "4px 8px", fontSize: "0.72rem" }}
+                                >
+                                  🖨️ Print Slip
+                                </Btn>
+                              </Td>
+                            </tr>
+                          );
+                        })
+                    )}
+                  </tbody>
+                </Tbl>
+              </div>
+
+              {/* Pagination */}
+              {filteredRefunds.length > refundPerPage && (
+                <Pager>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <PB onClick={() => setRefundPage(p => Math.max(1, p - 1))} disabled={refundPage === 1}>
+                      Prev
+                    </PB>
+                    {Array.from({ length: Math.ceil(filteredRefunds.length / refundPerPage) }, (_, i) => i + 1).map(p => (
+                      <PB key={p} active={p === refundPage} onClick={() => setRefundPage(p)}>
+                        {p}
+                      </PB>
+                    ))}
+                    <PB
+                      onClick={() => setRefundPage(p => Math.min(Math.ceil(filteredRefunds.length / refundPerPage), p + 1))}
+                      disabled={refundPage === Math.ceil(filteredRefunds.length / refundPerPage)}
+                    >
+                      Next
+                    </PB>
+                  </div>
+                </Pager>
+              )}
+            </Card>
+          </>
+        )}
       </Page>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
@@ -2340,7 +2950,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
           <ModalOverlay onClick={closeRefundModal}>
             <ModalBox onClick={e => e.stopPropagation()}>
               <ModalHeader color="purple">
-                <ModalTitle>💜 Process Refund — {refundRecord.bill_no || refundRecord.advance_id}</ModalTitle>
+                <ModalTitle>💜 Process Refund — {(refundRecord.bill_no || refundRecord.advance_id || "").replace(/\//g, "")}</ModalTitle>
                 <CloseBtn onClick={closeRefundModal}>×</CloseBtn>
               </ModalHeader>
 
@@ -2357,7 +2967,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   </RefundSummaryRow>
                   <RefundSummaryRow>
                     <RefundSummaryLabel>Bill No</RefundSummaryLabel>
-                    <RefundSummaryValue style={{ fontFamily: "monospace" }}>{refundRecord.bill_no || "—"}</RefundSummaryValue>
+                    <RefundSummaryValue style={{ fontFamily: "monospace" }}>{(refundRecord.bill_no || "—").replace(/\//g, "")}</RefundSummaryValue>
                   </RefundSummaryRow>
                   <div style={{ height: 1, background: "#d8b4fe", margin: "4px 0" }} />
                   <RefundSummaryRow>
@@ -2486,10 +3096,14 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         const nameVal = (printRecord.patient_name || printRecord.name || "—").toUpperCase();
         const roomVal = printRecord.room || printRecord.roomNo || common.roomNo || "—";
         const billDate = formatSlipDate(printRecord.bill_date || printRecord.created_date || printRecord.date || new Date());
-        const billNoVal = printRecord.bill_no || printRecord.bill_number || "—";
+        const billNoVal = (printRecord.bill_no || printRecord.bill_number || "—").replace(/\//g, "");
         const ipNoVal = printRecord.ip_number || printRecord.ipNumber || "—";
         const amountVal = formatSlipAmount(printRecord.advance_amount);
-        const userVal = printRecord.created_by || localStorage.getItem("user_name") || localStorage.getItem("username") || "PARS1";
+        const preparedByName = (printRecord.created_by_name || "").trim() ||
+          ((printRecord.created_by && printRecord.created_by === localStorage.getItem("employeeId")) ? (localStorage.getItem("name") || "").trim() : "") ||
+          (localStorage.getItem("name") || "").trim() ||
+          printRecord.created_by ||
+          "";
 
         return (
           <ModalOverlay onClick={closePrintModal}>
@@ -2525,7 +3139,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   {/* Info table */}
                   <div style={{ margin: "4px 0", fontSize: "11px" }}>
                     <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
-                      <span style={{ width: "80px", fontWeight: "700", flexShrink: 0 }}>Op number</span>
+                      <span style={{ width: "80px", fontWeight: "700", flexShrink: 0 }}>UHID</span>
                       <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
                       <span style={{ flex: 1, fontWeight: "500" }}>{uhidVal}</span>
                     </div>
@@ -2584,7 +3198,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
 
                   {/* Total Row */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "11px", padding: "3px 0" }}>
-                    <span style={{ fontSize: "11px" }}>User : {userVal}</span>
+                    <span style={{ fontSize: "11px" }}>Prepared by : {preparedByName}</span>
                     <div style={{ display: "flex", gap: "24px", alignItems: "baseline" }}>
                       <span style={{ fontWeight: "800", fontSize: "12px" }}>Total</span>
                       <span style={{ fontSize: "11px", width: "85px", textAlign: "right", fontWeight: "600" }}>{amountVal}</span>
@@ -2600,6 +3214,152 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                 <ModalActions>
                   <Btn v="reset" onClick={closePrintModal}>Close</Btn>
                   <Btn c="blue" onClick={handlePrint}>🖨️ Print</Btn>
+                </ModalActions>
+              </ModalBody>
+            </ModalBox>
+          </ModalOverlay>
+        );
+      })()}
+
+      {/* ── REFUND PRINT MODAL ── */}
+      {printRefundModalOpen && printRefundRecord && (() => {
+        const uhidVal = printRefundRecord.uhid || "—";
+        const nameVal = (printRefundRecord.patient_name || printRefundRecord.name || "—").toUpperCase();
+        const roomVal = printRefundRecord.room || printRefundRecord.roomNo || "—";
+        const refundDate = formatSlipDate(printRefundRecord.refund_date || printRefundRecord.created_date || new Date());
+        const refundBillNoVal = String(printRefundRecord.refund_bill_no || "—").replace(/\//g, "");
+        const origBillNoVal = String(printRefundRecord.bill_no || printRefundRecord.bill_number || "—").replace(/\//g, "");
+        const ipNoVal = printRefundRecord.ip_number || printRefundRecord.ipNumber || "—";
+        const amountVal = formatSlipAmount(printRefundRecord.refund_amount || printRefundRecord.refunded_amount);
+        const modeVal = printRefundRecord.payment_mode || printRefundRecord.payment_details?.method || "Cash";
+        const preparedByName = (printRefundRecord.refunded_by_name || printRefundRecord.created_by_name || "").trim() ||
+          (((printRefundRecord.refunded_by || printRefundRecord.created_by) && (printRefundRecord.refunded_by || printRefundRecord.created_by) === localStorage.getItem("employeeId")) ? (localStorage.getItem("name") || "").trim() : "") ||
+          (localStorage.getItem("name") || "").trim() ||
+          printRefundRecord.refunded_by ||
+          printRefundRecord.created_by ||
+          "";
+        const remarksVal = printRefundRecord.remarks || "";
+
+        return (
+          <ModalOverlay onClick={closePrintRefundModal}>
+            <ModalBox style={{ maxWidth: "400px" }} onClick={e => e.stopPropagation()}>
+              <ModalHeader color="purple">
+                <ModalTitle>Advance Refund Slip</ModalTitle>
+                <CloseBtn onClick={closePrintRefundModal}>×</CloseBtn>
+              </ModalHeader>
+              <ModalBody style={{ background: "#f8fafc", padding: "16px 12px" }}>
+                <BillSlipContainer ref={printRefundRef} className="print-container">
+                  {/* Header */}
+                  <div style={{ textAlign: "center", marginBottom: "6px" }}>
+                    <div style={{ fontSize: "13px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.02em", marginBottom: "2px" }}>
+                      SHANMUGA HOSPITAL LIMITED
+                    </div>
+                    <div style={{ fontSize: "11px", lineHeight: "1.35" }}>
+                      51/24.Saradha College Road, Salem - 636007
+                    </div>
+                    <div style={{ fontSize: "11px", lineHeight: "1.35" }}>
+                      04272706666
+                    </div>
+                    <div style={{ fontSize: "11px", lineHeight: "1.35" }}>
+                      GST No : 33ABDCS8326A1ZP
+                    </div>
+                    <div style={{ fontSize: "12px", fontWeight: "800", marginTop: "4px", color: "#b91c1c" }}>
+                      Advance Refund Slip
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ borderTop: "1.5px solid #000", margin: "6px 0" }} />
+
+                  {/* Info table */}
+                  <div style={{ margin: "4px 0", fontSize: "11px" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
+                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>UHID</span>
+                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                      <span style={{ flex: 1, fontWeight: "500" }}>{uhidVal}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
+                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Name</span>
+                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                      <span style={{ flex: 1, fontWeight: "500" }}>{nameVal}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
+                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Room</span>
+                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                      <span style={{ flex: 1, fontWeight: "500" }}>{roomVal}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
+                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Refund Date</span>
+                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                      <span style={{ flex: 1, fontWeight: "500" }}>{refundDate}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
+                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Refund Bill No</span>
+                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                      <span style={{ flex: 1, fontWeight: "700", color: "#b91c1c" }}>{refundBillNoVal}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
+                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Original Bill</span>
+                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                      <span style={{ flex: 1, fontWeight: "500" }}>{origBillNoVal}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
+                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>IP No</span>
+                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                      <span style={{ flex: 1, fontWeight: "500" }}>{ipNoVal}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", padding: "1px 0" }}>
+                      <span style={{ width: "95px", fontWeight: "700", flexShrink: 0 }}>Payment Mode</span>
+                      <span style={{ width: "12px", fontWeight: "700", flexShrink: 0 }}>:</span>
+                      <span style={{ flex: 1, fontWeight: "500" }}>{modeVal}</span>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ borderTop: "1.5px solid #000", margin: "6px 0" }} />
+
+                  {/* Items Header */}
+                  <div style={{ display: "flex", fontWeight: "800", fontSize: "11px", padding: "2px 0 4px 0" }}>
+                    <span style={{ width: "38px" }}>Slno</span>
+                    <span style={{ flex: 1 }}>Description</span>
+                    <span style={{ width: "85px", textAlign: "right" }}>Amount</span>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ borderTop: "1.5px solid #000", margin: "2px 0 4px 0" }} />
+
+                  {/* Items Row */}
+                  <div style={{ display: "flex", fontSize: "11px", padding: "3px 0" }}>
+                    <span style={{ width: "38px" }}>1</span>
+                    <span style={{ flex: 1 }}>IP Advance Refund {remarksVal ? `(${remarksVal})` : ""}</span>
+                    <span style={{ width: "85px", textAlign: "right", fontWeight: "700", color: "#b91c1c" }}>{amountVal}</span>
+                  </div>
+
+                  {/* Spacer */}
+                  <div style={{ height: "48px" }} />
+
+                  {/* Divider */}
+                  <div style={{ borderTop: "1.5px solid #000", margin: "6px 0" }} />
+
+                  {/* Total Row */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "11px", padding: "3px 0" }}>
+                    <span style={{ fontSize: "11px" }}>Prepared by : {preparedByName}</span>
+                    <div style={{ display: "flex", gap: "16px", alignItems: "baseline" }}>
+                      <span style={{ fontWeight: "800", fontSize: "12px", color: "#b91c1c" }}>Refund Total</span>
+                      <span style={{ fontSize: "11px", width: "85px", textAlign: "right", fontWeight: "700" }}>{amountVal}</span>
+                    </div>
+                  </div>
+
+                  {/* Signatures */}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "36px", fontSize: "10px", fontWeight: "600", padding: "0 4px" }}>
+                    <span>Patient / Attender Signature</span>
+                    <span>Signature Of Cashier</span>
+                  </div>
+                </BillSlipContainer>
+
+                <ModalActions>
+                  <Btn v="reset" onClick={closePrintRefundModal}>Close</Btn>
+                  <Btn c="purple" onClick={handlePrintRefund}>🖨️ Print Refund Slip</Btn>
                 </ModalActions>
               </ModalBody>
             </ModalBox>
