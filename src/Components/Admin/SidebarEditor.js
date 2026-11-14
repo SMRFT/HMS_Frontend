@@ -5,7 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { fetchSidebarMapping, updateSidebarMapping, fetchOutlets } from '../../Auth/apiRequest';
 import { PAGE_PERMISSIONS } from '../../Auth/FrontendPageMapping';
-import { FiSave, FiPlus, FiTrash2, FiMove, FiSettings, FiAlertTriangle, FiPlusCircle, FiKey, FiSearch } from 'react-icons/fi';
+import { FiSave, FiPlus, FiTrash2, FiMove, FiSettings, FiAlertTriangle, FiPlusCircle, FiKey, FiSearch, FiCheck, FiChevronDown } from 'react-icons/fi';
 
 // ─── Global Style ──────────────────────────────────────────────
 const GlobalStyle = createGlobalStyle`
@@ -593,6 +593,172 @@ const PermissionKeyValueEditor = ({ value, onChange, duplicatePermsSet = new Set
     );
 };
 
+// ─── Multi-Outlet Selector Component ─────────────────────────────
+const MultiOutletPicker = ({ outlets = [], selectedCodes = [], onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    const isGlobal = !selectedCodes || selectedCodes.length === 0 || selectedCodes.includes('GLOBAL');
+
+    const toggleGlobal = () => {
+        onChange([]);
+    };
+
+    const toggleOutlet = (code) => {
+        const current = selectedCodes.filter(c => c && c !== 'GLOBAL');
+        if (current.includes(code)) {
+            const next = current.filter(c => c !== code);
+            onChange(next);
+        } else {
+            onChange([...current, code]);
+        }
+    };
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', minWidth: '130px' }}>
+            <div 
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '4px',
+                    padding: '3px 6px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    cursor: 'pointer',
+                    fontSize: '0.72rem',
+                    minHeight: '28px'
+                }}
+            >
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
+                    {isGlobal ? (
+                        <span style={{ background: '#f1f5f9', color: '#475569', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
+                            Global (All)
+                        </span>
+                    ) : (
+                        selectedCodes.map(c => {
+                            const found = outlets.find(o => o.outlet_code === c);
+                            return (
+                                <span key={c} style={{ background: '#ccfbf1', color: '#0f766e', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, fontSize: '0.68rem' }}>
+                                    {found ? (found.outlet_name || c) : c}
+                                </span>
+                            );
+                        })
+                    )}
+                </div>
+                <FiChevronDown size={12} color="#64748b" style={{ flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </div>
+
+            {isOpen && (
+                <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    zIndex: 9999,
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                    width: '230px',
+                    padding: '6px',
+                    maxHeight: '260px',
+                    overflowY: 'auto'
+                }}>
+                    <div 
+                        onClick={toggleGlobal}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            background: isGlobal ? '#f0fdfa' : 'transparent',
+                            fontWeight: isGlobal ? 600 : 400,
+                            color: isGlobal ? '#0d9488' : '#1e293b',
+                            fontSize: '0.75rem',
+                            borderBottom: '1px solid #f1f5f9'
+                        }}
+                    >
+                        <div style={{
+                            width: '14px',
+                            height: '14px',
+                            borderRadius: '3px',
+                            border: `1.5px solid ${isGlobal ? '#0d9488' : '#cbd5e1'}`,
+                            background: isGlobal ? '#0d9488' : '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff'
+                        }}>
+                            {isGlobal && <FiCheck size={10} />}
+                        </div>
+                        <span>Global (All Outlets)</span>
+                    </div>
+
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', padding: '6px 8px 2px', fontWeight: 700 }}>
+                        Specific Outlets
+                    </div>
+
+                    {outlets.map(o => {
+                        const checked = !isGlobal && selectedCodes.includes(o.outlet_code);
+                        return (
+                            <div
+                                key={o.outlet_code}
+                                onClick={() => toggleOutlet(o.outlet_code)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '5px 8px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    background: checked ? '#f0fdfa' : 'transparent',
+                                    fontWeight: checked ? 600 : 400,
+                                    color: checked ? '#0d9488' : '#334155',
+                                    fontSize: '0.75rem'
+                                }}
+                            >
+                                <div style={{
+                                    width: '14px',
+                                    height: '14px',
+                                    borderRadius: '3px',
+                                    border: `1.5px solid ${checked ? '#0d9488' : '#cbd5e1'}`,
+                                    background: checked ? '#0d9488' : '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#ffffff'
+                                }}>
+                                    {checked && <FiCheck size={10} />}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span>{o.outlet_name}</span>
+                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{o.outlet_code}</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ─── Component ─────────────────────────────────────────────────
 const SidebarEditor = () => {
     const [mapping, setMapping] = useState([]);
@@ -628,9 +794,19 @@ const SidebarEditor = () => {
             
             if (selectedOutlet !== 'ALL') {
                 if (selectedOutlet === 'GLOBAL') {
-                    pages = pages.filter(p => !p.outlet_code || p.outlet_code === '');
+                    pages = pages.filter(p => {
+                        const codes = Array.isArray(p.outlet_codes) && p.outlet_codes.length > 0 
+                            ? p.outlet_codes 
+                            : (p.outlet_code ? [p.outlet_code] : []);
+                        return codes.length === 0 || codes.includes('GLOBAL');
+                    });
                 } else {
-                    pages = pages.filter(p => p.outlet_code === selectedOutlet);
+                    pages = pages.filter(p => {
+                        const codes = Array.isArray(p.outlet_codes) && p.outlet_codes.length > 0 
+                            ? p.outlet_codes 
+                            : (p.outlet_code ? [p.outlet_code] : []);
+                        return codes.includes(selectedOutlet);
+                    });
                 }
             }
             
@@ -765,6 +941,19 @@ const SidebarEditor = () => {
         }
     };
 
+    const handlePageOutletsChange = (gId, pId, newOutletCodes) => {
+        const m = [...mapping];
+        const gi = m.findIndex(g => g.id === gId);
+        if (gi > -1) {
+            const pi = m[gi].pages.findIndex(p => p.id === pId);
+            if (pi > -1) {
+                m[gi].pages[pi].outlet_codes = newOutletCodes;
+                m[gi].pages[pi].outlet_code = newOutletCodes.length > 0 ? newOutletCodes[0] : '';
+                setMapping(m);
+            }
+        }
+    };
+
     const getNextGroupId = () => {
         let maxId = 0;
         mapping.forEach(g => {
@@ -803,13 +992,15 @@ const SidebarEditor = () => {
         const gi = m.findIndex(g => g.id === gId);
         if (gi > -1) {
             const page_id = getNextPageId();
+            const initialOutlets = (selectedOutlet === 'ALL' || selectedOutlet === 'GLOBAL') ? [] : [selectedOutlet];
             m[gi].pages.push({
                 id: `pg_${page_id}`,
                 page_id: page_id,
                 name: 'New Page',
                 route: '/NewRoute',
                 icon: 'FiActivity',
-                outlet_code: (selectedOutlet === 'ALL' || selectedOutlet === 'GLOBAL') ? '' : selectedOutlet,
+                outlet_codes: initialOutlets,
+                outlet_code: initialOutlets[0] || '',
                 permissions: []
             });
             setMapping(m);
@@ -974,8 +1165,8 @@ const SidebarEditor = () => {
                                                                     <th style={{ width: '14%' }}>Page Name</th>
                                                                     <th style={{ width: '14%' }}>Route</th>
                                                                     <th style={{ width: '10%' }}>Icon</th>
-                                                                    <th style={{ width: '12%' }}>Outlet</th>
-                                                                    <th style={{ width: '32%' }}>Permissions</th>
+                                                                    <th style={{ width: '15%' }}>Outlets</th>
+                                                                    <th style={{ width: '29%' }}>Permissions</th>
                                                                     <th style={{ width: '4%' }}></th>
                                                                 </tr>
                                                             </thead>
@@ -1019,17 +1210,11 @@ const SidebarEditor = () => {
                                                                                             />
                                                                                         </td>
                                                                                         <td>
-                                                                                            <Input 
-                                                                                                as="select" 
-                                                                                                value={page.outlet_code || ''}
-                                                                                                onChange={e => handlePageChange(group.id, page.id, 'outlet_code', e.target.value)}
-                                                                                                style={{ fontSize: '0.75rem', padding: '4px' }}
-                                                                                            >
-                                                                                                <option value="">Global</option>
-                                                                                                {outlets.map(o => (
-                                                                                                    <option key={o.outlet_code} value={o.outlet_code}>{o.outlet_name}</option>
-                                                                                                ))}
-                                                                                            </Input>
+                                                                                            <MultiOutletPicker
+                                                                                                outlets={outlets}
+                                                                                                selectedCodes={Array.isArray(page.outlet_codes) && page.outlet_codes.length > 0 ? page.outlet_codes : (page.outlet_code ? [page.outlet_code] : [])}
+                                                                                                onChange={codes => handlePageOutletsChange(group.id, page.id, codes)}
+                                                                                            />
                                                                                         </td>
                                                                                         <td>
                                                                                             <PermissionKeyValueEditor
