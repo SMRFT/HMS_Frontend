@@ -181,6 +181,12 @@ function isPublicRoute() {
             "hms_pages",
             JSON.stringify(userPayload["hms_pages"] || []),
           );
+          if (userPayload["page_outlets"]) {
+            localStorage.setItem(
+              "page_outlets",
+              JSON.stringify(userPayload["page_outlets"] || {}),
+            );
+          }
           localStorage.setItem("role", userRole);
           localStorage.setItem(
             "allowedActions",

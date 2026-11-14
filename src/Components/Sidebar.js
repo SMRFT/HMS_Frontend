@@ -589,12 +589,30 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
                 return false;
               }
 
-              // Check if the page is bound to a specific outlet
-              if (page.outlet_code && page.outlet_code.trim() !== "") {
-                // If it is bound, only show if it matches the current active outlet
-                if (page.outlet_code !== currentOutlet) {
+              // Check if the page is bound to specific outlet(s) (supports multi-outlet list and legacy string)
+              const rawPageOutlets = Array.isArray(page.outlet_codes) && page.outlet_codes.length > 0
+                ? page.outlet_codes
+                : (page.outlet_code && page.outlet_code.trim() !== "" ? [page.outlet_code.trim()] : []);
+              const assignedOutlets = rawPageOutlets.filter((c) => c && c !== "GLOBAL");
+
+              if (assignedOutlets.length > 0) {
+                // If page is bound to specific outlets, only show if current active outlet matches
+                if (currentOutlet && !assignedOutlets.includes(currentOutlet)) {
                   return false;
                 }
+              }
+
+              // Check user-specific per-page outlet permissions if configured
+              try {
+                const storedPageOutlets = JSON.parse(localStorage.getItem("page_outlets") || "{}");
+                const userAllowedForPage = storedPageOutlets[String(page.page_id)] || storedPageOutlets[page.page_id];
+                if (Array.isArray(userAllowedForPage) && userAllowedForPage.length > 0) {
+                  if (!userAllowedForPage.includes("GLOBAL") && currentOutlet && !userAllowedForPage.includes(currentOutlet)) {
+                    return false;
+                  }
+                }
+              } catch (e) {
+                // Fallback gracefully
               }
 
               return true;

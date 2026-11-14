@@ -32,6 +32,36 @@ export const hasPagePermission = (route, allowedActions, dynamicPermissions = {}
     // 1. Super Admin bypass
     if (permissions.includes("HMS-R-SA")) return true;
 
+    // Check outlet access restriction if configured
+    const currentOutlet = localStorage.getItem("selected_outlet");
+    if (dynamicPermissions && dynamicPermissions[route] && currentOutlet) {
+        const pageEntry = dynamicPermissions[route];
+        if (typeof pageEntry === 'object' && !Array.isArray(pageEntry)) {
+            const rawCodes = Array.isArray(pageEntry.outlet_codes) && pageEntry.outlet_codes.length > 0
+                ? pageEntry.outlet_codes
+                : (pageEntry.outlet_code ? [pageEntry.outlet_code] : []);
+            const pageOutlets = rawCodes.filter(c => c && c !== "GLOBAL");
+            if (pageOutlets.length > 0 && !pageOutlets.includes(currentOutlet)) {
+                return false;
+            }
+
+            try {
+                const storedPageOutlets = JSON.parse(localStorage.getItem("page_outlets") || "{}");
+                const pageId = pageEntry.page_id;
+                if (pageId != null) {
+                    const userAllowed = storedPageOutlets[String(pageId)] || storedPageOutlets[pageId];
+                    if (Array.isArray(userAllowed) && userAllowed.length > 0 && !userAllowed.includes("GLOBAL")) {
+                        if (!userAllowed.includes(currentOutlet)) {
+                            return false;
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore parsing errors
+            }
+        }
+    }
+
     // 2. Check hms_pages from localStorage (Page ID based access)
     try {
         const storedHmsPages = JSON.parse(localStorage.getItem("hms_pages") || "[]");
