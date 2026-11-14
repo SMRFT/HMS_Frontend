@@ -296,30 +296,35 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   const [inputTo,   setInputTo]   = useState(today());
   const [inputQ,    setInputQ]    = useState("");
   const [selectedCustomerType, setSelectedCustomerType] = useState("ALL");
-  const [selectedInsuranceType, setSelectedInsuranceType] = useState("ALL");
+  const [customerTypes, setCustomerTypes] = useState([]);
 
-  // Options for filters derived from data
+  // Fetch customer types from backend (same as Admission)
+  useEffect(() => {
+    const fetchCustomerTypes = async () => {
+      try {
+        const res = await apiRequest(`${BASE}customer-types/`, "GET");
+        const list = res?.data || res || [];
+        if (Array.isArray(list)) {
+          setCustomerTypes(list.filter(t => t.is_active !== false));
+        }
+      } catch (err) {
+        console.error("fetchCustomerTypes error:", err);
+      }
+    };
+    fetchCustomerTypes();
+  }, []);
+
+  // Options for customer type filter (same as Admission)
   const customerTypeOptions = useMemo(() => {
-    const set = new Set(["GENERAL", "INSURANCE", "CORPORATE"]);
-    bills.forEach(b => {
-      const ct = b.customer_type || b.patient_details?.customer_type;
-      if (ct && typeof ct === "string" && ct.trim()) {
-        set.add(ct.trim().toUpperCase());
-      }
-    });
-    return Array.from(set);
-  }, [bills]);
-
-  const insuranceTypeOptions = useMemo(() => {
-    const set = new Set();
-    bills.forEach(b => {
-      const comp = b.company_name || b.patient_details?.company_name || b.patient_details?.insurance_name;
-      if (comp && typeof comp === "string" && comp.trim()) {
-        set.add(comp.trim());
-      }
-    });
-    return Array.from(set).sort();
-  }, [bills]);
+    const base = ["GENERAL", "INSURANCE"];
+    const extra = customerTypes
+      .filter(ct => {
+        const u = (ct.type_name || "").trim().toUpperCase();
+        return u !== "GENERAL" && u !== "INSURANCE";
+      })
+      .map(ct => (ct.type_name || "").trim().toUpperCase());
+    return [...base, ...extra];
+  }, [customerTypes]);
 
   // Pagination
   const [page,    setPage]    = useState(1);
@@ -362,8 +367,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     fromDate = inputFrom, 
     toDate = inputTo, 
     searchQuery = inputQ,
-    custType = selectedCustomerType,
-    insType = selectedInsuranceType
+    custType = selectedCustomerType
   ) => {
     setListBusy(true);
     setListErr("");
@@ -373,7 +377,6 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
       if (toDate) params.append("to_date", toDate);
       if (searchQuery && searchQuery.trim()) params.append("search", searchQuery.trim());
       if (custType && custType !== "ALL") params.append("customer_type", custType);
-      if (insType && insType !== "ALL") params.append("insurance_type", insType);
 
       const res = await apiRequest(`${BASE}discharge-billing/?${params.toString()}`, "GET");
       let list = [];
@@ -394,7 +397,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     } finally {
       setListBusy(false);
     }
-  }, [inputFrom, inputTo, inputQ, selectedCustomerType, selectedInsuranceType]);
+  }, [inputFrom, inputTo, inputQ, selectedCustomerType]);
 
   const handleOpenPrint = async (b, defaultViewMode = "NORMAL") => {
     let updatedBill = { ...b };
@@ -423,7 +426,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
 
 
   useEffect(() => { 
-    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType, selectedInsuranceType); 
+    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType); 
   }, [onRefreshTrigger]);
 
   useEffect(() => {
@@ -433,19 +436,13 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   }, [autoPrintBill]);
 
   const handleSearch = () => {
-    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType, selectedInsuranceType);
+    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType);
   };
 
   const handleCustomerTypeChange = (e) => {
     const val = e.target.value;
     setSelectedCustomerType(val);
-    fetchBills(inputFrom, inputTo, inputQ, val, selectedInsuranceType);
-  };
-
-  const handleInsuranceTypeChange = (e) => {
-    const val = e.target.value;
-    setSelectedInsuranceType(val);
-    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType, val);
+    fetchBills(inputFrom, inputTo, inputQ, val);
   };
 
   const handleReset = () => {
@@ -453,8 +450,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     setInputTo(today());
     setInputQ("");
     setSelectedCustomerType("ALL");
-    setSelectedInsuranceType("ALL");
-    fetchBills(today(), today(), "", "ALL", "ALL");
+    fetchBills(today(), today(), "", "ALL");
   };
 
   const handleKeyDown = (e) => {
@@ -518,23 +514,18 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     return bills.filter(b => {
       if (selectedCustomerType !== "ALL") {
         const ct = (b.customer_type || b.patient_details?.customer_type || "").toUpperCase();
-        if (selectedCustomerType === "INSURANCE") {
+        if (selectedCustomerType === "GENERAL") {
+          if (b.is_insurance_bill || (ct && !ct.includes("GENERAL"))) return false;
+        } else if (selectedCustomerType === "INSURANCE") {
           if (!b.is_insurance_bill && !ct.includes("INSURANCE")) return false;
         } else {
-          if (!ct.includes(selectedCustomerType.toUpperCase())) return false;
-        }
-      }
-      if (selectedInsuranceType !== "ALL") {
-        if (selectedInsuranceType === "NON_INSURANCE") {
-          if (b.is_insurance_bill) return false;
-        } else {
-          const comp = (b.company_name || b.patient_details?.company_name || b.patient_details?.insurance_name || "").toUpperCase();
-          if (!comp.includes(selectedInsuranceType.toUpperCase())) return false;
+          const comp = (b.company_name || b.patient_details?.company || b.patient_details?.company_name || "").toUpperCase();
+          if (!ct.includes(selectedCustomerType.toUpperCase()) && !comp.includes(selectedCustomerType.toUpperCase())) return false;
         }
       }
       return true;
     });
-  }, [bills, selectedCustomerType, selectedInsuranceType]);
+  }, [bills, selectedCustomerType]);
 
   // ── Summary totals ─────────────────────────────────────────────────────────
   const summary = filtered.reduce((acc, b) => {
@@ -678,29 +669,24 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             onKeyDown={handleKeyDown}
           />
         </FG>
-        <FG $w="140px">
+        <FG $w="160px">
           <FL>Customer Type</FL>
           <FSelect
             value={selectedCustomerType}
             onChange={handleCustomerTypeChange}
           >
-            <option value="ALL">All Types</option>
-            {customerTypeOptions.map(ct => (
-              <option key={ct} value={ct}>{ct}</option>
-            ))}
-          </FSelect>
-        </FG>
-        <FG $w="160px">
-          <FL>Insurance Type</FL>
-          <FSelect
-            value={selectedInsuranceType}
-            onChange={handleInsuranceTypeChange}
-          >
-            <option value="ALL">All Insurance</option>
-            <option value="NON_INSURANCE">Non-Insurance</option>
-            {insuranceTypeOptions.map(it => (
-              <option key={it} value={it}>{it}</option>
-            ))}
+            <option value="ALL">ALL</option>
+            <option value="GENERAL">GENERAL</option>
+            <option value="INSURANCE">INSURANCE</option>
+            {customerTypes
+              .filter(ct => {
+                const u = (ct.type_name || "").trim().toUpperCase();
+                return u !== "GENERAL" && u !== "INSURANCE";
+              })
+              .map((ct, idx) => {
+                const name = (ct.type_name || "").trim().toUpperCase();
+                return <option key={ct.id || idx} value={name}>{name}</option>;
+              })}
           </FSelect>
         </FG>
         <FG $flex="1" style={{ minWidth: 180 }}>
@@ -719,7 +705,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
           <Btn $ghost onClick={handleReset}>
             ↺ Reset
           </Btn>
-          <Btn $outline onClick={() => fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType, selectedInsuranceType)} disabled={listBusy}>
+          <Btn $outline onClick={() => fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType)} disabled={listBusy}>
             {listBusy ? <Spinner /> : "↻"} Refresh
           </Btn>
         </div>
@@ -778,12 +764,12 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
         <LTable>
           <thead>
             <tr>
-              <StickyLTH $left="0px" style={{ width: 46, minWidth: 46, maxWidth: 46 }}>#</StickyLTH>
-              <StickyLTH $left="46px" style={{ width: 96, minWidth: 96 }}>Bill Date</StickyLTH>
-              <StickyLTH $left="142px" style={{ width: 88, minWidth: 88 }}>Bill Time</StickyLTH>
-              <StickyLTH $left="230px" style={{ width: 140, minWidth: 140 }}>Bill No.</StickyLTH>
-              <StickyLTH $left="370px" style={{ width: 150, minWidth: 150 }}>UHID / IP</StickyLTH>
-              <StickyLTH $left="520px" $shadow style={{ width: 160, minWidth: 160 }}>Patient</StickyLTH>
+              <StickyLTH $left="0px" style={{ width: 44, minWidth: 44, maxWidth: 44 }}>#</StickyLTH>
+              <StickyLTH $left="44px" style={{ width: 90, minWidth: 90, maxWidth: 90 }}>Bill Date</StickyLTH>
+              <StickyLTH $left="134px" style={{ width: 82, minWidth: 82, maxWidth: 82 }}>Bill Time</StickyLTH>
+              <StickyLTH $left="216px" style={{ width: 145, minWidth: 145, maxWidth: 145 }}>Bill No.</StickyLTH>
+              <StickyLTH $left="361px" style={{ width: 125, minWidth: 125, maxWidth: 125 }}>UHID / IP</StickyLTH>
+              <StickyLTH $left="486px" $shadow style={{ width: 160, minWidth: 160, maxWidth: 160 }}>Patient</StickyLTH>
               <LTH>Total</LTH>
               <LTH>Advance</LTH>
               <LTH>Discount</LTH>
@@ -821,19 +807,19 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
               const stickyBg = isCanc ? "#fff5f5" : "#ffffff";
               return (
                 <LTR key={b.id} $cancelled={isCanc}>
-                  <StickyLTD $left="0px" $bg={stickyBg} style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.74rem", width: 46, minWidth: 46, maxWidth: 46 }}>
+                  <StickyLTD $left="0px" $bg={stickyBg} style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.74rem", width: 44, minWidth: 44, maxWidth: 44 }}>
                     {pageStart + i + 1}
                   </StickyLTD>
                   {/* Bill Date */}
-                  <StickyLTD $left="46px" $bg={stickyBg} style={{ fontSize: "0.77rem", fontWeight: 600, width: 96, minWidth: 96 }}>
+                  <StickyLTD $left="44px" $bg={stickyBg} style={{ fontSize: "0.77rem", fontWeight: 600, width: 90, minWidth: 90, maxWidth: 90 }}>
                     {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-GB") : "—"}
                   </StickyLTD>
                   {/* Bill Time */}
-                  <StickyLTD $left="142px" $bg={stickyBg} style={{ fontSize: "0.75rem", color: T.textMid, width: 88, minWidth: 88 }}>
+                  <StickyLTD $left="134px" $bg={stickyBg} style={{ fontSize: "0.75rem", color: T.textMid, width: 82, minWidth: 82, maxWidth: 82 }}>
                     {b.bill_date ? new Date(b.bill_date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—"}
                   </StickyLTD>
                   {/* Bill No. */}
-                  <StickyLTD $left="230px" $bg={stickyBg} style={{ width: 140, minWidth: 140 }}>
+                  <StickyLTD $left="216px" $bg={stickyBg} style={{ width: 145, minWidth: 145, maxWidth: 145 }}>
                     {b.is_insurance_bill ? (
                       <div>
                         <Mono style={{ color: "#065f46", fontWeight: 700, fontSize: "0.82rem" }}>
@@ -851,7 +837,11 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                           padding: "1px 5px",
                           borderRadius: 3,
                           fontWeight: 700,
-                          marginTop: 2
+                          marginTop: 2,
+                          maxWidth: "135px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
                         }} title={`Insurance: ${b.company_name || ""} | Claim: ${b.claim_number || ""}`}>
                           🛡️ {b.company_name || "INS"}
                         </span>
@@ -863,12 +853,17 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                     )}
                   </StickyLTD>
                   {/* UHID / IP */}
-                  <StickyLTD $left="370px" $bg={stickyBg} style={{ fontSize: "0.77rem", width: 150, minWidth: 150 }}>
-                    {b.uhid || "—"} / {b.ip_number || "—"}
+                  <StickyLTD $left="361px" $bg={stickyBg} style={{ width: 125, minWidth: 125, maxWidth: 125 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px", lineHeight: 1.25 }}>
+                      <span style={{ fontWeight: 600, color: "#0d9488", fontSize: "0.77rem" }}>{b.uhid || "—"}</span>
+                      <span style={{ fontWeight: 600, color: "#6d28d9", fontSize: "0.73rem" }}>{b.ip_number || "—"}</span>
+                    </div>
                   </StickyLTD>
                   {/* Patient */}
-                  <StickyLTD $left="520px" $shadow $bg={stickyBg} style={{ fontWeight: 600, width: 160, minWidth: 160 }}>
-                    {pd.patient_name || "—"}
+                  <StickyLTD $left="486px" $shadow $bg={stickyBg} style={{ fontWeight: 600, width: 160, minWidth: 160, maxWidth: 160 }}>
+                    <div style={{ maxWidth: 145, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pd.patient_name || ""}>
+                      {pd.patient_name || "—"}
+                    </div>
                   </StickyLTD>
                   {/* Total */}
                   <LTD>₹{fmt(b.total_amount)}</LTD>
