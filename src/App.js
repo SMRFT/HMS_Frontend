@@ -124,6 +124,7 @@ import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresGRNGeneralReport from "./Components/Stores_report/StoresGRNGeneralReport";
 import StoresIntentReturnReport from "./Components/Stores_report/StoresIntentReturnReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
+import CathLabIndent from "./Components/Stores/CathLabIndent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
 import StoresIntentHODApproval from "./Components/Stores/StoresIntentHODApproval";
 import Generalstorevendor from "./Components/Stores/Generalstorevendor";
@@ -219,6 +220,14 @@ import InsuranceReportsDashboard from "./Components/Reports/InsuranceReportsDash
 import InsuranceBillsDueList from "./Components/Insurance_report/InsuranceBillsDueList";
 import InsuranceBillsStatus from "./Components/Insurance_report/InsuranceBillsStatus";
 import InsuranceBillsStatusReport from "./Components/Insurance_report/InsuranceBillsStatusReport";
+import PatientWisePharmacyIpBillReport from "./Components/Insurance_report/PatientWisePharmacyIpBillReport";
+import LabAbstractReportDetailed from "./Components/Insurance_report/LabAbstractReportDetailed";
+import OccupancyListCompanyWiseReport from "./Components/Insurance_report/OccupancyListCompanyWiseReport";
+import InsuranceBillsStatusReportPage from "./Components/Insurance_report/InsuranceBillsStatusReportPage";
+import InsuranceBillsStatusBranchDuesReport from "./Components/Insurance_report/InsuranceBillsStatusBranchDuesReport";
+import CompanywiseRegistrationReport from "./Components/Insurance_report/CompanywiseRegistrationReport";
+import InsuranceDischargeBillAllReport from "./Components/Insurance_report/InsuranceDischargeBillAllReport";
+import PrescriptionDetailsReport from "./Components/Insurance_report/PrescriptionDetailsReport";
 import {
   DrugPurchaseReturnReport,
   DrugPurchaseAnalysisReport,
@@ -255,6 +264,7 @@ import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
 import InsuranceCreditReport from "./Components/Reports/InsuranceCreditReport";
 import SalesReturnReport from "./Components/Reports/SalesReturnReport";
+import AdmissionVsDischargeReport from "./Components/Accounts/AdmissionVsDischargeReport";
 import IPPatientAnalysis from "./Components/INPatientcare/IPPatientAnalysis";
 
 import Complaints from "./Components/ComplaintsTickets/complaints";
@@ -298,6 +308,14 @@ const ContentWrapper = styled.div`
   @media (max-width: 768px) {
     margin-left: 0;
     padding: 15px;
+  }
+  @media print {
+    margin: 0 !important;
+    padding: 0 !important;
+    margin-left: 0 !important;
+    padding-top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 `;
 
@@ -527,11 +545,12 @@ function App() {
       "/PharmacyBillAnalysis": "Pharmacy Bill Analysis",
       "/pharmacybillanalysis": "Pharmacy Bill Analysis",
       "/SalesReturnReport": "Sales Return Report",
+      "/AdmissionVsDischargeReport": "Admission vs Discharge Report",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
       "/StoresGRNGeneralReport": "Stores GRN General Report",
-      "/StoresIntentReturnReport": "Stores Intent & Return Report",
+      "/StoresIntentReturnReport": "Stores Intent Approval Report",
       "/StoresPurchaseOrderReport": "Purchase Order Report",
       "/StoresPurchaseReturnReport": "Purchase Return & Debit Notes Report",
       "/StoresRackClassificationReport": "Barcode Entry & Rack Classification Report",
@@ -565,6 +584,14 @@ function App() {
       "/InsuranceBillsDueListReport": "Insurance Bills Due List",
       "/InsuranceBillsStatus": "Insurance Bills Status",
       "/InsuranceBillsStatusReport": "Insurance Bills Status Report",
+      "/PatientWisePharmacyIpBillReport": "Patient Wise Pharmacy IP Bill Detailed",
+      "/LabAbstractReportDetailed": "Lab Abstract Report Detailed",
+      "/OccupancyListCompanyWiseReport": "Current Occupancy List (Company Wise)",
+      "/InsuranceBillsStatusReportPage": "Insurance Bills Status Report",
+      "/InsuranceBillsStatusBranchDuesReport": "Insurance Bills Status (Branch Wise) Dues",
+      "/CompanywiseRegistrationReport": "Company Wise Patient Registration",
+      "/InsuranceDischargeBillAllReport": "Insurance Discharge Bill (All)",
+      "/PrescriptionDetailsReport": "Prescription Details Report",
       "/StoresSupplierGrnReport": "Supplier-Based Stores GRN Report",
       "/StoresDepartmentIndentReport": "Department-Based Stores Indent Report",
       "/StoresPurchaseOrderFormat": "Stores Purchase Order Format",
@@ -1747,6 +1774,10 @@ function App() {
                 path="/StoresIntentHODApproval"
                 element={<StoresIntentHODApproval />}
               />
+              <Route
+                path="/CathLabIndent"
+                element={<CathLabIndent />}
+              />
               {hasPagePermission("/Generalstorevendor", allowedActions) && (
                 <Route
                   path="/Generalstorevendor"
@@ -1786,6 +1817,14 @@ function App() {
               <Route path="/InsuranceBillsDueListReport" element={<InsuranceBillsDueList />} />
               <Route path="/InsuranceBillsStatus" element={<InsuranceBillsStatus />} />
               <Route path="/InsuranceBillsStatusReport" element={<InsuranceBillsStatusReport />} />
+              <Route path="/PatientWisePharmacyIpBillReport" element={<PatientWisePharmacyIpBillReport />} />
+              <Route path="/LabAbstractReportDetailed" element={<LabAbstractReportDetailed />} />
+              <Route path="/OccupancyListCompanyWiseReport" element={<OccupancyListCompanyWiseReport />} />
+              <Route path="/InsuranceBillsStatusReportPage" element={<InsuranceBillsStatusReportPage />} />
+              <Route path="/InsuranceBillsStatusBranchDuesReport" element={<InsuranceBillsStatusBranchDuesReport />} />
+              <Route path="/CompanywiseRegistrationReport" element={<CompanywiseRegistrationReport />} />
+              <Route path="/InsuranceDischargeBillAllReport" element={<InsuranceDischargeBillAllReport />} />
+              <Route path="/PrescriptionDetailsReport" element={<PrescriptionDetailsReport />} />
               <Route path="/StoresGRNGeneralReport" element={<StoresGRNGeneralReport />} />
               <Route path="/StoresIntentReturnReport" element={<StoresIntentReturnReport />} />
               <Route path="/StoresPurchaseOrderReport" element={<StoresPurchaseOrderReport />} />
@@ -2193,6 +2232,8 @@ function App() {
                     element={<RoomOccupencyReport />}
                   />
                 )}
+              <Route path="/RoomOccupencyReport" element={<RoomOccupencyReport />} />
+              <Route path="/roomoccupencyreport" element={<RoomOccupencyReport />} />
               {hasPagePermission(
                 "/PreDayRoomOccupancyReport",
                 allowedActions,
@@ -2203,6 +2244,8 @@ function App() {
                     element={<PreDayRoomOccupancyReport />}
                   />
                 )}
+              <Route path="/PreDayRoomOccupancyReport" element={<PreDayRoomOccupancyReport />} />
+              <Route path="/predayroomoccupancyreport" element={<PreDayRoomOccupancyReport />} />
               {hasPagePermission(
                 "/InsuranceCreditReport",
                 allowedActions,
@@ -2213,6 +2256,8 @@ function App() {
                     element={<InsuranceCreditReport />}
                   />
                 )}
+              <Route path="/InsuranceCreditReport" element={<InsuranceCreditReport />} />
+              <Route path="/insurancecreditreport" element={<InsuranceCreditReport />} />
 
               {/* Dedicated IP Patient Analysis */}
               <Route path="/IPPatientAnalysis" element={<IPPatientAnalysis />} />
@@ -2229,6 +2274,20 @@ function App() {
                     element={<SalesReturnReport />}
                   />
                 )}
+              <Route path="/salesreturnreport" element={<SalesReturnReport />} />
+
+              {hasPagePermission(
+                "/AdmissionVsDischargeReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/AdmissionVsDischargeReport"
+                    element={<AdmissionVsDischargeReport />}
+                  />
+                )}
+              <Route path="/AdmissionVsDischargeReport" element={<AdmissionVsDischargeReport />} />
+              <Route path="/admissionvsdischargereport" element={<AdmissionVsDischargeReport />} />
 
               {hasPagePermission(
                 "/DialysisDischargeSummary",

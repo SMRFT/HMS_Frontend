@@ -1010,10 +1010,39 @@ const GroupToggleBar = styled.div`
 `;
 
 
+// ─── Format Date & Time in IST ───────────────────────────────────────────────
+const formatDateTime = (raw) => {
+  if (!raw || raw === "—" || raw === "N/A") return "—";
+  const s = String(raw).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) return s;
+  try {
+    const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) {
+      const datePart = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
+      const timePart = d.toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+      return `${datePart} ${timePart}`;
+    }
+  } catch (e) {}
+  return s;
+};
+
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function PharmacyBillAnalysis() {
   // Default to today in IST
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayStr = useMemo(() => {
+    try {
+      return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    } catch (e) {
+      return new Date().toISOString().slice(0, 10);
+    }
+  }, []);
 
   // Filter states
   const [fromDate, setFromDate] = useState(todayStr);
@@ -1275,7 +1304,14 @@ export default function PharmacyBillAnalysis() {
     const rows = selectedItemForDetail.patients.map((p) => [
       `"${(p.patient_name || "").replace(/"/g, '""')}"`,
       `"${p.uhid || ""}"`,
-      `"${p.inpatient_number || ""}"`,
+      `"${
+        p.inpatient_number &&
+        p.inpatient_number !== "—" &&
+        !String(p.inpatient_number).trim().toUpperCase().startsWith("OP") &&
+        String(p.inpatient_number).trim().toLowerCase() !== "none"
+          ? p.inpatient_number
+          : ""
+      }"`,
       `"${p.mobile_number || ""}"`,
       `"${p.bill_number || ""}"`,
       `"${p.bill_date || ""}"`,
@@ -1337,8 +1373,15 @@ export default function PharmacyBillAnalysis() {
       }
       const entry = map.get(key);
       entry.total_qty += Number(p.purchased_quantity || 0);
-      if (p.inpatient_number && p.inpatient_number !== "—") {
-        entry.ip_numbers.add(p.inpatient_number);
+      const validIp =
+        p.inpatient_number &&
+        p.inpatient_number !== "—" &&
+        !String(p.inpatient_number).trim().toUpperCase().startsWith("OP") &&
+        String(p.inpatient_number).trim().toLowerCase() !== "none"
+          ? String(p.inpatient_number).trim()
+          : null;
+      if (validIp) {
+        entry.ip_numbers.add(validIp);
       }
       if (p.bill_number && p.bill_number !== "—") {
         entry.bills.add(p.bill_number);
@@ -1348,7 +1391,7 @@ export default function PharmacyBillAnalysis() {
     return Array.from(map.values()).map((entry) => ({
       ...entry,
       total_qty: Math.round(entry.total_qty * 100) / 100,
-      ip_display: Array.from(entry.ip_numbers).join(", ") || "OP / —",
+      ip_display: Array.from(entry.ip_numbers).filter(Boolean).join(", ") || "",
       bills_display: Array.from(entry.bills),
       bills_count: entry.bills.size,
     }));
@@ -1836,7 +1879,7 @@ export default function PharmacyBillAnalysis() {
                     <td>
                       <StatusBadge status={b.status}>{b.status}</StatusBadge>
                     </td>
-                    <td>{b.date_time}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{formatDateTime(b.date_time)}</td>
                     <td>
                       <strong>{b.bill_type}</strong>
                     </td>
@@ -2402,7 +2445,7 @@ export default function PharmacyBillAnalysis() {
                     </div>
                     <div className="field-item">
                       <div className="label">Date & Time</div>
-                      <div className="value">{selectedBill.date_time}</div>
+                      <div className="value">{formatDateTime(selectedBill.date_time)}</div>
                     </div>
                     <div className="field-item">
                       <div className="label">Bill Type</div>
@@ -2759,7 +2802,7 @@ export default function PharmacyBillAnalysis() {
                             <td>{cc.bill_number}</td>
                             <td>{cc.counter_code}</td>
                             <td>{cc.shift_no || "—"}</td>
-                            <td>{cc.created_date ? String(cc.created_date).slice(0, 19).replace("T", " ") : "—"}</td>
+                            <td>{formatDateTime(cc.created_date)}</td>
                             <td style={{ textAlign: "right", fontWeight: 700, color: "#059669" }}>
                               ₹ {(cc.collected_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                             </td>
@@ -2934,13 +2977,14 @@ export default function PharmacyBillAnalysis() {
                             </span>
                           </td>
                           <td>
-                            {p.inpatient_number && p.inpatient_number !== "—" ? (
+                            {p.inpatient_number &&
+                            p.inpatient_number !== "—" &&
+                            !String(p.inpatient_number).trim().toUpperCase().startsWith("OP") &&
+                            String(p.inpatient_number).trim().toLowerCase() !== "none" ? (
                               <PillBadge $bg="#fef3c7" $color="#b45309">
                                 {p.inpatient_number}
                               </PillBadge>
-                            ) : (
-                              <span style={{ color: "#94a3b8", fontSize: 12 }}>OP / —</span>
-                            )}
+                            ) : null}
                           </td>
                           <td>
                             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -2963,7 +3007,7 @@ export default function PharmacyBillAnalysis() {
                             </span>
                           </td>
                           <td style={{ whiteSpace: "nowrap", color: "#475569" }}>
-                            {p.bill_date || "—"}
+                            {formatDateTime(p.bill_date)}
                           </td>
                           <td
                             style={{
@@ -3017,9 +3061,11 @@ export default function PharmacyBillAnalysis() {
                             </div>
                           </td>
                           <td>
-                            <span style={{ color: "#475569", fontSize: 12 }}>
-                              {g.ip_display}
-                            </span>
+                            {g.ip_display ? (
+                              <PillBadge $bg="#fef3c7" $color="#b45309">
+                                {g.ip_display}
+                              </PillBadge>
+                            ) : null}
                           </td>
                           <td style={{ textAlign: "center" }}>
                             <PillBadge $bg="#f1f5f9" $color="#334155">

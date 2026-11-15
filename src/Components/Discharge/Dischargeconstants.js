@@ -33,7 +33,7 @@ export const BLOOD_TESTS = [
 // ── Helpers ──────────────────────────────────
 
 /** Returns today as a yyyy-mm-dd string (local time) */
-export const TODAY = new Date().toISOString().split("T")[0];
+export const TODAY = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 /** Build the default blood-investigations array from BLOOD_TESTS */
 export const buildDefaultBloodInvestigations = () =>

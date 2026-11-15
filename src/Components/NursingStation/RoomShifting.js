@@ -1140,13 +1140,14 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
       loadAdmission({ uhid });
     }
   };
+  const getTodayIST = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const [filters, setFilters] = useState({
-    fromDate: new Date().toISOString().split("T")[0],
-    toDate:   new Date().toISOString().split("T")[0],
+    fromDate: getTodayIST(),
+    toDate:   getTodayIST(),
     uhid: "", ipNumber: "",
   });
 
-  const todayDisplay  = new Date().toLocaleDateString("en-GB");
+  const todayDisplay  = new Date().toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
   const alreadyShifted = form.has_shifted === true;
 
   const fetchShiftings = async (customFilters = null) => {
@@ -1166,8 +1167,8 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
 
   const handleResetFilters = () => {
     const defaultFilters = {
-      fromDate: new Date().toISOString().split("T")[0],
-      toDate:   new Date().toISOString().split("T")[0],
+      fromDate: getTodayIST(),
+      toDate:   getTodayIST(),
       uhid: "", ipNumber: "",
     };
     setFilters(defaultFilters);
@@ -1591,7 +1592,7 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                     shiftings.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage).map((s, idx) => {
                       const shiftId = s.shifting_id || s._id;
                       const shiftDateStr = s.shiftingDateTime
-                        ? new Date(s.shiftingDateTime).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })
+                        ? new Date(s.shiftingDateTime).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone: "Asia/Kolkata" })
                         : "-";
                       const duration = formatDuration(s.startDateTime, s.endDateTime || null);
                       const isActive = s.is_roomActive;

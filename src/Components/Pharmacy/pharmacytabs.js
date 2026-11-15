@@ -371,8 +371,11 @@ const OPPharmacyTabs = () => {
                                (item.name && !String(item.name).startsWith("Item #") ? item.name : null) ||
                                item.item_name || item.medicine_name || item.name || "",
           batch_number:        item.batch_number    || "",
-          qty:                 item.qty             ?? item.quantity ?? 0,
-          quantity:            item.qty             ?? item.quantity ?? 0,
+          qty:                 item.pending_qty ?? item.qty ?? item.quantity ?? 0,
+          quantity:            item.pending_qty ?? item.qty ?? item.quantity ?? 0,
+          requested_qty:       item.requested_qty ?? item.qty ?? (item.pending_qty ?? item.quantity ?? 0),
+          dispatched_qty:      item.dispatched_qty ?? 0,
+          pending_qty:         item.pending_qty ?? item.qty ?? item.quantity ?? 0,
           dosage:              item.dosage          || "",
           noOfDays:            item.noOfDays        || item.no_of_days || "",
           dose:                item.dose            || "",
@@ -521,6 +524,7 @@ const OPPharmacyTabs = () => {
             onSwitchToPharmacy={handleSwitchToPharmacy}
             activeTab={activeTab}
             refreshTrigger={viewBillsRefreshKey}
+            selectedOutlet={selectedOutlet}
           />
         </TabPanel>
       )}

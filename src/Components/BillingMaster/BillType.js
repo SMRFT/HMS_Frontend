@@ -238,6 +238,17 @@ const BillType = () => {
   const [originalInvCat, setOriginalInvCat] = useState("");
   const [viewRec, setViewRec] = useState(null);
 
+  const filteredRecords = useMemo(() => {
+    const q = (filters.search || "").trim().toLowerCase();
+    if (!q) return records;
+    return records.filter((r) => {
+      const name = (r.bill_name || "").toLowerCase();
+      const code = (r.billTypeNo || "").toLowerCase();
+      const id = String(r.bill_type || "");
+      return name.includes(q) || code.includes(q) || id.includes(q);
+    });
+  }, [records, filters.search]);
+
   // ── Ward Request Matrix Modal States ──
   const [showWardMatrixModal, setShowWardMatrixModal] = useState(false);
   const [wardMatrixList, setWardMatrixList] = useState([]);
@@ -330,7 +341,8 @@ const BillType = () => {
 
   const fetchRecords = async () => {
     setLoading(true);
-    const q = filters.search ? `?search=${filters.search}` : "";
+    const searchVal = (filters.search || "").trim();
+    const q = searchVal ? `?search=${encodeURIComponent(searchVal)}` : "";
     const result = await apiRequest(`${HMSURL}bill-types_get/${q}`, "GET");
     if (result.success) setRecords(result.data?.records || []);
     setLoading(false);
@@ -564,7 +576,7 @@ const BillType = () => {
     ].join(",");
 
     const lines = [];
-    records.forEach((rec) => {
+    filteredRecords.forEach((rec) => {
       const outletName =
         outlets.find((o) => o.outlet_code === rec.outlet_code)?.outlet_name ||
         rec.outlet_code ||
@@ -604,12 +616,12 @@ const BillType = () => {
 
   /* ─── Print ──────────────────────────────────────────────────────── */
   const handlePrint = () => {
-    if (!records || records.length === 0) {
+    if (!filteredRecords || filteredRecords.length === 0) {
       alert("No data to print.");
       return;
     }
 
-    const blocksHtml = records
+    const blocksHtml = filteredRecords
       .map((rec) => {
         const outletName =
           outlets.find((o) => o.outlet_code === rec.outlet_code)?.outlet_name ||
@@ -762,7 +774,7 @@ const BillType = () => {
                     Loading...
                   </Td>
                 </Tr>
-              ) : records.length === 0 ? (
+              ) : filteredRecords.length === 0 ? (
                 <Tr>
                   <Td
                     colSpan={7}
@@ -772,7 +784,7 @@ const BillType = () => {
                   </Td>
                 </Tr>
               ) : (
-                records.map((rec) => (
+                filteredRecords.map((rec) => (
                   <Tr key={rec.bill_type}>
                     <Td>
                       <strong>{rec.billTypeNo}</strong>

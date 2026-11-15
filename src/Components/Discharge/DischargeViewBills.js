@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import styled, { keyframes } from "styled-components";
 import DischargeBillPrintModal from "./DischargeBillPrintModal";
@@ -57,27 +57,85 @@ const CardTitle = styled.span`
   letter-spacing: 0.5px; color: ${T.primary}; display: flex; align-items: center; gap: 6px;
 `;
 
-const TScrollWrap = styled.div`
-  overflow-x: auto; width: 100%;
-  &::-webkit-scrollbar { height: 6px; }
-  &::-webkit-scrollbar-track { background: #f1f5f9; }
-  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-  &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+const TopScrollContainer = styled.div`
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 12px;
+  background: #f8fafc;
+  border-top: 1px solid ${T.border};
+  border-bottom: 1px solid ${T.border};
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
 `;
-const LTable = styled.table`width: 100%; border-collapse: collapse; font-size: 0.8rem;`;
+
+const TScrollWrap = styled.div`
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+`;
+const LTable = styled.table`
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8rem;
+`;
 const LTH = styled.th`
   padding: 9px 12px; text-align: left; font-size: 0.65rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.4px; color: ${T.textMuted};
   border-bottom: 2px solid ${T.border}; background: #f8fafc; white-space: nowrap;
 `;
+const StickyLTH = styled(LTH)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 10;
+  background: #f8fafc;
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid ${T.border};`}
+`;
 const LTR = styled.tr`
   border-bottom: 1px solid ${T.border};
-  background: ${p => p.$cancelled ? "#fff5f5" : "inherit"};
+  background: ${p => p.$cancelled ? "#fff5f5" : "#ffffff"};
   opacity: ${p => p.$cancelled ? 0.75 : 1};
   &:hover { background: ${p => p.$cancelled ? "#ffebeb" : "#f8fbff"}; }
+  &:hover > td { background: ${p => p.$cancelled ? "#ffebeb" : "#f8fbff"} !important; }
   &:last-child { border-bottom: none; }
 `;
-const LTD = styled.td`padding: 9px 12px; color: ${T.textMain}; vertical-align: middle; white-space: nowrap;`;
+const LTD = styled.td`
+  padding: 9px 12px;
+  color: ${T.textMain};
+  vertical-align: middle;
+  white-space: nowrap;
+  border-bottom: 1px solid ${T.border};
+  background: #ffffff;
+`;
+const StickyLTD = styled(LTD)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 5;
+  background: ${p => p.$bg || "#ffffff"};
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid ${T.border};`}
+`;
 const Mono = styled.span`font-family: 'Courier New', monospace; font-size: 0.78rem;`;
 
 const DateBar = styled.div`
@@ -100,6 +158,12 @@ const FInput = styled.input`
   &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
   &[type=date] { cursor: pointer; }
   &::placeholder { color: ${T.textMuted}; }
+`;
+const FSelect = styled.select`
+  height: 32px; padding: 0 8px; font-size: 0.82rem;
+  border: 1px solid ${T.border}; border-radius: 6px; outline: none;
+  background: #fff; color: ${T.textMain}; cursor: pointer; transition: border 0.12s;
+  &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
 `;
 const Btn = styled.button`
   height: ${p => p.$sm ? "28px" : "34px"};
@@ -215,7 +279,7 @@ const DI   = styled.button`
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 const fmt  = v => (parseFloat(v) || 0).toFixed(2);
 const fmtCurrency = v => `₹${Number(parseFloat(v) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -231,6 +295,36 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   const [inputFrom, setInputFrom] = useState(today());
   const [inputTo,   setInputTo]   = useState(today());
   const [inputQ,    setInputQ]    = useState("");
+  const [selectedCustomerType, setSelectedCustomerType] = useState("ALL");
+  const [customerTypes, setCustomerTypes] = useState([]);
+
+  // Fetch customer types from backend (same as Admission)
+  useEffect(() => {
+    const fetchCustomerTypes = async () => {
+      try {
+        const res = await apiRequest(`${BASE}customer-types/`, "GET");
+        const list = res?.data || res || [];
+        if (Array.isArray(list)) {
+          setCustomerTypes(list.filter(t => t.is_active !== false));
+        }
+      } catch (err) {
+        console.error("fetchCustomerTypes error:", err);
+      }
+    };
+    fetchCustomerTypes();
+  }, []);
+
+  // Options for customer type filter (same as Admission)
+  const customerTypeOptions = useMemo(() => {
+    const base = ["GENERAL", "INSURANCE"];
+    const extra = customerTypes
+      .filter(ct => {
+        const u = (ct.type_name || "").trim().toUpperCase();
+        return u !== "GENERAL" && u !== "INSURANCE";
+      })
+      .map(ct => (ct.type_name || "").trim().toUpperCase());
+    return [...base, ...extra];
+  }, [customerTypes]);
 
   // Pagination
   const [page,    setPage]    = useState(1);
@@ -242,6 +336,20 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelBusy, setCancelBusy] = useState(false);
   const [auditBill,  setAuditBill]  = useState(null);
+  const [doctors,    setDoctors]    = useState([]);
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const res = await apiRequest(`${BASE}doctor_list_diagnostics/`, "GET");
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        setDoctors(list);
+      } catch (err) {
+        console.error("fetchDoctors error:", err);
+      }
+    };
+    fetchDoctors();
+  }, []);
 
   // Toast notification state
   const [toast, setToast] = useState(null);
@@ -250,51 +358,17 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     setTimeout(() => setToast(null), 3800);
   };
 
-  // Insurance Conversion
-  const handleDirectConvertToInsurance = async (b) => {
-    setOpenMenu(null);
-    const pd = b.patient_details || {};
-    const payload = {
-      claim_number: b.claim_number || pd.claim_number || pd.referral_number || "",
-      id_card_number: b.id_card_number || pd.id_card_number || pd.card_no || "",
-      insurance_bill_number: b.insurance_bill_number || "",
-      company_name: b.company_name || pd.company || pd.company_code || pd.insurance_company || "",
-    };
-
-    try {
-      const res = await apiRequest(
-        `${BASE}discharge-billing/${b.id}/convert-to-insurance/`,
-        "POST",
-        payload
-      );
-      if (res && res.success) {
-        showToast("✓ Bill converted to Insurance Bill successfully!");
-        const updated = res.data?.data || res.data || res;
-        const finalBill = {
-          ...b,
-          ...updated,
-          is_insurance_bill: true,
-          claim_number: updated.claim_number || payload.claim_number,
-          id_card_number: updated.id_card_number || payload.id_card_number,
-          insurance_bill_number: updated.insurance_bill_number || b.insurance_bill_number,
-          company_name: updated.company_name || payload.company_name,
-        };
-        setBills(prev => prev.map(x => x.id === b.id ? finalBill : x));
-        handleOpenPrint(finalBill);
-      } else {
-        showToast(res?.error || "Conversion failed", true);
-      }
-    } catch {
-      showToast("Network error during insurance conversion", true);
-    }
-  };
-
   // 3-dots Menu State
   const [openMenu, setOpenMenu] = useState(null);
   const [menuPos, setMenuPos]   = useState({ top: 0, bottom: 0, left: 0, placement: "bottom", maxHeight: 280 });
   const menuRef = useRef(null);
 
-  const fetchBills = useCallback(async (fromDate = inputFrom, toDate = inputTo, searchQuery = inputQ) => {
+  const fetchBills = useCallback(async (
+    fromDate = inputFrom, 
+    toDate = inputTo, 
+    searchQuery = inputQ,
+    custType = selectedCustomerType
+  ) => {
     setListBusy(true);
     setListErr("");
     try {
@@ -302,6 +376,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
       if (fromDate) params.append("from_date", fromDate);
       if (toDate) params.append("to_date", toDate);
       if (searchQuery && searchQuery.trim()) params.append("search", searchQuery.trim());
+      if (custType && custType !== "ALL") params.append("customer_type", custType);
 
       const res = await apiRequest(`${BASE}discharge-billing/?${params.toString()}`, "GET");
       let list = [];
@@ -322,7 +397,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     } finally {
       setListBusy(false);
     }
-  }, [inputFrom, inputTo, inputQ]);
+  }, [inputFrom, inputTo, inputQ, selectedCustomerType]);
 
   const handleOpenPrint = async (b, defaultViewMode = "NORMAL") => {
     let updatedBill = { ...b };
@@ -338,6 +413,10 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             ...res.patient,
           };
         }
+        const meds = res?.pharmacy_medicines || res?.patient?.pharmacy_medicines;
+        if (Array.isArray(meds) && meds.length > 0) {
+          updatedBill.pharmacy_medicines = meds;
+        }
       } catch (err) {
         console.error("Print patient details fetch error:", err);
       }
@@ -347,7 +426,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
 
 
   useEffect(() => { 
-    fetchBills(inputFrom, inputTo, inputQ); 
+    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType); 
   }, [onRefreshTrigger]);
 
   useEffect(() => {
@@ -357,14 +436,21 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   }, [autoPrintBill]);
 
   const handleSearch = () => {
-    fetchBills(inputFrom, inputTo, inputQ);
+    fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType);
+  };
+
+  const handleCustomerTypeChange = (e) => {
+    const val = e.target.value;
+    setSelectedCustomerType(val);
+    fetchBills(inputFrom, inputTo, inputQ, val);
   };
 
   const handleReset = () => {
     setInputFrom(today());
     setInputTo(today());
     setInputQ("");
-    fetchBills(today(), today(), "");
+    setSelectedCustomerType("ALL");
+    fetchBills(today(), today(), "", "ALL");
   };
 
   const handleKeyDown = (e) => {
@@ -424,7 +510,22 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
   }, [openMenu]);
 
   // ── Filtering (Safety local client-side filter) ──────────────────────────────
-  const filtered = bills;
+  const filtered = useMemo(() => {
+    return bills.filter(b => {
+      if (selectedCustomerType !== "ALL") {
+        const ct = (b.customer_type || b.patient_details?.customer_type || "").toUpperCase();
+        if (selectedCustomerType === "GENERAL") {
+          if (b.is_insurance_bill || (ct && !ct.includes("GENERAL"))) return false;
+        } else if (selectedCustomerType === "INSURANCE") {
+          if (!b.is_insurance_bill && !ct.includes("INSURANCE")) return false;
+        } else {
+          const comp = (b.company_name || b.patient_details?.company || b.patient_details?.company_name || "").toUpperCase();
+          if (!ct.includes(selectedCustomerType.toUpperCase()) && !comp.includes(selectedCustomerType.toUpperCase())) return false;
+        }
+      }
+      return true;
+    });
+  }, [bills, selectedCustomerType]);
 
   // ── Summary totals ─────────────────────────────────────────────────────────
   const summary = filtered.reduce((acc, b) => {
@@ -479,6 +580,58 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     }
   };
 
+  // ── Synchronized Top Horizontal Scrollbar ──────────────────────────────────
+  const topScrollRef = useRef(null);
+  const tableScrollRef = useRef(null);
+  const isSyncingTop = useRef(false);
+  const isSyncingTable = useRef(false);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const [hasHorizontalScroll, setHasHorizontalScroll] = useState(false);
+
+  const handleTopScroll = () => {
+    if (isSyncingTable.current) {
+      isSyncingTable.current = false;
+      return;
+    }
+    if (topScrollRef.current && tableScrollRef.current) {
+      isSyncingTop.current = true;
+      tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleTableScroll = () => {
+    if (isSyncingTop.current) {
+      isSyncingTop.current = false;
+      return;
+    }
+    if (topScrollRef.current && tableScrollRef.current) {
+      isSyncingTable.current = true;
+      topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
+    }
+  };
+
+  const updateScrollWidth = useCallback(() => {
+    if (tableScrollRef.current) {
+      const sw = tableScrollRef.current.scrollWidth;
+      const cw = tableScrollRef.current.clientWidth;
+      setTableScrollWidth(sw);
+      setHasHorizontalScroll(sw > cw);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateScrollWidth();
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => updateScrollWidth());
+    ro.observe(el);
+    window.addEventListener("resize", updateScrollWidth);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateScrollWidth);
+    };
+  }, [updateScrollWidth, filtered, paginated]);
+
 
   return (
     <Card>
@@ -498,7 +651,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
 
       {/* Filter bar */}
       <DateBar>
-        <FG $w="135px">
+        <FG $w="130px">
           <FL>From</FL>
           <FInput 
             type="date" 
@@ -507,7 +660,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             onKeyDown={handleKeyDown}
           />
         </FG>
-        <FG $w="135px">
+        <FG $w="130px">
           <FL>To</FL>
           <FInput 
             type="date" 
@@ -516,7 +669,27 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             onKeyDown={handleKeyDown}
           />
         </FG>
-        <FG $flex="1" style={{ minWidth: 210 }}>
+        <FG $w="160px">
+          <FL>Customer Type</FL>
+          <FSelect
+            value={selectedCustomerType}
+            onChange={handleCustomerTypeChange}
+          >
+            <option value="ALL">ALL</option>
+            <option value="GENERAL">GENERAL</option>
+            <option value="INSURANCE">INSURANCE</option>
+            {customerTypes
+              .filter(ct => {
+                const u = (ct.type_name || "").trim().toUpperCase();
+                return u !== "GENERAL" && u !== "INSURANCE";
+              })
+              .map((ct, idx) => {
+                const name = (ct.type_name || "").trim().toUpperCase();
+                return <option key={ct.id || idx} value={name}>{name}</option>;
+              })}
+          </FSelect>
+        </FG>
+        <FG $flex="1" style={{ minWidth: 180 }}>
           <FL>Search</FL>
           <FInput
             value={inputQ}
@@ -532,7 +705,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
           <Btn $ghost onClick={handleReset}>
             ↺ Reset
           </Btn>
-          <Btn $outline onClick={() => fetchBills(inputFrom, inputTo, inputQ)} disabled={listBusy}>
+          <Btn $outline onClick={() => fetchBills(inputFrom, inputTo, inputQ, selectedCustomerType)} disabled={listBusy}>
             {listBusy ? <Spinner /> : "↻"} Refresh
           </Btn>
         </div>
@@ -575,22 +748,33 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
         </SummaryRow>
       )}
 
+      {/* Top Horizontal Scrollbar */}
+      {hasHorizontalScroll && (
+        <TopScrollContainer
+          ref={topScrollRef}
+          onScroll={handleTopScroll}
+          title="Scroll table horizontally"
+        >
+          <div style={{ width: `${tableScrollWidth}px`, height: "1px" }} />
+        </TopScrollContainer>
+      )}
+
       {/* Table */}
-      <TScrollWrap>
+      <TScrollWrap ref={tableScrollRef} onScroll={handleTableScroll}>
         <LTable>
           <thead>
             <tr>
-              <LTH style={{ width: 42 }}>#</LTH>
-              <LTH>Bill No.</LTH>
-              <LTH>Estimate No.</LTH>
-              <LTH>UHID / IP</LTH>
-              <LTH>Patient</LTH>
+              <StickyLTH $left="0px" style={{ width: 44, minWidth: 44, maxWidth: 44 }}>#</StickyLTH>
+              <StickyLTH $left="44px" style={{ width: 90, minWidth: 90, maxWidth: 90 }}>Bill Date</StickyLTH>
+              <StickyLTH $left="134px" style={{ width: 82, minWidth: 82, maxWidth: 82 }}>Bill Time</StickyLTH>
+              <StickyLTH $left="216px" style={{ width: 145, minWidth: 145, maxWidth: 145 }}>Bill No.</StickyLTH>
+              <StickyLTH $left="361px" style={{ width: 125, minWidth: 125, maxWidth: 125 }}>UHID / IP</StickyLTH>
+              <StickyLTH $left="486px" $shadow style={{ width: 160, minWidth: 160, maxWidth: 160 }}>Patient</StickyLTH>
               <LTH>Total</LTH>
               <LTH>Advance</LTH>
               <LTH>Discount</LTH>
               <LTH>GST</LTH>
               <LTH>Net Amount</LTH>
-              <LTH>Bill Date</LTH>
               <LTH>Status</LTH>
               <LTH style={{ textAlign: "center", width: 60 }}>Action</LTH>
             </tr>
@@ -620,19 +804,29 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             ) : paginated.map((b, i) => {
               const pd = b.patient_details || {};
               const isCanc = b.is_cancelled || b.status === "Cancelled";
+              const stickyBg = isCanc ? "#fff5f5" : "#ffffff";
               return (
                 <LTR key={b.id} $cancelled={isCanc}>
-                  <LTD style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.74rem" }}>
+                  <StickyLTD $left="0px" $bg={stickyBg} style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.74rem", width: 44, minWidth: 44, maxWidth: 44 }}>
                     {pageStart + i + 1}
-                  </LTD>
-                  <LTD>
+                  </StickyLTD>
+                  {/* Bill Date */}
+                  <StickyLTD $left="44px" $bg={stickyBg} style={{ fontSize: "0.77rem", fontWeight: 600, width: 90, minWidth: 90, maxWidth: 90 }}>
+                    {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" }) : "—"}
+                  </StickyLTD>
+                  {/* Bill Time */}
+                  <StickyLTD $left="134px" $bg={stickyBg} style={{ fontSize: "0.75rem", color: T.textMid, width: 82, minWidth: 82, maxWidth: 82 }}>
+                    {b.bill_date ? new Date(b.bill_date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }) : "—"}
+                  </StickyLTD>
+                  {/* Bill No. */}
+                  <StickyLTD $left="216px" $bg={stickyBg} style={{ width: 145, minWidth: 145, maxWidth: 145 }}>
                     {b.is_insurance_bill ? (
                       <div>
                         <Mono style={{ color: "#065f46", fontWeight: 700, fontSize: "0.82rem" }}>
-                          {b.insurance_bill_number || b.bill_no}
+                          {(b.insurance_bill_number || b.bill_no || "").replace(/\//g, "")}
                         </Mono>
                         <div style={{ fontSize: "0.68rem", color: T.textMuted }}>
-                          SH-Bill: {b.bill_no}
+                          SH-Bill: {(b.bill_no || "").replace(/\//g, "")}
                         </div>
                         <span style={{
                           display: "inline-block",
@@ -643,41 +837,53 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                           padding: "1px 5px",
                           borderRadius: 3,
                           fontWeight: 700,
-                          marginTop: 2
+                          marginTop: 2,
+                          maxWidth: "135px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
                         }} title={`Insurance: ${b.company_name || ""} | Claim: ${b.claim_number || ""}`}>
                           🛡️ {b.company_name || "INS"}
                         </span>
                       </div>
                     ) : (
                       <Mono style={{ color: isCanc ? T.textMuted : T.primary, fontWeight: 700 }}>
-                        {b.bill_no}
+                        {(b.bill_no || "").replace(/\//g, "")}
                       </Mono>
                     )}
-                  </LTD>
-                  <LTD>
-                    <Mono style={{ fontSize: "0.73rem", color: T.textMuted }}>
-                      {b.estimate_number || "—"}
-                    </Mono>
-                  </LTD>
-                  <LTD style={{ fontSize: "0.77rem" }}>
-                    {b.uhid || "—"} / {b.ip_number || "—"}
-                  </LTD>
-                  <LTD style={{ fontWeight: 600 }}>{pd.patient_name || "—"}</LTD>
+                  </StickyLTD>
+                  {/* UHID / IP */}
+                  <StickyLTD $left="361px" $bg={stickyBg} style={{ width: 125, minWidth: 125, maxWidth: 125 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px", lineHeight: 1.25 }}>
+                      <span style={{ fontWeight: 600, color: "#0d9488", fontSize: "0.77rem" }}>{b.uhid || "—"}</span>
+                      <span style={{ fontWeight: 600, color: "#6d28d9", fontSize: "0.73rem" }}>{b.ip_number || "—"}</span>
+                    </div>
+                  </StickyLTD>
+                  {/* Patient */}
+                  <StickyLTD $left="486px" $shadow $bg={stickyBg} style={{ fontWeight: 600, width: 160, minWidth: 160, maxWidth: 160 }}>
+                    <div style={{ maxWidth: 145, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pd.patient_name || ""}>
+                      {pd.patient_name || "—"}
+                    </div>
+                  </StickyLTD>
+                  {/* Total */}
                   <LTD>₹{fmt(b.total_amount)}</LTD>
+                  {/* Advance */}
                   <LTD style={{ color: T.danger }}>₹{fmt(b.advance_amount)}</LTD>
+                  {/* Discount */}
                   <LTD style={{ color: T.danger }}>₹{fmt(b.discount_amount)}</LTD>
+                  {/* GST */}
                   <LTD style={{ color: T.blue }}>₹{fmt(b.gst_amount)}</LTD>
+                  {/* Net Amount */}
                   <LTD style={{ fontWeight: 700, color: isCanc ? T.textMuted : T.success }}>
                     ₹{fmt(b.net_amount)}
                   </LTD>
-                  <LTD style={{ fontSize: "0.77rem" }}>
-                    {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-IN") : "—"}
-                  </LTD>
+                  {/* Status */}
                   <LTD>
                     <Badge $v={isCanc ? "cancelled" : "billed"}>
                       {isCanc ? "Cancelled" : "Billed"}
                     </Badge>
                   </LTD>
+                  {/* Action */}
                   <LTD style={{ textAlign: "center" }}>
                     <AW>
                       <DotB onClick={e => handleMenuToggle(b.id, e)} title="Actions">⋮</DotB>
@@ -742,11 +948,6 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             {!isCanc && onEditBill && (
               <DI onClick={() => { setOpenMenu(null); onEditBill(b); }}>
                 ✏️ Edit Bill
-              </DI>
-            )}
-            {!isCanc && !b.is_insurance_bill && (
-              <DI onClick={() => handleDirectConvertToInsurance(b)}>
-                🛡️ Convert to Insurance Bill
               </DI>
             )}
             <DI onClick={() => { setOpenMenu(null); handleOpenPrint(b, "NORMAL"); }}>
@@ -863,6 +1064,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
         bill={printBill?.bill || printBill}
         defaultViewMode={printBill?.defaultViewMode || "NORMAL"}
         onClose={() => setPrintBill(null)}
+        doctors={doctors}
       />
 
     </Card>

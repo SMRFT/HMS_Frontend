@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import styled from "styled-components";
+import ReactSelect from "react-select";
 import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
 import PrintModal from "./PrintModal"; // ← fast in-page print modal (shared with InvestigationBilling)
@@ -113,6 +114,93 @@ const StyledDatePicker = styled(DatePicker)`
     }
   }
 `;
+
+const searchableSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: "28px",
+    height: "28px",
+    fontSize: "0.78rem",
+    borderRadius: "6px",
+    borderColor: state.isFocused ? colors.primary : colors.border,
+    boxShadow: state.isFocused ? `0 0 0 2px rgba(13, 148, 136, 0.1)` : "none",
+    "&:hover": {
+      borderColor: colors.primary,
+    },
+    backgroundColor: "#ffffff",
+    cursor: "pointer",
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: "0 6px",
+    height: "28px",
+  }),
+  input: (base) => ({
+    ...base,
+    margin: 0,
+    padding: 0,
+    fontSize: "0.78rem",
+    color: colors.textMain,
+  }),
+  indicatorsContainer: (base) => ({
+    ...base,
+    height: "28px",
+  }),
+  dropdownIndicator: (base) => ({
+    ...base,
+    padding: "2px 4px",
+    svg: {
+      width: "14px",
+      height: "14px",
+    },
+  }),
+  clearIndicator: (base) => ({
+    ...base,
+    padding: "2px 4px",
+    svg: {
+      width: "14px",
+      height: "14px",
+    },
+  }),
+  menu: (base) => ({
+    ...base,
+    fontSize: "0.78rem",
+    zIndex: 99999,
+  }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 99999,
+  }),
+  option: (base, state) => ({
+    ...base,
+    padding: "5px 10px",
+    backgroundColor: state.isSelected
+      ? colors.primary
+      : state.isFocused
+      ? "#f0fdfa"
+      : "transparent",
+    color: state.isSelected ? "#ffffff" : colors.textMain,
+    cursor: "pointer",
+  }),
+  placeholder: (base, state) => ({
+    ...base,
+    margin: 0,
+    fontSize: "0.78rem",
+    color: state.isFocused ? "#cbd5e1" : "#6b7280",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  }),
+  singleValue: (base) => ({
+    ...base,
+    margin: 0,
+    fontSize: "0.78rem",
+    color: colors.textMain,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  }),
+};
 
 // ─── Table extras ─────────────────────────────────────────────────────────────
 
@@ -630,6 +718,23 @@ const BillsReport = () => {
   });
   const [billTypes, setBillTypes] = useState([]);
   const [doctors, setDoctors] = useState([]);
+
+  const billTypeOptions = useMemo(() => {
+    return billTypes.map((b) => ({
+      value: String(b.bill_type),
+      label: b.bill_name,
+    }));
+  }, [billTypes]);
+
+  const doctorOptions = useMemo(() => {
+    return [
+      { value: "SELF", label: "SELF" },
+      ...doctors.map((d) => ({
+        value: String(d.employeeId),
+        label: d.employeeName,
+      })),
+    ];
+  }, [doctors]);
   const [fromDate, setFromDate] = useState(dayjs());
   const [toDate, setToDate] = useState(dayjs());
   const [viewBill, setViewBill] = useState(null);
@@ -967,37 +1072,48 @@ const BillsReport = () => {
 
           <InputWrapper>
             <Label>Bill Type</Label>
-            <Select
-              name="billType"
-              value={filters.billType}
-              onChange={handleFilterChange}
-            >
-              <option value="">Select Bill Type</option>
-              {billTypes.map((b) => (
-                <option key={b.bill_type} value={b.bill_type}>
-                  {b.bill_name}
-                </option>
-              ))}
-            </Select>
+            <ReactSelect
+              isClearable
+              isSearchable
+              placeholder="Select Bill Type"
+              options={billTypeOptions}
+              value={
+                filters.billType
+                  ? billTypeOptions.find((o) => o.value === String(filters.billType)) || null
+                  : null
+              }
+              onChange={(selected) => {
+                setFilters((prev) => ({
+                  ...prev,
+                  billType: selected ? selected.value : "",
+                }));
+              }}
+              styles={searchableSelectStyles}
+              menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+            />
           </InputWrapper>
 
           <InputWrapper>
             <Label>Doctor</Label>
-            <Select
-              name="doctor"
-              value={filters.doctor}
-              onChange={handleFilterChange}
-            >
-              <option value="">Select Doctor</option>
-              <option value="SELF">SELF</option> {/* ← hardcoded */}
-              {doctors.map((d) => (
-                <option key={d.employeeId} value={d.employeeId}>
-                  {" "}
-                  {/* ← value = employeeId */}
-                  {d.employeeName}
-                </option>
-              ))}
-            </Select>
+            <ReactSelect
+              isClearable
+              isSearchable
+              placeholder="Select Doctor"
+              options={doctorOptions}
+              value={
+                filters.doctor
+                  ? doctorOptions.find((o) => o.value === String(filters.doctor)) || null
+                  : null
+              }
+              onChange={(selected) => {
+                setFilters((prev) => ({
+                  ...prev,
+                  doctor: selected ? selected.value : "",
+                }));
+              }}
+              styles={searchableSelectStyles}
+              menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+            />
           </InputWrapper>
 
           <InputWrapper>

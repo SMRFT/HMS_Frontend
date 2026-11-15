@@ -1325,11 +1325,15 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       name: selectedDrug.name || "",
       batch_number: selectedDrug.batch_number || "",
       qty: Number(qty),
+      dispatched_qty: null,
       price: selectedDrug.price,
       noOfDays: noOfDays,
       dosage: dosage,
       dose: dose,
       doseunit: doseUnit,
+      doseUnit: doseUnit,
+      route: route,
+      remark: remark,
     };
 
     setSelectedMedicines([...selectedMedicines, newMed]);
@@ -1396,11 +1400,15 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
           name: it.item_name || `Item ${it.item_id}`,
           batch_number: match ? match.batch_number : "",
           qty: Number(it.qty || 1),
+          dispatched_qty: null,
           price: match ? Number(match.mrp) || 0 : 0,
           noOfDays: "1",
           dosage: "1-0-0",
           dose: "1",
           doseunit: "Nos",
+          doseUnit: "Nos",
+          route: "",
+          remark: "",
         };
       });
 
@@ -1428,7 +1436,9 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     setNoOfDays(med.noOfDays || "");
     setQty(String(med.qty || ""));
     setDose(med.dose || "");
-    setDoseUnit(med.doseunit || "");
+    setDoseUnit(med.doseunit || med.doseUnit || "");
+    setRoute(med.route || "");
+    setRemark(med.remark || "");
     // Remove from list (it will be re-added on handleAddMedicine)
     setSelectedMedicines((prev) => prev.filter((_, i) => i !== idx));
   };
@@ -1445,7 +1455,20 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       billTypeName,
       wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
       roomNo: resolvedPatient.roomBed || "-",
-      medicine_particulars: selectedMedicines,
+      medicine_particulars: selectedMedicines.map((m) => ({
+        item_id: m.item_id,
+        qty: Number(m.qty) || 0,
+        dispatched_qty: m.dispatched_qty !== undefined ? m.dispatched_qty : null,
+        dosage: m.dosage || "",
+        noOfDays: m.noOfDays || "",
+        remark: m.remark || "",
+        dose: m.dose || "",
+        doseunit: m.doseunit || m.doseUnit || "",
+        doseUnit: m.doseUnit || m.doseunit || "",
+        route: m.route || "",
+        batch_number: m.batch_number || "",
+        price: m.price || 0,
+      })),
       total_amount: selectedMedicines.reduce(
         (acc, m) => acc + (m.price || 0) * (m.qty || 0),
         0,
@@ -1585,12 +1608,16 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
         item_id: m.item_id,
         name: m.item_name || m.name || `Item ${m.item_id}`,
         batch_number: m.batch_number || "",
-        qty: m.quantity || 0,
+        qty: m.quantity || m.qty || 0,
+        dispatched_qty: m.dispatched_qty !== undefined ? m.dispatched_qty : null,
         price: m.price || 0,
         noOfDays: m.noOfDays || "",
         dosage: m.dosage || "",
         dose: m.dose || "",
-        doseunit: m.doseunit || "",
+        doseunit: m.doseunit || m.doseUnit || "",
+        doseUnit: m.doseUnit || m.doseunit || "",
+        route: m.route || "",
+        remark: m.remark || "",
       }));
     setSelectedMedicines(mapped);
     setShowForm(true);   // open the form panel to show the loaded medicines
@@ -1626,6 +1653,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
         item_id: m.item_id,
         batch_number: m.batch_number,
         quantity: m.qty,
+        dispatched_qty: m.dispatched_qty !== undefined ? m.dispatched_qty : null,
         dosage: m.dosage,
         is_deleted: false,
       }));
@@ -2251,7 +2279,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                           {req.reqDate} {req.reqTime}
                         </td>
                         <td style={{ fontWeight: 600, color: "#0d8a7a" }}>
-                          {req.bill_no || req.Bill_id || req.reqId || "-"}
+                          {String(req.bill_no || req.Bill_id || req.reqId || "-").replace(/\//g, "")}
                         </td>
                         <td style={{ color: "#334155" }}>
                           {req.doctorName || req.doctor || "-"}
@@ -2419,7 +2447,8 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                     <th>Medicine Name</th>
                                     <th>Dosage</th>
                                     <th style={{ textAlign: "center" }}>Days</th>
-                                    <th style={{ textAlign: "center" }}>Qty</th>
+                                    <th style={{ textAlign: "center" }}>Req Qty</th>
+                                    <th style={{ textAlign: "center" }}>Dispatched Qty</th>
                                     <th>Route</th>
                                     <th>Batch No</th>
                                     <th style={{ textAlign: "center" }}>Item Status</th>
@@ -2429,7 +2458,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                 <tbody>
                                   {activeMeds.length === 0 ? (
                                     <tr>
-                                      <td colSpan={canCancel ? 9 : 8} style={{ textAlign: "center", color: "#94a3b8", padding: "16px" }}>
+                                      <td colSpan={canCancel ? 10 : 9} style={{ textAlign: "center", color: "#94a3b8", padding: "16px" }}>
                                         No medicines found in this request.
                                       </td>
                                     </tr>
@@ -2446,6 +2475,9 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                         <td style={{ textAlign: "center", color: "#475569" }}>{m.noOfDays || "-"}</td>
                                         <td style={{ textAlign: "center", fontWeight: 700, color: "#0d8a7a" }}>
                                           {m.quantity || m.qty || 0}
+                                        </td>
+                                        <td style={{ textAlign: "center", fontWeight: 700, color: m.dispatched_qty != null ? "#0284c7" : "#94a3b8" }}>
+                                          {m.dispatched_qty != null ? m.dispatched_qty : "-"}
                                         </td>
                                         <td style={{ color: "#475569" }}>{m.route || "-"}</td>
                                         <td style={{ color: "#64748b", fontSize: "0.8rem" }}>{m.batch_number || "-"}</td>
@@ -2520,7 +2552,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
 
                                             {ret.return_bill_no && (
                                               <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#15803d", background: "#ffffff", padding: "2px 8px", borderRadius: "4px", border: "1px solid #86efac" }}>
-                                                Return Bill #{ret.return_bill_no}
+                                                Return Bill #{String(ret.return_bill_no || "").replace(/\//g, "")}
                                               </span>
                                             )}
 

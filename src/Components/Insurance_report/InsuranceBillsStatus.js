@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
 import { colors, PageWrapper, fadeIn } from '../GlobalStyles';
+import { printInsuranceReport } from './printInsuranceReport';
 
 const { RangePicker } = DatePicker;
 
@@ -289,17 +290,19 @@ const HospitalHeader = styled.div`
 
 const ReportTable = styled.table`
   width: 100%;
-  border-collapse: collapse;
-  font-size: 0.76rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.78rem;
   color: #0f172a;
+  font-family: inherit;
 
   th {
-    background: #f8fafc;
-    color: #0f172a;
+    background: #f1f5f9;
+    color: #1e293b;
     font-weight: 700;
-    padding: 5px 6px;
-    border-top: 1px solid #0f172a;
-    border-bottom: 1px solid #0f172a;
+    padding: 8px 10px;
+    border-top: 1px solid #cbd5e1;
+    border-bottom: 2px solid #94a3b8;
     text-align: left;
     white-space: nowrap;
 
@@ -308,20 +311,20 @@ const ReportTable = styled.table`
     }
   }
 
-  .company-row {
+  .company-header-row {
     td {
-      font-weight: 800;
-      font-size: 0.84rem;
-      padding: 10px 6px 4px 6px;
-      color: #0f172a;
-      border: none;
+      background: #f8fafc;
+      padding: 10px 12px;
+      border-top: 2px solid #cbd5e1;
+      border-bottom: 1px solid #e2e8f0;
     }
   }
 
   .item-row-1 {
     td {
-      padding: 4px 6px 1px 6px;
-      border-top: 1px dotted #e2e8f0;
+      padding: 8px 10px 3px 10px;
+      background: #ffffff;
+      border-top: 1px solid #f1f5f9;
       white-space: nowrap;
 
       &.text-right {
@@ -331,28 +334,64 @@ const ReportTable = styled.table`
         font-weight: 700;
       }
     }
+
+    &:hover td {
+      background: #f8fafc;
+    }
   }
 
   .item-row-2 {
     td {
-      padding: 1px 6px 6px 6px;
-      color: #475569;
-      font-size: 0.72rem;
-      border-bottom: 1px dotted #e2e8f0;
-      white-space: nowrap;
+      padding: 3px 10px 10px 10px;
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
 
-      &.text-right {
-        text-align: right;
+      .meta-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
       }
+
+      .info-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        padding: 2px 7px;
+        font-size: 0.72rem;
+        color: #334155;
+
+        strong {
+          color: #64748b;
+          font-weight: 600;
+        }
+
+        &.success {
+          background: #ecfdf5;
+          border-color: #a7f3d0;
+          color: #059669;
+          strong {
+            color: #047857;
+          }
+        }
+      }
+    }
+
+    &:hover td {
+      background: #f8fafc;
     }
   }
 
   .grand-total-row {
     td {
       font-weight: 800;
-      font-size: 0.88rem;
-      padding: 8px 6px;
-      border-top: 1.5px solid #0f172a;
+      font-size: 0.9rem;
+      padding: 10px 10px;
+      background: #f1f5f9;
+      border-top: 2px solid #0f172a;
       border-bottom: 2px solid #0f172a;
 
       &.text-right {
@@ -389,11 +428,19 @@ const InsuranceBillsStatus = ({ embedded = false }) => {
             const res = await apiRequest(url, 'GET');
 
             if (res && res.success) {
+                const payload = res.data || {};
+                const list = Array.isArray(payload.data)
+                    ? payload.data
+                    : Array.isArray(payload)
+                    ? payload
+                    : Array.isArray(res.data)
+                    ? res.data
+                    : [];
                 setReportData({
-                    data: res.data || [],
-                    summary: res.summary || {},
-                    companies: res.companies || [],
-                    date_range: res.date_range || {}
+                    data: list,
+                    summary: payload.summary || res.summary || {},
+                    companies: Array.isArray(payload.companies) ? payload.companies : (Array.isArray(res.companies) ? res.companies : []),
+                    date_range: payload.date_range || res.date_range || {}
                 });
             } else {
                 setReportData({ data: [], summary: {}, companies: [], date_range: {} });
@@ -414,8 +461,13 @@ const InsuranceBillsStatus = ({ embedded = false }) => {
     const groupedData = useMemo(() => {
         const groups = {};
         const q = searchQuery.toLowerCase().trim();
+        const rawList = Array.isArray(reportData?.data)
+            ? reportData.data
+            : Array.isArray(reportData?.data?.data)
+            ? reportData.data.data
+            : [];
 
-        const filtered = (reportData.data || []).filter(item => {
+        const filtered = rawList.filter(item => {
             if (!q) return true;
             return (
                 (item.patient_name || '').toLowerCase().includes(q) ||
@@ -446,13 +498,15 @@ const InsuranceBillsStatus = ({ embedded = false }) => {
         let disallowed = 0;
         let due = 0;
 
-        Object.values(groupedData).forEach(rows => {
-            rows.forEach(r => {
-                billAmt += Number(r.bill_amount) || 0;
-                settled += Number(r.settled_amount) || 0;
-                disallowed += Number(r.disallowed_amount) || 0;
-                due += Number(r.due_amount) || 0;
-            });
+        Object.values(groupedData || {}).forEach(rows => {
+            if (Array.isArray(rows)) {
+                rows.forEach(r => {
+                    billAmt += Number(r.bill_amount) || 0;
+                    settled += Number(r.settled_amount) || 0;
+                    disallowed += Number(r.disallowed_amount) || 0;
+                    due += Number(r.due_amount) || 0;
+                });
+            }
         });
 
         return {
@@ -464,7 +518,12 @@ const InsuranceBillsStatus = ({ embedded = false }) => {
     }, [groupedData]);
 
     const handlePrint = () => {
-        window.print();
+        printInsuranceReport(printRef.current, {
+            reportTitle: 'Insurance Bills Status Report',
+            fromDate: fromDateStr,
+            toDate: toDateStr,
+            orientation: 'landscape'
+        });
     };
 
     const handleExportExcel = () => {
@@ -620,13 +679,47 @@ const InsuranceBillsStatus = ({ embedded = false }) => {
                 </KPICard>
             </KPIGrid>
 
+            {/* Global Print Isolation Stylesheet */}
+            <style>{`
+                @media print {
+                    @page {
+                        size: landscape;
+                        margin: 6mm 8mm;
+                    }
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    #printable-insurance-report-area,
+                    #printable-insurance-report-area * {
+                        visibility: visible !important;
+                    }
+                    #printable-insurance-report-area {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        display: block !important;
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                    }
+                    header, nav, aside, .sidebar, [class*="HeaderContainer"], [class*="SidebarContainer"], .no-print, button, input, select {
+                        display: none !important;
+                    }
+                }
+            `}</style>
+
             {/* Document Print Container */}
-            <PrintDocument ref={printRef}>
+            <PrintDocument ref={printRef} id="printable-insurance-report-area">
                 <HospitalHeader>
                     <h2>SHANMUGA HOSPITAL LIMITED</h2>
                     <div className="sub">51/24.Saradha College Road, Salem - 636007,</div>
                     <div className="report-title-line">
                         Insurance Bills Status Report From {fromDateStr} To {toDateStr}.
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '11px', color: '#000', marginTop: '2px', fontWeight: 'bold' }}>
+                        Page : 1.
                     </div>
                 </HospitalHeader>
 
@@ -652,59 +745,82 @@ const InsuranceBillsStatus = ({ embedded = false }) => {
                                     <th className="text-right" style={{ width: '95px' }}>DUE</th>
                                 </tr>
                                 <tr>
-                                    <th colSpan="9" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.72rem', padding: '4px 6px' }}>
-                                        Card Number &nbsp;|&nbsp; Service No &nbsp;|&nbsp; Claim Reference &nbsp;|&nbsp; TDS &nbsp;|&nbsp; Paid By Patient &nbsp;|&nbsp; Settlement Duration &nbsp;|&nbsp; IP Number &nbsp;|&nbsp; Bill ID &nbsp;|&nbsp; Place
+                                    <th colSpan="9" style={{ background: '#f8fafc', color: '#64748b', fontSize: '0.73rem', padding: '6px 10px', fontWeight: 600, borderBottom: '1px solid #cbd5e1' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <FileText size={13} color="#0891b2" />
+                                            <span>Detailed metadata line per patient includes: Card No &bull; Service No &bull; Claim Ref &bull; IP Number &bull; Bill ID &bull; Place &bull; Duration &bull; TDS &bull; Paid by Patient</span>
+                                        </div>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {Object.keys(groupedData).length === 0 ? (
                                     <tr>
-                                        <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                                            No records found for the selected date range and filter criteria.
+                                        <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
+                                            No record found
                                         </td>
                                     </tr>
                                 ) : (
-                                    Object.entries(groupedData).map(([compName, items]) => (
-                                        <React.Fragment key={compName}>
-                                            {/* Company Header */}
-                                            <tr className="company-row">
-                                                <td colSpan="9">
-                                                    Company Name : {compName}
-                                                </td>
-                                            </tr>
+                                    Object.entries(groupedData).map(([compName, items]) => {
+                                        const compBilled = items.reduce((acc, it) => acc + (Number(it.bill_amount) || 0), 0);
+                                        const compSettled = items.reduce((acc, it) => acc + (Number(it.settled_amount) || 0), 0);
+                                        const compDue = items.reduce((acc, it) => acc + (Number(it.due_amount) || 0), 0);
 
-                                            {/* Items: 2 lines per record */}
-                                            {items.map((row, idx) => (
-                                                <React.Fragment key={`${compName}-${idx}`}>
-                                                    <tr className="item-row-1">
-                                                        <td>{row.bill_date || ''}</td>
-                                                        <td className="bold">{row.patient_name || ''}</td>
-                                                        <td className="text-right">{Number(row.bill_amount || 0).toFixed(2)}</td>
-                                                        <td style={{ color: '#0891b2', fontWeight: '600' }}>{row.op_number || '-'}</td>
-                                                        <td>{row.despatch_date || ''}</td>
-                                                        <td>{row.settlement_date || ''}</td>
-                                                        <td className="text-right">{Number(row.settled_amount || 0).toFixed(2)}</td>
-                                                        <td className="text-right">{Number(row.disallowed_amount || 0).toFixed(2)}</td>
-                                                        <td className="text-right bold">{Number(row.due_amount || 0).toFixed(2)}</td>
-                                                    </tr>
-                                                    <tr className="item-row-2">
-                                                        <td colSpan="9">
-                                                            <span><strong>Card:</strong> {row.card_number || '-'}</span> &nbsp;|&nbsp;
-                                                            <span><strong>Service:</strong> {row.service_no || '-'}</span> &nbsp;|&nbsp;
-                                                            <span><strong>Claim:</strong> {row.claim_ref || '-'}</span> &nbsp;|&nbsp;
-                                                            <span><strong>TDS:</strong> {Number(row.tds || 0).toFixed(2)}</span> &nbsp;|&nbsp;
-                                                            <span><strong>Paid:</strong> {Number(row.paid_by_patient || 0).toFixed(2)}</span> &nbsp;|&nbsp;
-                                                            <span><strong>Dur:</strong> {row.settlement_duration || '-'}</span> &nbsp;|&nbsp;
-                                                            <span><strong>IP:</strong> {row.ip_number || '-'}</span> &nbsp;|&nbsp;
-                                                            <span><strong>Bill ID:</strong> {row.bill_id || '-'}</span> &nbsp;|&nbsp;
-                                                            <span><strong>Place:</strong> {row.place || '-'}</span>
-                                                        </td>
-                                                    </tr>
-                                                </React.Fragment>
-                                            ))}
-                                        </React.Fragment>
-                                    ))
+                                        return (
+                                            <React.Fragment key={compName}>
+                                                {/* Formal Ledger Company Header Row */}
+                                                <tr className="company-header-row" style={{ background: '#f8fafc' }}>
+                                                    <td colSpan="9" style={{ fontWeight: 'bold', padding: '6px 8px', borderTop: '1px solid #000', borderBottom: '1px solid #000', fontSize: '11px' }}>
+                                                        Company Name : {compName} PVT
+                                                    </td>
+                                                </tr>
+
+                                                {/* Items: 2 lines per record */}
+                                                {items.map((row, idx) => (
+                                                    <React.Fragment key={`${compName}-${idx}`}>
+                                                        <tr className="item-row-1" style={{ borderBottom: 'none' }}>
+                                                            <td>{row.bill_date || ''}</td>
+                                                            <td className="bold">{row.patient_name || ''}</td>
+                                                            <td className="text-right">₹{Number(row.bill_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                            <td>{row.op_number || '-'}</td>
+                                                            <td>{row.despatch_date || ''}</td>
+                                                            <td>{row.settlement_date || ''}</td>
+                                                            <td className="text-right">₹{Number(row.settled_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                            <td className="text-right">₹{Number(row.disallowed_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                            <td className="text-right bold">
+                                                                ₹{Number(row.due_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </td>
+                                                        </tr>
+                                                        <tr className="item-row-2" style={{ borderBottom: '1px dashed #cbd5e1' }}>
+                                                            <td colSpan="9" style={{ padding: '3px 8px 6px 8px', fontSize: '10px', color: '#334155', background: '#fafafa' }}>
+                                                                {[
+                                                                    row.card_number && `Card: ${row.card_number}`,
+                                                                    row.service_no && `Service No: ${row.service_no}`,
+                                                                    row.claim_ref && `Claim Ref: ${row.claim_ref}`,
+                                                                    row.ip_number && `IP No: ${row.ip_number}`,
+                                                                    row.bill_id && `Bill ID: ${row.bill_id}`,
+                                                                    row.place && `Place: ${row.place}`,
+                                                                    Number(row.tds || 0) > 0 && `TDS: ₹${Number(row.tds).toFixed(2)}`,
+                                                                    Number(row.paid_by_patient || 0) > 0 && `Paid By Pat: ₹${Number(row.paid_by_patient).toFixed(2)}`,
+                                                                    row.settlement_duration && `Dur: ${row.settlement_duration}`
+                                                                ].filter(Boolean).join('   •   ')}
+                                                            </td>
+                                                        </tr>
+                                                    </React.Fragment>
+                                                ))}
+
+                                                {/* Company Subtotal */}
+                                                <tr className="company-subtotal-row" style={{ fontWeight: 'bold', borderTop: '1px dashed #000', borderBottom: '1px dashed #000', background: '#f8fafc' }}>
+                                                    <td colSpan="2">Total ({items.length} {items.length === 1 ? 'record' : 'records'})</td>
+                                                    <td className="text-right">₹{compBilled.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td colSpan="3"></td>
+                                                    <td className="text-right">₹{compSettled.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="text-right">₹{items.reduce((acc, it) => acc + (Number(it.disallowed_amount) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="text-right">₹{compDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                </tr>
+                                            </React.Fragment>
+                                        );
+                                    })
                                 )}
 
                                 {/* Grand Total Row */}

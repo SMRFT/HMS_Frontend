@@ -122,6 +122,62 @@ const IP_CATEGORIES = [
   "SPECIALISED SERVICES / PROCEDURES / SURGERY"
 ];
 
+export const isAccommodationItem = (it, groupTitle = "") => {
+  if (groupTitle && String(groupTitle).toUpperCase().includes("ACCOMMODATION")) {
+    return true;
+  }
+  const text = `${it?.itemName || it?.name || ""} ${it?.category || ""} ${it?.department || ""} ${it?.item_description || ""} ${it?.package_name || ""} ${it?.source || ""} ${it?.invest_bill_no || ""}`.toLowerCase();
+  if (/room|ward|nursing|maintenance|accommodation|bed|icu|ccu|day care|stay|admission fee/i.test(text)) {
+    return true;
+  }
+  if (it?.source === "hospital_room_services" || it?.source === "hospital_room_kits") {
+    return true;
+  }
+  if (it?.invest_bill_no && (String(it.invest_bill_no).startsWith("ROOM-") || String(it.invest_bill_no).startsWith("KIT-"))) {
+    return true;
+  }
+  return false;
+};
+
+export const isDoctorDisplayItem = (it) => {
+  if (!it) return false;
+
+  // 1. Consultation OPD
+  if (it.source === "hospital_billing" || it.bill_type === 5 || it.bill_type === "5") {
+    return true;
+  }
+  const name = String(it.itemName || it.name || "").trim().toLowerCase();
+  const desc = String(it.item_description || "").trim().toLowerCase();
+  const cat = String(it.category || it.item_type || it.service_type || it.department || "").trim().toLowerCase();
+
+  if (/consult/i.test(name) || /consult/i.test(desc) || /consult/i.test(cat)) {
+    return true;
+  }
+
+  // 2. Surgery
+  if (it.source === "hospital_surgeryschedule" || it.bill_type === 3 || it.bill_type === "3") {
+    return true;
+  }
+  if (it.surgeon_id || it.anaesthetist_id) {
+    return true;
+  }
+  if (Array.isArray(it.doctors) && it.doctors.some(d => d && (d.surgeon_id || d.anaesthetist_id))) {
+    return true;
+  }
+  const pkg = String(it.package_name || "").trim().toLowerCase();
+  if (["major", "minor", "super major", "special", "day care surgery"].includes(pkg)) {
+    return true;
+  }
+  if (/surgery|operation|laparotom|perfarat|perforat|appendic|cholecyst|hernia|resection|amputation|mastectomy|craniotomy|arthroplasty|bypass/i.test(name)) {
+    return true;
+  }
+  if (/surgery|operation|ot\b|surgical/i.test(cat) && !/biopsy|lab|invest|pharmacy|diet|laundry|room|rent/i.test(name)) {
+    return true;
+  }
+
+  return false;
+};
+
 const cleanDesc = (it) => {
   let desc = (it.item_description || "").trim();
   const btn = (it.billTypeNo || "").trim();
@@ -174,14 +230,64 @@ const formatGuardian = (pd) => {
   return `${gType} ${s}`.toUpperCase();
 };
 
-const formatDoctor = (pd) => {
+export const resolveDocName = (docRaw, doctorsMap = {}) => {
+  if (!docRaw || docRaw === "—") return "—";
+  let s = String(docRaw).trim();
+  if (!s || s.toLowerCase() === "null" || s.toLowerCase() === "undefined" || s === "—") return "—";
+
+  // Check direct lookup in doctorsMap
+  if (doctorsMap && doctorsMap[s]) {
+    let name = doctorsMap[s].trim();
+    if (!/^dr[.\s]/i.test(name)) name = `DR.${name}`;
+    return name.toUpperCase();
+  }
+
+  // Strip leading DR./DR /Dr. /DR.
+  const cleanId = s.replace(/^dr[.\s]*/i, "").trim();
+  if (cleanId && doctorsMap && doctorsMap[cleanId]) {
+    let name = doctorsMap[cleanId].trim();
+    if (!/^dr[.\s]/i.test(name)) name = `DR.${name}`;
+    return name.toUpperCase();
+  }
+
+  // If cleanId is purely numeric
+  if (/^\d+$/.test(cleanId) && doctorsMap) {
+    const fromNum = doctorsMap[parseInt(cleanId, 10)];
+    if (fromNum) {
+      let name = fromNum.trim();
+      if (!/^dr[.\s]/i.test(name)) name = `DR.${name}`;
+      return name.toUpperCase();
+    }
+  }
+
+  // Case-insensitive lookup in doctorsMap
+  if (doctorsMap && typeof doctorsMap === "object") {
+    const lowerClean = cleanId.toLowerCase();
+    const lowerS = s.toLowerCase();
+    for (const [k, v] of Object.entries(doctorsMap)) {
+      if (k.toLowerCase() === lowerClean || k.toLowerCase() === lowerS) {
+        let name = String(v).trim();
+        if (!/^dr[.\s]/i.test(name)) name = `DR.${name}`;
+        return name.toUpperCase();
+      }
+    }
+  }
+
+  // If cleanId is purely digits (employee ID like 50978), never display "DR.50978"
+  if (/^\d+$/.test(cleanId)) {
+    return "";
+  }
+
+  if (!/^dr[.\s]/i.test(s)) {
+    s = `DR.${s}`;
+  }
+  return s.toUpperCase();
+};
+
+const formatDoctor = (pd, doctorsMap = {}) => {
   let doc = pd.doctor || pd.doctorName || pd.admittingDoctorName || pd.admitting_doctor || "—";
   if (!doc || doc === "—") return "—";
-  doc = String(doc).trim();
-  if (!/^dr[.\s]/i.test(doc)) {
-    doc = `DR.${doc}`;
-  }
-  return doc.toUpperCase();
+  return resolveDocName(doc, doctorsMap);
 };
 
 const formatDepartment = (pd, bill) => {
@@ -268,6 +374,9 @@ const NormalBillSheet = ({
   bill,
   withHeader = true,
   preparedByName = "",
+  doctorsMap = {},
+  viewMode = "NORMAL",
+  loadedMeds = [],
 }) => {
   if (!bill) return null;
 
@@ -291,15 +400,34 @@ const NormalBillSheet = ({
     ""
   ).toUpperCase().trim();
 
+  const medAmt = parseFloat(bill.medicines_amount) || 0;
+  const isBreakdown = viewMode === "BREAKDOWN";
+  const pharmacyMedicines = (Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
+    ? bill.pharmacy_medicines
+    : (Array.isArray(loadedMeds) ? loadedMeds : []);
+
+  const totalMedsSum = pharmacyMedicines.reduce(
+    (sum, m) => sum + (parseFloat(m.amount || m.calculated_price) || 0),
+    0
+  );
+  const effectiveMedAmt = medAmt > 0 ? medAmt : totalMedsSum;
+
   // Build items list
   const displayItems = [];
   rawItems.forEach(it => {
     let name = String(it.itemName || it.name || "SERVICE / PROCEDURE").toUpperCase();
+    // In BREAKDOWN mode: when itemized medicines exist, do not show generic summary row "MEDICINE CHARGES"
+    if (isBreakdown && pharmacyMedicines.length > 0 && (name.startsWith("MEDICINE CHARGES") || name.startsWith("PHARMACY CHARGES") || name === "MEDICINES")) {
+      return;
+    }
     let sub = "";
-    if (it.doctor && String(it.doctor).trim()) {
-      let d = String(it.doctor).trim();
-      if (!/^dr[.\s]/i.test(d)) d = `DR.${d}`;
-      sub = d.toUpperCase();
+    const showDoctor = isDoctorDisplayItem(it);
+    const docField = showDoctor ? (it.doctor || it.doctor_name || "") : "";
+    if (docField && String(docField).trim()) {
+      const resolved = resolveDocName(docField, doctorsMap);
+      if (resolved && resolved !== "—") {
+        sub = resolved;
+      }
     }
     const cleanD = cleanDesc(it);
     if (cleanD) {
@@ -313,14 +441,35 @@ const NormalBillSheet = ({
     });
   });
 
-  const medAmt = parseFloat(bill.medicines_amount) || 0;
-  if (medAmt > 0 && !displayItems.some(i => i.name.includes("MEDICINE") || i.name.includes("PHARMACY"))) {
-    displayItems.push({
-      name: "MEDICINE CHARGES 1",
-      subDesc: "",
-      qty: 1,
-      amount: medAmt,
-    });
+  if (isBreakdown) {
+    if (pharmacyMedicines.length > 0) {
+      pharmacyMedicines.forEach(med => {
+        const medName = String(med.itemName || med.item_name || med.name || "PHARMACY MEDICINE").toUpperCase();
+        displayItems.push({
+          name: medName,
+          subDesc: "",
+          qty: parseFloat(med.quantity || med.qty || 1),
+          amount: parseFloat(med.amount || med.calculated_price || 0),
+        });
+      });
+    } else if (effectiveMedAmt > 0 && !displayItems.some(i => i.name.includes("MEDICINE") || i.name.includes("PHARMACY"))) {
+      displayItems.push({
+        name: "MEDICINE CHARGES 1",
+        subDesc: "",
+        qty: 1,
+        amount: effectiveMedAmt,
+      });
+    }
+  } else {
+    // In STANDARD mode: show consolidated MEDICINE CHARGES 1 row (do not list individual pharmacy items)
+    if (effectiveMedAmt > 0 && !displayItems.some(i => i.name.includes("MEDICINE") || i.name.includes("PHARMACY"))) {
+      displayItems.push({
+        name: "MEDICINE CHARGES 1",
+        subDesc: "",
+        qty: 1,
+        amount: effectiveMedAmt,
+      });
+    }
   }
 
   const impAmt = parseFloat(bill.implant_amount) || 0;
@@ -333,19 +482,27 @@ const NormalBillSheet = ({
     });
   }
 
-  const totalAmt = parseFloat(bill.total_amount) || displayItems.reduce((acc, it) => acc + (it.amount || 0), 0);
+  const itemsSum = displayItems.reduce((acc, it) => acc + (it.amount || 0), 0);
+  const totalAmt = Math.max(parseFloat(bill.total_amount) || 0, itemsSum);
   const advAmt = parseFloat(bill.advance_amount) || 0;
-  const discAmt = parseFloat(bill.discount_amount) || 0;
-  const netAmt = parseFloat(bill.net_amount) || (totalAmt - advAmt - discAmt);
+  const salesReturnAmt = parseFloat(bill.sales_return || bill.salesReturn || bill.ip_return || bill.ipReturn || 0) || 0;
+  const discAmt = parseFloat(bill.discount_amount) ||
+    parseFloat(bill.total_disc) ||
+    parseFloat(bill.discount) ||
+    parseFloat(bill.disc_amount) ||
+    (parseFloat(bill.discount_percent) > 0 ? (totalAmt * parseFloat(bill.discount_percent) / 100) : 0) ||
+    0;
+  // Net Amount is ALWAYS Total minus Advance minus Sales Return minus Discount
+  const netAmt = totalAmt - advAmt - discAmt - salesReturnAmt;
 
   const opNumber = String(bill.uhid || pd.uhid || "—").toUpperCase();
   const patientName = formatPatientName(pd, bill);
   const guardian = formatGuardian(pd);
   const address = pd.address || pd.permanent_address || "—";
-  const doctor = formatDoctor(pd);
+  const doctor = formatDoctor(pd, doctorsMap);
   const department = formatDepartment(pd, bill);
 
-  const billNo = String(bill.bill_no || bill.bill_number || bill.estimate_number || "—").toUpperCase();
+  const billNo = String(bill.bill_no || bill.bill_number || bill.estimate_number || "—").toUpperCase().replace(/\//g, "");
   const ipNumber = String(bill.ip_number || pd.ip_number || pd.ipNumber || "—").toUpperCase();
   const billDate = fmtDateStr(bill.bill_date || bill.created_date || new Date());
   const doa = fmtDateStr(pd.admission_date || pd.admissionDateTime || pd.doa);
@@ -417,7 +574,7 @@ const NormalBillSheet = ({
         letterSpacing: "0.4px",
         textTransform: "uppercase"
       }}>
-        <div>DISCHARGE BILL &nbsp;&nbsp;-&nbsp;&nbsp; GST EXEMPT</div>
+        <div>{isBreakdown ? "DISCHARGE BILL (BREAKDOWN)" : "DISCHARGE BILL"} &nbsp;&nbsp;-&nbsp;&nbsp; GST EXEMPT</div>
         {isCredit && companyName && (
           <div style={{ fontWeight: "800", letterSpacing: "0.5px" }}>{companyName}</div>
         )}
@@ -430,7 +587,7 @@ const NormalBillSheet = ({
       <div style={{ display: "flex", justifyContent: "space-between", gap: 24, fontSize: "11.5px", padding: "2px 0" }}>
         {/* Left Column */}
         <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: "88px 12px 1fr", rowGap: 2, alignItems: "baseline" }}>
-          <span style={{ fontWeight: "bold" }}>OP Number</span><span>:</span><span style={{ fontWeight: "bold" }}>{opNumber}</span>
+          <span style={{ fontWeight: "bold" }}>UHID</span><span>:</span><span style={{ fontWeight: "bold" }}>{opNumber}</span>
           <span style={{ fontWeight: "bold" }}>Name</span><span>:</span><span style={{ fontWeight: "bold" }}>{patientName}</span>
           <span style={{ fontWeight: "bold" }}>Guardian</span><span>:</span><span>{guardian}</span>
           <span style={{ fontWeight: "bold" }}>Address</span><span>:</span>
@@ -455,7 +612,6 @@ const NormalBillSheet = ({
           <span style={{ fontWeight: "bold" }}>DOA</span><span>:</span><span>{doa}</span>
           <span style={{ fontWeight: "bold" }}>DOD</span><span>:</span><span>{dod}</span>
           <span style={{ fontWeight: "bold" }}>Room Number</span><span>:</span><span>{roomNumber}</span>
-          <span style={{ fontWeight: "bold" }}>Bill Id</span><span>:</span><span>{billId}</span>
         </div>
       </div>
 
@@ -500,8 +656,27 @@ const NormalBillSheet = ({
       {/* Divider Line */}
       <div style={{ borderTop: "1.5px solid #000", margin: "6px 0 4px" }} />
 
-      {/* ── TOTALS (RIGHT-ALIGNED MATCHING REFERENCE) ── */}
-      <div style={{ display: "flex", justifyContent: "flex-end", margin: "4px 0 6px" }}>
+      {/* ── TOTALS (LEFT: IP RETURN, RIGHT: TOTALS TABLE) ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", margin: "4px 0 6px" }}>
+        {/* Left Side: IP Return */}
+        <div style={{ paddingTop: 2 }}>
+          {salesReturnAmt > 0 && (
+            <table style={{ borderCollapse: "collapse", fontSize: "12px" }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: "2px 8px 2px 0", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                    IP Return :
+                  </td>
+                  <td style={{ padding: "2px 0", fontWeight: "bold", minWidth: 60 }}>
+                    {Math.round(salesReturnAmt)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Right Side: Totals Table */}
         <table style={{ borderCollapse: "collapse", fontSize: "12px" }}>
           <tbody>
             <tr>
@@ -542,6 +717,20 @@ const NormalBillSheet = ({
             </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* ── RUPEES IN WORDS ── */}
+      <div style={{
+        marginTop: 4,
+        marginBottom: 8,
+        padding: "5px 8px",
+        background: "#f8fafc",
+        border: "1px dashed #000",
+        fontSize: "11px",
+        fontWeight: "bold",
+        textTransform: "uppercase"
+      }}>
+        Rupees in Words : RUPEE(S) {numberToWords(netAmt).toUpperCase()} ONLY /-
       </div>
 
       {/* Divider Line */}
@@ -590,6 +779,9 @@ const InsuranceClaimSheet = ({
   managerDesig,
   preparedByName,
   preparedByDesig,
+  doctorsMap = {},
+  viewMode = "INSURANCE_CLAIM",
+  loadedMeds = [],
 }) => {
   if (!bill) return null;
 
@@ -609,7 +801,27 @@ const InsuranceClaimSheet = ({
   });
 
   const medAmt = parseFloat(bill.medicines_amount) || 0;
-  if (medAmt > 0 && groups["MEDICINE / PHARMACY CHARGES"].length === 0) {
+  const isBreakdown = viewMode === "BREAKDOWN";
+  const pharmacyMedicines = (Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
+    ? bill.pharmacy_medicines
+    : (Array.isArray(loadedMeds) ? loadedMeds : []);
+
+  if (pharmacyMedicines.length > 0) {
+    groups["MEDICINE / PHARMACY CHARGES"] = groups["MEDICINE / PHARMACY CHARGES"].filter(
+      i => !String(i.itemName || "").toUpperCase().startsWith("MEDICINE CHARGES") && !String(i.itemName || "").toUpperCase().startsWith("PHARMACY MEDICINE CHARGES")
+    );
+    pharmacyMedicines.forEach(med => {
+      groups["MEDICINE / PHARMACY CHARGES"].push({
+        itemName: String(med.itemName || med.item_name || med.name || "PHARMACY MEDICINE").toUpperCase(),
+        item_description: "",
+        nabh_code: "-",
+        doctor: "",
+        amount: parseFloat(med.amount || med.calculated_price || 0),
+        quantity: parseFloat(med.quantity || med.qty || 1),
+        rate: parseFloat(med.rate || med.price || 0),
+      });
+    });
+  } else if (medAmt > 0 && groups["MEDICINE / PHARMACY CHARGES"].length === 0) {
     groups["MEDICINE / PHARMACY CHARGES"].push({
       itemName: "PHARMACY MEDICINE CHARGES",
       nabh_code: "-",
@@ -715,7 +927,7 @@ const InsuranceClaimSheet = ({
     const rows = [
       {
         lLabel: "INSURANCE BILL NO",
-        lVal: <span style={{ fontWeight: "bold" }}>{String(bill.insurance_bill_number || "—").toUpperCase()}</span>,
+        lVal: <span style={{ fontWeight: "bold" }}>{String(bill.insurance_bill_number || "—").toUpperCase().replace(/\//g, "")}</span>,
         rLabel: "BILL DATE",
         rVal: fmtDateStr(bill.bill_date)
       },
@@ -747,11 +959,11 @@ const InsuranceClaimSheet = ({
         lLabel: "REFERRAL NO",
         lVal: String(bill.claim_number || pd.claim_number || pd.referral_number || "—").toUpperCase(),
         rLabel: "BILL NO",
-        rVal: String(bill.bill_no || bill.estimate_number || "—").toUpperCase()
+        rVal: String(bill.bill_no || bill.estimate_number || "—").toUpperCase().replace(/\//g, "")
       },
       {
         lLabel: "DOCTOR NAME",
-        lVal: String(pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN").toUpperCase(),
+        lVal: resolveDocName(pd.doctor || pd.doctorName || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN", doctorsMap),
         rLabel: "COMPANY NAME",
         rVal: String(bill.company_name || pd.company || "—").toUpperCase()
       }
@@ -820,7 +1032,8 @@ const InsuranceClaimSheet = ({
                 {rawItems.map((it, idx) => {
                   const nabh = getNabhCode(it);
                   const desc = cleanDesc(it);
-                  const doc = it.doctor ? (/^dr[.\s]/i.test(it.doctor) ? it.doctor : `DR. ${it.doctor}`) : "—";
+                  const showDoctor = isDoctorDisplayItem(it);
+                  const doc = (showDoctor && (it.doctor || it.doctor_name)) ? resolveDocName(it.doctor || it.doctor_name, doctorsMap) : "—";
                   return (
                     <tr key={idx} style={{ borderBottom: "1px dashed #cbd5e1" }}>
                       <td style={{ padding: "4px 4px", verticalAlign: "top", fontWeight: "bold" }}>{String(nabh).toUpperCase()}</td>
@@ -860,7 +1073,7 @@ const InsuranceClaimSheet = ({
               fontSize: "0.78rem", fontWeight: "bold", textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
-              RUPEE(S) {numberToWords(bill.net_amount || bill.total_amount).toUpperCase()} ONLY /-
+              RUPEE(S) {numberToWords(bill.net_amount || bill.total_amount).toUpperCase()} ONLY
             </div>
           </div>
 
@@ -951,6 +1164,12 @@ const InsuranceClaimSheet = ({
                         <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.discount_amount)}</td>
                       </tr>
                     )}
+                    {parseFloat(bill.sales_return) > 0 && (
+                      <tr style={{ color: "#b91c1c" }}>
+                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: IP RETURN :</td>
+                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.sales_return)}</td>
+                      </tr>
+                    )}
                     <tr>
                       <td style={{ textAlign: "right", padding: "4px 6px 1px", fontWeight: "bold", fontSize: "0.86rem", borderTop: "1px dashed #000" }}>
                         GRAND TOTAL / NET AMOUNT :
@@ -969,7 +1188,7 @@ const InsuranceClaimSheet = ({
                 fontSize: "0.76rem", fontWeight: "bold", textTransform: "uppercase",
                 fontFamily: "'Times New Roman', Times, serif"
               }}>
-                RUPEE(S) {numberToWords(bill.net_amount || bill.total_amount).toUpperCase()} ONLY /-
+                RUPEE(S) {numberToWords(bill.net_amount || bill.total_amount).toUpperCase()} ONLY
               </div>
             </div>
 
@@ -1047,7 +1266,8 @@ const InsuranceClaimSheet = ({
                       {gItems.map((it, idx) => {
                         const nabh = getNabhCode(it);
                         const desc = cleanDesc(it);
-                        const doc = it.doctor ? (/^dr[.\s]/i.test(it.doctor) ? it.doctor : `DR. ${it.doctor}`) : "—";
+                        const showDoctor = isDoctorDisplayItem(it);
+                        const doc = (showDoctor && (it.doctor || it.doctor_name)) ? resolveDocName(it.doctor || it.doctor_name, doctorsMap) : "—";
                         const qty = it.quantity || 1;
                         return (
                           <tr key={idx} style={{ borderBottom: "1px dashed #cbd5e1" }}>
@@ -1103,7 +1323,7 @@ const InsuranceClaimSheet = ({
               fontSize: "0.76rem", fontWeight: "bold", textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
-              RUPEE(S) {numberToWords(bill.total_amount || bill.net_amount).toUpperCase()} ONLY /-
+              RUPEE(S) {numberToWords(bill.total_amount || bill.net_amount).toUpperCase()} ONLY
             </div>
 
             {renderSignatures(2, 2)}
@@ -1126,6 +1346,8 @@ export const PrintSheet = React.forwardRef(({
   managerDesig,
   preparedByName,
   preparedByDesig,
+  doctorsMap = {},
+  loadedMeds = [],
 }, ref) => {
   if (!bill) return null;
 
@@ -1246,12 +1468,18 @@ export const PrintSheet = React.forwardRef(({
           managerDesig={managerDesig}
           preparedByName={preparedByName}
           preparedByDesig={preparedByDesig}
+          doctorsMap={doctorsMap}
+          viewMode={viewMode}
+          loadedMeds={loadedMeds}
         />
       ) : (
         <NormalBillSheet
           bill={bill}
           withHeader={withHeader}
           preparedByName={preparedByName}
+          doctorsMap={doctorsMap}
+          viewMode={viewMode}
+          loadedMeds={loadedMeds}
         />
       )}
     </div>
@@ -1261,16 +1489,61 @@ export const PrintSheet = React.forwardRef(({
 // ═════════════════════════════════════════════════════════════════════════════
 // ── COMPLETE MODAL COMPONENT
 // ═════════════════════════════════════════════════════════════════════════════
-const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NORMAL" }) => {
+const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NORMAL", doctors = [] }) => {
   const printRef = useRef(null);
 
   // Is this an insurance bill (i.e. Convert to Insurance Bill was clicked)?
   const isInsurance = Boolean(bill?.is_insurance_bill || bill?.insurance_bill_number);
 
-  // View mode: "NORMAL" (Cash / Credit reference bill) vs "INSURANCE_CLAIM" (NABH multi-category format)
-  // For normal bills: ALWAYS "NORMAL"
-  // For insurance bills: defaults to "INSURANCE_CLAIM" or "NORMAL" based on user toggle
-  const [viewMode, setViewMode] = useState("NORMAL");
+  // View mode: "NORMAL" (Summary reference bill) vs "BREAKDOWN" (Itemized medicines) vs "INSURANCE_CLAIM" (NABH multi-category format)
+  const [viewMode, setViewMode] = useState(defaultViewMode || "NORMAL");
+  const [loadedMeds, setLoadedMeds] = useState([]);
+
+  useEffect(() => {
+    if (defaultViewMode) {
+      setViewMode(defaultViewMode);
+    }
+  }, [defaultViewMode]);
+
+  useEffect(() => {
+    if (bill) {
+      if (Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0) {
+        setLoadedMeds(bill.pharmacy_medicines);
+        return;
+      }
+      const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/_b_a_c_k_e_n_d/HMS/";
+      const billNo = bill.bill_no || bill.bill_number || "";
+      const uhid = bill.uhid || (bill.patient_details?.uhid || "");
+      const ip = bill.ip_number || (bill.patient_details?.ip_number || "");
+      const qs = new URLSearchParams({
+        bill_no: billNo,
+        uhid: uhid,
+        ipNumber: ip,
+      }).toString();
+
+      apiRequest(`${HmsBaseUrl}discharge-bill-medicines/?${qs}`, "GET")
+        .then(raw => {
+          const res = raw?.data || raw;
+          const meds = res?.pharmacy_medicines || (Array.isArray(res) ? res : []);
+          if (Array.isArray(meds) && meds.length > 0) {
+            setLoadedMeds(meds);
+          } else {
+            const pParam = uhid ? `uhid=${encodeURIComponent(uhid)}` : `ipNumber=${encodeURIComponent(ip)}`;
+            return apiRequest(`${HmsBaseUrl}search-discharge-patient/?${pParam}&for_print=true`, "GET");
+          }
+        })
+        .then(rawP => {
+          if (!rawP) return;
+          const res = rawP?.success && rawP?.data?.success ? rawP.data.data : (rawP?.success ? rawP.data : rawP);
+          const meds = res?.pharmacy_medicines || res?.patient?.pharmacy_medicines;
+          if (Array.isArray(meds) && meds.length > 0) {
+            setLoadedMeds(meds);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [bill]);
+
   const [insFormat, setInsFormat] = useState("IP");
   const [withHeader, setWithHeader] = useState(true);
 
@@ -1279,6 +1552,42 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
   const [preparedByDesig, setPreparedByDesig] = useState("");
   const [managerName, setManagerName] = useState("DR.B.KAUSALYA");
   const [managerDesig, setManagerDesig] = useState("GENERAL INSURANCE MANAGER");
+
+  // Doctors mapping state (employeeId -> employeeName)
+  const [doctorsMap, setDoctorsMap] = useState({});
+
+  useEffect(() => {
+    const map = {};
+    if (Array.isArray(doctors) && doctors.length > 0) {
+      doctors.forEach(d => {
+        const id = String(d.employeeId || d.employee_id || d.id || "").trim();
+        const name = String(d.employeeName || d.name || d.doctorName || "").trim();
+        if (id && name) {
+          map[id] = name;
+        }
+      });
+      setDoctorsMap({ ...map });
+    }
+
+    const fetchDoctors = async () => {
+      try {
+        const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/_b_a_c_k_e_n_d/HMS/";
+        const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        list.forEach(d => {
+          const id = String(d.employeeId || d.employee_id || d.id || "").trim();
+          const name = String(d.employeeName || d.name || d.doctorName || "").trim();
+          if (id && name) {
+            map[id] = name;
+          }
+        });
+        setDoctorsMap({ ...map });
+      } catch (e) {
+        // Fallback to existing map
+      }
+    };
+    fetchDoctors();
+  }, [doctors]);
 
   useEffect(() => {
     if (bill) {
@@ -1574,6 +1883,36 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
           </ModalTitle>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
 
+            {/* ── View Mode Switcher: STANDARD vs BREAKDOWN vs INSURANCE ── */}
+            <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
+              <HeadBtn
+                type="button"
+                $active={viewMode === "NORMAL"}
+                onClick={() => setViewMode("NORMAL")}
+                title="Standard Bill (summary medicine charges)"
+              >
+                🖨️ STANDARD
+              </HeadBtn>
+              <HeadBtn
+                type="button"
+                $active={viewMode === "BREAKDOWN"}
+                onClick={() => setViewMode("BREAKDOWN")}
+                title="Breakdown Bill (all medicines itemized one by one)"
+              >
+                📑 BREAKDOWN
+              </HeadBtn>
+              {(isInsurance || bill.is_insurance_bill || bill.insurance_bill_number) && (
+                <HeadBtn
+                  type="button"
+                  $active={viewMode === "INSURANCE_CLAIM"}
+                  onClick={() => setViewMode("INSURANCE_CLAIM")}
+                  title="NABH Insurance Claim Format"
+                >
+                  🛡️ INSURANCE
+                </HeadBtn>
+              )}
+            </div>
+
             {/* ── INSURANCE toolbar: shown when viewMode is INSURANCE_CLAIM ── */}
             {viewMode === "INSURANCE_CLAIM" ? (
               <>
@@ -1622,20 +1961,8 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
                 <HeadBtn type="button" $active onClick={triggerPrint}>🖨️ PRINT</HeadBtn>
               </>
             ) : (
-              /* ── NORMAL BILL toolbar: shown when viewMode is NORMAL ── */
+              /* ── NORMAL & BREAKDOWN BILL toolbar ── */
               <>
-                {/* Bill type label toggle */}
-                <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
-                  <HeadBtn
-                    type="button"
-                    $active={isInsurance}
-                    style={{ cursor: "default", opacity: 0.85 }}
-                    title={isInsurance ? "Credit Bill (Insurance patient)" : "Cash Bill (Cash patient)"}
-                  >
-                    {isInsurance ? "💳 CREDIT BILL" : "💵 CASH BILL"}
-                  </HeadBtn>
-                </div>
-
                 <HeadBtn type="button" onClick={handleDownloadWord}>📄 WORD</HeadBtn>
                 <HeadBtn type="button" onClick={handleDownloadPDF}>📑 PDF</HeadBtn>
                 <HeadBtn type="button" $active onClick={triggerPrint}>🖨️ PRINT</HeadBtn>
@@ -1656,6 +1983,8 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             managerDesig={managerDesig}
             preparedByName={preparedByName}
             preparedByDesig={preparedByDesig}
+            doctorsMap={doctorsMap}
+            loadedMeds={loadedMeds}
           />
         </div>
       </ModalBox>

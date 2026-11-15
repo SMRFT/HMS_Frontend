@@ -610,9 +610,11 @@ const SearchableDropdown = ({
       setQuery("");
       return;
     }
-    const cached = options.find((o) => String(o[valueField]) === String(value));
+    const getOptVal = (o) => (o ? (o[valueField] ?? o.description_name ?? o.description ?? o.kit_name ?? o.id ?? "") : "");
+    const getOptLbl = (o) => (o ? (o[labelField] ?? o.description_name ?? o.description ?? o.kit_name ?? o.name ?? "") : "");
+    const cached = options.find((o) => String(getOptVal(o)) === String(value));
     if (cached) {
-      setDisplayLabel(cached[labelField]);
+      setDisplayLabel(getOptLbl(cached));
       return;
     }
     apiRequest(`${HmsBaseUrl}${apiEndpoint}`, "GET")
@@ -624,8 +626,8 @@ const SearchableDropdown = ({
           : Array.isArray(res?.results)
           ? res.results
           : [];
-        const found = all.find((o) => String(o[valueField]) === String(value));
-        if (found) setDisplayLabel(found[labelField]);
+        const found = all.find((o) => String(getOptVal(o)) === String(value));
+        if (found) setDisplayLabel(getOptLbl(found));
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -726,20 +728,24 @@ const SearchableDropdown = ({
           ) : options.length === 0 ? (
             <DropItem style={{ color: "#9ca3af", cursor: "default" }}>No results</DropItem>
           ) : (
-            options.map((opt, i) => (
-              <DropItem
-                key={opt[valueField] ?? i}
-                selected={String(opt[valueField]) === String(value)}
-                onMouseDown={() => {
-                  setDisplayLabel(opt[labelField]);
-                  setQuery("");
-                  setOpen(false);
-                  onChange(opt[valueField]);
-                }}
-              >
-                {opt[labelField]}
-              </DropItem>
-            ))
+            options.map((opt, i) => {
+              const val = opt[valueField] ?? opt.description_name ?? opt.description ?? opt.kit_name ?? opt.id ?? i;
+              const lbl = opt[labelField] ?? opt.description_name ?? opt.description ?? opt.kit_name ?? opt.name ?? "";
+              return (
+                <DropItem
+                  key={val ?? i}
+                  selected={String(val) === String(value)}
+                  onMouseDown={() => {
+                    setDisplayLabel(lbl);
+                    setQuery("");
+                    setOpen(false);
+                    onChange(val);
+                  }}
+                >
+                  {lbl}
+                </DropItem>
+              );
+            })
           )}
         </DropList>
       )}
@@ -1429,8 +1435,8 @@ const Room = () => {
                             value={serviceForm.description}
                             onChange={(val) => setServiceForm((p) => ({ ...p, description: val }))}
                             placeholder="Search service…"
-                            labelField="description"
-                            valueField="description"
+                            labelField="description_name"
+                            valueField="description_name"
                           />
                         </div>
                         <div>

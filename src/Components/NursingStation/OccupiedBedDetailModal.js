@@ -328,9 +328,9 @@ const OccupiedBedDetailModal = ({ bed, room, onClose }) => {
               </DetailItem>
               {p.is_high_risk && (
                 <DetailItem style={{ gridColumn: "1 / -1" }}>
-                  <DKey>High Risk Reason</DKey>
+                  <DKey>Isolation Reason</DKey>
                   <DVal style={{ color: "#dc2626" }}>
-                    ⚠️ {p.high_risk_reason || "Marked as High Risk Patient"}
+                    ⚠️ {p.high_risk_reason || "Marked for Isolation"}
                   </DVal>
                 </DetailItem>
               )}

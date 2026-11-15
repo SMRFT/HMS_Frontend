@@ -118,6 +118,7 @@ export const updateUserPermissions = async (
   allowedPages,
   hmsPages = [],
   hmsOutlets = [],
+  pageOutlets = {},
 ) => {
   try {
     const response = await apiRequest(
@@ -128,6 +129,7 @@ export const updateUserPermissions = async (
         allowed_pages: allowedPages,
         hms_pages: hmsPages,
         hms_outlets: hmsOutlets,
+        page_outlets: pageOutlets,
       },
     );
     return response;

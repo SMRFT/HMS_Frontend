@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { toast } from 'react-toastify';
-import { fetchUserPermissions, updateUserPermissions, fetchAllEmployees, fetchSidebarMapping } from './apiRequest';
+import { fetchUserPermissions, updateUserPermissions, fetchAllEmployees, fetchSidebarMapping, fetchOutlets } from './apiRequest';
 import { PAGE_PERMISSIONS } from './FrontendPageMapping';
 import { FiSave, FiSearch, FiCheck, FiShield, FiCopy, FiX, FiCheckCircle, FiRefreshCw, FiArrowRight } from 'react-icons/fi';
 
@@ -552,6 +552,26 @@ const SubActionPill = styled.button`
   }
 `;
 
+const OutletActionPill = styled.button`
+  border: ${props => props.$active ? '1px solid #0d9488' : '1px solid #cbd5e1'};
+  background: ${props => props.$active ? '#ccfbf1' : '#ffffff'};
+  color: ${props => props.$active ? '#0f766e' : '#64748b'};
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #0d9488;
+    color: #0f766e;
+    background: ${props => props.$active ? '#ccfbf1' : '#f0fdfa'};
+  }
+`;
+
 // ── Bottom Fixed Action Footer ──
 const StickyFooter = styled.div`
   position: fixed;
@@ -669,6 +689,8 @@ const UserPermissionManager = () => {
 
   const [permissions, setPermissions] = useState([]);
   const [selectedSubPerms, setSelectedSubPerms] = useState({});
+  const [selectedPageOutlets, setSelectedPageOutlets] = useState({});
+  const [allOutletsList, setAllOutletsList] = useState([]);
   const [legacyPermissions, setLegacyPermissions] = useState({});
   const [empPermissionsMap, setEmpPermissionsMap] = useState({});
   const [pageSearchTerm, setPageSearchTerm] = useState("");
@@ -689,12 +711,14 @@ const UserPermissionManager = () => {
     const init = async () => {
       setIsLoadingList(true);
       try {
-        const [empData, sidebar] = await Promise.all([
+        const [empData, sidebar, outletsRes] = await Promise.all([
           fetchAllEmployees(),
-          fetchSidebarMapping()
+          fetchSidebarMapping(),
+          fetchOutlets()
         ]);
         setEmployees(empData || []);
         setSidebarData(sidebar || []);
+        setAllOutletsList(Array.isArray(outletsRes) ? outletsRes : []);
 
         const initialMap = {};
         (empData || []).forEach(emp => {
@@ -873,8 +897,32 @@ const UserPermissionManager = () => {
             }
           });
 
+          // Load per-page outlet mapping
+          const incomingPageOutlets = (response.page_outlets && typeof response.page_outlets === 'object') ? response.page_outlets : {};
+          const subOutlets = {};
+
+          sidebarData.forEach(group => {
+            (group.pages || []).forEach(page => {
+              const pId = Number(page.page_id);
+              const rawCodes = Array.isArray(page.outlet_codes) && page.outlet_codes.length > 0 
+                ? page.outlet_codes 
+                : (page.outlet_code ? [page.outlet_code] : []);
+              const availableCodes = rawCodes.filter(c => c && c !== 'GLOBAL');
+
+              if (activePageIds.has(pId)) {
+                if (incomingPageOutlets[pId] || incomingPageOutlets[String(pId)]) {
+                  const saved = incomingPageOutlets[pId] || incomingPageOutlets[String(pId)];
+                  subOutlets[pId] = Array.isArray(saved) ? saved : [];
+                } else {
+                  subOutlets[pId] = availableCodes;
+                }
+              }
+            });
+          });
+
           setPermissions(Array.from(activePageIds));
           setSelectedSubPerms(sub);
+          setSelectedPageOutlets(subOutlets);
           setLegacyPermissions(legacy);
           setEmpPermissionsMap(prev => ({
             ...prev,
@@ -883,6 +931,7 @@ const UserPermissionManager = () => {
         } else {
           setPermissions([]);
           setSelectedSubPerms({});
+          setSelectedPageOutlets({});
         }
       } catch (error) {
         toast.error("Failed to load permissions");
@@ -904,6 +953,11 @@ const UserPermissionManager = () => {
           delete next[pageId];
           return next;
         });
+        setSelectedPageOutlets(o => {
+          const next = { ...o };
+          delete next[pageId];
+          return next;
+        });
         return prev.filter(p => p !== pageId);
       }
 
@@ -916,7 +970,37 @@ const UserPermissionManager = () => {
         }));
       }
 
+      // Auto-select all available outlets assigned to this page when page toggle is turned ON
+      const rawCodes = Array.isArray(pageInfo?.outlet_codes) && pageInfo?.outlet_codes.length > 0
+        ? pageInfo.outlet_codes
+        : (pageInfo?.outlet_code ? [pageInfo.outlet_code] : []);
+      const pageAssigned = rawCodes.filter(c => c && c !== 'GLOBAL');
+      if (pageAssigned.length > 0) {
+        setSelectedPageOutlets(o => ({
+          ...o,
+          [pageId]: [...pageAssigned]
+        }));
+      }
+
       return [...prev, pageId];
+    });
+  };
+
+  const togglePageOutlet = (pageId, outletCode) => {
+    setSelectedPageOutlets(prev => {
+      const current = prev[pageId] || [];
+      const next = current.includes(outletCode)
+        ? current.filter(c => c !== outletCode)
+        : [...current, outletCode];
+      return { ...prev, [pageId]: next };
+    });
+
+    // Automatically enable page toggle if an outlet is selected
+    setPermissions(prev => {
+      if (!prev.includes(pageId)) {
+        return [...prev, pageId];
+      }
+      return prev;
     });
   };
 
@@ -941,6 +1025,7 @@ const UserPermissionManager = () => {
   const enableAllCategoryPages = (categoryPages) => {
     const newPageIds = new Set(permissions);
     const newSubPerms = { ...selectedSubPerms };
+    const newPageOutlets = { ...selectedPageOutlets };
 
     (categoryPages || []).forEach(p => {
       if (!p) return;
@@ -948,16 +1033,29 @@ const UserPermissionManager = () => {
       if (p.permissions && typeof p.permissions === 'object' && !Array.isArray(p.permissions)) {
         newSubPerms[p.page_id] = Object.keys(p.permissions);
       }
+      const rawCodes = Array.isArray(p.outlet_codes) && p.outlet_codes.length > 0 
+        ? p.outlet_codes 
+        : (p.outlet_code ? [p.outlet_code] : []);
+      const pageAssigned = rawCodes.filter(c => c && c !== 'GLOBAL');
+      if (pageAssigned.length > 0) {
+        newPageOutlets[p.page_id] = [...pageAssigned];
+      }
     });
 
     setPermissions(Array.from(newPageIds));
     setSelectedSubPerms(newSubPerms);
+    setSelectedPageOutlets(newPageOutlets);
   };
 
   const clearCategoryPages = (categoryPages) => {
     const idsToRemove = new Set((categoryPages || []).map(p => p?.page_id));
     setPermissions(prev => prev.filter(id => !idsToRemove.has(id)));
     setSelectedSubPerms(prev => {
+      const next = { ...prev };
+      idsToRemove.forEach(id => delete next[id]);
+      return next;
+    });
+    setSelectedPageOutlets(prev => {
       const next = { ...prev };
       idsToRemove.forEach(id => delete next[id]);
       return next;
@@ -969,14 +1067,36 @@ const UserPermissionManager = () => {
 
     setIsSaving(true);
     const activePageIds = permissions;
-    const allowedPagesObj = { ...legacyPermissions };
+    const allowedPagesObj = {};
+    // Only retain non-HMS, true legacy keys if they exist
+    if (legacyPermissions && typeof legacyPermissions === 'object') {
+      Object.entries(legacyPermissions).forEach(([k, v]) => {
+        if (!k.startsWith('p_') && !k.startsWith('HMS-P-') && !k.startsWith('HMS-API-') && !k.startsWith('HMS-R-')) {
+          allowedPagesObj[k] = v;
+        }
+      });
+    }
     const hmsOutlets = new Set();
+    const pageOutletsToSave = {};
 
     if (sidebarData && sidebarData.length > 0) {
       sidebarData.forEach(group => {
         (group.pages || []).forEach(page => {
           if (page.page_id != null && activePageIds.includes(page.page_id)) {
-            if (page.outlet_code) hmsOutlets.add(page.outlet_code);
+            const rawCodes = Array.isArray(page.outlet_codes) && page.outlet_codes.length > 0
+              ? page.outlet_codes
+              : (page.outlet_code ? [page.outlet_code] : []);
+            const pageAvailableOutlets = rawCodes.filter(c => c && c !== 'GLOBAL');
+
+            if (pageAvailableOutlets.length > 0) {
+              const userSelected = selectedPageOutlets[page.page_id] !== undefined
+                ? selectedPageOutlets[page.page_id]
+                : pageAvailableOutlets;
+              pageOutletsToSave[String(page.page_id)] = userSelected;
+              userSelected.forEach(code => hmsOutlets.add(code));
+            } else {
+              pageOutletsToSave[String(page.page_id)] = ['GLOBAL'];
+            }
 
             if (page.permissions && typeof page.permissions === 'object' && !Array.isArray(page.permissions)) {
               const activeKeys = selectedSubPerms[page.page_id];
@@ -989,15 +1109,12 @@ const UserPermissionManager = () => {
                 if (permVal) {
                   // Scoped key prevents collision across pages sharing permission keys/codes
                   allowedPagesObj[`p_${page.page_id}_${k}`] = permVal;
-                  // Direct value mapping so backend and auth checks find the permission
-                  allowedPagesObj[String(permVal)] = permVal;
                 }
               });
             } else {
               const permsArr = Array.isArray(page.permissions) ? page.permissions : [PAGE_PERMISSIONS[page.route] || page.route];
               permsArr.forEach(p => {
                 allowedPagesObj[`p_${page.page_id}`] = p;
-                allowedPagesObj[String(p)] = p;
               });
             }
           }
@@ -1006,7 +1123,13 @@ const UserPermissionManager = () => {
     }
 
     try {
-      const result = await updateUserPermissions(selectedEmpId, allowedPagesObj, activePageIds, Array.from(hmsOutlets));
+      const result = await updateUserPermissions(
+        selectedEmpId, 
+        allowedPagesObj, 
+        activePageIds, 
+        Array.from(hmsOutlets),
+        pageOutletsToSave
+      );
       if (result.success || result.message) {
         toast.success("Permissions saved successfully!");
         setEmpPermissionsMap(prev => ({
@@ -1064,7 +1187,9 @@ const UserPermissionManager = () => {
             pageName: page.name,
             route: page.route,
             page_id: page.page_id,
-            permissions: page.permissions
+            permissions: page.permissions,
+            outlet_code: page.outlet_code,
+            outlet_codes: page.outlet_codes
           });
         }
       });
@@ -1114,7 +1239,8 @@ const UserPermissionManager = () => {
           targetId,
           sourcePermsRes.allowed_pages || {},
           sourcePermsRes.hms_pages || [],
-          sourcePermsRes.hms_outlets || []
+          sourcePermsRes.hms_outlets || [],
+          sourcePermsRes.page_outlets || {}
         );
       }
 
@@ -1333,6 +1459,57 @@ const UserPermissionManager = () => {
                               <span className="slider" />
                             </ToggleSwitch>
                           </div>
+
+                          {/* 🔹 Per-Page Outlet Selector */}
+                          {(() => {
+                            const rawCodes = Array.isArray(page.outlet_codes) && page.outlet_codes.length > 0
+                              ? page.outlet_codes
+                              : (page.outlet_code ? [page.outlet_code] : []);
+                            const pageAssignedOutlets = rawCodes.filter(c => c && c !== 'GLOBAL');
+
+                            if (!isChecked || pageAssignedOutlets.length === 0) return null;
+
+                            const userActiveOutlets = selectedPageOutlets[page.page_id] || [];
+                            const isAllSelected = pageAssignedOutlets.every(c => userActiveOutlets.includes(c));
+
+                            return (
+                              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #e2e8f0' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Allowed Outlets:
+                                  </span>
+                                  <span 
+                                    style={{ fontSize: '0.68rem', color: '#0d9488', cursor: 'pointer', fontWeight: 600 }}
+                                    onClick={() => setSelectedPageOutlets(prev => ({
+                                      ...prev,
+                                      [page.page_id]: isAllSelected ? [] : [...pageAssignedOutlets]
+                                    }))}
+                                  >
+                                    {isAllSelected ? 'Clear all' : 'Select all'}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                  {pageAssignedOutlets.map(code => {
+                                    const isOutletActive = userActiveOutlets.includes(code);
+                                    const outletObj = (allOutletsList || []).find(o => o.outlet_code === code);
+                                    const label = outletObj ? (outletObj.outlet_name || code) : code;
+                                    return (
+                                      <OutletActionPill
+                                        key={code}
+                                        type="button"
+                                        $active={isOutletActive}
+                                        onClick={() => togglePageOutlet(page.page_id, code)}
+                                        title={`${label} (${code})`}
+                                      >
+                                        {isOutletActive && <FiCheck size={10} style={{ marginRight: '3px' }} />}
+                                        {label}
+                                      </OutletActionPill>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           {isChecked && subKeys.length > 0 && (
                             <div className="actions-row">

@@ -1434,6 +1434,22 @@ const StoresApprovalManager = () => {
                                                 </S.Td>
                                                 <S.Td style={{ fontWeight: '700', color: '#334155' }}>
                                                     <div>{item.department_name}</div>
+                                                    {item.ipnumber && (
+                                                        <div style={{ marginTop: '3px' }}>
+                                                            <span style={{ 
+                                                                display: 'inline-block',
+                                                                fontSize: '0.72rem', 
+                                                                color: '#1e40af', 
+                                                                fontWeight: 700, 
+                                                                background: '#dbeafe', 
+                                                                padding: '2px 8px', 
+                                                                borderRadius: '4px',
+                                                                border: '1px solid #bfdbfe'
+                                                            }}>
+                                                                👤 IP: {item.ipnumber}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     {(item.nursing_station_name || item.nursing_station) && (
                                                         <div style={{ marginTop: '3px' }}>
                                                             <span style={{ 
@@ -2027,17 +2043,6 @@ const StoresApprovalManager = () => {
                     const status = getIntentStatus(selectedIntentForView);
                     const isPendingOrPartial = status !== 'Approved' && status !== 'Rejected';
                     const itemsList = (approvalItems && approvalItems.length > 0) ? approvalItems : (Array.isArray(selectedIntentForView.items) ? selectedIntentForView.items : []);
-                    const totalReq = itemsList.reduce((acc, it) => acc + (parseFloat(it.quantity) || 0), 0);
-                    const totalApprv = itemsList.reduce((acc, it) => {
-                        const orig = parseFloat(it.original_approved_qty !== undefined ? it.original_approved_qty : (it.approved_quantity || 0)) || 0;
-                        const added = isPendingOrPartial ? (parseFloat(it.new_approval_qty) || 0) : 0;
-                        return acc + orig + added;
-                    }, 0);
-                    const totalPending = itemsList.reduce((acc, it) => {
-                        const req = parseFloat(it.quantity) || 0;
-                        const orig = parseFloat(it.original_approved_qty !== undefined ? it.original_approved_qty : (it.approved_quantity || 0)) || 0;
-                        return acc + Math.max(0, req - orig);
-                    }, 0);
 
                     return (
                         <S.ModalOverlay onClick={e => e.target === e.currentTarget && setShowViewIntentModal(false)}>
@@ -2129,6 +2134,11 @@ const StoresApprovalManager = () => {
                                             <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Department</div>
                                             <div style={{ fontSize: '0.92rem', fontWeight: '700', color: S.colors.textMain, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                 <span>{selectedIntentForView.department_name || selectedIntentForView.department || '-'}</span>
+                                                {selectedIntentForView.ipnumber && (
+                                                    <span style={{ fontSize: '0.78rem', color: '#1e40af', fontWeight: '700', background: '#dbeafe', padding: '2px 8px', borderRadius: '4px', border: '1px solid #bfdbfe' }}>
+                                                        👤 IP: {selectedIntentForView.ipnumber}
+                                                    </span>
+                                                )}
                                                 {(selectedIntentForView.nursing_station_name || selectedIntentForView.nursing_station) && (
                                                     <span style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: '700', background: '#ccfbf1', padding: '2px 8px', borderRadius: '4px', border: '1px solid #99f6e4' }}>
                                                         🏥 {selectedIntentForView.nursing_station_name || selectedIntentForView.nursing_station}
@@ -2148,31 +2158,6 @@ const StoresApprovalManager = () => {
                                                 <User size={13} color="#0d9488" style={{ marginRight: '4px' }} />
                                                 {selectedIntentForView.created_by_name ? `${selectedIntentForView.created_by_name} (${selectedIntentForView.created_by})` : (selectedIntentForView.created_by || selectedIntentForView.user || 'Department User')}
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Stats Highlights */}
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                                        gap: '12px',
-                                        marginBottom: '20px'
-                                    }}>
-                                        <div style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '14px', borderRadius: '10px' }}>
-                                            <div style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: '700', textTransform: 'uppercase' }}>Total Items</div>
-                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#0f766e', marginTop: '4px' }}>{itemsList.length}</div>
-                                        </div>
-                                        <div style={{ background: '#f0fdf4', border: '1px solid #dcfce7', padding: '14px', borderRadius: '10px' }}>
-                                            <div style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase' }}>Total Requested Qty</div>
-                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>{totalReq}</div>
-                                        </div>
-                                        <div style={{ background: '#f8fafc', border: `1px solid ${S.colors.border}`, padding: '14px', borderRadius: '10px' }}>
-                                            <div style={{ fontSize: '0.72rem', color: S.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Total Approved Qty</div>
-                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: S.colors.primary, marginTop: '4px' }}>{totalApprv}</div>
-                                        </div>
-                                        <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', padding: '14px', borderRadius: '10px' }}>
-                                            <div style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: '700', textTransform: 'uppercase' }}>Total Pending Qty</div>
-                                            <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>{totalPending}</div>
                                         </div>
                                     </div>
 
