@@ -3087,8 +3087,9 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     }
     if (form.mlc_doc instanceof File) payload.append("mlc_doc", form.mlc_doc);
 
-    const isDaycare = (cTypeUpper === "INSURANCE") &&
-      String(form.roomNo || "").trim().toUpperCase().includes("DAYCARE");
+    const roomStr = String(form.roomNo || "").trim().toUpperCase();
+    const isDaycareRoom = ["DAYCARE", "DAY CARE", "CHEMO", "DIALYSIS"].some(k => roomStr.includes(k));
+    const isDaycare = (cTypeUpper === "INSURANCE") && isDaycareRoom;
     if (isDaycare) {
       payload.append("is_day_care", "true");
       payload.append("ward_status", "Sent for billing");
