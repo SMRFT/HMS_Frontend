@@ -229,6 +229,7 @@ const resolveDoctor = (idOrName, doctors) => {
 function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = false) {
   const items = resolveItems(bill.item || bill.items);
   const doctorName = resolveDoctor(bill.doctor, doctors);
+  const roomNo = bill.roomNo ? String(bill.roomNo).trim() : "";
   const patientName = fmtName(bill.salutation, bill.firstName, bill.lastName);
   const age = `${bill.calculatedAge || bill.age || ""}${bill.ageType || "Y"}`;
   const preparedByName = localStorage.getItem("name") || "";
@@ -343,27 +344,27 @@ function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = fa
   ${isEstimate
       ? `<div class="est-banner">*** ESTIMATE BILL ***</div>`
       : (() => {
-          const isDup = Boolean(isDuplicate || bill?.isDuplicate);
-          const rawType = (bill.billType || bill.bill_name || bill.billTypeNo || "").trim();
-          const hasDupInName = /\(duplicate\)/i.test(rawType);
-          const dupText = isDup && !hasDupInName ? "(Duplicate)" : "";
+        const isDup = Boolean(isDuplicate || bill?.isDuplicate);
+        const rawType = (bill.billType || bill.bill_name || bill.billTypeNo || "").trim();
+        const hasDupInName = /\(duplicate\)/i.test(rawType);
+        const dupText = isDup && !hasDupInName ? "(Duplicate)" : "";
 
-          let titleLine = "";
-          if (bill.paymentMethod && rawType) {
-            titleLine = `${bill.paymentMethod} &nbsp;—&nbsp; ${rawType}${dupText ? ` &nbsp;${dupText}` : ""}`.trim();
-          } else if (rawType) {
-            titleLine = `${rawType}${dupText ? ` &nbsp;${dupText}` : ""}`.trim();
-          } else if (bill.paymentMethod) {
-            titleLine = `${bill.paymentMethod} Bill${dupText ? ` &nbsp;${dupText}` : ""}`.trim();
-          } else {
-            titleLine = dupText || "Bill Receipt";
-          }
+        let titleLine = "";
+        if (bill.paymentMethod && rawType) {
+          titleLine = `${bill.paymentMethod} &nbsp;—&nbsp; ${rawType}${dupText ? ` &nbsp;${dupText}` : ""}`.trim();
+        } else if (rawType) {
+          titleLine = `${rawType}${dupText ? ` &nbsp;${dupText}` : ""}`.trim();
+        } else if (bill.paymentMethod) {
+          titleLine = `${bill.paymentMethod} Bill${dupText ? ` &nbsp;${dupText}` : ""}`.trim();
+        } else {
+          titleLine = dupText || "Bill Receipt";
+        }
 
-          return `
+        return `
   <div style="text-align:center;font-weight:700;margin-bottom:6px;font-size:1.05em;letter-spacing:0.3px;">
     ${titleLine}
   </div>`;
-        })()
+      })()
     }
 
   <div class="bill-meta">
@@ -377,6 +378,7 @@ function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = fa
       <div class="meta-row"><span class="meta-label">Name</span><span class="meta-colon">:</span><span class="meta-val">${patientName}</span></div>
       <div class="meta-row"><span class="meta-label">Age / Gender</span><span class="meta-colon">:</span><span class="meta-val">${age} / ${bill.gender || ""}</span></div>
       <div class="meta-row"><span class="meta-label">Doctor</span><span class="meta-colon">:</span><span class="meta-val">${doctorName}</span></div>
+      ${roomNo ? `<div class="meta-row"><span class="meta-label">Room No</span><span class="meta-colon">:</span><span class="meta-val">${roomNo}</span></div>` : ""}
     </div>
   </div>
 

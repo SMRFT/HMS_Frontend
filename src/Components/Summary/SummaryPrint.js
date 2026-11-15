@@ -1202,6 +1202,8 @@ const SummaryPrint = () => {
 
   const handleWhatsAppShare = async () => {
     if (!summaryData) return;
+    // Sending is only allowed once the summary is approved
+    if (summaryData.approve !== true) return;
 
     let phone = summaryData.mobilePhone || "";
     const userPhone = window.prompt(
@@ -1256,6 +1258,8 @@ const SummaryPrint = () => {
 
   const handleEmailShare = async () => {
     if (!summaryData) return;
+    // Sending is only allowed once the summary is approved
+    if (summaryData.approve !== true) return;
 
     let email = summaryData.email || "";
     const userEmail = window.prompt(
@@ -1811,129 +1815,121 @@ const SummaryPrint = () => {
               </div>
             </div>
           </div>
-          {isApproved ? (
-            <div className="sp-bar-actions">
+
+          {/* Open PDF is ALWAYS shown; Send is enabled only after approval */}
+          <div className="sp-bar-actions">
+            <button
+              className="sp-btn sp-btn-primary"
+              onClick={() => handlePrint(false)}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span className="sp-btn-spinner" /> Generating…
+                </>
+              ) : (
+                <>
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <polyline points="9 15 12 18 15 15" />
+                  </svg>
+                  Open PDF
+                </>
+              )}
+            </button>
+            <div className="sp-dropdown-container">
               <button
                 className="sp-btn sp-btn-primary"
-                onClick={() => handlePrint(false)}
-                disabled={loading}
+                onClick={() => {
+                  if (!isApproved) return;
+                  setShowSendDropdown((prev) => !prev);
+                }}
+                disabled={loading || !isApproved}
+                title={
+                  isApproved
+                    ? "Send summary via WhatsApp or Email"
+                    : "Send is available only after the summary is approved"
+                }
               >
                 {loading ? (
                   <>
-                    <span className="sp-btn-spinner" /> Generating…
+                    <span className="sp-btn-spinner" /> Sharing…
                   </>
                 ) : (
                   <>
+                    Send
                     <svg
-                      width="13"
-                      height="13"
+                      width="12"
+                      height="12"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2.5"
+                      style={{
+                        marginLeft: "2px",
+                        transform: showSendDropdown ? "rotate(180deg)" : "none",
+                        transition: "transform 0.15s",
+                      }}
                     >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="12" y1="18" x2="12" y2="12" />
-                      <polyline points="9 15 12 18 15 15" />
+                      <polyline points="6 9 12 15 18 9" />
                     </svg>
-                    Open PDF
                   </>
                 )}
               </button>
-              <div className="sp-dropdown-container">
-                <button
-                  className="sp-btn sp-btn-primary"
-                  onClick={() => setShowSendDropdown((prev) => !prev)}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <span className="sp-btn-spinner" /> Sharing…
-                    </>
-                  ) : (
-                    <>
-                      Send
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        style={{
-                          marginLeft: "2px",
-                          transform: showSendDropdown ? "rotate(180deg)" : "none",
-                          transition: "transform 0.15s",
-                        }}
-                      >
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </>
-                  )}
-                </button>
-                {showSendDropdown && !loading && (
-                  <div className="sp-dropdown-menu">
-                    <button
-                      className="sp-dropdown-item"
-                      onClick={() => {
-                        setShowSendDropdown(false);
-                        handleWhatsAppShare();
-                      }}
+              {isApproved && showSendDropdown && !loading && (
+                <div className="sp-dropdown-menu">
+                  <button
+                    className="sp-dropdown-item"
+                    onClick={() => {
+                      setShowSendDropdown(false);
+                      handleWhatsAppShare();
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="#25d366"
+                      style={{ marginRight: "4px" }}
                     >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="#25d366"
-                        style={{ marginRight: "4px" }}
-                      >
-                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.262 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.73-1.464L0 24zm6.59-4.846c1.6.95 3.197 1.45 4.817 1.452 5.43 0 9.851-4.378 9.854-9.76.002-2.607-1.012-5.059-2.859-6.908C16.575 2.088 14.12 1.072 11.5 1.072c-5.436 0-9.858 4.38-9.86 9.762-.001 1.777.478 3.515 1.387 5.061l-.921 3.36 3.451-.905zm12.39-4.86c-.33-.165-1.953-.964-2.253-1.074-.3-.109-.519-.165-.738.165-.219.329-.848 1.074-1.039 1.293-.191.219-.382.247-.712.082-.33-.165-1.393-.513-2.653-1.637-.98-.874-1.643-1.953-1.835-2.282-.19-.33-.02-.508.145-.671.148-.147.33-.384.495-.576.165-.191.22-.329.33-.548.11-.219.055-.411-.028-.576-.082-.165-.738-1.779-1.011-2.438-.266-.641-.532-.553-.73-.564-.19-.01-.41-.01-.628-.01-.219 0-.576.082-.876.411-.3.33-1.147 1.123-1.147 2.739 0 1.616 1.177 3.178 1.341 3.397.165.219 2.316 3.537 5.612 4.96.783.338 1.396.54 1.873.691.787.25 1.5.214 2.065.13.63-.094 1.953-.799 2.226-1.572.273-.773.273-1.438.191-1.572-.082-.134-.3-.213-.63-.378z" />
-                      </svg>
-                      WhatsApp
-                    </button>
-                    <button
-                      className="sp-dropdown-item"
-                      onClick={() => {
-                        setShowSendDropdown(false);
-                        handleEmailShare();
-                      }}
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.262 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.73-1.464L0 24zm6.59-4.846c1.6.95 3.197 1.45 4.817 1.452 5.43 0 9.851-4.378 9.854-9.76.002-2.607-1.012-5.059-2.859-6.908C16.575 2.088 14.12 1.072 11.5 1.072c-5.436 0-9.858 4.38-9.86 9.762-.001 1.777.478 3.515 1.387 5.061l-.921 3.36 3.451-.905zm12.39-4.86c-.33-.165-1.953-.964-2.253-1.074-.3-.109-.519-.165-.738.165-.219.329-.848 1.074-1.039 1.293-.191.219-.382.247-.712.082-.33-.165-1.393-.513-2.653-1.637-.98-.874-1.643-1.953-1.835-2.282-.19-.33-.02-.508.145-.671.148-.147.33-.384.495-.576.165-.191.22-.329.33-.548.11-.219.055-.411-.028-.576-.082-.165-.738-1.779-1.011-2.438-.266-.641-.532-.553-.73-.564-.19-.01-.41-.01-.628-.01-.219 0-.576.082-.876.411-.3.33-1.147 1.123-1.147 2.739 0 1.616 1.177 3.178 1.341 3.397.165.219 2.316 3.537 5.612 4.96.783.338 1.396.54 1.873.691.787.25 1.5.214 2.065.13.63-.094 1.953-.799 2.226-1.572.273-.773.273-1.438.191-1.572-.082-.134-.3-.213-.63-.378z" />
+                    </svg>
+                    WhatsApp
+                  </button>
+                  <button
+                    className="sp-dropdown-item"
+                    onClick={() => {
+                      setShowSendDropdown(false);
+                      handleEmailShare();
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#ea4335"
+                      strokeWidth="2.5"
+                      style={{ marginRight: "4px" }}
                     >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#ea4335"
-                        strokeWidth="2.5"
-                        style={{ marginRight: "4px" }}
-                      >
-                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                        <polyline points="22,6 12,13 2,6" />
-                      </svg>
-                      Email
-                    </button>
-                  </div>
-                )}
-              </div>
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                      <polyline points="22,6 12,13 2,6" />
+                    </svg>
+                    Email
+                  </button>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="sp-not-approved">
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              PDF unavailable — Summary not yet approved
-            </div>
-          )}
+          </div>
         </div>
 
         {/* ── Zoom Controls for Mobile & Desktop ── */}
