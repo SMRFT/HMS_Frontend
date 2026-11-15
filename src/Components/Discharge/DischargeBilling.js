@@ -1699,11 +1699,6 @@ const DischargeBilling = () => {
     patient && (
       (patient.patient_type && String(patient.patient_type).trim().toUpperCase().includes("INSURANCE")) ||
       (patient.customer_type && String(patient.customer_type).trim().toUpperCase().includes("INSURANCE")) ||
-      (patient.company && String(patient.company).trim()) ||
-      (patient.company_code && String(patient.company_code).trim()) ||
-      (patient.insurance_company && String(patient.insurance_company).trim()) ||
-      (patient.claim_number && String(patient.claim_number).trim()) ||
-      Boolean(insuranceData?.isInsuranceBill) ||
       Boolean(editingEst?.is_insurance_bill) ||
       Boolean(editingEst?.insurance_bill_number)
     )
@@ -2172,18 +2167,14 @@ const DischargeBilling = () => {
         setPatient(norm);
         const isIns = Boolean(
           (norm.customer_type && String(norm.customer_type).trim().toUpperCase().includes("INSURANCE")) ||
-          (norm.patient_type && String(norm.patient_type).trim().toUpperCase().includes("INSURANCE")) ||
-          (norm.company && String(norm.company).trim()) ||
-          (norm.company_code && String(norm.company_code).trim()) ||
-          (norm.insurance_company && String(norm.insurance_company).trim()) ||
-          (norm.claim_number && String(norm.claim_number).trim())
+          (norm.patient_type && String(norm.patient_type).trim().toUpperCase().includes("INSURANCE"))
         );
         setInsuranceData(prev => ({
           ...prev,
           isInsuranceBill: isIns,
-          companyName: norm.company || norm.company_code || norm.insurance_company || prev.companyName || "",
-          claimNumber: norm.claim_number || norm.referral_number || prev.claimNumber || "",
-          idCardNumber: norm.id_card_number || norm.card_no || prev.idCardNumber || "",
+          companyName: isIns ? (norm.company || norm.company_code || norm.insurance_company || prev.companyName || "") : "",
+          claimNumber: isIns ? (norm.claim_number || norm.referral_number || prev.claimNumber || "") : "",
+          idCardNumber: isIns ? (norm.id_card_number || norm.card_no || prev.idCardNumber || "") : "",
         }));
         if (norm.uhid) setUhid(norm.uhid);
         if (norm.ip_number) setIpNumber(norm.ip_number);
@@ -2939,8 +2930,8 @@ const DischargeBilling = () => {
               <Btn
                 $amber
                 onClick={handleSaveEstimate}
-                disabled={saving || !patient || (patient && patient.ward_status !== "Sent for billing")}
-                title={!patient ? "Search a patient first" : patient.ward_status !== "Sent for billing" ? "Ward status is not Sent for billing" : (editingEst ? "Update Estimate" : "Save as Estimate")}
+                disabled={saving || !patient}
+                title={!patient ? "Search a patient first" : (editingEst ? "Update Estimate" : "Save as Estimate")}
               >
                 {saving ? <Spinner /> : "📋"} {editingEst ? " Update Estimate" : " Save as Estimate"}
               </Btn>

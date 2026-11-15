@@ -1214,14 +1214,6 @@ const StockTransfer = () => {
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
       const payload = res?.data;
       const raw = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(res) ? res : []));
-      
-      const itemStockMap = {};
-      raw.forEach((s) => {
-        const iid = s.item_id;
-        const q = Number(s.available_qty ?? 0);
-        itemStockMap[iid] = (itemStockMap[iid] || 0) + q;
-      });
-
       const seen = new Set();
       const unique = raw
         .filter((s) => {
@@ -1231,7 +1223,6 @@ const StockTransfer = () => {
         .map((s) => ({
           ...s,
           item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
-          total_available_qty: itemStockMap[s.item_id] !== undefined ? itemStockMap[s.item_id] : Number(s.available_qty ?? 0),
         }))
         .filter((s) => String(s.item_name || "").toUpperCase().startsWith(cleanQ))
         .sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }));
@@ -1668,38 +1659,14 @@ const StockTransfer = () => {
                       />
                       {showMedDropdown && medicineResults.length > 0 && (
                         <SearchDropdown>
-                          {medicineResults.map((med) => {
-                            const isZeroQty = Number(med.total_available_qty ?? med.available_qty ?? 0) <= 0;
-                            return (
-                              <DropdownItem
-                                key={med.item_id}
-                                onMouseDown={() => handleSelectMedicine(med)}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                }}
-                              >
-                                <strong>{String(med.item_name || "").toUpperCase()}</strong>
-                                {isZeroQty && (
-                                  <span
-                                    style={{
-                                      background: "#fee2e2",
-                                      color: "#dc2626",
-                                      padding: "2px 7px",
-                                      borderRadius: "4px",
-                                      fontSize: "0.72rem",
-                                      fontWeight: 600,
-                                      marginLeft: "8px",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    No quantity
-                                  </span>
-                                )}
-                              </DropdownItem>
-                            );
-                          })}
+                          {medicineResults.map((med) => (
+                            <DropdownItem
+                              key={med.item_id}
+                              onMouseDown={() => handleSelectMedicine(med)}
+                            >
+                              <strong>{String(med.item_name || "").toUpperCase()}</strong>
+                            </DropdownItem>
+                          ))}
                         </SearchDropdown>
                       )}
                     </RelativeWrapper>
