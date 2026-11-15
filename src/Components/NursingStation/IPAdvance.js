@@ -930,7 +930,7 @@ const EMPTY_COMMON = {
   creditLimit: "", outBalance: "", totalAdvance: "",
 };
 
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumber: propIpNumber, onClose, onSaved }) {
   const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -1037,6 +1037,9 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
 
   const openPrintRefundModal  = async (rec) => {
     let r = { ...rec };
+    if (!r.refund_bill_no) {
+      r.refund_bill_no = r.data?.refund_bill_no || r.data?.refund_record?.refund_bill_no || "";
+    }
     const creator = r.refunded_by || r.created_by;
     if (!r.created_by_name && !r.refunded_by_name && creator) {
       if (creator === localStorage.getItem("employeeId") && localStorage.getItem("name")) {
@@ -1081,13 +1084,9 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     try {
       const dt = new Date(d);
       if (isNaN(dt.getTime())) return String(d);
-      const dd = String(dt.getDate()).padStart(2, "0");
-      const mm = String(dt.getMonth() + 1).padStart(2, "0");
-      const yyyy = dt.getFullYear();
-      const hh = String(dt.getHours()).padStart(2, "0");
-      const min = String(dt.getMinutes()).padStart(2, "0");
-      const ss = String(dt.getSeconds()).padStart(2, "0");
-      return `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
+      const datePart = dt.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
+      const timePart = dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Kolkata" });
+      return `${datePart} ${timePart}`;
     } catch {
       return String(d);
     }
@@ -1506,10 +1505,14 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         );
         if (!res.success) throw new Error(res.error || "Edit failed");
         toast.success("Advance updated!");
+        const serverData = res.data?.data || res.data?.advance || res.data || {};
+        const bNo = serverData.bill_no || serverData.bill_number || editingRecord.bill_no || editingRecord.bill_number || "";
         savedRecord = {
           ...editingRecord,
           ...payload,
-          ...(res.data || res.advance || {}),
+          ...serverData,
+          bill_no: bNo,
+          bill_number: bNo,
           ip_number: common.ipNumber,
           uhid: common.uhid,
           room: common.roomNo || "",
@@ -1524,17 +1527,21 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         );
         if (!res.success) throw new Error(res.error || "Save failed");
         toast.success("Advance saved!");
+        const serverData = res.data?.data || res.data?.advance || res.data || {};
+        const bNo = serverData.bill_no || serverData.bill_number || "";
         savedRecord = {
           ...payload,
-          ...(res.data || res.advance || {}),
+          ...serverData,
+          bill_no: bNo,
+          bill_number: bNo,
           ip_number: common.ipNumber,
           uhid: common.uhid,
           room: common.roomNo || "",
           patient_name: common.name,
-          bill_date: new Date().toISOString(),
-          paid_date: new Date().toISOString(),
-          created_by: (res.data && res.data.created_by) || localStorage.getItem("employeeId") || "",
-          created_by_name: (res.data && res.data.created_by_name) || localStorage.getItem("name") || "",
+          bill_date: serverData.bill_date || new Date().toISOString(),
+          paid_date: serverData.paid_date || new Date().toISOString(),
+          created_by: serverData.created_by || localStorage.getItem("employeeId") || "",
+          created_by_name: serverData.created_by_name || localStorage.getItem("name") || "",
         };
       }
       setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
@@ -1657,8 +1664,10 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       );
       if (!res.success) throw new Error(res.error || "Refund failed");
       toast.success(`Refund of ₹${fmt(refundAmount)} processed successfully!`);
-      const refBill = res.data?.refund_bill_no || res.data?.refund_record?.refund_bill_no || "";
+      const refData = res.data?.data || res.data?.refund_record || res.data || {};
+      const refBill = refData.refund_bill_no || res.data?.refund_bill_no || res.data?.data?.refund_bill_no || "";
       const savedRefund = {
+        ...refData,
         refund_bill_no: refBill,
         bill_no: refundRecord.bill_no || refundRecord.bill_number,
         uhid: refundRecord.uhid,
@@ -1670,9 +1679,9 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         remarks: refundRemarks.trim(),
         created_date: new Date(),
         refund_date: new Date(),
-        created_by: (res.data && res.data.created_by) || localStorage.getItem("employeeId") || "",
-        created_by_name: (res.data && res.data.created_by_name) || localStorage.getItem("name") || "",
-        refunded_by_name: (res.data && res.data.refunded_by_name) || (res.data && res.data.created_by_name) || localStorage.getItem("name") || "",
+        created_by: refData.created_by || (res.data && res.data.created_by) || localStorage.getItem("employeeId") || "",
+        created_by_name: refData.created_by_name || (res.data && res.data.created_by_name) || localStorage.getItem("name") || "",
+        refunded_by_name: refData.refunded_by_name || (res.data && res.data.refunded_by_name) || refData.created_by_name || localStorage.getItem("name") || "",
       };
       closeRefundModal();
       openPrintRefundModal(savedRefund);
@@ -1688,6 +1697,13 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   // ── Print Advance Slip ────────────────────────────────────────────────────
   const openPrintModal  = async (record) => {
     let rec = { ...record };
+    if (!rec.bill_no && !rec.bill_number) {
+      const b = rec.data?.bill_no || rec.data?.bill_number || "";
+      if (b) {
+        rec.bill_no = b;
+        rec.bill_number = b;
+      }
+    }
     if (!rec.created_by_name && rec.created_by) {
       if (rec.created_by === localStorage.getItem("employeeId") && localStorage.getItem("name")) {
         rec.created_by_name = localStorage.getItem("name");
@@ -1712,7 +1728,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     const nameVal = (printRecord.patient_name || printRecord.name || "—").toUpperCase();
     const roomVal = printRecord.room || printRecord.roomNo || common.roomNo || "—";
     const billDate = formatSlipDate(printRecord.bill_date || printRecord.created_date || printRecord.date || new Date());
-    const billNoVal = (printRecord.bill_no || printRecord.bill_number || "—").replace(/\//g, "");
+    const billNoVal = (printRecord.bill_no || printRecord.bill_number || printRecord.data?.bill_no || printRecord.data?.bill_number || "—").replace(/\//g, "");
     const ipNoVal = printRecord.ip_number || printRecord.ipNumber || "—";
     const amountVal = formatSlipAmount(printRecord.advance_amount);
     const preparedByName = (printRecord.created_by_name || "").trim() ||
@@ -1911,8 +1927,8 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     const nameVal = (printRefundRecord.patient_name || printRefundRecord.name || "—").toUpperCase();
     const roomVal = printRefundRecord.room || printRefundRecord.roomNo || "—";
     const refundDate = formatSlipDate(printRefundRecord.refund_date || printRefundRecord.created_date || new Date());
-    const refundBillNoVal = String(printRefundRecord.refund_bill_no || "—").replace(/\//g, "");
-    const origBillNoVal = String(printRefundRecord.bill_no || printRefundRecord.bill_number || "—").replace(/\//g, "");
+    const refundBillNoVal = String(printRefundRecord.refund_bill_no || printRefundRecord.data?.refund_bill_no || printRefundRecord.data?.refund_record?.refund_bill_no || "—").replace(/\//g, "");
+    const origBillNoVal = String(printRefundRecord.bill_no || printRefundRecord.bill_number || printRefundRecord.data?.bill_no || printRefundRecord.data?.bill_number || "—").replace(/\//g, "");
     const ipNoVal = printRefundRecord.ip_number || printRefundRecord.ipNumber || "—";
     const amountVal = formatSlipAmount(printRefundRecord.refund_amount || printRefundRecord.refunded_amount);
     const modeVal = printRefundRecord.payment_mode || printRefundRecord.payment_details?.method || "Cash";
@@ -2562,7 +2578,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                       paginatedPayments.map((p, i) => {
                         const rowIdx      = (page - 1) * perPage + i + 1;
                         const status      = p.status || "Pending";
-                        const billDate    = p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN") : "—";
+                        const billDate    = p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "—";
                         const patientName = p.patient_name || p.name || p.patientName || "—";
                         const ipNo        = p.ip_number    || p.ipNumber || "—";
                         const menuId      = String(p.bill_no || `${ipNo}_${p.advance_id || i}_${i}`);
@@ -2587,7 +2603,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                             </Td>
                             <Td>{p.payment_mode || "-"}</Td>
                             <Td>
-                              {p.paid_date ? new Date(p.paid_date).toLocaleString("en-IN") : "-"}
+                              {p.paid_date ? new Date(p.paid_date).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "-"}
                             </Td>
                             <Td right style={{ fontWeight: 700 }}>₹{fmt(p.advance_amount)}</Td>
                             <Td right>₹{fmt(p.ip_advance)}</Td>
@@ -2889,7 +2905,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                             <tr key={r._id || r.refund_bill_no || idx}>
                               <Td style={{ fontWeight: 600 }}>{slNo}</Td>
                               <Td style={{ whiteSpace: "nowrap" }}>
-                                {r.refund_date ? new Date(r.refund_date).toLocaleDateString("en-IN") : "—"}
+                                {r.refund_date ? new Date(r.refund_date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "—"}
                               </Td>
                               <Td style={{ fontWeight: 700, color: T.purple, fontFamily: "monospace" }}>
                                 {rBill}
@@ -2916,7 +2932,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                                 {r.remarks || "—"}
                               </Td>
                               <Td style={{ fontSize: "0.75rem" }}>
-                                {r.created_by || r.refunded_by || "—"}
+                                {r.created_by_name || r.refunded_by_name || r.created_by || r.refunded_by || "—"}
                               </Td>
                               <Td style={{ textAlign: "center" }}>
                                 <Btn
@@ -3122,7 +3138,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         const nameVal = (printRecord.patient_name || printRecord.name || "—").toUpperCase();
         const roomVal = printRecord.room || printRecord.roomNo || common.roomNo || "—";
         const billDate = formatSlipDate(printRecord.bill_date || printRecord.created_date || printRecord.date || new Date());
-        const billNoVal = (printRecord.bill_no || printRecord.bill_number || "—").replace(/\//g, "");
+        const billNoVal = (printRecord.bill_no || printRecord.bill_number || printRecord.data?.bill_no || printRecord.data?.bill_number || "—").replace(/\//g, "");
         const ipNoVal = printRecord.ip_number || printRecord.ipNumber || "—";
         const amountVal = formatSlipAmount(printRecord.advance_amount);
         const preparedByName = (printRecord.created_by_name || "").trim() ||
@@ -3253,8 +3269,8 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         const nameVal = (printRefundRecord.patient_name || printRefundRecord.name || "—").toUpperCase();
         const roomVal = printRefundRecord.room || printRefundRecord.roomNo || "—";
         const refundDate = formatSlipDate(printRefundRecord.refund_date || printRefundRecord.created_date || new Date());
-        const refundBillNoVal = String(printRefundRecord.refund_bill_no || "—").replace(/\//g, "");
-        const origBillNoVal = String(printRefundRecord.bill_no || printRefundRecord.bill_number || "—").replace(/\//g, "");
+        const refundBillNoVal = String(printRefundRecord.refund_bill_no || printRefundRecord.data?.refund_bill_no || printRefundRecord.data?.refund_record?.refund_bill_no || "—").replace(/\//g, "");
+        const origBillNoVal = String(printRefundRecord.bill_no || printRefundRecord.bill_number || printRefundRecord.data?.bill_no || printRefundRecord.data?.bill_number || "—").replace(/\//g, "");
         const ipNoVal = printRefundRecord.ip_number || printRefundRecord.ipNumber || "—";
         const amountVal = formatSlipAmount(printRefundRecord.refund_amount || printRefundRecord.refunded_amount);
         const modeVal = printRefundRecord.payment_mode || printRefundRecord.payment_details?.method || "Cash";

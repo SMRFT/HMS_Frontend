@@ -279,7 +279,7 @@ const DI   = styled.button`
 const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 const fmt  = v => (parseFloat(v) || 0).toFixed(2);
 const fmtCurrency = v => `₹${Number(parseFloat(v) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -812,11 +812,11 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                   </StickyLTD>
                   {/* Bill Date */}
                   <StickyLTD $left="44px" $bg={stickyBg} style={{ fontSize: "0.77rem", fontWeight: 600, width: 90, minWidth: 90, maxWidth: 90 }}>
-                    {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-GB") : "—"}
+                    {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" }) : "—"}
                   </StickyLTD>
                   {/* Bill Time */}
                   <StickyLTD $left="134px" $bg={stickyBg} style={{ fontSize: "0.75rem", color: T.textMid, width: 82, minWidth: 82, maxWidth: 82 }}>
-                    {b.bill_date ? new Date(b.bill_date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—"}
+                    {b.bill_date ? new Date(b.bill_date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }) : "—"}
                   </StickyLTD>
                   {/* Bill No. */}
                   <StickyLTD $left="216px" $bg={stickyBg} style={{ width: 145, minWidth: 145, maxWidth: 145 }}>

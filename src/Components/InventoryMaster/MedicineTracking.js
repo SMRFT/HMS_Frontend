@@ -279,9 +279,10 @@ function MedicineTracking() {
   const isLockedIP = loggedOutlet === "OLET001";
   const isLockedOP = loggedOutlet === "OLET002";
 
-  const fetchMedicines = useCallback(async () => {
+  const fetchMedicines = useCallback(async (query = "") => {
     try {
-      const r = await apiRequest(`${HmsBaseUrl}pharmacy_items/`, "GET");
+      const qParam = query.trim() ? `?q=${encodeURIComponent(query.trim())}&limit=50` : "?limit=50";
+      const r = await apiRequest(`${HmsBaseUrl}pharmacy_items/${qParam}`, "GET");
       const payload = r?.data;
       const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
       const sorted = (Array.isArray(list) ? list : []).map(m => ({
@@ -307,6 +308,15 @@ function MedicineTracking() {
     }
     fetchMedicines();
   }, [fetchMedicines]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (searchValue.trim()) {
+        fetchMedicines(searchValue);
+      }
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [searchValue, fetchMedicines]);
 
   const handleSearch = async (outletOverride) => {
     if (!searchValue.trim()) {

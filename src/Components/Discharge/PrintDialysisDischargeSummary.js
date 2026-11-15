@@ -11,11 +11,11 @@ const fmt = (dateStr) => {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 const monthAgo = () => {
   const d = new Date();
   d.setMonth(d.getMonth() - 1);
-  return d.toISOString().split("T")[0];
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 };
 
 // ─── Print stylesheet injected once ─────────────────────────

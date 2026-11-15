@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
-import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvDeleteBtn } from "./InventoryUIHelper";
+import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvEditBtn, InvDeleteBtn } from "./InventoryUIHelper";
 import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
@@ -1059,6 +1059,9 @@ const StockTransfer = () => {
   const [remarksTouched, setRemarksTouched]   = useState(false);
 
   const [addedItems, setAddedItems]   = useState([]);
+  const [isSaving, setIsSaving]       = useState(false);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingQty, setEditingQty]   = useState("");
 
   const [medicineSearch, setMedicineSearch]   = useState("");
   const [medicineResults, setMedicineResults] = useState([]);
@@ -1323,11 +1326,49 @@ const StockTransfer = () => {
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
   };
 
-  const handleRemoveItem = (idx) =>
-    setAddedItems(addedItems.filter((_, i) => i !== idx));
+  const handleRemoveItem = (idx) => {
+    if (editingIndex === idx) {
+      setEditingIndex(null);
+      setEditingQty("");
+    } else if (editingIndex !== null && editingIndex > idx) {
+      setEditingIndex(editingIndex - 1);
+    }
+    setAddedItems((prev) => prev.filter((_, i) => i !== idx));
+  };
 
-  // ── UPDATED: handleSave includes remarks ───────────────────────────────────
+  const handleStartEdit = (idx, currentQty) => {
+    setEditingIndex(idx);
+    setEditingQty(String(currentQty));
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditingQty("");
+  };
+
+  const handleSaveEdit = (idx) => {
+    const qty = parseInt(editingQty, 10);
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Transfer quantity must be greater than 0");
+      return;
+    }
+    const maxStock = addedItems[idx]?.outlet_stock;
+    if (maxStock !== undefined && maxStock !== null && qty > maxStock) {
+      toast.error(`Transfer quantity cannot exceed available stock (${maxStock})`);
+      return;
+    }
+    setAddedItems((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, transfer_quantity: qty } : it))
+    );
+    toast.success("Transfer quantity updated");
+    setEditingIndex(null);
+    setEditingQty("");
+  };
+
+  // ── UPDATED: handleSave includes remarks + button disable state ───────────
   const handleSave = async () => {
+    if (isSaving) return;
+
     const finalFrom = fromOutlet || outletCode;
     if (finalFrom === null || finalFrom === undefined || (!finalFrom && finalFrom !== "")) {
       toast.error("Please select From Outlet");
@@ -1349,6 +1390,7 @@ const StockTransfer = () => {
       return;
     }
 
+    setIsSaving(true);
     try {
       const res = await apiRequest(`${HmsBaseUrl}stock-transfer/`, "POST", {
         from_outlet: finalFrom,
@@ -1373,6 +1415,8 @@ const StockTransfer = () => {
       }
     } catch {
       toast.error("Failed to save transfer");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1384,6 +1428,8 @@ const StockTransfer = () => {
     setRemarksTouched(false);        // ← NEW
     setMedicineSearch(""); setSelectedMedicine(null);
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
+    setEditingIndex(null); setEditingQty("");
+    setIsSaving(false);
     setShowForm(false);
   };
 
@@ -1592,11 +1638,6 @@ const StockTransfer = () => {
                           {medicineResults.map((med) => (
                             <DropdownItem key={med.item_id} onMouseDown={() => handleSelectMedicine(med)}>
                               <strong>{String(med.item_name || "").toUpperCase()}</strong>
-                              {med.available_qty !== undefined && (
-                                <span style={{ color: "#6b7280", marginLeft: 8, fontSize: "0.78rem" }}>
-                                  (Avail: {med.available_qty})
-                                </span>
-                              )}
                             </DropdownItem>
                           ))}
                         </SearchDropdown>
@@ -1712,10 +1753,68 @@ const StockTransfer = () => {
                             </span>
                           </ATd>
                           <ATd style={{ color: "#0d9488", fontWeight: 700 }}>
-                            {item.transfer_quantity}
+                            {editingIndex === idx ? (
+                              <Input
+                                type="number"
+                                min="1"
+                                max={item.outlet_stock}
+                                value={editingQty}
+                                onChange={(e) => setEditingQty(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveEdit(idx);
+                                  if (e.key === "Escape") handleCancelEdit();
+                                }}
+                                autoFocus
+                                style={{ width: "90px", padding: "4px 8px", fontSize: "0.85rem", height: "30px", fontWeight: 700 }}
+                              />
+                            ) : (
+                              item.transfer_quantity
+                            )}
                           </ATd>
                           <ATd style={{ textAlign: "center" }}>
-                            <InvDeleteBtn size={16} onClick={() => handleRemoveItem(idx)} title="Remove item" />
+                            {editingIndex === idx ? (
+                              <div style={{ display: "inline-flex", gap: "6px", alignItems: "center", justifyContent: "center" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEdit(idx)}
+                                  title="Save Quantity"
+                                  style={{
+                                    background: "#10b981",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "4px",
+                                    padding: "4px 8px",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  ✓ Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelEdit}
+                                  title="Cancel"
+                                  style={{
+                                    background: "#6b7280",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "4px",
+                                    padding: "4px 8px",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: "inline-flex", gap: "8px", alignItems: "center", justifyContent: "center" }}>
+                                <InvEditBtn size={16} onClick={() => handleStartEdit(idx, item.transfer_quantity)} title="Edit transfer quantity" />
+                                <InvDeleteBtn size={16} onClick={() => handleRemoveItem(idx)} title="Remove item" />
+                              </div>
+                            )}
                           </ATd>
                         </tr>
                       ))}
@@ -1739,8 +1838,15 @@ const StockTransfer = () => {
               </div>
 
               <ButtonContainer>
-                <Button secondary type="button" onClick={handleCancelForm}>Cancel</Button>
-                <Button type="button" onClick={handleSave}>💾 Save Transfer</Button>
+                <Button secondary type="button" onClick={handleCancelForm} disabled={isSaving}>Cancel</Button>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  style={{ opacity: isSaving ? 0.7 : 1, cursor: isSaving ? "not-allowed" : "pointer" }}
+                >
+                  {isSaving ? "Saving..." : "💾 Save Transfer"}
+                </Button>
               </ButtonContainer>
 
             </FormPanelBody>
