@@ -2232,6 +2232,8 @@ function App() {
                     element={<RoomOccupencyReport />}
                   />
                 )}
+              <Route path="/RoomOccupencyReport" element={<RoomOccupencyReport />} />
+              <Route path="/roomoccupencyreport" element={<RoomOccupencyReport />} />
               {hasPagePermission(
                 "/PreDayRoomOccupancyReport",
                 allowedActions,
@@ -2242,6 +2244,8 @@ function App() {
                     element={<PreDayRoomOccupancyReport />}
                   />
                 )}
+              <Route path="/PreDayRoomOccupancyReport" element={<PreDayRoomOccupancyReport />} />
+              <Route path="/predayroomoccupancyreport" element={<PreDayRoomOccupancyReport />} />
               {hasPagePermission(
                 "/InsuranceCreditReport",
                 allowedActions,
@@ -2252,6 +2256,8 @@ function App() {
                     element={<InsuranceCreditReport />}
                   />
                 )}
+              <Route path="/InsuranceCreditReport" element={<InsuranceCreditReport />} />
+              <Route path="/insurancecreditreport" element={<InsuranceCreditReport />} />
 
               {/* Dedicated IP Patient Analysis */}
               <Route path="/IPPatientAnalysis" element={<IPPatientAnalysis />} />
