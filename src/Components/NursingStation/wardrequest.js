@@ -1089,6 +1089,27 @@ const getHighRiskReason = (adm) => {
   );
 };
 
+// Flexible Room Matcher: handles prefixes (e.g. 'TS - 422' vs '422', 'SR-509' vs '509', 'SUT006' vs 'S-6')
+const isRoomMatch = (r1, r2) => {
+  if (!r1 || !r2) return false;
+  const s1 = String(r1).trim().toUpperCase();
+  const s2 = String(r2).trim().toUpperCase();
+  if (s1 === s2) return true;
+  const c1 = s1.replace(/[^A-Z0-9]/g, "");
+  const c2 = s2.replace(/[^A-Z0-9]/g, "");
+  if (c1 === c2) return true;
+  if ((c1 === "DAYCAR" && c2 === "DAYCARE") || (c1 === "DAYCARE" && c2 === "DAYCAR")) return true;
+  if ((c1 === "DLS" && c2.includes("DIALYSIS")) || (c2 === "DLS" && c1.includes("DIALYSIS"))) return true;
+  const n1 = s1.match(/\d+/g);
+  const n2 = s2.match(/\d+/g);
+  if (n1 && n2) {
+    const num1 = parseInt(n1[n1.length - 1], 10);
+    const num2 = parseInt(n2[n2.length - 1], 10);
+    if (num1 === num2) return true;
+  }
+  return false;
+};
+
 // Main WardRequest Component
 const WardRequest = () => {
   const navigate = useNavigate();
@@ -1280,9 +1301,9 @@ const WardRequest = () => {
   const getAdmNursingStation = useCallback((adm) => {
     let ns = getField(adm, "nursing_station") || adm.nursing_station || adm.nursingStation;
     if (!ns || !String(ns).trim()) {
-      const rNo = String(getField(adm, "room_no") || adm.room_no || "").trim();
+      const rNo = String(getField(adm, "canonical_room_no") || getField(adm, "room_no") || adm.room_no || "").trim();
       if (rNo && Array.isArray(locationMapping)) {
-        const matchLoc = locationMapping.find(l => String(l.room_no || l.room_number || "").trim() === rNo);
+        const matchLoc = locationMapping.find(l => isRoomMatch(l.room_no || l.room_number, rNo));
         if (matchLoc && (matchLoc.nursing_station || matchLoc.nursingStation)) {
           ns = matchLoc.nursing_station || matchLoc.nursingStation;
         }
@@ -1496,9 +1517,9 @@ const WardRequest = () => {
 
           // Find matching admission for this room & bed
           const admission = filteredAdmissions.find(adm => {
-            const r = String(getField(adm, "room_no")).trim();
+            const r = String(getField(adm, "canonical_room_no") || getField(adm, "room_no")).trim();
             const b = String(getField(adm, "bed_no")).trim();
-            return r === String(roomNum).trim() && (b === bedNum || b === bedNum.replace(/bed\s*/i, '').trim());
+            return isRoomMatch(r, roomNum) && (b === bedNum || b.replace(/bed\s*/i, '').trim() === bedNum.replace(/bed\s*/i, '').trim());
           });
 
           const existingBedIndex = roomObj.beds.findIndex(b => String(b.bed_no).trim() === bedNum);
@@ -1518,13 +1539,23 @@ const WardRequest = () => {
 
     // 2. Ensure ALL filteredAdmissions appear in a Room card
     filteredAdmissions.forEach(adm => {
-      const roomNum = getField(adm, "room_no") || "101";
+      const rawRoom = getField(adm, "room_no") || "101";
+      const roomNum = getField(adm, "canonical_room_no") || rawRoom;
       const bedNum = String(getField(adm, "bed_no") || "1").trim();
       const roomCat = getField(adm, "room_category") || "General";
       const blockName = getField(adm, "block") || "Main Block";
       const nsName = getAdmNursingStation(adm);
 
-      const roomObj = getOrCreateRoom(roomNum, roomCat, blockName, nsName);
+      let roomObj = null;
+      for (const existingRoom of groupsMap.values()) {
+        if (isRoomMatch(existingRoom.room_no, roomNum) || isRoomMatch(existingRoom.room_no, rawRoom)) {
+          roomObj = existingRoom;
+          break;
+        }
+      }
+      if (!roomObj) {
+        roomObj = getOrCreateRoom(roomNum, roomCat, blockName, nsName);
+      }
 
       const existingBed = roomObj.beds.find(b =>
         String(b.bed_no).trim() === bedNum ||
