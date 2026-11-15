@@ -1068,9 +1068,11 @@ const StockTransfer = () => {
   const [showMedDropdown, setShowMedDropdown] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState(null);
 
-  const [availableBatches, setAvailableBatches] = useState([]);
-  const [selectedBatchIdx, setSelectedBatchIdx] = useState("");
-  const [transferQty, setTransferQty]           = useState("");
+  const [availableBatches, setAvailableBatches]     = useState([]);
+  const [selectedBatchIdx, setSelectedBatchIdx]     = useState("");
+  const [transferQty, setTransferQty]               = useState("");
+  const [batchesLoading, setBatchesLoading]         = useState(false);
+  const [noStockForSelected, setNoStockForSelected] = useState(false);
 
   const [filterFromDate, setFilterFromDate] = useState(getTodayDateString);
   const [filterToDate, setFilterToDate]     = useState(getTodayDateString);
@@ -1212,6 +1214,14 @@ const StockTransfer = () => {
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
       const payload = res?.data;
       const raw = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(res) ? res : []));
+      
+      const itemStockMap = {};
+      raw.forEach((s) => {
+        const iid = s.item_id;
+        const q = Number(s.available_qty ?? 0);
+        itemStockMap[iid] = (itemStockMap[iid] || 0) + q;
+      });
+
       const seen = new Set();
       const unique = raw
         .filter((s) => {
@@ -1221,6 +1231,7 @@ const StockTransfer = () => {
         .map((s) => ({
           ...s,
           item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
+          total_available_qty: itemStockMap[s.item_id] !== undefined ? itemStockMap[s.item_id] : Number(s.available_qty ?? 0),
         }))
         .filter((s) => String(s.item_name || "").toUpperCase().startsWith(cleanQ))
         .sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }));
@@ -1234,6 +1245,8 @@ const StockTransfer = () => {
   // ── Fetch batches ──────────────────────────────────────────────────────────
   const fetchBatchesForItem = useCallback(async (itemId) => {
     if (fromOutlet === null) return;
+    setBatchesLoading(true);
+    setNoStockForSelected(false);
     try {
       const params = new URLSearchParams({ item_id: itemId, page: "all" });
       params.append("outlet_code", fromOutlet);
@@ -1253,9 +1266,19 @@ const StockTransfer = () => {
           expiry_date:   s.expiry_date  || null,
         }));
       setAvailableBatches(batches);
-      setSelectedBatchIdx(batches.length === 1 ? 0 : "");
+      if (batches.length === 0) {
+        setNoStockForSelected(true);
+        setSelectedBatchIdx("");
+        toast.warning("No quantity for this medicine");
+      } else {
+        setNoStockForSelected(false);
+        setSelectedBatchIdx(batches.length === 1 ? 0 : "");
+      }
     } catch {
       setAvailableBatches([]); setSelectedBatchIdx("");
+      setNoStockForSelected(true);
+    } finally {
+      setBatchesLoading(false);
     }
   }, [HmsBaseUrl, fromOutlet]);
 
@@ -1265,6 +1288,7 @@ const StockTransfer = () => {
     setMedicineSearch(val);
     setSelectedMedicine(null);
     setAvailableBatches([]); setSelectedBatchIdx("");
+    setNoStockForSelected(false);
     searchMedicines(val);
   };
 
@@ -1291,6 +1315,7 @@ const StockTransfer = () => {
     setFromOutlet(code);
     setMedicineSearch(""); setSelectedMedicine(null);
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
+    setNoStockForSelected(false);
   };
 
   const handleToOutletChange = (selectVal) => {
@@ -1299,7 +1324,11 @@ const StockTransfer = () => {
   };
 
   const handleAddItem = () => {
-    if (!selectedMedicine)                         { toast.error("Please select a medicine"); return; }
+    if (!selectedMedicine) { toast.error("Please select a medicine"); return; }
+    if (noStockForSelected || availableBatches.length === 0) {
+      toast.error("No quantity for this medicine");
+      return;
+    }
     if (selectedBatchIdx === "" || !selectedBatch) { toast.error("Please select a batch"); return; }
     const qty = Number(transferQty);
     if (!qty || qty <= 0)                          { toast.error("Enter a valid transfer quantity"); return; }
@@ -1324,6 +1353,7 @@ const StockTransfer = () => {
 
     setMedicineSearch(""); setSelectedMedicine(null);
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
+    setNoStockForSelected(false);
   };
 
   const handleRemoveItem = (idx) => {
@@ -1429,6 +1459,8 @@ const StockTransfer = () => {
     setMedicineSearch(""); setSelectedMedicine(null);
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
     setEditingIndex(null); setEditingQty("");
+    setNoStockForSelected(false);
+    setBatchesLoading(false);
     setIsSaving(false);
     setShowForm(false);
   };
@@ -1632,40 +1664,107 @@ const StockTransfer = () => {
                         placeholder="Search medicine..."
                         autoComplete="off"
                         disabled={isDrugPurchase && fromOutlet === null}
+                        style={noStockForSelected ? { borderColor: "#ef4444" } : {}}
                       />
                       {showMedDropdown && medicineResults.length > 0 && (
                         <SearchDropdown>
-                          {medicineResults.map((med) => (
-                            <DropdownItem key={med.item_id} onMouseDown={() => handleSelectMedicine(med)}>
-                              <strong>{String(med.item_name || "").toUpperCase()}</strong>
-                            </DropdownItem>
-                          ))}
+                          {medicineResults.map((med) => {
+                            const isZeroQty = Number(med.total_available_qty ?? med.available_qty ?? 0) <= 0;
+                            return (
+                              <DropdownItem
+                                key={med.item_id}
+                                onMouseDown={() => handleSelectMedicine(med)}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                }}
+                              >
+                                <strong>{String(med.item_name || "").toUpperCase()}</strong>
+                                {isZeroQty && (
+                                  <span
+                                    style={{
+                                      background: "#fee2e2",
+                                      color: "#dc2626",
+                                      padding: "2px 7px",
+                                      borderRadius: "4px",
+                                      fontSize: "0.72rem",
+                                      fontWeight: 600,
+                                      marginLeft: "8px",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    No quantity
+                                  </span>
+                                )}
+                              </DropdownItem>
+                            );
+                          })}
                         </SearchDropdown>
                       )}
                     </RelativeWrapper>
+                    {noStockForSelected && (
+                      <div
+                        style={{
+                          color: "#dc2626",
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                          marginTop: "5px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        ⚠️ No quantity for this medicine
+                      </div>
+                    )}
                   </InputWrapper>
 
                   <InputWrapper>
                     <Label>HSN Code</Label>
-                    <ReadonlyInput type="text" value={selectedBatch?.hsn_code || ""} readOnly placeholder="Auto-filled" />
+                    <ReadonlyInput
+                      type="text"
+                      value={selectedBatch?.hsn_code || selectedMedicine?.hsn_code || ""}
+                      readOnly
+                      placeholder="Auto-filled"
+                    />
                   </InputWrapper>
 
                   <InputWrapper>
                     <Label>Stock Available</Label>
                     <ReadonlyInput
                       type="text"
-                      value={selectedBatch != null ? selectedBatch.available_qty : ""}
+                      value={selectedBatch != null ? selectedBatch.available_qty : (noStockForSelected ? "0" : "")}
                       readOnly
                       placeholder="Auto-filled"
+                      style={noStockForSelected ? { borderColor: "#ef4444", color: "#dc2626", fontWeight: 700 } : {}}
                     />
-                    {selectedBatch && selectedBatch.available_qty <= 10 && (
+                    {noStockForSelected ? (
+                      <StockWarn style={{ color: "#dc2626", background: "#fee2e2", border: "1px solid #fca5a5" }}>
+                        ⚠ No quantity for this medicine
+                      </StockWarn>
+                    ) : selectedBatch && selectedBatch.available_qty <= 10 ? (
                       <StockWarn>⚠ Low stock</StockWarn>
-                    )}
+                    ) : null}
                   </InputWrapper>
 
                   <InputWrapper>
                     <Label required>Batch No.</Label>
-                    {availableBatches.length === 0 ? (
+                    {batchesLoading ? (
+                      <ReadonlyInput type="text" value="Checking batches..." readOnly />
+                    ) : noStockForSelected ? (
+                      <>
+                        <ReadonlyInput
+                          type="text"
+                          value="No batch available"
+                          readOnly
+                          style={{ borderColor: "#ef4444", color: "#dc2626" }}
+                        />
+                        <StockInfoNote style={{ color: "#dc2626", fontWeight: 600 }}>
+                          No quantity for this medicine
+                        </StockInfoNote>
+                      </>
+                    ) : availableBatches.length === 0 ? (
                       <ReadonlyInput type="text" value="" readOnly placeholder="Auto-filled" />
                     ) : availableBatches.length === 1 ? (
                       <>
@@ -1699,9 +1798,13 @@ const StockTransfer = () => {
                   <InputWrapper>
                     <Label required>Transfer Qty</Label>
                     <Input
+                      type="number"
+                      min="1"
+                      max={selectedBatch?.available_qty}
                       value={transferQty}
                       onChange={(e) => setTransferQty(e.target.value)}
-                      placeholder="0"
+                      placeholder={noStockForSelected ? "No quantity" : "0"}
+                      disabled={!selectedBatch || noStockForSelected}
                     />
                     {selectedBatch && transferQty && Number(transferQty) > selectedBatch.available_qty && (
                       <StockWarn>Exceeds stock</StockWarn>
@@ -1713,7 +1816,14 @@ const StockTransfer = () => {
                     <Button
                       type="button"
                       onClick={handleAddItem}
-                      style={{ padding: "8px 18px", fontSize: "0.85rem", whiteSpace: "nowrap" }}
+                      disabled={noStockForSelected || batchesLoading || !selectedBatch}
+                      style={{
+                        padding: "8px 18px",
+                        fontSize: "0.85rem",
+                        whiteSpace: "nowrap",
+                        opacity: (noStockForSelected || !selectedBatch) ? 0.5 : 1,
+                        cursor: (noStockForSelected || !selectedBatch) ? "not-allowed" : "pointer",
+                      }}
                     >
                       + Add
                     </Button>
