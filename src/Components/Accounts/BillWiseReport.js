@@ -325,9 +325,18 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
             group.items.push(b);
 
             const gross = Number(b.gross !== undefined ? b.gross : (b.total_amount || b.net_amount || 0));
-            const cash = Number(b.cash !== undefined ? b.cash : (b.payment_mode === "Cash" ? b.net_amount : 0));
-            const credit = Number(b.credit !== undefined ? b.credit : (b.payment_mode !== "Cash" && b.payment_mode !== "Bank" ? b.net_amount : 0));
-            const bank = Number(b.bank !== undefined ? b.bank : (b.payment_mode === "Bank" ? b.net_amount : 0));
+            const mode = String(b.payment_mode || "").toLowerCase().trim();
+            const isCashMode = mode === "cash" || mode === "";
+            const isBankMode = mode.includes("bank") || mode.includes("card") || mode.includes("visa") || mode.includes("upi") || mode.includes("pos") || mode.includes("online") || mode.includes("cheque") || mode.includes("neft");
+            const isCreditMode = mode.includes("credit") || mode.includes("scheme") || mode.includes("insurance") || mode.includes("tpa") || mode.includes("cghs") || mode.includes("echs");
+            
+            const defaultCash = isCashMode ? Number(b.net_amount || 0) : 0;
+            const defaultBank = isBankMode ? Number(b.net_amount || 0) : 0;
+            const defaultCredit = isCreditMode ? Number(b.net_amount || 0) : (!isCashMode && !isBankMode ? Number(b.net_amount || 0) : 0);
+
+            const cash = Number(b.cash !== undefined ? b.cash : defaultCash);
+            const credit = Number(b.credit !== undefined ? b.credit : defaultCredit);
+            const bank = Number(b.bank !== undefined ? b.bank : defaultBank);
             const disc = Number(b.discount || 0);
             const adv = Number(b.advance || 0);
             const sr = Number(b.sales_return || 0);
@@ -407,13 +416,20 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
 
                 group.items.forEach((b) => {
                     const gross = Number(b.gross !== undefined ? b.gross : (b.total_amount || b.net_amount || 0));
-                    const cash = Number(b.cash !== undefined ? b.cash : (b.payment_mode === "Cash" ? b.net_amount : 0));
-                    const credit = Number(b.credit !== undefined ? b.credit : (b.payment_mode !== "Cash" && b.payment_mode !== "Bank" ? b.net_amount : 0));
-                    const bank = Number(b.bank !== undefined ? b.bank : (b.payment_mode === "Bank" ? b.net_amount : 0));
+                    const mode = String(b.payment_mode || "").toLowerCase().trim();
+                    const isCashMode = mode === "cash" || mode === "";
+                    const isBankMode = mode.includes("bank") || mode.includes("card") || mode.includes("visa") || mode.includes("upi") || mode.includes("pos") || mode.includes("online") || mode.includes("cheque") || mode.includes("neft");
+                    const isCreditMode = mode.includes("credit") || mode.includes("scheme") || mode.includes("insurance") || mode.includes("tpa") || mode.includes("cghs") || mode.includes("echs");
+                    const defaultCash = isCashMode ? Number(b.net_amount || 0) : 0;
+                    const defaultBank = isBankMode ? Number(b.net_amount || 0) : 0;
+                    const defaultCredit = isCreditMode ? Number(b.net_amount || 0) : (!isCashMode && !isBankMode ? Number(b.net_amount || 0) : 0);
+                    const cash = Number(b.cash !== undefined ? b.cash : defaultCash);
+                    const credit = Number(b.credit !== undefined ? b.credit : defaultCredit);
+                    const bank = Number(b.bank !== undefined ? b.bank : defaultBank);
 
                     rows.push({
                         "S.No": sNo++,
-                        "Flag": b.flag || (b.payment_mode === "Cash" ? "C" : "R"),
+                        "Flag": b.flag || (isCashMode ? "C" : "R"),
                         "Bill Date": b.bill_date ? dayjs(b.bill_date).format("DD/MM/YYYY") : "—",
                         "Bill Number": b.bill_no,
                         "Patient Name": b.patient_name || "N/A",
@@ -585,11 +601,18 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
 
                                     {/* Items under this Bill Type */}
                                     {group.items.map((b, i) => {
-                                        const flag = b.flag || (b.payment_mode === "Cash" ? "C" : "R");
-                                        const gross = b.gross !== undefined ? b.gross : (b.total_amount || b.net_amount || 0);
-                                        const cash = b.cash !== undefined ? b.cash : (b.payment_mode === "Cash" ? b.net_amount : 0);
-                                        const credit = b.credit !== undefined ? b.credit : (b.payment_mode !== "Cash" && b.payment_mode !== "Bank" ? b.net_amount : 0);
-                                        const bank = b.bank !== undefined ? b.bank : (b.payment_mode === "Bank" ? b.net_amount : 0);
+                                        const mode = String(b.payment_mode || "").toLowerCase().trim();
+                                        const isCashMode = mode === "cash" || mode === "";
+                                        const isBankMode = mode.includes("bank") || mode.includes("card") || mode.includes("visa") || mode.includes("upi") || mode.includes("pos") || mode.includes("online") || mode.includes("cheque") || mode.includes("neft");
+                                        const isCreditMode = mode.includes("credit") || mode.includes("scheme") || mode.includes("insurance") || mode.includes("tpa") || mode.includes("cghs") || mode.includes("echs");
+                                        const defaultCash = isCashMode ? Number(b.net_amount || 0) : 0;
+                                        const defaultBank = isBankMode ? Number(b.net_amount || 0) : 0;
+                                        const defaultCredit = isCreditMode ? Number(b.net_amount || 0) : (!isCashMode && !isBankMode ? Number(b.net_amount || 0) : 0);
+                                        const flag = b.flag || (isCashMode ? "C" : "R");
+                                        const gross = Number(b.gross !== undefined ? b.gross : (b.total_amount || b.net_amount || 0));
+                                        const cash = Number(b.cash !== undefined ? b.cash : defaultCash);
+                                        const credit = Number(b.credit !== undefined ? b.credit : defaultCredit);
+                                        const bank = Number(b.bank !== undefined ? b.bank : defaultBank);
 
                                         return (
                                             <tr key={`${groupIdx}-${i}`}>
@@ -607,9 +630,9 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                                                 </td>
                                                 <td>{b.op_number || b.uhid || "—"}</td>
                                                 <td className="num">{formatINR(gross)}</td>
-                                                <td className="num">{cash > 0 ? formatINR(cash) : ""}</td>
-                                                <td className="num">{credit > 0 ? formatINR(credit) : ""}</td>
-                                                <td className="num">{bank > 0 ? formatINR(bank) : ""}</td>
+                                                <td className="num">{cash !== 0 ? formatINR(cash) : ""}</td>
+                                                <td className="num">{credit !== 0 ? formatINR(credit) : ""}</td>
+                                                <td className="num">{bank !== 0 ? formatINR(bank) : ""}</td>
                                             </tr>
                                         );
                                     })}
@@ -660,7 +683,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                             </div>
                             <div className="summary-line">
                                 <span className="label">Cash Amount :</span>
-                                <span className="value">{formatINR(grandTotals.cash)}</span>
+                                <span className="value">{formatINR(grandTotals.cashBillsAmount)}</span>
                             </div>
                             <div className="summary-line">
                                 <span className="label">Sales Returns :</span>
@@ -668,7 +691,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                             </div>
                             <div className="summary-line">
                                 <span className="label">Net Amt :</span>
-                                <span className="value">{formatINR(grandTotals.cash - grandTotals.sales_return)}</span>
+                                <span className="value">{formatINR(grandTotals.cashBillsAmount - grandTotals.sales_return)}</span>
                             </div>
                         </div>
 
@@ -691,7 +714,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                             </div>
                             <div className="summary-line">
                                 <span className="label">Cancelled Bills</span>
-                                <span className="value">{grandTotals.cancBillsCount.toFixed(2)}</span>
+                                <span className="value">{grandTotals.cancBillsCount}</span>
                             </div>
                             <div className="summary-line">
                                 <span className="label">Cancelled Amount</span>

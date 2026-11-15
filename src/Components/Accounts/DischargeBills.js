@@ -286,9 +286,9 @@ const DischargeBills = ({
         const salesReturn = Number(bill.sales_return || 0);
         const patientDebit = Number(bill.patient_debit || 0);
 
-        const cash = isCash ? netAmt : 0;
-        const bank = isBank ? netAmt : 0;
-        const credit = isCredit ? (bill.credit_amount !== undefined ? Number(bill.credit_amount) : gross - advance - discount) : 0;
+        const cash = Number(bill.cash !== undefined ? bill.cash : (isCash ? netAmt : 0));
+        const bank = Number(bill.bank_amount !== undefined ? bill.bank_amount : (typeof bill.bank === "number" ? bill.bank : (isBank ? netAmt : 0)));
+        const credit = Number(bill.credit !== undefined ? bill.credit : (bill.credit_amount !== undefined ? Number(bill.credit_amount) : (isCredit ? gross - advance - discount : 0)));
 
         acc.gross += gross;
         acc.cash += cash;
@@ -487,7 +487,6 @@ const DischargeBills = ({
                                 const isBank = mode.includes("bank") || mode.includes("card") || mode.includes("visa");
                                 const isCredit = b.has_insurance || mode.includes("credit") || mode.includes("scheme");
 
-                                const flag = isCash ? "C" : "R";
                                 const gross = Number(b.bill_amount || b.total_amount || b.net_amount || 0);
                                 const netAmt = Number(b.net_amount !== undefined ? b.net_amount : (b.paid_by_patient || 0));
                                 const advAmt = Number(b.advance_amount || b.advance || 0);
@@ -495,10 +494,11 @@ const DischargeBills = ({
                                 const srAmt = Number(b.sales_return || 0);
                                 const pdebAmt = Number(b.patient_debit || 0);
 
-                                const cashVal = isCash ? netAmt : 0;
-                                const bankVal = isBank ? netAmt : 0;
-                                const creditVal = isCredit ? (b.credit_amount !== undefined ? Number(b.credit_amount) : gross - advAmt - discAmt) : 0;
-                                const schemeLabel = b.insurance_company || b.company_name || (isBank ? "VISA CARD" : "");
+                                const cashVal = Number(b.cash !== undefined ? b.cash : (isCash ? netAmt : 0));
+                                const bankVal = Number(b.bank_amount !== undefined ? b.bank_amount : (typeof b.bank === "number" ? b.bank : (isBank ? netAmt : 0)));
+                                const creditVal = Number(b.credit !== undefined ? b.credit : (b.credit_amount !== undefined ? Number(b.credit_amount) : (isCredit ? gross - advAmt - discAmt : 0)));
+                                const flag = b.flag || (creditVal === 0 && bankVal === 0 ? "C" : "R");
+                                const schemeLabel = b.insurance_company || b.company_name || (bankVal > 0 ? "VISA CARD" : "");
 
                                 return (
                                     <tr key={i}>
@@ -589,7 +589,7 @@ const DischargeBills = ({
                             </div>
                             <div className="summary-line">
                                 <span className="label">Cancelled Bills</span>
-                                <span className="value">{computedTotals.cancBillsCount.toFixed(2)}</span>
+                                <span className="value">{computedTotals.cancBillsCount}</span>
                             </div>
                             <div className="summary-line">
                                 <span className="label">Cancelled Amount</span>
