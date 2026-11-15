@@ -649,7 +649,7 @@ const EMPTY = {
   roomNo: "", bedNo: "", reasonForAdmission: "",
   mlc_type: "", mlc_doc: null, mlc_remarks: "",
   attender_name: "", attender_relationship: "", attender_phone: "",
-  is_high_risk: false, high_risk_reason: "", high_risk_date: new Date().toISOString().slice(0, 10),
+  is_high_risk: false, high_risk_reason: "", high_risk_date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
   salutation: "", firstName: "", middleName: "", lastName: "",
   dob: "", age: "", age_type: "Y", gender: "", mobilePhone: "", permanent_address: "",
   area: "", zipcode: "", city: "", state: "",
@@ -2676,7 +2676,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       company_code: adm.company_code || "",
       is_high_risk: !!adm.is_high_risk,
       high_risk_reason: adm.high_risk_reason || "",
-      high_risk_date: adm.high_risk_date ? String(adm.high_risk_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
+      high_risk_date: adm.high_risk_date ? String(adm.high_risk_date).slice(0, 10) : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       room_details: safeParseList(adm.room_details),
       roomShitingDetails: safeParseList(adm.roomShitingDetails),
       edit_history: safeParseList(adm.edit_history),
@@ -3981,7 +3981,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       return {
                         ...p,
                         is_high_risk: nextActive,
-                        high_risk_date: nextActive ? (p.high_risk_date || new Date().toISOString().slice(0, 10)) : "",
+                        high_risk_date: nextActive ? (p.high_risk_date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })) : "",
                         high_risk_reason: nextActive ? p.high_risk_reason : ""
                       };
                     });

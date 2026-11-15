@@ -155,7 +155,7 @@ const DI   = styled.button`
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 const BASE     = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 const fmt      = v => (parseFloat(v) || 0).toFixed(2);
-const todayStr = () => new Date().toISOString().split("T")[0];
+const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Component
@@ -427,7 +427,7 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
                     ₹{fmt(e.net_amount)}
                   </LTD>
                   <LTD style={{ fontSize: "0.77rem" }}>
-                    {e.bill_date ? new Date(e.bill_date).toLocaleDateString("en-IN") : "—"}
+                    {e.bill_date ? new Date(e.bill_date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "—"}
                   </LTD>
                   <LTD><Badge $v="estimate">Estimate</Badge></LTD>
                   <LTD style={{ textAlign: "center" }}>

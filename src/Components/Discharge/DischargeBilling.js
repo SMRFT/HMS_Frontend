@@ -622,7 +622,7 @@ const EMPTY_FORM = {
   gst_amount: "", room_tax: "",
   discount_percent: "", discount_amount: "", disc_reason: "", remarks: "",
   next_visit_date: "",
-  bill_upto: new Date().toISOString().split("T")[0],
+  bill_upto: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
 };
 const EMPTY_ITEM = {
   itemName: "", code: "", nabh_code: "", nabh_rate: null, non_nabh_rate: null,
@@ -806,11 +806,11 @@ const estToForm = e => ({
   disc_reason: e.disc_reason || "",
   remarks: e.remarks || "",
   next_visit_date: e.next_visit_date
-    ? new Date(e.next_visit_date).toISOString().split("T")[0]
+    ? new Date(e.next_visit_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
     : "",
   bill_upto: e.bill_date
-    ? new Date(e.bill_date).toISOString().split("T")[0]
-    : new Date().toISOString().split("T")[0],
+    ? new Date(e.bill_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+    : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
 });
 
 // ─── Normalise items from API ─────────────────────────────────────────────────
