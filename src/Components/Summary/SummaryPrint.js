@@ -885,124 +885,96 @@ const SummaryPrint = () => {
         return c;
       };
 
-      /* ── STEP A: capture body + fixed strips ── */
-      const bodyCanvas = await captureEl(bodyRef.current, INNER_W);
-      const hdr1Canvas = await captureEl(
-        document.getElementById("sp-cap-hdr1"),
-        INNER_W,
-      );
-      const hdrCCanvas = await captureEl(
-        document.getElementById("sp-cap-hdrc"),
-        INNER_W,
-      );
-      const ftrCanvas = await captureEl(
-        document.getElementById("sp-cap-ftr"),
-        INNER_W,
-      );
+      /* ── STEP A: capture body (keep the clone so we measure the SAME layout we render) ── */
+      const bodyClone = bodyRef.current.cloneNode(true);
+      bodyClone.setAttribute("data-pdf-clone", "1");
+      Object.assign(bodyClone.style, {
+        position: "fixed",
+        top: "-99999px",
+        left: "-99999px",
+        width: INNER_W + "px",
+        background: "#ffffff",
+        zIndex: "-1",
+        minHeight: "unset",
+        fontFamily: "'Source Sans 3', Arial, sans-serif",
+      });
+      document.body.appendChild(bodyClone);
+      const bodyCanvas = await html2canvas(bodyClone, {
+        scale: SCALE,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        width: INNER_W,
+        height: bodyClone.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const hdr1Canvas = await captureEl(document.getElementById("sp-cap-hdr1"), INNER_W);
+      const hdrCCanvas = await captureEl(document.getElementById("sp-cap-hdrc"), INNER_W);
+      const ftrCanvas = await captureEl(document.getElementById("sp-cap-ftr"), INNER_W);
 
       const hdr1H = hdr1Canvas.height;
       const hdrCH = hdrCCanvas.height;
       const ftrH = ftrCanvas.height;
 
-      /* ── STEP B: collect repeatable thead metadata ── */
-      const bodyRect = bodyRef.current.getBoundingClientRect();
-      const curScale = previewScaleRef.current || 1;
-      const getRelTop = (r) => ((r.top - bodyRect.top) / curScale) * SCALE;
-      const getRelBot = (r) => ((r.bottom - bodyRect.top) / curScale) * SCALE;
+      /* ── STEP B: all measurements come from the clone (scale is always 1 there) ── */
+      const bodyRect = bodyClone.getBoundingClientRect();
+      const getRelTop = (r) => (r.top - bodyRect.top) * SCALE;
+      const getRelBot = (r) => (r.bottom - bodyRect.top) * SCALE;
 
-      const theadNodes = bodyRef.current.querySelectorAll(
-        "thead[data-thead-id]",
-      );
       const theadInfos = [];
-
-      for (const thead of theadNodes) {
+      for (const thead of bodyClone.querySelectorAll("thead[data-thead-id]")) {
         const tbl = thead.closest("table");
         if (!tbl) continue;
-
         const thRect = thead.getBoundingClientRect();
         const tbRect = tbl.getBoundingClientRect();
-
         const theadTop = getRelTop(thRect);
         const theadBot = getRelBot(thRect);
         const tableBottom = getRelBot(tbRect);
         const theadH = Math.round(theadBot - theadTop);
 
-        const blockEl = tbl.closest("[data-block-top]");
-        const blockTop = blockEl
-          ? getRelTop(blockEl.getBoundingClientRect())
-          : theadTop;
-
-        // Crop thead strip directly from bodyCanvas
         const strip = document.createElement("canvas");
         strip.width = bodyCanvas.width;
         strip.height = theadH;
-        const sCtx = strip.getContext("2d");
-        sCtx.drawImage(
-          bodyCanvas,
-          0,
-          Math.round(theadTop),
-          bodyCanvas.width,
-          theadH,
-          0,
-          0,
-          bodyCanvas.width,
-          theadH,
-        );
+        strip
+          .getContext("2d")
+          .drawImage(bodyCanvas, 0, Math.round(theadTop), bodyCanvas.width, theadH, 0, 0, bodyCanvas.width, theadH);
 
-        theadInfos.push({
-          blockTop,
-          theadTop,
-          theadBot,
-          tableBottom,
-          canvas: strip,
-          height: theadH,
-        });
+        theadInfos.push({ theadTop, theadBot, tableBottom, canvas: strip, height: theadH });
       }
 
-      /* ── STEP B2: collect row boundaries for row-snap ── */
-      const allTables = Array.from(bodyRef.current.querySelectorAll("table"));
-      const tableBoundaries = allTables.map((tbl) => {
+      const tableBoundaries = Array.from(bodyClone.querySelectorAll("table")).map((tbl) => {
         const tbRect = tbl.getBoundingClientRect();
         const tableTop = getRelTop(tbRect);
         const tableBottom = getRelBot(tbRect);
-
         const theadEl = tbl.querySelector("thead");
-        const theadBot = theadEl
-          ? getRelBot(theadEl.getBoundingClientRect())
-          : tableTop;
-
-        const blockEl = tbl.closest("[data-block-top]");
-        const blockTop = blockEl
-          ? getRelTop(blockEl.getBoundingClientRect())
-          : tableTop;
-
-        const tbodyRows = Array.from(tbl.querySelectorAll("tbody tr"));
-        const rowBounds = tbodyRows
+        const theadBot = theadEl ? getRelBot(theadEl.getBoundingClientRect()) : tableTop;
+        const rowBounds = Array.from(tbl.querySelectorAll("tbody tr"))
           .map((tr) => getRelBot(tr.getBoundingClientRect()))
           .filter((b) => b > theadBot && b <= tableBottom + 1);
-
-        return { blockTop, tableTop, theadBot, tableBottom, rowBounds };
+        return { tableTop, theadBot, tableBottom, rowBounds };
       });
 
-      // Non-table block boundaries (signatures, dept headers, etc.)
-      const nonTableBlockBounds = Array.from(
-        bodyRef.current.querySelectorAll("[data-block-top]"),
-      )
+      const nonTableBlockBounds = Array.from(bodyClone.querySelectorAll("[data-block-top]"))
         .filter((el) => !el.querySelector("table") && !el.closest("table"))
         .map((el) => {
           const r = el.getBoundingClientRect();
-          return {
-            elTop: getRelTop(r),
-            elBot: getRelBot(r),
-          };
+          return { elTop: getRelTop(r), elBot: getRelBot(r) };
         });
 
-      // Determine the true bottom coordinate of actual visual content inside bodyRef.current
-      const allBlocks = Array.from(
-        bodyRef.current.querySelectorAll("[data-block-top]"),
-      );
+      // every text line inside a section, so we never slice through a line
+      const lineBounds = Array.from(bodyClone.querySelectorAll(".sp-section-content > div")).map((el) => {
+        const r = el.getBoundingClientRect();
+        return { top: getRelTop(r), bot: getRelBot(r) };
+      });
+
       let contentBottom = 0;
-      for (const el of [...allBlocks, ...Array.from(bodyRef.current.children)]) {
+      for (const el of [
+        ...bodyClone.querySelectorAll("[data-block-top]"),
+        ...Array.from(bodyClone.children),
+      ]) {
         const r = el.getBoundingClientRect();
         if (r.height > 0) {
           const bot = Math.round(getRelBot(r));
@@ -1011,55 +983,34 @@ const SummaryPrint = () => {
       }
       if (contentBottom <= 0) contentBottom = bodyCanvas.height;
 
+      bodyClone.remove(); // measurements done
+
       const SNAP_TOL = 2;
 
-      /*
-       * snapCut(proposedCut)
-       *
-       * FIX: When the cut lands inside a table and no tbody rows fit,
-       * we now snap to `theadBot` (NOT `blockTop`).
-       *
-       * Snapping to blockTop was the bug: it set yOffset back to before
-       * the thead, so on the next page theadBot <= yOffset was false and
-       * the thead overlay never fired. The result was that the organism
-       * info text re-appeared instead of the column header row.
-       *
-       * Snapping to theadBot means yOffset === theadBot on the next page,
-       * the overlay condition fires, and the header row is drawn correctly
-       * above the first data row.
-       */
       const snapCut = (proposedCut, yOffset) => {
-        // Level 1: table row boundaries
-        for (const {
-          tableTop,
-          theadBot,
-          tableBottom,
-          rowBounds,
-        } of tableBoundaries) {
+        // Level 1: table rows
+        for (const { tableTop, theadBot, tableBottom, rowBounds } of tableBoundaries) {
           if (proposedCut > tableTop && proposedCut <= tableBottom + SNAP_TOL) {
             const safe = rowBounds.filter((b) => b <= proposedCut);
             if (safe.length > 0) {
               const lastSafe = safe[safe.length - 1];
-              // Whole table fits — no snap needed
-              if (Math.abs(lastSafe - tableBottom) < SNAP_TOL)
-                return proposedCut;
+              if (Math.abs(lastSafe - tableBottom) < SNAP_TOL) return proposedCut;
               return lastSafe;
             }
-            // ✅ FIX: snap to theadBot so next page starts at first data row
-            // and the thead overlay draws correctly above it.
             return theadBot;
           }
         }
 
-        // Level 2: non-table blocks (signatures, dept headers, etc.)
+        // Level 2: keep small blocks (titles + their text) together
         for (const { elTop, elBot } of nonTableBlockBounds) {
           if (proposedCut > elTop && proposedCut < elBot) {
-            const blockHeight = elBot - elTop;
-            const availPageHeight = proposedCut - yOffset;
-            if (blockHeight <= availPageHeight) {
-              return elTop;
-            }
+            if (elBot - elTop <= proposedCut - yOffset) return elTop;
           }
+        }
+
+        // Level 3: never cut through the middle of a text line
+        for (const { top, bot } of lineBounds) {
+          if (proposedCut > top + 1 && proposedCut < bot - 1 && top > yOffset) return top;
         }
 
         return proposedCut;
@@ -1244,6 +1195,7 @@ const SummaryPrint = () => {
       console.error("PDF error:", err);
       alert("PDF error: " + (err.message || err));
     } finally {
+      document.querySelectorAll("[data-pdf-clone]").forEach((n) => n.remove());
       setLoading(false);
     }
   };
