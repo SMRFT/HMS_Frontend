@@ -402,9 +402,15 @@ const NormalBillSheet = ({
 
   const medAmt = parseFloat(bill.medicines_amount) || 0;
   const isBreakdown = viewMode === "BREAKDOWN";
-  const pharmacyMedicines = (Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
-    ? bill.pharmacy_medicines
-    : (Array.isArray(loadedMeds) ? loadedMeds : []);
+  const hasMedItemInBill = rawItems.some(i => {
+    const n = String(i.itemName || i.name || "").toUpperCase();
+    return n.startsWith("MEDICINE") || n.startsWith("PHARMACY") || i.billTypeNo === "PHARM01" || i.bill_type === 13;
+  });
+  const pharmacyMedicines = (medAmt > 0 || hasMedItemInBill)
+    ? ((Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
+        ? bill.pharmacy_medicines
+        : (Array.isArray(loadedMeds) ? loadedMeds : []))
+    : [];
 
   const totalMedsSum = pharmacyMedicines.reduce(
     (sum, m) => sum + (parseFloat(m.amount || m.calculated_price) || 0),
@@ -802,9 +808,15 @@ const InsuranceClaimSheet = ({
 
   const medAmt = parseFloat(bill.medicines_amount) || 0;
   const isBreakdown = viewMode === "BREAKDOWN";
-  const pharmacyMedicines = (Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
-    ? bill.pharmacy_medicines
-    : (Array.isArray(loadedMeds) ? loadedMeds : []);
+  const hasMedItemInBill = rawItems.some(i => {
+    const n = String(i.itemName || i.name || "").toUpperCase();
+    return n.startsWith("MEDICINE") || n.startsWith("PHARMACY") || i.billTypeNo === "PHARM01" || i.bill_type === 13;
+  });
+  const pharmacyMedicines = (medAmt > 0 || hasMedItemInBill)
+    ? ((Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
+        ? bill.pharmacy_medicines
+        : (Array.isArray(loadedMeds) ? loadedMeds : []))
+    : [];
 
   if (pharmacyMedicines.length > 0) {
     groups["MEDICINE / PHARMACY CHARGES"] = groups["MEDICINE / PHARMACY CHARGES"].filter(
@@ -1507,6 +1519,20 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
 
   useEffect(() => {
     if (bill) {
+      const medAmt = parseFloat(bill.medicines_amount) || 0;
+      const rawItems = parseItems(bill.items);
+      const hasMedItemInBill = rawItems.some(i => {
+        const n = String(i.itemName || i.name || "").toUpperCase();
+        return n.startsWith("MEDICINE") || n.startsWith("PHARMACY") || i.billTypeNo === "PHARM01" || i.bill_type === 13;
+      });
+
+      // If the bill explicitly has NO medicines (medicines_amount is 0 AND no medicine items in the bill),
+      // do not load or display any pharmacy medicines!
+      if (medAmt === 0 && !hasMedItemInBill) {
+        setLoadedMeds([]);
+        return;
+      }
+
       if (Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0) {
         setLoadedMeds(bill.pharmacy_medicines);
         return;
@@ -1528,7 +1554,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
           if (Array.isArray(meds) && meds.length > 0) {
             setLoadedMeds(meds);
           } else {
-            const pParam = uhid ? `uhid=${encodeURIComponent(uhid)}` : `ipNumber=${encodeURIComponent(ip)}`;
+            const pParam = ip ? `ipNumber=${encodeURIComponent(ip)}` : `uhid=${encodeURIComponent(uhid)}`;
             return apiRequest(`${HmsBaseUrl}search-discharge-patient/?${pParam}&for_print=true`, "GET");
           }
         })
