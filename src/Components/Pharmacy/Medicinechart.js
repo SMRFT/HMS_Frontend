@@ -2391,7 +2391,6 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         selling_price: up,
         Selling_Price: up,
         qty: pendingQ,
-        quantity: pendingQ,
         requested_qty: it.requested_qty ?? it.qty ?? pendingQ,
         dispatched_qty: it.dispatched_qty ?? 0,
         pending_qty: pendingQ,

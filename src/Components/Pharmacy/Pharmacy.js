@@ -2323,12 +2323,21 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
       if (response.success) {
         const formattedMedicines = medicineArray.map((item) => {
-          const rate = (() => {
+          const mrpVal = (() => {
+            const m = item.mrp !== undefined ? item.mrp : item.MRP;
+            if (m !== undefined && m !== null && m !== "" && !isNaN(Number(m)) && Number(m) > 0) return Number(m);
+            const sp = item.Selling_Price !== undefined ? item.Selling_Price : item.selling_price;
+            if (sp !== undefined && sp !== null && sp !== "" && !isNaN(Number(sp)) && Number(sp) > 0) return Number(sp);
+            if (item.price !== undefined && item.price !== null && item.price !== "" && !isNaN(Number(item.price)) && Number(item.price) > 0) return Number(item.price);
+            return 0;
+          })();
+
+          const priceVal = (() => {
             const sp = item.Selling_Price !== undefined ? item.Selling_Price : item.selling_price;
             if (sp !== undefined && sp !== null && sp !== "" && !isNaN(Number(sp)) && Number(sp) > 0) return Number(sp);
             if (item.price !== undefined && item.price !== null && item.price !== "" && !isNaN(Number(item.price)) && Number(item.price) > 0) return Number(item.price);
             if (item.mrp !== undefined && item.mrp !== null && item.mrp !== "" && !isNaN(Number(item.mrp)) && Number(item.mrp) > 0) return Number(item.mrp);
-            return Number(sp || item.price || item.mrp || 0);
+            return 0;
           })();
 
           return {
@@ -2337,10 +2346,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             batch_number: item.batch_number || "N/A",
             grn_number: item.grn_number || "",
             expiry_date: item.expiry_date || "N/A",
-            mrp: rate,
-            price: rate,
-            Selling_Price: rate,
-            selling_price: rate,
+            mrp: mrpVal,
+            price: priceVal,
+            Selling_Price: priceVal,
+            selling_price: priceVal,
             hsn_code: item.hsn_code || "—",
             cgst_rate: item.CGST_Percentage || 0,
             cgst_amount: item.CGST_Amt || 0,
@@ -2360,7 +2369,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             shelf_no: item.shelf_no || "—",
             rack_no: item.rack_no || "—",
             quantity: 1,
-            total: rate,
+            total: mrpVal,
           };
         });
         setMedicines(formattedMedicines);
@@ -2481,16 +2490,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     }
 
     const medicinesWithQuantity = medicinesToAdd.map((medicine) => {
-      const rate = parseFloat(medicine.mrp || medicine.price || medicine.Selling_Price || medicine.selling_price || 0);
+      const mrp = parseFloat(medicine.mrp || 0);
+      const price = parseFloat(medicine.price || medicine.Selling_Price || medicine.selling_price || mrp || 0);
+      const finalMrp = mrp > 0 ? mrp : price;
+      const finalPrice = price > 0 ? price : finalMrp;
       const qty = 1;
-      const pricing = calculateMedicinePricing({ ...medicine, mrp: rate, price: rate }, qty, 0);
+      const pricing = calculateMedicinePricing({ ...medicine, mrp: finalMrp, price: finalPrice }, qty, 0);
       return {
         ...medicine,
         quantity: qty,
-        mrp: rate,
-        price: rate,
-        Selling_Price: rate,
-        selling_price: rate,
+        mrp: finalMrp,
+        price: finalPrice,
+        Selling_Price: finalPrice,
+        selling_price: finalPrice,
         product_value: pricing.productValue,
         taxable_value: pricing.taxableValue,
         cgst_rate: pricing.cgstRate,
@@ -2888,14 +2900,13 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             item_name:        m.name || m.item_name || "",
             batch_number:     String(m.batch_number || ""),
             qty:              pricing.qty,
-            quantity:         pricing.qty,
             requested_qty:    Number(m.requested_qty || m.qty || pricing.qty),
             dispatched_qty:   Number(m.dispatched_qty || 0),
             pending_qty:      Number(m.pending_qty ?? pricing.qty),
-            price:            pricing.mrp,
+            price:            m.price ?? pricing.mrp,
             mrp:              pricing.mrp,
-            Selling_Price:    pricing.mrp,
-            selling_price:    pricing.mrp,
+            Selling_Price:    m.Selling_Price ?? m.price ?? pricing.mrp,
+            selling_price:    m.selling_price ?? m.price ?? pricing.mrp,
             product_value:    pricing.productValue,
             taxable_value:    pricing.taxableValue,
             calculated_price: pricing.gross,
@@ -3105,8 +3116,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           item_id: Number(m.item_id),
           batch_number: String(m.batch_number || ""),
           qty: pricing.qty,
-          price: pricing.mrp,
+          price: m.price ?? pricing.mrp,
           mrp: pricing.mrp,
+          Selling_Price: m.Selling_Price ?? m.price ?? pricing.mrp,
+          selling_price: m.selling_price ?? m.price ?? pricing.mrp,
           calculated_price: pricing.gross,
           item_name: m.name || m.item_name || "",
           dosage: m.dosage || "",
@@ -4837,7 +4850,7 @@ const loadedMedicines = rawMeds.map((item) => {
                       </Td>
                       <Td>₹{(parseFloat(medicine.mrp) || 0).toFixed(2)}</Td>
                       <Td>
-                        <div>₹{(itemGross || 0).toFixed(2)}</div>
+                        <div>₹{(parseFloat(medicine.price ?? medicine.mrp ?? 0)).toFixed(2)}</div>
                         {medicine.discount_value > 0 && medicine.product_value ? (
                           <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
                             Base: ₹{(parseFloat(medicine.product_value) || 0).toFixed(2)}

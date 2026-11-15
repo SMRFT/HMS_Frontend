@@ -37,6 +37,7 @@ const REDIRECT_URL = process.env.REACT_APP_LOGIN_REDIRECT_URL;
 // --- Function to set token for local development ---
 function setforlocaldev() {
   const dev_token = "";
+
   if (dev_token && dev_token.trim() !== "") {
     if (!localStorage.getItem("selected_branch")) {
       const selectedBranch = "SHB001";
