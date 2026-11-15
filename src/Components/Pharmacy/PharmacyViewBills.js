@@ -1183,6 +1183,13 @@ const formatBillData = (bills, employeeName = "") => {
   const rows = [];
   bills.forEach((b) => {
     // Main bill row
+    const payMode = String(b.payment_mode || parsePaymentMethod(b.payment_details) || "").toLowerCase();
+    const isPaidMode = payMode.includes("cash") || payMode.includes("card") || payMode.includes("upi") || payMode.includes("cheque") || payMode.includes("online");
+    let resolvedStatus = b.billing_status || "";
+    if (isPaidMode && (!resolvedStatus || resolvedStatus.toLowerCase() === "billed")) {
+      resolvedStatus = "Paid";
+    }
+
     rows.push({
       id:             b.Bill_id,
       Bill_id:        b.Bill_id,
@@ -1195,7 +1202,7 @@ const formatBillData = (bills, employeeName = "") => {
       payment_details: b.payment_details || null,
       payment_entries: parsePaymentEntries(b.payment_details),
       billing_mode:   b.billing_mode    || "",
-      billing_status: b.billing_status || "",
+      billing_status: resolvedStatus,
       outlet_code:    b.outlet_code     || "",
       bill_type_name: b.bill_type_name  || "",
       is_deleted:     b.is_deleted     || false,
@@ -1620,9 +1627,18 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     return true;
   });
 
-  const paidCount         = dateFiltered.filter((b) => !b._isReturn && b.billing_status === "Paid").length;
-  const billedCount       = dateFiltered.filter((b) => !b._isReturn && b.billing_status === "Billed").length;
-  const deletedCount      = dateFiltered.filter((b) => !b._isReturn && (b.is_deleted === true || (b.billing_status || "").toLowerCase() === "deleted")).length;
+  const isPaid = (bill) => {
+    if (!bill) return false;
+    const s = (bill.billing_status || "").toLowerCase();
+    if (s === "paid") return true;
+    const pm = String(bill.payment_mode || bill.payment_method || "").toLowerCase();
+    return pm.includes("cash") || pm.includes("card") || pm.includes("upi") || pm.includes("online") || pm.includes("cheque") || pm.includes("netbanking");
+  };
+  const isDeleted = (bill) => (bill?.billing_status || "").toLowerCase() === "deleted" || bill?.is_deleted === true;
+
+  const paidCount         = dateFiltered.filter((b) => !b._isReturn && isPaid(b)).length;
+  const billedCount       = dateFiltered.filter((b) => !b._isReturn && !isPaid(b) && !isDeleted(b)).length;
+  const deletedCount      = dateFiltered.filter((b) => !b._isReturn && isDeleted(b)).length;
   const salesReturnCount  = dateFiltered.filter((b) => b._isReturn).length;
 
   const getPageNums = (current, total) => {
@@ -1636,9 +1652,6 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     }
     return pages;
   };
-
-  const isPaid    = (bill) => (bill.billing_status || "").toLowerCase() === "paid";
-  const isDeleted = (bill) => (bill.billing_status || "").toLowerCase() === "deleted" || bill.is_deleted === true;
 
   const SortIcon = ({ col, currentKey, dir }) =>
     currentKey !== col
@@ -1756,8 +1769,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                     </Thead>
                     <tbody>
                       {paginated.map((bill, idx) => {
-                        const status      = (bill.billing_status || "").toLowerCase();
-                        const isPaidBill  = status === "paid";
+                        const isPaidBill = isPaid(bill);
                         return (
                           <Tr key={bill.id ?? idx}>
                             <Td>{formatDate(bill.bill_date)}</Td>
@@ -1794,9 +1806,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               ) : (
                                 <Badge variant={
                                   isDeleted(bill) ? "deleted" :
-                                  isPaid(bill)    ? "paid"    : "billed"
+                                  isPaidBill      ? "paid"    : "billed"
                                 }>
-                                  {isDeleted(bill) ? "🗑️ Deleted" : bill.billing_status || "—"}
+                                  {isDeleted(bill) ? "🗑️ Deleted" : isPaidBill ? "Paid" : bill.billing_status || "—"}
                                 </Badge>
                               )}
                             </Td>

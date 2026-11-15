@@ -1210,6 +1210,8 @@ export default function CentralCashCounter() {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
+            hour12: false,
+            timeZone: "Asia/Kolkata",
           })
         : "—";
       const desc = r.description
@@ -1359,7 +1361,7 @@ export default function CentralCashCounter() {
         ? billDateObj.toLocaleTimeString("en-IN", {
             hour: "2-digit",
             minute: "2-digit",
-            hour12: true, // 👈 IMPORTANT
+            hour12: false,
             timeZone: "Asia/Kolkata",
           })
         : "-";
@@ -1431,7 +1433,7 @@ export default function CentralCashCounter() {
             ? billDateObj.toLocaleTimeString("en-IN", {
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: true,
+                hour12: false,
                 timeZone: "Asia/Kolkata",
               })
             : "-",
@@ -1643,7 +1645,7 @@ export default function CentralCashCounter() {
           ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
           : "-";
         const billTime = dateObj
-          ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+          ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })
           : "-";
 
         return {
@@ -1716,7 +1718,7 @@ export default function CentralCashCounter() {
           ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
           : "-";
         const billTime = dateObj
-          ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+          ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })
           : "-";
 
         return {
@@ -1782,7 +1784,7 @@ export default function CentralCashCounter() {
             ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
             : "-";
           const billTime = dateObj
-            ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+            ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })
             : "-";
 
           return {
@@ -1880,17 +1882,32 @@ export default function CentralCashCounter() {
         }
       };
 
+      const parseIndianDateTime = (val) => {
+        if (!val) return { date: "-", time: "-" };
+        const str = String(val).trim();
+        const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+        if (m) {
+          const y = m[1];
+          const mo = m[2];
+          const d = m[3];
+          const hourNum = parseInt(m[4], 10);
+          const mi = m[5];
+          const hourStr = String(hourNum).padStart(2, "0");
+          return {
+            date: `${d}/${mo}/${y}`,
+            time: `${hourStr}:${mi}`,
+          };
+        }
+        return { date: "-", time: "-" };
+      };
+
       const formatPharmacyItem = (item, index) => {
         const rawDate = item.billing_status === "Paid"
           ? (item.paid_date || item.paid_datetime || item.lastmodified_date || item.bill_date)
           : (item.bill_date || item.created_date);
-        const billDateObj = parseUtcDate(rawDate);
-        const billDate = billDateObj
-          ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
-          : "-";
-        const billTime = billDateObj
-          ? billDateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
-          : "-";
+        const parsed = parseIndianDateTime(rawDate);
+        const billDate = item.ist_date || item.display_date || (parsed.date !== "-" ? parsed.date : "-");
+        const billTime = item.ist_time || item.display_time || (parsed.time !== "-" ? parsed.time : "-");
         return {
           id: `pharmacy-${item.Bill_id}-${index}`,
           date: billDate,
@@ -1915,16 +1932,21 @@ export default function CentralCashCounter() {
       };
 
       const isCurrentDate = (item) => {
+        if (typeof item.is_pending === "boolean" && item.is_pending) return true;
+        if (typeof item.is_unpaid === "boolean" && item.is_unpaid) return false;
         if (typeof item.is_current_date === "boolean") return item.is_current_date;
         const rawDate = item.billing_status === "Paid"
           ? (item.paid_date || item.paid_datetime || item.lastmodified_date || item.bill_date)
           : (item.bill_date || item.created_date);
         if (!rawDate) return false;
-        const bDate = new Date(rawDate);
-        if (isNaN(bDate.getTime())) return false;
-        const todayStr = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
-        const billStr = bDate.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
-        return todayStr === billStr;
+        const parsed = parseIndianDateTime(rawDate);
+        if (parsed.date === "-") return false;
+        const todayObj = new Date();
+        const td = String(todayObj.getDate()).padStart(2, "0");
+        const tm = String(todayObj.getMonth() + 1).padStart(2, "0");
+        const ty = todayObj.getFullYear();
+        const todayStr = `${td}/${tm}/${ty}`;
+        return parsed.date === todayStr;
       };
 
       const isUnpaidStatus = (status) =>
@@ -2047,7 +2069,7 @@ export default function CentralCashCounter() {
       const formatTime = (raw) => {
         const d = raw ? new Date(raw) : null;
         return d ? d.toLocaleTimeString("en-IN", {
-          hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata",
+          hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata",
         }) : "-";
       };
 
@@ -3264,7 +3286,7 @@ export default function CentralCashCounter() {
                                           pvData.slice((pvPage - 1) * pvShowEntries, pvPage * pvShowEntries).map((r, idx) => {
                                             const d = r.voucher_date ? new Date(r.voucher_date) : null;
                                             const dateStr = d ? d.toLocaleDateString("en-IN") : "—";
-                                            const timeStr = d ? d.toLocaleTimeString("en-IN") : "—";
+                                            const timeStr = d ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" }) : "—";
                                             const isReceipt = r.receipt_type === "Receipt";
                                             const amt = parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
                                             return (
