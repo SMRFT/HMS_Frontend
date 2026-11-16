@@ -845,6 +845,21 @@ const PatientRegistrationForm = () => {
     const preparedByName = visit.preparedBy || visit.prepared_by || visit.created_by || localStorage.getItem("name") || localStorage.getItem("employeeName") || "Staff";
     const totalAmount = parseFloat(visit.billAmount || 0);
 
+    // Determine whether this is a CREDIT BILL or CASH BILL
+    const rawMethod = String(visit.paymentMethod || visit.payment_method || "").trim().toLowerCase();
+    const isCredit = rawMethod.includes("credit") || rawMethod.includes("pay later") || rawMethod === "insurance" || (Boolean(visit.company_name) && rawMethod !== "cash");
+    const billTypeTitle = isCredit ? "*REGISTRATION CREDIT BILL*" : "*REGISTRATION CASH BILL*";
+    const displayPaymentMode = isCredit ? "Credit" : "Cash";
+
+    // Format Bill Date & Time cleanly (ensure both Date and Time are shown)
+    let displayDateTime = visit.date || visit.dateTime || "";
+    if (!displayDateTime || !displayDateTime.includes(":")) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+      const dateStr = now.toLocaleDateString("en-GB");
+      displayDateTime = displayDateTime ? `${displayDateTime} ${timeStr}` : `${dateStr} ${timeStr}`;
+    }
+
     printDocument.write(`
       <!DOCTYPE html>
       <html>
@@ -890,7 +905,7 @@ const PatientRegistrationForm = () => {
             <div class="sub-header"><u>CIN: L85110TZ2020PLC033974</u></div>
             <div class="sub-header"><u>GST No : 33ABDCS8326A1ZP</u></div>
             <div class="divider"></div>
-            <div class="bill-type">*REGISTRATION BILL*</div>
+            <div class="bill-type">${billTypeTitle}</div>
             <div class="divider"></div>
           </div>
           <table class="info-table">
@@ -905,9 +920,14 @@ const PatientRegistrationForm = () => {
               <td class="val">${visit.uhid || 'N/A'}</td>
             </tr>
             <tr>
-              <td class="label">Bill Date</td>
+              <td class="label">Bill Date &amp; Time</td>
               <td class="colon">:</td>
-              <td class="val">${visit.date}</td>
+              <td class="val">${displayDateTime}</td>
+            </tr>
+            <tr>
+              <td class="label">Payment Mode</td>
+              <td class="colon">:</td>
+              <td class="val">${displayPaymentMode}</td>
             </tr>
             <tr>
               <td class="label">Name</td>
@@ -1228,6 +1248,13 @@ const PatientRegistrationForm = () => {
 
       if (result.success) {
         const formattedAddress = [patient.permanentAddress, patient.area, patient.city, patient.district, patient.state, patient.zipcode].filter(Boolean).join(", ");
+        
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString('en-GB');
+        const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const formattedDateTime = `${formattedDate} ${formattedTime}`;
+        const isCreditReg = (paymentMethod === "Insurance Credit" || paymentMethod === "Pay Later" || paymentMethod === "Credit");
+
         const visitObj = {
           uhid: result.data.uhid,
           billNumber: result.data.bill_number,
@@ -1249,10 +1276,10 @@ const PatientRegistrationForm = () => {
           consultingFee: consultingFee,
           registrationFee: registrationFee,
           billAmount: totalFees,
-          date: new Date().toLocaleDateString('en-GB'),
-          dateTime: new Date().toLocaleString('en-GB'),
+          date: formattedDateTime,
+          dateTime: formattedDateTime,
           company_name: patient.insuranceProviderCode || patient.company_name || "",
-          paymentMethod: paymentMethod,
+          paymentMethod: isCreditReg ? "Credit" : "Cash",
           paymentStatus: "Pending",
           preparedBy: localStorage.getItem("name") || localStorage.getItem("employeeName") || localStorage.getItem("employeeId") || "Staff"
         };
@@ -1943,15 +1970,15 @@ const PatientRegistrationForm = () => {
           <StatsPillGroup>
             <StatPill color="#0d9488">
               <span className="label">NEW</span>
-              <span className="value">{String(stats.new_visit || 8).padStart(2, '0')}</span>
+              <span className="value">{String(stats.new_visit ?? 0).padStart(2, '0')}</span>
             </StatPill>
             <StatPill color="#2563eb">
               <span className="label">REVISIT</span>
-              <span className="value">{String(stats.existing_visit || 4).padStart(2, '0')}</span>
+              <span className="value">{String(stats.existing_visit ?? 0).padStart(2, '0')}</span>
             </StatPill>
             <StatPill color="#1e293b">
               <span className="label">TOTAL</span>
-              <span className="value">{String(stats.total_visit || 12).padStart(2, '0')}</span>
+              <span className="value">{String(stats.total_visit ?? 0).padStart(2, '0')}</span>
             </StatPill>
             {lastUhid && (
               <StatPill color="#d97706">
