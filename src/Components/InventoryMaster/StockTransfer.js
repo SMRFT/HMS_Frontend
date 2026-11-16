@@ -1248,7 +1248,7 @@ const StockTransfer = () => {
         .filter((s) => Number(s.available_qty ?? 0) > 0)
         .map((s) => ({
           stock_id:      s.stock_id,
-          batch_number:  s.batch_number || "-",
+          batch_number:  s.batch_number || s.batch_no || s.batchNo || s.BatchNo || s.batch || "-",
           hsn_code:      s.hsn_code     || "",
           outlet_code:   s.outlet_code  || "",
           mrp:           s.mrp          || 0,
@@ -1740,14 +1740,16 @@ const StockTransfer = () => {
                       </>
                     ) : (
                       <>
-                        <BatchSelect value={selectedBatchIdx} onChange={handleBatchChange}>
-                          <option value="">-- Select Batch --</option>
-                          {availableBatches.map((b, i) => (
-                            <option key={b.stock_id || i} value={i}>
-                              {b.batch_number} (Avail: {b.available_qty})
-                            </option>
-                          ))}
-                        </BatchSelect>
+                        <BatchSelect
+                          value={selectedBatchIdx}
+                          onChange={handleBatchChange}
+                          placeholder="-- Select Batch --"
+                          options={availableBatches.map((b, i) => ({
+                            value: String(i),
+                            label: b.batch_number,
+                            sub: `Stock: ${b.available_qty}${b.expiry_date ? ` · Exp: ${new Date(b.expiry_date).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" })}` : ""}`
+                          }))}
+                        />
                         {selectedBatch && (
                           <StockInfoNote>
                             Stock: {selectedBatch.available_qty}

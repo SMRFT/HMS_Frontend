@@ -56,6 +56,16 @@ const focusNextElement = (currentEl, reverse = false) => {
   }
 };
 
+const extractNodeText = (node) => {
+  if (node === null || node === undefined) return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(extractNodeText).join("");
+  if (typeof node === "object" && node.props && node.props.children) {
+    return extractNodeText(node.props.children);
+  }
+  return "";
+};
+
 export default function SearchSelect({
   options = [],
   children,
@@ -101,9 +111,10 @@ export default function SearchSelect({
         if (child.type === "option") {
           const val = child.props.value !== undefined ? child.props.value : child.props.children;
           const lbl = child.props.children !== undefined ? child.props.children : val;
+          const textLbl = extractNodeText(lbl);
           list.push({
             value: val !== undefined && val !== null ? String(val) : "",
-            label: typeof lbl === "string" || typeof lbl === "number" ? String(lbl) : String(val ?? ""),
+            label: textLbl !== "" ? textLbl : String(val ?? ""),
             sub: child.props["data-sub"] || child.props.sub || "",
           });
         } else if (child.props && child.props.children) {
@@ -111,9 +122,10 @@ export default function SearchSelect({
             if (subChild && subChild.type === "option") {
               const val = subChild.props.value !== undefined ? subChild.props.value : subChild.props.children;
               const lbl = subChild.props.children !== undefined ? subChild.props.children : val;
+              const textLbl = extractNodeText(lbl);
               list.push({
                 value: val !== undefined && val !== null ? String(val) : "",
-                label: typeof lbl === "string" || typeof lbl === "number" ? String(lbl) : String(val ?? ""),
+                label: textLbl !== "" ? textLbl : String(val ?? ""),
                 sub: subChild.props["data-sub"] || subChild.props.sub || "",
               });
             }

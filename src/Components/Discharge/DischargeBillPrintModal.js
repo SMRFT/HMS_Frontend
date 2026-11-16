@@ -806,6 +806,34 @@ const InsuranceClaimSheet = ({
     }
   });
 
+  // Aggregate duplicate investigation and radiology items into single rows with summed quantity and amount
+  ["INVESTIGATIONS / LABORATORY CHARGES", "RADIOLOGY CHARGES"].forEach(catName => {
+    if (groups[catName] && groups[catName].length > 1) {
+      const aggMap = new Map();
+      const newItems = [];
+      groups[catName].forEach(it => {
+        const rawName = String(it.itemName || it.name || "").trim();
+        const key = rawName.toUpperCase();
+        const rateVal = parseFloat(it.rate != null ? it.rate : (it.price || 0)) || 0;
+        const gKey = `${key}_${rateVal.toFixed(2)}`;
+        if (key && aggMap.has(gKey)) {
+          const ex = aggMap.get(gKey);
+          const q = (parseFloat(ex.quantity) || 1) + (parseFloat(it.quantity) || 1);
+          const d = (parseFloat(ex.discount) || 0) + (parseFloat(it.discount) || 0);
+          ex.quantity = q;
+          ex.discount = d;
+          ex.amount = Math.max(0, parseFloat((rateVal * q - d).toFixed(2)));
+        } else {
+          const clone = { ...it, quantity: parseFloat(it.quantity) || 1, rate: rateVal, discount: parseFloat(it.discount) || 0 };
+          clone.amount = it.amount != null ? parseFloat(it.amount) : Math.max(0, parseFloat((rateVal * clone.quantity - clone.discount).toFixed(2)));
+          if (key) aggMap.set(gKey, clone);
+          newItems.push(clone);
+        }
+      });
+      groups[catName] = newItems;
+    }
+  });
+
   const medAmt = parseFloat(bill.medicines_amount) || 0;
   const isBreakdown = viewMode === "BREAKDOWN";
   const hasMedItemInBill = rawItems.some(i => {
