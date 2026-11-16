@@ -445,7 +445,7 @@ const Badge = styled.span`
       case "ip":       return "background:#fef3c7; color:#92400e; border:1px solid #fcd34d;";
       case "notpaid":  return "background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; font-style:italic;";
       case "paid":     return "background:#c6f6d5; color:#276749; border:1px solid #9ae6b4;";
-      case "billed":   return "background:#e2e8f0; color:#4a5568; border:1px solid #cbd5e0;";
+      case "billed":   return "background:#fefcbf; color:#744210; border:1px solid #f6e05e;";
       case "deleted":  return "background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;";
       case "pending":  return "background:#fef3c7; color:#92400e; border:1px solid #fcd34d;";
       case "refund":   return "background:#fce7f3; color:#9d174d; border:1px solid #f9a8d4;";
@@ -863,20 +863,32 @@ const formatExpiryForBill = (dateStr) => {
 // ── Helper to Paginate Medicines for Print Layout (A5 Landscape) ──
 const chunkMedicinesForPrint = (items) => {
   const list = items || [];
+  // If 7 or fewer, fits comfortably on a single A5 landscape page along with header, totals & footer
   if (list.length <= 7) return [list];
+
   const pages = [];
   let remaining = [...list];
+
+  // First page has the full header, can take up to 7 items comfortably
+  let firstTake = 7;
+  if (list.length <= 14) {
+    firstTake = Math.ceil(list.length / 2);
+  }
+  pages.push(remaining.slice(0, firstTake));
+  remaining = remaining.slice(firstTake);
+
   while (remaining.length > 0) {
-    if (remaining.length <= 7) {
+    // Subsequent pages have NO big header, so final page with totals & footer can hold up to 10 items
+    if (remaining.length <= 10) {
       pages.push(remaining);
       break;
     }
-    if (remaining.length <= 14) {
+    if (remaining.length <= 20) {
       const take = Math.ceil(remaining.length / 2);
       pages.push(remaining.slice(0, take));
       remaining = remaining.slice(take);
     } else {
-      const take = 10;
+      const take = 12;
       pages.push(remaining.slice(0, take));
       remaining = remaining.slice(take);
     }
@@ -997,38 +1009,86 @@ const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) 
 const parsePaymentMethod = (raw) => {
   if (!raw) return null;
   if (typeof raw === "object" && raw !== null) {
+    if (Array.isArray(raw.breakdown) && raw.breakdown.length > 0) {
+      return raw.breakdown.map((b) => b.method).join(", ");
+    }
     return raw.method || null;
   }
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw.replace(/'/g, '"')) : raw;
+    if (parsed && typeof parsed === "object") {
+      if (Array.isArray(parsed.breakdown) && parsed.breakdown.length > 0) {
+        return parsed.breakdown.map((b) => b.method).join(", ");
+      }
+      return parsed.method || null;
+    }
+  } catch {}
   const allMethods = [];
   const re = /['"]method['"]\s*[,:\s]+['"]([^'"]+)['"]/gi;
   let m;
   while ((m = re.exec(raw)) !== null) {
-    allMethods.push(m[1]);
+    if (m[1].toLowerCase() !== "multiple payment") {
+      allMethods.push(m[1]);
+    }
   }
-  if (allMethods.length > 1) return "Multiple (" + allMethods.join(", ") + ")";
+  if (allMethods.length > 1) return allMethods.join(", ");
   if (allMethods.length === 1) return allMethods[0];
   return null;
 };
 
 const parsePaymentEntries = (raw) => {
   if (!raw) return [];
-  // Handle object (JSON from MongoDB)
-  if (typeof raw === "object" && !Array.isArray(raw)) {
-    if (raw.method) {
-      return [{ method: raw.method, amount: raw.Paid_amount || null }];
+  let parsedObj = null;
+  if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) {
+    parsedObj = raw;
+  } else if (typeof raw === "string") {
+    try {
+      parsedObj = JSON.parse(raw);
+    } catch {
+      try {
+        parsedObj = JSON.parse(raw.replace(/'/g, '"'));
+      } catch {}
+    }
+  }
+
+  if (parsedObj && typeof parsedObj === "object") {
+    if (Array.isArray(parsedObj.breakdown) && parsedObj.breakdown.length > 0) {
+      return parsedObj.breakdown.map((b) => ({
+        method: b.method,
+        amount: b.Paid_amount != null ? b.Paid_amount : (b.amount != null ? b.amount : null),
+      }));
+    }
+    if (parsedObj.method) {
+      return [{ method: parsedObj.method, amount: null }];
     }
     return [];
   }
+
+  // Regex string fallback
   const entries = [];
-  const blocks = raw.match(/OrderedDict\(\[([^\]]+)\]\)/gi) || [raw];
-  for (const block of blocks) {
-    const method = block.match(/['"]method['"]\s*[,:\s]+['"]([^'"]+)['"]/i);
-    const amount = block.match(/['"]Paid_amount['"]\s*[,:\s]+([0-9.]+)/i);
-    if (method) {
-      entries.push({
-        method: method[1],
-        amount: amount ? parseFloat(amount[1]) : null,
-      });
+  if (typeof raw === "string") {
+    const pairs = [...raw.matchAll(/['"]method['"]\s*[,:\s]+['"]([^'"]+)['"][^O]*?['"]Paid_amount['"]\s*[,:\s]+([0-9.]+)/gi)];
+    if (pairs.length > 1) {
+      const hasMultiple = pairs[0][1].toLowerCase().includes("multiple");
+      const items = hasMultiple ? pairs.slice(1) : pairs;
+      for (const p of items) {
+        entries.push({
+          method: p[1],
+          amount: parseFloat(p[2]),
+        });
+      }
+      return entries;
+    }
+    const blocks = raw.match(/OrderedDict\(\[([^\]]+)\]\)/gi) || [raw];
+    for (const block of blocks) {
+      const method = block.match(/['"]method['"]\s*[,:\s]+['"]([^'"]+)['"]/i);
+      const amount = block.match(/['"]Paid_amount['"]\s*[,:\s]+([0-9.]+)/i);
+      if (method) {
+        entries.push({
+          method: method[1],
+          amount: amount ? parseFloat(amount[1]) : null,
+        });
+      }
     }
   }
   return entries;
@@ -1080,6 +1140,7 @@ const paymentVariant = (method) => {
 };
 
 const BILL_TYPE_LABELS = {
+  "18": "PHARMACY IP BILL",
   "42": "PHARMACY OP BILL",
   "43": "PHARMACY IP BILL",
   "44": "PHARMACY OTC BILL",
@@ -1183,11 +1244,14 @@ const formatBillData = (bills, employeeName = "") => {
   const rows = [];
   bills.forEach((b) => {
     // Main bill row
-    const payMode = String(b.payment_mode || parsePaymentMethod(b.payment_details) || "").toLowerCase();
-    const isPaidMode = payMode.includes("cash") || payMode.includes("card") || payMode.includes("upi") || payMode.includes("cheque") || payMode.includes("online");
-    let resolvedStatus = b.billing_status || "";
-    if (isPaidMode && (!resolvedStatus || resolvedStatus.toLowerCase() === "billed")) {
-      resolvedStatus = "Paid";
+    const rawStatus = (b.billing_status || "").trim();
+    let resolvedStatus = rawStatus;
+    if (!resolvedStatus) {
+      const hasPayment = b.payment_details && (
+        (typeof b.payment_details === "object" && Number(b.payment_details.Paid_amount || 0) > 0) ||
+        (Array.isArray(b.payment_details) && b.payment_details.length > 0)
+      );
+      resolvedStatus = hasPayment ? "Paid" : "Billed";
     }
 
     rows.push({
@@ -1491,7 +1555,12 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     setLoading(true);
     setError("");
     try {
-      const activeOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
+      const activeOutlet = (
+        selectedOutlet ||
+        localStorage.getItem("selected_outlet") ||
+        localStorage.getItem("outlet_code") ||
+        ""
+      ).trim();
       const params = new URLSearchParams();
       if (activeOutlet) params.append("outlet_code", activeOutlet);
       if (fromDate) params.append("from_date", fromDate);
@@ -1525,7 +1594,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, searchBy, searchText, billTypeFilter]);
+  }, [fromDate, toDate, searchBy, searchText, billTypeFilter, selectedOutlet]);
 
   const currentOutletCode = (
     selectedOutlet ||
@@ -1542,7 +1611,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     if (!activeTab || activeTab === "view_bills") {
       fetchBills();
     }
-  }, [activeTab, refreshTrigger, currentOutletCode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, refreshTrigger, currentOutletCode, selectedOutlet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Bills filtering/sorting/pagination ────────────────────────────────────
   const filtered = allBills.filter((b) => {
@@ -1629,10 +1698,14 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
 
   const isPaid = (bill) => {
     if (!bill) return false;
-    const s = (bill.billing_status || "").toLowerCase();
+    const s = (bill.billing_status || "").trim().toLowerCase();
     if (s === "paid") return true;
-    const pm = String(bill.payment_mode || bill.payment_method || "").toLowerCase();
-    return pm.includes("cash") || pm.includes("card") || pm.includes("upi") || pm.includes("online") || pm.includes("cheque") || pm.includes("netbanking");
+    if (s === "billed" || s === "estimate" || s === "cancelled" || s === "deleted") return false;
+    if (bill.payment_details) {
+      if (typeof bill.payment_details === "object" && Number(bill.payment_details.Paid_amount || 0) > 0) return true;
+      if (Array.isArray(bill.payment_details) && bill.payment_details.length > 0) return true;
+    }
+    return false;
   };
   const isDeleted = (bill) => (bill?.billing_status || "").toLowerCase() === "deleted" || bill?.is_deleted === true;
 
@@ -1665,7 +1738,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
       <ToastRenderer toasts={toasts} dismiss={dismissToast} />
 
       <PageWrapper>
-        <PageTitle>Pharmacy OP Bills — View Bills</PageTitle>
+        <PageTitle>{isOlet001 ? "Pharmacy IP Bills — View Bills" : "Pharmacy OP Bills — View Bills"}</PageTitle>
 
         {/* ── Summary Stats ── */}
         {!loading && allBills.length > 0 && (
@@ -1775,13 +1848,26 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             <Td>{formatDate(bill.bill_date)}</Td>
                             <Td>{formatTime(bill.bill_date)}</Td>
                             <Td style={{ color:"#10A596", fontWeight:500 }}>{bill.uhid || "—"}</Td>
-                            <Td style={{ fontWeight:500 }}>{bill.patient_name || "—"}</Td>
+                            <Td style={{ fontWeight:500 }}>{bill.patient_name || bill.patientname || "—"}</Td>
                             <Td>
                               {bill.payment_entries && bill.payment_entries.length > 0 ? (
                                 <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-                                  {bill.payment_entries.map((e, i) => (
-                                    <Badge key={i} variant={paymentVariant(e.method)}>{e.method}</Badge>
-                                  ))}
+                                  {bill.payment_entries.map((e, i) => {
+                                    const hasAmount = e.amount != null && !isNaN(e.amount);
+                                    const amtFormatted = hasAmount
+                                      ? (Number(e.amount) % 1 === 0 ? Number(e.amount) : parseFloat(e.amount).toFixed(2))
+                                      : null;
+                                    const displayText = hasAmount ? `${e.method}: ₹${amtFormatted}` : e.method;
+                                    return (
+                                      <Badge
+                                        key={i}
+                                        variant={paymentVariant(e.method)}
+                                        title={hasAmount ? `${e.method}: ₹${parseFloat(e.amount).toFixed(2)}` : e.method}
+                                      >
+                                        {displayText}
+                                      </Badge>
+                                    );
+                                  })}
                                 </div>
                               ) : bill.payment_method ? (
                                 <Badge variant={paymentVariant(bill.payment_method)}>{bill.payment_method}</Badge>
@@ -1996,110 +2082,124 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                         border: "1px solid #e2e8f0"
                       }}
                     >
-                      {/* Top Header */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 3 }}>
-                        <img
-                          src={HospitalHeader}
-                          alt="Shanmuga Hospital Limited"
-                          style={{ maxHeight: 48, objectFit: "contain" }}
-                          onError={(e) => { e.target.style.display = "none"; }}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 15, fontWeight: 800, color: "#005b8e", letterSpacing: 0.5, textTransform: "uppercase" }}>
-                            SHANMUGA HOSPITAL LIMITED
+                      {/* Top Header: Displayed on First Page ONLY */}
+                      {pageIdx === 0 ? (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 3 }}>
+                            <img
+                              src={HospitalHeader}
+                              alt="Shanmuga Hospital Limited"
+                              style={{ maxHeight: 48, objectFit: "contain" }}
+                              onError={(e) => { e.target.style.display = "none"; }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: "#005b8e", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                                SHANMUGA HOSPITAL LIMITED
+                              </div>
+                              <div style={{ fontSize: 11, color: "#222", marginTop: 1 }}>
+                                51/24.Saradha College Road, Salem - 636007
+                              </div>
+                              <div style={{ fontSize: 11, color: "#222" }}>
+                                Ph No: 04272706666
+                              </div>
+                            </div>
+                            {totalPreviewPages > 1 && (
+                              <div style={{ textAlign: "right" }}>
+                                <span style={{ display: "inline-block", fontSize: 10.5, fontWeight: 700, color: "#005b8e", background: "#e0f2fe", padding: "2px 8px", borderRadius: 4, border: "1px solid #bae6fd" }}>
+                                  Page {pageIdx + 1} of {totalPreviewPages}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          <div style={{ fontSize: 11, color: "#222", marginTop: 1 }}>
-                            51/24.Saradha College Road, Salem - 636007
-                          </div>
-                          <div style={{ fontSize: 11, color: "#222" }}>
-                            Ph No: 04272706666
-                          </div>
-                        </div>
-                        {totalPreviewPages > 1 && (
-                          <div style={{ textAlign: "right" }}>
-                            <span style={{ display: "inline-block", fontSize: 10.5, fontWeight: 700, color: "#005b8e", background: "#e0f2fe", padding: "2px 8px", borderRadius: 4, border: "1px solid #bae6fd" }}>
-                              Page {pageIdx + 1} of {totalPreviewPages}
-                            </span>
-                          </div>
-                        )}
-                      </div>
 
-                      {/* Divider Line */}
-                      <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
+                          {/* Divider Line */}
+                          <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
 
-                      {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
-                        <div>
-                          <div>
-                            {(() => {
-                              const billOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
-                              return (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001"))
-                                ? "DL NO : TN/SLE/20/01107"
-                                : "DL NO : TN/SLE/20/01109";
-                            })()}
+                          {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
+                            <div>
+                              <div>
+                                {(() => {
+                                  const billOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
+                                  return (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001"))
+                                    ? "DL NO : TN/SLE/20/01107"
+                                    : "DL NO : TN/SLE/20/01109";
+                                })()}
+                              </div>
+                              <div>CIN : L85110TZ2020PLC033974</div>
+                            </div>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ fontSize: 11, fontStyle: "italic", color: "#333", fontWeight: 700 }}>*** Duplicate ***</div>
+                              <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>
+                                {(() => {
+                                  const pm = String(printBill.payment_mode || printBill.payment_method || printBill.paymentMode || "").trim().toLowerCase();
+                                  const bm = String(printBill.billing_mode || printBill.billingMode || "").trim().toUpperCase();
+                                  const isCredit = pm.includes("credit") || bm.includes("CREDIT") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT");
+                                  return isCredit ? "CREDIT BILL" : "CASH BILL";
+                                })()}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
+                                {(() => {
+                                  const billOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
+                                  if (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001")) return "PHARMACY IP GST INVOICE";
+                                  if (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002")) return "PHARMACY OP GST INVOICE";
+                                  if (Boolean(printBill.inpatient_number || printBill.ip_number || printBill.ipNumber)) return "PHARMACY IP GST INVOICE";
+                                  const btn = String(printBill.bill_type_name || "").toUpperCase();
+                                  const bm = String(printBill.billing_mode || "").toUpperCase();
+                                  if (btn.includes("IP") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT")) return "PHARMACY IP GST INVOICE";
+                                  return "PHARMACY OP GST INVOICE";
+                                })()}
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                <span>GST NO : 33ABDCS8326A1ZP</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>CIN : L85110TZ2020PLC033974</div>
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                          <div style={{ fontSize: 11, fontStyle: "italic", color: "#333", fontWeight: 700 }}>*** Duplicate ***</div>
-                          <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>
-                            {(() => {
-                              const pm = String(printBill.payment_mode || printBill.payment_method || printBill.paymentMode || "").trim().toLowerCase();
-                              const bm = String(printBill.billing_mode || printBill.billingMode || "").trim().toUpperCase();
-                              const isCredit = pm.includes("credit") || bm.includes("CREDIT") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT");
-                              return isCredit ? "CREDIT BILL" : "CASH BILL";
-                            })()}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
-                            {(() => {
-                              const billOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
-                              if (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001")) return "PHARMACY IP GST INVOICE";
-                              if (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002")) return "PHARMACY OP GST INVOICE";
-                              if (Boolean(printBill.inpatient_number || printBill.ip_number || printBill.ipNumber)) return "PHARMACY IP GST INVOICE";
-                              const btn = String(printBill.bill_type_name || "").toUpperCase();
-                              const bm = String(printBill.billing_mode || "").toUpperCase();
-                              if (btn.includes("IP") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT")) return "PHARMACY IP GST INVOICE";
-                              return "PHARMACY OP GST INVOICE";
-                            })()}
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                            <span>GST NO : 33ABDCS8326A1ZP</span>
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Divider Line */}
-                      <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
+                          {/* Divider Line */}
+                          <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
 
-                      {/* Patient & Bill Details */}
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 20, fontSize: 11.5, padding: "2px 0 3px 0" }}>
-                        <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: "82px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
-                          <span style={{ color: "#222" }}>Patient</span><span>:</span><span style={{ fontWeight: 700 }}>{printBill.patient_name || "—"}</span>
-                          <span style={{ color: "#222" }}>UHID No</span><span>:</span><span>{printBill.uhid || "—"}</span>
-                          {(printBill.inpatient_number || printBill.ip_number || printBill.ipNumber) && (
-                            <>
-                              <span style={{ color: "#222" }}>IP Number</span><span>:</span><span>{printBill.inpatient_number || printBill.ip_number || printBill.ipNumber}</span>
-                            </>
-                          )}
-                          <span style={{ color: "#222" }}>Doctor</span><span>:</span><span>{printBill.doctor_name || "—"}</span>
+                          {/* Patient & Bill Details */}
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 20, fontSize: 11.5, padding: "2px 0 3px 0" }}>
+                            <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: "82px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
+                              <span style={{ color: "#222" }}>Patient</span><span>:</span><span style={{ fontWeight: 700 }}>{printBill.patient_name || "—"}</span>
+                              <span style={{ color: "#222" }}>UHID No</span><span>:</span><span>{printBill.uhid || "—"}</span>
+                              {(printBill.inpatient_number || printBill.ip_number || printBill.ipNumber) && (
+                                <>
+                                  <span style={{ color: "#222" }}>IP Number</span><span>:</span><span>{printBill.inpatient_number || printBill.ip_number || printBill.ipNumber}</span>
+                                </>
+                              )}
+                              <span style={{ color: "#222" }}>Doctor</span><span>:</span><span>{printBill.doctor_name || "—"}</span>
+                            </div>
+                            <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: "72px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
+                              <span style={{ color: "#222" }}>Bill No</span><span>:</span><span style={{ fontWeight: 700 }}>{printBill.bill_number || printBill.bill_no || "—"}</span>
+                              <span style={{ color: "#222" }}>Date</span><span>:</span><span>{formatDate(printBill.bill_date)} &nbsp;&nbsp; {formatTime(printBill.bill_date)}</span>
+                              {(printBill.room_no || printBill.room || printBill.roomNo) && (
+                                <>
+                                  <span style={{ color: "#222" }}>Room</span><span>:</span><span>{printBill.room_no || printBill.room || printBill.roomNo}</span>
+                                </>
+                              )}
+                              {(printBill.insurance_name || printBill.insurance_company) && (
+                                <>
+                                  <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{printBill.insurance_name || printBill.insurance_company}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        /* Subsequent Pages Continuation Header */
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 0 4px 0", borderBottom: "1px solid #111", marginBottom: 4, fontSize: 11 }}>
+                          <span>
+                            <strong>Patient:</strong> {printBill.patient_name || "—"} &nbsp;|&nbsp; <strong>Bill No:</strong> {printBill.bill_number || printBill.bill_no || "—"}
+                          </span>
+                          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#005b8e", background: "#e0f2fe", padding: "2px 8px", borderRadius: 4, border: "1px solid #bae6fd" }}>
+                            Page {pageIdx + 1} of {totalPreviewPages} (Continued)
+                          </span>
                         </div>
-                        <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: "72px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
-                          <span style={{ color: "#222" }}>Bill No</span><span>:</span><span style={{ fontWeight: 700 }}>{printBill.bill_number || printBill.bill_no || "—"}</span>
-                          <span style={{ color: "#222" }}>Date</span><span>:</span><span>{formatDate(printBill.bill_date)} &nbsp;&nbsp; {formatTime(printBill.bill_date)}</span>
-                          {(printBill.room_no || printBill.room || printBill.roomNo) && (
-                            <>
-                              <span style={{ color: "#222" }}>Room</span><span>:</span><span>{printBill.room_no || printBill.room || printBill.roomNo}</span>
-                            </>
-                          )}
-                          {(printBill.insurance_name || printBill.insurance_company) && (
-                            <>
-                              <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{printBill.insurance_name || printBill.insurance_company}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
+                      )}
 
                       {/* Medicines Table */}
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, margin: "2px 0" }}>

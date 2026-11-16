@@ -308,6 +308,17 @@ const OPPharmacyTabs = () => {
     const resolvedRoom   = patient.ward_name || patient.room_no  || "";
     const resolvedIP     = patient.inpatient_number || patient.ip_number || patient.ipNumber || "";
     const resolvedDoctor = patient.doctor_id || patient.admittingDoctor || patient.consultingDoctor || "";
+    const resolvedCustType = patient.customer_type || patient.patient_details?.customer_type || "General";
+    const resolvedInsCompany = patient.insurance_company || patient.patient_details?.insurance_company || "";
+    const resolvedCompanyCode = patient.company_code || patient.patient_details?.company_code || "";
+    const resolvedPlace = patient.place || patient.patient_details?.place || "";
+    const resolvedAdmStatus = patient.admission_status || (patient.is_admitted ? "ADMITTED" : "NOT ADMITTED");
+    const isIns = Boolean(
+      patient.is_insurance ||
+      resolvedInsCompany ||
+      String(resolvedCustType).toLowerCase().includes("insurance") ||
+      patient.patient_details?.is_insurance
+    );
 
     // Build the wardRequest payload.
     // All patient fields are provided in BOTH flat and nested forms so
@@ -321,9 +332,9 @@ const OPPharmacyTabs = () => {
 
       // ── Billing meta ──
       bill_date:        patient.bill_date         || null,
-      bill_type:        patient.bill_type         || "",
-      bill_name:        patient.bill_name         || "",
-      bill_type_name:   patient.bill_type_name    || patient.bill_name || "",
+      bill_type:        patient.bill_type         || 18,
+      bill_name:        patient.bill_name         || "PHARMACY IP BILL",
+      bill_type_name:   patient.bill_type_name    || patient.bill_name || "PHARMACY IP BILL",
 
       // ── Doctor / ward ──
       doctor_id:        resolvedDoctor,
@@ -336,21 +347,33 @@ const OPPharmacyTabs = () => {
       overall_discount_value: patient.overall_discount_value ?? 0,
 
       // ── Customer & Insurance / IP Advance info ──
-      customer_type:     patient.customer_type     || "General",
-      is_insurance:      patient.is_insurance      ?? (String(patient.customer_type || '').toLowerCase() === 'insurance'),
-      insurance_company: patient.insurance_company || "",
+      customer_type:     resolvedCustType,
+      is_insurance:      isIns,
+      insurance_company: resolvedInsCompany,
+      company_code:      resolvedCompanyCode,
       total_ip_advance:  patient.total_ip_advance  ?? 0,
+
+      // ── Admission Status ──
+      admission_status:   resolvedAdmStatus,
+      admission_datetime: patient.admission_datetime || "",
 
       // ── Patient fields — FLAT (used by many forms that read top-level keys) ──
       patient_name: resolvedName,
       address:      resolvedAddr,
+      place:        resolvedPlace,
       mobile:       resolvedMobile,
+      age:          patient.age || "",
 
       // ── Patient fields — NESTED (used by components that read patient_details.*) ──
       patient_details: {
-        patient_name: resolvedName,
-        address:      resolvedAddr,
-        mobile:       resolvedMobile,
+        patient_name:      resolvedName,
+        address:           resolvedAddr,
+        place:             resolvedPlace,
+        mobile:            resolvedMobile,
+        customer_type:     resolvedCustType,
+        insurance_company: resolvedInsCompany,
+        company_code:      resolvedCompanyCode,
+        is_insurance:      isIns,
       },
 
       // ── Medicine items — map ALL fields from the enriched API response ──
