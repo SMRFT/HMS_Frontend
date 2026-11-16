@@ -373,6 +373,7 @@ const HeadBtn = styled.button`
 const NormalBillSheet = ({
   bill,
   withHeader = true,
+  headerSpacerHeight = 200,
   preparedByName = "",
   doctorsMap = {},
   viewMode = "NORMAL",
@@ -532,7 +533,7 @@ const NormalBillSheet = ({
     }}>
       {/* ── TOP HEADER (LOGO + HOSPITAL DETAILS + BILL TYPE) ── */}
       {withHeader ? (
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingTop: "12px", marginBottom: "10px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <img
               src={smrftLogo}
@@ -563,11 +564,11 @@ const NormalBillSheet = ({
           </div>
         </div>
       ) : (
-        <div className="letterpad-spacer" style={{ height: "95px" }} />
+        <div className="letterpad-spacer" style={{ height: `${headerSpacerHeight}px`, minHeight: `${headerSpacerHeight}px` }} />
       )}
 
       {/* Divider Line */}
-      <div style={{ borderTop: "1.5px solid #000", margin: "4px 0" }} />
+      <div style={{ borderTop: "1.5px solid #000", margin: "8px 0 6px" }} />
 
       {/* ── SUBHEADER: DISCHARGE BILL - GST EXEMPT & COMPANY NAME ── */}
       <div style={{
@@ -781,6 +782,7 @@ const InsuranceClaimSheet = ({
   bill,
   insuranceFormat = "IP",
   withHeader = true,
+  headerSpacerHeight = 200,
   managerName,
   managerDesig,
   preparedByName,
@@ -896,11 +898,11 @@ const InsuranceClaimSheet = ({
 
   const renderHeaderBlock = () => (
     withHeader ? (
-      <div style={{ textAlign: "center", marginBottom: 6 }}>
-        <img src={headerImg} alt="HOSPITAL HEADER" style={{ maxWidth: "100%", height: "auto", maxHeight: "65px" }} />
+      <div style={{ textAlign: "center", paddingTop: "14px", marginBottom: "12px" }}>
+        <img src={headerImg} alt="HOSPITAL HEADER" style={{ maxWidth: "100%", height: "auto", maxHeight: "68px" }} />
       </div>
     ) : (
-      <div className="letterpad-spacer" style={{ height: "95px" }} />
+      <div className="letterpad-spacer" style={{ height: `${headerSpacerHeight}px`, minHeight: `${headerSpacerHeight}px` }} />
     )
   );
 
@@ -1041,15 +1043,15 @@ const InsuranceClaimSheet = ({
           <table style={{
             width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
             borderTop: "2px solid #000", borderBottom: "2px solid #000",
-            marginBottom: 8, marginTop: 2, textTransform: "uppercase",
+            marginBottom: 8, marginTop: 18, textTransform: "uppercase",
             fontFamily: "'Times New Roman', Times, serif"
           }}>
             <tbody>
               <tr>
-                <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.82rem", padding: "2px 2px" }}>
+                <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.82rem", padding: "4px 2px" }}>
                   DISCHARGE BILL - GST EXEMPT
                 </td>
-                <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.82rem", padding: "2px 2px" }}>
+                <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.82rem", padding: "4px 2px" }}>
                   CREDIT BILL (INSURANCE)
                 </td>
               </tr>
@@ -1137,15 +1139,15 @@ const InsuranceClaimSheet = ({
             <table style={{
               width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
               borderTop: "2px solid #000", borderBottom: "2px solid #000",
-              marginBottom: 8, marginTop: 2, textTransform: "uppercase",
+              marginBottom: 8, marginTop: 18, textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
               <tbody>
                 <tr>
-                  <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.82rem", padding: "3px 2px" }}>
+                  <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.82rem", padding: "4px 2px" }}>
                     DISCHARGE BILL - GST EXEMPT
                   </td>
-                  <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.82rem", padding: "3px 2px" }}>
+                  <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.82rem", padding: "4px 2px" }}>
                     CREDIT BILL (INSURANCE)
                   </td>
                 </tr>
@@ -1249,7 +1251,7 @@ const InsuranceClaimSheet = ({
             <table style={{
               width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
               borderTop: "2px solid #000", borderBottom: "2px solid #000",
-              marginBottom: 8, marginTop: 2, textTransform: "uppercase",
+              marginBottom: 8, marginTop: 18, textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
               <tbody>
@@ -1382,6 +1384,7 @@ export const PrintSheet = React.forwardRef(({
   viewMode = "NORMAL",
   insuranceFormat = "IP",
   withHeader = true,
+  headerSpacerHeight = 200,
   managerName,
   managerDesig,
   preparedByName,
@@ -1400,7 +1403,7 @@ export const PrintSheet = React.forwardRef(({
         @media print {
           @page {
             size: A4 portrait;
-            margin: 8mm 10mm;
+            margin: 12mm 10mm 10mm;
             @bottom-right {
               content: none;
             }
@@ -1482,8 +1485,8 @@ export const PrintSheet = React.forwardRef(({
             height: auto;
           }
           .letterpad-spacer {
-            height: 95px !important;
-            min-height: 95px !important;
+            height: ${headerSpacerHeight}px !important;
+            min-height: ${headerSpacerHeight}px !important;
             display: block !important;
           }
           .bill-page-2 {
@@ -1504,6 +1507,7 @@ export const PrintSheet = React.forwardRef(({
           bill={bill}
           insuranceFormat={insuranceFormat}
           withHeader={withHeader}
+          headerSpacerHeight={headerSpacerHeight}
           managerName={managerName}
           managerDesig={managerDesig}
           preparedByName={preparedByName}
@@ -1516,6 +1520,7 @@ export const PrintSheet = React.forwardRef(({
         <NormalBillSheet
           bill={bill}
           withHeader={withHeader}
+          headerSpacerHeight={headerSpacerHeight}
           preparedByName={preparedByName}
           doctorsMap={doctorsMap}
           viewMode={viewMode}
@@ -1600,6 +1605,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
 
   const [insFormat, setInsFormat] = useState("IP");
   const [withHeader, setWithHeader] = useState(true);
+  const [headerSpacerHeight, setHeaderSpacerHeight] = useState(200);
 
   // Dynamic Signatories state
   const [preparedByName, setPreparedByName] = useState("");
@@ -1727,7 +1733,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             <style>
               @page {
                 size: A4 portrait;
-                margin: 8mm 10mm;
+                margin: 12mm 10mm 10mm;
               }
               *, *::before, *::after {
                 box-sizing: border-box;
@@ -1774,8 +1780,8 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
                 break-before: page !important;
               }
               .letterpad-spacer {
-                height: 95px !important;
-                min-height: 95px !important;
+                height: ${headerSpacerHeight}px !important;
+                min-height: ${headerSpacerHeight}px !important;
                 display: block !important;
               }
               .no-print {
@@ -1967,61 +1973,91 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
               )}
             </div>
 
-            {/* ── INSURANCE toolbar: shown when viewMode is INSURANCE_CLAIM ── */}
-            {viewMode === "INSURANCE_CLAIM" ? (
-              <>
-                {/* Header toggle */}
-                <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
-                  <HeadBtn
-                    type="button"
-                    $active={withHeader}
-                    onClick={() => setWithHeader(true)}
-                    title="Print with Hospital Header & Logo (for Plain Paper)"
-                  >
-                    WITH HEADER
-                  </HeadBtn>
-                  <HeadBtn
-                    type="button"
-                    $active={!withHeader}
-                    onClick={() => setWithHeader(false)}
-                    title="Print without Header (leaves ~95px top space for physical Pre-printed Letterpad)"
-                  >
-                    WITHOUT HEADER (LETTERPAD)
-                  </HeadBtn>
-                </div>
+            {/* ── Header toggle (available across ALL view modes: Standard, Breakdown, Insurance) ── */}
+            <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
+              <HeadBtn
+                type="button"
+                $active={withHeader}
+                onClick={() => setWithHeader(true)}
+                title="Print with Hospital Header & Logo (for Plain Paper)"
+              >
+                WITH HEADER
+              </HeadBtn>
+              <HeadBtn
+                type="button"
+                $active={!withHeader}
+                onClick={() => setWithHeader(false)}
+                title="Print without Header (leaves top space for pre-printed letterpad)"
+              >
+                WITHOUT HEADER (LETTERPAD)
+              </HeadBtn>
+            </div>
 
-                {/* NABH format toggle */}
-                <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
-                  <HeadBtn
-                    type="button"
-                    $active={insFormat === "IP"}
-                    onClick={() => setInsFormat("IP")}
-                    title="NABH IP Format: Summary Page + Itemized Detailed Pages"
-                  >
-                    🛡️ NABH IP FORMAT
-                  </HeadBtn>
-                  <HeadBtn
-                    type="button"
-                    $active={insFormat === "OP"}
-                    onClick={() => setInsFormat("OP")}
-                    title="NABH OP Format: Continuous Print"
-                  >
-                    🛡️ NABH OP FORMAT
-                  </HeadBtn>
-                </div>
-
-                <HeadBtn type="button" onClick={handleDownloadWord}>📄 WORD</HeadBtn>
-                <HeadBtn type="button" onClick={handleDownloadPDF}>📑 PDF</HeadBtn>
-                <HeadBtn type="button" $active onClick={triggerPrint}>🖨️ PRINT</HeadBtn>
-              </>
-            ) : (
-              /* ── NORMAL & BREAKDOWN BILL toolbar ── */
-              <>
-                <HeadBtn type="button" onClick={handleDownloadWord}>📄 WORD</HeadBtn>
-                <HeadBtn type="button" onClick={handleDownloadPDF}>📑 PDF</HeadBtn>
-                <HeadBtn type="button" $active onClick={triggerPrint}>🖨️ PRINT</HeadBtn>
-              </>
+            {/* ── Top Header Gap Adjuster (when WITHOUT HEADER is active) ── */}
+            {!withHeader && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 5,
+                background: "rgba(0,0,0,0.35)", padding: "2px 8px", borderRadius: 6,
+                fontSize: "0.75rem", color: "#f8fafc"
+              }}>
+                <span style={{ fontWeight: 600 }}>Header Gap:</span>
+                <button
+                  type="button"
+                  onClick={() => setHeaderSpacerHeight(prev => Math.max(30, prev - 10))}
+                  style={{
+                    background: "#475569", border: "1px solid #64748b", color: "#fff",
+                    borderRadius: 4, width: 22, height: 22, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 700, fontSize: "0.85rem"
+                  }}
+                  title="Decrease header space by 10px"
+                >
+                  -
+                </button>
+                <span style={{ fontWeight: 800, minWidth: 44, textAlign: "center", color: "#38bdf8" }}>
+                  {headerSpacerHeight}px
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setHeaderSpacerHeight(prev => Math.min(400, prev + 10))}
+                  style={{
+                    background: "#475569", border: "1px solid #64748b", color: "#fff",
+                    borderRadius: 4, width: 22, height: 22, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 700, fontSize: "0.85rem"
+                  }}
+                  title="Increase header space by 10px"
+                >
+                  +
+                </button>
+              </div>
             )}
+
+            {/* ── NABH format toggle: shown when viewMode is INSURANCE_CLAIM ── */}
+            {viewMode === "INSURANCE_CLAIM" && (
+              <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
+                <HeadBtn
+                  type="button"
+                  $active={insFormat === "IP"}
+                  onClick={() => setInsFormat("IP")}
+                  title="NABH IP Format: Summary Page + Itemized Detailed Pages"
+                >
+                  🛡️ NABH IP FORMAT
+                </HeadBtn>
+                <HeadBtn
+                  type="button"
+                  $active={insFormat === "OP"}
+                  onClick={() => setInsFormat("OP")}
+                  title="NABH OP Format: Continuous Print"
+                >
+                  🛡️ NABH OP FORMAT
+                </HeadBtn>
+              </div>
+            )}
+
+            <HeadBtn type="button" onClick={handleDownloadWord}>📄 WORD</HeadBtn>
+            <HeadBtn type="button" onClick={handleDownloadPDF}>📑 PDF</HeadBtn>
+            <HeadBtn type="button" $active onClick={triggerPrint}>🖨️ PRINT</HeadBtn>
 
             <ModalClose onClick={onClose}>✕</ModalClose>
           </div>
@@ -2033,6 +2069,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             viewMode={viewMode}
             insuranceFormat={insFormat}
             withHeader={withHeader}
+            headerSpacerHeight={headerSpacerHeight}
             managerName={managerName}
             managerDesig={managerDesig}
             preparedByName={preparedByName}

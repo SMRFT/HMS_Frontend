@@ -150,10 +150,29 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
     const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
     const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
 
-    const cgstAmt = cgstRate > 0 ? Number(((taxable * cgstRate) / 100).toFixed(2)) : parseFloat(it.cgst_amt || it.cgstAmt || 0);
-    const sgstAmt = sgstRate > 0 ? Number(((taxable * sgstRate) / 100).toFixed(2)) : parseFloat(it.sgst_amt || it.sgstAmt || 0);
-    const igstAmt = igstRate > 0 ? Number(((taxable * igstRate) / 100).toFixed(2)) : parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
-    const totalAmt = Number((taxable + cgstAmt + sgstAmt + igstAmt).toFixed(2));
+    const hasStoredCgst = it.cgst_amt != null || it.cgstAmt != null;
+    const hasStoredSgst = it.sgst_amt != null || it.sgstAmt != null;
+    const hasStoredIgst = it.igst_amt != null || it.igstAmt != null || it.igst != null;
+
+    const baseForTax = Math.max(0, taxable - (it.deduct_discount_for_tax !== false ? disc : 0));
+
+    const cgstAmt = hasStoredCgst
+      ? parseFloat(it.cgst_amt ?? it.cgstAmt ?? 0)
+      : (cgstRate > 0 ? Number(((baseForTax * cgstRate) / 100).toFixed(2)) : 0);
+
+    const sgstAmt = hasStoredSgst
+      ? parseFloat(it.sgst_amt ?? it.sgstAmt ?? 0)
+      : (sgstRate > 0 ? Number(((baseForTax * sgstRate) / 100).toFixed(2)) : 0);
+
+    const igstAmt = hasStoredIgst
+      ? parseFloat(it.igst_amt ?? it.igstAmt ?? it.igst ?? 0)
+      : (igstRate > 0 ? Number(((baseForTax * igstRate) / 100).toFixed(2)) : 0);
+
+    const storedPurchaseCost = parseFloat(it.purchase_cost ?? it.purchaseCost ?? 0);
+    const totalAmt = storedPurchaseCost > 0
+      ? storedPurchaseCost
+      : Number((taxable - disc + cgstAmt + sgstAmt + igstAmt).toFixed(2));
+
     const pCost = qty > 0 ? Number((totalAmt / qty).toFixed(2)) : pRate;
 
     let expDisplay = it.expiry || it.expDate || "—";
@@ -187,29 +206,34 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
   });
 
   /* Totals */
-  const totalTaxable = normalizedItems.reduce((s, i) => s + i.taxable, 0);
-  const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0);
-  const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0);
-  const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0);
-  const totalDisc = normalizedItems.reduce((s, i) => s + i.disc, 0) || parseFloat(grn.total_discount || 0);
-  const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0);
-  const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
-  const totalGst = totalCgst + totalSgst + totalIgst;
-
-  const calcNet = totalTaxable - totalDisc + totalGst + taxOnFree;
+  const storedTaxable = parseFloat(grn.taxable_amount?.$numberDecimal || grn.taxable_amount || 0);
+  const storedTotalDisc = parseFloat(grn.total_discount?.$numberDecimal || grn.total_discount || 0);
+  const storedCgst = parseFloat(grn.cgst?.$numberDecimal || grn.cgst || 0);
+  const storedSgst = parseFloat(grn.sgst?.$numberDecimal || grn.sgst || 0);
+  const storedGst = parseFloat(grn.tax_paid_to_supplier?.$numberDecimal || grn.tax_paid_to_supplier || 0);
   const storedNet = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || 0);
   const storedRound = parseFloat(grn.round_amount?.$numberDecimal || grn.round_amount || 0);
 
-  let netAmt = 0;
-  let roundOff = storedRound;
+  const itemsTaxable = normalizedItems.reduce((s, i) => s + i.taxable, 0);
+  const totalTaxable = storedTaxable > 0 ? storedTaxable : itemsTaxable;
 
-  if (storedNet > 0 && Math.abs(storedNet - calcNet) <= 5) {
-      netAmt = storedNet;
-      roundOff = Number((netAmt - calcNet).toFixed(2));
-  } else {
-      netAmt = Math.round(calcNet);
-      roundOff = Number((netAmt - calcNet).toFixed(2));
-  }
+  const itemsCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0);
+  const totalCgst = storedCgst > 0 ? storedCgst : itemsCgst;
+
+  const itemsSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0);
+  const totalSgst = storedSgst > 0 ? storedSgst : itemsSgst;
+
+  const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0);
+
+  const itemsDisc = normalizedItems.reduce((s, i) => s + i.disc, 0);
+  const totalDisc = storedTotalDisc > 0 ? storedTotalDisc : itemsDisc;
+
+  const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0);
+  const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
+  const totalGst = storedGst > 0 ? storedGst : (totalCgst + totalSgst + totalIgst);
+
+  const netAmt = storedNet > 0 ? storedNet : Math.round(totalTaxable - totalDisc + totalGst + taxOnFree);
+  const roundOff = storedRound !== 0 ? storedRound : Number((netAmt - (totalTaxable - totalDisc + totalGst + taxOnFree)).toFixed(2));
 
   /* Shared cell styles */
   const th = (extra = {}) => ({
