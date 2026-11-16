@@ -260,7 +260,7 @@ const LabAbstractReportDetailed = ({ embedded = false }) => {
     const location = useLocation();
 
     const queryParams = new URLSearchParams(location.search);
-    const initialIp = queryParams.get('ip_number') || '';
+    const initialIp = queryParams.get('ip_number') || queryParams.get('uhid') || '';
     const initialFrom = queryParams.get('from_date') || dayjs().subtract(30, 'days').format('YYYY-MM-DD');
     const initialTo = queryParams.get('to_date') || dayjs().format('YYYY-MM-DD');
 
@@ -276,7 +276,7 @@ const LabAbstractReportDetailed = ({ embedded = false }) => {
             const fDate = dates && dates[0] ? dates[0].format('YYYY-MM-DD') : '';
             const tDate = dates && dates[1] ? dates[1].format('YYYY-MM-DD') : '';
 
-            const url = `${getBaseUrl.replace(/\/$/, '')}/report-lab-abstract/?ip_number=${encodeURIComponent(targetIp)}&from_date=${fDate}&to_date=${tDate}`;
+            const url = `${getBaseUrl.replace(/\/$/, '')}/report-lab-abstract/?ip_number=${encodeURIComponent(targetIp)}&uhid=${encodeURIComponent(targetIp)}&from_date=${fDate}&to_date=${tDate}`;
             const res = await apiRequest(url, 'GET');
 
             if (res && res.success) {
@@ -393,7 +393,7 @@ const LabAbstractReportDetailed = ({ embedded = false }) => {
                             <User size={15} color="#64748b" />
                             <input
                                 type="text"
-                                placeholder="Enter IP Number..."
+                                placeholder="Enter IP Number or UHID..."
                                 value={ipNumber}
                                 onChange={(e) => setIpNumber(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') loadData(); }}

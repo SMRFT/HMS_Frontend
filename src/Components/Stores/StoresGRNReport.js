@@ -4,7 +4,6 @@ import styled, { createGlobalStyle } from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { DatePicker, ConfigProvider } from 'antd';
-import ReactSelect from 'react-select';
 import dayjs from 'dayjs';
 import { 
     Pencil, CheckCheck, CreditCard, Printer, Trash2, 
@@ -12,18 +11,14 @@ import {
     ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
-import { printStoresReport } from './printStoresReport';
 import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
-import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
+import { DepartmentFilterControl } from './DepartmentSelectionModal';
 import TablePagination, { usePagination } from './TablePagination';
 import {
     PageWrapper,
     Container,
-    ControlsContainer,
-    SearchContainer,
     Input,
     Button,
-    TableWrapper,
     Table,
     Th,
     Td,
@@ -38,8 +33,7 @@ import {
     ModalTitle,
     ModalBody,
     CloseButton,
-    colors,
-    SectionHeader
+    colors
 } from '../GlobalStyles';
 
 const CalendarGlobalStyles = createGlobalStyle`
@@ -109,20 +103,6 @@ const StatsCard = styled.div`
         gap: 4px;
     }
 `;
-
-const SummaryRow = ({ label, value, color }) => (
-    <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        padding: '8px 15px', 
-        borderBottom: `1px solid ${colors.primary}10`,
-        fontSize: '0.9rem',
-        fontWeight: '600'
-    }}>
-        <span style={{ color: colors.textMuted }}>{label}</span>
-        <span style={{ color: color || colors.textMain }}>₹{(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-    </div>
-);
 
 const GRNActionPopover = ({
     grn,
@@ -319,20 +299,21 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
 
     const normalizedItems = itemsArray.map((it, i) => {
         const qty = parseFloat(it.quantity || it.qty || 0);
-        const pack = it.packing || it.pack || 1;
+        const pack = parseFloat(it.packing || it.pack || 1) || 1;
         const free = parseFloat(it.free || it.free_qty || 0);
         const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
-        const pCost = parseFloat(it.unitCost || it.purchase_cost_display || (qty ? (parseFloat(it.purchaseCost || it.purchase_cost || 0) / qty) : 0) || pRate);
         const mrp = parseFloat(it.mrp || 0);
         const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
-        const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / (pack || 1))) - disc);
+        const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / pack)) - disc);
         const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
-        const cgstAmt = parseFloat(it.cgst_amt || it.cgstAmt || (taxable * cgstRate / 100) || 0);
         const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
-        const sgstAmt = parseFloat(it.sgst_amt || it.sgstAmt || (taxable * sgstRate / 100) || 0);
         const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
-        const igstAmt = parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
-        const totalAmt = parseFloat(it.purchase_cost || it.purchaseCost || it.total_amount || (taxable + cgstAmt + sgstAmt + igstAmt));
+
+        const cgstAmt = cgstRate > 0 ? Number(((taxable * cgstRate) / 100).toFixed(2)) : parseFloat(it.cgst_amt || it.cgstAmt || 0);
+        const sgstAmt = sgstRate > 0 ? Number(((taxable * sgstRate) / 100).toFixed(2)) : parseFloat(it.sgst_amt || it.sgstAmt || 0);
+        const igstAmt = igstRate > 0 ? Number(((taxable * igstRate) / 100).toFixed(2)) : parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
+        const totalAmt = Number((taxable + cgstAmt + sgstAmt + igstAmt).toFixed(2));
+        const pCost = qty > 0 ? Number((totalAmt / qty).toFixed(2)) : pRate;
 
         let expDisplay = it.expiry || it.expDate || "—";
         if (expDisplay && expDisplay !== "—") {
@@ -365,15 +346,28 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
     });
 
     const totalTaxable = normalizedItems.reduce((s, i) => s + i.taxable, 0);
-    const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0) || parseFloat(grn.cgst || 0);
-    const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0) || parseFloat(grn.sgst || 0);
-    const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0) || parseFloat(grn.igst || 0);
+    const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0);
+    const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0);
+    const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0);
     const totalDisc = normalizedItems.reduce((s, i) => s + i.disc, 0) || parseFloat(grn.total_discount || 0);
-    const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0) || parseFloat(grn.total_amount || 0);
+    const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0);
     const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
-    const roundOff = parseFloat(grn.round_amount || 0);
     const totalGst = totalCgst + totalSgst + totalIgst;
-    const netAmt = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || (totalItemAmounts + taxOnFree + roundOff));
+
+    const calcNet = totalTaxable - totalDisc + totalGst + taxOnFree;
+    const storedNet = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || 0);
+    const storedRound = parseFloat(grn.round_amount?.$numberDecimal || grn.round_amount || 0);
+
+    let netAmt = 0;
+    let roundOff = storedRound;
+
+    if (storedNet > 0 && Math.abs(storedNet - calcNet) <= 5) {
+        netAmt = storedNet;
+        roundOff = Number((netAmt - calcNet).toFixed(2));
+    } else {
+        netAmt = Math.round(calcNet);
+        roundOff = Number((netAmt - calcNet).toFixed(2));
+    }
 
     const th = (extra = {}) => ({
         background: "#dbeafe",
@@ -567,7 +561,7 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
                 <table style={{ borderLeft: "1px solid #7dd3fc", borderCollapse: "collapse", fontSize: "11px", minWidth: 160, alignSelf: "stretch" }}>
                     <tbody>
                         {[
-                            ["Total", fmt2(totalTaxable), false],
+                            ["Total Taxable", fmt2(totalTaxable), false],
                             ["Discount", fmt2(totalDisc), false],
                             ["Tax On Free", fmt2(taxOnFree), false],
                             ["Round off.", fmt2(roundOff), false],
@@ -625,86 +619,6 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
     );
 };
 
-const deptSelectStyles = {
-    control: (base, state) => ({
-        ...base,
-        height: '48px',
-        minHeight: '48px',
-        borderRadius: '12px',
-        border: `1.5px solid ${state.isFocused ? '#1e3a8a' : colors.border}`,
-        boxShadow: state.isFocused ? '0 0 0 2px rgba(30, 58, 138, 0.15)' : 'none',
-        fontSize: '0.9rem',
-        fontWeight: '600',
-        backgroundColor: '#ffffff',
-        cursor: 'pointer',
-        minWidth: '220px',
-        '&:hover': {
-            borderColor: '#1e3a8a'
-        }
-    }),
-    valueContainer: (base) => ({
-        ...base,
-        height: '48px',
-        padding: '0 12px'
-    }),
-    input: (base) => ({
-        ...base,
-        margin: '0px',
-        fontSize: '0.9rem',
-        fontWeight: '600',
-        color: colors.textMain
-    }),
-    singleValue: (base) => ({
-        ...base,
-        color: colors.textMain,
-        fontWeight: '600',
-        fontSize: '0.9rem'
-    }),
-    placeholder: (base) => ({
-        ...base,
-        color: colors.textMuted,
-        fontWeight: '500',
-        fontSize: '0.9rem'
-    }),
-    indicatorsContainer: (base) => ({
-        ...base,
-        height: '48px'
-    }),
-    menuPortal: (base) => ({
-        ...base,
-        zIndex: 99999
-    }),
-    menu: (base) => ({
-        ...base,
-        borderRadius: '12px',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-        border: `1px solid ${colors.border}`,
-        overflow: 'hidden',
-        zIndex: 99999,
-        marginTop: '6px'
-    }),
-    menuList: (base) => ({
-        ...base,
-        padding: '6px',
-        maxHeight: '260px'
-    }),
-    option: (base, state) => ({
-        ...base,
-        borderRadius: '8px',
-        padding: '8px 12px',
-        fontSize: '0.86rem',
-        fontWeight: state.isSelected ? '700' : '500',
-        backgroundColor: state.isSelected
-            ? '#0d9488'
-            : state.isFocused
-            ? '#f0fdfa'
-            : 'transparent',
-        color: state.isSelected ? '#ffffff' : '#1e293b',
-        cursor: 'pointer',
-        transition: 'all 0.15s ease'
-    })
-};
-
 const StoresGRNReport = () => {
     const navigate = useNavigate();
     const [grns, setGrns] = useState([]);
@@ -718,10 +632,24 @@ const StoresGRNReport = () => {
     const [toDate, setToDate] = useState(today);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('ALL');
+    const [selectedCategory, setSelectedCategory] = useState('ALL');
     const [departments, setDepartments] = useState([]);
     const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment() || 'ALL');
     useStoresDepartment((newDept) => setSelectedDepartment(newDept || 'ALL'));
     const departmentFilterRef = useRef(null);
+
+    const categoryOptions = React.useMemo(() => {
+        const set = new Set();
+        grns.forEach(g => {
+            const cat = g.purchase_category || g.category;
+            if (cat && String(cat).trim() && String(cat).trim() !== '-') {
+                set.add(String(cat).trim());
+            }
+        });
+        set.add('Cash');
+        set.add('Credit');
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }, [grns]);
 
     // F10 Shortcut to focus Department filter
     useEffect(() => {
@@ -763,6 +691,7 @@ const StoresGRNReport = () => {
         fetchGRNs(); 
         fetchVendors();
         fetchDepartments();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -849,13 +778,14 @@ const StoresGRNReport = () => {
             let method = 'GET';
             let data = null;
 
-            if (fromDate || toDate || (selectedDepartment && selectedDepartment !== 'ALL')) {
+            if (fromDate || toDate || (selectedDepartment && selectedDepartment !== 'ALL') || (selectedCategory && selectedCategory !== 'ALL')) {
                 // Now using the same main endpoint, but with POST
                 method = 'POST';
                 data = { 
                     from_date: fromDate, 
                     to_date: toDate,
-                    ...(selectedDepartment && selectedDepartment !== 'ALL' ? { department: selectedDepartment } : {})
+                    ...(selectedDepartment && selectedDepartment !== 'ALL' ? { department: selectedDepartment } : {}),
+                    ...(selectedCategory && selectedCategory !== 'ALL' ? { category: selectedCategory } : {})
                 };
             }
 
@@ -871,6 +801,7 @@ const StoresGRNReport = () => {
         setToDate(today);
         setSearchTerm('');
         setFilterStatus('ALL');
+        setSelectedCategory('ALL');
         setSelectedDepartment('ALL');
         setSelectedStoreDepartment('');
         setTimeout(() => fetchGRNs(), 0);
@@ -932,10 +863,6 @@ const StoresGRNReport = () => {
         } finally {
             setCancelling(false);
         }
-    };
-
-    const handleDelete = (grnNumber, grn) => {
-        handleOpenCancelModal(grn || { grn_number: grnNumber });
     };
     
     const handleApprove = (grn) => {
@@ -1019,16 +946,6 @@ const StoresGRNReport = () => {
         XLSX.writeFile(workbook, `GRN_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
-    const handlePrintTable = () => {
-        printStoresReport('stores-grn-table-wrapper', {
-            reportTitle: 'Stores Goods Received Note (GRN) Report',
-            hospitalName: 'SHANMUGA HOSPITAL LIMITED',
-            department: selectedDepartment || 'GENERAL PURCHASE',
-            fromDate,
-            toDate
-        });
-    };
-
     const handlePrintRow = (grn) => {
         let itemsArray = grn.items;
         if (typeof itemsArray === 'string') {
@@ -1050,20 +967,21 @@ const StoresGRNReport = () => {
 
         const normalizedItems = itemsArray.map((it, i) => {
             const qty = parseFloat(it.quantity || it.qty || 0);
-            const pack = it.packing || it.pack || 1;
+            const pack = parseFloat(it.packing || it.pack || 1) || 1;
             const free = parseFloat(it.free || it.free_qty || 0);
             const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
-            const pCost = parseFloat(it.unitCost || it.purchase_cost_display || (qty ? (parseFloat(it.purchaseCost || it.purchase_cost || 0) / qty) : 0) || pRate);
             const mrp = parseFloat(it.mrp || 0);
             const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
-            const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / (pack || 1))) - disc);
+            const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / pack)) - disc);
             const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
-            const cgstAmt = parseFloat(it.cgst_amt || it.cgstAmt || (taxable * cgstRate / 100) || 0);
             const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
-            const sgstAmt = parseFloat(it.sgst_amt || it.sgstAmt || (taxable * sgstRate / 100) || 0);
             const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
-            const igstAmt = parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
-            const totalAmt = parseFloat(it.purchase_cost || it.purchaseCost || it.total_amount || (taxable + cgstAmt + sgstAmt + igstAmt));
+
+            const cgstAmt = cgstRate > 0 ? Number(((taxable * cgstRate) / 100).toFixed(2)) : parseFloat(it.cgst_amt || it.cgstAmt || 0);
+            const sgstAmt = sgstRate > 0 ? Number(((taxable * sgstRate) / 100).toFixed(2)) : parseFloat(it.sgst_amt || it.sgstAmt || 0);
+            const igstAmt = igstRate > 0 ? Number(((taxable * igstRate) / 100).toFixed(2)) : parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
+            const totalAmt = Number((taxable + cgstAmt + sgstAmt + igstAmt).toFixed(2));
+            const pCost = qty > 0 ? Number((totalAmt / qty).toFixed(2)) : pRate;
 
             let expDisplay = it.expiry || it.expDate || "—";
             if (expDisplay && expDisplay !== "—") {
@@ -1096,15 +1014,28 @@ const StoresGRNReport = () => {
         });
 
         const totalTaxable = normalizedItems.reduce((s, i) => s + i.taxable, 0);
-        const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0) || parseFloat(grn.cgst || 0);
-        const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0) || parseFloat(grn.sgst || 0);
-        const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0) || parseFloat(grn.igst || 0);
+        const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0);
+        const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0);
+        const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0);
         const totalDisc = normalizedItems.reduce((s, i) => s + i.disc, 0) || parseFloat(grn.total_discount || 0);
-        const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0) || parseFloat(grn.total_amount || 0);
+        const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0);
         const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
-        const roundOff = parseFloat(grn.round_amount || 0);
         const totalGst = totalCgst + totalSgst + totalIgst;
-        const netAmt = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || (totalItemAmounts + taxOnFree + roundOff));
+
+        const calcNet = totalTaxable - totalDisc + totalGst + taxOnFree;
+        const storedNet = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || 0);
+        const storedRound = parseFloat(grn.round_amount?.$numberDecimal || grn.round_amount || 0);
+
+        let netAmt = 0;
+        let roundOff = storedRound;
+
+        if (storedNet > 0 && Math.abs(storedNet - calcNet) <= 5) {
+            netAmt = storedNet;
+            roundOff = Number((netAmt - calcNet).toFixed(2));
+        } else {
+            netAmt = Math.round(calcNet);
+            roundOff = Number((netAmt - calcNet).toFixed(2));
+        }
         const vendorName = getVendorName(grn.vendor_id);
 
         const printContent = `<!DOCTYPE html>
@@ -1457,13 +1388,6 @@ const StoresGRNReport = () => {
     };
     const openPaymentModal = (grn) => {
         setSelectedGrn(grn);
-        let paymentArray = grn.payment_status;
-        if (typeof paymentArray === 'string') {
-            try { paymentArray = JSON.parse(paymentArray); } catch(e) { paymentArray = []; }
-        }
-        const lastStatus = paymentArray && paymentArray.length > 0
-            ? paymentArray[paymentArray.length - 1]
-            : { pending_amount: grn.net_invoice_amount };
         setPaymentData({
             amount_paid: '',
             payment_method: 'Cash',
@@ -1525,17 +1449,59 @@ const StoresGRNReport = () => {
         }
     };
 
+    const calculateGrnNet = (grn) => {
+        if (!grn) return 0;
+        const storedNet = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || 0);
+        if (storedNet > 0) return storedNet;
+
+        let itemsArray = grn.items;
+        if (typeof itemsArray === 'string') {
+            try { itemsArray = JSON.parse(itemsArray); } catch(e) { itemsArray = []; }
+        }
+        if (Array.isArray(itemsArray) && itemsArray.length > 0) {
+            let totalTaxable = 0;
+            let totalGst = 0;
+            itemsArray.forEach(it => {
+                if (!it) return;
+                const qty = parseFloat(it.quantity || it.qty || 0);
+                const pack = parseFloat(it.packing || it.pack || 1) || 1;
+                const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
+                const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
+                const taxable = parseFloat(it.item_value || it.itemValue || it.taxableAmt || ((pRate * (qty / pack)) - disc));
+                const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
+                const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
+                const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
+
+                const cgstAmt = cgstRate > 0 ? Number(((taxable * cgstRate) / 100).toFixed(2)) : parseFloat(it.cgst_amt || it.cgstAmt || 0);
+                const sgstAmt = sgstRate > 0 ? Number(((taxable * sgstRate) / 100).toFixed(2)) : parseFloat(it.sgst_amt || it.sgstAmt || 0);
+                const igstAmt = igstRate > 0 ? Number(((taxable * igstRate) / 100).toFixed(2)) : parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
+
+                totalTaxable += taxable;
+                totalGst += (cgstAmt + sgstAmt + igstAmt);
+            });
+            const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
+            const roundAmt = parseFloat(grn.round_amount?.$numberDecimal || grn.round_amount || 0);
+            const calcNet = totalTaxable + totalGst + taxOnFree + roundAmt;
+            if (calcNet > 0) return Number(calcNet.toFixed(2));
+        }
+
+        const fallback = parseFloat(grn.invoice_amount?.$numberDecimal || grn.invoice_amount || grn.total_amount?.$numberDecimal || grn.total_amount || 0);
+        return fallback > 0 ? fallback : 0;
+    };
+
     const getPaymentInfo = (grn) => {
+        if (!grn) return { latest: { status: 'Not Paid', pending_amount: 0 }, totalPaid: 0, netAmt: 0, pending: 0, paymentArray: [] };
         let paymentArray = grn.payment_status;
         if (typeof paymentArray === 'string') {
             try { paymentArray = JSON.parse(paymentArray); } catch(e) { paymentArray = []; }
         }
+        const netAmt = calculateGrnNet(grn);
+        const totalPaid = parseFloat(grn.total_amount_paid?.$numberDecimal || grn.total_amount_paid || 0);
         const latest = paymentArray && paymentArray.length > 0
             ? paymentArray[paymentArray.length - 1]
-            : { status: 'Not Paid', pending_amount: grn.net_invoice_amount };
-        const totalPaid = parseFloat(grn.total_amount_paid?.$numberDecimal || grn.total_amount_paid || 0);
-        const netAmt = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || 0);
-        const pending = parseFloat(latest.pending_amount) || 0;
+            : { status: (totalPaid >= netAmt && netAmt > 0) ? 'Paid' : 'Not Paid', pending_amount: Math.max(0, netAmt - totalPaid) };
+        const rawPending = latest.pending_amount !== undefined ? parseFloat(latest.pending_amount) : Math.max(0, netAmt - totalPaid);
+        const pending = isNaN(rawPending) ? Math.max(0, netAmt - totalPaid) : rawPending;
         return { latest, totalPaid, netAmt, pending, paymentArray };
     };
 
@@ -1551,51 +1517,10 @@ const StoresGRNReport = () => {
         return vendor ? (vendor.vendor_name || vendor.name || vendor.vendorName || vendor.vendor_id || vendorId) : vendorId;
     };
 
-    const getStatusBadge = (status) => {
-        const colorMap = {
-            'Paid': { bg: '#f0fdf4', color: '#166534' },
-            'Partially Paid': { bg: '#fffbeb', color: '#92400e' },
-            'Not Paid': { bg: '#fff5f5', color: '#b91c1c' },
-        };
-        const style = colorMap[status] || colorMap['Not Paid'];
-        return (
-            <span style={{
-                padding: '4px 12px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600',
-                backgroundColor: style.bg, color: style.color, border: `1px solid ${style.bg}`,
-                whiteSpace: 'nowrap', textTransform: 'uppercase'
-            }}>{status}</span>
-        );
-    };
-
-    const getPendingInfo = (grn) => {
-        const { latest } = getPaymentInfo(grn);
-        let paymentArray = grn.payment_status;
-        if (typeof paymentArray === 'string') {
-            try { paymentArray = JSON.parse(paymentArray); } catch(e) { paymentArray = []; }
-        }
-        const lastStatus = paymentArray && paymentArray.length > 0
-            ? paymentArray[paymentArray.length - 1]
-            : { pending_amount: grn.net_invoice_amount };
-        return parseFloat(lastStatus.pending_amount) || 0;
-    };
-
-    const getTotalStats = () => {
-        const stats = grns.reduce((acc, grn) => {
-            const { netAmt, pending } = getPaymentInfo(grn);
-            acc.totalNet += netAmt;
-            acc.totalPending += pending;
-            return acc;
-        }, { totalNet: 0, totalPending: 0 });
-        
-        return stats;
-    };
-
-    const stats = getTotalStats();
-
     const filteredGrns = grns.filter(grn => {
         const vName = getVendorName(grn.vendor_id)?.toLowerCase() || '';
         const grnNo = (grn.grn_number || '').toLowerCase();
-        const invNo = (grn.invoice_no || '').toLowerCase();
+        const invNo = (grn.invoice_no || grn.invoice_number || '').toLowerCase();
         const cat = (grn.purchase_category || '').toLowerCase();
         const deptDisplay = getDepartmentName(grn.department, grn);
         const deptSearchStr = `${deptDisplay} ${grn.department || ''} ${grn.department_code || ''}`.toLowerCase();
@@ -1618,6 +1543,12 @@ const StoresGRNReport = () => {
                 return false;
             }
         }
+        if (selectedCategory && selectedCategory !== 'ALL') {
+            const grnCat = String(grn.purchase_category || grn.category || '').trim().toLowerCase();
+            if (grnCat !== selectedCategory.trim().toLowerCase()) {
+                return false;
+            }
+        }
         if (filterStatus === 'ALL') return true;
         if (filterStatus === 'APPROVED') return !!grn.is_approved;
         if (filterStatus === 'UNAPPROVED') return !grn.is_approved;
@@ -1626,6 +1557,20 @@ const StoresGRNReport = () => {
         if (filterStatus === 'PENDING') return latest.status !== 'Paid';
         return true;
     });
+
+    const getTotalStats = (list) => {
+        const targetList = list || [];
+        const stats = targetList.reduce((acc, grn) => {
+            const { netAmt, pending } = getPaymentInfo(grn);
+            acc.totalNet += netAmt;
+            acc.totalPending += pending;
+            return acc;
+        }, { totalNet: 0, totalPending: 0 });
+        
+        return stats;
+    };
+
+    const stats = getTotalStats(filteredGrns);
 
     const {
         currentPage,
@@ -1788,6 +1733,29 @@ const StoresGRNReport = () => {
                                         setSelectedDepartment(dept || 'ALL');
                                     }}
                                 />
+                                <select
+                                    value={selectedCategory}
+                                    onChange={(e) => setSelectedCategory(e.target.value)}
+                                    style={{
+                                        padding: '10px 14px',
+                                        borderRadius: '12px',
+                                        border: `1.5px solid ${colors.border}`,
+                                        height: '48px',
+                                        fontSize: '0.88rem',
+                                        fontWeight: '700',
+                                        color: selectedCategory === 'ALL' ? colors.textMuted : colors.primary,
+                                        background: 'white',
+                                        outline: 'none',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                    }}
+                                    title="Filter by Purchase Category (Cash / Credit)"
+                                >
+                                    <option value="ALL">All Categories</option>
+                                    {categoryOptions.map(cat => (
+                                        <option key={cat} value={cat}>{cat.toUpperCase()}</option>
+                                    ))}
+                                </select>
                                 <input
                                     type="text"
                                     placeholder="Search GRN, Vendor, Invoice..."
@@ -1866,7 +1834,7 @@ const StoresGRNReport = () => {
                                             <Button secondary onClick={clearFilter} style={{ marginTop: '30px', borderRadius: '12px', padding: '12px 30px' }}>Reset Filters</Button>
                                         </Td></Tr>
                                     ) : pageData.map((grn, idx) => {
-                                        const { totalPaid, netAmt, pending, latest } = getPaymentInfo(grn);
+                                        const { netAmt, latest } = getPaymentInfo(grn);
                                         const serialNo = startIdx + idx + 1;
                                         return (
                                             <Tr key={grn.grn_number} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -2006,7 +1974,7 @@ const StoresGRNReport = () => {
                                                                 onClose={() => { setOpenPopover(null); setPopoverData(null); }}
                                                                 onView={() => { setOpenPopover(null); setSelectedGrnForView(popoverData); setShowViewModal(true); }}
                                                                 onApprove={() => { setOpenPopover(null); handleApprove(popoverData); }}
-                                                                onPayment={() => { setOpenPopover(null); setSelectedGrn(popoverData); setShowPaymentModal(true); }}
+                                                                onPayment={() => { setOpenPopover(null); openPaymentModal(popoverData); }}
                                                                 onEdit={() => { setOpenPopover(null); navigate('/StoresGRNGeneration', { state: { editGrn: popoverData, fromAnalysis: true } }); }}
                                                                 onPrint={() => { setOpenPopover(null); handlePrintRow(popoverData); }}
                                                                 onDelete={() => { setOpenPopover(null); handleOpenCancelModal(popoverData); }}
@@ -2038,16 +2006,7 @@ const StoresGRNReport = () => {
 
             {/* Payment Modal */}
             {showPaymentModal && selectedGrn && (() => {
-                let paymentArray = selectedGrn.payment_status;
-                if (typeof paymentArray === 'string') {
-                    try { paymentArray = JSON.parse(paymentArray); } catch(e) { paymentArray = []; }
-                }
-                const lastStatus = paymentArray && paymentArray.length > 0
-                    ? paymentArray[paymentArray.length - 1]
-                    : { pending_amount: selectedGrn.net_invoice_amount };
-                const pendingAmt = parseFloat(lastStatus.pending_amount) || 0;
-                const totalPaid = parseFloat(selectedGrn.total_amount_paid?.$numberDecimal || selectedGrn.total_amount_paid || 0);
-                const netAmt = parseFloat(selectedGrn.net_invoice_amount?.$numberDecimal || selectedGrn.net_invoice_amount || 0);
+                const { latest: lastStatus, totalPaid, netAmt, pending: pendingAmt, paymentArray } = getPaymentInfo(selectedGrn);
 
                 return (
                     <ModalOverlay onClick={e => e.target === e.currentTarget && setShowPaymentModal(false)}>
@@ -2539,7 +2498,7 @@ const StoresGRNReport = () => {
                                 <div>
                                     <span style={{ color: colors.textMuted, display: 'block', fontSize: '0.72rem' }}>Net Amount:</span>
                                     <strong style={{ color: '#0f766e', fontSize: '0.9rem' }}>
-                                        ₹{parseFloat(selectedGrnForCancel.net_invoice_amount?.$numberDecimal || selectedGrnForCancel.net_invoice_amount || 0).toFixed(2)}
+                                        ₹{calculateGrnNet(selectedGrnForCancel).toFixed(2)}
                                     </strong>
                                 </div>
                             </div>

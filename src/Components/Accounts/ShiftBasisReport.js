@@ -245,6 +245,13 @@ const formatDisplayDate = (s) => {
     return d.isValid() ? d.format("DD/MM/YYYY") : dateStr;
 };
 
+const formatDateTimeSafe = (dateVal, outFormat = "DD/MM/YYYY HH:mm") => {
+    if (!dateVal) return "";
+    const d = dayjs(dateVal);
+    if (d.isValid()) return d.format(outFormat);
+    return String(dateVal);
+};
+
 const compareShiftNo = (a, b) => {
     const sA = String(a.shiftno || "").trim();
     const sB = String(b.shiftno || "").trim();
@@ -487,7 +494,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                 const detailedRows = sortedReportData.map((b, idx) => ({
                     "S.No": idx + 1,
                     "Shift No": b.shiftno || "",
-                    "Bill Date": b.bill_date ? format(new Date(b.bill_date), "dd/MM/yyyy HH:mm") : "",
+                    "Bill Date": b.bill_date ? formatDateTimeSafe(b.bill_date, "DD/MM/YYYY HH:mm") : "",
                     "Bill No": b.bill_no || "",
                     "UHID / OP No": b.uhid || "",
                     "Patient Name": b.patient_name || "",
@@ -942,7 +949,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                     <div style={{ textAlign: "right" }}>
                                         <SummaryLabel>Transaction Info</SummaryLabel>
                                         <div style={{ fontWeight: "600", marginTop: "5px" }}>{selectedBill.type}</div>
-                                        <div style={{ color: colors.textMuted }}>{selectedBill.bill_date ? format(new Date(selectedBill.bill_date), "dd MMM yyyy, HH:mm") : "-"}</div>
+                                        <div style={{ color: colors.textMuted }}>{selectedBill.bill_date ? formatDateTimeSafe(selectedBill.bill_date, "DD MMM YYYY, HH:mm") : "-"}</div>
                                     </div>
                                     <div>
                                         <SummaryLabel>Payment Details</SummaryLabel>

@@ -23,7 +23,6 @@ import {
     Th,
     Td,
     Tr,
-    SectionTitle,
 } from "../GlobalStyles";
 
 const SummaryCard = styled.div`
@@ -80,13 +79,14 @@ const SectionHeaderTr = styled(Tr)`
 `;
 
 const DateHeaderTr = styled(Tr)`
-    background: #0f172a !important;
+    background: #f1f5f9 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
     td {
         font-weight: 700 !important;
         font-size: 0.85rem !important;
-        color: #ffffff !important;
-        padding: 8px 12px !important;
-        background: #0f172a !important;
+        color: #0f172a !important;
+        padding: 6px 12px !important;
+        background: #f1f5f9 !important;
     }
 `;
 
@@ -95,20 +95,25 @@ const SubtotalTr = styled(Tr)`
     td {
         font-weight: 700 !important;
         font-size: 0.8rem !important;
+        color: #0f172a !important;
         padding: 6px 12px !important;
         border-top: 1px solid #cbd5e1 !important;
-        border-bottom: 2px solid #94a3b8 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
     }
 `;
 
 const GrandTotalTr = styled(Tr)`
-    background: #0f172a !important;
+    background: #ffffff !important;
+    border-top: 2px solid #000000 !important;
+    border-bottom: 3px double #000000 !important;
     td {
         font-weight: 800 !important;
-        font-size: 0.9rem !important;
-        color: #ffffff !important;
-        padding: 10px 12px !important;
-        background: #0f172a !important;
+        font-size: 0.92rem !important;
+        color: #000000 !important;
+        padding: 8px 12px !important;
+        background: #ffffff !important;
+        border-top: 2px solid #000000 !important;
+        border-bottom: 3px double #000000 !important;
     }
 `;
 
@@ -126,13 +131,12 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
     const [reportData, setReportData] = useState([]);
     const [groupedData, setGroupedData] = useState([]);
     const [summary, setSummary] = useState({ total_transactions: 0, total_amount: 0, by_category: {} });
-    const [grandTotal, setGrandTotal] = useState(0);
+    const [, setGrandTotal] = useState(0);
     const [loading, setLoading] = useState(false);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
     const hospital_address = "51/24.Saradha College Road, Salem - 636007";
-    const user_id = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || "Staff";
 
     useEffect(() => {
         const fetchOutlets = async () => {
@@ -232,8 +236,8 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
             (dGroup.sections || []).forEach(sec => {
                 if (filterVal !== "all") {
                     const secCat = (sec.category || "").toLowerCase().trim();
-                    const filterNorm = filterVal.replace(/[\s\(\)\-_]/g, "");
-                    const secNorm = secCat.replace(/[\s\(\)\-_]/g, "");
+                    const filterNorm = filterVal.replace(/[\s()_-]/g, "");
+                    const secNorm = secCat.replace(/[\s()_-]/g, "");
 
                     const matches = secCat === filterVal ||
                         secNorm === filterNorm ||
@@ -574,8 +578,8 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
                                 {filteredGroupedData.map((dGroup, dIdx) => (
                                     <React.Fragment key={dIdx}>
                                         {/* Date Header Row */}
-                                        <DateHeaderTr>
-                                            <Td colSpan={8}>
+                                        <DateHeaderTr className="DateGroup date-group">
+                                            <Td colSpan={8} style={{ fontWeight: 700, color: "#0f172a" }}>
                                                 Date : {dGroup.date_display || dGroup.date}
                                             </Td>
                                         </DateHeaderTr>
@@ -622,11 +626,11 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
                                 ))}
 
                                 {/* Grand Total Row */}
-                                <GrandTotalTr>
-                                    <Td colSpan={6} style={{ textAlign: "right", fontWeight: 800 }}>
+                                <GrandTotalTr className="GrandTotal grand-total-row">
+                                    <Td colSpan={6} style={{ textAlign: "right", fontWeight: 800, color: "#000000" }}>
                                         Grand Total - &gt;
                                     </Td>
-                                    <Td style={{ textAlign: "right", fontWeight: 800, fontFamily: "monospace" }}>
+                                    <Td style={{ textAlign: "right", fontWeight: 800, fontFamily: "monospace", color: "#000000" }}>
                                         {formatINR(filteredTotalAmount)}
                                     </Td>
                                     <Td></Td>

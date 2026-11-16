@@ -14,7 +14,6 @@ import {
     Search,
     ChevronDown,
     ChevronUp,
-    Check,
     RefreshCw
 } from "lucide-react";
 import { printAccountsReport } from "../Accounts/printAccountsReport";
@@ -613,21 +612,33 @@ const A4PageSheet = styled.div`
         /* Grand Total Rows */
         tfoot tr,
         table tfoot tr,
-        tbody tr[class*="GrandTotal"] {
+        tbody tr[class*="GrandTotal"],
+        tbody tr[class*="grand-total"],
+        tbody tr.grand-total-row,
+        tr[class*="GrandTotal"],
+        tr[class*="grand-total"],
+        tr.grand-total-row {
             border-top: 1.5px solid #000 !important;
             border-bottom: 2.5px double #000 !important;
-            background: transparent !important;
+            background: #f8fafc !important;
             font-weight: bold !important;
         }
 
         tfoot td,
-        tbody tr[class*="GrandTotal"] td {
+        table tfoot td,
+        tbody tr[class*="GrandTotal"] td,
+        tbody tr[class*="grand-total"] td,
+        tbody tr.grand-total-row td,
+        tr[class*="GrandTotal"] td,
+        tr[class*="grand-total"] td,
+        tr.grand-total-row td {
             font-weight: 800 !important;
-            color: #000 !important;
+            color: #000000 !important;
             border: none !important;
             border-top: 1.5px solid #000 !important;
             border-bottom: 2.5px double #000 !important;
             padding: 6px 5px !important;
+            background: #f8fafc !important;
         }
     }
 
@@ -692,7 +703,7 @@ const A4MultiPageViewer = ({
 
     const scrollAreaRef = useRef(null);
     const rawContainerRef = useRef(null);
-    const [pagesData, setPagesData] = useState([]);
+    const [, setPagesData] = useState([]);
 
     useEffect(() => {
         const randomId = Math.random().toString(36).substring(2, 10) + '-' + 
@@ -856,7 +867,11 @@ const A4MultiPageViewer = ({
     };
 
     const hospitalName = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
-    const isNoOutletReport = ["ip_advance", "discharge_detailed", "advance_reg", "insurance_advance"].includes(selectedReport?.id);
+    const isNoOutletReport = [
+        "ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge", "101", "102"
+    ].includes(String(selectedReport?.id)) || [
+        "/AdvanceRegistration", "/AdvanceRegistrationInsurence", "/IPAdvanceReport", "/DischargeBillsDetailed"
+    ].includes(selectedReport?.route);
     const isCategoryReport = ["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_reg", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "misc_payment"].includes(selectedReport?.id);
 
     return (

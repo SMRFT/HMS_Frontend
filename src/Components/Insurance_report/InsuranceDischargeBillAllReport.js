@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { DatePicker, Spin, message } from 'antd';
-import dayjs from 'dayjs';
+import { Spin, message } from 'antd';
 import styled from 'styled-components';
 import {
     ArrowLeft,
@@ -262,17 +261,21 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
     const queryParams = new URLSearchParams(location.search);
     const initialIp = queryParams.get('ip_number') || '';
     const initialUhid = queryParams.get('uhid') || '';
+    const initialTitle = queryParams.get('report_title') || '';
+    const initialReportType = queryParams.get('report_type') || '';
 
     const [ipNumber, setIpNumber] = useState(initialIp);
     const [uhid, setUhid] = useState(initialUhid);
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState(null);
 
+    const activeReportTitle = initialTitle || payload?.report_title || 'Insurance Discharge Bill (All)';
+
     const loadData = useCallback(async (targetIp = ipNumber, targetUhid = uhid) => {
         try {
             setLoading(true);
             const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
-            const url = `${getBaseUrl.replace(/\/$/, '')}/report-insurance-discharge-bill-all/?ip_number=${encodeURIComponent(targetIp)}&uhid=${encodeURIComponent(targetUhid)}`;
+            const url = `${getBaseUrl.replace(/\/$/, '')}/report-insurance-discharge-bill-all/?ip_number=${encodeURIComponent(targetIp)}&uhid=${encodeURIComponent(targetUhid)}&report_title=${encodeURIComponent(initialTitle)}&report_type=${encodeURIComponent(initialReportType)}`;
             const res = await apiRequest(url, 'GET');
 
             if (res && res.success) {
@@ -288,7 +291,7 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
         } finally {
             setLoading(false);
         }
-    }, [ipNumber, uhid]);
+    }, [ipNumber, uhid, initialTitle, initialReportType]);
 
     useEffect(() => {
         loadData(initialIp, initialUhid);
@@ -296,17 +299,8 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
 
     const handlePrint = () => {
         printInsuranceReport('printable-discharge-bill-sheet', {
-            reportTitle: 'Insurance Discharge Bill (All)',
-            patientInfo: {
-                uhid: patient.op_number || patient.uhid || uhid,
-                ip_number: patient.ip_number || ipNumber,
-                patient_name: patient.patient_name,
-                age_gender: patient.age_gender,
-                admitted_date: patient.admitted_date,
-                discharge_date: patient.discharge_date,
-                doctor: patient.doctor_name,
-                company: patient.insurance_company
-            },
+            reportTitle: activeReportTitle,
+            patientInfo: null, // The sheet already contains Shanmuga Hospital patient & bill metadata columns
             orientation: 'portrait'
         });
     };
@@ -319,19 +313,23 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
         }
 
         try {
+            const calculatedSum = detailsList.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+            const rawExportTotal = Number(payload?.total_amount);
+            const summaryExportTotal = Number(payload?.summary?.gross_bill_amount);
+            const exportTotal = rawExportTotal > 0 ? rawExportTotal : (summaryExportTotal > 0 ? summaryExportTotal : calculatedSum);
             const rows = detailsList.map(d => ({
-                'Particulars': d.category,
+                'Particulars': d.category || d.particulars,
                 'Amount': d.amount
             }));
             rows.push({
                 'Particulars': 'Total',
-                'Amount': payload?.total_amount || 0
+                'Amount': exportTotal
             });
 
             const ws = XLSX.utils.json_to_sheet(rows);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Discharge_Bill');
-            XLSX.writeFile(wb, `Insurance_Discharge_Bill_${ipNumber.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
+            XLSX.writeFile(wb, `${activeReportTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${ipNumber.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
         } catch (e) {
             console.error('Export error:', e);
             message.error('Export failed.');
@@ -339,9 +337,21 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
     };
 
     const patient = payload?.patient_info || {};
-    const billMeta = payload?.bill_meta || {};
-    const details = Array.isArray(payload?.bill_details) ? payload.bill_details : [];
-    const totalAmount = payload?.total_amount || 0;
+    const billMeta = payload?.bill_meta || payload?.patient_info || {};
+    const details = Array.isArray(payload?.bill_details) ? payload.bill_details : (Array.isArray(payload?.bill_particulars) ? payload.bill_particulars : []);
+    const calculatedSum = details.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+    const rawTotal = Number(payload?.total_amount);
+    const summaryTotal = Number(payload?.summary?.gross_bill_amount);
+    const totalAmount = rawTotal > 0 ? rawTotal : (summaryTotal > 0 ? summaryTotal : calculatedSum);
+
+    const pickVal = (...vals) => {
+        for (const v of vals) {
+            if (v != null && String(v).trim() !== '' && String(v).trim() !== '-' && String(v).trim() !== 'N') {
+                return String(v).trim();
+            }
+        }
+        return '-';
+    };
 
     return (
         <Container>
@@ -381,7 +391,7 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                             <ArrowLeft size={18} />
                         </button>
                         <div className="title-box">
-                            <h2>Insurance Discharge Bill (All)</h2>
+                            <h2>{activeReportTitle}</h2>
                             <p>Itemized inpatient hospital discharge claim bill statement with procedure, bed, investigation and pharmacy charges</p>
                         </div>
                     </div>
@@ -436,62 +446,62 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                         <div className="meta-col-left">
                             <div className="meta-row">
                                 <span className="lbl">IP Number</span>
-                                <span className="val">: {patient.ip_number || ipNumber || '-'}</span>
+                                <span className="val">: {pickVal(patient.ip_number, ipNumber)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">OP Number</span>
-                                <span className="val">: {patient.op_number || patient.uhid || '-'}</span>
+                                <span className="val">: {pickVal(patient.op_number, patient.uhid)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Name</span>
-                                <span className="val">: {patient.name || patient.patient_name || '-'} {patient.age ? `${patient.age} Years` : ''}</span>
+                                <span className="val">: {pickVal(patient.name, patient.patient_name)} {pickVal(patient.age) !== '-' ? `${pickVal(patient.age)} Years` : ''}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Address</span>
-                                <span className="val">: {patient.address || '-'}</span>
+                                <span className="val">: {pickVal(patient.address)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Doctor</span>
-                                <span className="val">: {patient.doctor || patient.doctor_name || '-'}</span>
+                                <span className="val">: {pickVal(patient.doctor, patient.doctor_name)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Claim Intimation No.</span>
-                                <span className="val">: {patient.claim_intimation_no || '-'}</span>
+                                <span className="val">: {pickVal(patient.claim_intimation_no)}</span>
                             </div>
                         </div>
 
                         <div className="meta-col-right">
                             <div className="meta-row">
                                 <span className="lbl">Bill Number</span>
-                                <span className="val">: {billMeta.bill_number || '-'}</span>
+                                <span className="val">: {pickVal(billMeta.bill_number, billMeta.bill_no, patient.bill_no, patient.bill_number)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Billdate</span>
-                                <span className="val">: {billMeta.bill_date || '-'}</span>
+                                <span className="val">: {pickVal(billMeta.bill_date, patient.bill_date)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">DOA</span>
-                                <span className="val">: {billMeta.doa || '-'}</span>
+                                <span className="val">: {pickVal(billMeta.doa, patient.doa, patient.admitted_date)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">DOD</span>
-                                <span className="val">: {billMeta.dod || '-'}</span>
+                                <span className="val">: {pickVal(billMeta.dod, patient.dod, patient.discharge_date)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Room</span>
-                                <span className="val">: {billMeta.room || billMeta.room_category || '-'}</span>
+                                <span className="val">: {pickVal(billMeta.room, billMeta.room_category, patient.room_category, patient.room)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Days</span>
-                                <span className="val">: {billMeta.days || billMeta.total_days || '-'}</span>
+                                <span className="val">: {pickVal(billMeta.days, billMeta.total_days, patient.days, patient.total_days)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Company</span>
-                                <span className="val">: {billMeta.company || billMeta.company_name || '-'}</span>
+                                <span className="val">: {pickVal(billMeta.company, billMeta.company_name, patient.company_name, patient.insurance_company)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Approval</span>
-                                <span className="val">: {billMeta.approval || '-'}</span>
+                                <span className="val">: {pickVal(billMeta.approval, patient.approval)}</span>
                             </div>
                         </div>
                     </div>

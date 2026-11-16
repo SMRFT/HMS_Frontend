@@ -397,6 +397,11 @@ export const generateSupplierPurchaseHTML = (reportData, options = {}) => {
                     <td colspan="5" class="category-bar">${departmentName}</td>
                 </tr>
                 ${rowsHtml}
+                <tr class="grand-total-row" style="font-weight: bold; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
+                    <td colspan="3"></td>
+                    <td class="text-right" style="color: #800000;"><strong>Net Amount</strong></td>
+                    <td class="text-right" style="color: #800000;"><strong>${netAmountFormatted}</strong></td>
+                </tr>
             </tbody>
         </table>
     </div>

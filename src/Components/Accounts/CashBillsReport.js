@@ -80,13 +80,14 @@ const SectionHeaderTr = styled(Tr)`
 `;
 
 const DateHeaderTr = styled(Tr)`
-    background: #0f172a !important;
+    background: #f1f5f9 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
     td {
         font-weight: 700 !important;
         font-size: 0.85rem !important;
-        color: #ffffff !important;
-        padding: 8px 12px !important;
-        background: #0f172a !important;
+        color: #0f172a !important;
+        padding: 6px 12px !important;
+        background: #f1f5f9 !important;
     }
 `;
 
@@ -95,20 +96,25 @@ const SubtotalTr = styled(Tr)`
     td {
         font-weight: 700 !important;
         font-size: 0.8rem !important;
+        color: #0f172a !important;
         padding: 6px 12px !important;
         border-top: 1px solid #cbd5e1 !important;
-        border-bottom: 2px solid #94a3b8 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
     }
 `;
 
 const GrandTotalTr = styled(Tr)`
-    background: #0f172a !important;
+    background: #f1f5f9 !important;
+    border-top: 2px solid #000000 !important;
+    border-bottom: 3px double #000000 !important;
     td {
         font-weight: 800 !important;
-        font-size: 0.9rem !important;
-        color: #ffffff !important;
-        padding: 10px 12px !important;
-        background: #0f172a !important;
+        font-size: 0.92rem !important;
+        color: #000000 !important;
+        padding: 8px 12px !important;
+        background: #f1f5f9 !important;
+        border-top: 2px solid #000000 !important;
+        border-bottom: 3px double #000000 !important;
     }
 `;
 
@@ -641,8 +647,8 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
                             filteredGroupedData.map(dg => (
                                 <React.Fragment key={dg.date}>
                                     {/* Date Header Row */}
-                                    <DateHeaderTr>
-                                        <td colSpan={7}>
+                                    <DateHeaderTr className="DateGroup date-group">
+                                        <td colSpan={7} style={{ fontWeight: 700, color: "#0f172a" }}>
                                             Date : {dg.date_display || dg.date}
                                         </td>
                                     </DateHeaderTr>
@@ -712,12 +718,12 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
 
                         {/* Grand Total Row */}
                         {!loading && filteredGroupedData.length > 0 && (
-                            <GrandTotalTr>
+                            <GrandTotalTr className="GrandTotal grand-total-row">
                                 <td colSpan={4}></td>
-                                <td style={{ textAlign: "right", fontWeight: 900, letterSpacing: "0.05em" }}>
+                                <td style={{ textAlign: "right", fontWeight: 900, letterSpacing: "0.05em", color: "#000000" }}>
                                     Grand Total - &gt;
                                 </td>
-                                <td style={{ textAlign: "right", fontWeight: 900, fontSize: "1rem" }}>
+                                <td style={{ textAlign: "right", fontWeight: 900, fontSize: "1rem", color: "#000000" }}>
                                     {formatINR(filteredTotalAmount)}
                                 </td>
                                 <td></td>

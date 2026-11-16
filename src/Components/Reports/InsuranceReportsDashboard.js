@@ -6,9 +6,7 @@ import styled from 'styled-components';
 import {
     FileText,
     ShieldCheck,
-    Activity,
     Building2,
-    CheckCircle,
     BedDouble,
     ClipboardList,
     FileSpreadsheet,
@@ -21,8 +19,6 @@ import {
     Calendar,
     TrendingUp,
     Search,
-    MapPin,
-    UserCheck,
     Banknote,
     Download,
     Printer,
@@ -30,10 +26,7 @@ import {
     ChevronLeft,
     ChevronRight,
     ArrowRight,
-    Maximize2,
-    Award,
     Inbox,
-    RefreshCw,
     RotateCcw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -43,16 +36,15 @@ import { printInsuranceReport } from '../Insurance_report/printInsuranceReport';
 
 // Lazy-loaded specialized insurance reports
 const InsuranceBillsDueList = lazy(() => import('../Insurance_report/InsuranceBillsDueList'));
-const InsuranceBillsStatus = lazy(() => import('../Insurance_report/InsuranceBillsStatus'));
 const InsuranceBillsStatusReport = lazy(() => import('../Insurance_report/InsuranceBillsStatusReport'));
 const PatientWisePharmacyIpBillReport = lazy(() => import('../Insurance_report/PatientWisePharmacyIpBillReport'));
 const LabAbstractReportDetailed = lazy(() => import('../Insurance_report/LabAbstractReportDetailed'));
+const MedicineAbstractReport = lazy(() => import('../Insurance_report/MedicineAbstractReport'));
 const OccupancyListCompanyWiseReport = lazy(() => import('../Insurance_report/OccupancyListCompanyWiseReport'));
 const InsuranceBillsStatusReportPage = lazy(() => import('../Insurance_report/InsuranceBillsStatusReportPage'));
 const InsuranceBillsStatusBranchDuesReport = lazy(() => import('../Insurance_report/InsuranceBillsStatusBranchDuesReport'));
 const CompanywiseRegistrationReport = lazy(() => import('../Insurance_report/CompanywiseRegistrationReport'));
 const InsuranceDischargeBillAllReport = lazy(() => import('../Insurance_report/InsuranceDischargeBillAllReport'));
-const PrescriptionDetailsReport = lazy(() => import('../Insurance_report/PrescriptionDetailsReport'));
 
 const { RangePicker } = DatePicker;
 
@@ -794,7 +786,9 @@ const INSURANCE_REPORTS = [
         description: 'Branch-wise submitted vs approved claim amounts, realization ratios, and scrutiny status.',
         icon: Building2,
         color: '#0284c7',
-        category: 'Bills & Dues'
+        category: 'Bills & Dues',
+        route: '/InsuranceBillsStatusBranchDuesReport',
+        component: InsuranceBillsStatusBranchDuesReport
     },
     {
         id: 'date_wise_details',
@@ -828,7 +822,9 @@ const INSURANCE_REPORTS = [
         description: 'Standard inpatient discharge billing vouchers with admission ticket reference and copay details.',
         icon: ClipboardList,
         color: '#7c3aed',
-        category: 'Discharge Bills'
+        category: 'Discharge Bills',
+        route: '/InsuranceDischargeBillAllReport',
+        component: InsuranceDischargeBillAllReport
     },
     {
         id: 'discharge_railway',
@@ -836,7 +832,9 @@ const INSURANCE_REPORTS = [
         description: 'Southern Railway inpatient discharge statements with employee grade, division, and net clearance.',
         icon: FileSpreadsheet,
         color: '#2563eb',
-        category: 'Discharge Bills'
+        category: 'Discharge Bills',
+        route: '/InsuranceDischargeBillAllReport',
+        component: InsuranceDischargeBillAllReport
     },
     {
         id: 'discharge_tkt_surgery',
@@ -844,7 +842,9 @@ const INSURANCE_REPORTS = [
         description: 'Itemized surgical procedure tariffs, OT charges, surgeon fees, and implant costs on discharge.',
         icon: HeartPulse,
         color: '#e11d48',
-        category: 'Discharge Bills'
+        category: 'Discharge Bills',
+        route: '/InsuranceDischargeBillAllReport',
+        component: InsuranceDischargeBillAllReport
     },
     {
         id: 'discharge_all_company',
@@ -852,7 +852,9 @@ const INSURANCE_REPORTS = [
         description: 'Consolidated discharge register encompassing all private TPAs, government schemes, and PSUs.',
         icon: Layers,
         color: '#0d9488',
-        category: 'Discharge Bills'
+        category: 'Discharge Bills',
+        route: '/InsuranceDischargeBillAllReport',
+        component: InsuranceDischargeBillAllReport
     },
     {
         id: 'discharge_tkt_op',
@@ -860,7 +862,9 @@ const INSURANCE_REPORTS = [
         description: 'Outpatient daycare, dialysis, minor OT, and ticketed consultation discharge vouchers.',
         icon: FileText,
         color: '#d97706',
-        category: 'Discharge Bills'
+        category: 'Discharge Bills',
+        route: '/InsuranceDischargeBillAllReport',
+        component: InsuranceDischargeBillAllReport
     },
     {
         id: 'discharge_all',
@@ -886,68 +890,12 @@ const INSURANCE_REPORTS = [
         description: 'Railway patient inpatient ticketed bills with medical book number and designated nodal approval.',
         icon: FileSpreadsheet,
         color: '#1d4ed8',
-        category: 'Discharge Bills'
+        category: 'Discharge Bills',
+        route: '/InsuranceDischargeBillAllReport',
+        component: InsuranceDischargeBillAllReport
     },
 
-    // 3. ECHS & Government Schemes (7)
-    {
-        id: 'echs_certificates',
-        title: 'Echs Certificates',
-        description: 'Ex-Servicemen Contributory Health Scheme emergency, referral extension, and fitness certificates.',
-        icon: Award,
-        color: '#d97706',
-        category: 'ECHS & Claims'
-    },
-    {
-        id: 'echs_claim',
-        title: 'Echs Claim',
-        description: 'Comprehensive ECHS claim dossiers, Bill Processing Agency (BPA) submission, and clearance tracking.',
-        icon: ShieldCheck,
-        color: '#059669',
-        category: 'ECHS & Claims'
-    },
-    {
-        id: 'echs_claim_op',
-        title: 'ECHS Claim For OP',
-        description: 'Outpatient consultation and pharmacy reimbursement vouchers for defense veterans and dependents.',
-        icon: ShieldCheck,
-        color: '#0284c7',
-        category: 'ECHS & Claims'
-    },
-    {
-        id: 'esi_claim_op',
-        title: 'Esi Claim For Op',
-        description: 'Employees State Insurance Corporation (ESIC) outpatient claim forms and approval logs.',
-        icon: ShieldCheck,
-        color: '#16a34a',
-        category: 'ECHS & Claims'
-    },
-    {
-        id: 'railway_claim_op',
-        title: 'Railway Claim For Op',
-        description: 'Southern Railway outpatient medical claims with UMID identification and divisional approval.',
-        icon: CheckCircle,
-        color: '#2563eb',
-        category: 'ECHS & Claims'
-    },
-    {
-        id: 'echs_op_patient_details',
-        title: 'Echs Op Patient Details',
-        description: 'Detailed demographic and clinical registry of ECHS veterans, service numbers, and polyclinics.',
-        icon: UserCheck,
-        color: '#7c3aed',
-        category: 'ECHS & Claims'
-    },
-    {
-        id: 'polyclinic_wise',
-        title: 'Insurance Bills Status(Polyclinic Wise)',
-        description: 'Claim status, bill volumes, and realization efficiency grouped by regional polyclinic origin.',
-        icon: MapPin,
-        color: '#dc2626',
-        category: 'ECHS & Claims'
-    },
-
-    // 4. Lab, Medicine & Investigations
+    // 3. Lab & Medicine
     {
         id: 'patient_wise_pharmacy_ip_bill',
         title: 'PATIENT WISE PHARMACY IP BILL DETAILED',
@@ -957,14 +905,6 @@ const INSURANCE_REPORTS = [
         category: 'Lab & Medicine',
         route: '/PatientWisePharmacyIpBillReport',
         component: PatientWisePharmacyIpBillReport
-    },
-    {
-        id: 'lab_investigation',
-        title: 'Lab Investigation Report',
-        description: 'Detailed audit of laboratory investigations, profiles, and biochemistry tests done under credit.',
-        icon: Activity,
-        color: '#0891b2',
-        category: 'Lab & Medicine'
     },
     {
         id: 'lab_abstract',
@@ -982,26 +922,12 @@ const INSURANCE_REPORTS = [
         description: 'Pharmaceutical drug dispensations, injectable issues, and brand-wise consumption for insurance.',
         icon: Package,
         color: '#059669',
-        category: 'Lab & Medicine'
-    },
-    {
-        id: 'echs_investigation_bills',
-        title: 'Insurance Echs Investigation Bills',
-        description: 'Specialized lab and imaging billing for ECHS patients billed according to CGHS rates.',
-        icon: Activity,
-        color: '#0284c7',
-        category: 'Lab & Medicine'
-    },
-    {
-        id: 'echs_investigation_referral',
-        title: 'Insurance Echs Investigation Bills(Referal_Date)',
-        description: 'Diagnostic investigation bills chronologically sorted and indexed by polyclinic referral dates.',
-        icon: Calendar,
-        color: '#d97706',
-        category: 'Lab & Medicine'
+        category: 'Lab & Medicine',
+        route: '/MedicineAbstractReport',
+        component: MedicineAbstractReport
     },
 
-    // 5. Registration & Occupancy
+    // 4. Registration & Occupancy
     {
         id: 'occupancy_company_wise',
         title: 'Occupancy List Company Wise',
@@ -1021,16 +947,6 @@ const INSURANCE_REPORTS = [
         category: 'Registration & Occupancy',
         route: '/CompanywiseRegistrationReport',
         component: CompanywiseRegistrationReport
-    },
-    {
-        id: 'prescription_details',
-        title: 'Prescription Details',
-        description: 'Doctor clinical prescriptions, dispensing slips, and fulfillment status for credit patients.',
-        icon: FileText,
-        color: '#16a34a',
-        category: 'Registration & Occupancy',
-        route: '/PrescriptionDetailsReport',
-        component: PrescriptionDetailsReport
     }
 ];
 
@@ -1038,7 +954,6 @@ const CATEGORIES = [
     'All',
     'Bills & Dues',
     'Discharge Bills',
-    'ECHS & Claims',
     'Lab & Medicine',
     'Registration & Occupancy'
 ];
@@ -1122,6 +1037,8 @@ const InsuranceReportsDashboard = () => {
         setModalIpNumber('');
         setModalCompanyName('ALL');
         setModalOutletName('ALL');
+        setModalFromDate(dateRange[0] || dayjs().subtract(30, 'days'));
+        setModalToDate(dateRange[1] || dayjs());
         setFilterModalOpen(true);
     };
 
@@ -1130,15 +1047,25 @@ const InsuranceReportsDashboard = () => {
         const fDate = modalFromDate ? modalFromDate.format('YYYY-MM-DD') : '';
         const tDate = modalToDate ? modalToDate.format('YYYY-MM-DD') : '';
 
+        const isDischarge = [
+            'discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery',
+            'discharge_all_company', 'discharge_tkt_op', 'discharge_tkt_railway'
+        ].includes(targetReport.id);
+
         const params = new URLSearchParams();
-        if (['patient_wise_pharmacy_ip_bill', 'prescription_details'].includes(targetReport.id)) {
+        if (targetReport.id === 'patient_wise_pharmacy_ip_bill') {
             params.append('uhid', modalUhid);
+            params.append('ip_number', modalUhid);
             params.append('from_date', fDate);
             params.append('to_date', tDate);
-        } else if (['lab_abstract', 'discharge_all'].includes(targetReport.id)) {
+        } else if (['lab_abstract', 'medicine_abstract'].includes(targetReport.id) || isDischarge) {
             params.append('ip_number', modalIpNumber);
             params.append('from_date', fDate);
             params.append('to_date', tDate);
+            if (isDischarge) {
+                params.append('report_title', targetReport.title);
+                params.append('report_type', targetReport.id);
+            }
         } else if (targetReport.id === 'occupancy_company_wise') {
             params.append('company_name', modalCompanyName);
             params.append('outlet_name', modalOutletName);
@@ -1148,9 +1075,16 @@ const InsuranceReportsDashboard = () => {
             params.append('company_name', modalCompanyName);
         }
 
-        const routeUrl = targetReport.route || '/InsuranceReportsDashboard';
-        setFilterModalOpen(false);
-        navigate(`${routeUrl}?${params.toString()}`);
+        if (targetReport.route) {
+            setFilterModalOpen(false);
+            navigate(`${targetReport.route}?${params.toString()}`);
+        } else {
+            setFilterModalOpen(false);
+            setActiveReport(targetReport);
+            setSelectedCompany(modalCompanyName === 'ALL' ? 'all' : modalCompanyName);
+            setModalDateRange([modalFromDate, modalToDate]);
+            fetchReportData(targetReport, [modalFromDate, modalToDate], modalCompanyName);
+        }
     };
 
     const handleCloseModal = () => {
@@ -1175,15 +1109,6 @@ const InsuranceReportsDashboard = () => {
         if (!reportData.data || !Array.isArray(reportData.data)) return [];
         let rows = reportData.data;
 
-        if (selectedCompany && selectedCompany !== 'all') {
-            const sel = String(selectedCompany).toLowerCase().trim();
-            rows = rows.filter((r) => {
-                const cName = String(r.company_name || '').toLowerCase();
-                const cCode = String(r.company_code || '').toLowerCase();
-                return cName.includes(sel) || cCode === sel || sel.includes(cName);
-            });
-        }
-
         if (modalSearch && modalSearch.trim()) {
             const q = modalSearch.toLowerCase().trim();
             rows = rows.filter((r) => {
@@ -1194,7 +1119,19 @@ const InsuranceReportsDashboard = () => {
         }
 
         return rows;
-    }, [reportData.data, selectedCompany, modalSearch]);
+    }, [reportData.data, modalSearch]);
+
+    // Match selected company to dropdown options code or name
+    const selectedCompanyValue = useMemo(() => {
+        if (!selectedCompany || String(selectedCompany).toLowerCase() === 'all') return 'all';
+        const target = String(selectedCompany).toLowerCase().trim();
+        const match = (reportData.companies || []).find(
+            (c) => String(c.code).toLowerCase().trim() === target ||
+                   String(c.name).toLowerCase().trim() === target ||
+                   target.includes(String(c.name).toLowerCase().trim())
+        );
+        return match ? match.code : selectedCompany;
+    }, [selectedCompany, reportData.companies]);
 
     // Paginated rows
     const paginatedRows = useMemo(() => {
@@ -1431,35 +1368,35 @@ const InsuranceReportsDashboard = () => {
                                         </div>
                                     </div>
 
-                                    {['patient_wise_pharmacy_ip_bill', 'prescription_details'].includes(targetReport.id) && (
+                                    {targetReport.id === 'patient_wise_pharmacy_ip_bill' && (
                                         <div className="fields-row single">
                                             <div className="field-box">
-                                                <label>UHID</label>
+                                                <label>UHID / IP NUMBER</label>
                                                 <input
                                                     type="text"
                                                     value={modalUhid}
                                                     onChange={(e) => setModalUhid(e.target.value)}
-                                                    placeholder="Enter UHID..."
+                                                    placeholder="Enter UHID or IP Number..."
                                                 />
                                             </div>
                                         </div>
                                     )}
 
-                                    {['lab_abstract', 'discharge_all'].includes(targetReport.id) && (
+                                    {['lab_abstract', 'medicine_abstract', 'discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery', 'discharge_all_company', 'discharge_tkt_op', 'discharge_tkt_railway'].includes(targetReport.id) && (
                                         <div className="fields-row single">
                                             <div className="field-box">
-                                                <label>IP_NUMBER</label>
+                                                <label>IP NUMBER / UHID</label>
                                                 <input
                                                     type="text"
                                                     value={modalIpNumber}
                                                     onChange={(e) => setModalIpNumber(e.target.value)}
-                                                    placeholder="Enter IP Number..."
+                                                    placeholder="Enter IP Number or UHID..."
                                                 />
                                             </div>
                                         </div>
                                     )}
 
-                                    {['insurance_bills_status', 'branch_wise_dues', 'companywise_registration'].includes(targetReport.id) && (
+                                    {['insurance_bills_status', 'branch_wise_dues', 'branch_wise_status', 'companywise_registration', 'date_wise_details', 'bills_summary', 'status_op_patients'].includes(targetReport.id) && (
                                         <div className="fields-row single">
                                             <div className="field-box">
                                                 <label>COMPANYNAME</label>
@@ -1591,7 +1528,7 @@ const InsuranceReportsDashboard = () => {
                                             />
 
                                             <select
-                                                value={selectedCompany}
+                                                value={selectedCompanyValue}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
                                                     setSelectedCompany(val);
@@ -1610,6 +1547,7 @@ const InsuranceReportsDashboard = () => {
                                                 onClick={() => {
                                                     setSelectedCompany('all');
                                                     setModalSearch('');
+                                                    setCurrentPage(1);
                                                     fetchReportData(activeReport, modalDateRange, 'all', '');
                                                 }}
                                                 title="Reset Filters"

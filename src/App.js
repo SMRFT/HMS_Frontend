@@ -145,6 +145,7 @@ import StoresShortExpiryReport from "./Components/Stores_report/StoresShortExpir
 import StoresReorderLevelReport from "./Components/Stores_report/StoresReorderLevelReport";
 import StoresRackClassification from "./Components/Stores/StoresRackClassification";
 import StoresOpeningStockReport from "./Components/Stores_report/StoresOpeningStockReport";
+import StoresItemMasterStockReport from "./Components/Stores_report/StoresItemMasterStockReport";
 import StoresPurchaseOrderReport from "./Components/Stores_report/StoresPurchaseOrderReport";
 import StoresPurchaseReturnReport from "./Components/Stores_report/StoresPurchaseReturnReport";
 import StoresRackClassificationReport from "./Components/Stores_report/StoresRackClassificationReport";
@@ -222,6 +223,7 @@ import InsuranceBillsStatus from "./Components/Insurance_report/InsuranceBillsSt
 import InsuranceBillsStatusReport from "./Components/Insurance_report/InsuranceBillsStatusReport";
 import PatientWisePharmacyIpBillReport from "./Components/Insurance_report/PatientWisePharmacyIpBillReport";
 import LabAbstractReportDetailed from "./Components/Insurance_report/LabAbstractReportDetailed";
+import MedicineAbstractReport from "./Components/Insurance_report/MedicineAbstractReport";
 import OccupancyListCompanyWiseReport from "./Components/Insurance_report/OccupancyListCompanyWiseReport";
 import InsuranceBillsStatusReportPage from "./Components/Insurance_report/InsuranceBillsStatusReportPage";
 import InsuranceBillsStatusBranchDuesReport from "./Components/Insurance_report/InsuranceBillsStatusBranchDuesReport";
@@ -562,6 +564,7 @@ function App() {
       "/StoresAbcVedReport": "Stores ABC & VED Analysis Report",
       "/VendingMachineReport": "Vending Machine Sales & Stock Reconciliation Report",
       "/StoresReportsDashboard": "Stores Reports Dashboard",
+      "/StoresItemMasterStockReport": "Stores Item Master Stock Listing",
       "/DrugPurchaseReportsDashboard": "Drug Purchase Report Dashboard",
       "/DrugPurchaseReports": "Drug Purchase Report Dashboard",
       "/DrugPurchaseReturnReport": "Drug Purchase Return & Debit Notes",
@@ -586,6 +589,7 @@ function App() {
       "/InsuranceBillsStatusReport": "Insurance Bills Status Report",
       "/PatientWisePharmacyIpBillReport": "Patient Wise Pharmacy IP Bill Detailed",
       "/LabAbstractReportDetailed": "Lab Abstract Report Detailed",
+      "/MedicineAbstractReport": "Medicine Abstract Report",
       "/OccupancyListCompanyWiseReport": "Current Occupancy List (Company Wise)",
       "/InsuranceBillsStatusReportPage": "Insurance Bills Status Report",
       "/InsuranceBillsStatusBranchDuesReport": "Insurance Bills Status (Branch Wise) Dues",
@@ -1819,6 +1823,8 @@ function App() {
               <Route path="/InsuranceBillsStatusReport" element={<InsuranceBillsStatusReport />} />
               <Route path="/PatientWisePharmacyIpBillReport" element={<PatientWisePharmacyIpBillReport />} />
               <Route path="/LabAbstractReportDetailed" element={<LabAbstractReportDetailed />} />
+              <Route path="/MedicineAbstractReport" element={<MedicineAbstractReport />} />
+              <Route path="/medicineabstractreport" element={<MedicineAbstractReport />} />
               <Route path="/OccupancyListCompanyWiseReport" element={<OccupancyListCompanyWiseReport />} />
               <Route path="/InsuranceBillsStatusReportPage" element={<InsuranceBillsStatusReportPage />} />
               <Route path="/InsuranceBillsStatusBranchDuesReport" element={<InsuranceBillsStatusBranchDuesReport />} />
@@ -1846,6 +1852,8 @@ function App() {
               <Route path="/StoresReorderLevelReport" element={<StoresReorderLevelReport />} />
               <Route path="/StoresRackClassification" element={<StoresRackClassification />} />
               <Route path="/StoresOpeningStockReport" element={<StoresOpeningStockReport />} />
+              <Route path="/StoresItemMasterStockReport" element={<StoresItemMasterStockReport />} />
+              <Route path="/stores-item-master-stock-report" element={<StoresItemMasterStockReport />} />
               <Route path="/storesopeningstockreport" element={<StoresOpeningStockReport />} />
               {hasPagePermission("/StoresReportsDashboard", allowedActions, dynamicPermissions) && (
                 <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
