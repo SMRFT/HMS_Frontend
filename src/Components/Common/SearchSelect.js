@@ -441,17 +441,18 @@ export default function SearchSelect({
       return;
     }
 
+    const maxNavLen = Math.min(filtered.length, 250);
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (filtered.length === 0) return;
+      if (maxNavLen === 0) return;
       isKeyboardNav.current = true;
       setHighlightedIndex((prev) => {
         if (prev < 0) return 0;
-        return Math.min(filtered.length - 1, prev + 1);
+        return Math.min(maxNavLen - 1, prev + 1);
       });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      if (filtered.length === 0) return;
+      if (maxNavLen === 0) return;
       isKeyboardNav.current = true;
       setHighlightedIndex((prev) => {
         if (prev <= 0) return 0;
@@ -610,33 +611,34 @@ export default function SearchSelect({
             </span>
           </div>
         ) : (
-          filtered.map((opt, idx) => {
-            const isSelected = String(opt.value) === String(value);
-            const isHighlighted = idx === highlightedIndex;
+          <>
+            {filtered.slice(0, 250).map((opt, idx) => {
+              const isSelected = String(opt.value) === String(value);
+              const isHighlighted = idx === highlightedIndex;
 
-            let itemBg = "transparent";
-            let itemColor = "#0f172a";
-            let itemWeight = 500;
+              let itemBg = "transparent";
+              let itemColor = "#0f172a";
+              let itemWeight = 500;
 
-            if (isHighlighted) {
-              itemBg = "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)";
-              itemColor = "#ffffff";
-              itemWeight = 700;
-            } else if (isSelected) {
-              itemBg = "#f0fdfa";
-              itemColor = "#0f766e";
-              itemWeight = 700;
-            }
+              if (isHighlighted) {
+                itemBg = "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)";
+                itemColor = "#ffffff";
+                itemWeight = 700;
+              } else if (isSelected) {
+                itemBg = "#f0fdfa";
+                itemColor = "#0f766e";
+                itemWeight = 700;
+              }
 
-            return (
-              <div
-                key={opt.value || idx}
-                ref={(el) => { itemRefs.current[idx] = el; }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleChoose(opt, false);
-                }}
+              return (
+                <div
+                  key={opt.value || idx}
+                  ref={(el) => { itemRefs.current[idx] = el; }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleChoose(opt, false);
+                  }}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleChoose(opt, false);
@@ -704,8 +706,24 @@ export default function SearchSelect({
                 </div>
               </div>
             );
-          })
-        )}
+          })}
+          {filtered.length > 250 && (
+            <div
+              style={{
+                padding: "7px 10px",
+                fontSize: "0.72rem",
+                color: "#64748b",
+                textAlign: "center",
+                background: "#f8fafc",
+                borderTop: "1px dashed #cbd5e1",
+                fontWeight: 600,
+              }}
+            >
+              Showing top 250 of {filtered.length.toLocaleString()} items — type to narrow down
+            </div>
+          )}
+        </>
+      )}
       </div>
     </div>
   );

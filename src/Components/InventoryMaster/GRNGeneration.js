@@ -908,7 +908,7 @@ const GRNGeneration = () => {
   },[])
   const fetchMedicines = useCallback(async () => {
     try {
-      const r = await apiRequest(`${baseUrl}pharmacy_items/`,"GET");
+      const r = await apiRequest(`${baseUrl}pharmacy_items/?page=all&unlimited=true`,"GET");
       const payload = r?.data;
       const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
       const sorted = (Array.isArray(list) ? list : []).map(m => ({

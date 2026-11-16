@@ -327,7 +327,7 @@ const PhysicalStockEntry = () => {
   // ── Load medicine master for searchable dropdown ──────────────────────
   const fetchMedicines = useCallback(async () => {
     try {
-      const r = await apiRequest(`${HmsBaseUrl}pharmacy_items/`, "GET");
+      const r = await apiRequest(`${HmsBaseUrl}pharmacy_items/?page=all&unlimited=true`, "GET");
       const payload = r?.data;
       const list = Array.isArray(payload)
         ? payload

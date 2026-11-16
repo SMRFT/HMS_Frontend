@@ -1209,7 +1209,7 @@ const StockTransfer = () => {
     if (fromOutlet === null) { setMedicineResults([]); setShowMedDropdown(false); return; }
     try {
       const cleanQ = query.trim().toUpperCase();
-      const params = new URLSearchParams({ search: query.trim(), page: "1", page_size: "100" });
+      const params = new URLSearchParams({ search: query.trim(), page: "all", unlimited: "true" });
       params.append("outlet_code", fromOutlet);
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
       const payload = res?.data;
