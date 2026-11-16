@@ -2138,6 +2138,8 @@ const SalesReturn = () => {
                           <BillItemsTh>Billed Qty</BillItemsTh>
                           <BillItemsTh>Already Returned</BillItemsTh>
                           <BillItemsTh>Returnable Qty</BillItemsTh>
+                          <BillItemsTh style={{ textAlign: "center" }}>Disc %</BillItemsTh>
+                          <BillItemsTh>Disc Amt (₹)</BillItemsTh>
                           <BillItemsTh>Calculated Price (₹)</BillItemsTh>
                           <BillItemsTh>Return Qty</BillItemsTh>
                           <BillItemsTh>Return Amount (₹)</BillItemsTh>
@@ -2181,6 +2183,28 @@ const SalesReturn = () => {
                                 <BillItemsTd style={{ fontWeight: 600, color: "#00695c" }}>
                                   {returnableQty}
                                 </BillItemsTd>
+                                {/* Discount % */}
+                                <BillItemsTd style={{ textAlign: "center" }}>
+                                  {parseFloat(item.discount_percent ?? item.discount_value ?? item.discount ?? 0) > 0 ? (
+                                    <span style={{
+                                      background: "#ecfdf5",
+                                      color: "#047857",
+                                      padding: "2px 8px",
+                                      borderRadius: 4,
+                                      fontWeight: 700,
+                                      fontSize: "12px",
+                                      border: "1px solid #a7f3d0"
+                                    }}>
+                                      {parseFloat(item.discount_percent ?? item.discount_value ?? item.discount ?? 0)}%
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: "#aaa" }}>0%</span>
+                                  )}
+                                </BillItemsTd>
+                                {/* Discount Amount */}
+                                <BillItemsTd style={{ fontWeight: 600, color: parseFloat(item.discount_amount || 0) > 0 ? "#059669" : "#888" }}>
+                                  ₹{parseFloat(item.discount_amount || 0).toFixed(2)}
+                                </BillItemsTd>
                                 {/* Pro-rated calculated price for the remaining qty */}
                                 <BillItemsTd>{calcPrice.toFixed(2)}</BillItemsTd>
                                 <BillItemsTd>
@@ -2204,7 +2228,7 @@ const SalesReturn = () => {
                               {rows}
                               {totalRetQty > 0 && (
                                 <tr style={{ background: "#f0faf8", fontWeight: 700 }}>
-                                  <BillItemsTd colSpan={6} style={{ textAlign: "right", color: "#00695c" }}>
+                                  <BillItemsTd colSpan={8} style={{ textAlign: "right", color: "#00695c" }}>
                                     Total Return
                                   </BillItemsTd>
                                   <BillItemsTd />
