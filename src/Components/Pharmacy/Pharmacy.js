@@ -133,17 +133,30 @@ const formatPatientName = (salutation, firstName, lastName) => {
   return s ? `${s} ${name}`.trim() : name;
 };
 
-// Helper to format expiry date as YYYY/MM matching pharmacy invoice standard (e.g. 2031/07)
+// Helper to format expiry date as date/month/year (DD/MM/YYYY)
 const formatExpiryDate = (dateStr) => {
-  if (!dateStr || dateStr === "—" || dateStr === "N/A") return "—";
+  if (!dateStr || dateStr === "—" || dateStr === "N/A" || dateStr === "null" || dateStr === "undefined") return "—";
   const raw = String(dateStr).split("T")[0].trim();
   const parts = raw.split(/[-/]/);
-  if (parts.length >= 2) {
+  if (parts.length >= 3) {
     if (parts[0].length === 4) {
-      return `${parts[0]}/${parts[1].padStart(2, "0")}`;
+      const year = parts[0];
+      const month = parts[1].padStart(2, "0");
+      const day = parts[2].padStart(2, "0");
+      return `${day}/${month}/${year}`;
     }
-    if (parts[2] && parts[2].length === 4) {
-      return `${parts[2]}/${parts[1].padStart(2, "0")}`;
+    if (parts[2].length === 4) {
+      const day = parts[0].padStart(2, "0");
+      const month = parts[1].padStart(2, "0");
+      const year = parts[2];
+      return `${day}/${month}/${year}`;
+    }
+  } else if (parts.length === 2) {
+    if (parts[0].length === 4) {
+      return `${parts[1].padStart(2, "0")}/${parts[0]}`;
+    }
+    if (parts[1].length === 4) {
+      return `${parts[0].padStart(2, "0")}/${parts[1]}`;
     }
   }
   return raw;
@@ -1365,6 +1378,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [selectedBatchItem, setSelectedBatchItem] = useState(null);
   const [highlightedBatchIndex, setHighlightedBatchIndex] = useState(0);
+  const [batchShowNilStock, setBatchShowNilStock] = useState(false);
   const batchRowRefs = useRef([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
   const [filteredModalMedicines, setFilteredModalMedicines] = useState([]);
@@ -1455,23 +1469,28 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     }
 
     return Array.from(map.values()).map((g) => {
-      // Sort batches by earliest expiry first (FEFO)
+      // Sort batches: active batches with available stock > 0 first, then by earliest expiry (FEFO)
       g.batches.sort((a, b) => {
+        const sA = Number(a.available_stock || a.total_stock || 0) > 0 ? 0 : 1;
+        const sB = Number(b.available_stock || b.total_stock || 0) > 0 ? 0 : 1;
+        if (sA !== sB) return sA - sB;
         const dA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
         const dB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
         return dA - dB;
       });
 
       const isNil = g.total_available_stock <= 0;
+      // Resolve direct MRP from current in-stock batch (or primary batch)
+      const primaryBatch = g.batches.find((b) => Number(b.available_stock || b.total_stock || 0) > 0) || g.batches[0] || g;
+      const directMrp = Number(primaryBatch.mrp || g.mrp || 0);
+
       return {
         ...g,
+        mrp: directMrp,
         available_stock: g.total_available_stock,
         is_nil_stock: isNil,
         batch_count: g.batches.length,
-        mrp_display:
-          g.min_mrp === g.max_mrp
-            ? `₹${g.min_mrp.toFixed(2)}`
-            : `₹${g.min_mrp.toFixed(2)} – ₹${g.max_mrp.toFixed(2)}`,
+        mrp_display: `₹${directMrp.toFixed(2)}`,
       };
     });
   }, [medicines]);
@@ -1550,6 +1569,43 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       safeModalPage * MODAL_PAGE_SIZE
     );
   }, [visibleModalMedicines, safeModalPage, MODAL_PAGE_SIZE]);
+
+  // Batch modal filtering & counts
+  const allBatchesForModal = useMemo(() => {
+    return selectedBatchItem?.batches || [];
+  }, [selectedBatchItem]);
+
+  const nilBatchesCount = useMemo(() => {
+    return allBatchesForModal.filter((b) => {
+      const stock = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+      return stock <= 0;
+    }).length;
+  }, [allBatchesForModal]);
+
+  const availableBatchesCount = useMemo(() => {
+    return allBatchesForModal.filter((b) => {
+      const stock = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+      return stock > 0;
+    }).length;
+  }, [allBatchesForModal]);
+
+  const visibleBatchesForModal = useMemo(() => {
+    if (!selectedBatchItem) return [];
+    const list = selectedBatchItem.batches || [];
+    if (batchShowNilStock) {
+      // When List the Nil Stock is checked in batch modal, display only nil-stock batches
+      return list.filter((b) => {
+        const stock = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+        return stock <= 0;
+      });
+    } else {
+      // Normal mode: Display strictly batches with stock > 0 (hide 0-stock batches)
+      return list.filter((b) => {
+        const stock = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+        return stock > 0;
+      });
+    }
+  }, [selectedBatchItem, batchShowNilStock]);
 
   // billingType is set internally based on which button is clicked:
   // "Estimate" when Save Estimate is clicked, "Direct" when Save Bill is clicked
@@ -2776,11 +2832,20 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   // Pick medicine: If it has multiple batches, open "Select Batch" modal. If 1 batch, add directly.
   const handlePickMedicine = useCallback((medicine) => {
     if (!medicine) return;
-    if (medicine.is_nil_stock) {
+    if (medicine.is_nil_stock && !showNilStock) {
       toast.info(`"${medicine.name}" has 0 stock (NIL).`, { autoClose: 2000 });
       return;
     }
     const batches = medicine.batches || [medicine];
+    const availBatches = batches.filter((b) => {
+      const s = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+      return s > 0;
+    });
+
+    // If main modal is in nil-stock mode or the medicine has no available batches, show nil batches by default
+    const startWithNil = showNilStock || availBatches.length === 0;
+    setBatchShowNilStock(startWithNil);
+
     if (batches.length > 1) {
       setSelectedBatchItem(medicine);
       setHighlightedBatchIndex(0);
@@ -2790,7 +2855,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     } else {
       handleSelectMedicineAndClose(medicine);
     }
-  }, [handleSelectMedicineAndClose]);
+  }, [handleSelectMedicineAndClose, showNilStock]);
 
   // Select a specific batch from the "Select Batch" modal
   const handleSelectBatch = useCallback((batch) => {
@@ -2926,7 +2991,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         setSelectedBatchItem(null);
         return;
       }
-      const batches = selectedBatchItem?.batches || [];
+      const batches = visibleBatchesForModal || [];
       if (batches.length === 0) return;
 
       if (e.key === "ArrowDown") {
@@ -2963,7 +3028,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     return () => {
       window.removeEventListener("keydown", handleBatchModalKeyDown, true);
     };
-  }, [showBatchModal, selectedBatchItem, highlightedBatchIndex, handleSelectBatch, addedMedicines]);
+  }, [showBatchModal, selectedBatchItem, highlightedBatchIndex, handleSelectBatch, addedMedicines, visibleBatchesForModal]);
 
   // Step 4: Automatically move cursor to quantity field after medicine is selected
   useEffect(() => {
@@ -3443,6 +3508,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         return {
           item_id: Number(m.item_id),
           batch_number: String(m.batch_number || ""),
+          expiry_date: m.expiry_date || m.expiry || "",
+          hsn_code: m.hsn_code || m.hsn || "",
           qty: pricing.qty,
           price: m.price ?? pricing.mrp,
           mrp: pricing.mrp,
@@ -3526,6 +3593,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         age: ageYears,   
         dob: formData.dob || "",    
         doctor_id: formData.doctor_id,
+        doctor_name: formData.doctor_name || formData.doctorName || "",
         room_no: formData.roomNo || admissionRoomNo || "",
         insurance_company: insuranceName || formData.insuranceName || "",
         customer_type: patientType || formData.customer_type || "",
@@ -5955,33 +6023,87 @@ const loadedMedicines = rawMeds.map((item) => {
               </CloseButton>
             </ModalHeader>
             <ModalBody style={{ padding: "16px 20px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
-                <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
                     {selectedBatchItem.name}
                   </span>
                   {selectedBatchItem.dosage && (
-                    <span style={{ fontSize: "0.85rem", color: "#64748b", marginLeft: 6 }}>
+                    <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
                       ({selectedBatchItem.dosage})
                     </span>
                   )}
                   <span style={{
-                    marginLeft: 10,
                     fontSize: "0.75rem",
                     fontWeight: 700,
-                    backgroundColor: "#f0fdfa",
-                    color: "#0f766e",
-                    border: "1px solid #99f6e4",
+                    backgroundColor: batchShowNilStock ? "#fef2f2" : "#f0fdfa",
+                    color: batchShowNilStock ? "#dc2626" : "#0f766e",
+                    border: `1px solid ${batchShowNilStock ? "#fecaca" : "#99f6e4"}`,
                     borderRadius: 4,
                     padding: "2px 8px"
                   }}>
-                    {selectedBatchItem.batches?.length || 0} batches available
+                    {visibleBatchesForModal.length} batch{visibleBatchesForModal.length !== 1 ? "es" : ""} {batchShowNilStock ? "nil-stock" : "available"}
                   </span>
+
+                  {/* List the Nil Stock toggle inside Select Batch modal */}
+                  {nilBatchesCount > 0 && (
+                    <label
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        cursor: "pointer",
+                        padding: "3px 10px",
+                        borderRadius: 6,
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        backgroundColor: batchShowNilStock ? "#fef2f2" : "#f1f5f9",
+                        border: `1px solid ${batchShowNilStock ? "#fca5a5" : "#cbd5e1"}`,
+                        color: batchShowNilStock ? "#dc2626" : "#475569",
+                        userSelect: "none",
+                        transition: "all 0.15s ease"
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={batchShowNilStock}
+                        onChange={(e) => {
+                          setBatchShowNilStock(e.target.checked);
+                          setHighlightedBatchIndex(0);
+                        }}
+                        style={{ accentColor: "#dc2626", width: 14, height: 14, cursor: "pointer" }}
+                      />
+                      <span>List the Nil Stock</span>
+                      <span
+                        style={{
+                          background: batchShowNilStock ? "#dc2626" : "#94a3b8",
+                          color: "#fff",
+                          borderRadius: 10,
+                          padding: "1px 6px",
+                          fontSize: "0.7rem",
+                          fontWeight: 700
+                        }}
+                      >
+                        {nilBatchesCount}
+                      </span>
+                    </label>
+                  )}
                 </div>
                 <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
                   Use <kbd style={{ padding: "2px 6px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 3, fontWeight: 700 }}>↑</kbd> <kbd style={{ padding: "2px 6px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 3, fontWeight: 700 }}>↓</kbd> to navigate, <kbd style={{ padding: "2px 6px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 3, fontWeight: 700 }}>Enter</kbd> to pick
                 </div>
               </div>
+
+              {!batchShowNilStock && nilBatchesCount > 0 && (
+                <div style={{ marginBottom: 10, fontSize: "0.78rem", color: "#dc2626" }}>
+                  · {nilBatchesCount} nil-stock batch{nilBatchesCount > 1 ? "es" : ""} hidden — tick <strong>List the Nil Stock</strong> to show
+                </div>
+              )}
+              {batchShowNilStock && (
+                <div style={{ marginBottom: 10, fontSize: "0.78rem", color: "#dc2626", fontWeight: 700 }}>
+                  · Showing only Nil Stock batches ({visibleBatchesForModal.length})
+                </div>
+              )}
 
               <div style={{ maxHeight: "55vh", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 6 }}>
                 <Table style={{ width: "100%", borderCollapse: "collapse", margin: 0 }}>
@@ -5996,100 +6118,116 @@ const loadedMedicines = rawMeds.map((item) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {(selectedBatchItem.batches || []).map((batch, bIdx) => {
-                      const isHighlighted = bIdx === highlightedBatchIndex;
-                      const expInfo = getExpiryStatus(batch.expiry_date);
-                      const isExpired = expInfo.isExpired;
-                      const isExpiringSoon = expInfo.isExpiringSoon;
-                      const isAlreadyAdded = addedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(batch));
-                      const stockVal = batch.available_stock != null ? Number(batch.available_stock) : Number(batch.total_stock ?? 0);
-                      const isNil = stockVal <= 0;
+                    {visibleBatchesForModal.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: "center", padding: "32px 16px", color: "#64748b" }}>
+                          {batchShowNilStock ? (
+                            "No nil-stock batches found for this medicine."
+                          ) : nilBatchesCount > 0 ? (
+                            <div>
+                              <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#334155", marginBottom: 6 }}>
+                                All {nilBatchesCount} batch{nilBatchesCount > 1 ? "es" : ""} for this medicine have 0 stock.
+                              </div>
+                              <div style={{ fontSize: "0.82rem", color: "#64748b" }}>
+                                Tick <strong style={{ color: "#dc2626" }}>List the Nil Stock</strong> above to view them.
+                              </div>
+                            </div>
+                          ) : (
+                            "No batches available for this medicine."
+                          )}
+                        </td>
+                      </tr>
+                    ) : (
+                      visibleBatchesForModal.map((batch, bIdx) => {
+                        const isHighlighted = bIdx === highlightedBatchIndex;
+                        const expInfo = getExpiryStatus(batch.expiry_date);
+                        const isExpired = expInfo.isExpired;
+                        const isExpiringSoon = expInfo.isExpiringSoon;
+                        const isAlreadyAdded = addedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(batch));
+                        const stockVal = batch.available_stock != null ? Number(batch.available_stock) : Number(batch.total_stock ?? 0);
+                        const isNil = stockVal <= 0;
 
-                      return (
-                        <Tr
-                          key={getMedicineKey(batch) || bIdx}
-                          ref={(el) => (batchRowRefs.current[bIdx] = el)}
-                          tabIndex={0}
-                          style={{
-                            cursor: isAlreadyAdded ? "not-allowed" : "pointer",
-                            backgroundColor: isHighlighted ? "#ecfdf5" : bIdx % 2 === 0 ? "#ffffff" : "#f8fafc",
-                            borderLeft: isHighlighted ? "4px solid #0f766e" : "4px solid transparent",
-                            boxShadow: isHighlighted ? "inset 0 0 0 1px #0f766e" : "none",
-                            opacity: isAlreadyAdded ? 0.6 : 1,
-                            transition: "background-color 0.15s ease",
-                            outline: "none"
-                          }}
-                          onMouseEnter={() => setHighlightedBatchIndex(bIdx)}
-                          onClick={() => {
-                            if (isAlreadyAdded) {
-                              toast.warning(`"${batch.name}" (Batch: ${batch.batch_number}) is already added to the bill!`, { autoClose: 2000 });
-                              return;
-                            }
-                            handleSelectBatch(batch);
-                          }}
-                          onDoubleClick={() => {
-                            if (!isAlreadyAdded) handleSelectBatch(batch);
-                          }}
-                        >
-                          <Td style={{ textAlign: "center", verticalAlign: "middle", padding: "10px 8px" }}>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (isAlreadyAdded) {
-                                  toast.warning(`"${batch.name}" (Batch: ${batch.batch_number}) is already added to the bill!`, { autoClose: 2000 });
-                                  return;
-                                }
-                                handleSelectBatch(batch);
-                              }}
-                              disabled={isAlreadyAdded}
-                              title={isAlreadyAdded ? "Already added to bill" : "Select this batch"}
-                              style={{
-                                width: 26,
-                                height: 26,
-                                borderRadius: "50%",
-                                backgroundColor: isAlreadyAdded ? "#94a3b8" : "#0f766e",
-                                border: "none",
-                                color: "#ffffff",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                cursor: isAlreadyAdded ? "not-allowed" : "pointer",
-                                fontSize: "0.75rem",
-                                boxShadow: isAlreadyAdded ? "none" : "0 1px 3px rgba(15,118,110,0.3)"
-                              }}
-                            >
-                              <FaCheck />
-                            </button>
-                          </Td>
-                          <Td style={{ verticalAlign: "middle", padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                            {batch.batch_number || "—"}
-                            {isAlreadyAdded && (
-                              <span style={{ fontSize: "0.7rem", color: "#64748b", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4, marginLeft: 6 }}>
-                                Already in bill
-                              </span>
-                            )}
-                          </Td>
-                          <Td style={{ verticalAlign: "middle", padding: "10px 12px", color: isExpired ? "#dc2626" : "#475569", fontWeight: isExpired ? 700 : 400, whiteSpace: "nowrap" }}>
-                            {formatExpiryDate(batch.expiry_date)}
-                            {isExpired && (
-                              <span style={{ marginLeft: 6, fontSize: "0.68rem", color: "#dc2626", background: "#fef2f2", padding: "1px 5px", borderRadius: 3, border: "1px solid #fecaca", fontWeight: 700 }}>
-                                Expired
-                              </span>
-                            )}
-                          </Td>
-                          <Td style={{ verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 500 }}>
-                            ₹ {Number(batch.mrp || 0).toFixed(2)}
-                          </Td>
-                          <Td style={{ verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 600, color: "#0f766e" }}>
-                            ₹ {Number(batch.price || batch.Selling_Price || batch.selling_price || batch.mrp || 0).toFixed(2)}
-                          </Td>
-                          <Td style={{ textAlign: "center", verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 700, color: isNil ? "#dc2626" : "#0f766e" }}>
-                            {stockVal}
-                          </Td>
-                        </Tr>
-                      );
-                    })}
+                        return (
+                          <Tr
+                            key={getMedicineKey(batch) || bIdx}
+                            ref={(el) => (batchRowRefs.current[bIdx] = el)}
+                            tabIndex={0}
+                            style={{
+                              cursor: isAlreadyAdded ? "not-allowed" : "pointer",
+                              backgroundColor: isHighlighted ? "#ecfdf5" : bIdx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                              borderLeft: isHighlighted ? "4px solid #0f766e" : "4px solid transparent",
+                              boxShadow: isHighlighted ? "inset 0 0 0 1px #0f766e" : "none",
+                              opacity: isAlreadyAdded ? 0.6 : 1,
+                              transition: "background-color 0.15s ease",
+                              outline: "none"
+                            }}
+                            onMouseEnter={() => setHighlightedBatchIndex(bIdx)}
+                            onClick={() => {
+                              if (isAlreadyAdded) {
+                                toast.warning(`"${batch.name}" (Batch: ${batch.batch_number}) is already added to the bill!`, { autoClose: 2000 });
+                                return;
+                              }
+                              handleSelectBatch(batch);
+                            }}
+                            onDoubleClick={() => {
+                              if (!isAlreadyAdded) handleSelectBatch(batch);
+                            }}
+                          >
+                            <Td style={{ textAlign: "center", verticalAlign: "middle", padding: "10px 8px" }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isAlreadyAdded) {
+                                    toast.warning(`"${batch.name}" (Batch: ${batch.batch_number}) is already added to the bill!`, { autoClose: 2000 });
+                                    return;
+                                  }
+                                  handleSelectBatch(batch);
+                                }}
+                                disabled={isAlreadyAdded}
+                                title={isAlreadyAdded ? "Already added to bill" : "Select this batch"}
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: "50%",
+                                  backgroundColor: isAlreadyAdded ? "#94a3b8" : "#0f766e",
+                                  border: "none",
+                                  color: "#ffffff",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: isAlreadyAdded ? "not-allowed" : "pointer",
+                                  fontSize: "0.75rem",
+                                  boxShadow: isAlreadyAdded ? "none" : "0 1px 3px rgba(15,118,110,0.3)"
+                                }}
+                              >
+                                <FaCheck />
+                              </button>
+                            </Td>
+                            <Td style={{ verticalAlign: "middle", padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
+                              {batch.batch_number || "—"}
+                              {isAlreadyAdded && (
+                                <span style={{ fontSize: "0.7rem", color: "#64748b", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4, marginLeft: 6 }}>
+                                  Already in bill
+                                </span>
+                              )}
+                            </Td>
+                            <Td style={{ verticalAlign: "middle", padding: "10px 12px", color: "#475569", fontWeight: 500, whiteSpace: "nowrap" }}>
+                              {formatExpiryDate(batch.expiry_date)}
+                            </Td>
+                            <Td style={{ verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 500 }}>
+                              ₹ {Number(batch.mrp || 0).toFixed(2)}
+                            </Td>
+                            <Td style={{ verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 600, color: "#0f766e" }}>
+                              ₹ {Number(batch.price || batch.Selling_Price || batch.selling_price || batch.mrp || 0).toFixed(2)}
+                            </Td>
+                            <Td style={{ textAlign: "center", verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 700, color: isNil ? "#dc2626" : "#0f766e" }}>
+                              {stockVal}
+                            </Td>
+                          </Tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </Table>
               </div>
@@ -6104,7 +6242,7 @@ const loadedMedicines = rawMeds.map((item) => {
                 </Button>
                 <Button
                   onClick={() => {
-                    const current = selectedBatchItem?.batches?.[highlightedBatchIndex] || selectedBatchItem?.batches?.[0];
+                    const current = visibleBatchesForModal[highlightedBatchIndex] || visibleBatchesForModal[0];
                     if (current) {
                       if (addedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(current))) {
                         toast.warning(`"${current.name}" (Batch: ${current.batch_number}) is already added to the bill!`, { autoClose: 2000 });
@@ -6113,6 +6251,7 @@ const loadedMedicines = rawMeds.map((item) => {
                       handleSelectBatch(current);
                     }
                   }}
+                  disabled={visibleBatchesForModal.length === 0}
                 >
                   Select Batch (Enter)
                 </Button>
