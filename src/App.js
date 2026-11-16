@@ -146,6 +146,7 @@ import StoresReorderLevelReport from "./Components/Stores_report/StoresReorderLe
 import StoresRackClassification from "./Components/Stores/StoresRackClassification";
 import StoresOpeningStockReport from "./Components/Stores_report/StoresOpeningStockReport";
 import StoresItemMasterStockReport from "./Components/Stores_report/StoresItemMasterStockReport";
+import OutletWiseStockReport from "./Components/Reports/OutletWiseStockReport";
 import StoresPurchaseOrderReport from "./Components/Stores_report/StoresPurchaseOrderReport";
 import StoresPurchaseReturnReport from "./Components/Stores_report/StoresPurchaseReturnReport";
 import StoresRackClassificationReport from "./Components/Stores_report/StoresRackClassificationReport";
@@ -565,6 +566,7 @@ function App() {
       "/VendingMachineReport": "Vending Machine Sales & Stock Reconciliation Report",
       "/StoresReportsDashboard": "Stores Reports Dashboard",
       "/StoresItemMasterStockReport": "Stores Item Master Stock Listing",
+      "/OutletWiseStockReport": "Outlet Wise Stock Listing",
       "/DrugPurchaseReportsDashboard": "Drug Purchase Report Dashboard",
       "/DrugPurchaseReports": "Drug Purchase Report Dashboard",
       "/DrugPurchaseReturnReport": "Drug Purchase Return & Debit Notes",
@@ -1854,6 +1856,8 @@ function App() {
               <Route path="/StoresOpeningStockReport" element={<StoresOpeningStockReport />} />
               <Route path="/StoresItemMasterStockReport" element={<StoresItemMasterStockReport />} />
               <Route path="/stores-item-master-stock-report" element={<StoresItemMasterStockReport />} />
+              <Route path="/OutletWiseStockReport" element={<OutletWiseStockReport />} />
+              <Route path="/outlet-wise-stock-report" element={<OutletWiseStockReport />} />
               <Route path="/storesopeningstockreport" element={<StoresOpeningStockReport />} />
               {hasPagePermission("/StoresReportsDashboard", allowedActions, dynamicPermissions) && (
                 <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
