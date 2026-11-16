@@ -908,20 +908,36 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
         .filter(Boolean)
         .join(" ") || "Unknown Patient",
     address: patient?.address || pd.permanent_address || "-",
-    admittingDate: patient?.admissionDateTime
-      ? new Date(patient.admissionDateTime).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-      })
-      : "-",
-    admittingTime: patient?.admissionDateTime
-      ? new Date(patient.admissionDateTime).toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      })
-      : "-",
+    admittingDate: patient?.admissionDate || (patient?.admissionDateTime
+      ? (() => {
+          const s = String(patient.admissionDateTime).trim();
+          const withZ = !s.endsWith("Z") && !s.includes("+") ? `${s}Z` : s;
+          const d = new Date(withZ);
+          return !isNaN(d.getTime())
+            ? d.toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                timeZone: "Asia/Kolkata",
+              })
+            : "-";
+        })()
+      : "-"),
+    admittingTime: patient?.admissionTime || (patient?.admissionDateTime
+      ? (() => {
+          const s = String(patient.admissionDateTime).trim();
+          const withZ = !s.endsWith("Z") && !s.includes("+") ? `${s}Z` : s;
+          const d = new Date(withZ);
+          return !isNaN(d.getTime())
+            ? d.toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+                timeZone: "Asia/Kolkata",
+              })
+            : "-";
+        })()
+      : "-"),
     admittingDr: patient?.admittingDoctor || patient?.doctor_name || patient?.doctorName || pd?.admittingDoctor || "-",
     roomBed: `${patient?.roomNo || patient?.room_no || "-"} | ${patient?.bedNo || patient?.bed_no || "-"}`,
     customerType: patient?.customerType || patient?.customer_type || pd.customer_type || "-",

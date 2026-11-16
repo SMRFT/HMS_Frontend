@@ -802,18 +802,19 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
   const formatAdmitDate = (dt) => {
     if (!dt) return "-";
     try {
-      const d = new Date(dt);
+      const s = String(dt).trim();
+      const withZ = !s.endsWith("Z") && !s.includes("+") ? `${s}Z` : s;
+      const d = new Date(withZ);
       if (isNaN(d.getTime())) return dt;
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      let hours = d.getHours();
-      const minutes = String(d.getMinutes()).padStart(2, "0");
-      const ampm = hours >= 12 ? "pm" : "am";
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      const strHours = String(hours).padStart(2, "0");
-      return `${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
+      return d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+      });
     } catch (e) {
       return dt;
     }
@@ -825,7 +826,9 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
     uhid: patient?.uhid || patient?.patient_id || pd.uhid || "-",
     name: patient?.patient_name || patient?.patientName || [patient?.salutation ?? pd.salutation, patient?.firstName ?? pd.firstName, patient?.lastName ?? pd.lastName].filter(Boolean).join(" ") || "Unknown Patient",
     address: patient?.address || pd.permanent_address || "-",
-    admitting: formatAdmitDate(patient?.admissionDateTime || pd?.admissionDateTime),
+    admitting: (patient?.admissionDate && patient?.admissionTime)
+      ? `${patient.admissionDate} ${patient.admissionTime}`
+      : formatAdmitDate(patient?.admissionDateTime || pd?.admissionDateTime),
     admittingDr: patient?.admittingDoctor || patient?.doctor_name || patient?.doctorName || pd?.admittingDoctor || "-",
     roomNo: (patient?.roomNo || patient?.room_no || "").toString().trim(),
     bedNo: (patient?.bedNo || patient?.bed_no || "").toString().trim(),

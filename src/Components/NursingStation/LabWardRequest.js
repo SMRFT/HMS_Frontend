@@ -801,12 +801,22 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
         patientProp?.lastName ?? pd.lastName,
       ].filter(Boolean).join(" ") || "Unknown Patient",
     address: patientProp?.address || pd.permanent_address || "-",
-    admitting: patientProp?.admissionDateTime
-      ? new Date(patientProp.admissionDateTime).toLocaleString("en-GB", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-        hour: "2-digit", minute: "2-digit", hour12: true,
-      })
-      : "-",
+    admitting: patientProp?.admissionDate && patientProp?.admissionTime
+      ? `${patientProp.admissionDate} ${patientProp.admissionTime}`
+      : (patientProp?.admissionDateTime
+        ? (() => {
+            const s = String(patientProp.admissionDateTime).trim();
+            const withZ = !s.endsWith("Z") && !s.includes("+") ? `${s}Z` : s;
+            const d = new Date(withZ);
+            return !isNaN(d.getTime())
+              ? d.toLocaleString("en-GB", {
+                  day: "2-digit", month: "2-digit", year: "numeric",
+                  hour: "2-digit", minute: "2-digit", hour12: true,
+                  timeZone: "Asia/Kolkata",
+                })
+              : "-";
+          })()
+        : "-"),
     admittingDr: patientProp?.admittingDoctor || pd?.admittingDoctor || "-",
     roomNo: (patientProp?.roomNo || patientProp?.room_no || "").toString().trim(),
     bedNo: (patientProp?.bedNo || patientProp?.bed_no || "").toString().trim(),
