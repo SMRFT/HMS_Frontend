@@ -1980,13 +1980,17 @@ const WardRequest = () => {
                   const wardStatus = getField(adm, "ward_status");
                   const isDischarged = getField(adm, "is_discharged");
                   const statusConfig = getStatusStyle(wardStatus, isDischarged);
-                  const admDateRaw = getField(adm, "admission_date");
+                  const admDateRaw = getField(adm, "admission_date") || getField(adm, "admissionDateTime");
                   let admDateStr = "-";
-                  if (admDateRaw) {
+                  if (adm?.admissionDate && adm?.admissionTime) {
+                    admDateStr = `${adm.admissionDate}, ${adm.admissionTime}`;
+                  } else if (admDateRaw) {
                     try {
-                      const d = new Date(admDateRaw);
+                      const s = String(admDateRaw).trim();
+                      const withZ = !s.endsWith("Z") && !s.includes("+") ? `${s}Z` : s;
+                      const d = new Date(withZ);
                       if (!isNaN(d.getTime())) {
-                        admDateStr = d.toLocaleDateString("en-GB", { day: '2-digit', month: 'short' }) + ", " + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        admDateStr = d.toLocaleDateString("en-GB", { day: '2-digit', month: 'short', timeZone: "Asia/Kolkata" }) + ", " + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: "Asia/Kolkata" });
                       } else {
                         admDateStr = String(admDateRaw);
                       }
