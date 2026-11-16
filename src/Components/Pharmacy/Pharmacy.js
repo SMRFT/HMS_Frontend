@@ -62,6 +62,35 @@ const BlinkDot = styled.span`
   animation: ${blinkDot} 1s ease-in-out infinite;
 `;
 
+const blinkGlow = keyframes`
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.4);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.97);
+    box-shadow: 0 0 0 4px rgba(234, 88, 12, 0);
+  }
+`;
+
+const BlinkBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  animation: ${blinkGlow} 1.2s ease-in-out infinite;
+  white-space: nowrap;
+`;
+
 const spinAnimation = keyframes`
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -119,43 +148,63 @@ const formatExpiryDate = (dateStr) => {
   return raw;
 };
 
-// Helper to format bill date & time (e.g., "2026-10-30 08:49:15 AM")
+// Ensure UTC ISO representation so conversion to Indian timezone (Asia/Kolkata) is accurate
+const ensureUtcIso = (iso) => {
+  if (!iso) return iso;
+  let s = String(iso).trim();
+  if (s.includes(' ') && !s.includes('T')) {
+    s = s.replace(' ', 'T');
+  }
+  if (s && s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
+    return s + "Z";
+  }
+  return s;
+};
+
+// Helper to format bill date (DD/MM/YYYY) in Indian timezone
+const formatBillDate = (raw) => {
+  if (!raw || raw === "—" || raw === "N/A") return "—";
+  try {
+    const s = ensureUtcIso(raw);
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
+    }
+  } catch (e) {}
+  return String(raw).split(" ")[0];
+};
+
+// Helper to format bill time (hh:mm:ss AM/PM) in Indian timezone (matching View Bills)
+const formatBillTime = (raw) => {
+  if (!raw || raw === "—" || raw === "N/A") return "—";
+  try {
+    let s = String(raw).trim();
+    if (/^\d{1,2}:\d{2}(?::\d{2})?(\s*[AaPp][Mm])?$/.test(s)) return s;
+    const iso = ensureUtcIso(s);
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+      }).toUpperCase();
+    }
+  } catch (e) {}
+  return new Date().toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  }).toUpperCase();
+};
+
+// Helper to format bill date & time (e.g., "15/11/2026 02:30:43 PM")
 const formatBillDateTime = (rawDate) => {
   if (!rawDate || rawDate === "—" || rawDate === "N/A") return "—";
-  let s = String(rawDate).trim();
-
-  // If already formatted with AM/PM, return as is
-  if (/\b(AM|PM|am|pm)\b/.test(s)) return s;
-
-  // If missing timezone offset or 'Z' on an ISO string, append 'Z' so UTC converts to local
-  if (s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
-    s += "Z";
-  }
-
-  // If only a date string like "2026-10-30" was provided, append current local time
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const now = new Date();
-    const hours24 = now.getHours();
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
-    const ampm = hours24 >= 12 ? "PM" : "AM";
-    const hours12 = String(hours24 % 12 || 12).padStart(2, "0");
-    return `${s} ${hours12}:${minutes}:${seconds} ${ampm}`;
-  }
-
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return rawDate;
-
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hours24 = d.getHours();
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  const seconds = String(d.getSeconds()).padStart(2, "0");
-  const ampm = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = String(hours24 % 12 || 12).padStart(2, "0");
-
-  return `${year}-${month}-${day} ${hours12}:${minutes}:${seconds} ${ampm}`;
+  return `${formatBillDate(rawDate)} ${formatBillTime(rawDate)}`;
 };
 
 // Helper to calculate compact windowed pagination for modal
@@ -654,20 +703,26 @@ const chunkMedicinesForPrint = (items) => {
   const pages = [];
   let remaining = [...list];
 
+  // First page has the full header, can take up to 7 items comfortably
+  let firstTake = 7;
+  if (list.length <= 14) {
+    firstTake = Math.ceil(list.length / 2);
+  }
+  pages.push(remaining.slice(0, firstTake));
+  remaining = remaining.slice(firstTake);
+
   while (remaining.length > 0) {
-    // If remaining fits on the final page (with totals & signature)
-    if (remaining.length <= 7) {
+    // Subsequent pages have NO big header, so final page with totals & footer can hold up to 10 items
+    if (remaining.length <= 10) {
       pages.push(remaining);
       break;
     }
-    // If remaining is 8 to 14, distribute evenly so final page has a balanced set
-    if (remaining.length <= 14) {
+    if (remaining.length <= 20) {
       const take = Math.ceil(remaining.length / 2);
       pages.push(remaining.slice(0, take));
       remaining = remaining.slice(take);
     } else {
-      // Continuation pages without totals/signature can hold up to 10 rows safely
-      const take = 10;
+      const take = 12;
       pages.push(remaining.slice(0, take));
       remaining = remaining.slice(take);
     }
@@ -724,7 +779,7 @@ const fallbackWindowPrint = (html) => {
       pw.print();
     }, 350);
   } else {
-    toast.error("Print popup was blocked by browser. Please allow popups for this site.");
+    toast.error("Print popup was blocked by browser. Please allow popups for this site.", { autoClose: 2000, pauseOnHover: false });
   }
 };
 
@@ -912,47 +967,8 @@ const buildPrintBillHtml = (data) => {
     return isNaN(num) ? "0.00" : num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  const extractDate = (raw) => {
-    if (!raw || raw === "—" || raw === "N/A") return "—";
-    try {
-      let s = String(raw).trim();
-      if (s.includes(' ') && !s.includes('T')) {
-        s = s.replace(' ', 'T');
-      }
-      const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
-      const d = new Date(iso);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
-      }
-    } catch (e) {}
-    return String(raw).split(" ")[0];
-  };
-
-  const extractTime = (raw) => {
-    if (!raw || raw === "—" || raw === "N/A") return "—";
-    try {
-      let s = String(raw).trim();
-      if (s.includes(' ') && !s.includes('T')) {
-        s = s.replace(' ', 'T');
-      }
-      if (/^\d{1,2}:\d{2}(?::\d{2})?(\s*[AaPp][Mm])?$/.test(s)) {
-        return s;
-      }
-      const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
-      const d = new Date(iso);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleTimeString("en-IN", {
-          timeZone: "Asia/Kolkata",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: true
-        }).toUpperCase();
-      }
-    } catch (e) {}
-    const now = new Date();
-    return now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).toUpperCase();
-  };
+  const extractDate = (raw) => formatBillDate(raw);
+  const extractTime = (raw) => formatBillTime(raw);
 
   // Calculate Gross Total (actual amount before any discount)
   const computedGross = (medicines || []).reduce((sum, m) => {
@@ -1031,6 +1047,7 @@ const buildPrintBillHtml = (data) => {
 
     return `
     <div class="bill-page">
+      ${pageIdx === 0 ? `
       <!-- Top Header: Logo on left, Hospital details directly next to it -->
       <div style="display: flex; align-items: center; gap: 14px; padding-bottom: 3px;">
         <img src="${SummaryHead}" alt="Shanmuga Hospital Limited" style="max-height: 48px; object-fit: contain;" onerror="this.style.display='none'" />
@@ -1092,7 +1109,14 @@ const buildPrintBillHtml = (data) => {
           ${resolvedRoom ? `<span style="color: #222;">Room</span><span>:</span><span>${resolvedRoom}</span>` : ""}
           ${resolvedInsurance ? `<span style="color: #222;">Insurance</span><span>:</span><span>${resolvedInsurance}</span>` : ""}
         </div>
-      </div>
+      </div>` : `
+      <!-- Subsequent Page Continuation Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 0 4px 0; border-bottom: 1px solid #111; margin-bottom: 4px; font-size: 11px;">
+        <span><strong>Patient:</strong> ${patientName} &nbsp;|&nbsp; <strong>Bill No:</strong> ${billNo}</span>
+        <span style="font-size: 10.5px; font-weight: 700; color: #005b8e; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; border: 1px solid #bae6fd;">
+          Page ${pageIdx + 1} of ${totalPages} (Continued)
+        </span>
+      </div>`}
 
       <!-- Medicines Table -->
       <table class="bill-table">
@@ -1305,7 +1329,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [pendingBillIntent, setPendingBillIntent] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printBillData, setPrintBillData] = useState(null);
-  const [showNilStock, setShowNilStock] = useState(false);
+  const [showNilStock, setShowNilStock] = useState(true);
   const [modalPage, setModalPage] = useState(1);
   const MODAL_PAGE_SIZE = 9;
 
@@ -1354,9 +1378,11 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
   const visibleModalMedicines = useMemo(() => {
     const list = modalSourceList || [];
-    const stockFiltered = list.filter((m) => !m.is_nil_stock || showNilStock);
-
     const q = modalSearch.trim().toLowerCase();
+    const stockFiltered = (showNilStock || q.length > 0)
+      ? list
+      : list.filter((m) => !m.is_nil_stock);
+
     if (!q) {
       return stockFiltered;
     }
@@ -1598,7 +1624,48 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCancelConfirm = () => {
+  const handleCancelConfirm = async () => {
+    const isEstimateLoaded = Boolean(
+      loadedEstimateNo ||
+      (recordId && billingType === "Estimate") ||
+      (recordId && isEditMode && !formData.billNo)
+    );
+
+    if (isEstimateLoaded) {
+      try {
+        const payload = {
+          Bill_id: recordId,
+          estimate_no: loadedEstimateNo,
+          cancel_reason: "Cancelled from pharmacy billing form",
+        };
+        const activeOutlet =
+          localStorage.getItem("selected_outlet") ||
+          localStorage.getItem("outlet_code") ||
+          "";
+        if (activeOutlet) {
+          payload.outlet_code = activeOutlet;
+        }
+        const res = await apiRequest(`${HmsBaseUrl}cancel_estimate_bill/`, "POST", payload);
+        if (res?.status === "success" || res?.success) {
+          toast.success(res?.message || "Estimate cancelled successfully.", { autoClose: 2000, pauseOnHover: false });
+        }
+        if (typeof onEstimateSaved === "function") {
+          onEstimateSaved();
+        }
+        try {
+          if (typeof BroadcastChannel !== "undefined") {
+            new BroadcastChannel("hms_billing_channel").postMessage({
+              type: "ESTIMATE_CANCELLED",
+              estimateNo: loadedEstimateNo,
+              billId: recordId,
+            });
+          }
+        } catch (e) {}
+      } catch (err) {
+        console.error("Error cancelling estimate:", err);
+        toast.error("Failed to cancel estimate on server.", { autoClose: 2000, pauseOnHover: false });
+      }
+    }
     resetForm();
     setTodayBillDate();
     setShowCancelModal(false);
@@ -1655,7 +1722,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     // ✅ Require at least one search param
     if (!uhidVal && !nameVal) {
-      toast.warning("Please enter a UHID or name to search.");
+      toast.warning("Please enter a UHID or name to search.", { autoClose: 2000, pauseOnHover: false });
       return;
     }
 
@@ -1682,12 +1749,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
       // Always show results in modal — let user pick, even if only 1 result
       if (results.length === 0) {
-        toast.info("No patients found for the given UHID.");
+        toast.info("No patients found for the given UHID.", { autoClose: 2000, pauseOnHover: false });
       }
     } catch (err) {
       console.error("UHID search failed", err);
       setUhidSearchResults([]);
-      toast.error("Search failed. Please try again.");
+      toast.error("Search failed. Please try again.", { autoClose: 2000, pauseOnHover: false });
     } finally {
       setUhidSearchLoading(false);
     }
@@ -1833,14 +1900,32 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       );
 
       const body = res?.data || res;
-      const admData = body?.data || {};
-      const isAdmitted = body?.admitted === true || admData?.is_admitted === true || Boolean(admData?.ipNumber);
+      const admData = (body?.data && typeof body.data === "object" && !Array.isArray(body.data)) ? body.data : {};
+      const isAdmitted = body?.admitted === true || admData?.is_admitted === true;
+
+      // ── Resolve Customer Type & Insurance Name (common to both admitted & not admitted) ──
+      const custType = admData?.customer_type || patientFallback?.customer_type || "";
+      const insName =
+        admData?.insurance_company ||
+        admData?.company_name ||
+        patientFallback?.insurance_company ||
+        patientFallback?.company_name ||
+        (admData?.company_code ? (patientFallback?.insurance_company || admData.company_code) : "") ||
+        (patientFallback?.company_code ? (patientFallback?.insurance_company || patientFallback.company_code) : "") ||
+        (String(custType || "").toLowerCase().includes("insurance") ? "INSURANCE" : "") ||
+        "";
+
+      if (custType) {
+        setPatientType(custType);
+      }
+      setInsuranceName(insName || "");
+
+      const ipNum = admData?.ipNumber || admData?.inpatient_number || patientFallback?.inpatient_number || patientFallback?.ip_number || "";
 
       if (isAdmitted) {
         setAdmissionStatus("ADMITTED");
 
         // ✅ IP Number
-        const ipNum = admData?.ipNumber || admData?.inpatient_number || admData?.base_ip_number || patientFallback?.ip_number || "";
         if (ipNum) {
           setFormData(prev => ({
             ...prev,
@@ -1885,18 +1970,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           setAdmissionRoomNo("");
         }
 
-        // ── Insurance Name & Customer Type ─────────────────────────────
-        const insName = admData?.insurance_company || admData?.company_code || (String(admData?.customer_type || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "";
-        setInsuranceName(insName || "");
         setFormData(prev => ({
           ...prev,
           insuranceName: insName || "",
-          is_insurance: Boolean(insName),
-          customer_type: admData?.customer_type || "General",
+          is_insurance: Boolean(insName || (custType && custType.toLowerCase().includes("insurance"))),
+          customer_type: custType || prev.customer_type || "General",
         }));
-        if (admData?.customer_type) {
-          setPatientType(admData.customer_type);
-        }
 
         // ── Admitted: ALWAYS populate Doctor Name with Consulting Doctor ──
         const admDoc = admData?.consultingDoctor || admData?.admittingDoctor || patientFallback?.consulting_doctor || patientFallback?.consulting_doctor_name || "";
@@ -1914,14 +1993,15 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         setAdmissionStatus("NOT ADMITTED");
         setAdmissionRoomNo("");
         setAdmissionDateTime("");
-        const fallbackIns = patientFallback?.insurance_company || patientFallback?.company_code || (String(patientFallback?.customer_type || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "";
-        setInsuranceName(fallbackIns || "");
+
         setFormData(prev => ({
           ...prev,
-          insuranceName: fallbackIns || "",
-          is_insurance: Boolean(fallbackIns),
+          inpatientNo: prev.inpatientNo || ipNum || "",
+          insuranceName: insName || "",
+          is_insurance: Boolean(insName || (custType && custType.toLowerCase().includes("insurance"))),
+          customer_type: custType || prev.customer_type || "General",
         }));
-        return { isAdmitted: false, data: null };
+        return { isAdmitted: false, data: admData };
       }
     } catch (error) {
       console.error("Error fetching admission status:", error);
@@ -1963,20 +2043,25 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     const { doctor_id: finalDocId, doctor_name: finalDocName } = resolveDoctorIdAndName(resolvedDoctorId);
 
+    const insComp = p.insurance_company || "";
     setFormData(prev => ({
       ...prev,
       uhid: p.uhid || "",
       name: fullName,
-      inpatientNo: p.ip_number || "",
+      inpatientNo: p.ip_number || prev.inpatientNo || "",
       doctor_id: finalDocId,
       doctor_name: finalDocName,
-      roomNo: p.room_no || "",
+      roomNo: p.room_no || prev.roomNo || "",
       dob: p.dob || "",
+      customer_type: p.customer_type || prev.customer_type || "",
+      insuranceName: insComp || prev.insuranceName || "",
+      is_insurance: Boolean(insComp || (p.customer_type && p.customer_type.toLowerCase().includes("insurance"))),
     }));
 
-    setPatientType(p.customer_type || "");
+    if (p.customer_type) setPatientType(p.customer_type);
+    if (insComp) setInsuranceName(insComp);
     setAddress(p.permanent_address || "");
-    setPlace(p.area || "");
+    setPlace(p.area || p.place || "");
     setMobilePhone(p.mobilePhone || p.mobile || "");
 
     // Calculate age from dob
@@ -2017,7 +2102,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const handleIPSearch = async (directIPVal) => {
     const ipVal = (directIPVal !== undefined ? directIPVal : ipSearchInput).trim();
     if (!ipVal) {
-      toast.warning("Please enter an IP number to search.");
+      toast.warning("Please enter an IP number to search.", { autoClose: 2000, pauseOnHover: false });
       return;
     }
 
@@ -2057,7 +2142,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
       if (filtered.length === 0) {
         setIpSearchResults([]);
-        toast.info("No admissions found for the given IP number.");
+        toast.info("No admissions found for the given IP number.", { autoClose: 2000, pauseOnHover: false });
       } else if (filtered.length === 1) {
         // ✅ Exactly 1 admission found -> Auto-fill immediately!
         handleIPSelect(filtered[0]);
@@ -2083,7 +2168,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     } catch (err) {
       console.error("IP search failed", err);
       setIpSearchResults([]);
-      toast.error("IP search failed. Please try again.");
+      toast.error("IP search failed. Please try again.", { autoClose: 2000, pauseOnHover: false });
     } finally {
       setIpSearchLoading(false);
     }
@@ -2313,7 +2398,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     if (!HmsBaseUrl) return [];
     try {
       setStockLoading(true);
-      const payload = query ? { search: query } : {};
+      const payload = {
+        include_zero_stock: true,
+        ...(query ? { search: query } : {}),
+      };
       const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST", payload);
       const medicineArray = Array.isArray(response.data)
         ? response.data
@@ -2404,7 +2492,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setSelectedMedicines([]);
     setModalSearch(rawTerm || "");
     setModalPage(1);
-    setShowNilStock(false);
+    setShowNilStock(true);
     setShowModal(true);
     setFilteredModalMedicines([]);
     setHighlightedModalIndex(0);
@@ -2452,7 +2540,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setSelectedMedicines([]);
     setSearchTerm("");
     setModalSearch("");
-    setShowNilStock(false);
+    setShowNilStock(true);
     setModalPage(1);
     setTimeout(() => {
       medicineSearchInputRef.current?.focus();
@@ -2532,8 +2620,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const handleSelectMedicineAndClose = useCallback((medicine) => {
     if (!medicine) return;
     if (medicine.is_nil_stock) {
-      toast.warning(`"${medicine.name}" has NIL stock and cannot be billed!`, { autoClose: 2000 });
-      return;
+      toast.info(`"${medicine.name}" has 0 stock (NIL).`, { autoClose: 2000 });
     }
     const key = getMedicineKey(medicine);
     const alreadyInBill = addedMedicines.some((m) => getMedicineKey(m) === key);
@@ -2798,13 +2885,53 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     setQtyErrors({});
 
-    const stockErrorMap = {};
-    const invalidStockItems = [];
-    addedMedicines.forEach((m, idx) => {
+    // Auto-cap quantity to available stock if quantity exceeds stock and stock > 0
+    let autoAdjustedCount = 0;
+    const cappedMedicines = addedMedicines.map((m) => {
+      const avail = Number(m.available_stock);
+      const req = Number(m.quantity);
       if (
         m.available_stock !== 9999 &&
         m.available_stock != null &&
-        Number(m.quantity) > Number(m.available_stock)
+        !isNaN(avail) &&
+        avail > 0 &&
+        req > avail
+      ) {
+        autoAdjustedCount += 1;
+        const dVal = parseFloat(m.discount_value ?? m.discount_percent ?? m.discount ?? 0);
+        const pricing = calculateMedicinePricing(m, avail, dVal);
+        return {
+          ...m,
+          quantity: avail,
+          requested_qty: req,
+          stock_capped: true,
+          total: pricing.lineTotal,
+          product_value: pricing.productValue,
+          taxable_value: pricing.taxableValue,
+          discount_amount: pricing.discAmtOnBase,
+          cgst_rate: pricing.cgstRate,
+          cgst_amount: pricing.cgstAmt,
+          sgst_rate: pricing.sgstRate,
+          sgst_amount: pricing.sgstAmt,
+        };
+      }
+      return m;
+    });
+
+    if (autoAdjustedCount > 0) {
+      setAddedMedicines(cappedMedicines);
+      toast.info(`Billing quantity adjusted to available stock (${autoAdjustedCount} item(s)). Allowed stock will be billed.`, { autoClose: 2500 });
+    }
+
+    const currentMeds = autoAdjustedCount > 0 ? cappedMedicines : addedMedicines;
+    const stockErrorMap = {};
+    const invalidStockItems = [];
+    currentMeds.forEach((m, idx) => {
+      if (
+        intentStatus !== "Estimate" &&
+        m.available_stock !== 9999 &&
+        m.available_stock != null &&
+        Number(m.available_stock) <= 0
       ) {
         stockErrorMap[idx] = true;
         invalidStockItems.push(m);
@@ -2813,28 +2940,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     if (invalidStockItems.length > 0) {
       setQtyErrors(stockErrorMap);
-      if (invalidStockItems.length === 1) {
-        const item = invalidStockItems[0];
-        const itemName = item.name || item.item_name || "Medicine";
-        const avail = item.available_stock != null ? item.available_stock : 0;
-        const req = item.quantity;
-        toast.error(
-          `Quantity exceeds available stock for "${itemName}"! (Available: ${avail}, Requested: ${req})`,
-          { autoClose: 3500 }
-        );
-      } else {
-        const itemDetails = invalidStockItems
-          .map(
-            (m) =>
-              `"${m.name || m.item_name}" (Available: ${
-                m.available_stock != null ? m.available_stock : 0
-              }, Requested: ${m.quantity})`
-          )
-          .join(", ");
-        toast.error(`Quantity exceeds available stock for: ${itemDetails}`, {
-          autoClose: 4000,
-        });
-      }
+      const first = invalidStockItems[0];
+      const itemName = first.name || first.item_name || "Medicine";
+      toast.error(`"${itemName}" has 0 stock available. Please substitute or remove before billing.`, { autoClose: 3500 });
       return;
     }
 
@@ -3217,8 +3325,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         status,
         billing_mode,
         payment_mode: resolvedPaymentMode,
-        // ✅ Send patientname ONLY when no uhid (walk-in / unregistered patient)
-        ...(!formData.uhid && { patientname: formData.name }),
+        patient_name: (formData.name || "").trim(),
+        patientname: (formData.name || "").trim(),
       };
 
       let response;
@@ -3554,7 +3662,16 @@ const loadedMedicines = rawMeds.map((item) => {
   const mrp = parseFloat(item.mrp ?? item.price ?? stockMatch?.mrp ?? stockMatch?.price ?? 0);
   // Price for total calculation: use price or mrp
   const price = parseFloat(item.price ?? stockMatch?.price ?? mrp);
-  const qty   = Number(item.qty ?? item.quantity ?? 0);
+  const rawQty = Number(item.qty ?? item.quantity ?? 0);
+  const availStock = item.available_stock != null ? Number(item.available_stock) : (stockMatch?.available_stock != null ? Number(stockMatch.available_stock) : 9999);
+
+  let billingQty = rawQty;
+  let isCapped = false;
+  if (availStock !== 9999 && !isNaN(availStock) && availStock > 0 && rawQty > availStock) {
+    billingQty = availStock;
+    isCapped = true;
+  }
+  const qty = billingQty;
 
   // Per-unit GST amounts from API; scale by qty for display
   const cgstRatePerUnit   = parseFloat(item.CGST_Percentage ?? stockMatch?.cgst_rate   ?? 0);
@@ -3567,6 +3684,8 @@ const loadedMedicines = rawMeds.map((item) => {
     name:            resolvedItemName,
     batch_number:    item.batch_number || stockMatch?.batch_number || "",
     quantity:        qty,
+    requested_qty:   rawQty,
+    stock_capped:    isCapped,
     price:           price,
     mrp:             mrp,
     hsn_code:        stockMatch?.hsn_code  || "—",
@@ -3575,7 +3694,7 @@ const loadedMedicines = rawMeds.map((item) => {
     sgst_rate:       sgstRatePerUnit,
     sgst_amount:     parseFloat((sgstAmtPerUnit * qty).toFixed(2)),   // ← scaled by qty
     expiry_date:     stockMatch?.expiry_date || "—",
-    available_stock: item.available_stock    ?? stockMatch?.available_stock ?? 9999,
+    available_stock: availStock,
     dosage:          item.dosage             || "",
     noOfDays:        item.noOfDays           || "",
     discount_type:   item.discount_type      || "percent",
@@ -3583,7 +3702,7 @@ const loadedMedicines = rawMeds.map((item) => {
     discount_percent:parseFloat(item.discount_percent ?? item.discount_value ?? item.discount ?? 0),
     discount_amount: parseFloat(item.discount_amount ?? 0),
     discount:        parseFloat(item.discount ?? item.discount_value ?? 0),
-    total:           parseFloat((item.total != null ? item.total : (qty * mrp)).toFixed(2)),
+    total:           parseFloat((item.total != null && !isCapped ? item.total : (qty * mrp)).toFixed(2)),
     edit_history:    [],
   };
 });
@@ -3615,26 +3734,32 @@ const loadedMedicines = rawMeds.map((item) => {
       ? wardReq.bill_date.split("T")[0]
       : new Date().toISOString().split("T")[0];
 
+    const custType = wardReq.customer_type || wardReq.patient_details?.customer_type || "General";
+    const insComp = wardReq.insurance_company || wardReq.patient_details?.insurance_company || wardReq.company_code || "";
+
     setFormData((prev) => ({
       ...prev,
       uhid:         wardReq.uhid             || "",
-      inpatientNo:  wardReq.inpatient_number || "",
+      inpatientNo:  wardReq.inpatient_number || wardReq.ip_number || prev.inpatientNo || "",
       name:         wardReq.patient_name || wardReq.patient_details?.patient_name || "",
       doctor_id:    wardReq.doctor_id        || "",
       doctor_name:  wardReq.doctor_name      || wardReq.patient_details?.doctor_name || "",
       roomNo:       wardReq.room_no          || wardReq.ward_name || "",
-      billType:     wardReq.bill_type        || "",
-      billTypeName: wardReq.bill_name        || "",
+      billType:     wardReq.bill_type        || 18,
+      billTypeName: wardReq.bill_type_name   || wardReq.bill_name || "PHARMACY IP BILL",
       billDate:     billDateStr,
-      is_insurance: Boolean(wardReq.is_insurance),
-      customer_type: wardReq.customer_type   || "",
+      is_insurance: Boolean(wardReq.is_insurance || insComp || custType.toLowerCase().includes("insurance")),
+      customer_type: custType,
+      insuranceName: insComp,
     }));
 
-    if (wardReq.customer_type) {
-      setPatientType(wardReq.customer_type);
-    } else if (wardReq.is_insurance) {
-      setPatientType("Insurance");
-    }
+    setPatientType(custType);
+    setInsuranceName(insComp);
+    setAddress(wardReq.address || wardReq.patient_details?.address || "");
+    setPlace(wardReq.place || wardReq.patient_details?.place || "");
+    setMobilePhone(wardReq.mobile || wardReq.patient_details?.mobile || "");
+    if (wardReq.age) setPatientAge(String(wardReq.age));
+    if (wardReq.admission_status) setAdmissionStatus(wardReq.admission_status);
 
     // ── 2. Fetch full patient details from API (same as convertEstimate) ──
     // This guarantees all Additional-Details fields are populated from the
@@ -3668,10 +3793,13 @@ const loadedMedicines = rawMeds.map((item) => {
             dob: p.dob || "",
           }));
 
-          setPatientType(p.customer_type || wardReq.customer_type || (wardReq.is_insurance ? "Insurance" : ""));
-          setAddress(p.permanent_address || p.area || "");
-          setPlace(p.area || "");
-          setMobilePhone(p.mobilePhone || p.mobile || "");
+          const resolvedCust = wardReq.customer_type || p.customer_type || "General";
+          const resolvedIns = wardReq.insurance_company || p.insurance_company || "";
+          setPatientType(resolvedCust);
+          if (resolvedIns) setInsuranceName(resolvedIns);
+          if (p.permanent_address || p.area) setAddress(p.permanent_address || p.area || "");
+          if (p.area || p.place) setPlace(p.area || p.place || "");
+          if (p.mobilePhone || p.mobile) setMobilePhone(p.mobilePhone || p.mobile);
 
           // Calculate age from dob
           if (p.dob) {
@@ -3685,8 +3813,6 @@ const loadedMedicines = rawMeds.map((item) => {
             setPatientAge(`${years}Y ${months}M ${days}D`);
           } else if (p.age) {
             setPatientAge(String(p.age));
-          } else {
-            setPatientAge("");
           }
         }
       } catch (err) {
@@ -3694,16 +3820,28 @@ const loadedMedicines = rawMeds.map((item) => {
       }
 
       // ── Fetch admission status (same as convertEstimate) ─────────────────
-      fetchAdmissionStatus(wardReq.uhid);
+      await fetchAdmissionStatus(wardReq.uhid, wardReq);
     }
 
     // ── 2. Map medicine_items to addedMedicines format ─────────────────────
-    // ✅ FIX: Always default to [] and filter out any null/undefined entries
-    const items = (Array.isArray(wardReq.medicine_items) && wardReq.medicine_items.length > 0)
+    // ✅ FIX: Only include items that have remaining pending quantity > 0!
+    const allItems = (Array.isArray(wardReq.medicine_items) && wardReq.medicine_items.length > 0)
       ? wardReq.medicine_items.filter(Boolean)
       : (Array.isArray(wardReq.medicine_particulars) && wardReq.medicine_particulars.length > 0)
         ? wardReq.medicine_particulars.filter(Boolean)
         : [];
+
+    const items = allItems.filter((it) => {
+      const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
+      const disp = Number(it.dispatched_qty ?? 0);
+      const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
+      return pend > 0;
+    });
+
+    if (items.length === 0 && allItems.length > 0) {
+      toast.info("All items for this ward request have already been fully dispatched and billed.", { autoClose: 2000, pauseOnHover: false });
+      return;
+    }
 
     const loadedMedicines = items.map((item) => {
       // ✅ FIX: item is guaranteed non-null due to .filter(Boolean) above
@@ -3761,10 +3899,20 @@ const loadedMedicines = rawMeds.map((item) => {
       };
 
       const resolvedRate = resolveRate();
-      const pendingQ = Number(item.pending_qty ?? item.qty ?? item.quantity ?? 0);
-      const reqQ = Number(item.requested_qty ?? item.qty ?? pendingQ);
+      const origReq = Number(item.requested_qty ?? item.qty ?? item.quantity ?? 0);
       const dispQ = Number(item.dispatched_qty ?? 0);
-      const qty = pendingQ;
+      const pendingQ = item.pending_qty != null ? Number(item.pending_qty) : Math.max(0, origReq - dispQ);
+      const reqQ = origReq > 0 ? origReq : pendingQ;
+      const availStock = item.available_stock != null ? Number(item.available_stock) : (stockMatch?.available_stock != null ? Number(stockMatch.available_stock) : 0);
+
+      // Auto-cap to available stock if requested/pending exceeds available stock (e.g., stock 5, req 6 -> allow 5)
+      let billingQty = pendingQ;
+      let isCapped = false;
+      if (availStock > 0 && pendingQ > availStock) {
+        billingQty = availStock;
+        isCapped = true;
+      }
+      const qty = billingQty;
       const gross = parseFloat((qty * resolvedRate).toFixed(2));
 
       // Resolve GST rates
@@ -3793,6 +3941,7 @@ const loadedMedicines = rawMeds.map((item) => {
         requested_qty:       reqQ,
         dispatched_qty:      dispQ,
         pending_qty:         pendingQ,
+        stock_capped:        isCapped,
         price:               resolvedRate,
         mrp:                 resolvedRate,
         selling_price:       resolvedRate,
@@ -3803,7 +3952,7 @@ const loadedMedicines = rawMeds.map((item) => {
         sgst_rate:           sgstRate,
         sgst_amount:         sgstAmt,
         expiry_date:         stockMatch?.expiry_date  || item.expiry_date || "—",
-        available_stock:     item.available_stock != null ? Number(item.available_stock) : (stockMatch?.available_stock ?? 0),
+        available_stock:     availStock,
         dosage:              item.dosage              || rawPartMatch?.dosage || stockMatch?.dosage || "",
         noOfDays:            item.noOfDays            || item.no_of_days || rawPartMatch?.noOfDays || rawPartMatch?.no_of_days || "",
         dose:                item.dose                || rawPartMatch?.dose || "",
@@ -3981,7 +4130,16 @@ const loadedMedicines = rawMeds.map((item) => {
       // ── Price / MRP: item enriched by backend first, then stockMatch, then 0 ──
       const price = parseFloat(item.price || item.mrp || stockMatch?.price || stockMatch?.mrp || 0);
       const mrp   = parseFloat(item.mrp   || item.price || stockMatch?.mrp || stockMatch?.price || 0);
-      const qty   = Number(item.total_dosage || item.quantity || item.qty || 1);
+      const rawQty = Number(item.total_dosage || item.quantity || item.qty || 1);
+      const availStock = stockMatch?.available_stock != null ? Number(stockMatch.available_stock) : 9999;
+
+      let billingQty = rawQty;
+      let isCapped = false;
+      if (availStock !== 9999 && !isNaN(availStock) && availStock > 0 && rawQty > availStock) {
+        billingQty = availStock;
+        isCapped = true;
+      }
+      const qty = billingQty;
 
       // ── Tax rates: item enriched → stockMatch → 0 ──
       const cgstRate    = parseFloat(item.cgst_rate   ?? stockMatch?.cgst_rate   ?? 0);
@@ -3994,6 +4152,8 @@ const loadedMedicines = rawMeds.map((item) => {
         name:            resolvedItemName,
         batch_number:    item.batch_number || item.batch_no || stockMatch?.batch_number || "",
         quantity:        qty,
+        requested_qty:   rawQty,
+        stock_capped:    isCapped,
         price:           price,
         mrp:             mrp,
         hsn_code:        item.hsn_code    || stockMatch?.hsn_code    || "—",
@@ -4002,7 +4162,7 @@ const loadedMedicines = rawMeds.map((item) => {
         sgst_rate:       sgstRate,
         sgst_amount:     parseFloat((sgstAmtUnit * qty).toFixed(2)),
         expiry_date:     item.expiry_date || stockMatch?.expiry_date || "—",
-        available_stock: stockMatch?.available_stock ?? 9999,
+        available_stock: availStock,
         dosage:          item.dosage      || stockMatch?.dosage || "",
         noOfDays:        item.duration    || item.noOfDays || "",
         total:           parseFloat((qty * mrp).toFixed(2)),
@@ -4050,7 +4210,7 @@ const loadedMedicines = rawMeds.map((item) => {
 
     setFormData((prev) => ({
       ...prev,
-      name:         bill.patient_name     || "",
+      name:         bill.patient_name     || bill.patientname || "",
       uhid:         bill.uhid             || "",
       inpatientNo:  bill.inpatient_number || "",
       doctor_id:    bill.doctor_id        || "",
@@ -4755,7 +4915,17 @@ const loadedMedicines = rawMeds.map((item) => {
                                 <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#b45309" }}>(LOW)</span>
                               </>
                             )}
+                            {Boolean(medicine.stock_capped && Number(medicine.available_stock) > 0) && (
+                              <BlinkBadge title={`Requested: ${medicine.requested_qty ?? medicine.quantity} | Available Stock: ${medicine.available_stock}`}>
+                                <BlinkDot style={{ background: "#ea580c" }} /> Allow {medicine.available_stock}
+                              </BlinkBadge>
+                            )}
                           </div>
+                          {Boolean(medicine.stock_capped && Number(medicine.available_stock) > 0) && (
+                            <div style={{ fontSize: "0.69rem", color: "#c2410c", fontWeight: 600 }}>
+                              Requested: {medicine.requested_qty ?? medicine.quantity} units → Allowed to bill: {medicine.available_stock}
+                            </div>
+                          )}
                           {(medicine.dosage || medicine.dose || medicine.instruction) && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
                               {medicine.dosage && (
@@ -4796,57 +4966,84 @@ const loadedMedicines = rawMeds.map((item) => {
                       </Td>
                       <Td>{medicine.batch_number}</Td>
                       <Td>
-                        <QtyInput
-                          ref={(el) => (qtyInputRefs.current[index] = el)}
-                          type="number"
-                          min="0"
-                          value={medicine.quantity || ""}
-                          style={qtyErrors[index] ? { borderColor: "#ef4444", boxShadow: "0 0 0 3px rgba(239,68,68,0.18)", background: "#fff5f5" } : {}}
-                          onChange={(e) => {
-                            const newQty = parseFloat(e.target.value) || 0;
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                          <QtyInput
+                            ref={(el) => (qtyInputRefs.current[index] = el)}
+                            type="number"
+                            min="0"
+                            value={medicine.quantity || ""}
+                            style={
+                              qtyErrors[index]
+                                ? { borderColor: "#ef4444", boxShadow: "0 0 0 3px rgba(239,68,68,0.18)", background: "#fff5f5" }
+                                : medicine.stock_capped && Number(medicine.available_stock) > 0
+                                  ? { borderColor: "#ea580c", boxShadow: "0 0 0 2px rgba(234,88,12,0.25)", background: "#fff7ed" }
+                                  : {}
+                            }
+                            onChange={(e) => {
+                              const enteredQty = parseFloat(e.target.value) || 0;
+                              const availStock = Number(medicine.available_stock);
+                              const hasLimitedStock = medicine.available_stock !== 9999 && medicine.available_stock != null && !isNaN(availStock);
 
-                            if (
-                              medicine.available_stock !== 9999 &&
-                              medicine.available_stock != null &&
-                              newQty > medicine.available_stock
-                            ) {
-                              toast.warning(
-                                `"${medicine.name}" has only ${medicine.available_stock} units in stock. Please enter ${medicine.available_stock} or less.`,
-                                { toastId: `stock-excess-${index}`, autoClose: 2000 }
+                              let finalQty = enteredQty;
+                              let isCapped = false;
+                              let reqQty = medicine.requested_qty ?? enteredQty;
+
+                              if (hasLimitedStock && availStock > 0 && enteredQty > availStock) {
+                                finalQty = availStock;
+                                isCapped = true;
+                                reqQty = enteredQty;
+                                toast.warning(
+                                  `"${medicine.name}" has only ${availStock} available. Allowed billing quantity is ${availStock}.`,
+                                  { toastId: `stock-cap-${index}`, autoClose: 2500 }
+                                );
+                              } else if (hasLimitedStock && availStock <= 0 && enteredQty > 0) {
+                                toast.error(
+                                  `"${medicine.name}" has 0 stock available (NIL).`,
+                                  { toastId: `stock-nil-${index}`, autoClose: 2000 }
+                                );
+                              } else if (enteredQty <= availStock) {
+                                isCapped = false;
+                              }
+
+                              const dVal = parseFloat(medicine.discount_value ?? medicine.discount_percent ?? medicine.discount ?? 0);
+                              const pricing = calculateMedicinePricing(medicine, finalQty, dVal);
+                              setAddedMedicines((prev) =>
+                                prev.map((m, i) =>
+                                  i === index ? {
+                                    ...m,
+                                    quantity: finalQty,
+                                    requested_qty: reqQty,
+                                    stock_capped: isCapped,
+                                    total: pricing.lineTotal,
+                                    product_value: pricing.productValue,
+                                    taxable_value: pricing.taxableValue,
+                                    discount_type: m.discount_type || "percent",
+                                    discount_value: dVal,
+                                    discount_percent: (m.discount_type || "percent") === "percent" ? dVal : 0,
+                                    discount_amount: pricing.discAmtOnBase,
+                                    discount: dVal,
+                                    cgst_rate: pricing.cgstRate,
+                                    cgst_amount: pricing.cgstAmt,
+                                    sgst_rate: pricing.sgstRate,
+                                    sgst_amount: pricing.sgstAmt,
+                                  } : m
+                                )
                               );
-                            }
-
-                            const dVal = parseFloat(medicine.discount_value ?? medicine.discount_percent ?? medicine.discount ?? 0);
-                            const pricing = calculateMedicinePricing(medicine, newQty, dVal);
-                            setAddedMedicines((prev) =>
-                              prev.map((m, i) =>
-                                i === index ? {
-                                  ...m,
-                                  quantity: newQty,
-                                  total: pricing.lineTotal,
-                                  product_value: pricing.productValue,
-                                  taxable_value: pricing.taxableValue,
-                                  discount_type: m.discount_type || "percent",
-                                  discount_value: dVal,
-                                  discount_percent: (m.discount_type || "percent") === "percent" ? dVal : 0,
-                                  discount_amount: pricing.discAmtOnBase,
-                                  discount: dVal,
-                                  cgst_rate: pricing.cgstRate,
-                                  cgst_amount: pricing.cgstAmt,
-                                  sgst_rate: pricing.sgstRate,
-                                  sgst_amount: pricing.sgstAmt,
-                                } : m
-                              )
-                            );
-                            if (newQty > 0) setQtyErrors(prev => { const n = { ...prev }; delete n[index]; return n; });
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
-                              e.preventDefault();
-                              focusMedicineSearch();
-                            }
-                          }}
-                        />
+                              if (finalQty > 0) setQtyErrors(prev => { const n = { ...prev }; delete n[index]; return n; });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+                                e.preventDefault();
+                                focusMedicineSearch();
+                              }
+                            }}
+                          />
+                          {Boolean(medicine.stock_capped && Number(medicine.available_stock) > 0) && (
+                            <BlinkBadge style={{ fontSize: "0.68rem", padding: "1px 5px" }}>
+                              <BlinkDot style={{ width: 6, height: 6, background: "#ea580c" }} /> Allow {medicine.available_stock}
+                            </BlinkBadge>
+                          )}
+                        </div>
                       </Td>
                       <Td>₹{(parseFloat(medicine.mrp) || 0).toFixed(2)}</Td>
                       <Td>
@@ -5214,12 +5411,10 @@ const loadedMedicines = rawMeds.map((item) => {
                             }}
                             onClick={() => {
                               setHighlightedModalIndex(index);
-                              if (!isNilStock) handleMedicineSelect(medicine);
+                              handleMedicineSelect(medicine);
                             }}
                             onDoubleClick={() => {
-                              if (!isNilStock) {
-                                handleSelectMedicineAndClose(medicine);
-                              }
+                              handleSelectMedicineAndClose(medicine);
                             }}
                             onMouseEnter={() => setHighlightedModalIndex(index)}
                           >
@@ -5227,20 +5422,18 @@ const loadedMedicines = rawMeds.map((item) => {
                               <ModalCheckbox
                                 type="checkbox"
                                 checked={isSelected}
-                                onChange={() => { if (!isNilStock) handleMedicineSelect(medicine); }}
-                                disabled={isNilStock}
-                                title={isNilStock ? "Out of stock — cannot select" : ""}
-                                style={{ cursor: isNilStock ? "not-allowed" : "pointer", verticalAlign: "middle" }}
+                                onChange={() => handleMedicineSelect(medicine)}
+                                style={{ cursor: "pointer", verticalAlign: "middle" }}
                               />
                             </Td>
                             <Td style={{ fontWeight: 500, verticalAlign: "middle" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                 <span style={{ color: nameColor, fontWeight: nameColor ? 700 : 500 }}>{medicine.name}</span>
                                 {medicine.dosage && <span style={{ fontSize: "0.75rem", color: "#64748b" }}>({medicine.dosage})</span>}
-                                {isHighlighted && !isNilStock && (
+                                {isHighlighted && (
                                   <span style={{
                                     fontSize: "0.68rem",
-                                    background: "#0f766e",
+                                    background: isNilStock ? "#b91c1c" : "#0f766e",
                                     color: "#fff",
                                     borderRadius: 4,
                                     padding: "1px 6px",
@@ -5815,147 +6008,128 @@ const loadedMedicines = rawMeds.map((item) => {
                             border: "1px solid #e2e8f0"
                           }}
                         >
-                          {/* Top Header: Logo on left, Hospital details directly next to it */}
-                          <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 3 }}>
-                            <img
-                              src={SummaryHead}
-                              alt="Shanmuga Hospital Limited"
-                              style={{ maxHeight: 48, objectFit: "contain", display: "block" }}
-                              onError={(e) => { e.target.style.display = "none"; }}
-                            />
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 15, fontWeight: 800, color: "#005b8e", letterSpacing: 0.5, textTransform: "uppercase" }}>
-                                SHANMUGA HOSPITAL LIMITED
+                          {/* Top Header: Displayed on First Page ONLY */}
+                          {pageIdx === 0 ? (
+                            <>
+                              <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 3 }}>
+                                <img
+                                  src={SummaryHead}
+                                  alt="Shanmuga Hospital Limited"
+                                  style={{ maxHeight: 48, objectFit: "contain", display: "block" }}
+                                  onError={(e) => { e.target.style.display = "none"; }}
+                                />
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 15, fontWeight: 800, color: "#005b8e", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                                    SHANMUGA HOSPITAL LIMITED
+                                  </div>
+                                  <div style={{ fontSize: 11, color: "#222", marginTop: 1 }}>
+                                    51/24.Saradha College Road, Salem - 636007
+                                  </div>
+                                  <div style={{ fontSize: 11, color: "#222" }}>
+                                    Ph No: 04272706666
+                                  </div>
+                                </div>
+                                {totalPreviewPages > 1 && (
+                                  <div style={{ textAlign: "right" }}>
+                                    <span style={{ display: "inline-block", fontSize: 10.5, fontWeight: 700, color: "#005b8e", background: "#e0f2fe", padding: "2px 8px", borderRadius: 4, border: "1px solid #bae6fd" }}>
+                                      Page {pageIdx + 1} of {totalPreviewPages}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
-                              <div style={{ fontSize: 11, color: "#222", marginTop: 1 }}>
-                                51/24.Saradha College Road, Salem - 636007
-                              </div>
-                              <div style={{ fontSize: 11, color: "#222" }}>
-                                Ph No: 04272706666
-                              </div>
-                            </div>
-                            {totalPreviewPages > 1 && (
-                              <div style={{ textAlign: "right" }}>
-                                <span style={{ display: "inline-block", fontSize: 10.5, fontWeight: 700, color: "#005b8e", background: "#e0f2fe", padding: "2px 8px", borderRadius: 4, border: "1px solid #bae6fd" }}>
-                                  Page {pageIdx + 1} of {totalPreviewPages}
-                                </span>
-                              </div>
-                            )}
-                          </div>
 
-                          {/* Divider Line */}
-                          <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
+                              {/* Divider Line */}
+                              <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
 
-                          {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
-                            <div>
-                              <div>
-                                {(() => {
-                                  const billOut = String(printBillData.outlet_code || printBillData.outletCode || printBillData.outlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
-                                  return (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001"))
-                                    ? "DL NO : TN/SLE/20/01107"
-                                    : "DL NO : TN/SLE/20/01109";
-                                })()}
+                              {/* DL NO, CIN on left | Duplicate & Bill Type in Center | GST NO, Invoice Type on Right */}
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 11, fontWeight: 600, lineHeight: 1.35, padding: "2px 0" }}>
+                                <div>
+                                  <div>
+                                    {(() => {
+                                      const billOut = String(printBillData.outlet_code || printBillData.outletCode || printBillData.outlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                                      return (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001"))
+                                        ? "DL NO : TN/SLE/20/01107"
+                                        : "DL NO : TN/SLE/20/01109";
+                                    })()}
+                                  </div>
+                                  <div>CIN : L85110TZ2020PLC033974</div>
+                                </div>
+                                <div style={{ textAlign: "center" }}>
+                                  {printBillData.isDuplicate && (
+                                    <div style={{ fontSize: 11, fontStyle: "italic", color: "#333", fontWeight: 700 }}>*** Duplicate ***</div>
+                                  )}
+                                  <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>
+                                    {(() => {
+                                      const pm = String(printBillData.payment_mode || printBillData.paymentMode || printBillData.payment_method || "").toLowerCase();
+                                      const bm = String(printBillData.billing_mode || printBillData.billingMode || "").toUpperCase();
+                                      const isCredit = pm.includes("credit") || bm.includes("CREDIT") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT");
+                                      return isCredit ? "CREDIT BILL" : "CASH BILL";
+                                    })()}
+                                  </div>
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
+                                    {(() => {
+                                      const billOut = String(printBillData.outlet_code || printBillData.outletCode || printBillData.outlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                                      if (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001")) return "PHARMACY IP GST INVOICE";
+                                      if (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002")) return "PHARMACY OP GST INVOICE";
+                                      if (Boolean(printBillData.inpatientNumber || printBillData.inpatient_number || printBillData.ipNumber || printBillData.ip_number)) return "PHARMACY IP GST INVOICE";
+                                      const btn = String(printBillData.billTypeName || printBillData.bill_type_name || "").toUpperCase();
+                                      const bm = String(printBillData.billing_mode || printBillData.billingMode || "").toUpperCase();
+                                      if (btn.includes("IP") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT")) return "PHARMACY IP GST INVOICE";
+                                      return "PHARMACY OP GST INVOICE";
+                                    })()}
+                                  </div>
+                                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                    <span>GST NO : 33ABDCS8326A1ZP</span>
+                                  </div>
+                                </div>
                               </div>
-                              <div>CIN : L85110TZ2020PLC033974</div>
-                            </div>
-                            <div style={{ textAlign: "center" }}>
-                              {printBillData.isDuplicate && (
-                                <div style={{ fontSize: 11, fontStyle: "italic", color: "#333", fontWeight: 700 }}>*** Duplicate ***</div>
-                              )}
-                              <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>
-                                {(() => {
-                                  const pm = String(printBillData.payment_mode || printBillData.paymentMode || printBillData.payment_method || "").toLowerCase();
-                                  const bm = String(printBillData.billing_mode || printBillData.billingMode || "").toUpperCase();
-                                  const isCredit = pm.includes("credit") || bm.includes("CREDIT") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT");
-                                  return isCredit ? "CREDIT BILL" : "CASH BILL";
-                                })()}
-                              </div>
-                            </div>
-                            <div style={{ textAlign: "right" }}>
-                              <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
-                                {(() => {
-                                  const billOut = String(printBillData.outlet_code || printBillData.outletCode || printBillData.outlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
-                                  if (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001")) return "PHARMACY IP GST INVOICE";
-                                  if (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002")) return "PHARMACY OP GST INVOICE";
-                                  if (Boolean(printBillData.inpatientNumber || printBillData.inpatient_number || printBillData.ipNumber || printBillData.ip_number)) return "PHARMACY IP GST INVOICE";
-                                  const btn = String(printBillData.billTypeName || printBillData.bill_type_name || "").toUpperCase();
-                                  const bm = String(printBillData.billing_mode || printBillData.billingMode || "").toUpperCase();
-                                  if (btn.includes("IP") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT")) return "PHARMACY IP GST INVOICE";
-                                  return "PHARMACY OP GST INVOICE";
-                                })()}
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                                <span>GST NO : 33ABDCS8326A1ZP</span>
-                              </div>
-                            </div>
-                          </div>
 
-                          {/* Divider Line */}
-                          <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
+                              {/* Divider Line */}
+                              <div style={{ borderTop: "1px solid #111", margin: "3px 0" }} />
 
-                          {/* Patient & Bill Details */}
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 20, fontSize: 11.5, padding: "2px 0 3px 0" }}>
-                            <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: "82px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
-                              <span style={{ color: "#222" }}>Patient</span><span>:</span><span style={{ fontWeight: 700 }}>{printBillData.patientName || "—"}</span>
-                              <span style={{ color: "#222" }}>UHID No</span><span>:</span><span>{printBillData.uhid || "—"}</span>
-                              {(printBillData.inpatientNumber || printBillData.inpatient_number || printBillData.ipNumber) && (
-                                <>
-                                  <span style={{ color: "#222" }}>IP Number</span><span>:</span><span>{printBillData.inpatientNumber || printBillData.inpatient_number || printBillData.ipNumber}</span>
-                                </>
-                              )}
-                              <span style={{ color: "#222" }}>Doctor</span><span>:</span><span>{printBillData.doctorName || "—"}</span>
-                            </div>
-                            <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: "72px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
-                              <span style={{ color: "#222" }}>Bill No</span><span>:</span><span style={{ fontWeight: 700 }}>{printBillData.billNo || "—"}</span>
-                              <span style={{ color: "#222" }}>Date</span><span>:</span><span>
-                                {(() => {
-                                  const raw = printBillData.billDate;
-                                  if (!raw || raw === "—") return "—";
-                                  try {
-                                    const s = String(raw).trim();
-                                    const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
-                                    const d = new Date(iso);
-                                    if (!isNaN(d.getTime())) {
-                                      return d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
-                                    }
-                                  } catch (e) {}
-                                  return String(raw).split(" ")[0];
-                                })()}
-                                &nbsp;&nbsp;
-                                {(() => {
-                                  const raw = printBillData.billDate;
-                                  if (!raw || raw === "—") return "—";
-                                  try {
-                                    const s = String(raw).trim();
-                                    if (/^\d{1,2}:\d{2}(?::\d{2})?(\s*[AaPp][Mm])?$/.test(s)) return s;
-                                    const iso = s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s) ? s + "Z" : s;
-                                    const d = new Date(iso);
-                                    if (!isNaN(d.getTime())) {
-                                      return d.toLocaleTimeString("en-IN", {
-                                        timeZone: "Asia/Kolkata",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                        second: "2-digit",
-                                        hour12: false
-                                      });
-                                    }
-                                  } catch (e) {}
-                                  return new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-                                })()}
+                              {/* Patient & Bill Details */}
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 20, fontSize: 11.5, padding: "2px 0 3px 0" }}>
+                                <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: "82px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
+                                  <span style={{ color: "#222" }}>Patient</span><span>:</span><span style={{ fontWeight: 700 }}>{printBillData.patientName || "—"}</span>
+                                  <span style={{ color: "#222" }}>UHID No</span><span>:</span><span>{printBillData.uhid || "—"}</span>
+                                  {(printBillData.inpatientNumber || printBillData.inpatient_number || printBillData.ipNumber) && (
+                                    <>
+                                      <span style={{ color: "#222" }}>IP Number</span><span>:</span><span>{printBillData.inpatientNumber || printBillData.inpatient_number || printBillData.ipNumber}</span>
+                                    </>
+                                  )}
+                                  <span style={{ color: "#222" }}>Doctor</span><span>:</span><span>{printBillData.doctorName || "—"}</span>
+                                </div>
+                                <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: "72px 10px 1fr", rowGap: 2, alignItems: "baseline" }}>
+                                  <span style={{ color: "#222" }}>Bill No</span><span>:</span><span style={{ fontWeight: 700 }}>{printBillData.billNo || "—"}</span>
+                                  <span style={{ color: "#222" }}>Date</span><span>:</span><span>
+                                    {formatBillDate(printBillData.billDate)} &nbsp;&nbsp; {formatBillTime(printBillData.billDate)}
+                                  </span>
+                                  {(printBillData.roomNo || printBillData.room || printBillData.room_no) && (
+                                    <>
+                                      <span style={{ color: "#222" }}>Room</span><span>:</span><span>{printBillData.roomNo || printBillData.room || printBillData.room_no}</span>
+                                    </>
+                                  )}
+                                  {(printBillData.insuranceName || printBillData.insurance_company || printBillData.insurance_name) && (
+                                    <>
+                                      <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{printBillData.insuranceName || printBillData.insurance_company || printBillData.insurance_name}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            /* Subsequent Page Continuation Header */
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 0 4px 0", borderBottom: "1px solid #111", marginBottom: 4, fontSize: 11 }}>
+                              <span>
+                                <strong>Patient:</strong> {printBillData.patientName || "—"} &nbsp;|&nbsp; <strong>Bill No:</strong> {printBillData.billNo || "—"}
                               </span>
-                              {(printBillData.roomNo || printBillData.room || printBillData.room_no) && (
-                                <>
-                                  <span style={{ color: "#222" }}>Room</span><span>:</span><span>{printBillData.roomNo || printBillData.room || printBillData.room_no}</span>
-                                </>
-                              )}
-                              {(printBillData.insuranceName || printBillData.insurance_company || printBillData.insurance_name) && (
-                                <>
-                                  <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{printBillData.insuranceName || printBillData.insurance_company || printBillData.insurance_name}</span>
-                                </>
-                              )}
+                              <span style={{ fontSize: 10.5, fontWeight: 700, color: "#005b8e", background: "#e0f2fe", padding: "2px 8px", borderRadius: 4, border: "1px solid #bae6fd" }}>
+                                Page {pageIdx + 1} of {totalPreviewPages} (Continued)
+                              </span>
                             </div>
-                          </div>
+                          )}
 
                           {/* Medicines Table */}
                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, margin: "2px 0" }}>

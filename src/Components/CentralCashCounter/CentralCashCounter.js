@@ -966,8 +966,11 @@ export default function CentralCashCounter() {
   const parseUtcDate = (val) => {
     if (!val) return null;
     if (val instanceof Date) return val;
-    const str = String(val).trim();
+    let str = String(val).trim();
     if (!str || str === "-" || str === "null" || str === "undefined") return null;
+    if (str.includes(" ") && !str.includes("T")) {
+      str = str.replace(" ", "T");
+    }
     // If ISO timestamp without explicit timezone indicator (no 'Z' and no offset like +05:30), append 'Z' so it treats as UTC
     if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:?\d{2}$/.test(str)) {
       return new Date(str + "Z");
@@ -998,7 +1001,9 @@ export default function CentralCashCounter() {
   const [returnReceivedBills, setReturnReceivedBills] = useState([]);
 
   // ── In-flight request lock refs (prevent duplicate concurrent requests) ──────
-  const isFetchingIpAdvanceRef = useRef(false);
+  const isFetchingIpAdvancePendingRef = useRef(false);
+  const isFetchingIpAdvanceUnpaidRef = useRef(false);
+  const isFetchingIpAdvanceReceivedRef = useRef(false);
   const isPollingRef = useRef(false);
 
   // ── Previous Vouchers Modal state ────────────────────────────────────────────
@@ -1358,10 +1363,11 @@ export default function CentralCashCounter() {
         : "-";
 
       const billTime = billDateObj
-        ? billDateObj.toLocaleTimeString("en-IN", {
+        ? billDateObj.toLocaleTimeString("en-US", {
             hour: "2-digit",
             minute: "2-digit",
-            hour12: false,
+            second: "2-digit",
+            hour12: true,
             timeZone: "Asia/Kolkata",
           })
         : "-";
@@ -1390,6 +1396,7 @@ export default function CentralCashCounter() {
     const rows = [];
     const isPaidFilter =
       statusFilter.toLowerCase() === "paid" || statusFilter.toLowerCase() === "received";
+    const seenKeys = new Set();
 
     admissionsArray.forEach((admission) => {
       const payments = admission.advance_payments || [];
@@ -1405,6 +1412,14 @@ export default function CentralCashCounter() {
       if (filteredPayments.length === 0) return;
 
       filteredPayments.forEach((payment) => {
+        const uniqueKey = `${admission.ipNumber}-${payment.advance_id || payment.bill_no}`;
+        const billNoKey = payment.bill_no ? `bill-${payment.bill_no}` : null;
+        if (seenKeys.has(uniqueKey) || (billNoKey && seenKeys.has(billNoKey))) {
+          return;
+        }
+        seenKeys.add(uniqueKey);
+        if (billNoKey) seenKeys.add(billNoKey);
+
         const rawDate = isPaidFilter
           ? (payment.paid_datetime || payment.paid_date || payment.bill_date || payment.date)
           : (payment.bill_date || payment.date);
@@ -1418,8 +1433,15 @@ export default function CentralCashCounter() {
               ? payment[" bill_type"]
               : null;
 
+        const resolvedPatientName =
+          payment.patient_name ||
+          payment.patientName ||
+          admission.patient_name ||
+          admission.patientName ||
+          "-";
+
         rows.push({
-          id: `${admission.ipNumber}-${payment.advance_id}`,
+          id: uniqueKey,
           // display fields
           date: billDateObj
             ? billDateObj.toLocaleDateString("en-IN", {
@@ -1430,10 +1452,11 @@ export default function CentralCashCounter() {
               })
             : "-",
           time: billDateObj
-            ? billDateObj.toLocaleTimeString("en-IN", {
+            ? billDateObj.toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: false,
+                second: "2-digit",
+                hour12: true,
                 timeZone: "Asia/Kolkata",
               })
             : "-",
@@ -1446,8 +1469,8 @@ export default function CentralCashCounter() {
               })
             : "-",
           bill_no: payment.bill_no || "-",
-          uhid_no: admission.uhid || "-",
-          patient: admission.patient_name || "-",
+          uhid_no: admission.uhid || payment.uhid || "-",
+          patient: resolvedPatientName,
           advance_amount: payment.advance_amount || 0,
           ipNumber: admission.ipNumber || "-",
           ipserial_number: admission.ipserial_number || "-",
@@ -1525,18 +1548,9 @@ export default function CentralCashCounter() {
 
     // Don't allow 0 methods
     if (checkedKeys.length === 0) {
-      handleSelectSingleMethod(method);
       return;
     }
 
-    // If exactly 1 method is left, revert to single method mode with 100% amount
-    if (checkedKeys.length === 1) {
-      handleSelectSingleMethod(checkedKeys[0]);
-      return;
-    }
-
-    // 2 or more methods active: activate multiple mode
-    setIsMultipleMode(true);
     setSelectedMethods(nextSelected);
 
     setPayments((prev) => {
@@ -1645,7 +1659,7 @@ export default function CentralCashCounter() {
           ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
           : "-";
         const billTime = dateObj
-          ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })
+          ? dateObj.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
           : "-";
 
         return {
@@ -1718,7 +1732,7 @@ export default function CentralCashCounter() {
           ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
           : "-";
         const billTime = dateObj
-          ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })
+          ? dateObj.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
           : "-";
 
         return {
@@ -1784,7 +1798,7 @@ export default function CentralCashCounter() {
             ? dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
             : "-";
           const billTime = dateObj
-            ? dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })
+            ? dateObj.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
             : "-";
 
           return {
@@ -1884,19 +1898,24 @@ export default function CentralCashCounter() {
 
       const parseIndianDateTime = (val) => {
         if (!val) return { date: "-", time: "-" };
-        const str = String(val).trim();
-        const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
-        if (m) {
-          const y = m[1];
-          const mo = m[2];
-          const d = m[3];
-          const hourNum = parseInt(m[4], 10);
-          const mi = m[5];
-          const hourStr = String(hourNum).padStart(2, "0");
-          return {
-            date: `${d}/${mo}/${y}`,
-            time: `${hourStr}:${mi}`,
-          };
+        try {
+          const d = parseUtcDate(val);
+          if (d && !isNaN(d.getTime())) {
+            const dateStr = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" }); // DD/MM/YYYY
+            const timeStr = d.toLocaleTimeString("en-US", {
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            });
+            return {
+              date: dateStr,
+              time: timeStr,
+            };
+          }
+        } catch {
+          // fallback below
         }
         return { date: "-", time: "-" };
       };
@@ -1906,8 +1925,8 @@ export default function CentralCashCounter() {
           ? (item.paid_date || item.paid_datetime || item.lastmodified_date || item.bill_date)
           : (item.bill_date || item.created_date);
         const parsed = parseIndianDateTime(rawDate);
-        const billDate = item.ist_date || item.display_date || (parsed.date !== "-" ? parsed.date : "-");
-        const billTime = item.ist_time || item.display_time || (parsed.time !== "-" ? parsed.time : "-");
+        const billDate = parsed.date !== "-" ? parsed.date : (item.ist_date || item.display_date || "-");
+        const billTime = parsed.time !== "-" ? parsed.time : (item.ist_time || item.display_time || "-");
         return {
           id: `pharmacy-${item.Bill_id}-${index}`,
           date: billDate,
@@ -1918,7 +1937,7 @@ export default function CentralCashCounter() {
           bill_type: "OP Pharmacy",
           raw_bill_type: "OPPharmacy",
           uhid_no: item.uhid || "-",
-          patient: item.patient_name || "-",
+          patient: item.patient_name || item.patientname || item.patientName || item.customer_name || "-",
           amount: parseFloat(item.net_amount || 0),
           total: parseFloat(item.net_amount || 0),
           status: item.billing_status || "-",
@@ -1941,11 +1960,7 @@ export default function CentralCashCounter() {
         if (!rawDate) return false;
         const parsed = parseIndianDateTime(rawDate);
         if (parsed.date === "-") return false;
-        const todayObj = new Date();
-        const td = String(todayObj.getDate()).padStart(2, "0");
-        const tm = String(todayObj.getMonth() + 1).padStart(2, "0");
-        const ty = todayObj.getFullYear();
-        const todayStr = `${td}/${tm}/${ty}`;
+        const todayStr = new Date().toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
         return parsed.date === todayStr;
       };
 
@@ -1976,8 +1991,8 @@ export default function CentralCashCounter() {
   }, []);
 
   const fetchIpAdvancePendingBills = useCallback(async (silent = false) => {
-    if (isFetchingIpAdvanceRef.current) return;
-    isFetchingIpAdvanceRef.current = true;
+    if (isFetchingIpAdvancePendingRef.current) return;
+    isFetchingIpAdvancePendingRef.current = true;
     if (!silent) setLoading(true);
     try {
       const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/?status=pending`, "GET");
@@ -1996,13 +2011,15 @@ export default function CentralCashCounter() {
         showToast("error", "Failed to load IP Advance data. Please try again.");
       }
     } finally {
-      isFetchingIpAdvanceRef.current = false;
+      isFetchingIpAdvancePendingRef.current = false;
       if (!silent) setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchIpAdvanceUnpaidBills = useCallback(async (silent = false) => {
+    if (isFetchingIpAdvanceUnpaidRef.current) return;
+    isFetchingIpAdvanceUnpaidRef.current = true;
     if (!silent) setLoading(true);
     try {
       const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/?status=unpaid`, "GET");
@@ -2021,6 +2038,7 @@ export default function CentralCashCounter() {
         showToast("error", "Failed to load IP Advance unpaid bills.");
       }
     } finally {
+      isFetchingIpAdvanceUnpaidRef.current = false;
       if (!silent) setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2028,6 +2046,8 @@ export default function CentralCashCounter() {
 
   // ── Fetch IP advance received bills ───────────────────────────────────────────
   const fetchIpAdvanceReceivedBills = useCallback(async (silent = false) => {
+    if (isFetchingIpAdvanceReceivedRef.current) return;
+    isFetchingIpAdvanceReceivedRef.current = true;
     if (!silent) setLoading(true);
     try {
       const response = await apiRequest(`${HmsBaseUrl}ipadvance_bills/?status=paid`, "GET");
@@ -2040,6 +2060,7 @@ export default function CentralCashCounter() {
         showToast("error", "Unable to load IP Advance received bills.");
       }
     } finally {
+      isFetchingIpAdvanceReceivedRef.current = false;
       if (!silent) setLoading(false);
     }
   }, []);
@@ -2067,9 +2088,9 @@ export default function CentralCashCounter() {
       };
 
       const formatTime = (raw) => {
-        const d = raw ? new Date(raw) : null;
-        return d ? d.toLocaleTimeString("en-IN", {
-          hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata",
+        const d = parseUtcDate(raw);
+        return d ? d.toLocaleTimeString("en-US", {
+          hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "Asia/Kolkata",
         }) : "-";
       };
 
@@ -2091,7 +2112,7 @@ export default function CentralCashCounter() {
           bill_no: item.bill_no || item.investBillNo || "-",
           bill_type_name: item.bill_type_name || item.collection_name || "-",
           uhid_no: item.uhid || item.UHID || "-",
-          patient: item.patient_name || "-",
+          patient: item.patient_name || item.patientname || item.patientName || item.customer_name || "-",
           // hospital_investrefund uses "refund_finalPrice" for the amount field
           return_amount: parseFloat(item.return_amount || item.refund_amount || item.refund_finalPrice || item.amount || 0),
           total: parseFloat(item.return_amount || item.refund_amount || item.refund_finalPrice || item.amount || 0),
@@ -2218,7 +2239,7 @@ export default function CentralCashCounter() {
       try {
         const payload = {
           Bill_id: selectedBill.Bill_id,
-          uhid: selectedBill.uhid,
+          uhid: selectedBill.uhid && selectedBill.uhid !== "-" ? selectedBill.uhid : "",
           payment_details,
           shiftno: activeShift?.shiftno || "",
           counter_id: cashCounterId,
@@ -2509,25 +2530,7 @@ export default function CentralCashCounter() {
     setSearchTerm("");
     setSelectedType("pending");
 
-    const outlet =
-      activeShift?.SelectedOutlet ||
-      localStorage.getItem("selected_outlet") ||
-      localStorage.getItem("outlet_code") ||
-      "";
-    const counter = activeShift?.CashCounter || cashCounterId || "";
-    const isOp = counter === "CC0002" || outlet === "OLET002";
-
-    if (itemLabel === "Pending Bills") {
-      if (isOp) {
-        fetchOpPharmacyPendingBills();
-      } else {
-        fetchPendingBills();
-      }
-    } else if (itemLabel === "IP Advance") {
-      fetchIpAdvancePendingBills();
-    } else if (itemLabel === "Returns Bills") {
-      fetchReturnBills();
-    } else if (itemLabel === "Receipt / Payment") {
+    if (itemLabel === "Receipt / Payment") {
       rpFetchAccountHeads();
       rpFetchRecords();
     }
@@ -2573,38 +2576,6 @@ export default function CentralCashCounter() {
   const handleTypeChange = (type) => {
     setSelectedType(type);
     setSearchTerm("");
-
-    const outlet =
-      activeShift?.SelectedOutlet ||
-      localStorage.getItem("selected_outlet") ||
-      localStorage.getItem("outlet_code") ||
-      "";
-    const counter = activeShift?.CashCounter || cashCounterId || "";
-    const isOp = counter === "CC0002" || outlet === "OLET002";
-
-    if (activeMenuItem === "Pending Bills") {
-      if (isOp) {
-        fetchOpPharmacyPendingBills();
-      } else {
-        if (type === "pending") {
-          fetchPendingBills();
-        } else if (type === "unpaid") {
-          fetchUnpaidBills();
-        } else {
-          fetchReceivedBills();
-        }
-      }
-    } else if (activeMenuItem === "IP Advance") {
-      if (type === "pending") {
-        fetchIpAdvancePendingBills();
-      } else if (type === "unpaid") {
-        fetchIpAdvanceUnpaidBills();
-      } else {
-        fetchIpAdvanceReceivedBills();
-      }
-    } else if (activeMenuItem === "Returns Bills") {
-      fetchReturnBills();
-    }
   };
 
   const handleShiftDetailsClick = () => {
@@ -2716,18 +2687,16 @@ export default function CentralCashCounter() {
     // Live continuous background fetch every 6 seconds
     const intervalId = setInterval(syncLatestData, 6000);
 
-    // Instant sync whenever cashier returns to the tab/window
+    // Instant sync whenever cashier switches back to this browser tab
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         syncLatestData();
       }
     };
-    window.addEventListener("focus", handleVisibilityChange);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       clearInterval(intervalId);
-      window.removeEventListener("focus", handleVisibilityChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [
@@ -2744,7 +2713,6 @@ export default function CentralCashCounter() {
     fetchIpAdvancePendingBills,
     fetchIpAdvanceUnpaidBills,
     fetchIpAdvanceReceivedBills,
-    fetchIpAdvanceReceivedBills,
     fetchReturnBills,
   ]);
 
@@ -2757,9 +2725,11 @@ export default function CentralCashCounter() {
   const colSpan =
     activeMenuItem === "Returns Bills"
       ? 10
-      : selectedType === "received"
-        ? 10  // Doctor + Total + Payment Method, no Action column
-        : 8;
+      : activeMenuItem === "IP Advance"
+        ? (selectedType === "received" ? 9 : 10)
+        : selectedType === "received"
+          ? 10  // Doctor + Total + Payment Method, no Action column
+          : 8;
 
   return (
     <Container>
@@ -3505,6 +3475,7 @@ export default function CentralCashCounter() {
                         {activeMenuItem === "IP Advance" ? (
                           <>
                             <TableHeader>Date</TableHeader>
+                            <TableHeader>Time</TableHeader>
                             <TableHeader>Adv Bill No</TableHeader>
                             <TableHeader>UHID</TableHeader>
                             <TableHeader>Patient Name</TableHeader>
@@ -3565,6 +3536,7 @@ export default function CentralCashCounter() {
                             {activeMenuItem === "IP Advance" ? (
                               <>
                                 <TableCell>{bill.bill_date}</TableCell>
+                                <TableCell>{bill.time}</TableCell>
                                 <TableCell>{bill.bill_no}</TableCell>
                                 <TableCell>{bill.uhid_no}</TableCell>
                                 <TableCell style={{ maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis" }} title={bill.patient}>
@@ -3986,15 +3958,15 @@ export default function CentralCashCounter() {
                       }}
                     >
                       <input
-                        type="checkbox"
+                        type={isMultipleMode ? "checkbox" : "radio"}
+                        name="payment_method_selection"
                         checked={isChecked}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={(e) => {
-                          e.stopPropagation();
-                          if (!isMultipleMode && e.target.checked) {
-                            setIsMultipleMode(true);
-                            handleToggleMultipleMethod(id, true);
-                          } else {
+                          if (isMultipleMode) {
                             handleToggleMultipleMethod(id, e.target.checked);
+                          } else {
+                            handleSelectSingleMethod(id);
                           }
                         }}
                         style={{ accentColor: "#0d9488", width: "16px", height: "16px", cursor: "pointer" }}

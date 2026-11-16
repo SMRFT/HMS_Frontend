@@ -11,6 +11,7 @@ import {
   Pill,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
   ChevronRight,
   Shield,
   User,
@@ -364,6 +365,71 @@ const TableCardWrapper = styled.div`
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
   margin-bottom: 24px;
 `;
+
+const PaginationBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  gap: 8px;
+`;
+
+const PaginationInfo = styled.span`
+  font-size: 0.78rem;
+  color: #64748b;
+  strong {
+    color: #1e293b;
+    font-weight: 700;
+  }
+`;
+
+const PaginationBtns = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const PageBtn = styled.button`
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 6px;
+  border: 1px solid ${({ $active }) => ($active ? "#0f766e" : "#e2e8f0")};
+  background: ${({ $active }) => ($active ? "#0f766e" : "#ffffff")};
+  color: ${({ $active }) => ($active ? "#ffffff" : "#475569")};
+  font-size: 0.76rem;
+  font-weight: ${({ $active }) => ($active ? "700" : "500")};
+  cursor: pointer;
+  transition: all 0.15s ease;
+  &:hover:not(:disabled) {
+    background: ${({ $active }) => ($active ? "#0d655e" : "#f1f5f9")};
+    border-color: ${({ $active }) => ($active ? "#0d655e" : "#cbd5e1")};
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
+const getPageNums = (current, total) => {
+  const pages = [];
+  const delta = 2;
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || Math.abs(i - current) <= delta) {
+      pages.push(i);
+    } else if (pages[pages.length - 1] !== "...") {
+      pages.push("...");
+    }
+  }
+  return pages;
+};
 
 const TableScrollContainer = styled.div`
   width: 100%;
@@ -1771,17 +1837,22 @@ const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) 
 };
 
 const formatBillDateTime = (val) => {
-  if (!val) return "—";
+  if (!val || val === "—" || val === "N/A") return "—";
   try {
-    const d = new Date(val);
+    let s = String(val).trim();
+    if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
+    if (s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) s += "Z";
+    const d = new Date(s);
     if (isNaN(d.getTime())) return String(val);
     const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, "0");
+    const hours24 = d.getHours();
     const minutes = String(d.getMinutes()).padStart(2, "0");
     const seconds = String(d.getSeconds()).padStart(2, "0");
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    const ampm = hours24 >= 12 ? "PM" : "AM";
+    const hours12 = String(hours24 % 12 || 12).padStart(2, "0");
+    return `${day}/${month}/${year} ${hours12}:${minutes}:${seconds} ${ampm}`;
   } catch (e) {
     return String(val);
   }
@@ -1838,6 +1909,13 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const [viewMode, setViewMode]               = useState("table"); // "table" or "cards"
   const [printPatient, setPrintPatient]       = useState(null);
   const [selectedPatientModal, setSelectedPatientModal] = useState(null);
+  const [currentPage, setCurrentPage]         = useState(1);
+  const itemsPerPage                          = 10;
+
+  // Reset page to 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, searchQuery, fromDate, toDate]);
 
   // ------ Format & Calculation Helpers (matching screenshots) ------
   const formatDateTime = (dateVal) => {
@@ -1915,18 +1993,27 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       return sum + rate * q;
     }, 0);
 
-    const advance = Number(patient?.total_ip_advance || 0);
+    const custType = String(
+      patient?.customer_type ||
+      patient?.patient_details?.customer_type ||
+      ""
+    ).trim().toUpperCase();
+
+    // ✅ IP advance check & deduction is ONLY applicable for customer_type: "GENERAL IP"
+    // Other customer types (General, Insurance, etc.) are NOT applicable for this concept.
+    const isGeneralIp = custType === "GENERAL IP";
+    const rawAdvance = Number(patient?.total_ip_advance || 0);
+    const advance = isGeneralIp ? rawAdvance : 0;
+
     const isInsurance = Boolean(
       patient?.is_insurance ||
-      String(patient?.customer_type || "").toLowerCase() === "insurance" ||
+      custType.includes("INSURANCE") ||
       patient?.insurance_company ||
       patient?.patient_details?.is_insurance ||
-      String(patient?.patient_details?.customer_type || "").toLowerCase() === "insurance" ||
       patient?.patient_details?.insurance_company
     );
-    // Requirement: Do not deduct consumable bills amount from advance.
-    // For Insurance patients, advance is not deducted (all covered by insurance).
-    const remaining = isInsurance ? advance : Math.max(0, advance - prescriptionTotal);
+
+    const remaining = isGeneralIp ? Math.max(0, advance - prescriptionTotal) : 0;
 
     return {
       itemsCount: items.length,
@@ -1934,6 +2021,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       advance,
       remaining,
       isInsurance,
+      isGeneralIp,
     };
   };
 
@@ -2097,13 +2185,35 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       console.log("fetchMedicineChart rawList count:", rawList.length, rawList);
 
       // Extra safeguard: filter by active outlet so other outlet requests are not mixed
-      const filteredList = activeOutlet
-        ? rawList.filter((bill) => {
-            const billOutlet = bill.outlet_code || bill.outletCode;
-            if (!billOutlet) return true;
-            return String(billOutlet).trim().toUpperCase() === String(activeOutlet).trim().toUpperCase();
-          })
-        : rawList;
+      // Filter by active outlet and ensure billed / fully-dispatched prescriptions are never shown in Medicine Chart
+      const filteredList = rawList.filter((bill) => {
+        // Outlet filter
+        if (activeOutlet) {
+          const billOutlet = bill.outlet_code || bill.outletCode;
+          if (billOutlet && String(billOutlet).trim().toUpperCase() !== String(activeOutlet).trim().toUpperCase()) {
+            return false;
+          }
+        }
+        // Status filter: Billed bills must NEVER display in Medicine Chart
+        const bStatus = String(bill.billing_status || "").trim().toLowerCase();
+        if (bStatus === "billed" || bStatus === "paid" || bStatus === "completed" || bStatus === "cancelled") {
+          return false;
+        }
+        // Items filter: Must have at least one item with remaining pending qty > 0
+        const items = Array.isArray(bill.medicine_items)
+          ? bill.medicine_items
+          : (Array.isArray(bill.medicine_particulars) ? bill.medicine_particulars : []);
+        if (items.length > 0) {
+          const hasPending = items.some((it) => {
+            const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
+            const disp = Number(it.dispatched_qty ?? 0);
+            const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
+            return pend > 0;
+          });
+          if (!hasPending) return false;
+        }
+        return true;
+      });
 
       setMedicineData(filteredList);
       if (typeof onCountChange === "function") {
@@ -2311,6 +2421,13 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     });
   }, [dateFilteredData, activeFilter, searchQuery]);
 
+  // --------- Pagination (10 per page) ----------------------------------------------------------------------------------------------------------------------
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(start, start + itemsPerPage);
+  }, [filteredData, currentPage, itemsPerPage]);
+
   // Date range presets helper
   const handleSetDatePreset = (preset) => {
     if (preset === "today") {
@@ -2373,29 +2490,39 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       )
     );
 
-    // Ensure selling price is provided in place of unit price & mrp for the billing screen
-    const normalizedItems = items.map(it => {
-      const up = getUnitPrice(it);
-      const resName =
-        (it.item_name && !String(it.item_name).startsWith("Item #") ? it.item_name : null) ||
-        (it.medicine_name && !String(it.medicine_name).startsWith("Item #") ? it.medicine_name : null) ||
-        (it.name && !String(it.name).startsWith("Item #") ? it.name : null) ||
-        it.item_name || it.medicine_name || it.name || "";
-      const pendingQ = it.pending_qty ?? it.qty ?? it.quantity ?? 0;
-      return {
-        ...it,
-        item_name: resName,
-        medicine_name: resName,
-        price: up,
-        mrp: up > 0 ? up : (Number(it.mrp) || 0),
-        selling_price: up,
-        Selling_Price: up,
-        qty: pendingQ,
-        requested_qty: it.requested_qty ?? it.qty ?? pendingQ,
-        dispatched_qty: it.dispatched_qty ?? 0,
-        pending_qty: pendingQ,
-      };
-    });
+    // Ensure selling price is provided in place of unit price & mrp for the billing screen,
+    // and ONLY include items with remaining pending qty > 0!
+    const normalizedItems = items
+      .map(it => {
+        const up = getUnitPrice(it);
+        const resName =
+          (it.item_name && !String(it.item_name).startsWith("Item #") ? it.item_name : null) ||
+          (it.medicine_name && !String(it.medicine_name).startsWith("Item #") ? it.medicine_name : null) ||
+          (it.name && !String(it.name).startsWith("Item #") ? it.name : null) ||
+          it.item_name || it.medicine_name || it.name || "";
+        const origQ = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
+        const dispQ = Number(it.dispatched_qty ?? 0);
+        const pendingQ = it.pending_qty != null ? Number(it.pending_qty) : Math.max(0, origQ - dispQ);
+        return {
+          ...it,
+          item_name: resName,
+          medicine_name: resName,
+          price: up,
+          mrp: up > 0 ? up : (Number(it.mrp) || 0),
+          selling_price: up,
+          Selling_Price: up,
+          qty: pendingQ,
+          requested_qty: origQ > 0 ? origQ : pendingQ,
+          dispatched_qty: dispQ,
+          pending_qty: pendingQ,
+        };
+      })
+      .filter(it => Number(it.pending_qty ?? it.qty ?? 0) > 0);
+
+    if (normalizedItems.length === 0) {
+      alert("All items in this prescription have already been fully dispatched and billed.");
+      return;
+    }
 
     onConvertToBill({ ...patient, medicine_items: normalizedItems });
   }, [onConvertToBill, HmsBaseUrl]);
@@ -2633,7 +2760,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         {/* ------ Prescription Meta Row ------ */}
         <PrescriptionMetaRow>
           <span>
-            Showing <strong>{filteredData.length}</strong> of {medicineData.length} prescriptions
+            Showing <strong>{filteredData.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredData.length)}</strong> of {filteredData.length} prescriptions
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <span style={{ color: "#64748b", fontSize: "0.72rem" }}>
@@ -2692,7 +2819,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <th>UHID</th>
                       <th>IP Number</th>
                       <th>Patient Name</th>
-                      <th>Insurance Name</th>
+                      <th>Customer Type</th>
                       <th>Ward & Room Number</th>
                       <th>Request Date & Time</th>
                       <th style={{ textAlign: "center" }}>Status</th>
@@ -2700,7 +2827,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredData.map(patient => {
+                    {paginatedData.map(patient => {
                       const billKey = getBillKey(patient);
                       const pName = patient.patient_details?.patient_name || patient.patient_name || "—";
                       const uhid = patient.uhid || "—";
@@ -2758,11 +2885,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             )}
                           </td>
 
-                          {/* 4. Insurance Name */}
+                          {/* 4. Customer Type */}
                           <td>
                             {isInsurance ? (
-                              <InsuranceTableBadge title={insCompany || custType}>
-                                {insCompany || "Insurance"}
+                              <InsuranceTableBadge title={insCompany ? `Insurance: ${insCompany}` : (patient.customer_type || "Insurance")}>
+                                {patient.customer_type || "Insurance"}
                               </InsuranceTableBadge>
                             ) : (
                               <GeneralTableBadge>{patient.customer_type || "General"}</GeneralTableBadge>
@@ -2848,6 +2975,47 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                 </StyledPrescriptionTable>
               </TableScrollContainer>
             )}
+            {!loading && filteredData.length > 0 && (
+              <PaginationBar>
+                <PaginationInfo>
+                  Showing <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> to{" "}
+                  <strong>{Math.min(currentPage * itemsPerPage, filteredData.length)}</strong> of{" "}
+                  <strong>{filteredData.length}</strong> prescriptions
+                </PaginationInfo>
+                <PaginationBtns>
+                  <PageBtn
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft size={13} /> Previous
+                  </PageBtn>
+                  {getPageNums(currentPage, totalPages).map((p, i) =>
+                    p === "..." ? (
+                      <PageBtn key={`ellipsis-${i}`} type="button" disabled style={{ border: "none", background: "transparent" }}>
+                        …
+                      </PageBtn>
+                    ) : (
+                      <PageBtn
+                        key={p}
+                        type="button"
+                        $active={p === currentPage}
+                        onClick={() => setCurrentPage(p)}
+                      >
+                        {p}
+                      </PageBtn>
+                    )
+                  )}
+                  <PageBtn
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next <ChevronRight size={13} />
+                  </PageBtn>
+                </PaginationBtns>
+              </PaginationBar>
+            )}
           </TableCardWrapper>
         ) : (
           <PrescriptionCardsList>
@@ -2865,9 +3033,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
               </div>
             </div>
           ) : (
-            filteredData.map(patient => {
+            paginatedData.map(patient => {
               const billKey = getBillKey(patient);
-              const { itemsCount, prescriptionTotal, advance } = getPatientFinancials(patient);
+              const { itemsCount, prescriptionTotal, advance, isGeneralIp } = getPatientFinancials(patient);
               const initials = getPatientInitials(patient);
               const pName = patient.patient_details?.patient_name || patient.patient_name || "—";
               const uhid = patient.uhid || "—";
@@ -2952,7 +3120,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       {itemsCount} {itemsCount === 1 ? "item" : "items"} • ₹{formatCurrency(prescriptionTotal)}
                     </CardItemsTitle>
                     <CardAdvanceSubtext style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 2 }}>
-                      <span>{custType} • Adv ₹{formatCurrency(advance)}</span>
+                      <span>{custType}{isGeneralIp ? ` • Adv ₹${formatCurrency(advance)}` : ""}</span>
                       {Array.isArray(patient?.medicine_items) && patient.medicine_items.some(isConsumableItem) && (
                         <span style={{
                           background: "#ffedd5",
@@ -3006,6 +3174,49 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           )}
         </PrescriptionCardsList>
         )}
+        {viewMode === "cards" && !loading && filteredData.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <PaginationBar style={{ borderRadius: 12, border: "1px solid #e2e8f0" }}>
+              <PaginationInfo>
+                Showing <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> to{" "}
+                <strong>{Math.min(currentPage * itemsPerPage, filteredData.length)}</strong> of{" "}
+                <strong>{filteredData.length}</strong> prescriptions
+              </PaginationInfo>
+              <PaginationBtns>
+                <PageBtn
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft size={13} /> Previous
+                </PageBtn>
+                {getPageNums(currentPage, totalPages).map((p, i) =>
+                  p === "..." ? (
+                    <PageBtn key={`ellipsis-c-${i}`} type="button" disabled style={{ border: "none", background: "transparent" }}>
+                      …
+                    </PageBtn>
+                  ) : (
+                    <PageBtn
+                      key={p}
+                      type="button"
+                      $active={p === currentPage}
+                      onClick={() => setCurrentPage(p)}
+                    >
+                      {p}
+                    </PageBtn>
+                  )
+                )}
+                <PageBtn
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next <ChevronRight size={13} />
+                </PageBtn>
+              </PaginationBtns>
+            </PaginationBar>
+          </div>
+        )}
 
         {/* ------ Bottom Legend (matching Screenshot 2) ------ */}
         <BottomLegendWrap>
@@ -3034,7 +3245,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           <DetailModalBox onClick={e => e.stopPropagation()}>
             {(() => {
               const patient = selectedPatientModal;
-              const { itemsCount, prescriptionTotal, advance, remaining } = getPatientFinancials(patient);
+              const { itemsCount, prescriptionTotal, advance, remaining, isGeneralIp } = getPatientFinancials(patient);
               const initials = getPatientInitials(patient);
               const pName = patient.patient_details?.patient_name || patient.patient_name || "—";
               const uhid = patient.uhid || "—";
@@ -3045,7 +3256,16 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                 ? (patient.doctor_name.toLowerCase().startsWith("dr") ? patient.doctor_name : `Dr. ${patient.doctor_name}`)
                 : "Dr. Murugavel R";
               const contact = patient.patient_details?.mobile || patient.mobile || patient.contact || "—";
-              const items = Array.isArray(patient.medicine_items) ? patient.medicine_items : [];
+              const rawItems = Array.isArray(patient.medicine_items)
+                ? patient.medicine_items
+                : (Array.isArray(patient.medicine_particulars) ? patient.medicine_particulars : []);
+              // Only display pending items in the medicine chart modal:
+              const items = rawItems.filter((it) => {
+                const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
+                const disp = Number(it.dispatched_qty ?? 0);
+                const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
+                return pend > 0;
+              });
               const isModalInsurance = Boolean(
                 patient.is_insurance ||
                 String(patient.customer_type || "").toLowerCase() === "insurance" ||
@@ -3056,6 +3276,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
               const modalBlock = patient.block || patient.patient_details?.block || patient.room_details?.block || "";
               const modalNursingStation = patient.nursing_station || patient.patient_details?.nursing_station || patient.room_details?.nursing_station || "";
               const modalRequestedBy = patient.created_by_name || patient.prepared_by || patient.patient_details?.created_by_name || patient.patient_details?.prepared_by || patient.created_by || "";
+              const modalCustType = isModalInsurance
+                ? (modalInsCompany ? `Insurance (${modalInsCompany})` : "Insurance")
+                : (patient.customer_type || "General");
 
               return (
                 <>
@@ -3095,9 +3318,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             Requested by: {modalRequestedBy}
                           </span>
                         )}
-                        {isModalInsurance && modalInsCompany && (
-                          <span style={{ color: "#047857", fontWeight: 700 }}>
-                            Insurance: {modalInsCompany}
+                        {(modalInsCompany || isModalInsurance) && (
+                          <span style={{ background: "#ecfdf5", color: "#047857", border: "1px solid #a7f3d0", padding: "2px 8px", borderRadius: 4, fontWeight: 700, fontSize: "0.72rem" }}>
+                            Insurance: {modalInsCompany || "Insurance"}
                           </span>
                         )}
                       </div>
@@ -3136,13 +3359,29 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <StripVal>₹{formatCurrency(prescriptionTotal)}</StripVal>
                     </StripCell>
                     <StripCell>
-                      <StripLabel>Available IP advance</StripLabel>
-                      <StripVal>₹{formatCurrency(advance)}</StripVal>
+                      <StripLabel>Customer Type</StripLabel>
+                      <StripVal>{patient.customer_type || (isModalInsurance ? "Insurance" : "General")}</StripVal>
                     </StripCell>
-                    <StripCell>
-                      <StripLabel style={{ color: "#0f766e" }}>Remaining after deduction</StripLabel>
-                      <StripVal $color="#0f766e">₹{formatCurrency(remaining)}</StripVal>
-                    </StripCell>
+                    {(isModalInsurance || modalInsCompany) && (
+                      <StripCell>
+                        <StripLabel>Insurance Name</StripLabel>
+                        <StripVal style={{ color: "#047857", fontWeight: 700 }}>
+                          {modalInsCompany || "Insurance"}
+                        </StripVal>
+                      </StripCell>
+                    )}
+                    {isGeneralIp && (
+                      <>
+                        <StripCell>
+                          <StripLabel>Available IP advance</StripLabel>
+                          <StripVal>₹{formatCurrency(advance)}</StripVal>
+                        </StripCell>
+                        <StripCell>
+                          <StripLabel style={{ color: remaining <= 0 && advance > 0 ? "#ef4444" : "#0f766e" }}>Remaining after deduction</StripLabel>
+                          <StripVal $color={remaining <= 0 && advance > 0 ? "#ef4444" : "#0f766e"}>₹{formatCurrency(remaining)}</StripVal>
+                        </StripCell>
+                      </>
+                    )}
                   </PatientSummaryStrip>
 
                   <ModalTableContainer>

@@ -154,6 +154,29 @@ const RefreshBtn = styled(Button)`
   }
 `;
 
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: ${fadeIn} 0.2s ease-out;
+`;
+
+const ConfirmBox = styled.div`
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  border: 1px solid #e2e8f0;
+`;
+
 /**
  * ViewEstimate
  *
@@ -168,6 +191,8 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
   const [estimates, setEstimates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [cancellingEstimate, setCancellingEstimate] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   const fetchEstimates = async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -187,7 +212,7 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
       setEstimates(list);
     } catch (error) {
       console.error("Error fetching estimates:", error);
-      if (isInitial) toast.error("Failed to load estimates.");
+      if (isInitial) toast.error("Failed to load estimates.", { autoClose: 2000, pauseOnHover: false });
     } finally {
       if (isInitial) setLoading(false);
     }
@@ -205,11 +230,56 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
 
   const handleConvert = (estimate) => {
     if (!estimate.Bill_id) {
-      toast.error("Estimate is missing Bill_id — cannot load.");
+      toast.error("Estimate is missing Bill_id — cannot load.", { autoClose: 2000, pauseOnHover: false });
       return;
     }
     if (typeof onConvertEstimate === "function") {
       onConvertEstimate(estimate);
+    }
+  };
+
+  const handleCancelEstimate = async () => {
+    if (!cancellingEstimate) return;
+    setCancelLoading(true);
+    try {
+      const payload = {
+        Bill_id: cancellingEstimate.Bill_id,
+        estimate_no: cancellingEstimate.estimate_no,
+        cancel_reason: "Cancelled from View Estimate page",
+      };
+      if (activeOutlet) {
+        payload.outlet_code = activeOutlet;
+      }
+      const res = await apiRequest(`${HmsBaseUrl}cancel_estimate_bill/`, "POST", payload);
+      if (res?.status === "success" || res?.success) {
+        toast.success(res?.message || "Estimate cancelled successfully.", { autoClose: 2000, pauseOnHover: false });
+        // Immediately remove from state so it disappears right away
+        setEstimates((prev) =>
+          prev.filter(
+            (e) =>
+              e.Bill_id !== cancellingEstimate.Bill_id &&
+              e.estimate_no !== cancellingEstimate.estimate_no
+          )
+        );
+        fetchEstimates(false);
+        try {
+          if (typeof BroadcastChannel !== "undefined") {
+            new BroadcastChannel("hms_billing_channel").postMessage({
+              type: "ESTIMATE_CANCELLED",
+              estimateNo: cancellingEstimate.estimate_no,
+              billId: cancellingEstimate.Bill_id,
+            });
+          }
+        } catch (e) {}
+      } else {
+        toast.error(res?.message || "Failed to cancel estimate.", { autoClose: 2000, pauseOnHover: false });
+      }
+    } catch (err) {
+      console.error("Error cancelling estimate:", err);
+      toast.error("Failed to cancel estimate. Please try again.", { autoClose: 2000, pauseOnHover: false });
+    } finally {
+      setCancelLoading(false);
+      setCancellingEstimate(null);
     }
   };
 
@@ -234,8 +304,10 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
     });
   };
 
-  // Filter by search query (Estimate No, Patient Name, UHID, Doctor)
+  // Filter by search query (Estimate No, Patient Name, UHID, Doctor) and strictly exclude Cancelled
   const filteredEstimates = estimates.filter((e) => {
+    const bStatus = String(e.billing_status || e.status || "").toLowerCase();
+    if (bStatus === "cancelled" || e.is_cancelled) return false;
     if (!searchTerm.trim()) return true;
     const q = searchTerm.toLowerCase();
     const estNo = String(e.estimate_no || "").toLowerCase();
@@ -248,7 +320,7 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
 
   return (
     <PageWrapper>
-      <StyledToastContainer position="top-right" autoClose={3000} />
+      <StyledToastContainer position="top-right" autoClose={2000} hideProgressBar={false} closeOnClick pauseOnHover={false} limit={3} />
       <Card>
         {/* ── Estimates Table ── */}
         <ContentSection>
@@ -324,12 +396,20 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
                           <StatusBadge>Estimate</StatusBadge>
                         </Td>
                         <Td style={{ textAlign: "center" }}>
-                          <Button
-                            style={{ padding: "6px 14px", fontSize: "0.82rem", background: "#0f766e", color: "#fff" }}
-                            onClick={() => handleConvert(estimate)}
-                          >
-                            Edit / Convert
-                          </Button>
+                          <div style={{ display: "flex", gap: 8, justifyContent: "center", alignItems: "center" }}>
+                            <Button
+                              style={{ padding: "6px 14px", fontSize: "0.82rem", background: "#0f766e", color: "#fff" }}
+                              onClick={() => handleConvert(estimate)}
+                            >
+                              Edit / Convert
+                            </Button>
+                            <Button
+                              style={{ padding: "6px 14px", fontSize: "0.82rem", background: "#ef4444", color: "#fff", border: "none" }}
+                              onClick={() => setCancellingEstimate(estimate)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
                         </Td>
                       </Tr>
                     );
@@ -340,6 +420,41 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
           )}
         </ContentSection>
       </Card>
+
+      {/* ── Cancel Estimate Confirmation Modal ── */}
+      {cancellingEstimate && (
+        <ModalOverlay onClick={() => !cancelLoading && setCancellingEstimate(null)}>
+          <ConfirmBox onClick={(e) => e.stopPropagation()}>
+            <h4 style={{ margin: "0 0 10px 0", color: "#b91c1c", fontSize: "1.1rem" }}>⚠ Cancel Estimate?</h4>
+            <p style={{ margin: "0 0 16px 0", fontSize: "0.9rem", color: "#334155", lineHeight: "1.5" }}>
+              Are you sure you want to cancel estimate{" "}
+              <strong>{cancellingEstimate.estimate_no || `EST-${cancellingEstimate.Bill_id}`}</strong>
+              {cancellingEstimate.patient_name ? ` for ${cancellingEstimate.patient_name}` : ""}?
+              <br />
+              <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                This will release any blocked stock and remove the estimate from view.
+              </span>
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <Button
+                style={{ padding: "7px 16px", background: "#ef4444", color: "#fff", border: "none" }}
+                onClick={handleCancelEstimate}
+                disabled={cancelLoading}
+              >
+                {cancelLoading ? "Cancelling..." : "Yes, Cancel"}
+              </Button>
+              <Button
+                secondary
+                style={{ padding: "7px 16px" }}
+                onClick={() => setCancellingEstimate(null)}
+                disabled={cancelLoading}
+              >
+                Go Back
+              </Button>
+            </div>
+          </ConfirmBox>
+        </ModalOverlay>
+      )}
     </PageWrapper>
   );
 };
