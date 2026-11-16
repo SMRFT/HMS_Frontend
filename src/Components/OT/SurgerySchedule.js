@@ -825,7 +825,7 @@ const ActionPopover = ({
   canMedicine,
   canImplant,
 }) => {
-  const isConfirmed = s.status === "Confirmed";
+  const isConfirmed = s.status === "Confirmed" || String(s.status || "").trim().toLowerCase() === "confirmed";
   const isCompleted = s.status === "Completed";
   const isCancelled = s.status === "Cancelled";
   const isPostponed = s.status === "Postponed" || Boolean(s.is_postponed);
@@ -837,9 +837,9 @@ const ActionPopover = ({
   const lockReschedule = (!isConfirmed && !isPostponed && !isRescheduled) || isCancelled || isCompleted;
   const lockConfirm = isCancelled || isCompleted;
   const lockCssd = s.is_pack_request_CSSD && s.is_pack_return_CSSD;
-  // Requisitions (Lab, Medicine, Implant) - active for all active surgeries (not cancelled)
-  const requestsDisabled = isCancelled;
-  const requestLockReason = isCancelled ? "Cancelled" : "";
+  // Requisitions (Lab, Medicine, Implant) - enabled only when surgery status is Confirmed
+  const requestsDisabled = !isConfirmed;
+  const requestLockReason = !isConfirmed ? (isCancelled ? "Cancelled" : "Requires Confirmation") : "";
 
   // Close on Escape key press
   useEffect(() => {
@@ -923,7 +923,11 @@ const ActionPopover = ({
         canLab && {
           icon: <FlaskConical size={18} />,
           label: "Lab Request",
-          subtext: requestsDisabled ? "Cancelled" : "Order investigations",
+          subtext: requestsDisabled
+            ? isCancelled
+              ? "Cancelled"
+              : "Requires Confirmation"
+            : "Order investigations",
           color: "#0891b2",
           disabled: requestsDisabled,
           onClick: onLab,
@@ -931,7 +935,11 @@ const ActionPopover = ({
         canMedicine && {
           icon: <Pill size={18} />,
           label: "Medicine Request",
-          subtext: requestsDisabled ? "Cancelled" : "Order drugs & kit",
+          subtext: requestsDisabled
+            ? isCancelled
+              ? "Cancelled"
+              : "Requires Confirmation"
+            : "Order drugs & kit",
           color: "#7c3aed",
           disabled: requestsDisabled,
           onClick: onMedicine,
@@ -939,7 +947,11 @@ const ActionPopover = ({
         canImplant && {
           icon: <Hammer size={18} />,
           label: "Implant Request",
-          subtext: requestsDisabled ? "Cancelled" : "Request implants",
+          subtext: requestsDisabled
+            ? isCancelled
+              ? "Cancelled"
+              : "Requires Confirmation"
+            : "Request implants",
           color: "#b45309",
           disabled: requestsDisabled,
           onClick: onImplant,
@@ -1340,6 +1352,10 @@ const SurgerySchedule = () => {
   // ── Raise Lab Request → navigate to InvestigationBilling ─────────────────
   const raiseLabRequest = (s) => {
     if (!s) return;
+    if (s?.status && String(s.status).trim().toLowerCase() !== "confirmed") {
+      toast.warning("Clinical Requisitions are allowed only when surgery status is Confirmed");
+      return;
+    }
     const ip = s.ip_number || s.ipNumber || s.inpatient_number || "";
     const uhid = s.uhid || s.uhid_no || s.UHID || "";
     const patientName = s.patient_name || s.patientName || s.firstName || "";
@@ -1370,6 +1386,10 @@ const SurgerySchedule = () => {
   // ── Raise Medicine Request → navigate to OTMedicineBilling ──────────────
   const raiseMedicineRequest = (s) => {
     if (!s) return;
+    if (s?.status && String(s.status).trim().toLowerCase() !== "confirmed") {
+      toast.warning("Clinical Requisitions are allowed only when surgery status is Confirmed");
+      return;
+    }
     const ip = s.ip_number || s.ipNumber || s.inpatient_number || "";
     const uhid = s.uhid || s.uhid_no || s.UHID || "";
     const patientName = s.patient_name || s.patientName || s.firstName || "";
@@ -1405,6 +1425,10 @@ const SurgerySchedule = () => {
   // ── Raise Implant Request → navigate to OTImplantRequest ────────────────
   const raiseImplantRequest = (s) => {
     if (!s) return;
+    if (s?.status && String(s.status).trim().toLowerCase() !== "confirmed") {
+      toast.warning("Clinical Requisitions are allowed only when surgery status is Confirmed");
+      return;
+    }
     const ip = s.ip_number || s.ipNumber || s.inpatient_number || "";
     const uhid = s.uhid || s.uhid_no || s.UHID || "";
     const patientName = s.patient_name || s.patientName || s.firstName || "";
