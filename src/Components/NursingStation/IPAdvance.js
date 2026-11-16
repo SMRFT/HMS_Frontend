@@ -1075,8 +1075,10 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   const total        = parseFloat(amount) || 0;
   const splitIP      = parseFloat(ipAdv)  || 0;
   const splitBill    = parseFloat(billAdv) || 0;
-  const splitEntered = ipAdv.trim() !== "" && billAdv.trim() !== "";
-  const splitOk      = total > 0 && splitEntered && Math.abs(splitIP + splitBill - total) < 0.01;
+  const hasIpEntered = ipAdv.trim() !== "";
+  const hasBillEntered = billAdv.trim() !== "";
+  const splitEntered = hasIpEntered || hasBillEntered;
+  const splitOk      = !splitEntered || (total > 0 && Math.abs(splitIP + splitBill - total) < 0.01);
   const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
   const formatSlipAmount = (v) => parseFloat(v || 0).toFixed(2);
   const formatSlipDate = (d) => {
@@ -1474,18 +1476,19 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
     const bType = DEFAULT_BILL_TYPE;
     const bTypeNo = DEFAULT_BILL_TYPE_NO;
 
-    if (!splitEntered)
-      return toast.warning("Both IP Advance and Billing Advance must be entered");
-    if (!splitOk)
+    if (splitEntered && !splitOk)
       return toast.warning(`IP Advance (₹${fmt(splitIP)}) + Billing Advance (₹${fmt(splitBill)}) must equal Advance Amount (₹${fmt(total)})`);
+
+    const effIP = splitEntered ? (hasIpEntered ? splitIP : Math.max(0, total - splitBill)) : total;
+    const effBill = splitEntered ? (hasBillEntered ? splitBill : Math.max(0, total - splitIP)) : 0;
 
     setSaving(true);
     try {
       const payload = {
         date,
         advance_amount: total,
-        ip_advance: splitIP,
-        billing_advance: splitBill,
+        ip_advance: effIP,
+        billing_advance: effBill,
         payment_mode: paymentMode,
         bill_type: bType,
         billTypeNo: bTypeNo,
@@ -2370,7 +2373,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                     </F>
 
                     <SplitBox>
-                      <SplitHeader>↳ Split Advance</SplitHeader>
+                      <SplitHeader>↳ Split Advance (Optional)</SplitHeader>
                       <SplitGrid>
                         <F>
                           <Lbl>IP Advance (₹)</Lbl>
@@ -2390,7 +2393,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                       {total > 0 && (
                         <SplitNote ok={splitOk}>
                           {!splitEntered
-                            ? `⚠ Enter both IP Advance & Billing Advance (Total: ₹${fmt(total)})`
+                            ? `Optional: Defaults to IP Advance ₹${fmt(total)} & Billing Advance ₹0.00`
                             : splitOk
                               ? `✓ Balanced — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} = ₹${fmt(total)}`
                               : `⚠ Mismatch — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} ≠ ₹${fmt(total)}`}
