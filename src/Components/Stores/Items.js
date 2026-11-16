@@ -3,17 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import ReactSelect from 'react-select';
 import { 
     LineChart, X, Plus, Search, Edit2, Trash2, FilterX, Layers, 
-    AlertCircle, CheckCircle, Package, Building2, Tag, 
-    AlertTriangle, Box, ShieldCheck, Sparkles, ArrowUpDown, PackagePlus
+    Package, Building2, Tag, 
+    AlertTriangle, Box, ShieldCheck, Sparkles, PackagePlus, FileText
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 import TablePagination, { usePagination } from './TablePagination';
 import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
-import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
+import { DepartmentFilterControl } from './DepartmentSelectionModal';
 import {
     PageWrapper,
     Container,
-    SectionHeader,
     ControlsContainer,
     SearchContainer,
     Input,
@@ -23,13 +22,9 @@ import {
     Th,
     Td,
     Tr,
-    FormContent,
-    FormRow,
     InputWrapper,
     Label,
     ButtonContainer,
-    TabContainer,
-    Tab,
     ModalOverlay,
     ModalContainer,
     ModalHeader,
@@ -665,11 +660,6 @@ const Items = () => {
         totalItems
     } = usePagination(filteredItems, 15);
 
-    const lowStockCount = items.filter(item => {
-        const avail = Number(item.total_quantity || 0) - Number(item.approved_quantity || 0);
-        return avail <= Number(item.stockReorderLevel || 0);
-    }).length;
-
     const clearFilters = () => {
         setSearchTerm('');
         setFilterDepartment('');
@@ -677,18 +667,6 @@ const Items = () => {
         setFilterCategory('');
         setFilterGroup('');
         setFilterLowStock(false);
-    };
-
-    const getDepartmentName = (id) => {
-        if (!id || id === '-') return '-';
-        const strId = String(id).toLowerCase().trim();
-        const dept = allDepartments.find(d => 
-            String(d.department_id || '').toLowerCase().trim() === strId ||
-            String(d.department_code || '').toLowerCase().trim() === strId ||
-            String(d.id || '').toLowerCase().trim() === strId ||
-            String(d.department_name || '').toLowerCase().trim() === strId
-        );
-        return dept ? (dept.department_name || dept.name || id) : id;
     };
 
     const getGroupName = (id) => {
@@ -1185,6 +1163,27 @@ const Items = () => {
                             >
                                 <Plus size={18} /> Add {activeTab.label.replace(' Master', '')}
                             </Button>
+                            {activeTab.id === 'item' && (
+                                <Button
+                                    onClick={() => navigate('/StoresItemMasterStockReport')}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '10px 18px',
+                                        fontSize: '0.9rem',
+                                        borderRadius: '10px',
+                                        fontWeight: '700',
+                                        background: '#0284c7',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)'
+                                    }}
+                                >
+                                    <FileText size={18} /> Stock Report
+                                </Button>
+                            )}
                         </div>
                     </div>
 

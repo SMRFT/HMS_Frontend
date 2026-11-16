@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from "react"
 import {
-  PageWrapper, Container, SectionTitle, Input, Select, Button,
-  Table, Th, Td, Tr, Label, FormContent, ControlsContainer,
-  SearchContainer, InputWrapper, TableWrapper, colors,
+  PageWrapper, Container,
+  Table, Th, Td, Tr, FormContent, colors,
 } from "../GlobalStyles"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
-import { Eye, CheckCircle, X, Printer, ZoomIn, ZoomOut, RotateCcw, Download, FileText } from "lucide-react"
+import { X, Printer, ZoomIn, ZoomOut, RotateCcw, Download, FileText } from "lucide-react"
 import styled from "styled-components"
 import dayjs from "dayjs"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
-import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvNativeSelect } from "./InventoryUIHelper"
+import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvNativeSelect } from "./InventoryUIHelper"
 
 /* ─── Styled Components ─────────────────────────────────────────────────── */
 const PageHeader = styled.div`
@@ -21,73 +20,6 @@ const PageHeader = styled.div`
 `
 const PageTitle = styled.h1`margin: 0; font-size: 1.1rem; font-weight: 700;`
 const PageSubtitle = styled.p`margin: 2px 0 0; font-size: 0.75rem; opacity: 0.8;`
-
-const FilterBar = styled.div`
-  display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
-  background: #f8fafc; border: 1px solid ${colors.border};
-  border-radius: 6px; padding: 12px 14px; margin-bottom: 12px;
-`
-const Lbl = styled(Label)`font-size: 0.72rem; margin-bottom: 2px; display: block;`
-const FInp = styled(Input)`font-size: 0.8rem; height: 34px; min-width: 140px;`
-
-const TTBar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid #e5e7eb;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-`;
-
-const TableSelect = styled.select`
-  height: 28px;
-  width: 72px;
-  padding: 0 6px;
-  font-size: .75rem;
-  font-weight: 600;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
-  color: #1f2937;
-  cursor: pointer;
-  outline: none;
-  &:focus {
-    border-color: ${colors.primary};
-  }
-`;
-
-const Pager = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-top: 1px solid #e5e7eb;
-  font-size: .75rem;
-  color: #6b7280;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-`;
-
-const PB = styled.button`
-  height: 28px;
-  padding: 0 13px;
-  font-size: .75rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: ${p => p.active ? colors.primary : '#fff'};
-  color: ${p => p.active ? '#fff' : '#374151'};
-  cursor: pointer;
-  &:disabled {
-    opacity: .45;
-    cursor: default;
-  }
-  &:hover:not(:disabled) {
-    background: ${p => p.active ? colors.primary : '#f3f4f6'};
-  }
-`;
 
 const ScrollTable = styled.div`width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;`
 
@@ -169,7 +101,6 @@ const GRN_TYPE_FILTERS = [
   { value: "OPENING_STOCK_DRUG", label: "Opening Stock" },
 ]
 
-const todayStr = () => new Date().toISOString().split("T")[0]
 const fmtDate = (d) => d ? d.split("T")[0] : "—"
 const fmt2 = (v) => {
   const n = parseFloat(v || 0);
@@ -209,20 +140,21 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
   /* Normalized items calculation */
   const normalizedItems = (items || []).map((it, i) => {
     const qty = parseFloat(it.quantity || it.qty || 0);
-    const pack = it.packing || it.pack || 1;
+    const pack = parseFloat(it.packing || it.pack || 1) || 1;
     const free = parseFloat(it.free || it.free_qty || 0);
     const pRate = parseFloat(it.unitPrice || it.unit_price || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
-    const pCost = parseFloat(it.unitCost || it.purchase_cost_display || (qty ? (parseFloat(it.purchaseCost || it.purchase_cost || 0) / qty) : 0) || pRate);
     const mrp = parseFloat(it.mrp || 0);
     const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
-    const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / (pack || 1))) - disc);
+    const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / pack)) - disc);
     const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
-    const cgstAmt = parseFloat(it.cgst_amt || it.cgstAmt || (taxable * cgstRate / 100) || 0);
     const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
-    const sgstAmt = parseFloat(it.sgst_amt || it.sgstAmt || (taxable * sgstRate / 100) || 0);
     const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
-    const igstAmt = parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
-    const totalAmt = parseFloat(it.purchase_cost || it.purchaseCost || it.total_amount || (taxable + cgstAmt + sgstAmt + igstAmt));
+
+    const cgstAmt = cgstRate > 0 ? Number(((taxable * cgstRate) / 100).toFixed(2)) : parseFloat(it.cgst_amt || it.cgstAmt || 0);
+    const sgstAmt = sgstRate > 0 ? Number(((taxable * sgstRate) / 100).toFixed(2)) : parseFloat(it.sgst_amt || it.sgstAmt || 0);
+    const igstAmt = igstRate > 0 ? Number(((taxable * igstRate) / 100).toFixed(2)) : parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
+    const totalAmt = Number((taxable + cgstAmt + sgstAmt + igstAmt).toFixed(2));
+    const pCost = qty > 0 ? Number((totalAmt / qty).toFixed(2)) : pRate;
 
     let expDisplay = it.expiry || it.expDate || "—";
     if (expDisplay && expDisplay !== "—") {
@@ -256,20 +188,28 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
 
   /* Totals */
   const totalTaxable = normalizedItems.reduce((s, i) => s + i.taxable, 0);
-  const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0) || parseFloat(grn.cgst || 0);
-  const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0) || parseFloat(grn.sgst || 0);
-  const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0) || parseFloat(grn.igst || 0);
+  const totalCgst = normalizedItems.reduce((s, i) => s + i.cgstAmt, 0);
+  const totalSgst = normalizedItems.reduce((s, i) => s + i.sgstAmt, 0);
+  const totalIgst = normalizedItems.reduce((s, i) => s + i.igstAmt, 0);
   const totalDisc = normalizedItems.reduce((s, i) => s + i.disc, 0) || parseFloat(grn.total_discount || 0);
-  const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0) || parseFloat(grn.total_amount || 0);
+  const totalItemAmounts = normalizedItems.reduce((s, i) => s + i.totalAmt, 0);
   const taxOnFree = parseFloat(grn.tax_on_free_items || grn.tax_on_free || 0);
-  const rawRoundOff = parseFloat(grn.round_amount || 0);
   const totalGst = totalCgst + totalSgst + totalIgst;
-  const rawNetAmt = Number(
-    parseFloat(grn.net_invoice_amount || grn.net_amount || (totalItemAmounts + taxOnFree + rawRoundOff)).toFixed(2)
-  );
-  const netAmt = Math.floor(rawNetAmt);
-  const pointDiff = Number((netAmt - rawNetAmt).toFixed(2));
-  const roundOff = Number((rawRoundOff + pointDiff).toFixed(2));
+
+  const calcNet = totalTaxable - totalDisc + totalGst + taxOnFree;
+  const storedNet = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || 0);
+  const storedRound = parseFloat(grn.round_amount?.$numberDecimal || grn.round_amount || 0);
+
+  let netAmt = 0;
+  let roundOff = storedRound;
+
+  if (storedNet > 0 && Math.abs(storedNet - calcNet) <= 5) {
+      netAmt = storedNet;
+      roundOff = Number((netAmt - calcNet).toFixed(2));
+  } else {
+      netAmt = Math.round(calcNet);
+      roundOff = Number((netAmt - calcNet).toFixed(2));
+  }
 
   /* Shared cell styles */
   const th = (extra = {}) => ({
@@ -463,7 +403,7 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
         <table style={{ borderLeft: "1px solid #7dd3fc", borderCollapse: "collapse", fontSize: 11.5, minWidth: 175, alignSelf: "stretch" }}>
           <tbody>
             {[
-              ["Total", fmt2(totalTaxable), false],
+              ["Total Taxable", fmt2(totalTaxable), false],
               ["Discount", fmt2(totalDisc), false],
               ["Tax On Free", fmt2(taxOnFree), false],
               ["Round off.", fmt2(roundOff), false],
@@ -521,7 +461,6 @@ const GRNAnalysis = () => {
   const [typeFilter, setTypeFilter] = useState("")
   const [viewGrn, setViewGrn] = useState(null)
   const [viewItems, setViewItems] = useState([])
-  const [confirmId, setConfirmId] = useState(null)
   const [zoom, setZoom] = useState(1)
   const [exporting, setExporting] = useState(false)
   const printRef = useRef()
@@ -726,7 +665,6 @@ const GRNAnalysis = () => {
 
   const handleGenerateGRN = async (grn) => {
     if (grn.status === "Verified") { toast.info("GRN already verified."); return }
-    setConfirmId(grn.grn_id)
     try {
       const payload = {
         ...grn, status: "Verified", draft_number: grn.draft_number,
@@ -738,7 +676,6 @@ const GRNAnalysis = () => {
       toast.success(`GRN Verified & stock updated! GRN: ${r.data?.grn_number}`)
       fetchGRNList()
     } catch { toast.error("Network error") }
-    finally { setConfirmId(null) }
   }
 
   return (

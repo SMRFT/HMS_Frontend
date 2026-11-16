@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
@@ -37,18 +38,23 @@ const SummaryCard = styled.div`
     animation: ${fadeIn} 0.4s ease-out;
 `;
 
-const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
-    const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-01"));
-    const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
+const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialStartDate, initialEndDate }) => {
+    const location = useLocation();
+    const effectiveStart = startDate || initialStartDate || location.state?.startDate || location.state?.from_date;
+    const effectiveEnd = endDate || initialEndDate || location.state?.endDate || location.state?.to_date;
+    const [fromDate, setFromDate] = useState(effectiveStart || format(new Date(), "yyyy-MM-01"));
+    const [toDate, setToDate] = useState(effectiveEnd || format(new Date(), "yyyy-MM-dd"));
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
     useEffect(() => {
-        if (startDate) setFromDate(startDate);
-        if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        const s = startDate || initialStartDate || location.state?.startDate || location.state?.from_date;
+        const e = endDate || initialEndDate || location.state?.endDate || location.state?.to_date;
+        if (s) setFromDate(s);
+        if (e) setToDate(e);
+    }, [startDate, endDate, initialStartDate, initialEndDate, location.state]);
 
     const fetchReport = useCallback(async () => {
         if (!fromDate || !toDate) return;
@@ -112,7 +118,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
         if (!Array.isArray(reportData)) return { cash: 0, credit: 0, total: 0 };
         return reportData.reduce((acc, curr) => {
             const cash = Number(curr.cash_amount ?? ((curr.payment_mode || "").toLowerCase() === "cash" ? curr.amount : 0) ?? 0);
-            const credit = Number(curr.credit_amount ?? ((curr.payment_mode || "").toLowerCase() !== "cash" ? curr.amount : 0) ?? 0);
+            const credit = Number(curr.credit_amount || curr.credit_card_amount || curr.bank_amount || ((curr.payment_mode || "").toLowerCase() !== "cash" ? curr.amount : 0) || 0);
             const safeCash = isNaN(cash) ? 0 : cash;
             const safeCredit = isNaN(credit) ? 0 : credit;
             acc.cash += safeCash;
@@ -141,7 +147,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
 
                 items.forEach((row) => {
                     const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
-                    const credit = Number(row.credit_amount ?? ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) ?? 0);
+                    const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount || ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
                     const safeCash = isNaN(cash) ? 0 : cash;
                     const safeCredit = isNaN(credit) ? 0 : credit;
                     dayCash += safeCash;
@@ -305,7 +311,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                                         </Tr>
                                         {items.map((row, rowIdx) => {
                                             const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
-                                            const credit = Number(row.credit_amount ?? ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) ?? 0);
+                                            const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount || ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
                                             const safeCash = isNaN(cash) ? 0 : cash;
                                             const safeCredit = isNaN(credit) ? 0 : credit;
                                             dayCash += safeCash;
@@ -432,7 +438,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                                         </tr>
                                         {items.map((row, rowIdx) => {
                                             const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
-                                            const credit = Number(row.credit_amount ?? ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) ?? 0);
+                                            const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount || ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
                                             const safeCash = isNaN(cash) ? 0 : cash;
                                             const safeCredit = isNaN(credit) ? 0 : credit;
                                             dayCash += safeCash;

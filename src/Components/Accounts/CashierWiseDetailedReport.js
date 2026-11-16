@@ -127,6 +127,18 @@ const PrintSignatures = styled.div`
 `;
 
 
+const formatDateSafe = (dateVal, outFormat = "DD/MM/YYYY") => {
+    if (!dateVal) return "";
+    if (typeof dateVal === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(dateVal.trim())) {
+        return dateVal.trim();
+    }
+    const d = dayjs(dateVal);
+    if (d.isValid()) {
+        return d.format(outFormat);
+    }
+    return String(dateVal);
+};
+
 const CashierWiseDetailedReport = ({ 
     startDate, 
     endDate, 
@@ -286,7 +298,7 @@ const CashierWiseDetailedReport = ({
                             <option value="all">All Shifts</option>
                             {shifts.map(s => (
                                 <option key={s.shiftno} value={s.shiftno}>
-                                    {s.shiftno} - {s.User} ({s.date ? format(new Date(s.date), "dd/MM/yyyy") : "N/A"})
+                                    {s.shiftno} - {s.User} ({s.date ? formatDateSafe(s.date) : "N/A"})
                                 </option>
                             ))}
                         </Select>

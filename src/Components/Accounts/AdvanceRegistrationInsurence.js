@@ -499,13 +499,14 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
                             Object.entries(groupedData).map(([companyName, group], grpIdx) => {
                                 let compBillTotal = 0;
                                 let compDueTotal = 0;
-                                const compDisplay = `${group.companyName} ${group.companyCode ? `(${group.companyCode})` : ""}`;
+                                const cleanCompName = String(group.companyName || "").replace(/\s*\|\s*PVT/gi, "").replace(/\s+PVT$/gi, "").trim();
+                                const compDisplay = `${cleanCompName} ${group.companyCode ? `(${group.companyCode})` : ""}`.trim();
 
                                 return (
                                     <React.Fragment key={companyName || grpIdx}>
                                         <Tr style={{ background: "#e2e8f0", fontWeight: "bold" }}>
                                             <Td colSpan="25" style={{ color: "#0f172a", fontSize: "0.95rem", padding: "10px 14px" }}>
-                                                Company Name : {compDisplay} &nbsp;|&nbsp; <span style={{ fontSize: "0.85rem", color: "#64748b" }}>PVT</span>
+                                                Company Name : {compDisplay}
                                             </Td>
                                         </Tr>
                                         {group.items.map((r, idx) => {
@@ -651,18 +652,14 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
                         {Object.entries(groupedData).map(([companyName, group]) => {
                             let compBillTotal = 0;
                             let compDueTotal = 0;
-                            const compDisplay = `${group.companyName} ${group.companyCode ? `(${group.companyCode})` : ""}`;
+                            const cleanCompName = String(group.companyName || "").replace(/\s*\|\s*PVT/gi, "").replace(/\s+PVT$/gi, "").trim();
+                            const compDisplay = `${cleanCompName} ${group.companyCode ? `(${group.companyCode})` : ""}`.trim();
 
                             return (
                                 <React.Fragment key={`print-comp-${companyName}`}>
                                     <tr className="company-header-row">
                                         <td colSpan="25" style={{ fontWeight: "bold", textAlign: "left", padding: "4px 2px", borderTop: "1px dashed #000" }}>
                                             Company Name : {compDisplay}
-                                        </td>
-                                    </tr>
-                                    <tr className="company-sub-row">
-                                        <td colSpan="25" style={{ fontWeight: "bold", textAlign: "left", padding: "2px 2px" }}>
-                                            PVT
                                         </td>
                                     </tr>
                                     {group.items.map((r, idx) => {

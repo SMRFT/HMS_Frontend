@@ -6,16 +6,13 @@ import {
     ArrowLeft,
     Printer,
     Download,
-    RefreshCw,
     Search,
-    FileText,
-    Calendar,
     User
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
-import { PageWrapper, fadeIn } from '../GlobalStyles';
+import { PageWrapper } from '../GlobalStyles';
 import { printInsuranceReport } from './printInsuranceReport';
 
 const Container = styled(PageWrapper)`
@@ -306,7 +303,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
 
     // Parse query params if any
     const queryParams = new URLSearchParams(location.search);
-    const initialUhid = queryParams.get('uhid') || '';
+    const initialUhid = queryParams.get('uhid') || queryParams.get('ip_number') || queryParams.get('ip_no') || '';
     const initialFrom = queryParams.get('from_date') || dayjs().subtract(14, 'days').format('YYYY-MM-DD');
     const initialTo = queryParams.get('to_date') || dayjs().format('YYYY-MM-DD');
 
@@ -322,7 +319,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
             const fDate = dates && dates[0] ? dates[0].format('YYYY-MM-DD') : '';
             const tDate = dates && dates[1] ? dates[1].format('YYYY-MM-DD') : '';
 
-            const url = `${getBaseUrl.replace(/\/$/, '')}/report-patient-wise-pharmacy-ip-bill/?uhid=${encodeURIComponent(targetUhid)}&from_date=${fDate}&to_date=${tDate}`;
+            const url = `${getBaseUrl.replace(/\/$/, '')}/report-patient-wise-pharmacy-ip-bill/?uhid=${encodeURIComponent(targetUhid)}&ip_number=${encodeURIComponent(targetUhid)}&from_date=${fDate}&to_date=${tDate}`;
             const res = await apiRequest(url, 'GET');
 
             if (res && res.success) {
@@ -452,7 +449,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                             <User size={15} color="#64748b" />
                             <input
                                 type="text"
-                                placeholder="Enter UHID..."
+                                placeholder="Enter UHID or IP Number..."
                                 value={uhid}
                                 onChange={(e) => setUhid(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') loadData(); }}

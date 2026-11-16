@@ -27,18 +27,6 @@ import {
 } from '../GlobalStyles';
 
 
-const DateInput = styled(Input)`
-    &[type="date"],
-    &[type="month"] {
-        cursor: pointer;
-        &::-webkit-calendar-picker-indicator {
-            cursor: pointer;
-            filter: invert(47%) sepia(82%) saturate(445%) hue-rotate(130deg) brightness(95%) contrast(92%);
-            &:hover { transform: scale(1.1); }
-        }
-    }
-`;
-
 const GlassHeader = styled.div`
     background: linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%);
     padding: 24px 30px;
@@ -90,35 +78,6 @@ const SectionTitleCard = styled.div`
         text-transform: uppercase;
         color: ${props => props.$color || colors.primary};
     }
-`;
-
-const FormGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(${props => props.$minWidth || '180px'}, 1fr));
-    gap: 15px 20px;
-    padding: 20px;
-`;
-
-const PurchaseInfoGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    gap: 12px;
-    padding: 20px;
-    align-items: flex-start;
-
-    @media (max-width: 900px) {
-        grid-template-columns: 1fr;
-        & > div {
-            grid-column: span 1 !important;
-        }
-    }
-`;
-
-const SummaryGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    margin-bottom: 20px;
 `;
 
 const StatsCard = styled.div`
@@ -561,7 +520,7 @@ const StoresGRNGeneration = () => {
     const [departments, setDepartments] = useState([]);
     const [groups, setGroups] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [groupTypes, setGroupTypes] = useState([]);
+    const [, setGroupTypes] = useState([]);
     const [showDeptModal, setShowDeptModal] = useState(false);
 
     // F10 Shortcut to open Department modal
@@ -832,15 +791,6 @@ const StoresGRNGeneration = () => {
         return ranked.slice(0, 100);
     }, [departmentItemsList, itemSearchText]);
 
-    const departmentOptions = useMemo(() => {
-        return (departments || [])
-            .map(d => ({
-                value: d.department_id || d.id || d.name,
-                label: d.department_name || d.name
-            }))
-            .sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
-    }, [departments]);
-
     const [currentItem, setCurrentItem] = useState(initialCurrentItemState);
 
     useEffect(() => {
@@ -896,15 +846,28 @@ const StoresGRNGeneration = () => {
                     normId = Date.now() + index;
                 }
                 const masterItem = items.find(it => it.item_id === item.item_id);
+                const q = parseFloat(item.quantity) || 1;
+                const iv = parseFloat(item.itemValue || item.taxableAmt || 0);
+                const tx = parseFloat(item.tax !== undefined ? item.tax : ((item.cgstPercent || 0) * 2) || 0);
+                const disc = parseFloat(item.discountedAmt || item.purchaseDiscountAmt || 0);
+                const net = Math.max(0, iv - disc);
+                const cgst = tx > 0 ? Number(((net * (tx / 200))).toFixed(2)) : (parseFloat(item.cgstAmt) || 0);
+                const sgst = tx > 0 ? Number(((net * (tx / 200))).toFixed(2)) : (parseFloat(item.sgstAmt) || 0);
+                const pCost = Number((net + cgst + sgst).toFixed(2));
                 return {
                     ...item,
                     id: normId,
-                    hsn: item.hsn || item.hsn_code || masterItem?.hsn || ''
+                    hsn: item.hsn || item.hsn_code || masterItem?.hsn || '',
+                    cgstAmt: cgst,
+                    sgstAmt: sgst,
+                    purchaseCost: tx > 0 || disc > 0 ? pCost : (parseFloat(item.purchaseCost) || pCost),
+                    unitCost: q > 0 ? Number((pCost / q).toFixed(2)) : 0
                 };
             });
 
             setGrnItems(normalizedItems);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [editGrn]);
 
     // Ensure GRN items get HSN if items master finishes loading afterwards
@@ -925,6 +888,7 @@ const StoresGRNGeneration = () => {
                 setGrnItems(updated);
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [items]);
 
     // Close HSN suggestion dropdown on click outside
@@ -979,6 +943,7 @@ const StoresGRNGeneration = () => {
         if (formData.department && formData.department !== lastFetchedDeptRef.current) {
             fetchItemsByDepartment(formData.department);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.department]);
 
     const fetchMasters = async () => {
@@ -1533,20 +1498,18 @@ const StoresGRNGeneration = () => {
             const baseValue = parseFloat(item.itemValue) || 0;
             const taxPercent = parseFloat(item.tax) || 0;
             const discount = parseFloat(item.discountedAmt) || 0;
-            const isInclusive = item.purchaseTaxInclusive !== false;
-            const itemCgst = parseFloat(item.cgstAmt) || 0;
-            const itemSgst = parseFloat(item.sgstAmt) || 0;
-            const itemTax = itemCgst + itemSgst;
+            const netVal = Math.max(0, baseValue - discount);
+            const itemCgst = taxPercent > 0 ? Number(((netVal * (taxPercent / 200))).toFixed(2)) : (parseFloat(item.cgstAmt) || 0);
+            const itemSgst = taxPercent > 0 ? Number(((netVal * (taxPercent / 200))).toFixed(2)) : (parseFloat(item.sgstAmt) || 0);
 
             totalDiscount += discount;
 
-            const netVal = Math.max(0, baseValue - discount);
             if (taxPercent > 0) {
                 taxable += netVal;
                 cgst += itemCgst;
                 sgst += itemSgst;
             } else {
-                nonTaxable += Math.max(0, baseValue - discount);
+                nonTaxable += netVal;
             }
 
             if (item.calculateTaxOnFree) {

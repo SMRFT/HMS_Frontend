@@ -141,6 +141,18 @@ const PrintSignatures = styled.div`
 `;
 
 
+const formatDateSafe = (dateVal, outFormat = "DD/MM/YYYY") => {
+    if (!dateVal) return "";
+    if (typeof dateVal === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(dateVal.trim())) {
+        return dateVal.trim();
+    }
+    const d = dayjs(dateVal);
+    if (d.isValid()) {
+        return d.format(outFormat);
+    }
+    return String(dateVal);
+};
+
 const CashierWiseReport = ({ 
     startDate, 
     endDate, 
@@ -436,7 +448,7 @@ const CashierWiseReport = ({
                     rows.push({
                         "Shift No": block.shiftno,
                         "Cashier Name": block.cashierName,
-                        "Date": block.date ? format(new Date(block.date), "dd/MM/yyyy") : `${fromDate} to ${toDate}`,
+                        "Date": block.date ? formatDateSafe(block.date) : `${fromDate} to ${toDate}`,
                         "SlNo": cIdx + 1,
                         "Bill Type / Category": cat.name,
                         "Receipts (₹)": Number((cat.receipts || 0).toFixed(2)),
@@ -501,7 +513,7 @@ const CashierWiseReport = ({
                             <option value="all">All Shifts</option>
                             {shifts.map(s => (
                                 <option key={s.shiftno} value={s.shiftno}>
-                                    {s.shiftno} - {s.User} ({s.date ? format(new Date(s.date), "dd/MM/yyyy") : "N/A"})
+                                    {s.shiftno} - {s.User} ({s.date ? formatDateSafe(s.date) : "N/A"})
                                 </option>
                             ))}
                         </Select>
@@ -539,13 +551,13 @@ const CashierWiseReport = ({
                                 </div>
                                 {isModalView && (
                                     <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#475569" }}>
-                                        {block.date ? format(new Date(block.date), "dd/MM/yyyy") : `${fromDate} to ${toDate}`}
+                                        {block.date ? formatDateSafe(block.date) : `${fromDate} to ${toDate}`}
                                     </span>
                                 )}
                             </div>
                             {!isModalView && (
                                 <InfoGrid>
-                                    <InfoItem><InfoLabel>Date / Period</InfoLabel><InfoValue>{block.date ? format(new Date(block.date), "dd/MM/yyyy") : `${fromDate} to ${toDate}`}</InfoValue></InfoItem>
+                                    <InfoItem><InfoLabel>Date / Period</InfoLabel><InfoValue>{block.date ? formatDateSafe(block.date) : `${fromDate} to ${toDate}`}</InfoValue></InfoItem>
                                     <InfoItem><InfoLabel>Cashier</InfoLabel><InfoValue style={{ fontWeight: 700, color: colors.primary }}>{block.cashierName}</InfoValue></InfoItem>
                                     <InfoItem><InfoLabel>Shift No</InfoLabel><InfoValue>{block.shiftno}</InfoValue></InfoItem>
                                     <InfoItem><InfoLabel>Total Collection</InfoLabel><InfoValue style={{ color: colors.success, fontWeight: 700 }}>₹{block.totalReceipts.toFixed(2)}</InfoValue></InfoItem>

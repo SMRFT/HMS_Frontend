@@ -1278,7 +1278,11 @@ const ReportsDashboard = () => {
         if (!selectedReport) return null;
         const ReportComponent = selectedReport.component;
         
-        const isNoOutletReport = ["ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge"].includes(selectedReport?.id);
+        const isNoOutletReport = [
+            "ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge", "101", "102"
+        ].includes(String(selectedReport?.id)) || [
+            "/AdvanceRegistration", "/AdvanceRegistrationInsurence", "/IPAdvanceReport", "/DischargeBillsDetailed"
+        ].includes(selectedReport?.route);
 
         return (
             <Suspense fallback={<div style={{ padding: '100px', textAlign: 'center' }}><Spin size="large" /></div>}>
@@ -1439,7 +1443,11 @@ const ReportsDashboard = () => {
                         </FormRow>
                     )}
 
-                    {!["ip_advance", "discharge_detailed", "advance_reg", "insurance_advance"].includes(selectedReport?.id) && (
+                    {!([
+                        "ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge", "101", "102"
+                    ].includes(String(selectedReport?.id)) || [
+                        "/AdvanceRegistration", "/AdvanceRegistrationInsurence", "/IPAdvanceReport", "/DischargeBillsDetailed"
+                    ].includes(selectedReport?.route)) && (
                         <FormRow style={{ marginTop: '16px' }}>
                             <InputWrapper style={{ width: '100%' }}>
                                 <Label>Outlet / Counter</Label>

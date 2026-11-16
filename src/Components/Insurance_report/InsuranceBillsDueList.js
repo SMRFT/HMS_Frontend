@@ -769,7 +769,7 @@ const InsuranceBillsDueList = ({ embedded = false }) => {
                                                 {/* Formal Ledger Company Header Row */}
                                                 <tr className="company-header-row" style={{ background: '#f8fafc' }}>
                                                     <td colSpan="8" style={{ fontWeight: 'bold', padding: '6px 8px', borderTop: '1px solid #000', borderBottom: '1px solid #000', fontSize: '11px' }}>
-                                                        Company Name : {compName} PVT
+                                                        Company Name : {compName}
                                                     </td>
                                                 </tr>
 

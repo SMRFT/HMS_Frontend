@@ -39,6 +39,7 @@ const StoresGRNGeneralReport = lazy(() => import('../Stores_report/StoresGRNGene
 const StoresIntentReturnReport = lazy(() => import('../Stores_report/StoresIntentReturnReport'));
 const StoresAbcVedReport = lazy(() => import('../Stores_report/StoresAbcVedReport'));
 const StoresOpeningStockReport = lazy(() => import('../Stores_report/StoresOpeningStockReport'));
+const StoresItemMasterStockReport = lazy(() => import('../Stores_report/StoresItemMasterStockReport'));
 
 // Component mapping for dynamically loaded routes
 const componentMap = {
@@ -58,6 +59,8 @@ const componentMap = {
     '/StoresIntentReturnReport': StoresIntentReturnReport,
     '/StoresAbcVedReport': StoresAbcVedReport,
     '/StoresOpeningStockReport': StoresOpeningStockReport,
+    '/StoresItemMasterStockReport': StoresItemMasterStockReport,
+    '/storesitemmasterstockreport': StoresItemMasterStockReport,
     '/storesopeningstockreport': StoresOpeningStockReport
 };
 
@@ -438,12 +441,7 @@ const StoresReportsDashboard = () => {
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <button
-                                        onClick={() => {
-                                            printStoresReport("stores-modal-report-content", {
-                                                reportTitle: activeModalReport.title,
-                                                department: selectedDepartment
-                                            });
-                                        }}
+                                        onClick={() => handlePrintReport(activeModalReport)}
                                         style={{
                                             background: '#059669',
                                             color: '#ffffff',

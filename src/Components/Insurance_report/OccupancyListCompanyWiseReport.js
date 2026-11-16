@@ -6,10 +6,7 @@ import {
     ArrowLeft,
     Printer,
     Download,
-    Search,
-    RefreshCw,
-    Building2,
-    BedDouble
+    RefreshCw
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
@@ -327,7 +324,7 @@ const OccupancyListCompanyWiseReport = ({ embedded = false }) => {
     };
 
     const groupedData = (payload?.grouped_data && typeof payload.grouped_data === 'object') ? payload.grouped_data : {};
-    const totalBeds = payload?.total_beds_occupied || 0;
+    const totalBeds = payload?.total_beds_occupied != null ? payload.total_beds_occupied : (payload?.total_occupied_beds != null ? payload.total_occupied_beds : (Array.isArray(payload?.data) ? payload.data.length : 0));
 
     return (
         <Container>
@@ -466,8 +463,8 @@ const OccupancyListCompanyWiseReport = ({ embedded = false }) => {
                                                     <td>
                                                         <div className="pat-name-box">
                                                             <div className="bold-name">{r.patient_name}</div>
-                                                            {r.age_gender && <div className="detail-line">Age:{r.age_gender}</div>}
-                                                            {r.relation && <div className="detail-line">{r.relation}</div>}
+                                                            {r.age_gender && <div className="detail-line">Age: {r.age_gender}</div>}
+                                                            {(r.relative_info || r.relation) && <div className="detail-line">{r.relative_info || r.relation}</div>}
                                                             {r.address && <div className="detail-line">{r.address}</div>}
                                                         </div>
                                                     </td>
