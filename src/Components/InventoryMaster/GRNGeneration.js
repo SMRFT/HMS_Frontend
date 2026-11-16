@@ -196,6 +196,64 @@ const MrpValue = styled.div`font-size: 0.88rem; font-weight: 700; color: ${color
 const LastLine  = styled.div`font-size: 0.62rem; color: ${colors.primary}; font-weight: 600; margin-top: 2px;`
 
 /* ─── OCR-specific styled components ───────────────────────────────────── */
+const OcrHeaderBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  border: 1px solid ${p => p.$variant === "camera" ? "#0284c7" : colors.primary};
+  background: ${p => p.$variant === "camera" ? "#0284c7" : colors.primary};
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  &:hover {
+    background: ${p => p.$variant === "camera" ? "#0369a1" : colors.primaryDark};
+    border-color: ${p => p.$variant === "camera" ? "#0369a1" : colors.primaryDark};
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+`;
+
+const OcrModalOverlay = styled.div`
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 2500; display: flex; align-items: center; justify-content: center; padding: 16px;
+`;
+
+const OcrModalBox = styled.div`
+  background: white; border-radius: 12px; padding: 22px 24px;
+  max-width: 620px; width: 100%; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: ${fadeIn} 0.18s ease forwards;
+  display: flex; flex-direction: column;
+`;
+
+const OcrModalHeader = styled.div`
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0;
+`;
+
+const OcrModalCloseBtn = styled.button`
+  background: transparent; border: none; padding: 6px; border-radius: 6px;
+  cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  &:hover { background: #f1f5f9; color: #0f172a; }
+`;
+
 const OcrCard = styled.div`
   background: linear-gradient(135deg, #f0f9ff 0%, #f0fdf4 100%);
   border: 2px dashed ${p => p.active ? colors.primary : colors.border};
@@ -265,10 +323,6 @@ const OcrFieldBadge = styled.span`
 `
 
 /* ─── Edit Reason Modal ─────────────────────────────────────────────────── */
-const fadeIn = keyframes`
-  from { opacity: 0; transform: scale(0.97); }
-  to   { opacity: 1; transform: scale(1); }
-`
 const ModalOverlay = styled.div`
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);
   z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 16px;
@@ -541,9 +595,9 @@ function isExpiryTooShort(month, year) {
   return expDate <= sixMonthsLater
 }
 
-/* ─── OCR Panel Component ───────────────────────────────────────────────── */
-const OcrPanel = ({ onOcrResult, disabled }) => {
-  const [ocrMode,    setOcrMode]    = useState("upload")
+/* ─── OCR Modal Component ────────────────────────────────────────────────── */
+const OcrModal = ({ isOpen, initialMode = "upload", onClose, onOcrResult, disabled }) => {
+  const [ocrMode,    setOcrMode]    = useState(initialMode || "upload")
   const [dragging,   setDragging]   = useState(false)
   const [previewSrc, setPreviewSrc] = useState(null)
   const [ocrFile,    setOcrFile]    = useState(null)
@@ -559,6 +613,14 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
   const videoRef      = useRef(null)
   const canvasRef     = useRef(null)
   const streamRef     = useRef(null)
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+    setCamActive(false)
+  }, [])
 
   const startCamera = useCallback(async () => {
     setCamError("")
@@ -582,19 +644,36 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
     }
   }, [])
 
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop())
-      streamRef.current = null
-    }
-    setCamActive(false)
-  }, [])
-
+  // Sync mode and state when modal opens/closes
   useEffect(() => {
-    if (ocrMode === "camera") startCamera()
-    else stopCamera()
+    if (isOpen) {
+      setOcrMode(initialMode || "upload")
+      setOcrFile(null)
+      setPreviewSrc(null)
+      setCaptured(null)
+      setOcrStatus(null)
+      setOcrMsg("")
+      setWarnings([])
+    } else {
+      stopCamera()
+    }
+  }, [isOpen, initialMode, stopCamera])
+
+  // Camera start/stop based on mode when open
+  useEffect(() => {
+    if (!isOpen) return
+    if (ocrMode === "camera" && !captured) {
+      startCamera()
+    } else {
+      stopCamera()
+    }
     return () => stopCamera()
-  }, [ocrMode]) // eslint-disable-line
+  }, [isOpen, ocrMode, captured, startCamera, stopCamera])
+
+  const handleClose = useCallback(() => {
+    stopCamera()
+    onClose()
+  }, [stopCamera, onClose])
 
   const captureFrame = useCallback(() => {
     const video  = videoRef.current
@@ -679,7 +758,11 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
         `OCR complete — ${json.data?.items?.length || 0} item(s) detected.` +
         (warns.length ? " See warnings below." : "")
       )
+      toast.success(`OCR scan successful! ${json.data?.items?.length || 0} items extracted.`)
       onOcrResult(json.data)
+      setTimeout(() => {
+        handleClose()
+      }, 700)
     } catch (err) {
       setOcrStatus("error")
       setOcrMsg("Network error while scanning. Please try again.")
@@ -694,169 +777,190 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
     if (ocrMode === "camera") retakePhoto()
   }
 
-  if (disabled) return null
+  if (!isOpen || disabled) return null
 
   return (
-    <OcrCard active={dragging}>
-      <OcrCardHeader>
-        <ScanLine size={16} />
-        Auto-Fill via OCR Scan
-        <span style={{fontSize:"0.7rem",fontWeight:400,color:colors.textMuted,marginLeft:4}}>
-          Upload or scan a hard copy invoice to auto-fill fields (you can edit after)
-        </span>
-      </OcrCardHeader>
-
-      <OcrMethodRow>
-        <OcrMethodBtn
-          active={ocrMode === "upload"}
-          onClick={() => { setOcrMode("upload"); resetOcr() }}
-          type="button"
-        >
-          <Upload size={14}/> Upload Document
-        </OcrMethodBtn>
-        <OcrMethodBtn
-          active={ocrMode === "camera"}
-          onClick={() => { setOcrMode("camera"); resetOcr() }}
-          type="button"
-        >
-          <Camera size={14}/> Use Camera
-        </OcrMethodBtn>
-      </OcrMethodRow>
-
-      {ocrMode === "upload" && (
-        <>
-          {!ocrFile ? (
-            <DropZone
-              dragging={dragging}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setDragging(true) }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-            >
-              <Upload size={28} color={dragging ? colors.primary : "#94a3b8"} />
-              <DropZoneText>
-                <strong>Click to upload</strong> or drag &amp; drop<br/>
-                <span style={{fontSize:"0.72rem"}}>JPG, PNG, WEBP, PDF — max 15 MB</span>
-              </DropZoneText>
-            </DropZone>
-          ) : (
-            <div>
-              {previewSrc && (
-                <div style={{marginBottom:8}}>
-                  <PreviewImg src={previewSrc} alt="Invoice preview" />
-                </div>
-              )}
-              {!previewSrc && ocrFile && (
-                <div style={{padding:"10px 0",fontSize:"0.8rem",color:colors.textMuted}}>
-                  📄 {ocrFile.name} ({(ocrFile.size/1024).toFixed(0)} KB)
-                </div>
-              )}
+    <OcrModalOverlay onClick={handleClose}>
+      <OcrModalBox onClick={e => e.stopPropagation()}>
+        <OcrModalHeader>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "1.05rem", fontWeight: 700, color: colors.primary }}>
+              <ScanLine size={19} />
+              <span>Auto-Fill via OCR Scan</span>
             </div>
-          )}
-          <input
-            ref={fileInputRef} type="file"
-            accept="image/jpeg,image/png,image/jpg,image/webp,application/pdf"
-            style={{display:"none"}}
-            onChange={e => handleFileSelect(e.target.files?.[0])}
-          />
-        </>
-      )}
-
-      {ocrMode === "camera" && (
-        <div>
-          {camError && (
-            <OcrWarnBox style={{marginBottom:8}}>
-              <AlertCircle size={13} style={{verticalAlign:"middle",marginRight:4}}/>{camError}
-            </OcrWarnBox>
-          )}
-          {!captured && (
-            <CameraBox>
-              <CameraVideo ref={videoRef} autoPlay playsInline muted />
-              <div style={{
-                position:"absolute",bottom:0,left:0,right:0,
-                background:"rgba(0,0,0,0.5)",padding:"8px",
-                display:"flex",justifyContent:"center",gap:8
-              }}>
-                {camActive ? (
-                  <Button
-                    onClick={captureFrame}
-                    style={{fontSize:"0.8rem",padding:"6px 16px",background:"white",color:colors.primary}}
-                    type="button"
-                  >
-                    <Camera size={13}/>&nbsp;Capture
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={startCamera}
-                    style={{fontSize:"0.8rem",padding:"6px 16px"}}
-                    type="button"
-                  >
-                    Start Camera
-                  </Button>
-                )}
-              </div>
-            </CameraBox>
-          )}
-          {captured && previewSrc && (
-            <div>
-              <PreviewImg src={previewSrc} alt="Captured invoice" />
-              <div style={{marginTop:6,display:"flex",gap:6}}>
-                <Button secondary onClick={retakePhoto} style={{fontSize:"0.78rem",padding:"5px 12px"}} type="button">
-                  <RefreshCw size={12}/>&nbsp;Retake
-                </Button>
-              </div>
+            <div style={{ fontSize: "0.78rem", color: colors.textMuted, marginTop: 4 }}>
+              Upload or scan a hard copy invoice to auto-fill fields (you can edit everything after)
             </div>
-          )}
-          <CameraCanvas ref={canvasRef} />
-        </div>
-      )}
+          </div>
+          <OcrModalCloseBtn type="button" onClick={handleClose} title="Close">
+            <X size={20} />
+          </OcrModalCloseBtn>
+        </OcrModalHeader>
 
-      {ocrStatus === "success" && (
-        <OcrSuccessBox>
-          <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
-          <span>{ocrMsg}</span>
-        </OcrSuccessBox>
-      )}
-      {ocrStatus === "error" && (
-        <OcrWarnBox>
-          <AlertCircle size={13} style={{verticalAlign:"middle",marginRight:4}}/>{ocrMsg}
-        </OcrWarnBox>
-      )}
-      {warnings.length > 0 && (
-        <OcrWarnBox>
-          <strong>⚠️ Warnings:</strong>
-          <ul style={{margin:"4px 0 0 16px",padding:0,fontSize:"0.73rem"}}>
-            {warnings.map((w,i) => <li key={i}>{w}</li>)}
-          </ul>
-        </OcrWarnBox>
-      )}
-
-      <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-        {ocrFile && (
-          <Button
-            onClick={runOcr}
-            disabled={scanning}
-            style={{fontSize:"0.8rem",padding:"7px 16px"}}
+        <OcrMethodRow>
+          <OcrMethodBtn
+            active={ocrMode === "upload"}
+            onClick={() => { setOcrMode("upload"); resetOcr(); }}
             type="button"
           >
-            {scanning
-              ? <><SpinnerSpan/>&nbsp; Scanning…</>
-              : <><ScanLine size={13}/>&nbsp; Scan &amp; Auto-Fill</>}
-          </Button>
-        )}
-        {(ocrFile || ocrStatus) && (
-          <Button secondary onClick={resetOcr} style={{fontSize:"0.8rem",padding:"7px 12px"}} type="button">
-            <X size={12}/>&nbsp;Clear
-          </Button>
-        )}
-      </div>
+            <Upload size={14}/> Upload Document
+          </OcrMethodBtn>
+          <OcrMethodBtn
+            active={ocrMode === "camera"}
+            onClick={() => { setOcrMode("camera"); resetOcr(); }}
+            type="button"
+          >
+            <Camera size={14}/> Use Camera
+          </OcrMethodBtn>
+        </OcrMethodRow>
 
-      <div style={{marginTop:8,fontSize:"0.69rem",color:colors.textMuted}}>
-        💡 After scanning, all fields are editable. Review and correct any errors before saving.
-      </div>
-    </OcrCard>
+        {ocrMode === "upload" && (
+          <div>
+            {!ocrFile ? (
+              <DropZone
+                dragging={dragging}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); setDragging(true) }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={onDrop}
+              >
+                <Upload size={32} color={dragging ? colors.primary : "#94a3b8"} />
+                <DropZoneText>
+                  <strong>Click to upload</strong> or drag &amp; drop<br/>
+                  <span style={{fontSize:"0.75rem"}}>JPG, PNG, WEBP, PDF — max 15 MB</span>
+                </DropZoneText>
+              </DropZone>
+            ) : (
+              <div>
+                {previewSrc && (
+                  <div style={{marginBottom:8, textAlign:"center"}}>
+                    <PreviewImg src={previewSrc} alt="Invoice preview" />
+                  </div>
+                )}
+                {!previewSrc && ocrFile && (
+                  <div style={{padding:"12px", background:"#f8fafc", borderRadius:6, border:"1px solid #e2e8f0", fontSize:"0.84rem", color:"#334155"}}>
+                    📄 <strong>{ocrFile.name}</strong> ({(ocrFile.size/1024).toFixed(0)} KB)
+                  </div>
+                )}
+              </div>
+            )}
+            <input
+              ref={fileInputRef} type="file"
+              accept="image/jpeg,image/png,image/jpg,image/webp,application/pdf"
+              style={{display:"none"}}
+              onChange={e => handleFileSelect(e.target.files?.[0])}
+            />
+          </div>
+        )}
+
+        {ocrMode === "camera" && (
+          <div>
+            {camError && (
+              <OcrWarnBox style={{marginBottom:8}}>
+                <AlertCircle size={13} style={{verticalAlign:"middle",marginRight:4}}/>{camError}
+              </OcrWarnBox>
+            )}
+            {!captured && (
+              <CameraBox>
+                <CameraVideo ref={videoRef} autoPlay playsInline muted />
+                <div style={{
+                  position:"absolute",bottom:0,left:0,right:0,
+                  background:"rgba(0,0,0,0.5)",padding:"8px",
+                  display:"flex",justifyContent:"center",gap:8
+                }}>
+                  {camActive ? (
+                    <Button
+                      onClick={captureFrame}
+                      style={{fontSize:"0.8rem",padding:"6px 16px",background:"white",color:colors.primary}}
+                      type="button"
+                    >
+                      <Camera size={13}/>&nbsp;Capture Photo
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={startCamera}
+                      style={{fontSize:"0.8rem",padding:"6px 16px"}}
+                      type="button"
+                    >
+                      Start Camera
+                    </Button>
+                  )}
+                </div>
+              </CameraBox>
+            )}
+            {captured && previewSrc && (
+              <div>
+                <PreviewImg src={previewSrc} alt="Captured invoice" />
+                <div style={{marginTop:8,display:"flex",gap:6}}>
+                  <Button secondary onClick={retakePhoto} style={{fontSize:"0.78rem",padding:"5px 12px"}} type="button">
+                    <RefreshCw size={12}/>&nbsp;Retake Photo
+                  </Button>
+                </div>
+              </div>
+            )}
+            <CameraCanvas ref={canvasRef} />
+          </div>
+        )}
+
+        {ocrStatus === "success" && (
+          <OcrSuccessBox style={{marginTop:10}}>
+            <CheckCircle size={15} style={{marginTop:1,flexShrink:0}}/>
+            <span>{ocrMsg}</span>
+          </OcrSuccessBox>
+        )}
+        {ocrStatus === "error" && (
+          <OcrWarnBox style={{marginTop:10}}>
+            <AlertCircle size={14} style={{verticalAlign:"middle",marginRight:4}}/>{ocrMsg}
+          </OcrWarnBox>
+        )}
+        {warnings.length > 0 && (
+          <OcrWarnBox style={{marginTop:10}}>
+            <strong>⚠️ Warnings:</strong>
+            <ul style={{margin:"4px 0 0 16px",padding:0,fontSize:"0.73rem"}}>
+              {warnings.map((w,i) => <li key={i}>{w}</li>)}
+            </ul>
+          </OcrWarnBox>
+        )}
+
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:16,paddingTop:12,borderTop:"1px solid #e2e8f0",flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:8}}>
+            {ocrFile && (
+              <Button
+                onClick={runOcr}
+                disabled={scanning}
+                style={{fontSize:"0.82rem",padding:"8px 18px",background:colors.primary,color:"white"}}
+                type="button"
+              >
+                {scanning
+                  ? <><SpinnerSpan/>&nbsp; Scanning Invoice…</>
+                  : <><ScanLine size={14}/>&nbsp; Scan &amp; Auto-Fill</>}
+              </Button>
+            )}
+            {(ocrFile || ocrStatus) && !scanning && (
+              <Button secondary onClick={resetOcr} style={{fontSize:"0.8rem",padding:"7px 14px"}} type="button">
+                <X size={13}/>&nbsp;Clear
+              </Button>
+            )}
+          </div>
+
+          <Button
+            secondary
+            onClick={handleClose}
+            style={{fontSize:"0.8rem",padding:"7px 16px",marginLeft:"auto"}}
+            type="button"
+          >
+            Cancel
+          </Button>
+        </div>
+
+        <div style={{marginTop:10,fontSize:"0.71rem",color:colors.textMuted}}>
+          💡 After scanning, all fields are populated and fully editable. Review before saving.
+        </div>
+      </OcrModalBox>
+    </OcrModalOverlay>
   )
 }
+const OcrPanel = OcrModal;
 
 
 /* ─── Main Component ────────────────────────────────────────────────────── */
@@ -880,7 +984,9 @@ const GRNGeneration = () => {
   const [fromDate,    setFromDate]    = useState(getTodayDateString())
   const [toDate,      setToDate]      = useState(getTodayDateString())
   const [loading,     setLoading]     = useState(false)
-  const [ocrApplied,  setOcrApplied]  = useState(false)
+  const [ocrApplied,     setOcrApplied]     = useState(false)
+  const [ocrModalOpen,   setOcrModalOpen]   = useState(false)
+  const [ocrInitialMode, setOcrInitialMode] = useState("upload")
 
   const [listPage, setListPage] = useState(1);
   const [listPageSize, setListPageSize] = useState(10);
@@ -1358,6 +1464,7 @@ const GRNGeneration = () => {
     setGrnData(EMPTY_GRN); setItems([]); setCurItem(EMPTY_ITEM)
     setEditDraftNo(""); setEditStatus(""); setVendorInfo(null); setLastStock(null)
     setOcrApplied(false)
+    setOcrModalOpen(false)
     pendingPayloadRef.current = null
     setShowEditReasonModal(false)
   }
@@ -1430,24 +1537,6 @@ const GRNGeneration = () => {
                 </VerifiedBanner>
               )}
 
-              {!isVerified && (
-                <OcrPanel
-                  onOcrResult={handleOcrResult}
-                  disabled={isVerified}
-                />
-              )}
-
-              {ocrApplied && !isVerified && (
-                <OcrSuccessBox style={{marginBottom:12}}>
-                  <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
-                  <span>
-                    Fields have been pre-filled from OCR scan.
-                    <strong> Review and correct all values before saving.</strong>
-                    You can fully edit everything below.
-                  </span>
-                </OcrSuccessBox>
-              )}
-
               {/* ── NEW: Edit Audit Info Banner ── */}
               {isEdit && !isVerified && grnData.edited_by && (
                 <EditInfoBanner>
@@ -1465,17 +1554,57 @@ const GRNGeneration = () => {
                 </EditInfoBanner>
               )}
 
+              {ocrApplied && !isVerified && (
+                <OcrSuccessBox style={{marginBottom:12}}>
+                  <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
+                  <span>
+                    Fields have been pre-filled from OCR scan.
+                    <strong> Review and correct all values before saving.</strong>
+                    You can fully edit everything below.
+                  </span>
+                </OcrSuccessBox>
+              )}
+
+              {/* ── OCR Modal ── */}
+              <OcrModal
+                isOpen={ocrModalOpen}
+                initialMode={ocrInitialMode}
+                onClose={() => setOcrModalOpen(false)}
+                onOcrResult={handleOcrResult}
+                disabled={isVerified}
+              />
+
               {/* ── Inward Details ── */}
               <Card>
-                <CardHeader>
-                  📋 Inward Details
-                  {ocrApplied && <OcrBadge><ScanLine size={10}/>OCR Auto-filled</OcrBadge>}
-                  {isEdit && (
-                    <span style={{display:"flex",alignItems:"center",gap:5}}>
-                      <DraftBadge>Draft: {editDraftNo}</DraftBadge>
-                      {grnData.grn_number && <GrnBadge>GRN: {grnData.grn_number}</GrnBadge>}
-                      {editStatus && <StatusBadge status={editStatus}>{editStatus}</StatusBadge>}
-                    </span>
+                <CardHeader style={{ justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    📋 Inward Details
+                    {ocrApplied && <OcrBadge><ScanLine size={10}/>OCR Auto-filled</OcrBadge>}
+                    {isEdit && (
+                      <span style={{display:"flex",alignItems:"center",gap:5}}>
+                        <DraftBadge>Draft: {editDraftNo}</DraftBadge>
+                        {grnData.grn_number && <GrnBadge>GRN: {grnData.grn_number}</GrnBadge>}
+                        {editStatus && <StatusBadge status={editStatus}>{editStatus}</StatusBadge>}
+                      </span>
+                    )}
+                  </div>
+
+                  {!isVerified && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+                      <OcrHeaderBtn
+                        type="button"
+                        onClick={() => { setOcrInitialMode("upload"); setOcrModalOpen(true); }}
+                      >
+                        <Upload size={13} /> Upload Document
+                      </OcrHeaderBtn>
+                      <OcrHeaderBtn
+                        type="button"
+                        $variant="camera"
+                        onClick={() => { setOcrInitialMode("camera"); setOcrModalOpen(true); }}
+                      >
+                        <Camera size={13} /> Upload Camera
+                      </OcrHeaderBtn>
+                    </div>
                   )}
                 </CardHeader>
                 <CardBody>

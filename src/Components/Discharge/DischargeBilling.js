@@ -673,8 +673,17 @@ const calcTotals = (items, f) => {
   const roomTax = parseFloat(f.room_tax) || 0;
   const taxable = parseFloat(f.taxable) || 0;
 
-  // Gross Bill Total = Items + Medicines + Implants + GST + Room Tax + Taxable
-  const grossTotal = itemsTotal + medicines + implantAmount + gstAmount + roomTax + taxable;
+  // Check if MEDICINE CHARGES is in items table to avoid double-counting
+  const hasMedItem = items.some(it => 
+    String(it.itemName || it.name || "").trim().toUpperCase() === "MEDICINE CHARGES" ||
+    it.billTypeNo === "PHARM01" ||
+    it.bill_type === 13 ||
+    it.source === "hospital_pharmacybilling"
+  );
+  const effectiveMeds = hasMedItem ? 0 : medicines;
+
+  // Gross Bill Total = Items + Medicines (if not in items table) + Implants + GST + Room Tax + Taxable
+  const grossTotal = itemsTotal + effectiveMeds + implantAmount + gstAmount + roomTax + taxable;
 
   const discPct = parseFloat(f.discount_percent) || 0;
   const discAmt = parseFloat(f.discount_amount) || (itemsTotal * discPct / 100);
@@ -754,26 +763,27 @@ export const groupInvestigationItems = (rawItems = []) => {
   rawItems.forEach(it => {
     const rawName = String(it.itemName || it.name || "").trim();
     const key = rawName.toUpperCase();
-    const isAccom = Boolean(
-      (it.source && (it.source.includes("room_services") || it.source.includes("room_kits"))) ||
-      (it.invest_bill_no && (it.invest_bill_no.startsWith("ROOM-") || it.invest_bill_no.startsWith("KIT-"))) ||
-      /room|ward|nursing|maintenance|accommodation|bed|icu|ccu|day care|stay|admission fee/i.test(`${rawName} ${it.item_description || ""}`)
+
+    // STRICT RULE: ONLY items from invest billing (labs, scans, blood tests, radiology, ecg) are combined.
+    // For all other items (room rent, nursing service, junior dr fee, doctor fees, maintenance, instruments, kits, laundry, medicine charges, procedures) DO NOT COMBINE. They MUST be displayed separately.
+    const isAccomOrService = Boolean(
+      (it.source && (it.source.includes("room_services") || it.source.includes("room_kits") || it.source.includes("pharmacy") || it.source.includes("laundry") || it.source.includes("diet"))) ||
+      (it.invest_bill_no && (it.invest_bill_no.startsWith("ROOM-") || it.invest_bill_no.startsWith("KIT-") || it.invest_bill_no.startsWith("PHARM-") || it.invest_bill_no === "PHARM01")) ||
+      /room|ward|nursing|maintenance|accommodation|bed|icu|ccu|day care|stay|admission fee|consultation|doctor|dr fee|surgeon|anesthesia|laundry|diet|medicine|instrument/i.test(`${rawName} ${it.item_description || ""}`)
     );
-    const isInvest = !isAccom && Boolean(
+
+    const isFromInvestBilling = !isAccomOrService && Boolean(
       it.source === "hospital_investbilling" ||
+      it._fromInvest ||
       it.test_id != null ||
-      String(it.billTypeNo || "").startsWith("LAB") ||
-      String(it.billTypeNo || "").startsWith("RAD") ||
-      String(it.billTypeNo || "").startsWith("USG") ||
-      String(it.billTypeNo || "").startsWith("ECG") ||
-      String(it.bill_type) === "16" ||
-      it._fromInvest
+      (it.billTypeNo && /^(LAB|RAD|USG|ECG|ECHO|XRAY|SCAN)/i.test(it.billTypeNo)) ||
+      String(it.bill_type) === "16"
     );
 
     const rateVal = parseFloat(it.rate != null ? it.rate : (it.price || 0)) || 0;
     const groupKey = `${key}_${rateVal.toFixed(2)}`;
 
-    if (isInvest && key && groupMap.has(groupKey)) {
+    if (isFromInvestBilling && key && groupMap.has(groupKey)) {
       const ex = groupMap.get(groupKey);
       const q = (parseFloat(ex.quantity) || 1) + (parseFloat(it.quantity) || 1);
       const d = (parseFloat(ex.discount) || 0) + (parseFloat(it.discount) || 0);
@@ -787,7 +797,7 @@ export const groupInvestigationItems = (rawItems = []) => {
     } else {
       const clone = { ...it, quantity: parseFloat(it.quantity) || 1, rate: rateVal, discount: parseFloat(it.discount) || 0 };
       clone.amount = it.amount != null ? parseFloat(it.amount) : Math.max(0, parseFloat((rateVal * clone.quantity - clone.discount).toFixed(2)));
-      if (isInvest && key) {
+      if (isFromInvestBilling && key) {
         groupMap.set(groupKey, clone);
       }
       result.push(clone);
@@ -2220,13 +2230,13 @@ const DischargeBilling = () => {
           (norm.customer_type && String(norm.customer_type).trim().toUpperCase().includes("INSURANCE")) ||
           (norm.patient_type && String(norm.patient_type).trim().toUpperCase().includes("INSURANCE"))
         );
-        setInsuranceData(prev => ({
-          ...prev,
+        setInsuranceData({
           isInsuranceBill: isIns,
-          companyName: isIns ? (norm.company || norm.company_code || norm.insurance_company || prev.companyName || "") : "",
-          claimNumber: isIns ? (norm.claim_number || norm.referral_number || prev.claimNumber || "") : "",
-          idCardNumber: isIns ? (norm.id_card_number || norm.card_no || prev.idCardNumber || "") : "",
-        }));
+          companyName: isIns ? (norm.company || norm.company_code || norm.insurance_company || "") : "",
+          claimNumber: isIns ? (norm.claim_number || norm.referral_number || "") : "",
+          idCardNumber: isIns ? (norm.id_card_number || norm.card_no || "") : "",
+          insuranceBillNumber: isIns ? (norm.insurance_bill_number || "") : "",
+        });
         if (norm.uhid) setUhid(norm.uhid);
         if (norm.ip_number) setIpNumber(norm.ip_number);
         setPatientWard("SEMI-PRIVATE WARD");
@@ -2242,8 +2252,31 @@ const DischargeBilling = () => {
         if (norm.implant_amount != null && norm.implant_amount !== "") {
           setForm("implant_amount", String(norm.implant_amount));
         }
-        if (Array.isArray(res.invest_items) && res.invest_items.length) {
-          const groupedInvest = groupInvestigationItems(res.invest_items);
+        let baseInvestItems = Array.isArray(res.invest_items) ? [...res.invest_items] : [];
+        const medAmt = parseFloat(norm.medicines_amount) || 0;
+        const hasMedInRaw = baseInvestItems.some(it => String(it.itemName || it.name || "").trim().toUpperCase() === "MEDICINE CHARGES");
+        if (medAmt > 0 && !hasMedInRaw) {
+          baseInvestItems.push({
+            itemName: "MEDICINE CHARGES",
+            name: "MEDICINE CHARGES",
+            code: "04009",
+            price: medAmt,
+            rate: String(medAmt),
+            quantity: 1,
+            discount: 0,
+            amount: medAmt,
+            ward: "SEMI-PRIVATE WARD",
+            billTypeNo: "PHARM01",
+            bill_type: 13,
+            doctor: norm.doctor || "",
+            payment_status: "Billed",
+            package_name: "",
+            source: "hospital_pharmacybilling",
+            category: "MEDICINE / PHARMACY CHARGES",
+          });
+        }
+        if (baseInvestItems.length) {
+          const groupedInvest = groupInvestigationItems(baseInvestItems);
           setItems(groupedInvest.map((it, idx) => investToRow(it, idx, "SEMI-PRIVATE WARD")));
         }
       } else {
