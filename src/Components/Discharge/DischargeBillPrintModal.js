@@ -378,9 +378,11 @@ const NormalBillSheet = ({
   doctorsMap = {},
   viewMode = "NORMAL",
   loadedMeds = [],
+  paperSize = "A5",
 }) => {
   if (!bill) return null;
 
+  const isA5 = paperSize === "A5";
   const pd = bill.patient_details || {};
   const rawItems = parseItems(bill.items);
 
@@ -523,42 +525,42 @@ const NormalBillSheet = ({
   return (
     <div className="bill-page" style={{
       background: "#fff",
-      padding: "24px 28px",
+      padding: isA5 ? "12px 14px" : "24px 28px",
       border: "1px solid #e2e8f0",
       boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
       fontFamily: "Arial, Helvetica, sans-serif",
       color: "#000",
-      fontSize: "12px",
-      lineHeight: "1.4"
+      fontSize: isA5 ? "10.5px" : "12px",
+      lineHeight: isA5 ? "1.3" : "1.4"
     }}>
       {/* ── TOP HEADER (LOGO + HOSPITAL DETAILS + BILL TYPE) ── */}
       {withHeader ? (
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingTop: "12px", marginBottom: "10px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingTop: isA5 ? "4px" : "12px", marginBottom: isA5 ? "6px" : "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: isA5 ? 10 : 16 }}>
             <img
               src={smrftLogo}
               alt="Shanmuga Logo"
-              style={{ width: 56, height: 56, objectFit: "contain" }}
+              style={{ width: isA5 ? 44 : 56, height: isA5 ? 44 : 56, objectFit: "contain" }}
               onError={(e) => { e.target.style.display = "none"; }}
             />
             <div>
-              <div style={{ fontSize: "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
+              <div style={{ fontSize: isA5 ? "13px" : "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
                 SHANMUGA HOSPITAL LIMITED
               </div>
-              <div style={{ fontSize: "11.5px", color: "#222", marginTop: 2 }}>
+              <div style={{ fontSize: isA5 ? "10px" : "11.5px", color: "#222", marginTop: 1 }}>
                 51/24.Saradha College Road, Salem - 636007
               </div>
-              <div style={{ display: "flex", gap: 24, fontSize: "11px", color: "#222", marginTop: 2, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: isA5 ? 14 : 24, fontSize: isA5 ? "9.5px" : "11px", color: "#222", marginTop: 1, flexWrap: "wrap" }}>
                 <span>04272706666</span>
                 <span>CIN: L85110TZ2020PLC033974</span>
               </div>
-              <div style={{ fontSize: "11px", color: "#222" }}>
+              <div style={{ fontSize: isA5 ? "9.5px" : "11px", color: "#222" }}>
                 GST No: 33ABDCS8326A1ZP
               </div>
             </div>
           </div>
           <div style={{ textAlign: "right", alignSelf: "flex-end", paddingBottom: 2 }}>
-            <div style={{ fontSize: "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
+            <div style={{ fontSize: isA5 ? "13px" : "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
               {isCredit ? "CREDIT BILL" : "CASH BILL"}
             </div>
           </div>
@@ -568,7 +570,7 @@ const NormalBillSheet = ({
       )}
 
       {/* Divider Line */}
-      <div style={{ borderTop: "1.5px solid #000", margin: "8px 0 6px" }} />
+      <div style={{ borderTop: "1.5px solid #000", margin: isA5 ? "6px 0 4px" : "8px 0 6px" }} />
 
       {/* ── SUBHEADER: DISCHARGE BILL - GST EXEMPT & COMPANY NAME ── */}
       <div style={{
@@ -576,7 +578,7 @@ const NormalBillSheet = ({
         justifyContent: "space-between",
         alignItems: "center",
         fontWeight: "800",
-        fontSize: "12.5px",
+        fontSize: isA5 ? "11px" : "12.5px",
         padding: "2px 0",
         letterSpacing: "0.4px",
         textTransform: "uppercase"
@@ -591,9 +593,9 @@ const NormalBillSheet = ({
       <div style={{ borderTop: "1px solid #000", margin: "4px 0 6px" }} />
 
       {/* ── PATIENT & BILL DETAILS (2 COLUMNS WITH ALIGNED COLONS) ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 24, fontSize: "11.5px", padding: "2px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: isA5 ? 12 : 24, fontSize: isA5 ? "10px" : "11.5px", padding: "2px 0" }}>
         {/* Left Column */}
-        <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: "88px 12px 1fr", rowGap: 2, alignItems: "baseline" }}>
+        <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: isA5 ? "68px 8px 1fr" : "88px 12px 1fr", rowGap: isA5 ? 1 : 2, alignItems: "baseline" }}>
           <span style={{ fontWeight: "bold" }}>UHID</span><span>:</span><span style={{ fontWeight: "bold" }}>{opNumber}</span>
           <span style={{ fontWeight: "bold" }}>Name</span><span>:</span><span style={{ fontWeight: "bold" }}>{patientName}</span>
           <span style={{ fontWeight: "bold" }}>Guardian</span><span>:</span><span>{guardian}</span>
@@ -612,7 +614,7 @@ const NormalBillSheet = ({
         </div>
 
         {/* Right Column */}
-        <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: "98px 12px 1fr", rowGap: 2, alignItems: "baseline" }}>
+        <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: isA5 ? "74px 8px 1fr" : "98px 12px 1fr", rowGap: isA5 ? 1 : 2, alignItems: "baseline" }}>
           <span style={{ fontWeight: "bold" }}>SH-Bill No</span><span>:</span><span style={{ fontWeight: "bold" }}>{billNo}</span>
           <span style={{ fontWeight: "bold" }}>IP Number</span><span>:</span><span style={{ fontWeight: "bold" }}>{ipNumber}</span>
           <span style={{ fontWeight: "bold" }}>Billdate</span><span>:</span><span>{billDate}</span>
@@ -626,28 +628,28 @@ const NormalBillSheet = ({
       <div style={{ borderTop: "1px solid #000", margin: "6px 0 4px" }} />
 
       {/* ── ITEMS TABLE ── */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11.5px", margin: "4px 0" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: isA5 ? "10px" : "11.5px", margin: "4px 0" }}>
         <thead>
           <tr style={{ borderBottom: "1.5px solid #000" }}>
-            <th style={{ width: "45px", textAlign: "left", padding: "4px 4px", fontWeight: "bold" }}>Slno</th>
-            <th style={{ textAlign: "left", padding: "4px 4px", fontWeight: "bold" }}>Description</th>
-            <th style={{ width: "80px", textAlign: "center", padding: "4px 4px", fontWeight: "bold" }}>Quantity</th>
-            <th style={{ width: "110px", textAlign: "right", padding: "4px 4px", fontWeight: "bold" }}>Amount</th>
+            <th style={{ width: isA5 ? "35px" : "45px", textAlign: "left", padding: isA5 ? "2px 3px" : "4px 4px", fontWeight: "bold" }}>Slno</th>
+            <th style={{ textAlign: "left", padding: isA5 ? "2px 3px" : "4px 4px", fontWeight: "bold" }}>Description</th>
+            <th style={{ width: isA5 ? "65px" : "80px", textAlign: "center", padding: isA5 ? "2px 3px" : "4px 4px", fontWeight: "bold" }}>Quantity</th>
+            <th style={{ width: isA5 ? "90px" : "110px", textAlign: "right", padding: isA5 ? "2px 3px" : "4px 4px", fontWeight: "bold" }}>Amount</th>
           </tr>
         </thead>
         <tbody>
           {displayItems.length > 0 ? (
             displayItems.map((it, idx) => (
               <tr key={idx} style={{ verticalAlign: "top" }}>
-                <td style={{ padding: "4px 4px" }}>{idx + 1}</td>
-                <td style={{ padding: "4px 4px" }}>
+                <td style={{ padding: isA5 ? "2.5px 3px" : "4px 4px" }}>{idx + 1}</td>
+                <td style={{ padding: isA5 ? "2.5px 3px" : "4px 4px" }}>
                   <div style={{ fontWeight: "bold" }}>{it.name}</div>
                   {it.subDesc ? (
-                    <div style={{ fontSize: "10.5px", color: "#222", marginTop: 1 }}>{it.subDesc}</div>
+                    <div style={{ fontSize: isA5 ? "9.5px" : "10.5px", color: "#222", marginTop: 1 }}>{it.subDesc}</div>
                   ) : null}
                 </td>
-                <td style={{ padding: "4px 4px", textAlign: "center" }}>{it.qty}</td>
-                <td style={{ padding: "4px 4px", textAlign: "right" }}>{it.amount.toFixed(2)}</td>
+                <td style={{ padding: isA5 ? "2.5px 3px" : "4px 4px", textAlign: "center" }}>{it.qty}</td>
+                <td style={{ padding: isA5 ? "2.5px 3px" : "4px 4px", textAlign: "right" }}>{it.amount.toFixed(2)}</td>
               </tr>
             ))
           ) : (
@@ -663,62 +665,76 @@ const NormalBillSheet = ({
       {/* Divider Line */}
       <div style={{ borderTop: "1.5px solid #000", margin: "6px 0 4px" }} />
 
-      {/* ── TOTALS (LEFT: IP RETURN, RIGHT: TOTALS TABLE) ── */}
+      {/* ── TOTALS (LEFT: DISCOUNT & IP RETURN, RIGHT: TOTALS TABLE) ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", margin: "4px 0 6px" }}>
-        {/* Left Side: IP Return */}
+        {/* Left Side: Discount & IP Return (matching standard format) */}
         <div style={{ paddingTop: 2 }}>
-          {salesReturnAmt > 0 && (
-            <table style={{ borderCollapse: "collapse", fontSize: "12px" }}>
-              <tbody>
+          <table style={{ borderCollapse: "collapse", fontSize: isA5 ? "10px" : "12px" }}>
+            <tbody>
+              {discAmt > 0 && (
                 <tr>
-                  <td style={{ padding: "2px 8px 2px 0", fontWeight: "bold", whiteSpace: "nowrap" }}>
-                    IP Return :
+                  <td style={{ padding: isA5 ? "1.5px 6px 1.5px 0" : "2px 8px 2px 0", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                    Discount :
                   </td>
-                  <td style={{ padding: "2px 0", fontWeight: "bold", minWidth: 60 }}>
-                    {Math.round(salesReturnAmt)}
+                  <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", fontWeight: "bold", minWidth: 60 }}>
+                    {discAmt % 1 === 0 ? discAmt : discAmt.toFixed(2)}
                   </td>
                 </tr>
-              </tbody>
-            </table>
-          )}
+              )}
+              {salesReturnAmt > 0 && (
+                <tr>
+                  <td style={{ padding: isA5 ? "1.5px 6px 1.5px 0" : "2px 8px 2px 0", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                    Ipreturn :
+                  </td>
+                  <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", fontWeight: "bold", minWidth: 60 }}>
+                    {salesReturnAmt % 1 === 0 ? salesReturnAmt : salesReturnAmt.toFixed(2)}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
         {/* Right Side: Totals Table */}
-        <table style={{ borderCollapse: "collapse", fontSize: "12px" }}>
+        <table style={{ borderCollapse: "collapse", fontSize: isA5 ? "10px" : "12px" }}>
           <tbody>
             <tr>
-              <td style={{ padding: "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
+              <td style={{ padding: isA5 ? "1.5px 12px 1.5px 0" : "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
                 Total :
               </td>
-              <td style={{ padding: "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 90 }}>
-                {Math.round(totalAmt)}
+              <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 80 }}>
+                {totalAmt % 1 === 0 ? totalAmt : totalAmt.toFixed(2)}
               </td>
             </tr>
             {advAmt > 0 && (
               <tr>
-                <td style={{ padding: "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                <td style={{ padding: isA5 ? "1.5px 12px 1.5px 0" : "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
                   Advance :
                 </td>
-                <td style={{ padding: "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 90 }}>
-                  {Math.round(advAmt)}
-                </td>
-              </tr>
-            )}
-            {discAmt > 0 && (
-              <tr>
-                <td style={{ padding: "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
-                  Discount :
-                </td>
-                <td style={{ padding: "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 90 }}>
-                  {Math.round(discAmt)}
+                <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 80 }}>
+                  {advAmt % 1 === 0 ? advAmt : advAmt.toFixed(2)}
                 </td>
               </tr>
             )}
             <tr>
-              <td style={{ padding: "3px 16px 3px 0", textAlign: "right", fontWeight: "800", fontSize: "13px", whiteSpace: "nowrap" }}>
-                Net Amount :
+              <td style={{
+                padding: isA5 ? "2px 12px 2px 0" : "3px 16px 3px 0",
+                textAlign: "right",
+                fontWeight: "800",
+                fontSize: isA5 ? "11px" : "13px",
+                whiteSpace: "nowrap",
+                color: netAmt < 0 ? "#b91c1c" : "inherit"
+              }}>
+                {netAmt < 0 ? "Refund Amount :" : "Net Amount :"}
               </td>
-              <td style={{ padding: "3px 0", textAlign: "right", fontWeight: "800", fontSize: "13px", minWidth: 90 }}>
+              <td style={{
+                padding: isA5 ? "2px 0" : "3px 0",
+                textAlign: "right",
+                fontWeight: "800",
+                fontSize: isA5 ? "11px" : "13px",
+                minWidth: 80,
+                color: netAmt < 0 ? "#b91c1c" : "inherit"
+              }}>
                 {fmt(netAmt)}
               </td>
             </tr>
@@ -729,31 +745,33 @@ const NormalBillSheet = ({
       {/* ── RUPEES IN WORDS ── */}
       <div style={{
         marginTop: 4,
-        marginBottom: 8,
-        padding: "5px 8px",
+        marginBottom: 6,
+        padding: isA5 ? "3px 6px" : "5px 8px",
         background: "#f8fafc",
         border: "1px dashed #000",
-        fontSize: "11px",
+        fontSize: isA5 ? "9.5px" : "11px",
         fontWeight: "bold",
         textTransform: "uppercase"
       }}>
-        Rupees in Words : RUPEE(S) {numberToWords(netAmt).toUpperCase()} ONLY /-
+        Rupees in Words : RUPEE(S) {numberToWords(netAmt).toUpperCase()} ONLY {netAmt < 0 ? "(REFUND) " : ""}/-
       </div>
 
       {/* Divider Line */}
-      <div style={{ borderTop: "1.5px solid #000", margin: "6px 0 16px" }} />
+      <div style={{ borderTop: "1.5px solid #000", margin: isA5 ? "6px 0 10px" : "6px 0 16px" }} />
 
       {/* ── FOOTER: PREPARED BY IN LEFT, SIGNATURE IN RIGHT (MATCHING PHARMACY / REFERENCE) ── */}
       <div style={{
         display: "flex",
         justifyContent: "space-between",
         alignItems: "flex-end",
-        fontSize: "12px",
-        padding: "2px 0 16px"
+        fontSize: isA5 ? "10.5px" : "12px",
+        padding: isA5 ? "2px 0 10px" : "2px 0 16px"
       }}>
         <div style={{ textAlign: "left" }}>
           <span>Prepared By : </span>
-          <span style={{ fontWeight: "bold" }}>{preparedByName || "PARS1"}</span>
+          <span style={{ fontWeight: "bold" }}>
+            {preparedByName || bill.created_by_name || bill.created_by || localStorage.getItem("employeeName") || localStorage.getItem("userName") || "—"}
+          </span>
         </div>
         <div style={{ textAlign: "right", fontWeight: "bold" }}>
           Signature
@@ -761,6 +779,16 @@ const NormalBillSheet = ({
       </div>
 
       {/* ── GST EXEMPTION DISCLAIMER ── */}
+      <div style={{
+        fontSize: isA5 ? "8.5px" : "10px",
+        color: "#222",
+        fontStyle: "italic",
+        paddingTop: 2,
+        textAlign: "left",
+        lineHeight: "1.25"
+      }}>
+        Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST-Exempt Invoice
+      </div>
       <div style={{
         fontSize: "10px",
         color: "#222",
@@ -891,8 +919,25 @@ const InsuranceClaimSheet = ({
     groupTotals[cat] = (groups[cat] || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
   });
 
-  const effPreparedByName = String(bill.insurance_prepared_by || bill.insurance_prepared_by_name || "SHANTHI GOVINDARAJAN").toUpperCase();
-  const effPreparedByDesig = String(bill.insurance_prepared_by_designation || "INSURANCE MANAGER").toUpperCase();
+  const effPreparedByName = String(
+    preparedByName ||
+    bill.created_by_name ||
+    bill.created_by ||
+    bill.prepared_by_name ||
+    bill.prepared_by ||
+    bill.insurance_prepared_by_name ||
+    bill.insurance_prepared_by ||
+    localStorage.getItem("employeeName") ||
+    localStorage.getItem("userName") ||
+    "—"
+  ).trim().toUpperCase();
+
+  const effPreparedByDesig = String(
+    preparedByDesig ||
+    bill.created_by_designation ||
+    bill.insurance_prepared_by_designation ||
+    "INSURANCE EXECUTIVE"
+  ).trim().toUpperCase();
   const effManagerName = String(bill.insurance_manager_name || (managerName && managerName !== "DR.B.KAUSALYA" ? managerName : "DR.B.KAUSALYA")).toUpperCase();
   const effManagerDesig = String(bill.insurance_manager_designation || managerDesig || "GENERAL INSURANCE MANAGER").toUpperCase();
 
@@ -1385,6 +1430,7 @@ export const PrintSheet = React.forwardRef(({
   insuranceFormat = "IP",
   withHeader = true,
   headerSpacerHeight = 200,
+  paperSize = "A5",
   managerName,
   managerDesig,
   preparedByName,
@@ -1394,16 +1440,22 @@ export const PrintSheet = React.forwardRef(({
 }, ref) => {
   if (!bill) return null;
 
+  const isA5 = paperSize === "A5";
+
   return (
     <div ref={ref} className="print-area" style={{
-      width: "100%", maxWidth: "780px", margin: "0 auto", color: "#000",
-      padding: "12px 16px", boxSizing: "border-box"
+      width: isA5 ? "148mm" : "210mm",
+      maxWidth: isA5 ? "580px" : "780px",
+      margin: "0 auto",
+      color: "#000",
+      padding: isA5 ? "8px" : "12px 16px",
+      boxSizing: "border-box"
     }}>
       <style>{`
         @media print {
           @page {
-            size: A4 portrait;
-            margin: 12mm 10mm 10mm;
+            size: ${isA5 ? "A5 portrait" : "A4 portrait"};
+            margin: ${isA5 ? "5mm 5mm 5mm" : "12mm 10mm 10mm"};
             @bottom-right {
               content: none;
             }
@@ -1525,6 +1577,7 @@ export const PrintSheet = React.forwardRef(({
           doctorsMap={doctorsMap}
           viewMode={viewMode}
           loadedMeds={loadedMeds}
+          paperSize={paperSize}
         />
       )}
     </div>
@@ -1542,13 +1595,28 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
 
   // View mode: "NORMAL" (Summary reference bill) vs "BREAKDOWN" (Itemized medicines) vs "INSURANCE_CLAIM" (NABH multi-category format)
   const [viewMode, setViewMode] = useState(defaultViewMode || "NORMAL");
+  const [paperSize, setPaperSize] = useState((defaultViewMode === "INSURANCE_CLAIM") ? "A4" : "A5");
   const [loadedMeds, setLoadedMeds] = useState([]);
 
   useEffect(() => {
     if (defaultViewMode) {
       setViewMode(defaultViewMode);
+      const isIns = defaultViewMode === "INSURANCE_CLAIM";
+      setPaperSize(isIns ? "A4" : "A5");
+      setHeaderSpacerHeight(isIns ? 200 : 140);
     }
   }, [defaultViewMode]);
+
+  const handleSelectViewMode = (mode) => {
+    setViewMode(mode);
+    if (mode === "INSURANCE_CLAIM") {
+      setPaperSize("A4");
+      setHeaderSpacerHeight(200);
+    } else {
+      setPaperSize("A5");
+      setHeaderSpacerHeight(140);
+    }
+  };
 
   useEffect(() => {
     if (bill) {
@@ -1657,8 +1725,16 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
       const hasIp = Boolean(bill.ip_number || bill.patient_details?.ip_number || bill.patient_details?.room_no);
       setInsFormat(hasIp ? "IP" : "OP");
 
-      const pName = bill.created_by_name || bill.created_by || localStorage.getItem("userName") || localStorage.getItem("employeeName") || "PARS1";
-      const pDesig = bill.created_by_designation || "";
+      const pName = (
+        bill.created_by_name ||
+        bill.created_by ||
+        bill.prepared_by_name ||
+        bill.prepared_by ||
+        localStorage.getItem("employeeName") ||
+        localStorage.getItem("userName") ||
+        ""
+      );
+      const pDesig = bill.created_by_designation || bill.insurance_prepared_by_designation || "";
       const mName = bill.insurance_manager_name || bill.manager_name || "DR.B.KAUSALYA";
       const mDesig = bill.insurance_manager_designation || bill.manager_designation || "GENERAL INSURANCE MANAGER";
 
@@ -1667,23 +1743,24 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
       setManagerName(mName);
       setManagerDesig(mDesig);
 
-      // Fetch dynamic signatories from backend API
+      // Fetch dynamic signatories from backend API based on the creator of this bill
       const fetchSignatories = async () => {
         try {
           const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/_b_a_c_k_e_n_d/HMS/";
-          const res = await apiRequest(`${HmsBaseUrl}discharge-billing/signatories/?created_by=${encodeURIComponent(bill.created_by || "")}`, "GET");
+          const creator = bill.created_by || bill.created_by_name || localStorage.getItem("userName") || "";
+          const res = await apiRequest(`${HmsBaseUrl}discharge-billing/signatories/?created_by=${encodeURIComponent(creator)}`, "GET");
           if (res?.success) {
             const data = res.data?.data || res.data;
             if (data?.prepared_by?.name !== undefined && data.prepared_by.name) {
               setPreparedByName(data.prepared_by.name);
             }
-            if (data?.prepared_by?.designation !== undefined) {
+            if (data?.prepared_by?.designation !== undefined && data.prepared_by.designation) {
               setPreparedByDesig(data.prepared_by.designation);
             }
-            if (data?.manager?.name !== undefined) {
+            if (data?.manager?.name !== undefined && data.manager.name) {
               setManagerName(data.manager.name);
             }
-            if (data?.manager?.designation !== undefined) {
+            if (data?.manager?.designation !== undefined && data.manager.designation) {
               setManagerDesig(data.manager.designation);
             }
           }
@@ -1701,6 +1778,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
     if (!printRef.current) return;
 
     try {
+      const isA5 = paperSize === "A5";
       let iframe = document.getElementById("discharge-print-iframe");
       if (iframe) {
         try { document.body.removeChild(iframe); } catch {}
@@ -1708,12 +1786,12 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
 
       iframe = document.createElement("iframe");
       iframe.id = "discharge-print-iframe";
-      // Render offscreen with a standard A4 desktop width so layout is computed properly
+      // Render offscreen with appropriate paper width so layout is computed properly
       iframe.style.position = "fixed";
       iframe.style.left = "-10000px";
       iframe.style.top = "0px";
-      iframe.style.width = "794px";
-      iframe.style.height = "1123px";
+      iframe.style.width = isA5 ? "559px" : "794px";
+      iframe.style.height = isA5 ? "794px" : "1123px";
       iframe.style.border = "none";
       document.body.appendChild(iframe);
 
@@ -1732,8 +1810,8 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             <title>Discharge Bill - ${bill.insurance_bill_number || bill.bill_no || "Bill"}</title>
             <style>
               @page {
-                size: A4 portrait;
-                margin: 12mm 10mm 10mm;
+                size: ${isA5 ? "A5 portrait" : "A4 portrait"};
+                margin: ${isA5 ? "5mm 5mm 5mm" : "12mm 10mm 10mm"};
               }
               *, *::before, *::after {
                 box-sizing: border-box;
@@ -1859,6 +1937,11 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
 
     bodyHtml = bodyHtml.replace(/class="print-area"[^>]*style="[^"]*"/i, 'class="print-area" style="width:100%;margin:0;padding:0;"');
 
+    const isA5 = paperSize === "A5";
+    const pageSizeCss = isA5
+      ? "size: 419.55pt 595.35pt;\n      margin: 14.2pt 18pt 14.2pt 18pt;"
+      : "size: 595.35pt 841.95pt;\n      margin: 22.7pt 28.35pt 22.7pt 28.35pt;";
+
     const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head>
   <meta charset='utf-8'>
@@ -1874,16 +1957,15 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
   <![endif]-->
   <style>
     @page Section1 {
-      size: 595.35pt 841.95pt;
-      margin: 22.7pt 28.35pt 22.7pt 28.35pt;
+      ${pageSizeCss}
       mso-header-margin: 15pt;
       mso-footer-margin: 15pt;
       mso-paper-source: 0;
     }
     div.Section1 { page: Section1; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; color: #000; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: ${isA5 ? "7.5pt" : "8.5pt"}; color: #000; margin: 0; padding: 0; }
     table { width: 100% !important; max-width: 100% !important; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; }
-    td, th { font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; padding: 2px; }
+    td, th { font-family: Arial, Helvetica, sans-serif; font-size: ${isA5 ? "6.8pt" : "7.5pt"}; padding: 2px; }
     img { max-width: 100%; }
     .no-print { display: none; }
     .bill-page-1 { page-break-after: always; mso-break-type: page-break; }
@@ -1911,12 +1993,13 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
   const handleDownloadPDF = () => {
     if (!printRef.current || !bill) return;
     const element = printRef.current;
+    const isA5 = paperSize === "A5";
     const opt = {
-      margin:       [0.2, 0.25, 0.2, 0.25],
+      margin:       isA5 ? [0.12, 0.15, 0.12, 0.15] : [0.2, 0.25, 0.2, 0.25],
       filename:     `Bill_${(bill.insurance_bill_number || bill.bill_no || "DischargeBill").replace(/\//g, "_")}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true, logging: false },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      jsPDF:        { unit: 'in', format: isA5 ? 'a5' : 'a4', orientation: 'portrait' }
     };
     if (window.html2pdf) {
       window.html2pdf().set(opt).from(element).save();
@@ -1948,16 +2031,16 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
               <HeadBtn
                 type="button"
                 $active={viewMode === "NORMAL"}
-                onClick={() => setViewMode("NORMAL")}
-                title="Standard Bill (summary medicine charges)"
+                onClick={() => handleSelectViewMode("NORMAL")}
+                title="Standard Bill (summary medicine charges) - A5 format"
               >
                 🖨️ STANDARD
               </HeadBtn>
               <HeadBtn
                 type="button"
                 $active={viewMode === "BREAKDOWN"}
-                onClick={() => setViewMode("BREAKDOWN")}
-                title="Breakdown Bill (all medicines itemized one by one)"
+                onClick={() => handleSelectViewMode("BREAKDOWN")}
+                title="Breakdown Bill (all medicines itemized) - A5 format"
               >
                 📑 BREAKDOWN
               </HeadBtn>
@@ -1965,12 +2048,32 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
                 <HeadBtn
                   type="button"
                   $active={viewMode === "INSURANCE_CLAIM"}
-                  onClick={() => setViewMode("INSURANCE_CLAIM")}
-                  title="NABH Insurance Claim Format"
+                  onClick={() => handleSelectViewMode("INSURANCE_CLAIM")}
+                  title="NABH Insurance Claim Format - A4 format"
                 >
                   🛡️ INSURANCE
                 </HeadBtn>
               )}
+            </div>
+
+            {/* ── Paper Size Toggle: A5 vs A4 ── */}
+            <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
+              <HeadBtn
+                type="button"
+                $active={paperSize === "A5"}
+                onClick={() => setPaperSize("A5")}
+                title="A5 Paper Size (148mm × 210mm) - Compact Hospital Invoice"
+              >
+                📄 A5
+              </HeadBtn>
+              <HeadBtn
+                type="button"
+                $active={paperSize === "A4"}
+                onClick={() => setPaperSize("A4")}
+                title="A4 Paper Size (210mm × 297mm) - Full Page Sheet"
+              >
+                📄 A4
+              </HeadBtn>
             </div>
 
             {/* ── Header toggle (available across ALL view modes: Standard, Breakdown, Insurance) ── */}
@@ -2070,6 +2173,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             insuranceFormat={insFormat}
             withHeader={withHeader}
             headerSpacerHeight={headerSpacerHeight}
+            paperSize={paperSize}
             managerName={managerName}
             managerDesig={managerDesig}
             preparedByName={preparedByName}
