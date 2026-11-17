@@ -33,6 +33,7 @@ import Block from "./Components/Rooms/Block";
 import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
+import PatientsMaster from "./Components/Register/PatientsMaster";
 
 import Summary from "./Components/Summary/Summary";
 import SummaryPrint from "./Components/Summary/SummaryPrint";
@@ -504,6 +505,8 @@ function App() {
       "/IPDoctorReport": "Inpatient Doctor Clinical Reports",
       "/ipdoctorreport": "Inpatient Doctor Clinical Reports",
       "/PatientRegistrationForm": "Patient Registration",
+      "/PatientsMaster": "Patients Master",
+      "/patientsmaster": "Patients Master",
       "/Admission": "Admission",
       "/IPAdvance": "IPAdvance",
       "/RoomShifting": "Room Shifting",
@@ -1052,6 +1055,17 @@ function App() {
                   <Route
                     path="/RegistrationBills"
                     element={<RegistrationBills />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PatientsMaster",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PatientsMaster"
+                    element={<PatientsMaster />}
                   />
                 )}
 

@@ -1016,22 +1016,31 @@ const PatientRegistrationForm = () => {
   }, []);
 
   const calculateAgeFromDOB = (dob) => {
+    if (!dob) return ""
     const birthDate = new Date(dob)
     const today = new Date()
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDifference = today.getMonth() - birthDate.getMonth()
-    if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
-      age--
+    const diffTime = today - birthDate
+    if (diffTime < 0) return ""
+    const diffDays = diffTime / (1000 * 60 * 60 * 24)
+    const years = diffDays / 365.25
+    if (years < 1) {
+      const dec = Math.round(years * 10) / 10
+      return dec > 0 ? dec : 0.1
     }
-    return age >= 0 ? age : ""
+    return Math.floor(years)
   }
 
   const calculateDOBFromAge = (age) => {
-    const numericAge = parseInt(age, 10)
+    const numericAge = parseFloat(age)
     if (isNaN(numericAge) || numericAge < 0) return ""
     const today = new Date()
-    const birthYear = today.getFullYear() - numericAge
-    return new Date(birthYear, today.getMonth(), today.getDate()).toISOString().split("T")[0]
+    if (Number.isInteger(numericAge)) {
+      const birthYear = today.getFullYear() - numericAge
+      return new Date(birthYear, today.getMonth(), today.getDate()).toISOString().split("T")[0]
+    }
+    const days = Math.round(numericAge * 365.25)
+    const birthDate = new Date(today.getTime() - days * 24 * 60 * 60 * 1000)
+    return birthDate.toISOString().split("T")[0]
   }
 
   const handleChange = (e) => {
@@ -1353,6 +1362,15 @@ const PatientRegistrationForm = () => {
         })
         setIsMlc(false)
         resetFeeCalculator(true)
+
+        // Reset search / lookup states on save
+        setUhid("")
+        setIpNumber("")
+        setMobile("")
+        setPatients([])
+        setModalFilterTerm("")
+        setRefDoctorSearchQuery("")
+        setIsRefDoctorDropdownOpen(false)
       } else {
         alert("Error registering patient: " + (result.error || "Check console for details."))
       }
@@ -2213,11 +2231,12 @@ const PatientRegistrationForm = () => {
                 <FormLabel htmlFor="age">Age</FormLabel>
                 <FormInput
                   type="number"
+                  step="any"
                   id="age"
                   name="age"
                   value={patient.age !== undefined && patient.age !== null ? patient.age : ""}
                   onChange={handleChange}
-                  placeholder="Enter age"
+                  placeholder="Enter age (e.g. 25 or 0.5)"
                   min="0"
                   max="120"
                 />
