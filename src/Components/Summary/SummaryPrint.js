@@ -2125,6 +2125,15 @@ const SummaryPrint = () => {
                       </div>
                     );
                   })}
+                  {summaryData.testdetails?.length > 0 &&
+                    !fieldsData.some(
+                      (f) => String(f.key || "").trim().toUpperCase() === "INVESTIGATIONS"
+                    ) && (
+                      <div className="sp-section">
+                        <div className="sp-section-title">INVESTIGATIONS</div>
+                        <LabReport />
+                      </div>
+                    )}
                   {(() => {
                     // API data wins; fall back to what get-printsummary already returned
                     const preparedSig = signoffs.prepared || summaryData.prepared_by_sign;
