@@ -233,7 +233,8 @@ const CashierWiseDetailedReport = ({
                 "S.No": index + 1,
                 "Shift No": row.shiftno || "",
                 "Bill No": row.bill_no || "",
-                "UHID / OP No": row.uhid || "",
+                "UHID": row.uhid || "",
+                "IP No": row.ip_number || "",
                 "Patient Name": row.patient_name || "",
                 "Collected (₹)": row.display_amount >= 0 ? Number(row.display_amount.toFixed(2)) : 0,
                 "Return (₹)": row.display_amount < 0 ? Number(Math.abs(row.display_amount).toFixed(2)) : 0,
@@ -344,7 +345,8 @@ const CashierWiseDetailedReport = ({
                             <Th style={{ width: "60px" }}>S/no</Th>
                             <Th>Shift No</Th>
                             <Th>Bill No</Th>
-                            <Th>O/P No</Th>
+                            <Th>UHID</Th>
+                            <Th>IP No</Th>
                             <Th>Patient Name</Th>
                             <Th style={{ textAlign: "right", width: "120px" }}>Collected</Th>
                             <Th style={{ textAlign: "right", width: "120px" }}>Return</Th>
@@ -354,7 +356,7 @@ const CashierWiseDetailedReport = ({
                     <tbody>
                         {loading ? (
                             <Tr>
-                                <Td colSpan="8" style={{ textAlign: "center", padding: "20px", color: colors.textMuted }}>
+                                <Td colSpan="9" style={{ textAlign: "center", padding: "20px", color: colors.textMuted }}>
                                     Loading report data...
                                 </Td>
                             </Tr>
@@ -365,6 +367,7 @@ const CashierWiseDetailedReport = ({
                                     <Td style={{ fontWeight: "600" }}>{row.shiftno}</Td>
                                     <Td style={{ fontWeight: "700", color: colors.primary }}>{row.bill_no}</Td>
                                     <Td>{row.uhid || "—"}</Td>
+                                    <Td>{row.ip_number || "—"}</Td>
                                     <Td style={{ fontWeight: "600" }}>{row.patient_name || "—"}</Td>
                                     <Td style={{ textAlign: "right", color: row.display_amount >= 0 ? colors.success : colors.textMain }}>
                                         {row.display_amount >= 0 ? `₹${row.display_amount.toFixed(2)}` : "—"}
@@ -381,7 +384,7 @@ const CashierWiseDetailedReport = ({
                             ))
                         ) : (
                             <Tr>
-                                <Td colSpan="8" style={{ textAlign: "center", padding: "20px", color: colors.textMuted }}>
+                                <Td colSpan="9" style={{ textAlign: "center", padding: "20px", color: colors.textMuted }}>
                                     No itemized data available for this shift.
                                 </Td>
                             </Tr>
@@ -390,7 +393,7 @@ const CashierWiseDetailedReport = ({
                     {!loading && reportData.length > 0 && (
                         <tfoot>
                             <Tr style={{ fontWeight: "bold", background: "#f8fafc" }}>
-                                <Td colSpan="5" style={{ textAlign: "right" }}>Grand Total:</Td>
+                                <Td colSpan="6" style={{ textAlign: "right" }}>Grand Total:</Td>
                                 <Td style={{ textAlign: "right", color: colors.success }}>
                                     ₹{reportData.reduce((a, b) => a + (b.display_amount >= 0 ? b.display_amount : 0), 0).toFixed(2)}
                                 </Td>
@@ -432,8 +435,8 @@ const CashierWiseDetailedReport = ({
                 <PrintInfoTable>
                     <tbody>
                         <tr>
-                            <td style={{ width: "30%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ width: "30%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "30%" }}><strong>From Date:</strong> {formatDateSafe(fromDate)}</td>
+                            <td style={{ width: "30%" }}><strong>To Date:</strong> {formatDateSafe(toDate)}</td>
                             <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
                         </tr>
                         <tr>
@@ -460,7 +463,8 @@ const CashierWiseDetailedReport = ({
                             <th>S.No</th>
                             <th>Shift No</th>
                             <th>Bill No</th>
-                            <th>O/P No</th>
+                            <th>UHID</th>
+                            <th>IP No</th>
                             <th>Patient Name</th>
                             <th style={{ textAlign: "right" }}>Collected</th>
                             <th style={{ textAlign: "right" }}>Return</th>
@@ -475,6 +479,7 @@ const CashierWiseDetailedReport = ({
                                     <td>{row.shiftno}</td>
                                     <td>{row.bill_no}</td>
                                     <td>{row.uhid || "—"}</td>
+                                    <td>{row.ip_number || "—"}</td>
                                     <td>{row.patient_name || "—"}</td>
                                     <td style={{ textAlign: "right" }}>
                                         {row.display_amount >= 0 ? `₹${row.display_amount.toFixed(2)}` : "—"}
@@ -487,12 +492,12 @@ const CashierWiseDetailedReport = ({
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="8" style={{ textAlign: "center", padding: "15px" }}>No data available.</td>
+                                <td colSpan="9" style={{ textAlign: "center", padding: "15px" }}>No data available.</td>
                             </tr>
                         )}
                         {reportData.length > 0 && (
                             <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
-                                <td colSpan="5" style={{ textAlign: "right" }}>Grand Total:</td>
+                                <td colSpan="6" style={{ textAlign: "right" }}>Grand Total:</td>
                                 <td style={{ textAlign: "right" }}>
                                     ₹{reportData.reduce((a, b) => a + (b.display_amount >= 0 ? b.display_amount : 0), 0).toFixed(2)}
                                 </td>

@@ -14,6 +14,12 @@ export const printAccountsReport = (elementId = "printable-report-area", orienta
         oldIframe.remove();
     }
 
+    // Clone and sanitize content: remove all interactive/action elements and print-hidden elements
+    const clone = elem.cloneNode(true);
+    clone.querySelectorAll(
+        ".no-print, .hide-on-print, .action-column, th.hide-on-print, td.hide-on-print, th.action-column, td.action-column, [class*='action-column'], [class*='hide-on-print'], button, [title*='Inspect'], [title*='Action'], svg"
+    ).forEach(el => el.remove());
+
     const iframe = document.createElement("iframe");
     iframe.id = "accounts-print-frame";
     iframe.style.position = "fixed";
@@ -151,10 +157,13 @@ export const printAccountsReport = (elementId = "printable-report-area", orienta
                     .text-center {
                         text-align: center;
                     }
+                    .no-print, .hide-on-print, .action-column, th.action-column, td.action-column, [class*='action-column'], [class*='hide-on-print'] {
+                        display: none !important;
+                    }
                 </style>
             </head>
             <body>
-                ${elem.innerHTML}
+                ${clone.innerHTML}
             </body>
         </html>
     `);

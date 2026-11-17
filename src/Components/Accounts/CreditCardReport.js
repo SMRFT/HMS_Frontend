@@ -600,7 +600,12 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
                                                         <Td style={{ textAlign: "center", fontWeight: 500 }}>{row.displaySlno || row.slno}</Td>
                                                         <Td style={{ fontWeight: 600 }}>{row.patient_name}</Td>
                                                         <Td style={{ fontFamily: "monospace" }}>{row.bill_no}</Td>
-                                                        <Td style={{ fontFamily: "monospace", color: "#475569" }}>{row.mr_no || "—"}</Td>
+                                                        <Td style={{ fontFamily: "monospace", color: "#475569" }}>
+                                                            <div>{row.mr_no || "—"}</div>
+                                                            {row.ip_number && row.ip_number !== row.mr_no && !String(row.mr_no).includes(row.ip_number) && (
+                                                                <div style={{ fontSize: "0.72rem", color: "#64748b" }}>IP: {row.ip_number}</div>
+                                                            )}
+                                                        </Td>
                                                         <Td>{row.card_type || "VISA CARD"}</Td>
                                                         <Td>{row.card_number || "PAYTM"}</Td>
                                                         <Td style={{ textAlign: "right", fontWeight: 600, fontFamily: "monospace" }}>
@@ -699,7 +704,7 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
                                                     <td style={{ padding: "3px 2px" }}>{row.displaySlno || row.slno}</td>
                                                     <td style={{ padding: "3px 2px" }}>{row.patient_name}</td>
                                                     <td style={{ padding: "3px 2px" }}>{row.bill_no}</td>
-                                                    <td style={{ padding: "3px 2px" }}>{row.mr_no || ""}</td>
+                                                    <td style={{ padding: "3px 2px" }}>{row.mr_no || ""}{row.ip_number && row.ip_number !== row.mr_no && !String(row.mr_no).includes(row.ip_number) ? ` / IP: ${row.ip_number}` : ""}</td>
                                                     <td style={{ padding: "3px 2px" }}>{row.card_type}</td>
                                                     <td style={{ padding: "3px 2px" }}>{row.card_number}</td>
                                                     <td style={{ padding: "3px 2px", textAlign: "right" }}>{formatINR(row.amount)}</td>
