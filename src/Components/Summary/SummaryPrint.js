@@ -633,6 +633,8 @@ const SummaryPrint = () => {
   const pageRef = useRef(null);
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const [previewTotalPages, setPreviewTotalPages] = useState(1);
   const [zoomScale, setZoomScale] = useState(1);
@@ -839,6 +841,7 @@ const SummaryPrint = () => {
   ══════════════════════════════════════════════════════════ */
   const handlePrint = async (returnBlob = false) => {
     if (!summaryData || !bodyRef.current) return;
+    if (!returnBlob) setGeneratingPdf(true);
     setLoading(true);
     try {
       await loadSignoffs();
@@ -1236,6 +1239,7 @@ const SummaryPrint = () => {
       alert("PDF error: " + (err.message || err));
     } finally {
       document.querySelectorAll("[data-pdf-clone]").forEach((n) => n.remove());
+      if (!returnBlob) setGeneratingPdf(false);
       setLoading(false);
     }
   };
@@ -1258,6 +1262,7 @@ const SummaryPrint = () => {
       return;
     }
 
+    setSharing(true);
     setLoading(true);
     try {
       // 1. Generate PDF blob
@@ -1292,6 +1297,7 @@ const SummaryPrint = () => {
       console.error("WhatsApp sending error:", err);
       alert("Error sending WhatsApp: " + (err.message || err));
     } finally {
+      setSharing(false);
       setLoading(false);
     }
   };
@@ -1314,6 +1320,7 @@ const SummaryPrint = () => {
       return;
     }
 
+    setSharing(true);
     setLoading(true);
     try {
       // 1. Generate PDF blob
@@ -1358,6 +1365,7 @@ const SummaryPrint = () => {
       console.error("Email sending error:", err);
       alert("Error sending email: " + (err.message || err));
     } finally {
+      setSharing(false);
       setLoading(false);
     }
   };
@@ -1861,9 +1869,9 @@ const SummaryPrint = () => {
             <button
               className="sp-btn sp-btn-primary"
               onClick={() => handlePrint(false)}
-              disabled={loading}
+              disabled={generatingPdf || sharing}
             >
-              {loading ? (
+              {generatingPdf ? (
                 <>
                   <span className="sp-btn-spinner" /> Generating…
                 </>
@@ -1893,14 +1901,14 @@ const SummaryPrint = () => {
                   if (!isApproved) return;
                   setShowSendDropdown((prev) => !prev);
                 }}
-                disabled={loading || !isApproved}
+                disabled={generatingPdf || sharing || !isApproved}
                 title={
                   isApproved
                     ? "Send summary via WhatsApp or Email"
                     : "Send is available only after the summary is approved"
                 }
               >
-                {loading ? (
+                {sharing ? (
                   <>
                     <span className="sp-btn-spinner" /> Sharing…
                   </>
@@ -1925,7 +1933,7 @@ const SummaryPrint = () => {
                   </>
                 )}
               </button>
-              {isApproved && showSendDropdown && !loading && (
+              {isApproved && showSendDropdown && !generatingPdf && !sharing && (
                 <div className="sp-dropdown-menu">
                   <button
                     className="sp-dropdown-item"

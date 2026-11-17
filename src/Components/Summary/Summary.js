@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import ReactSelect from "react-select";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -275,9 +276,10 @@ const SUMMARY_CUSTOM_STYLES = `
   .sum-fg1-status { grid-column: span 2; }
   .sum-fg1-actions { grid-column: span 3; display: flex; align-items: flex-end; gap: 8px; }
 
-  .sum-fg2-patient { grid-column: span 4; }
-  .sum-fg2-uhid { grid-column: span 4; }
-  .sum-fg2-ip { grid-column: span 4; }
+  .sum-fg2-patient { grid-column: span 3; }
+  .sum-fg2-doc { grid-column: span 3; }
+  .sum-fg2-uhid { grid-column: span 3; }
+  .sum-fg2-ip { grid-column: span 3; }
 
   @media (max-width: 1024px) and (min-width: 641px) {
     .sum-filter-grid-1 {
@@ -293,8 +295,9 @@ const SUMMARY_CUSTOM_STYLES = `
       grid-template-columns: repeat(6, 1fr) !important;
     }
     .sum-fg2-patient { grid-column: span 3 !important; }
+    .sum-fg2-doc { grid-column: span 3 !important; }
     .sum-fg2-uhid { grid-column: span 3 !important; }
-    .sum-fg2-ip { grid-column: span 6 !important; }
+    .sum-fg2-ip { grid-column: span 3 !important; }
   }
 
   @media (max-width: 640px) {
@@ -318,7 +321,7 @@ const SUMMARY_CUSTOM_STYLES = `
       grid-template-columns: 1fr !important;
       gap: 10px !important;
     }
-    .sum-fg2-patient, .sum-fg2-uhid, .sum-fg2-ip {
+    .sum-fg2-patient, .sum-fg2-uhid, .sum-fg2-ip, .sum-fg2-doc {
       grid-column: span 1 !important;
       width: 100% !important;
     }
@@ -3125,6 +3128,38 @@ const Summary = () => {
   };
 
   const handleSubmit = async () => {
+    if (!formData.ipNo || !String(formData.ipNo).trim()) {
+      Swal.fire("Validation Error", "IP Number is mandatory.", "warning");
+      return;
+    }
+    if (!formData.uhid || !String(formData.uhid).trim()) {
+      Swal.fire("Validation Error", "UHID is mandatory.", "warning");
+      return;
+    }
+    if (!formData.doa || !String(formData.doa).trim()) {
+      Swal.fire("Validation Error", "Date of Admission (D.O.A) is mandatory.", "warning");
+      return;
+    }
+    if (!formData.dod || !String(formData.dod).trim()) {
+      Swal.fire("Validation Error", "Date of Discharge (D.O.D) is mandatory.", "warning");
+      return;
+    }
+    const isValidDoctor = doctors.some(
+      (d) => (d.employeeName || "").trim().toUpperCase() === String(formData.doctor || "").trim().toUpperCase()
+    );
+    if (!formData.doctor || !isValidDoctor) {
+      Swal.fire(
+        "Validation Error",
+        "Please select a valid Consultant Doctor from the dropdown list.",
+        "warning"
+      );
+      return;
+    }
+    if (!formData.summaryNo && !(formData.summaryType && String(formData.summaryType).trim())) {
+      Swal.fire("Validation Error", "Summary Type is mandatory.", "warning");
+      return;
+    }
+
     let fds = formData.fieldsData || [];
     if (formData.currentField && formData.notes) {
       fds = setFieldValue(
@@ -3171,6 +3206,38 @@ const Summary = () => {
   };
 
   const handleUpdate = async () => {
+    if (!formData.ipNo || !String(formData.ipNo).trim()) {
+      Swal.fire("Validation Error", "IP Number is mandatory.", "warning");
+      return;
+    }
+    if (!formData.uhid || !String(formData.uhid).trim()) {
+      Swal.fire("Validation Error", "UHID is mandatory.", "warning");
+      return;
+    }
+    if (!formData.doa || !String(formData.doa).trim()) {
+      Swal.fire("Validation Error", "Date of Admission (D.O.A) is mandatory.", "warning");
+      return;
+    }
+    if (!formData.dod || !String(formData.dod).trim()) {
+      Swal.fire("Validation Error", "Date of Discharge (D.O.D) is mandatory.", "warning");
+      return;
+    }
+    const isValidDoctor = doctors.some(
+      (d) => (d.employeeName || "").trim().toUpperCase() === String(formData.doctor || "").trim().toUpperCase()
+    );
+    if (!formData.doctor || !isValidDoctor) {
+      Swal.fire(
+        "Validation Error",
+        "Please select a valid Consultant Doctor from the dropdown list.",
+        "warning"
+      );
+      return;
+    }
+    if (!formData.summaryNo && !(formData.summaryType && String(formData.summaryType).trim())) {
+      Swal.fire("Validation Error", "Summary Type is mandatory.", "warning");
+      return;
+    }
+
     const fd = setFieldValue(
       formData.fieldsData,
       formData.currentField,
@@ -3434,6 +3501,7 @@ const Summary = () => {
     fromDate: todayStr,
     toDate: todayStr,
     patient: "",
+    doctor: "",
     status: "",
     summaryType: "",
     uhid: "",
@@ -3457,6 +3525,7 @@ const Summary = () => {
       fromDate: todayStr,
       toDate: todayStr,
       patient: "",
+      doctor: "",
       status: "",
       summaryType: "",
       uhid: "",
@@ -3471,6 +3540,28 @@ const Summary = () => {
       toDate: filters.toDate,
       summaryType: filters.summaryType,
     });
+
+  const doctorOptions = useMemo(() => {
+    return (doctors || []).map((d) => {
+      const name = (d.employeeName || "").trim().toUpperCase();
+      return { label: name, value: name };
+    });
+  }, [doctors]);
+
+  const selectedDoctorOption = useMemo(() => {
+    if (!formData.doctor) return null;
+    const current = String(formData.doctor || "").trim().toUpperCase();
+    const found = doctors.find(
+      (d) =>
+        String(d.employeeId || "").trim() === current ||
+        (d.employeeName && d.employeeName.trim().toUpperCase() === current)
+    );
+    if (found) {
+      const upper = (found.employeeName || "").trim().toUpperCase();
+      return { label: upper, value: upper };
+    }
+    return { label: current, value: current };
+  }, [formData.doctor, doctors]);
 
   // Handle returning from SummaryPrint with archiveFilter (ipNo + date)
   useEffect(() => {
@@ -3507,13 +3598,27 @@ const Summary = () => {
       (!filters.patient ||
         (s.patient || "")
           .toLowerCase()
-          .includes(filters.patient.toLowerCase())) &&
+          .includes(filters.patient.toLowerCase().trim())) &&
+      (!filters.doctor || (() => {
+        const docFilter = filters.doctor.toLowerCase().trim();
+        const docField = (s.doctor || "").toLowerCase();
+        if (docField.includes(docFilter)) return true;
+        const matchedDoc = doctors.find(
+          (d) =>
+            (d.employeeId && String(d.employeeId).toLowerCase() === docFilter) ||
+            (d.employeeName && d.employeeName.toLowerCase() === docFilter)
+        );
+        if (matchedDoc && (matchedDoc.employeeName || "").toLowerCase().includes(docFilter)) {
+          return true;
+        }
+        return false;
+      })()) &&
       (!filters.status ||
         (filters.status === "approved" ? s.approve : !s.approve)) &&
       (!filters.uhid ||
-        (s.uhid || "").toLowerCase().includes(filters.uhid.toLowerCase())) &&
+        (s.uhid || "").toLowerCase().includes(filters.uhid.toLowerCase().trim())) &&
       (!filters.ipNo ||
-        (s.ipNo || "").toLowerCase().includes(filters.ipNo.toLowerCase())) &&
+        (s.ipNo || "").toLowerCase().includes(filters.ipNo.toLowerCase().trim())) &&
       (!filters.summaryType ||
         (s.summaryType || "").toLowerCase() ===
         filters.summaryType.toLowerCase())
@@ -3651,7 +3756,7 @@ const Summary = () => {
           <div style={S.cardBody} className="sum-card-body-responsive">
             <div className="sum-patient-grid">
               {/* Row 1: Identification */}
-              <Fld label="IP Number" className="sum-col-ip">
+              <Fld label={<>IP Number <span style={{ color: "#ef4444" }}>*</span></>} className="sum-col-ip">
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <CInp
                     name="ipNo"
@@ -3680,7 +3785,7 @@ const Summary = () => {
                 </div>
               </Fld>
 
-              <Fld label="UHID" className="sum-col-uhid">
+              <Fld label={<>UHID <span style={{ color: "#ef4444" }}>*</span></>} className="sum-col-uhid">
                 <CInp
                   name="uhid"
                   value={formData.uhid}
@@ -3744,7 +3849,7 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="D.O.A" className="sum-col-doa">
+              <Fld label={<>D.O.A <span style={{ color: "#ef4444" }}>*</span></>} className="sum-col-doa">
                 <CInp
                   name="doa"
                   value={formData.doa}
@@ -3762,12 +3867,13 @@ const Summary = () => {
                 />
               </Fld>
 
-              <Fld label="D.O.D" className="sum-col-dod">
+              <Fld label={<>D.O.D <span style={{ color: "#ef4444" }}>*</span></>} className="sum-col-dod">
                 <CInp
                   type="date"
                   name="dod"
                   value={formData.dod}
                   onChange={handleChange}
+                  required
                 />
               </Fld>
 
@@ -3799,49 +3905,84 @@ const Summary = () => {
               </Fld>
 
               {/* Row 3: Assignment & Metadata */}
-              <Fld label="Consultant Doctor" className="sum-col-doc">
-                <select
-                  name="doctor"
-                  value={
-                    doctors.find(
-                      (doc) =>
-                        (doc.employeeName || "").trim().toUpperCase() ===
-                        (formData.doctor || "").trim().toUpperCase()
-                    )?.employeeName || (formData.doctor || "").toUpperCase()
-                  }
-                  onChange={(e) => {
-                    const val = (e.target.value || "").toUpperCase();
+              <Fld label={<>Consultant Doctor <span style={{ color: "#ef4444" }}>*</span></>} className="sum-col-doc">
+                <ReactSelect
+                  value={selectedDoctorOption}
+                  onChange={(selected) => {
+                    const val = selected ? (selected.value || "").toUpperCase() : "";
                     setFormData((prev) => ({
                       ...prev,
                       doctor: val,
                       explainedBy: prev.explainedBy || (val ? (val.startsWith("DR.") ? val : `DR. ${val}`) : ""),
                     }));
                   }}
-                  style={{ ...S.sel, textTransform: "uppercase" }}
-                >
-                  <option value="">— SELECT CONSULTANT DOCTOR —</option>
-                  {formData.doctor &&
-                    !doctors.some(
-                      (doc) =>
-                        (doc.employeeName || "").trim().toUpperCase() ===
-                        (formData.doctor || "").trim().toUpperCase()
-                    ) && (
-                      <option value={(formData.doctor || "").toUpperCase()}>
-                        {(formData.doctor || "").toUpperCase()}
-                      </option>
-                    )}
-                  {doctors.map((doc, i) => {
-                    const upperName = (doc.employeeName || "").toUpperCase();
-                    return (
-                      <option key={doc.employeeId || i} value={upperName}>
-                        {upperName}
-                      </option>
-                    );
-                  })}
-                </select>
+                  options={doctorOptions}
+                  placeholder="— SEARCH & SELECT DOCTOR —"
+                  isClearable
+                  isSearchable
+                  styles={{
+                    control: (provided, state) => ({
+                      ...provided,
+                      minHeight: 38,
+                      height: 38,
+                      borderRadius: 8,
+                      borderColor: state.isFocused ? "#0d9488" : "#cbd5e1",
+                      boxShadow: state.isFocused ? "0 0 0 3px rgba(13, 148, 136, 0.16)" : "none",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      backgroundColor: "#ffffff",
+                      "&:hover": {
+                        borderColor: "#0d9488",
+                      },
+                    }),
+                    valueContainer: (provided) => ({
+                      ...provided,
+                      padding: "0 8px",
+                      height: 38,
+                    }),
+                    input: (provided) => ({
+                      ...provided,
+                      margin: 0,
+                      padding: 0,
+                      textTransform: "uppercase",
+                      fontSize: 13,
+                    }),
+                    menu: (provided) => ({
+                      ...provided,
+                      zIndex: 9999,
+                      fontSize: 12.5,
+                      textTransform: "uppercase",
+                    }),
+                    menuPortal: (provided) => ({ ...provided, zIndex: 9999 }),
+                    option: (provided, state) => ({
+                      ...provided,
+                      backgroundColor: state.isSelected
+                        ? "#0d9488"
+                        : state.isFocused
+                        ? "rgba(13, 148, 136, 0.1)"
+                        : "white",
+                      color: state.isSelected ? "white" : "#0f172a",
+                      cursor: "pointer",
+                      padding: "8px 12px",
+                    }),
+                    singleValue: (provided) => ({
+                      ...provided,
+                      color: "#0f172a",
+                      fontWeight: 600,
+                      fontSize: 13,
+                    }),
+                    placeholder: (provided) => ({
+                      ...provided,
+                      color: "#94a3b8",
+                      fontSize: 12.5,
+                      textTransform: "none",
+                    }),
+                  }}
+                  menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                />
               </Fld>
 
-              <Fld label="Summary Type" className="sum-col-type">
+              <Fld label={<>Summary Type <span style={{ color: "#ef4444" }}>*</span></>} className="sum-col-type">
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <select
                     id="summaryTypeSelect"
@@ -4714,11 +4855,9 @@ const Summary = () => {
                     }}
                   />
                   <datalist id="explained-by-doctors-list">
-                    {doctors.map((doc, i) => {
-                      const upperName = (doc.employeeName || "").toUpperCase();
-                      const prefix = upperName.startsWith("") ? upperName : ` ${upperName}`;
-                      return <option key={doc.employeeId || i} value={prefix} />;
-                    })}
+                    {doctors.map((doc, i) => (
+                      <option key={doc.employeeId || i} value={(doc.employeeName || "").toUpperCase()} />
+                    ))}
                   </datalist>
                 </div>
               </div>
@@ -5256,7 +5395,7 @@ const Summary = () => {
               </div>
             </div>
 
-            {/* Filter row 2: Search by Name, UHID, IP No */}
+            {/* Filter row 2: Search by Name, Doctor, UHID, IP No */}
             <div className="sum-filter-grid-2">
               <div style={S.fld} className="sum-fg2-patient">
                 <span style={{ ...S.lbl, color: T.teal }}>Patient Name</span>
@@ -5266,6 +5405,78 @@ const Summary = () => {
                   onChange={handleFilterChange}
                   placeholder="Filter by patient name…"
                   style={fi}
+                />
+              </div>
+              <div style={S.fld} className="sum-fg2-doc">
+                <span style={{ ...S.lbl, color: T.teal }}>Doctor Name</span>
+                <ReactSelect
+                  value={
+                    filters.doctor
+                      ? doctorOptions.find((opt) => opt.value === filters.doctor.toUpperCase()) || {
+                          label: filters.doctor.toUpperCase(),
+                          value: filters.doctor.toUpperCase(),
+                        }
+                      : null
+                  }
+                  onChange={(selected) => {
+                    setFilters((prev) => ({ ...prev, doctor: selected ? selected.value : "" }));
+                  }}
+                  options={doctorOptions}
+                  placeholder="Filter by Doctor…"
+                  isClearable
+                  isSearchable
+                  styles={{
+                    control: (provided, state) => ({
+                      ...provided,
+                      minHeight: 38,
+                      height: 38,
+                      borderRadius: 8,
+                      borderColor: state.isFocused ? T.teal : "#cbd5e1",
+                      boxShadow: state.isFocused ? `0 0 0 3px ${T.tealGlow}` : "none",
+                      fontSize: 13,
+                      backgroundColor: "#ffffff",
+                      "&:hover": { borderColor: T.teal },
+                    }),
+                    valueContainer: (provided) => ({
+                      ...provided,
+                      padding: "0 8px",
+                      height: 38,
+                    }),
+                    input: (provided) => ({
+                      ...provided,
+                      margin: 0,
+                      padding: 0,
+                      fontSize: 13,
+                    }),
+                    menu: (provided) => ({
+                      ...provided,
+                      zIndex: 9999,
+                      fontSize: 12.5,
+                    }),
+                    menuPortal: (provided) => ({ ...provided, zIndex: 9999 }),
+                    option: (provided, state) => ({
+                      ...provided,
+                      backgroundColor: state.isSelected
+                        ? T.teal
+                        : state.isFocused
+                        ? "rgba(13, 148, 136, 0.1)"
+                        : "white",
+                      color: state.isSelected ? "white" : "#0f172a",
+                      cursor: "pointer",
+                      padding: "8px 12px",
+                    }),
+                    singleValue: (provided) => ({
+                      ...provided,
+                      fontSize: 13,
+                      color: "#0f172a",
+                    }),
+                    placeholder: (provided) => ({
+                      ...provided,
+                      color: "#94a3b8",
+                      fontSize: 12.5,
+                    }),
+                  }}
+                  menuPortalTarget={typeof document !== "undefined" ? document.body : null}
                 />
               </div>
               <div style={S.fld} className="sum-fg2-uhid">
