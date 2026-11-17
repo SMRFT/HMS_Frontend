@@ -454,12 +454,15 @@ const StatusBadge = styled.span`
 
   ${({ status }) => {
     switch (status) {
+      case "Credit Bills":
+      case "Credit Bill":
       case "Ip Credit Bills":
         return `
           background: #fff3e0;
           color: #d97706;
           border: 1px solid #fde68a;
         `;
+      case "Cash Bills":
       case "Cash Bill":
         return `
           background: #dcfce7;
@@ -1436,7 +1439,30 @@ export default function PharmacyBillAnalysis() {
       if (res.success && res.data) {
         const body = res.data;
         if (body.success) {
-          setBills(body.data || []);
+          const rawList = body.data || [];
+          // Strict filter: Exclude any estimate bills. Only billed and paid patient bills display in Bill Analysis.
+          const validBills = rawList.filter((b) => {
+            const bNum = String(b.bill_number || b.bill_no || "").trim();
+            const bStatus = String(b.status || "").toLowerCase();
+            const bMode = String(b.billing_mode || "").toLowerCase();
+            const travelStatus = String(b.travel?.bill_info?.billing_status || "").toLowerCase();
+            const travelMode = String(b.travel?.bill_info?.billing_mode || "").toLowerCase();
+
+            if (
+              !bNum ||
+              bNum === "—" ||
+              bNum.toLowerCase() === "null" ||
+              bNum.toLowerCase() === "none" ||
+              bStatus.includes("estimate") ||
+              bMode.includes("estimate") ||
+              travelStatus.includes("estimate") ||
+              travelMode.includes("estimate")
+            ) {
+              return false;
+            }
+            return true;
+          });
+          setBills(validBills);
           if (body.summary) {
             setSummary(body.summary);
           }
@@ -1495,6 +1521,19 @@ export default function PharmacyBillAnalysis() {
   // Filtered bills in memory (for immediate sub-filtering)
   const filteredBills = useMemo(() => {
     return bills.filter((b) => {
+      const bNum = String(b.bill_number || b.bill_no || "").trim();
+      const bStatus = String(b.status || "").toLowerCase();
+      const bMode = String(b.billing_mode || "").toLowerCase();
+      if (
+        !bNum ||
+        bNum === "—" ||
+        bNum.toLowerCase() === "null" ||
+        bNum.toLowerCase() === "none" ||
+        bStatus.includes("estimate") ||
+        bMode.includes("estimate")
+      ) {
+        return false;
+      }
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
       return (
@@ -1722,8 +1761,8 @@ export default function PharmacyBillAnalysis() {
 
         <SelectBox value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="all">All Statuses</option>
-          <option value="ip credit bills">IP Credit Bills</option>
-          <option value="cash bill">Cash Bills</option>
+          <option value="cash bills">Cash Bills</option>
+          <option value="credit bills">Credit Bills</option>
           <option value="sales return">Has Sales Return</option>
           <option value="ip return">Has IP Return</option>
           <option value="cancelled">Cancelled</option>

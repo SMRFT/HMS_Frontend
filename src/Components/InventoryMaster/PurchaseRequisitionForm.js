@@ -246,7 +246,7 @@ const MedicineSearchField = ({ value, onChange, fromOutlet, err, placeholder }) 
     if (!q || q.length < 2) { setResults([]); setShowDrop(false); return }
     try {
       const cleanQ = q.trim().toUpperCase()
-      const params = new URLSearchParams({ search: q.trim(), page: "1", page_size: "100" })
+      const params = new URLSearchParams({ search: q.trim(), page: "all", unlimited: "true" })
       if (fromOutlet) params.append("outlet_code", fromOutlet)
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET")
       const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : []

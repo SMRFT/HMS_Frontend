@@ -10,6 +10,7 @@ import {
   FaPrint,
   FaSave,
   FaTimes,
+  FaCheck,
   FaChevronLeft,
   FaChevronRight,
   FaAngleDoubleLeft,
@@ -132,20 +133,84 @@ const formatPatientName = (salutation, firstName, lastName) => {
   return s ? `${s} ${name}`.trim() : name;
 };
 
-// Helper to format expiry date as YYYY/MM matching pharmacy invoice standard (e.g. 2031/07)
+// Helper to format expiry date as date/month/year (DD/MM/YYYY)
 const formatExpiryDate = (dateStr) => {
-  if (!dateStr || dateStr === "—" || dateStr === "N/A") return "—";
+  if (!dateStr || dateStr === "—" || dateStr === "N/A" || dateStr === "null" || dateStr === "undefined") return "—";
   const raw = String(dateStr).split("T")[0].trim();
   const parts = raw.split(/[-/]/);
-  if (parts.length >= 2) {
+  if (parts.length >= 3) {
     if (parts[0].length === 4) {
-      return `${parts[0]}/${parts[1].padStart(2, "0")}`;
+      const year = parts[0];
+      const month = parts[1].padStart(2, "0");
+      const day = parts[2].padStart(2, "0");
+      return `${day}/${month}/${year}`;
     }
-    if (parts[2] && parts[2].length === 4) {
-      return `${parts[2]}/${parts[1].padStart(2, "0")}`;
+    if (parts[2].length === 4) {
+      const day = parts[0].padStart(2, "0");
+      const month = parts[1].padStart(2, "0");
+      const year = parts[2];
+      return `${day}/${month}/${year}`;
+    }
+  } else if (parts.length === 2) {
+    if (parts[0].length === 4) {
+      return `${parts[1].padStart(2, "0")}/${parts[0]}`;
+    }
+    if (parts[1].length === 4) {
+      return `${parts[0].padStart(2, "0")}/${parts[1]}`;
     }
   }
   return raw;
+};
+
+// Helper to determine expiry status and days remaining (alerts if within 10 days)
+const getExpiryStatus = (dateStr) => {
+  if (!dateStr || dateStr === "—" || dateStr === "N/A") return { isExpired: false, isExpiringSoon: false, daysLeft: null, text: "" };
+  try {
+    const raw = String(dateStr).split("T")[0].trim();
+    const parts = raw.split(/[-/]/);
+    let expDate;
+    if (parts.length >= 3) {
+      if (parts[0].length === 4) {
+        expDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      } else {
+        expDate = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+      }
+    } else if (parts.length === 2) {
+      let yr, mo;
+      if (parts[0].length === 4) {
+        yr = parseInt(parts[0], 10);
+        mo = parseInt(parts[1], 10);
+      } else {
+        mo = parseInt(parts[0], 10);
+        yr = parseInt(parts[1], 10);
+      }
+      expDate = new Date(yr, mo, 0); // last day of month
+    } else {
+      expDate = new Date(dateStr);
+    }
+    if (isNaN(expDate.getTime())) return { isExpired: false, isExpiringSoon: false, daysLeft: null, text: "" };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    expDate.setHours(0, 0, 0, 0);
+
+    const diffMs = expDate.getTime() - today.getTime();
+    const daysLeft = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    if (daysLeft < 0) {
+      return { isExpired: true, isExpiringSoon: false, daysLeft, text: "Expired" };
+    } else if (daysLeft <= 10) {
+      return {
+        isExpired: false,
+        isExpiringSoon: true,
+        daysLeft,
+        text: daysLeft === 0 ? "Near to Expire (Today)" : `Near to Expire (${daysLeft} day${daysLeft === 1 ? "" : "s"} left)`
+      };
+    }
+    return { isExpired: false, isExpiringSoon: false, daysLeft, text: "" };
+  } catch (e) {
+    return { isExpired: false, isExpiringSoon: false, daysLeft: null, text: "" };
+  }
 };
 
 // Ensure UTC ISO representation so conversion to Indian timezone (Asia/Kolkata) is accurate
@@ -849,7 +914,7 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
 
   const discVal = customDiscVal !== null
     ? (parseFloat(customDiscVal) || 0)
-    : parseFloat(item?.discount_value ?? item?.discount_percent ?? item?.discount ?? 0);
+    : (parseFloat(item?.discount_value) || (item?.discount_percent === "%" ? 0 : parseFloat(item?.discount_percent)) || parseFloat(item?.discount) || 0);
   const discType = item?.discount_type || "percent";
 
   // Discount is calculated on Product Value (without GST amount)
@@ -1310,6 +1375,11 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [searchTerm, setSearchTerm] = useState("");
   const [addedMedicines, setAddedMedicines] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [selectedBatchItem, setSelectedBatchItem] = useState(null);
+  const [highlightedBatchIndex, setHighlightedBatchIndex] = useState(0);
+  const [batchShowNilStock, setBatchShowNilStock] = useState(false);
+  const batchRowRefs = useRef([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
   const [filteredModalMedicines, setFilteredModalMedicines] = useState([]);
   const [doctor_names, setdoctor_names] = useState([]);
@@ -1329,7 +1399,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [pendingBillIntent, setPendingBillIntent] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printBillData, setPrintBillData] = useState(null);
-  const [showNilStock, setShowNilStock] = useState(true);
+  const [showNilStock, setShowNilStock] = useState(false);
   const [modalPage, setModalPage] = useState(1);
   const MODAL_PAGE_SIZE = 9;
 
@@ -1370,8 +1440,63 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
 
 
+  // Group raw stock items by item_id (or name) so each unique medicine appears only once in the search modal
+  const groupedMedicines = useMemo(() => {
+    if (!medicines || medicines.length === 0) return [];
+    const map = new Map();
+    for (const m of medicines) {
+      const groupKey = String(m.item_id || m.name || "").trim().toLowerCase();
+      if (!map.has(groupKey)) {
+        map.set(groupKey, {
+          ...m,
+          groupKey,
+          batches: [m],
+          total_available_stock: Number(m.available_stock || 0),
+          min_mrp: Number(m.mrp || 0),
+          max_mrp: Number(m.mrp || 0),
+        });
+      } else {
+        const g = map.get(groupKey);
+        g.batches.push(m);
+        g.total_available_stock += Number(m.available_stock || 0);
+        const mrp = Number(m.mrp || 0);
+        if (mrp < g.min_mrp) g.min_mrp = mrp;
+        if (mrp > g.max_mrp) g.max_mrp = mrp;
+        if (m.high_risk) g.high_risk = true;
+        if (m.look_alike) g.look_alike = true;
+        if (m.sound_alike) g.sound_alike = true;
+      }
+    }
+
+    return Array.from(map.values()).map((g) => {
+      // Sort batches: active batches with available stock > 0 first, then by earliest expiry (FEFO)
+      g.batches.sort((a, b) => {
+        const sA = Number(a.available_stock || a.total_stock || 0) > 0 ? 0 : 1;
+        const sB = Number(b.available_stock || b.total_stock || 0) > 0 ? 0 : 1;
+        if (sA !== sB) return sA - sB;
+        const dA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
+        const dB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
+        return dA - dB;
+      });
+
+      const isNil = g.total_available_stock <= 0;
+      // Resolve direct MRP from current in-stock batch (or primary batch)
+      const primaryBatch = g.batches.find((b) => Number(b.available_stock || b.total_stock || 0) > 0) || g.batches[0] || g;
+      const directMrp = Number(primaryBatch.mrp || g.mrp || 0);
+
+      return {
+        ...g,
+        mrp: directMrp,
+        available_stock: g.total_available_stock,
+        is_nil_stock: isNil,
+        batch_count: g.batches.length,
+        mrp_display: `₹${directMrp.toFixed(2)}`,
+      };
+    });
+  }, [medicines]);
+
   // Modal medicine data calculations (memoized so handlers can access safely)
-  const modalSourceList = medicines;
+  const modalSourceList = groupedMedicines;
   const nilStockCount = useMemo(() => {
     return (modalSourceList || []).filter((m) => m.is_nil_stock).length;
   }, [modalSourceList]);
@@ -1379,9 +1504,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const visibleModalMedicines = useMemo(() => {
     const list = modalSourceList || [];
     const q = modalSearch.trim().toLowerCase();
-    const stockFiltered = (showNilStock || q.length > 0)
-      ? list
-      : list.filter((m) => !m.is_nil_stock);
+    const stockFiltered = showNilStock
+      ? list.filter((m) => m.is_nil_stock || Number(m.available_stock) <= 0)
+      : list.filter((m) => !m.is_nil_stock && (Number(m.available_stock) > 0 || Number(m.total_stock) > 0));
 
     if (!q) {
       return stockFiltered;
@@ -1428,8 +1553,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     // Fallback: If no medicine names start with q, check if composition or batch starts with q
     const fallbackMatches = stockFiltered.filter((m) => {
       const comp = (m.chemical_composition || m.composition_name || "").trim().toLowerCase();
-      const batch = (m.batch_number || "").trim().toLowerCase();
-      return comp.startsWith(q) || comp.split(/[\s\-_/]+/).some((w) => w.startsWith(q)) || batch.startsWith(q);
+      const matchComp = comp.startsWith(q) || comp.split(/[\s\-_/]+/).some((w) => w.startsWith(q));
+      const matchBatch = (m.batches || []).some((b) => (b.batch_number || "").trim().toLowerCase().startsWith(q));
+      return matchComp || matchBatch;
     });
 
     return fallbackMatches.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -1443,6 +1569,43 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       safeModalPage * MODAL_PAGE_SIZE
     );
   }, [visibleModalMedicines, safeModalPage, MODAL_PAGE_SIZE]);
+
+  // Batch modal filtering & counts
+  const allBatchesForModal = useMemo(() => {
+    return selectedBatchItem?.batches || [];
+  }, [selectedBatchItem]);
+
+  const nilBatchesCount = useMemo(() => {
+    return allBatchesForModal.filter((b) => {
+      const stock = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+      return stock <= 0;
+    }).length;
+  }, [allBatchesForModal]);
+
+  const availableBatchesCount = useMemo(() => {
+    return allBatchesForModal.filter((b) => {
+      const stock = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+      return stock > 0;
+    }).length;
+  }, [allBatchesForModal]);
+
+  const visibleBatchesForModal = useMemo(() => {
+    if (!selectedBatchItem) return [];
+    const list = selectedBatchItem.batches || [];
+    if (batchShowNilStock) {
+      // When List the Nil Stock is checked in batch modal, display only nil-stock batches
+      return list.filter((b) => {
+        const stock = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+        return stock <= 0;
+      });
+    } else {
+      // Normal mode: Display strictly batches with stock > 0 (hide 0-stock batches)
+      return list.filter((b) => {
+        const stock = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+        return stock > 0;
+      });
+    }
+  }, [selectedBatchItem, batchShowNilStock]);
 
   // billingType is set internally based on which button is clicked:
   // "Estimate" when Save Estimate is clicked, "Direct" when Save Bill is clicked
@@ -1459,8 +1622,31 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [uhidSearchResults, setUhidSearchResults] = useState([]);
   const [uhidSearchLoading, setUhidSearchLoading] = useState(false);
   const [admissionStatusMap, setAdmissionStatusMap] = useState({});
+  const [filterAdmissionOnly, setFilterAdmissionOnly] = useState(false);
 
-  // Live filter results inside modal by Name / Phone
+  const isPatientAdmitted = useCallback((p) => {
+    if (!p) return false;
+    const uhidNo = p.uhid || p.UHID || "";
+    const admInfo = admissionStatusMap[uhidNo];
+    if (admInfo !== undefined && admInfo.admitted !== undefined) {
+      return Boolean(admInfo.admitted);
+    }
+    if (typeof p.is_admitted === "boolean") {
+      return p.is_admitted;
+    }
+    const statusStr = String(p.admission_status || p.admissionStatus || "").toLowerCase();
+    if (statusStr.includes("admitted") && !statusStr.includes("not")) {
+      return true;
+    }
+    return Boolean(p.ip_number || p.inpatient_number || p.ipNumber);
+  }, [admissionStatusMap]);
+
+  // Count of admitted patients in the search results
+  const admittedCount = useMemo(() => {
+    return (uhidSearchResults || []).filter(p => isPatientAdmitted(p)).length;
+  }, [uhidSearchResults, isPatientAdmitted]);
+
+  // Live filter results inside modal by Name / Phone and Admission
   const displayedUhidResults = useMemo(() => {
     let list = uhidSearchResults || [];
     const np = (uhidNamePhone || "").trim().toLowerCase();
@@ -1475,8 +1661,11 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         return fullName.includes(np) || matchPhone;
       });
     }
+    if (filterAdmissionOnly) {
+      list = list.filter(p => isPatientAdmitted(p));
+    }
     return list;
-  }, [uhidSearchResults, uhidNamePhone]);
+  }, [uhidSearchResults, uhidNamePhone, filterAdmissionOnly, isPatientAdmitted]);
 
   // IP Number Search Modal
   const [showIPModal, setShowIPModal] = useState(false);
@@ -1832,6 +2021,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         const pName = formatPatientName(results[0].salutation, results[0].firstName, results[0].lastName);
         toast.success(`Patient details loaded for ${pName || results[0].uhid}`, { autoClose: 2000, pauseOnHover: false });
       } else {
+        setFilterAdmissionOnly(false);
         setUhidModalTitle(`Select Patient (UHID: ${val})`);
         setUhidSearchInput(val);
         setUhidNamePhone("");
@@ -1874,6 +2064,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         const pName = formatPatientName(results[0].salutation, results[0].firstName, results[0].lastName);
         toast.success(`Patient details loaded for ${pName || results[0].uhid}`, { autoClose: 2000, pauseOnHover: false });
       } else {
+        setFilterAdmissionOnly(false);
         setUhidModalTitle(`Select Patient (Mobile: ${val})`);
         setUhidSearchInput("");
         setUhidNamePhone("");
@@ -2087,6 +2278,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
   const openUHIDModal = () => {
     const currentUhid = formData.uhid || "";
+    setFilterAdmissionOnly(false);
     setUhidModalTitle("Select Patient");
     setUhidSearchInput(currentUhid);
     setUhidNamePhone("");
@@ -2428,12 +2620,18 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             return 0;
           })();
 
+          const expStatus = getExpiryStatus(item.expiry_date);
+
           return {
             name: item.item_name || `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim(),
             item_id: item.item_id,
             batch_number: item.batch_number || "N/A",
             grn_number: item.grn_number || "",
             expiry_date: item.expiry_date || "N/A",
+            is_expired: expStatus.isExpired,
+            is_expiring_soon: expStatus.isExpiringSoon,
+            days_to_expiry: expStatus.daysLeft,
+            expiry_text: expStatus.text,
             mrp: mrpVal,
             price: priceVal,
             Selling_Price: priceVal,
@@ -2492,7 +2690,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setSelectedMedicines([]);
     setModalSearch(rawTerm || "");
     setModalPage(1);
-    setShowNilStock(true);
+    setShowNilStock(false);
     setShowModal(true);
     setFilteredModalMedicines([]);
     setHighlightedModalIndex(0);
@@ -2540,7 +2738,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setSelectedMedicines([]);
     setSearchTerm("");
     setModalSearch("");
-    setShowNilStock(true);
+    setShowNilStock(false);
     setModalPage(1);
     setTimeout(() => {
       medicineSearchInputRef.current?.focus();
@@ -2598,10 +2796,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         sgst_rate: pricing.sgstRate,
         sgst_amount: pricing.sgstAmt,
         discount_type: "percent",
-        discount_value: 0,
-        discount_percent: 0,
+        discount_value: "",
+        discount_percent: "%",
         discount_amount: 0,
-        discount: 0,
+        discount: "",
         total: pricing.lineTotal,
       };
     });
@@ -2625,11 +2823,47 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     const key = getMedicineKey(medicine);
     const alreadyInBill = addedMedicines.some((m) => getMedicineKey(m) === key);
     if (alreadyInBill) {
-      toast.warning(`"${medicine.name}" is already added to the bill!`, { autoClose: 2000 });
+      toast.warning(`"${medicine.name}" (Batch: ${medicine.batch_number || "N/A"}) is already added to the bill!`, { autoClose: 2000 });
       return;
     }
     addMedicinesToBill([medicine]);
   }, [addedMedicines, addMedicinesToBill]);
+
+  // Pick medicine: If it has multiple batches, open "Select Batch" modal. If 1 batch, add directly.
+  const handlePickMedicine = useCallback((medicine) => {
+    if (!medicine) return;
+    if (medicine.is_nil_stock && !showNilStock) {
+      toast.info(`"${medicine.name}" has 0 stock (NIL).`, { autoClose: 2000 });
+      return;
+    }
+    const batches = medicine.batches || [medicine];
+    const availBatches = batches.filter((b) => {
+      const s = b.available_stock != null ? Number(b.available_stock) : Number(b.total_stock ?? 0);
+      return s > 0;
+    });
+
+    // If main modal is in nil-stock mode or the medicine has no available batches, show nil batches by default
+    const startWithNil = showNilStock || availBatches.length === 0;
+    setBatchShowNilStock(startWithNil);
+
+    if (batches.length > 1) {
+      setSelectedBatchItem(medicine);
+      setHighlightedBatchIndex(0);
+      setShowBatchModal(true);
+    } else if (batches.length === 1) {
+      handleSelectMedicineAndClose(batches[0]);
+    } else {
+      handleSelectMedicineAndClose(medicine);
+    }
+  }, [handleSelectMedicineAndClose, showNilStock]);
+
+  // Select a specific batch from the "Select Batch" modal
+  const handleSelectBatch = useCallback((batch) => {
+    if (!batch) return;
+    setShowBatchModal(false);
+    setSelectedBatchItem(null);
+    handleSelectMedicineAndClose(batch);
+  }, [handleSelectMedicineAndClose]);
 
   // Keep refs up-to-date for stable keyboard event handlers
   const displayedModalMedicinesRef = useRef(displayedModalMedicines);
@@ -2654,9 +2888,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         ? highlightedModalIndexRef.current
         : 0;
       const targetMed = displayed[idx] || displayed[0];
-      handleSelectMedicineAndClose(targetMed);
+      handlePickMedicine(targetMed);
     }
-  }, [addMedicinesToBill, handleSelectMedicineAndClose]);
+  }, [addMedicinesToBill, handlePickMedicine]);
 
   const handleAddSelectedRef = useRef(handleAddSelected);
   handleAddSelectedRef.current = handleAddSelected;
@@ -2676,7 +2910,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
   // Step 3: Automatically move cursor/focus to medicine selection list when modal opens
   useEffect(() => {
-    if (showModal) {
+    if (showModal && !showBatchModal) {
       const timer = setTimeout(() => {
         const targetIdx = Math.min(displayedModalMedicines.length - 1, Math.max(0, highlightedModalIndex));
         const row = modalRowRefs.current[targetIdx];
@@ -2688,11 +2922,11 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       }, 70);
       return () => clearTimeout(timer);
     }
-  }, [showModal, displayedModalMedicines.length]);
+  }, [showModal, showBatchModal, displayedModalMedicines.length]);
 
   // Keyboard navigation inside Medicine Selection Window (stable listener attached on modal open)
   useEffect(() => {
-    if (!showModal) return;
+    if (!showModal || showBatchModal) return;
 
     const handleModalKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -2743,7 +2977,58 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     return () => {
       window.removeEventListener("keydown", handleModalKeyDown);
     };
-  }, [showModal]);
+  }, [showModal, showBatchModal]);
+
+  // Keyboard navigation inside "Select Batch" Modal
+  useEffect(() => {
+    if (!showBatchModal || !selectedBatchItem) return;
+
+    const handleBatchModalKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowBatchModal(false);
+        setSelectedBatchItem(null);
+        return;
+      }
+      const batches = visibleBatchesForModal || [];
+      if (batches.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        e.stopPropagation();
+        setHighlightedBatchIndex((prev) => {
+          const next = Math.min(batches.length - 1, prev + 1);
+          batchRowRefs.current[next]?.scrollIntoView({ block: "nearest" });
+          return next;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        e.stopPropagation();
+        setHighlightedBatchIndex((prev) => {
+          const next = Math.max(0, prev - 1);
+          batchRowRefs.current[next]?.scrollIntoView({ block: "nearest" });
+          return next;
+        });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        const chosen = batches[highlightedBatchIndex] || batches[0];
+        if (chosen) {
+          if (addedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(chosen))) {
+            toast.warning(`"${chosen.name}" (Batch: ${chosen.batch_number}) is already added to the bill!`, { autoClose: 2000 });
+            return;
+          }
+          handleSelectBatch(chosen);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleBatchModalKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleBatchModalKeyDown, true);
+    };
+  }, [showBatchModal, selectedBatchItem, highlightedBatchIndex, handleSelectBatch, addedMedicines, visibleBatchesForModal]);
 
   // Step 4: Automatically move cursor to quantity field after medicine is selected
   useEffect(() => {
@@ -3030,7 +3315,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             discount:         pricing.discVal,
             discount_type:    pricing.discType,
             discount_value:   pricing.discVal,
-            discount_percent: pricing.discType === "percent" ? pricing.discVal : 0,
+            discount_percent: "%",
             discount_amount:  pricing.discAmtOnBase,
             total:            pricing.lineTotal,
             dosage:           m.dosage       || "",
@@ -3223,6 +3508,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         return {
           item_id: Number(m.item_id),
           batch_number: String(m.batch_number || ""),
+          expiry_date: m.expiry_date || m.expiry || "",
+          hsn_code: m.hsn_code || m.hsn || "",
           qty: pricing.qty,
           price: m.price ?? pricing.mrp,
           mrp: pricing.mrp,
@@ -3248,7 +3535,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           SGST_Amt: pricing.sgstAmt,
           discount_type: pricing.discType,
           discount_value: pricing.discVal,
-          discount_percent: pricing.discType === "percent" ? pricing.discVal : 0,
+          discount_percent: "%",
           discount_amount: pricing.discAmtOnBase,
           discount: pricing.discVal,
           total: pricing.lineTotal,
@@ -3306,6 +3593,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         age: ageYears,   
         dob: formData.dob || "",    
         doctor_id: formData.doctor_id,
+        doctor_name: formData.doctor_name || formData.doctorName || "",
         room_no: formData.roomNo || admissionRoomNo || "",
         insurance_company: insuranceName || formData.insuranceName || "",
         customer_type: patientType || formData.customer_type || "",
@@ -3326,7 +3614,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         billing_mode,
         payment_mode: resolvedPaymentMode,
         patient_name: (formData.name || "").trim(),
-        patientname: (formData.name || "").trim(),
       };
 
       let response;
@@ -3658,10 +3945,6 @@ const loadedMedicines = rawMeds.map((item) => {
     item.name ||
     (item.item_id ? `Item #${item.item_id}` : "");
 
-  // MRP: prefer item directly (API already enriched it), fallback to price or stock
-  const mrp = parseFloat(item.mrp ?? item.price ?? stockMatch?.mrp ?? stockMatch?.price ?? 0);
-  // Price for total calculation: use price or mrp
-  const price = parseFloat(item.price ?? stockMatch?.price ?? mrp);
   const rawQty = Number(item.qty ?? item.quantity ?? 0);
   const availStock = item.available_stock != null ? Number(item.available_stock) : (stockMatch?.available_stock != null ? Number(stockMatch.available_stock) : 9999);
 
@@ -3673,11 +3956,51 @@ const loadedMedicines = rawMeds.map((item) => {
   }
   const qty = billingQty;
 
-  // Per-unit GST amounts from API; scale by qty for display
-  const cgstRatePerUnit   = parseFloat(item.CGST_Percentage ?? stockMatch?.cgst_rate   ?? 0);
-  const sgstRatePerUnit   = parseFloat(item.SGST_Percentage ?? stockMatch?.sgst_rate   ?? 0);
-  const cgstAmtPerUnit    = parseFloat(item.CGST_Amt        ?? stockMatch?.cgst_amount ?? 0);
-  const sgstAmtPerUnit    = parseFloat(item.SGST_Amt        ?? stockMatch?.sgst_amount ?? 0);
+  // Resolve unit MRP:
+  // In MongoDB medicine_particulars, calculated_price represents gross line MRP (qty * unit MRP).
+  // Therefore (item.calculated_price / rawQty) gives the exact unit MRP that was billed/estimated!
+  const resolveUnitMrp = () => {
+    if (item.mrp != null && !isNaN(parseFloat(item.mrp)) && parseFloat(item.mrp) > 0) {
+      return parseFloat(item.mrp);
+    }
+    if (item.Selling_Price != null && !isNaN(parseFloat(item.Selling_Price)) && parseFloat(item.Selling_Price) > 0) {
+      return parseFloat(item.Selling_Price);
+    }
+    if (item.selling_price != null && !isNaN(parseFloat(item.selling_price)) && parseFloat(item.selling_price) > 0) {
+      return parseFloat(item.selling_price);
+    }
+    if (item.calculated_price != null && !isNaN(parseFloat(item.calculated_price)) && parseFloat(item.calculated_price) > 0 && rawQty > 0) {
+      return parseFloat((parseFloat(item.calculated_price) / rawQty).toFixed(2));
+    }
+    if (item.total != null && !isNaN(parseFloat(item.total)) && parseFloat(item.total) > 0 && rawQty > 0) {
+      return parseFloat((parseFloat(item.total) / rawQty).toFixed(2));
+    }
+    if (stockMatch?.mrp != null && !isNaN(parseFloat(stockMatch.mrp)) && parseFloat(stockMatch.mrp) > 0) {
+      return parseFloat(stockMatch.mrp);
+    }
+    return parseFloat(item.price || stockMatch?.price || 0);
+  };
+
+  const mrp = resolveUnitMrp();
+  const price = parseFloat(item.price || stockMatch?.price || mrp);
+
+  const discVal = parseFloat(item.discount_value ?? item.discount_percent ?? item.discount ?? 0);
+  const discType = item.discount_type || "percent";
+
+  // Reverse calculate pricing accurately
+  const pricing = calculateMedicinePricing({
+    ...stockMatch,
+    ...item,
+    mrp: mrp,
+    price: price,
+    discount_type: discType,
+    discount_value: discVal,
+  }, qty, discVal);
+
+  const cgstRatePerUnit = pricing.cgstRate;
+  const sgstRatePerUnit = pricing.sgstRate;
+  const cgstAmt = pricing.cgstAmt;
+  const sgstAmt = pricing.sgstAmt;
 
   return {
     item_id:         item.item_id,
@@ -3688,21 +4011,25 @@ const loadedMedicines = rawMeds.map((item) => {
     stock_capped:    isCapped,
     price:           price,
     mrp:             mrp,
+    Selling_Price:   mrp,
+    selling_price:   mrp,
+    product_value:   pricing.productValue,
+    taxable_value:   pricing.taxableValue,
     hsn_code:        stockMatch?.hsn_code  || "—",
     cgst_rate:       cgstRatePerUnit,
-    cgst_amount:     parseFloat((cgstAmtPerUnit * qty).toFixed(2)),   // ← scaled by qty
+    cgst_amount:     cgstAmt,
     sgst_rate:       sgstRatePerUnit,
-    sgst_amount:     parseFloat((sgstAmtPerUnit * qty).toFixed(2)),   // ← scaled by qty
+    sgst_amount:     sgstAmt,
     expiry_date:     stockMatch?.expiry_date || "—",
     available_stock: availStock,
     dosage:          item.dosage             || "",
     noOfDays:        item.noOfDays           || "",
-    discount_type:   item.discount_type      || "percent",
-    discount_value:  parseFloat(item.discount_value ?? item.discount_percent ?? item.discount ?? 0),
-    discount_percent:parseFloat(item.discount_percent ?? item.discount_value ?? item.discount ?? 0),
-    discount_amount: parseFloat(item.discount_amount ?? 0),
-    discount:        parseFloat(item.discount ?? item.discount_value ?? 0),
-    total:           parseFloat((item.total != null && !isCapped ? item.total : (qty * mrp)).toFixed(2)),
+    discount_type:   discType,
+    discount_value:  discVal > 0 ? discVal : (item.discount_value === 0 || item.discount_value === "0" ? "" : (item.discount_value || "")),
+    discount_percent: "%",
+    discount_amount: pricing.discAmtOnBase,
+    discount:        discVal > 0 ? discVal : "",
+    total:           parseFloat((item.total != null && !isCapped ? item.total : pricing.lineTotal).toFixed(2)),
     edit_history:    [],
   };
 });
@@ -4301,8 +4628,7 @@ const loadedMedicines = rawMeds.map((item) => {
     const rawMeds = parseOrderedDictMeds(bill.medicine_particulars);
 
     const loadedMedicines = rawMeds.map((m) => {
-      const price = parseFloat(m.price || m.Price || m.mrp || 0);
-      const qty   = parseFloat(m.qty   || m.quantity || 0);
+      const rawQty = parseFloat(m.qty || m.quantity || 1) || 1;
 
       const stockMatch = medicines.find(
         (s) =>
@@ -4328,25 +4654,57 @@ const loadedMedicines = rawMeds.map((item) => {
         m.name ||
         (m.item_id ? `Item #${m.item_id}` : "");
 
+      const resolveUnitMrp = () => {
+        if (m.mrp != null && !isNaN(parseFloat(m.mrp)) && parseFloat(m.mrp) > 0) return parseFloat(m.mrp);
+        if (m.Selling_Price != null && !isNaN(parseFloat(m.Selling_Price)) && parseFloat(m.Selling_Price) > 0) return parseFloat(m.Selling_Price);
+        if (m.selling_price != null && !isNaN(parseFloat(m.selling_price)) && parseFloat(m.selling_price) > 0) return parseFloat(m.selling_price);
+        if (m.calculated_price != null && !isNaN(parseFloat(m.calculated_price)) && parseFloat(m.calculated_price) > 0 && rawQty > 0) {
+          return parseFloat((parseFloat(m.calculated_price) / rawQty).toFixed(2));
+        }
+        if (m.total != null && !isNaN(parseFloat(m.total)) && parseFloat(m.total) > 0 && rawQty > 0) {
+          return parseFloat((parseFloat(m.total) / rawQty).toFixed(2));
+        }
+        if (stockMatch?.mrp != null && !isNaN(parseFloat(stockMatch.mrp)) && parseFloat(stockMatch.mrp) > 0) return parseFloat(stockMatch.mrp);
+        return parseFloat(m.price || stockMatch?.price || 0);
+      };
+
+      const mrp = resolveUnitMrp();
+      const price = parseFloat(m.price || m.Price || stockMatch?.price || mrp);
+      const discVal = parseFloat(m.discount_value ?? m.discount_percent ?? m.discount ?? 0);
+      const discType = m.discount_type || "percent";
+
+      const pricing = calculateMedicinePricing({
+        ...stockMatch,
+        ...m,
+        mrp: mrp,
+        price: price,
+        discount_type: discType,
+        discount_value: discVal,
+      }, rawQty, discVal);
+
       return {
         item_id:         m.item_id,
         name:            resolvedItemName,
         batch_number:    m.batch_number || "",
-        quantity:        qty,
+        quantity:        rawQty,
         price:           price,
-        mrp:             stockMatch?.mrp ?? price,
+        mrp:             mrp,
+        Selling_Price:   mrp,
+        selling_price:   mrp,
+        product_value:   pricing.productValue,
+        taxable_value:   pricing.taxableValue,
         hsn_code:        stockMatch?.hsn_code || "—",
-        cgst_rate:       stockMatch?.cgst_rate || 0,
-        cgst_amount:     stockMatch?.cgst_amount || 0,
-        sgst_rate:       stockMatch?.sgst_rate || 0,
-        sgst_amount:     stockMatch?.sgst_amount || 0,
+        cgst_rate:       pricing.cgstRate,
+        cgst_amount:     pricing.cgstAmt,
+        sgst_rate:       pricing.sgstRate,
+        sgst_amount:     pricing.sgstAmt,
         expiry_date:     stockMatch?.expiry_date || "—",
-        discount_type:   m.discount_type      || "percent",
-        discount_value:  parseFloat(m.discount_value ?? m.discount_percent ?? m.discount ?? 0),
-        discount_percent:parseFloat(m.discount_percent ?? m.discount_value ?? m.discount ?? 0),
-        discount_amount: parseFloat(m.discount_amount ?? 0),
-        discount:        parseFloat(m.discount ?? m.discount_value ?? 0),
-        total:           parseFloat((m.total != null ? m.total : (qty * price)).toFixed(2)),
+        discount_type:   discType,
+        discount_value:  discVal > 0 ? discVal : (m.discount_value === 0 || m.discount_value === "0" ? "" : (m.discount_value || "")),
+        discount_percent: "%",
+        discount_amount: pricing.discAmtOnBase,
+        discount:        discVal > 0 ? discVal : "",
+        total:           parseFloat((m.total != null ? m.total : pricing.lineTotal).toFixed(2)),
         available_stock: 9999,
         edit_history:    m.edit_history || [],
       };
@@ -4869,7 +5227,8 @@ const loadedMedicines = rawMeds.map((item) => {
                   <Th>MRP</Th>
                   <Th>Price</Th>
                   <Th>Disc Type</Th>
-                  <Th>Disc Value</Th>
+                  <Th>Disc %</Th>
+                  <Th>Disc Amt</Th>
                   <Th>CGST%</Th>
                   <Th>CGST Amt</Th>
                   <Th>SGST%</Th>
@@ -4915,12 +5274,43 @@ const loadedMedicines = rawMeds.map((item) => {
                                 <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#b45309" }}>(LOW)</span>
                               </>
                             )}
+                            {medicine.reorder_level != null && medicine.is_low_stock && (
+                              <span style={{
+                                fontSize: "0.68rem", fontWeight: 700, color: "#0f766e",
+                                background: "#f0fdfa", border: "1px solid #99f6e4",
+                                borderRadius: 4, padding: "1px 5px"
+                              }}>RL{medicine.reorder_level}</span>
+                            )}
                             {Boolean(medicine.stock_capped && Number(medicine.available_stock) > 0) && (
                               <BlinkBadge title={`Requested: ${medicine.requested_qty ?? medicine.quantity} | Available Stock: ${medicine.available_stock}`}>
                                 <BlinkDot style={{ background: "#ea580c" }} /> Allow {medicine.available_stock}
                               </BlinkBadge>
                             )}
                           </div>
+                          {/* UNDER ITEM: EXPIRY SOON / EXPIRED BLINK ALERT */}
+                          {(() => {
+                            const expInfo = getExpiryStatus(medicine.expiry_date);
+                            if (!expInfo.isExpired && !expInfo.isExpiringSoon) return null;
+                            return (
+                              <div style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                color: expInfo.isExpired ? "#b91c1c" : "#c2410c",
+                                background: expInfo.isExpired ? "#fef2f2" : "#fff7ed",
+                                border: `1px solid ${expInfo.isExpired ? "#fca5a5" : "#fdba74"}`,
+                                borderRadius: 4,
+                                padding: "1px 6px",
+                                width: "fit-content",
+                                marginTop: 1
+                              }}>
+                                <BlinkDot style={{ background: expInfo.isExpired ? "#dc2626" : "#ea580c", width: 6, height: 6 }} />
+                                <span>{expInfo.isExpired ? "⚠️ Expired" : `⚠️ ${expInfo.text}`}</span>
+                              </div>
+                            );
+                          })()}
                           {Boolean(medicine.stock_capped && Number(medicine.available_stock) > 0) && (
                             <div style={{ fontSize: "0.69rem", color: "#c2410c", fontWeight: 600 }}>
                               Requested: {medicine.requested_qty ?? medicine.quantity} units → Allowed to bill: {medicine.available_stock}
@@ -5068,22 +5458,24 @@ const loadedMedicines = rawMeds.map((item) => {
                           type="number"
                           min="0"
                           max="100"
-                          value={medicine.discount_value ?? medicine.discount_percent ?? ""}
+                          value={medicine.discount_value !== undefined && medicine.discount_value !== null ? medicine.discount_value : ""}
                           placeholder="0"
                           onChange={(e) => {
-                            let dVal = parseFloat(e.target.value) || 0;
+                            const raw = e.target.value;
+                            let dVal = raw === "" ? 0 : parseFloat(raw) || 0;
                             if (dVal < 0) dVal = 0;
                             if (dVal > 100) dVal = 100;
+                            const storedVal = raw === "" ? "" : dVal;
                             const pricing = calculateMedicinePricing(medicine, medicine.quantity || 0, dVal);
                             setAddedMedicines((prev) =>
                               prev.map((m, i) =>
                                 i === index ? {
                                   ...m,
                                   discount_type: "percent",
-                                  discount_value: dVal,
-                                  discount_percent: dVal,
+                                  discount_value: storedVal,
+                                  discount_percent: "%",
                                   discount_amount: pricing.discAmtOnBase,
-                                  discount: dVal,
+                                  discount: storedVal,
                                   product_value: pricing.productValue,
                                   taxable_value: pricing.taxableValue,
                                   cgst_rate: pricing.cgstRate,
@@ -5102,11 +5494,9 @@ const loadedMedicines = rawMeds.map((item) => {
                             }
                           }}
                         />
-                        {medicine.discount_value > 0 && (
-                          <div style={{ fontSize: "0.66rem", color: "#059669", fontWeight: 600, marginTop: 2 }}>
-                            -₹{(parseFloat(medicine.discount_amount) || 0).toFixed(2)}
-                          </div>
-                        )}
+                      </Td>
+                      <Td style={{ fontWeight: 600, color: (parseFloat(medicine.discount_amount) || 0) > 0 ? "#059669" : "#64748b", whiteSpace: "nowrap" }}>
+                        ₹{(parseFloat(medicine.discount_amount) || 0).toFixed(2)}
                       </Td>
                       <Td>{(parseFloat(medicine.cgst_rate) || 0).toFixed(2)}</Td>
                       <Td>{(parseFloat(medicine.cgst_amount) || 0).toFixed(2)}</Td>
@@ -5124,7 +5514,7 @@ const loadedMedicines = rawMeds.map((item) => {
               </tbody>
               <tfoot>
                 <NetAmountRow>
-                  <Td colSpan="12" style={{ textAlign: "right", color: "#64748b", fontSize: "0.85rem" }}>
+                  <Td colSpan="13" style={{ textAlign: "right", color: "#64748b", fontSize: "0.85rem" }}>
                     {addedMedicines.length === 0 ? "No medicines added yet." : `${addedMedicines.length} item(s)`}
                   </Td>
                   <Td />
@@ -5315,6 +5705,11 @@ const loadedMedicines = rawMeds.map((item) => {
                     · {nilStockCount} nil-stock item{nilStockCount > 1 ? "s" : ""} hidden — tick <strong>List the Nil Stock</strong> to show
                   </span>
                 )}
+                {showNilStock && (
+                  <span style={{ marginLeft: 8, color: "#dc2626", fontSize: "0.78rem", fontWeight: 700 }}>
+                    · Showing only Nil Stock items ({visibleModalMedicines.length})
+                  </span>
+                )}
               </ModalResultCount>
 
               {stockLoading ? (
@@ -5324,9 +5719,11 @@ const loadedMedicines = rawMeds.map((item) => {
                 </div>
               ) : visibleModalMedicines.length === 0 ? (
                 <NoResults>
-                  {nilStockCount === modalSourceList.length && !showNilStock
-                    ? 'All matching medicines have nil stock. Tick "List the Nil Stock" to view them.'
-                    : "No medicines found matching your search."}
+                  {showNilStock
+                    ? "No nil-stock medicines found matching your search."
+                    : nilStockCount > 0
+                      ? 'All matching medicines have nil stock. Tick "List the Nil Stock" to view them.'
+                      : "No medicines found matching your search."}
                 </NoResults>
               ) : (
                 <TableWrapper>
@@ -5335,8 +5732,6 @@ const loadedMedicines = rawMeds.map((item) => {
                       <tr>
                         <Th style={{ width: 48, textAlign: "center", whiteSpace: "nowrap" }}>Select</Th>
                         <Th style={{ minWidth: 170 }}>Item Name</Th>
-                        <Th style={{ whiteSpace: "nowrap" }}>Batch No</Th>
-                        <Th style={{ whiteSpace: "nowrap", minWidth: 105 }}>Expiry</Th>
                         <Th style={{ whiteSpace: "nowrap" }}>MRP</Th>
                         <Th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Avail. Stock</Th>
                         <Th style={{ whiteSpace: "nowrap" }}>HSN Code</Th>
@@ -5350,7 +5745,7 @@ const loadedMedicines = rawMeds.map((item) => {
                         const isNilStock = medicine.is_nil_stock;
                         const isLowStock = !isNilStock && medicine.is_low_stock;
                         const isHighlighted = index === highlightedModalIndex;
-                        const isSelected = selectedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(medicine));
+                        const isSelected = selectedMedicines.some((m) => (m.groupKey && m.groupKey === medicine.groupKey) || getMedicineKey(m) === getMedicineKey(medicine));
 
                         // Determine item name text color from risk flags (priority: high_risk > look_alike > sound_alike)
                         const nameColor = isNilStock
@@ -5366,7 +5761,7 @@ const loadedMedicines = rawMeds.map((item) => {
                                   : undefined;
                         return (
                           <Tr
-                            key={getMedicineKey(medicine) || index}
+                            key={medicine.groupKey || medicine.item_id || index}
                             ref={(el) => (modalRowRefs.current[index] = el)}
                             tabIndex={0}
                             style={{
@@ -5383,7 +5778,7 @@ const loadedMedicines = rawMeds.map((item) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 if (!isNilStock) {
-                                  handleSelectMedicineAndClose(medicine);
+                                  handlePickMedicine(medicine);
                                 }
                               } else if (e.key === "ArrowDown") {
                                 e.preventDefault();
@@ -5411,10 +5806,10 @@ const loadedMedicines = rawMeds.map((item) => {
                             }}
                             onClick={() => {
                               setHighlightedModalIndex(index);
-                              handleMedicineSelect(medicine);
+                              handlePickMedicine(medicine);
                             }}
                             onDoubleClick={() => {
-                              handleSelectMedicineAndClose(medicine);
+                              handlePickMedicine(medicine);
                             }}
                             onMouseEnter={() => setHighlightedModalIndex(index)}
                           >
@@ -5422,7 +5817,7 @@ const loadedMedicines = rawMeds.map((item) => {
                               <ModalCheckbox
                                 type="checkbox"
                                 checked={isSelected}
-                                onChange={() => handleMedicineSelect(medicine)}
+                                onChange={() => handlePickMedicine(medicine)}
                                 style={{ cursor: "pointer", verticalAlign: "middle" }}
                               />
                             </Td>
@@ -5430,6 +5825,19 @@ const loadedMedicines = rawMeds.map((item) => {
                               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                 <span style={{ color: nameColor, fontWeight: nameColor ? 700 : 500 }}>{medicine.name}</span>
                                 {medicine.dosage && <span style={{ fontSize: "0.75rem", color: "#64748b" }}>({medicine.dosage})</span>}
+                                {medicine.batch_count > 1 && (
+                                  <span style={{
+                                    fontSize: "0.72rem",
+                                    background: "#f0fdfa",
+                                    color: "#0f766e",
+                                    border: "1px solid #99f6e4",
+                                    borderRadius: 4,
+                                    padding: "1px 6px",
+                                    fontWeight: 700
+                                  }}>
+                                    {medicine.batch_count} Batches
+                                  </span>
+                                )}
                                 {isHighlighted && (
                                   <span style={{
                                     fontSize: "0.68rem",
@@ -5441,7 +5849,7 @@ const loadedMedicines = rawMeds.map((item) => {
                                     letterSpacing: "0.02em",
                                     marginLeft: 6
                                   }}>
-                                    ↵ Enter to select
+                                    {medicine.batch_count > 1 ? "↵ Enter for batches" : "↵ Enter to select"}
                                   </span>
                                 )}
                                 {!isNilStock && isLowStock && (
@@ -5463,11 +5871,7 @@ const loadedMedicines = rawMeds.map((item) => {
                                 )}
                               </div>
                             </Td>
-                            <Td style={{ whiteSpace: "nowrap", verticalAlign: "middle" }}>{medicine.batch_number || "—"}</Td>
-                            <Td style={{ fontSize: "0.82rem", color: "#64748b", whiteSpace: "nowrap", verticalAlign: "middle" }}>
-                              {formatExpiryDate(medicine.expiry_date)}
-                            </Td>
-                            <Td style={{ whiteSpace: "nowrap", verticalAlign: "middle" }}>₹{Number(medicine.mrp || 0).toFixed(2)}</Td>
+                            <Td style={{ whiteSpace: "nowrap", verticalAlign: "middle" }}>{medicine.mrp_display}</Td>
                             <Td style={{ textAlign: "center", verticalAlign: "middle", whiteSpace: "nowrap" }}>
                               <StockBadge
                                 low={isNilStock}
@@ -5483,7 +5887,7 @@ const loadedMedicines = rawMeds.map((item) => {
                               </StockBadge>
                             </Td>
                             <Td style={{ whiteSpace: "nowrap", verticalAlign: "middle" }}>{medicine.hsn_code || "—"}</Td>
-                            <Td style={{ verticalAlign: "middle" }}>{medicine.composition_name || "—"}</Td>
+                            <Td style={{ verticalAlign: "middle" }}>{medicine.composition_name || medicine.chemical_composition || "—"}</Td>
                             <Td style={{ textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>{medicine.shelf_no || "—"}</Td>
                             <Td style={{ textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>{medicine.rack_no || "—"}</Td>
                           </Tr>
@@ -5590,6 +5994,266 @@ const loadedMedicines = rawMeds.map((item) => {
                   disabled={selectedMedicines.length === 0}
                 >
                   Add Selected ({selectedMedicines.length})
+                </Button>
+              </div>
+            </ModalFooterBar>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* ── Secondary Modal: Select Batch (When item has multiple batches) ── */}
+      {showBatchModal && selectedBatchItem && (
+        <ModalOverlay
+          style={{ zIndex: 10050, backgroundColor: "rgba(15, 23, 42, 0.65)" }}
+          onClick={() => { setShowBatchModal(false); setSelectedBatchItem(null); }}
+        >
+          <ModalContainer
+            style={{ maxWidth: 860, width: "95%", boxShadow: "0 20px 45px rgba(0,0,0,0.3)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalHeader style={{ backgroundColor: "#0f766e", color: "#ffffff", padding: "14px 20px" }}>
+              <ModalTitle style={{ color: "#ffffff", margin: 0, fontSize: "1.1rem", fontWeight: 700, letterSpacing: "0.01em" }}>
+                Select Batch
+              </ModalTitle>
+              <CloseButton
+                onClick={() => { setShowBatchModal(false); setSelectedBatchItem(null); }}
+                style={{ color: "#ffffff", fontSize: "1.3rem" }}
+              >
+                ×
+              </CloseButton>
+            </ModalHeader>
+            <ModalBody style={{ padding: "16px 20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                    {selectedBatchItem.name}
+                  </span>
+                  {selectedBatchItem.dosage && (
+                    <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                      ({selectedBatchItem.dosage})
+                    </span>
+                  )}
+                  <span style={{
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    backgroundColor: batchShowNilStock ? "#fef2f2" : "#f0fdfa",
+                    color: batchShowNilStock ? "#dc2626" : "#0f766e",
+                    border: `1px solid ${batchShowNilStock ? "#fecaca" : "#99f6e4"}`,
+                    borderRadius: 4,
+                    padding: "2px 8px"
+                  }}>
+                    {visibleBatchesForModal.length} batch{visibleBatchesForModal.length !== 1 ? "es" : ""} {batchShowNilStock ? "nil-stock" : "available"}
+                  </span>
+
+                  {/* List the Nil Stock toggle inside Select Batch modal */}
+                  {nilBatchesCount > 0 && (
+                    <label
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        cursor: "pointer",
+                        padding: "3px 10px",
+                        borderRadius: 6,
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        backgroundColor: batchShowNilStock ? "#fef2f2" : "#f1f5f9",
+                        border: `1px solid ${batchShowNilStock ? "#fca5a5" : "#cbd5e1"}`,
+                        color: batchShowNilStock ? "#dc2626" : "#475569",
+                        userSelect: "none",
+                        transition: "all 0.15s ease"
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={batchShowNilStock}
+                        onChange={(e) => {
+                          setBatchShowNilStock(e.target.checked);
+                          setHighlightedBatchIndex(0);
+                        }}
+                        style={{ accentColor: "#dc2626", width: 14, height: 14, cursor: "pointer" }}
+                      />
+                      <span>List the Nil Stock</span>
+                      <span
+                        style={{
+                          background: batchShowNilStock ? "#dc2626" : "#94a3b8",
+                          color: "#fff",
+                          borderRadius: 10,
+                          padding: "1px 6px",
+                          fontSize: "0.7rem",
+                          fontWeight: 700
+                        }}
+                      >
+                        {nilBatchesCount}
+                      </span>
+                    </label>
+                  )}
+                </div>
+                <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                  Use <kbd style={{ padding: "2px 6px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 3, fontWeight: 700 }}>↑</kbd> <kbd style={{ padding: "2px 6px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 3, fontWeight: 700 }}>↓</kbd> to navigate, <kbd style={{ padding: "2px 6px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 3, fontWeight: 700 }}>Enter</kbd> to pick
+                </div>
+              </div>
+
+              {!batchShowNilStock && nilBatchesCount > 0 && (
+                <div style={{ marginBottom: 10, fontSize: "0.78rem", color: "#dc2626" }}>
+                  · {nilBatchesCount} nil-stock batch{nilBatchesCount > 1 ? "es" : ""} hidden — tick <strong>List the Nil Stock</strong> to show
+                </div>
+              )}
+              {batchShowNilStock && (
+                <div style={{ marginBottom: 10, fontSize: "0.78rem", color: "#dc2626", fontWeight: 700 }}>
+                  · Showing only Nil Stock batches ({visibleBatchesForModal.length})
+                </div>
+              )}
+
+              <div style={{ maxHeight: "55vh", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 6 }}>
+                <Table style={{ width: "100%", borderCollapse: "collapse", margin: 0 }}>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
+                    <tr style={{ backgroundColor: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                      <Th style={{ width: 65, textAlign: "center", padding: "10px 8px", whiteSpace: "nowrap" }}>Action</Th>
+                      <Th style={{ minWidth: 120, padding: "10px 12px", whiteSpace: "nowrap" }}>Batch</Th>
+                      <Th style={{ minWidth: 100, padding: "10px 12px", whiteSpace: "nowrap" }}>Expiry</Th>
+                      <Th style={{ minWidth: 95, padding: "10px 12px", whiteSpace: "nowrap" }}>Mrp</Th>
+                      <Th style={{ minWidth: 95, padding: "10px 12px", whiteSpace: "nowrap" }}>Rate</Th>
+                      <Th style={{ minWidth: 75, textAlign: "center", padding: "10px 12px", whiteSpace: "nowrap" }}>Stock</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleBatchesForModal.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: "center", padding: "32px 16px", color: "#64748b" }}>
+                          {batchShowNilStock ? (
+                            "No nil-stock batches found for this medicine."
+                          ) : nilBatchesCount > 0 ? (
+                            <div>
+                              <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#334155", marginBottom: 6 }}>
+                                All {nilBatchesCount} batch{nilBatchesCount > 1 ? "es" : ""} for this medicine have 0 stock.
+                              </div>
+                              <div style={{ fontSize: "0.82rem", color: "#64748b" }}>
+                                Tick <strong style={{ color: "#dc2626" }}>List the Nil Stock</strong> above to view them.
+                              </div>
+                            </div>
+                          ) : (
+                            "No batches available for this medicine."
+                          )}
+                        </td>
+                      </tr>
+                    ) : (
+                      visibleBatchesForModal.map((batch, bIdx) => {
+                        const isHighlighted = bIdx === highlightedBatchIndex;
+                        const expInfo = getExpiryStatus(batch.expiry_date);
+                        const isExpired = expInfo.isExpired;
+                        const isExpiringSoon = expInfo.isExpiringSoon;
+                        const isAlreadyAdded = addedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(batch));
+                        const stockVal = batch.available_stock != null ? Number(batch.available_stock) : Number(batch.total_stock ?? 0);
+                        const isNil = stockVal <= 0;
+
+                        return (
+                          <Tr
+                            key={getMedicineKey(batch) || bIdx}
+                            ref={(el) => (batchRowRefs.current[bIdx] = el)}
+                            tabIndex={0}
+                            style={{
+                              cursor: isAlreadyAdded ? "not-allowed" : "pointer",
+                              backgroundColor: isHighlighted ? "#ecfdf5" : bIdx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                              borderLeft: isHighlighted ? "4px solid #0f766e" : "4px solid transparent",
+                              boxShadow: isHighlighted ? "inset 0 0 0 1px #0f766e" : "none",
+                              opacity: isAlreadyAdded ? 0.6 : 1,
+                              transition: "background-color 0.15s ease",
+                              outline: "none"
+                            }}
+                            onMouseEnter={() => setHighlightedBatchIndex(bIdx)}
+                            onClick={() => {
+                              if (isAlreadyAdded) {
+                                toast.warning(`"${batch.name}" (Batch: ${batch.batch_number}) is already added to the bill!`, { autoClose: 2000 });
+                                return;
+                              }
+                              handleSelectBatch(batch);
+                            }}
+                            onDoubleClick={() => {
+                              if (!isAlreadyAdded) handleSelectBatch(batch);
+                            }}
+                          >
+                            <Td style={{ textAlign: "center", verticalAlign: "middle", padding: "10px 8px" }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isAlreadyAdded) {
+                                    toast.warning(`"${batch.name}" (Batch: ${batch.batch_number}) is already added to the bill!`, { autoClose: 2000 });
+                                    return;
+                                  }
+                                  handleSelectBatch(batch);
+                                }}
+                                disabled={isAlreadyAdded}
+                                title={isAlreadyAdded ? "Already added to bill" : "Select this batch"}
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: "50%",
+                                  backgroundColor: isAlreadyAdded ? "#94a3b8" : "#0f766e",
+                                  border: "none",
+                                  color: "#ffffff",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: isAlreadyAdded ? "not-allowed" : "pointer",
+                                  fontSize: "0.75rem",
+                                  boxShadow: isAlreadyAdded ? "none" : "0 1px 3px rgba(15,118,110,0.3)"
+                                }}
+                              >
+                                <FaCheck />
+                              </button>
+                            </Td>
+                            <Td style={{ verticalAlign: "middle", padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
+                              {batch.batch_number || "—"}
+                              {isAlreadyAdded && (
+                                <span style={{ fontSize: "0.7rem", color: "#64748b", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4, marginLeft: 6 }}>
+                                  Already in bill
+                                </span>
+                              )}
+                            </Td>
+                            <Td style={{ verticalAlign: "middle", padding: "10px 12px", color: "#475569", fontWeight: 500, whiteSpace: "nowrap" }}>
+                              {formatExpiryDate(batch.expiry_date)}
+                            </Td>
+                            <Td style={{ verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 500 }}>
+                              ₹ {Number(batch.mrp || 0).toFixed(2)}
+                            </Td>
+                            <Td style={{ verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 600, color: "#0f766e" }}>
+                              ₹ {Number(batch.price || batch.Selling_Price || batch.selling_price || batch.mrp || 0).toFixed(2)}
+                            </Td>
+                            <Td style={{ textAlign: "center", verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 700, color: isNil ? "#dc2626" : "#0f766e" }}>
+                              {stockVal}
+                            </Td>
+                          </Tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </Table>
+              </div>
+            </ModalBody>
+            <ModalFooterBar style={{ justifyContent: "space-between", alignItems: "center", padding: "12px 20px" }}>
+              <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                Click <FaCheck style={{ color: "#0f766e", verticalAlign: "middle" }} /> or press <strong>Enter</strong> on a batch to add to bill
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <Button secondary onClick={() => { setShowBatchModal(false); setSelectedBatchItem(null); }}>
+                  <FaTimes /> Cancel (Esc)
+                </Button>
+                <Button
+                  onClick={() => {
+                    const current = visibleBatchesForModal[highlightedBatchIndex] || visibleBatchesForModal[0];
+                    if (current) {
+                      if (addedMedicines.some((m) => getMedicineKey(m) === getMedicineKey(current))) {
+                        toast.warning(`"${current.name}" (Batch: ${current.batch_number}) is already added to the bill!`, { autoClose: 2000 });
+                        return;
+                      }
+                      handleSelectBatch(current);
+                    }
+                  }}
+                  disabled={visibleBatchesForModal.length === 0}
+                >
+                  Select Batch (Enter)
                 </Button>
               </div>
             </ModalFooterBar>
@@ -5795,17 +6459,94 @@ const loadedMedicines = rawMeds.map((item) => {
                 >
                   <FaSearch size={12} /> Search
                 </button>
+
+                {/* ── Admission Status Filter Checkbox (directly above Admission Status column) ── */}
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", height: 38 }}>
+                  <label
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: "pointer",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: filterAdmissionOnly ? "#0f766e" : "#475569",
+                      background: filterAdmissionOnly ? "#ecfdf5" : "#f8fafc",
+                      border: `1.5px solid ${filterAdmissionOnly ? "#10b981" : "#cbd5e1"}`,
+                      borderRadius: 6,
+                      padding: "0 14px",
+                      height: 38,
+                      userSelect: "none",
+                      boxShadow: filterAdmissionOnly ? "0 0 0 2px rgba(15,118,110,0.15)" : "none",
+                      transition: "all 0.15s ease-in-out"
+                    }}
+                    title="Filter and show admitted patients only"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filterAdmissionOnly}
+                      onChange={e => setFilterAdmissionOnly(e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f766e" }}
+                    />
+                    <span>Admission</span>
+                    {admittedCount > 0 && (
+                      <span
+                        style={{
+                          background: filterAdmissionOnly ? "#0f766e" : "#94a3b8",
+                          color: "#fff",
+                          borderRadius: 10,
+                          padding: "1px 7px",
+                          fontSize: "0.72rem",
+                          fontWeight: 700
+                        }}
+                      >
+                        {admittedCount}
+                      </span>
+                    )}
+                  </label>
+                </div>
               </div>
 
               {uhidSearchLoading ? (
                 <NoResults>Searching...</NoResults>
               ) : displayedUhidResults.length === 0 ? (
-                <NoResults>No patients found. Try a different UHID or name.</NoResults>
+                <NoResults>
+                  {filterAdmissionOnly && (uhidSearchResults || []).length > 0 ? (
+                    <>
+                      No admitted patients found among the {(uhidSearchResults || []).length} results.{" "}
+                      <button
+                        type="button"
+                        onClick={() => setFilterAdmissionOnly(false)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#0f766e",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                          fontWeight: 700,
+                          fontSize: "0.85rem",
+                          padding: 0
+                        }}
+                      >
+                        Show all patients
+                      </button>
+                    </>
+                  ) : (
+                    "No patients found. Try a different UHID or name."
+                  )}
+                </NoResults>
               ) : (
                 <>
-                  <ModalResultCount>
-                    Showing 1 to {displayedUhidResults.length} of {displayedUhidResults.length} entries
-                  </ModalResultCount>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                    <ModalResultCount style={{ margin: 0 }}>
+                      Showing 1 to {displayedUhidResults.length} of {(uhidSearchResults || []).length} entries
+                      {filterAdmissionOnly && (
+                        <span style={{ color: "#0f766e", fontWeight: 700, marginLeft: 8 }}>
+                          (Admitted Patients Only)
+                        </span>
+                      )}
+                    </ModalResultCount>
+                  </div>
                   <TableWrapper style={{ overflowX: "auto" }}>
                     <Table style={{ minWidth: 800, width: "100%" }}>
                       <thead>
@@ -5814,7 +6555,28 @@ const loadedMedicines = rawMeds.map((item) => {
                           <Th style={{ minWidth: 120 }}>UHID No</Th>
                           <Th style={{ minWidth: 160 }}>Patient</Th>
                           <Th style={{ minWidth: 120 }}>Mobile</Th>
-                          <Th style={{ minWidth: 130, textAlign: "center" }}>Admission Status</Th>
+                          <Th style={{ minWidth: 140, textAlign: "center" }}>
+                            <label
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                                cursor: "pointer",
+                                userSelect: "none",
+                                margin: 0
+                              }}
+                              title="Toggle admitted patients only"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={filterAdmissionOnly}
+                                onChange={e => setFilterAdmissionOnly(e.target.checked)}
+                                style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#0f766e" }}
+                              />
+                              Admission Status
+                            </label>
+                          </Th>
                         </tr>
                       </thead>
                       <tbody>
@@ -5822,10 +6584,7 @@ const loadedMedicines = rawMeds.map((item) => {
                           const fullName = formatPatientName(p.salutation, p.firstName, p.lastName);
                           const uhidNo = p.uhid || p.UHID || "";
                           const mobile = p.mobilePhone || p.mobile || p.phone || p.mobileNumber || "";
-                          const admInfo = admissionStatusMap[uhidNo];
-                          const isAdmitted = admInfo !== undefined
-                            ? admInfo.admitted
-                            : (typeof p.is_admitted === "boolean" ? p.is_admitted : Boolean(p.ip_number));
+                          const isAdmitted = isPatientAdmitted(p);
 
                           return (
                             <Tr

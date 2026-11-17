@@ -196,6 +196,64 @@ const MrpValue = styled.div`font-size: 0.88rem; font-weight: 700; color: ${color
 const LastLine  = styled.div`font-size: 0.62rem; color: ${colors.primary}; font-weight: 600; margin-top: 2px;`
 
 /* ─── OCR-specific styled components ───────────────────────────────────── */
+const OcrHeaderBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  border: 1px solid ${p => p.$variant === "camera" ? "#0284c7" : colors.primary};
+  background: ${p => p.$variant === "camera" ? "#0284c7" : colors.primary};
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  &:hover {
+    background: ${p => p.$variant === "camera" ? "#0369a1" : colors.primaryDark};
+    border-color: ${p => p.$variant === "camera" ? "#0369a1" : colors.primaryDark};
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+`;
+
+const OcrModalOverlay = styled.div`
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 2500; display: flex; align-items: center; justify-content: center; padding: 16px;
+`;
+
+const OcrModalBox = styled.div`
+  background: white; border-radius: 12px; padding: 22px 24px;
+  max-width: 620px; width: 100%; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: ${fadeIn} 0.18s ease forwards;
+  display: flex; flex-direction: column;
+`;
+
+const OcrModalHeader = styled.div`
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0;
+`;
+
+const OcrModalCloseBtn = styled.button`
+  background: transparent; border: none; padding: 6px; border-radius: 6px;
+  cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  &:hover { background: #f1f5f9; color: #0f172a; }
+`;
+
 const OcrCard = styled.div`
   background: linear-gradient(135deg, #f0f9ff 0%, #f0fdf4 100%);
   border: 2px dashed ${p => p.active ? colors.primary : colors.border};
@@ -265,10 +323,6 @@ const OcrFieldBadge = styled.span`
 `
 
 /* ─── Edit Reason Modal ─────────────────────────────────────────────────── */
-const fadeIn = keyframes`
-  from { opacity: 0; transform: scale(0.97); }
-  to   { opacity: 1; transform: scale(1); }
-`
 const ModalOverlay = styled.div`
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);
   z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 16px;
@@ -310,6 +364,342 @@ const EditInfoBanner = styled.div`
   background: #fef9c3; border: 1px solid #fde68a; border-radius: 6px;
   padding: 9px 13px; margin-bottom: 10px; font-size: 0.79rem; color: #92400e;
 `
+
+/* ─── Add Medicine Modal (Full Pharmacy Item Form) ───────────────────────── */
+const AddMedFormSectionTitle = styled.h4`
+  font-size: 0.82rem; font-weight: 700; color: #0d9488;
+  margin: 14px 0 8px; padding-bottom: 5px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex; align-items: center; gap: 6px;
+`
+const AddMedOutletGrid = styled.div`
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px; margin-bottom: 10px; width: 100%; box-sizing: border-box;
+`
+const AddMedOutletCard = styled.div`
+  background: ${p => p.active ? "#f0fdfa" : "#f8fafc"};
+  border: 1px solid ${p => p.active ? "#99f6e4" : "#e2e8f0"};
+  border-radius: 8px; padding: 10px 12px; box-sizing: border-box;
+`
+const AddMedCheckLabel = styled.label`
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer; user-select: none;
+  input[type="checkbox"] { accent-color: #0d9488; width: 14px; height: 14px; cursor: pointer; }
+`
+const AddMedFlagsGrid = styled.div`
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px; margin: 8px 0 12px; width: 100%; box-sizing: border-box;
+`
+const AddMedFlagCard = styled.label`
+  display: flex; align-items: center; gap: 7px; padding: 8px 10px;
+  border-radius: 7px; cursor: pointer; user-select: none;
+  font-size: 0.74rem; font-weight: 600; box-sizing: border-box;
+  border: 1px solid ${p => p.checked ? (p.borderColor || "#cbd5e1") : "#e2e8f0"};
+  background: ${p => p.checked ? (p.bgColor || "#f8fafc") : "#ffffff"};
+  color: ${p => p.checked ? (p.textColor || "#374151") : "#64748b"};
+  input[type="checkbox"] { accent-color: ${p => p.accentColor || "#0d9488"}; width: 14px; height: 14px; }
+`
+
+const ADD_MED_EMPTY = {
+  item_name: "", item_last_name: "", category: "", hsn: "",
+  brand_name: "", chemical_composition: "",
+  high_risk: false, look_alike: false, sound_alike: false,
+  reorder_level: "",
+  IP_available: true, IP_shelf_no: "", IP_rack_no: "",
+  OP_available: true, OP_shelf_no: "", OP_rack_no: "",
+  G_available: true,  G_shelf_no: "", G_rack_no: "",
+  is_blocked: false, blocked_reason: "",
+}
+
+const AddMedicineModal = ({ onClose, onAdded }) => {
+  const [form, setForm]       = useState(ADD_MED_EMPTY)
+  const [errors, setErrors]   = useState({})
+  const [saving, setSaving]   = useState(false)
+  const [categories, setCategories] = useState([])
+  const [compositions, setCompositions] = useState([])
+  const [compQuery, setCompQuery] = useState("")
+  const [compOpen, setCompOpen]   = useState(false)
+  const compRef = useRef(null)
+
+  // Load categories & compositions once
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [catRes, compRes] = await Promise.all([
+          apiRequest(`${baseUrl}pharmacy-category/?page=all`, "GET"),
+          apiRequest(`${baseUrl}chemical-composition/?page=all`, "GET"),
+        ])
+        const toList = (r) => {
+          const p = r?.data
+          return Array.isArray(p) ? p : (Array.isArray(p?.data) ? p.data : (Array.isArray(p?.results) ? p.results : []))
+        }
+        setCategories(toList(catRes).map(c => ({ ...c, category_name: (c.category_name || "").toUpperCase() }))
+          .sort((a, b) => a.category_name.localeCompare(b.category_name)))
+        setCompositions(toList(compRes).map(c => ({ ...c, composition_name: (c.composition_name || "").toUpperCase() }))
+          .sort((a, b) => a.composition_name.localeCompare(b.composition_name)))
+      } catch {}
+    }
+    load()
+  }, [])
+
+  // Close composition dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (compRef.current && !compRef.current.contains(e.target)) setCompOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  const selectedComp = compositions.find(c => String(c.composition_id) === String(form.chemical_composition))
+  const filteredComps = compositions.filter(c => c.composition_name.toLowerCase().includes(compQuery.toLowerCase()))
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target
+    setForm(p => ({ ...p, [name]: type === "checkbox" ? checked : value }))
+    if (errors[name]) setErrors(p => ({ ...p, [name]: "" }))
+  }
+
+  const validate = () => {
+    const errs = {}
+    if (!form.item_name.trim()) errs.item_name = "Item name is required"
+    if (!form.category) errs.category = "Category is required"
+    if (form.is_blocked && !form.blocked_reason.trim()) errs.blocked_reason = "Reason required"
+    return errs
+  }
+
+  const handleSave = async () => {
+    const errs = validate()
+    if (Object.keys(errs).length) { setErrors(errs); return }
+    setSaving(true)
+    try {
+      const payload = {
+        ...form,
+        is_active: true,
+        item_name: form.item_name.trim().toUpperCase(),
+        item_last_name: form.item_last_name.trim().toUpperCase(),
+        reorder_level: Number(form.reorder_level) || 0,
+        category: form.category ? Number(form.category) : null,
+        chemical_composition: form.chemical_composition || null,
+        IP_shelf_no: form.IP_available ? form.IP_shelf_no : "",
+        IP_rack_no:  form.IP_available ? form.IP_rack_no  : "",
+        OP_shelf_no: form.OP_available ? form.OP_shelf_no : "",
+        OP_rack_no:  form.OP_available ? form.OP_rack_no  : "",
+        G_shelf_no:  form.G_available  ? form.G_shelf_no  : "",
+        G_rack_no:   form.G_available  ? form.G_rack_no   : "",
+        blocked_reason: form.is_blocked ? form.blocked_reason : "",
+      }
+      const r = await apiRequest(`${baseUrl}pharmacy_items/`, "POST", payload)
+      if (r?.success) {
+        toast.success(`✅ Medicine "${payload.item_name}${payload.item_last_name ? " " + payload.item_last_name : ""}" added!`)
+        onAdded(r.data)
+      } else {
+        toast.error(r?.error || "Failed to add medicine")
+      }
+    } catch { toast.error("Network error") } finally { setSaving(false) }
+  }
+
+  const fieldStyle = (name) => errors[name] ? { borderColor: "#dc2626" } : {}
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalBox onClick={e => e.stopPropagation()} style={{ maxWidth: 720, maxHeight: "92vh", overflowY: "auto", padding: "20px 24px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid #e2e8f0" }}>
+          <div>
+            <div style={{ fontSize: "1rem", fontWeight: 700, color: "#0d9488" }}>💊 Add Pharmacy Item</div>
+            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>Add a new medicine to the master list. It will appear in the GRN dropdown immediately.</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.2rem", color: "#64748b", padding: 4 }}>✕</button>
+        </div>
+
+        {/* Basic Info */}
+        <AddMedFormSectionTitle>📋 Basic Information</AddMedFormSectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 14px", marginBottom: 4 }}>
+          <div>
+            <Lbl>Item Name <span style={{ color: "#dc2626" }}>*</span></Lbl>
+            <Input name="item_name" value={form.item_name} onChange={handleChange} autoFocus
+              placeholder="Brand / Trade Name" style={{ fontSize: "0.82rem", ...fieldStyle("item_name") }} />
+            {errors.item_name && <div style={{ color: "#dc2626", fontSize: "0.72rem", marginTop: 2 }}>{errors.item_name}</div>}
+          </div>
+          <div>
+            <Lbl>Extended Name / Suffix</Lbl>
+            <Input name="item_last_name" value={form.item_last_name} onChange={handleChange}
+              placeholder="e.g. 500mg Strip, 100ml Syrup" style={{ fontSize: "0.82rem" }} />
+          </div>
+          <div>
+            <Lbl>Category <span style={{ color: "#dc2626" }}>*</span></Lbl>
+            <select name="category" value={form.category} onChange={handleChange}
+              style={{ width: "100%", height: 34, fontSize: "0.82rem", padding: "0 8px",
+                border: `1px solid ${errors.category ? "#dc2626" : "#cbd5e1"}`, borderRadius: 6,
+                background: "white", outline: "none", cursor: "pointer" }}>
+              <option value="">-- Select Category --</option>
+              {categories.map(c => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
+            </select>
+            {errors.category && <div style={{ color: "#dc2626", fontSize: "0.72rem", marginTop: 2 }}>{errors.category}</div>}
+          </div>
+          {/* Composition searchable */}
+          <div ref={compRef} style={{ position: "relative" }}>
+            <Lbl>Generic / Composition</Lbl>
+            <Input
+              value={selectedComp ? selectedComp.composition_name : compQuery}
+              placeholder="Type to search generic salt..."
+              onChange={(e) => { setCompQuery(e.target.value); setCompOpen(true) }}
+              onFocus={() => { setCompQuery(""); setCompOpen(true) }}
+              style={{ fontSize: "0.82rem" }}
+            />
+            {compOpen && (
+              <div style={{ position: "absolute", zIndex: 2000, top: "100%", left: 0, right: 0,
+                maxHeight: 180, overflowY: "auto", background: "#fff",
+                border: "1px solid #0d9488", borderRadius: 6, boxShadow: "0 6px 20px rgba(0,0,0,0.1)" }}>
+                {filteredComps.length === 0
+                  ? <div style={{ padding: "8px 12px", fontSize: "0.78rem", color: "#94a3b8" }}>No matches</div>
+                  : filteredComps.map(c => (
+                    <div key={c.composition_id}
+                      onMouseDown={() => { setForm(p => ({ ...p, chemical_composition: String(c.composition_id) })); setCompQuery(""); setCompOpen(false) }}
+                      style={{ padding: "7px 12px", fontSize: "0.8rem", cursor: "pointer",
+                        background: String(c.composition_id) === String(form.chemical_composition) ? "#f0fdfa" : "white" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "#f0fdfa" }}
+                      onMouseLeave={e => { e.currentTarget.style.background = String(c.composition_id) === String(form.chemical_composition) ? "#f0fdfa" : "white" }}
+                    >{c.composition_name}</div>
+                  ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <Lbl>Brand / Manufacturer</Lbl>
+            <Input name="brand_name" value={form.brand_name} onChange={handleChange}
+              placeholder="e.g. Cipla, Sun Pharma" style={{ fontSize: "0.82rem" }} />
+          </div>
+          <div>
+            <Lbl>HSN Code</Lbl>
+            <Input name="hsn" value={form.hsn} onChange={handleChange}
+              placeholder="e.g. 3004" style={{ fontSize: "0.82rem" }} />
+          </div>
+          <div>
+            <Lbl>Reorder Level (Min Qty)</Lbl>
+            <Input name="reorder_level" value={form.reorder_level} onChange={handleChange}
+              placeholder="e.g. 50" style={{ fontSize: "0.82rem" }} />
+          </div>
+        </div>
+
+        {/* Outlet Availability */}
+        <AddMedFormSectionTitle>🏬 Outlet Availability &amp; Storage</AddMedFormSectionTitle>
+        <AddMedOutletGrid>
+          {[
+            { key: "IP", label: "IP Pharmacy" },
+            { key: "OP", label: "OP Pharmacy" },
+            { key: "G",  label: "General Store" },
+          ].map(({ key, label }) => (
+            <AddMedOutletCard key={key} active={form[`${key}_available`]}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: form[`${key}_available`] ? 8 : 0 }}>
+                <AddMedCheckLabel>
+                  <input type="checkbox" name={`${key}_available`} checked={form[`${key}_available`]} onChange={handleChange} />
+                  {label}
+                </AddMedCheckLabel>
+                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: form[`${key}_available`] ? "#0d9488" : "#94a3b8" }}>
+                  {form[`${key}_available`] ? "Active" : "Disabled"}
+                </span>
+              </div>
+              {form[`${key}_available`] && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 6 }}>
+                  <div>
+                    <Lbl style={{ fontSize: "0.68rem" }}>Shelf No.</Lbl>
+                    <Input name={`${key}_shelf_no`} value={form[`${key}_shelf_no`]} onChange={handleChange} placeholder="e.g. S-12" style={{ fontSize: "0.78rem" }} />
+                  </div>
+                  <div>
+                    <Lbl style={{ fontSize: "0.68rem" }}>Rack No.</Lbl>
+                    <Input name={`${key}_rack_no`} value={form[`${key}_rack_no`]} onChange={handleChange} placeholder="e.g. R-04" style={{ fontSize: "0.78rem" }} />
+                  </div>
+                </div>
+              )}
+            </AddMedOutletCard>
+          ))}
+        </AddMedOutletGrid>
+
+        {/* Safety Flags */}
+        <AddMedFormSectionTitle>⚠️ Safety &amp; Compliance Flags</AddMedFormSectionTitle>
+        <AddMedFlagsGrid>
+          <AddMedFlagCard checked={form.high_risk} bgColor="#fef2f2" borderColor="#fca5a5" textColor="#b91c1c" accentColor="#dc2626">
+            <input type="checkbox" name="high_risk" checked={form.high_risk} onChange={handleChange} />
+            🚨 High Risk
+          </AddMedFlagCard>
+          <AddMedFlagCard checked={form.look_alike} bgColor="#fffbeb" borderColor="#fde68a" textColor="#92400e" accentColor="#d97706">
+            <input type="checkbox" name="look_alike" checked={form.look_alike} onChange={handleChange} />
+            👁️ Look-Alike
+          </AddMedFlagCard>
+          <AddMedFlagCard checked={form.sound_alike} bgColor="#fffbeb" borderColor="#fde68a" textColor="#92400e" accentColor="#d97706">
+            <input type="checkbox" name="sound_alike" checked={form.sound_alike} onChange={handleChange} />
+            🔊 Sound-Alike
+          </AddMedFlagCard>
+          <AddMedFlagCard checked={form.is_blocked} bgColor="#fef2f2" borderColor="#fca5a5" textColor="#991b1b" accentColor="#dc2626">
+            <input type="checkbox" name="is_blocked" checked={form.is_blocked} onChange={handleChange} />
+            ⛔ Block Item
+          </AddMedFlagCard>
+        </AddMedFlagsGrid>
+        {form.is_blocked && (
+          <div style={{ marginBottom: 12 }}>
+            <Lbl>Blocked Reason <span style={{ color: "#dc2626" }}>*</span></Lbl>
+            <Input name="blocked_reason" value={form.blocked_reason} onChange={handleChange}
+              placeholder="Explain why this medicine is blocked..."
+              style={{ fontSize: "0.82rem", ...fieldStyle("blocked_reason") }} />
+            {errors.blocked_reason && <div style={{ color: "#dc2626", fontSize: "0.72rem", marginTop: 2 }}>{errors.blocked_reason}</div>}
+          </div>
+        )}
+
+        {/* Footer Buttons */}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16, paddingTop: 14, borderTop: "1px solid #e2e8f0" }}>
+          <button onClick={onClose} style={{ padding: "8px 20px", borderRadius: 7,
+            border: "1.5px solid #d1d5db", background: "white", cursor: "pointer", fontSize: "0.84rem", fontWeight: 600 }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: "8px 24px", borderRadius: 7, border: "none",
+            background: saving ? "#94a3b8" : "#0d9488", color: "white",
+            cursor: saving ? "not-allowed" : "pointer", fontSize: "0.84rem", fontWeight: 700 }}>
+            {saving ? "Saving…" : "💾 Save Medicine"}
+          </button>
+        </div>
+      </ModalBox>
+    </ModalOverlay>
+  )
+}
+
+
+/* ─── Save Success Modal Component ─────────────────────────────────────── */
+const SaveSuccessModal = ({ draftNo, onClose }) => {
+  const last4 = draftNo ? draftNo.slice(-4) : "—"
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalBox onClick={e => e.stopPropagation()} style={{ maxWidth: 380, textAlign: "center" }}>
+        <div style={{ fontSize: "3rem", marginBottom: 8 }}>✅</div>
+        <ModalTitle style={{ textAlign: "center", fontSize: "1.1rem" }}>Draft Saved Successfully!</ModalTitle>
+        <ModalSubtitle style={{ textAlign: "center" }}>Your GRN draft has been saved.</ModalSubtitle>
+        <div style={{
+          background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10,
+          padding: "18px 24px", margin: "16px 0",
+        }}>
+          <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+            Draft Number
+          </div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#166534", letterSpacing: "0.1em" }}>
+            {draftNo || "—"}
+          </div>
+          {draftNo && (
+            <div style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: 4 }}>
+              Last 4 digits: <strong style={{ color: "#166534", fontSize: "1.1rem" }}>#{last4}</strong>
+            </div>
+          )}
+        </div>
+        <ModalBtns style={{ justifyContent: "center" }}>
+          <button onClick={onClose} style={{ padding: "10px 32px", borderRadius: 7, border: "none",
+            background: "#0d9488", color: "white", cursor: "pointer", fontSize: "0.9rem", fontWeight: 700 }}>
+            OK — Start New GRN
+          </button>
+        </ModalBtns>
+      </ModalBox>
+    </ModalOverlay>
+  )
+}
 
 /* ─── Edit Reason Modal Component ───────────────────────────────────────── */
 const EditReasonModal = ({ draftNumber, onConfirm, onCancel }) => {
@@ -405,7 +795,7 @@ const EMPTY_GRN = {
   taxable_amount:"0.00",non_taxable_amount:"0.00",
   cgst:"0.00",sgst:"0.00",igst:"0.00",
   tax_paid_to_supplier:"0.00",total_discount:"0.00",
-  round_amount:"0",total_amount:"0.00",net_invoice_amount:"0.00",
+  round_amount:"0.00",total_amount:"0.00",net_invoice_amount:"0.00",
   // edit audit fields (read-only, shown in UI when populated)
   edited_by:"", edited_date:"", edited_reason:"",
 }
@@ -413,7 +803,7 @@ const EMPTY_GRN = {
 const EMPTY_ITEM = {
   name:"",item_id:"",hsn:"",batch:"",
   expiry_month:"",expiry_year:"",expiry:"",
-  packing:"",unit:"",quantity:"0",free:"0",
+  packing:"",unit:"",quantity:"0",free_pack:"",free:"0",free_qty:"0",total_stock:"0",
   item_value:"0.00",packing_price:"",unit_price:"0.00",_priceSource:"packing_price",
   purchase_tax_label:"RATE OF 5%",purchase_tax_rate:"5",
   cgst_percent:"2.50",sgst_percent:"2.50",
@@ -421,7 +811,10 @@ const EMPTY_ITEM = {
   purchase_discount:"0",purchase_discount_amt:"0.00",
   deduct_discount_for_tax: true,
   purchase_cost:"0.00",
+  total_mrp:"",
+  pack_mrp:"",
   mrp:"",
+  unit_mrp:"",
   max_packing_mrp:"0.00",
   selling_discount:"0",
   selling_price:"0.00",
@@ -494,23 +887,90 @@ function recalcItem(item, editedField = null) {
 
   const sellingTaxRate  = parseFloat(item.selling_tax_rate) || 0
   const sellingCgstPct  = sellingTaxRate / 2
-  const mrp             = parseFloat(item.mrp) || 0
   const taxInclusive    = item.tax_inclusive !== false
   const sellingDisc     = parseFloat(item.selling_discount) || 0
 
+  // ── MRP splitting based on packing and units: user enters total_mrp or pack_mrp, derived to single med MRP ──
+  let unitMrp = parseFloat(item.mrp) || 0
+  if (editedField === "total_mrp") {
+    const rawTotalMrp = parseFloat(item.total_mrp) || 0
+    unitMrp = quantity > 0 ? rawTotalMrp / quantity : (packing > 0 && unit > 0 ? rawTotalMrp / (packing * unit) : rawTotalMrp)
+  } else if (editedField === "pack_mrp") {
+    const rawPackMrp = parseFloat(item.pack_mrp) || 0
+    unitMrp = packing > 0 ? rawPackMrp / packing : rawPackMrp
+  } else if (editedField === "mrp") {
+    unitMrp = parseFloat(item.mrp) || 0
+  } else if (editedField === "unit_mrp") {
+    unitMrp = parseFloat(item.unit_mrp) || 0
+  } else if (editedField === "packing" || editedField === "unit") {
+    if (item.pack_mrp && parseFloat(item.pack_mrp) > 0) {
+      unitMrp = packing > 0 ? parseFloat(item.pack_mrp) / packing : parseFloat(item.pack_mrp)
+    } else if (item.total_mrp && parseFloat(item.total_mrp) > 0) {
+      unitMrp = quantity > 0 ? parseFloat(item.total_mrp) / quantity : 0
+    } else {
+      unitMrp = parseFloat(item.unit_mrp || item.mrp) || 0
+    }
+  } else {
+    // Default / loading: derive unit_mrp from pack_mrp or total_mrp if available
+    const packMrpVal = parseFloat(item.pack_mrp) || 0
+    const totalMrpVal = parseFloat(item.total_mrp) || 0
+    if (packMrpVal > 0 && packing > 0) {
+      unitMrp = packMrpVal / packing
+    } else if (totalMrpVal > 0 && quantity > 0) {
+      unitMrp = totalMrpVal / quantity
+    } else {
+      unitMrp = parseFloat(item.unit_mrp) || parseFloat(item.mrp) || 0
+    }
+  }
+  const finalPackMrp = packing > 0 ? (unitMrp * packing).toFixed(4) : (unitMrp > 0 ? unitMrp.toFixed(4) : "")
+  const finalTotalMrp = quantity > 0 ? (unitMrp * quantity).toFixed(2) : (unit > 0 ? (unitMrp * (packing || 1) * unit).toFixed(2) : "")
+
   let selling_price = taxInclusive && sellingTaxRate > 0
-    ? mrp / (1 + sellingTaxRate / 100)
-    : mrp
+    ? unitMrp / (1 + sellingTaxRate / 100)
+    : unitMrp
 
   selling_price = selling_price * (1 - sellingDisc / 100)
 
   const selling_cgst_amt = selling_price * (sellingCgstPct / 100)
   const selling_sgst_amt = selling_price * (sellingCgstPct / 100)
 
+  // ── Calculate Free Quantity & Total Stock ──
+  const freePackVal = parseFloat(item.free_pack) || 0
+  let freeVal = parseFloat(item.free) || 0
+
+  if (editedField === "free_pack") {
+    // When free_pack is entered, calculate and display directly in free
+    freeVal = packing > 1 ? freePackVal * packing : freePackVal
+  } else if (editedField === "packing") {
+    // When packing changes, if free_pack exists, re-calculate free directly
+    if (freePackVal > 0) {
+      freeVal = packing > 1 ? freePackVal * packing : freePackVal
+    }
+  } else if (editedField === "free") {
+    // User directly edited free
+    freeVal = parseFloat(item.free) || 0
+  } else {
+    // Default / loading
+    if (freePackVal > 0) {
+      freeVal = packing > 1 ? freePackVal * packing : freePackVal
+    } else if (freeVal > 0 && packing > 1 && item.free_qty && parseFloat(item.free_qty) > freeVal) {
+      // Historical item where free was packs and free_qty was units
+      item.free_pack = String(freeVal)
+      freeVal = parseFloat(item.free_qty)
+    }
+  }
+
+  const freeFinal = freeVal > 0 ? (Number.isInteger(freeVal) ? String(freeVal) : String(Number(freeVal.toFixed(2)))) : "0"
+  const totalStock = quantity + (parseFloat(freeFinal) || 0)
+
   return {
     ...item,
     _priceSource:          priceSource,
     quantity:              String(quantity),
+    free_pack:             item.free_pack !== undefined ? String(item.free_pack) : "",
+    free:                  freeFinal,
+    free_qty:              freeFinal,
+    total_stock:           String(totalStock),
     packing_price:         finalPackingPrice,
     item_value:            finalItemValue,
     unit_price:            finalUnitPrice,
@@ -530,6 +990,11 @@ function recalcItem(item, editedField = null) {
     selling_price:         selling_price.toFixed(2),
     selling_cgst_amt:      selling_cgst_amt.toFixed(4),
     selling_sgst_amt:      selling_sgst_amt.toFixed(4),
+    // MRP fields
+    total_mrp:             editedField === "total_mrp" ? (item.total_mrp ?? "") : (finalTotalMrp ? Number(finalTotalMrp).toString() : ""),
+    pack_mrp:              editedField === "pack_mrp" ? (item.pack_mrp ?? "") : (finalPackMrp ? Number(parseFloat(finalPackMrp).toFixed(2)).toString() : ""),
+    unit_mrp:              unitMrp > 0 ? Number(unitMrp.toFixed(4)).toString() : "",
+    mrp:                   unitMrp > 0 ? Number(unitMrp.toFixed(4)).toString() : "",
   }
 }
 
@@ -541,9 +1006,9 @@ function isExpiryTooShort(month, year) {
   return expDate <= sixMonthsLater
 }
 
-/* ─── OCR Panel Component ───────────────────────────────────────────────── */
-const OcrPanel = ({ onOcrResult, disabled }) => {
-  const [ocrMode,    setOcrMode]    = useState("upload")
+/* ─── OCR Modal Component ────────────────────────────────────────────────── */
+const OcrModal = ({ isOpen, initialMode = "upload", onClose, onOcrResult, disabled }) => {
+  const [ocrMode,    setOcrMode]    = useState(initialMode || "upload")
   const [dragging,   setDragging]   = useState(false)
   const [previewSrc, setPreviewSrc] = useState(null)
   const [ocrFile,    setOcrFile]    = useState(null)
@@ -559,6 +1024,14 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
   const videoRef      = useRef(null)
   const canvasRef     = useRef(null)
   const streamRef     = useRef(null)
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+    setCamActive(false)
+  }, [])
 
   const startCamera = useCallback(async () => {
     setCamError("")
@@ -582,19 +1055,36 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
     }
   }, [])
 
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop())
-      streamRef.current = null
-    }
-    setCamActive(false)
-  }, [])
-
+  // Sync mode and state when modal opens/closes
   useEffect(() => {
-    if (ocrMode === "camera") startCamera()
-    else stopCamera()
+    if (isOpen) {
+      setOcrMode(initialMode || "upload")
+      setOcrFile(null)
+      setPreviewSrc(null)
+      setCaptured(null)
+      setOcrStatus(null)
+      setOcrMsg("")
+      setWarnings([])
+    } else {
+      stopCamera()
+    }
+  }, [isOpen, initialMode, stopCamera])
+
+  // Camera start/stop based on mode when open
+  useEffect(() => {
+    if (!isOpen) return
+    if (ocrMode === "camera" && !captured) {
+      startCamera()
+    } else {
+      stopCamera()
+    }
     return () => stopCamera()
-  }, [ocrMode]) // eslint-disable-line
+  }, [isOpen, ocrMode, captured, startCamera, stopCamera])
+
+  const handleClose = useCallback(() => {
+    stopCamera()
+    onClose()
+  }, [stopCamera, onClose])
 
   const captureFrame = useCallback(() => {
     const video  = videoRef.current
@@ -679,7 +1169,11 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
         `OCR complete — ${json.data?.items?.length || 0} item(s) detected.` +
         (warns.length ? " See warnings below." : "")
       )
+      toast.success(`OCR scan successful! ${json.data?.items?.length || 0} items extracted.`)
       onOcrResult(json.data)
+      setTimeout(() => {
+        handleClose()
+      }, 700)
     } catch (err) {
       setOcrStatus("error")
       setOcrMsg("Network error while scanning. Please try again.")
@@ -694,169 +1188,190 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
     if (ocrMode === "camera") retakePhoto()
   }
 
-  if (disabled) return null
+  if (!isOpen || disabled) return null
 
   return (
-    <OcrCard active={dragging}>
-      <OcrCardHeader>
-        <ScanLine size={16} />
-        Auto-Fill via OCR Scan
-        <span style={{fontSize:"0.7rem",fontWeight:400,color:colors.textMuted,marginLeft:4}}>
-          Upload or scan a hard copy invoice to auto-fill fields (you can edit after)
-        </span>
-      </OcrCardHeader>
-
-      <OcrMethodRow>
-        <OcrMethodBtn
-          active={ocrMode === "upload"}
-          onClick={() => { setOcrMode("upload"); resetOcr() }}
-          type="button"
-        >
-          <Upload size={14}/> Upload Document
-        </OcrMethodBtn>
-        <OcrMethodBtn
-          active={ocrMode === "camera"}
-          onClick={() => { setOcrMode("camera"); resetOcr() }}
-          type="button"
-        >
-          <Camera size={14}/> Use Camera
-        </OcrMethodBtn>
-      </OcrMethodRow>
-
-      {ocrMode === "upload" && (
-        <>
-          {!ocrFile ? (
-            <DropZone
-              dragging={dragging}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setDragging(true) }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-            >
-              <Upload size={28} color={dragging ? colors.primary : "#94a3b8"} />
-              <DropZoneText>
-                <strong>Click to upload</strong> or drag &amp; drop<br/>
-                <span style={{fontSize:"0.72rem"}}>JPG, PNG, WEBP, PDF — max 15 MB</span>
-              </DropZoneText>
-            </DropZone>
-          ) : (
-            <div>
-              {previewSrc && (
-                <div style={{marginBottom:8}}>
-                  <PreviewImg src={previewSrc} alt="Invoice preview" />
-                </div>
-              )}
-              {!previewSrc && ocrFile && (
-                <div style={{padding:"10px 0",fontSize:"0.8rem",color:colors.textMuted}}>
-                  📄 {ocrFile.name} ({(ocrFile.size/1024).toFixed(0)} KB)
-                </div>
-              )}
+    <OcrModalOverlay onClick={handleClose}>
+      <OcrModalBox onClick={e => e.stopPropagation()}>
+        <OcrModalHeader>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "1.05rem", fontWeight: 700, color: colors.primary }}>
+              <ScanLine size={19} />
+              <span>Auto-Fill via OCR Scan</span>
             </div>
-          )}
-          <input
-            ref={fileInputRef} type="file"
-            accept="image/jpeg,image/png,image/jpg,image/webp,application/pdf"
-            style={{display:"none"}}
-            onChange={e => handleFileSelect(e.target.files?.[0])}
-          />
-        </>
-      )}
-
-      {ocrMode === "camera" && (
-        <div>
-          {camError && (
-            <OcrWarnBox style={{marginBottom:8}}>
-              <AlertCircle size={13} style={{verticalAlign:"middle",marginRight:4}}/>{camError}
-            </OcrWarnBox>
-          )}
-          {!captured && (
-            <CameraBox>
-              <CameraVideo ref={videoRef} autoPlay playsInline muted />
-              <div style={{
-                position:"absolute",bottom:0,left:0,right:0,
-                background:"rgba(0,0,0,0.5)",padding:"8px",
-                display:"flex",justifyContent:"center",gap:8
-              }}>
-                {camActive ? (
-                  <Button
-                    onClick={captureFrame}
-                    style={{fontSize:"0.8rem",padding:"6px 16px",background:"white",color:colors.primary}}
-                    type="button"
-                  >
-                    <Camera size={13}/>&nbsp;Capture
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={startCamera}
-                    style={{fontSize:"0.8rem",padding:"6px 16px"}}
-                    type="button"
-                  >
-                    Start Camera
-                  </Button>
-                )}
-              </div>
-            </CameraBox>
-          )}
-          {captured && previewSrc && (
-            <div>
-              <PreviewImg src={previewSrc} alt="Captured invoice" />
-              <div style={{marginTop:6,display:"flex",gap:6}}>
-                <Button secondary onClick={retakePhoto} style={{fontSize:"0.78rem",padding:"5px 12px"}} type="button">
-                  <RefreshCw size={12}/>&nbsp;Retake
-                </Button>
-              </div>
+            <div style={{ fontSize: "0.78rem", color: colors.textMuted, marginTop: 4 }}>
+              Upload or scan a hard copy invoice to auto-fill fields (you can edit everything after)
             </div>
-          )}
-          <CameraCanvas ref={canvasRef} />
-        </div>
-      )}
+          </div>
+          <OcrModalCloseBtn type="button" onClick={handleClose} title="Close">
+            <X size={20} />
+          </OcrModalCloseBtn>
+        </OcrModalHeader>
 
-      {ocrStatus === "success" && (
-        <OcrSuccessBox>
-          <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
-          <span>{ocrMsg}</span>
-        </OcrSuccessBox>
-      )}
-      {ocrStatus === "error" && (
-        <OcrWarnBox>
-          <AlertCircle size={13} style={{verticalAlign:"middle",marginRight:4}}/>{ocrMsg}
-        </OcrWarnBox>
-      )}
-      {warnings.length > 0 && (
-        <OcrWarnBox>
-          <strong>⚠️ Warnings:</strong>
-          <ul style={{margin:"4px 0 0 16px",padding:0,fontSize:"0.73rem"}}>
-            {warnings.map((w,i) => <li key={i}>{w}</li>)}
-          </ul>
-        </OcrWarnBox>
-      )}
-
-      <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-        {ocrFile && (
-          <Button
-            onClick={runOcr}
-            disabled={scanning}
-            style={{fontSize:"0.8rem",padding:"7px 16px"}}
+        <OcrMethodRow>
+          <OcrMethodBtn
+            active={ocrMode === "upload"}
+            onClick={() => { setOcrMode("upload"); resetOcr(); }}
             type="button"
           >
-            {scanning
-              ? <><SpinnerSpan/>&nbsp; Scanning…</>
-              : <><ScanLine size={13}/>&nbsp; Scan &amp; Auto-Fill</>}
-          </Button>
-        )}
-        {(ocrFile || ocrStatus) && (
-          <Button secondary onClick={resetOcr} style={{fontSize:"0.8rem",padding:"7px 12px"}} type="button">
-            <X size={12}/>&nbsp;Clear
-          </Button>
-        )}
-      </div>
+            <Upload size={14}/> Upload Document
+          </OcrMethodBtn>
+          <OcrMethodBtn
+            active={ocrMode === "camera"}
+            onClick={() => { setOcrMode("camera"); resetOcr(); }}
+            type="button"
+          >
+            <Camera size={14}/> Use Camera
+          </OcrMethodBtn>
+        </OcrMethodRow>
 
-      <div style={{marginTop:8,fontSize:"0.69rem",color:colors.textMuted}}>
-        💡 After scanning, all fields are editable. Review and correct any errors before saving.
-      </div>
-    </OcrCard>
+        {ocrMode === "upload" && (
+          <div>
+            {!ocrFile ? (
+              <DropZone
+                dragging={dragging}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); setDragging(true) }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={onDrop}
+              >
+                <Upload size={32} color={dragging ? colors.primary : "#94a3b8"} />
+                <DropZoneText>
+                  <strong>Click to upload</strong> or drag &amp; drop<br/>
+                  <span style={{fontSize:"0.75rem"}}>JPG, PNG, WEBP, PDF — max 15 MB</span>
+                </DropZoneText>
+              </DropZone>
+            ) : (
+              <div>
+                {previewSrc && (
+                  <div style={{marginBottom:8, textAlign:"center"}}>
+                    <PreviewImg src={previewSrc} alt="Invoice preview" />
+                  </div>
+                )}
+                {!previewSrc && ocrFile && (
+                  <div style={{padding:"12px", background:"#f8fafc", borderRadius:6, border:"1px solid #e2e8f0", fontSize:"0.84rem", color:"#334155"}}>
+                    📄 <strong>{ocrFile.name}</strong> ({(ocrFile.size/1024).toFixed(0)} KB)
+                  </div>
+                )}
+              </div>
+            )}
+            <input
+              ref={fileInputRef} type="file"
+              accept="image/jpeg,image/png,image/jpg,image/webp,application/pdf"
+              style={{display:"none"}}
+              onChange={e => handleFileSelect(e.target.files?.[0])}
+            />
+          </div>
+        )}
+
+        {ocrMode === "camera" && (
+          <div>
+            {camError && (
+              <OcrWarnBox style={{marginBottom:8}}>
+                <AlertCircle size={13} style={{verticalAlign:"middle",marginRight:4}}/>{camError}
+              </OcrWarnBox>
+            )}
+            {!captured && (
+              <CameraBox>
+                <CameraVideo ref={videoRef} autoPlay playsInline muted />
+                <div style={{
+                  position:"absolute",bottom:0,left:0,right:0,
+                  background:"rgba(0,0,0,0.5)",padding:"8px",
+                  display:"flex",justifyContent:"center",gap:8
+                }}>
+                  {camActive ? (
+                    <Button
+                      onClick={captureFrame}
+                      style={{fontSize:"0.8rem",padding:"6px 16px",background:"white",color:colors.primary}}
+                      type="button"
+                    >
+                      <Camera size={13}/>&nbsp;Capture Photo
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={startCamera}
+                      style={{fontSize:"0.8rem",padding:"6px 16px"}}
+                      type="button"
+                    >
+                      Start Camera
+                    </Button>
+                  )}
+                </div>
+              </CameraBox>
+            )}
+            {captured && previewSrc && (
+              <div>
+                <PreviewImg src={previewSrc} alt="Captured invoice" />
+                <div style={{marginTop:8,display:"flex",gap:6}}>
+                  <Button secondary onClick={retakePhoto} style={{fontSize:"0.78rem",padding:"5px 12px"}} type="button">
+                    <RefreshCw size={12}/>&nbsp;Retake Photo
+                  </Button>
+                </div>
+              </div>
+            )}
+            <CameraCanvas ref={canvasRef} />
+          </div>
+        )}
+
+        {ocrStatus === "success" && (
+          <OcrSuccessBox style={{marginTop:10}}>
+            <CheckCircle size={15} style={{marginTop:1,flexShrink:0}}/>
+            <span>{ocrMsg}</span>
+          </OcrSuccessBox>
+        )}
+        {ocrStatus === "error" && (
+          <OcrWarnBox style={{marginTop:10}}>
+            <AlertCircle size={14} style={{verticalAlign:"middle",marginRight:4}}/>{ocrMsg}
+          </OcrWarnBox>
+        )}
+        {warnings.length > 0 && (
+          <OcrWarnBox style={{marginTop:10}}>
+            <strong>⚠️ Warnings:</strong>
+            <ul style={{margin:"4px 0 0 16px",padding:0,fontSize:"0.73rem"}}>
+              {warnings.map((w,i) => <li key={i}>{w}</li>)}
+            </ul>
+          </OcrWarnBox>
+        )}
+
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:16,paddingTop:12,borderTop:"1px solid #e2e8f0",flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:8}}>
+            {ocrFile && (
+              <Button
+                onClick={runOcr}
+                disabled={scanning}
+                style={{fontSize:"0.82rem",padding:"8px 18px",background:colors.primary,color:"white"}}
+                type="button"
+              >
+                {scanning
+                  ? <><SpinnerSpan/>&nbsp; Scanning Invoice…</>
+                  : <><ScanLine size={14}/>&nbsp; Scan &amp; Auto-Fill</>}
+              </Button>
+            )}
+            {(ocrFile || ocrStatus) && !scanning && (
+              <Button secondary onClick={resetOcr} style={{fontSize:"0.8rem",padding:"7px 14px"}} type="button">
+                <X size={13}/>&nbsp;Clear
+              </Button>
+            )}
+          </div>
+
+          <Button
+            secondary
+            onClick={handleClose}
+            style={{fontSize:"0.8rem",padding:"7px 16px",marginLeft:"auto"}}
+            type="button"
+          >
+            Cancel
+          </Button>
+        </div>
+
+        <div style={{marginTop:10,fontSize:"0.71rem",color:colors.textMuted}}>
+          💡 After scanning, all fields are populated and fully editable. Review before saving.
+        </div>
+      </OcrModalBox>
+    </OcrModalOverlay>
   )
 }
+const OcrPanel = OcrModal;
 
 
 /* ─── Main Component ────────────────────────────────────────────────────── */
@@ -880,16 +1395,20 @@ const GRNGeneration = () => {
   const [fromDate,    setFromDate]    = useState(getTodayDateString())
   const [toDate,      setToDate]      = useState(getTodayDateString())
   const [loading,     setLoading]     = useState(false)
-  const [ocrApplied,  setOcrApplied]  = useState(false)
+  const [ocrApplied,     setOcrApplied]     = useState(false)
+  const [ocrModalOpen,   setOcrModalOpen]   = useState(false)
+  const [ocrInitialMode, setOcrInitialMode] = useState("upload")
 
   const [listPage, setListPage] = useState(1);
   const [listPageSize, setListPageSize] = useState(10);
   const [listTotalCount, setListTotalCount] = useState(0);
   const [listTotalPages, setListTotalPages] = useState(1);
 
-  // ── NEW: edit reason modal state ──────────────────────────────────────────
-  const [editingItemId, setEditingItemId] = useState(null)
+  // ── modal states ──────────────────────────────────────────────────────────
+  const [editingItemId,       setEditingItemId]       = useState(null)
   const [showEditReasonModal, setShowEditReasonModal] = useState(false)
+  const [showAddMedModal,     setShowAddMedModal]     = useState(false)
+  const [savedDraftInfo,      setSavedDraftInfo]      = useState(null)   // { draftNo }
   // pendingPayload holds the ready-to-send payload while awaiting the reason
   const pendingPayloadRef = useRef(null)
 
@@ -908,7 +1427,7 @@ const GRNGeneration = () => {
   },[])
   const fetchMedicines = useCallback(async () => {
     try {
-      const r = await apiRequest(`${baseUrl}pharmacy_items/`,"GET");
+      const r = await apiRequest(`${baseUrl}pharmacy_items/?page=all&unlimited=true`,"GET");
       const payload = r?.data;
       const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []));
       const sorted = (Array.isArray(list) ? list : []).map(m => ({
@@ -1007,20 +1526,20 @@ const GRNGeneration = () => {
       return a
     },{tax:0,cgst:0,sgst:0,disc:0,tot:0})
     const totRounded = Number(t.tot.toFixed(2))
-    const netWhole = Math.floor(totRounded)
-    const autoRound = Number((netWhole - totRounded).toFixed(2))
-    setGrnData(p=>({
-      ...p,
-      taxable_amount:      t.tax.toFixed(2),
-      non_taxable_amount:  t.tax.toFixed(2),
-      cgst:                t.cgst.toFixed(2),
-      sgst:                t.sgst.toFixed(2),
-      tax_paid_to_supplier:(t.cgst+t.sgst).toFixed(2),
-      total_discount:      t.disc.toFixed(2),
-      round_amount:        autoRound === 0 ? "0.00" : autoRound.toFixed(2),
-      total_amount:        totRounded.toFixed(2),
-      net_invoice_amount:  netWhole.toFixed(2),
-    }))
+    setGrnData(p => {
+      const userRound = parseFloat(p.round_amount) || 0
+      return {
+        ...p,
+        taxable_amount:      t.tax.toFixed(2),
+        non_taxable_amount:  t.tax.toFixed(2),
+        cgst:                t.cgst.toFixed(2),
+        sgst:                t.sgst.toFixed(2),
+        tax_paid_to_supplier:(t.cgst+t.sgst).toFixed(2),
+        total_discount:      t.disc.toFixed(2),
+        total_amount:        totRounded.toFixed(2),
+        net_invoice_amount:  (totRounded + userRound).toFixed(2),
+      }
+    })
   },[items])
 
   useEffect(()=>{
@@ -1128,7 +1647,8 @@ const GRNGeneration = () => {
   const selectMedicine = (med) => {
     if(isVerified) return
     const fullName = `${med.item_name} ${med.item_last_name||""}`.trim()
-    setCurItem(p => recalcItem({...p, name:fullName, item_id:med.item_id, hsn:med.hsn||""}))
+    // Reset MRP fields when switching medicine so user enters fresh pack_mrp
+    setCurItem(p => recalcItem({...p, name:fullName, item_id:med.item_id, hsn:med.hsn||"", pack_mrp:"", mrp:"", unit_mrp:""}))
     fetchLastStock(med.item_id)
     setTimeout(() => {
       batchInputRef.current?.focus()
@@ -1173,7 +1693,9 @@ const GRNGeneration = () => {
     if(!curItem.packing || parseFloat(curItem.packing)<=0){ toast.error("Packing is mandatory and must be greater than 0"); return false }
     if(!curItem.unit || parseFloat(curItem.unit)<=0){ toast.error("No. of Units is mandatory and must be greater than 0"); return false }
     if(!curItem.packing_price || parseFloat(curItem.packing_price)<=0){ toast.error("Packing Price is mandatory and must be greater than 0"); return false }
-    if(!curItem.mrp || parseFloat(curItem.mrp)<=0){ toast.error("MRP is mandatory and must be greater than 0"); return false }
+    if((!curItem.pack_mrp || parseFloat(curItem.pack_mrp)<=0) && (!curItem.total_mrp || parseFloat(curItem.total_mrp)<=0) && (!curItem.mrp || parseFloat(curItem.mrp)<=0)){
+      toast.error("MRP is mandatory and must be greater than 0"); return false
+    }
     return true
   }
 
@@ -1211,17 +1733,37 @@ const GRNGeneration = () => {
   }
 
   const parseItems = (raw) => {
+    let list = []
     if (!raw) return []
-    if (Array.isArray(raw)) return raw
-    if (typeof raw === "string") {
+    if (Array.isArray(raw)) list = raw
+    else if (typeof raw === "string") {
       try {
         const p = JSON.parse(raw)
-        return Array.isArray(p) ? p : (Array.isArray(p?.data) ? p.data : [])
+        list = Array.isArray(p) ? p : (Array.isArray(p?.data) ? p.data : [])
       } catch {
         return []
       }
     }
-    return []
+    return list.map(it => {
+      const pack = parseFloat(it.packing) || 1
+      const free = parseFloat(it.free) || 0
+      const freeQty = parseFloat(it.free_qty) || 0
+      let freePack = it.free_pack || ""
+      if (!freePack && pack > 1 && free > 0) {
+        if (freeQty > free) {
+          freePack = String(free)
+        }
+      }
+      // Restore pack_mrp: if unit_mrp stored, derive pack_mrp = unit_mrp × packing
+      // If pack_mrp already stored, use it; otherwise derive from mrp × packing
+      let packMrp = it.pack_mrp || ""
+      if (!packMrp && it.mrp && pack > 1) {
+        packMrp = (parseFloat(it.mrp) * pack).toFixed(4)
+      } else if (!packMrp && it.mrp) {
+        packMrp = it.mrp
+      }
+      return recalcItem({ ...it, free_pack: freePack, pack_mrp: packMrp })
+    })
   }
 
   const removeItem = (id) => {
@@ -1267,17 +1809,18 @@ const GRNGeneration = () => {
     try {
       const r = await apiRequest(url, method, payload)
       if(r.success){
-        const draftNo = r.data?.draft_number || ""
-        toast.success(isEdit ? `GRN updated (${draftNo})` : `Draft saved: ${draftNo}`)
+        const resData = r.data?.data || r.data || {}
+        const draftNo = resData.draft_number || resData.draftNo || r.data?.draft_number || editDraftNo || ""
         if(!isEdit){
-          setEditDraftNo(r.data?.draft_number || "")
-          setEditStatus(r.data?.status || "Draft")
-          if(r.data?.grn_number !== undefined) setGrnData(p=>({...p, grn_number: r.data.grn_number}))
+          // New draft saved — show success modal; form will reset when modal is closed
+          setSavedDraftInfo({ draftNo })
+          toast.success(`Draft saved: ${draftNo}`)
         } else {
+          toast.success(`GRN updated (${draftNo})`)
           // Refresh edit audit fields from the response
-          if (r.data?.edited_by)     setGrnData(p => ({ ...p, edited_by:     r.data.edited_by }))
-          if (r.data?.edited_date)   setGrnData(p => ({ ...p, edited_date:   r.data.edited_date }))
-          if (r.data?.edited_reason) setGrnData(p => ({ ...p, edited_reason: r.data.edited_reason }))
+          if (resData.edited_by)     setGrnData(p => ({ ...p, edited_by:     resData.edited_by }))
+          if (resData.edited_date)   setGrnData(p => ({ ...p, edited_date:   resData.edited_date }))
+          if (resData.edited_reason) setGrnData(p => ({ ...p, edited_reason: resData.edited_reason }))
         }
         fetchGRNList()
       } else {
@@ -1335,7 +1878,7 @@ const GRNGeneration = () => {
       igst:                 grn.igst||"0.00",
       tax_paid_to_supplier: grn.tax_paid_to_supplier||"0.00",
       total_discount:       grn.total_discount||"0.00",
-      round_amount:         grn.round_amount||"0",
+      round_amount:         grn.round_amount||"0.00",
       total_amount:         grn.total_amount||"0.00",
       net_invoice_amount:   grn.net_invoice_amount||"0.00",
       grn_number:           grn.grn_number||"",
@@ -1358,8 +1901,22 @@ const GRNGeneration = () => {
     setGrnData(EMPTY_GRN); setItems([]); setCurItem(EMPTY_ITEM)
     setEditDraftNo(""); setEditStatus(""); setVendorInfo(null); setLastStock(null)
     setOcrApplied(false)
+    setOcrModalOpen(false)
+    setSavedDraftInfo(null)
     pendingPayloadRef.current = null
     setShowEditReasonModal(false)
+  }
+
+  /* ── Add medicine done handler ── */
+  const handleAddMedDone = async (newMed) => {
+    setShowAddMedModal(false)
+    await fetchMedicines()
+    if (newMed?.item_id) {
+      const fullName = `${newMed.item_name||""} ${newMed.item_last_name||""}`.trim()
+      setCurItem(p => recalcItem({ ...p, name: fullName, item_id: newMed.item_id, hsn: newMed.hsn || "" }))
+      fetchLastStock(newMed.item_id)
+      toast.success(`Medicine "${fullName}" added and selected!`)
+    }
   }
 
   /* ── Helpers ── */
@@ -1389,11 +1946,12 @@ const GRNGeneration = () => {
     } catch { return d }
   }
 
-  const lastPurchasePrice = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)}` : "—"
+  const lastPurchasePrice = lastStock ? `₹ ${parseFloat(lastStock.packing_price||0).toFixed(2)}` : "—"
   const lastPurchaseCost  = lastStock
-    ? `₹ ${(parseFloat(lastStock.CGST_Amt||0) + parseFloat(lastStock.SGST_Amt||0) + parseFloat(lastStock.mrp||0)).toFixed(2)}`
+    ? `₹ ${(parseFloat(lastStock.CGST_Amt||0) + parseFloat(lastStock.SGST_Amt||0) + parseFloat(lastStock.packing_price||lastStock.mrp||0)).toFixed(2)}`
     : "—"
-  const lastMRP           = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)}` : "—"
+  // lastStock.mrp is unit MRP; show it as unit MRP hint
+  const lastMRP           = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)} /unit` : "—"
   const lastSellingPrice  = lastStock
     ? `₹ ${parseFloat(lastStock.selling_price || lastStock.mrp || 0).toFixed(2)}`
     : "—"
@@ -1430,24 +1988,6 @@ const GRNGeneration = () => {
                 </VerifiedBanner>
               )}
 
-              {!isVerified && (
-                <OcrPanel
-                  onOcrResult={handleOcrResult}
-                  disabled={isVerified}
-                />
-              )}
-
-              {ocrApplied && !isVerified && (
-                <OcrSuccessBox style={{marginBottom:12}}>
-                  <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
-                  <span>
-                    Fields have been pre-filled from OCR scan.
-                    <strong> Review and correct all values before saving.</strong>
-                    You can fully edit everything below.
-                  </span>
-                </OcrSuccessBox>
-              )}
-
               {/* ── NEW: Edit Audit Info Banner ── */}
               {isEdit && !isVerified && grnData.edited_by && (
                 <EditInfoBanner>
@@ -1465,17 +2005,57 @@ const GRNGeneration = () => {
                 </EditInfoBanner>
               )}
 
+              {ocrApplied && !isVerified && (
+                <OcrSuccessBox style={{marginBottom:12}}>
+                  <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
+                  <span>
+                    Fields have been pre-filled from OCR scan.
+                    <strong> Review and correct all values before saving.</strong>
+                    You can fully edit everything below.
+                  </span>
+                </OcrSuccessBox>
+              )}
+
+              {/* ── OCR Modal ── */}
+              <OcrModal
+                isOpen={ocrModalOpen}
+                initialMode={ocrInitialMode}
+                onClose={() => setOcrModalOpen(false)}
+                onOcrResult={handleOcrResult}
+                disabled={isVerified}
+              />
+
               {/* ── Inward Details ── */}
               <Card>
-                <CardHeader>
-                  📋 Inward Details
-                  {ocrApplied && <OcrBadge><ScanLine size={10}/>OCR Auto-filled</OcrBadge>}
-                  {isEdit && (
-                    <span style={{display:"flex",alignItems:"center",gap:5}}>
-                      <DraftBadge>Draft: {editDraftNo}</DraftBadge>
-                      {grnData.grn_number && <GrnBadge>GRN: {grnData.grn_number}</GrnBadge>}
-                      {editStatus && <StatusBadge status={editStatus}>{editStatus}</StatusBadge>}
-                    </span>
+                <CardHeader style={{ justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    📋 Inward Details
+                    {ocrApplied && <OcrBadge><ScanLine size={10}/>OCR Auto-filled</OcrBadge>}
+                    {isEdit && (
+                      <span style={{display:"flex",alignItems:"center",gap:5}}>
+                        <DraftBadge>Draft: {editDraftNo}</DraftBadge>
+                        {grnData.grn_number && <GrnBadge>GRN: {grnData.grn_number}</GrnBadge>}
+                        {editStatus && <StatusBadge status={editStatus}>{editStatus}</StatusBadge>}
+                      </span>
+                    )}
+                  </div>
+
+                  {!isVerified && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+                      <OcrHeaderBtn
+                        type="button"
+                        onClick={() => { setOcrInitialMode("upload"); setOcrModalOpen(true); }}
+                      >
+                        <Upload size={13} /> Upload Document
+                      </OcrHeaderBtn>
+                      <OcrHeaderBtn
+                        type="button"
+                        $variant="camera"
+                        onClick={() => { setOcrInitialMode("camera"); setOcrModalOpen(true); }}
+                      >
+                        <Camera size={13} /> Upload Camera
+                      </OcrHeaderBtn>
+                    </div>
                   )}
                 </CardHeader>
                 <CardBody>
@@ -1586,16 +2166,34 @@ const GRNGeneration = () => {
                           <GridRow cols="2fr 1fr" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Medicine Name *</Lbl>
-                              <div ref={medSearchInputRef}>
-                                <Select
-                                  name="item_id"
-                                  value={curItem.item_id ? String(curItem.item_id) : ""}
-                                  onChange={handleMedicineChange}
-                                  options={medicineOptions}
-                                  placeholder={curItem.name || "Search medicine…"}
+                              <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                                <div ref={medSearchInputRef} style={{ flex: 1, minWidth: 0 }}>
+                                  <Select
+                                    name="item_id"
+                                    value={curItem.item_id ? String(curItem.item_id) : ""}
+                                    onChange={handleMedicineChange}
+                                    options={medicineOptions}
+                                    placeholder={curItem.name || "Search medicine…"}
+                                    disabled={isVerified}
+                                    style={{fontSize:"0.8rem"}}
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  title="Add new medicine to master"
+                                  onClick={() => setShowAddMedModal(true)}
                                   disabled={isVerified}
-                                  style={{fontSize:"0.8rem"}}
-                                />
+                                  style={{
+                                    flexShrink: 0, width: 30, height: 34,
+                                    border: "1.5px solid #0d9488", borderRadius: 6,
+                                    background: "#0d9488", color: "white",
+                                    cursor: isVerified ? "not-allowed" : "pointer",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    fontSize: "1.1rem", fontWeight: 700, opacity: isVerified ? 0.4 : 1,
+                                  }}
+                                >
+                                  +
+                                </button>
                               </div>
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
@@ -1645,7 +2243,7 @@ const GRNGeneration = () => {
                             </div>
                           )}
 
-                          <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
+                          <GridRow cols="repeat(5,1fr)" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Packing <span style={{color:"#dc2626"}}>*</span></Lbl>
                               <Input name="packing" value={curItem.packing}
@@ -1663,9 +2261,18 @@ const GRNGeneration = () => {
                               <CalcInput value={curItem.quantity} readOnly />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
-                              <Lbl>Free</Lbl>
-                              <Input name="free" value={curItem.free}
+                              <Lbl>Free (Pack)</Lbl>
+                              <Input name="free_pack" value={curItem.free_pack || ""}
                                 onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Free (auto)</Lbl>
+                              <CalcInput value={curItem.free} readOnly />
+                              {parseFloat(curItem.free || 0) > 0 && (
+                                <LastHint style={{ color: "#059669", fontWeight: 600 }}>
+                                  Total Stock: {curItem.total_stock}
+                                </LastHint>
+                              )}
                             </InputWrapper>
                           </GridRow>
 
@@ -1741,13 +2348,35 @@ const GRNGeneration = () => {
                         {/* ── RIGHT: Tax Details ── */}
                         <Panel>
                           <PanelTitle>Tax Details</PanelTitle>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>MRP ₹ <span style={{color:"#dc2626"}}>*</span></Lbl>
-                            <Input name="mrp" value={curItem.mrp}
-                              onChange={handleItemChange} placeholder="0.00"
-                              style={{fontSize:"0.8rem", borderColor: curItem.name && !(parseFloat(curItem.mrp) > 0) ? "#fca5a5" : undefined}} />
-                            <LastHint>Last MRP: {lastMRP}</LastHint>
-                          </InputWrapper>
+                          <GridRow cols="repeat(3,1fr)" style={{marginBottom:7}}>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Total MRP ₹</Lbl>
+                              <Input name="total_mrp" value={curItem.total_mrp || ""}
+                                onChange={handleItemChange} placeholder="0.00"
+                                style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Pack MRP ₹ <span style={{color:"#dc2626"}}>*</span></Lbl>
+                              <Input name="pack_mrp" value={curItem.pack_mrp || ""}
+                                onChange={handleItemChange} placeholder="0.00"
+                                style={{fontSize:"0.8rem", borderColor: curItem.name && !(parseFloat(curItem.pack_mrp) > 0 || parseFloat(curItem.mrp) > 0) ? "#fca5a5" : undefined}} />
+                              <LastHint>Last MRP: {lastMRP}</LastHint>
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Unit MRP ₹ <span style={{fontSize:"0.65rem",color:"#059669"}}>(Single Med)</span></Lbl>
+                              <CalcInput
+                                value={parseFloat(curItem.mrp || 0) > 0 ? `₹ ${parseFloat(curItem.mrp).toFixed(2)}` : "—"}
+                                readOnly
+                                style={{fontWeight:700, color:"#0f766e"}}
+                                title={`MRP for single medicine unit (${curItem.pack_mrp || 0} ÷ ${curItem.packing || 1})`}
+                              />
+                              {parseFloat(curItem.packing || 0) > 1 && parseFloat(curItem.pack_mrp || 0) > 0 && (
+                                <LastHint style={{color:"#0369a1"}}>
+                                  {curItem.pack_mrp} ÷ {curItem.packing} = ₹{parseFloat(curItem.mrp || 0).toFixed(2)}/unit
+                                </LastHint>
+                              )}
+                            </InputWrapper>
+                          </GridRow>
 
                           <GreenBox>
                             <div style={{fontSize:"0.68rem",fontWeight:700,color:"#15803d",marginBottom:7}}>
@@ -1910,7 +2539,7 @@ const GRNGeneration = () => {
                           <Th style={{fontSize:"0.72rem"}}>Qty</Th>
                           <Th style={{fontSize:"0.72rem"}}>Free</Th>
                           <Th style={{fontSize:"0.72rem"}}>Item Val</Th>
-                          <Th style={{fontSize:"0.72rem"}}>MRP</Th>
+                          <Th style={{fontSize:"0.72rem"}}>MRP<br/><span style={{fontWeight:400,fontSize:"0.6rem",color:"#94a3b8"}}>/unit</span></Th>
                           <Th style={{fontSize:"0.72rem"}}>S.Rate</Th>
                           <Th style={{fontSize:"0.72rem"}}>Tax%</Th>
                           <Th style={{fontSize:"0.72rem"}}>CGST</Th>
@@ -1974,14 +2603,35 @@ const GRNGeneration = () => {
                                   ) : (it.unit||"—")}
                                 </Td>
                                 <Td style={{fontSize:"0.75rem"}}>{it.quantity}</Td>
-                                <Td style={{fontSize:"0.75rem"}}>{it.free}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>
+                                  {it.free}
+                                  {parseFloat(it.free_pack || 0) > 0 && parseFloat(it.packing || 1) > 1 && (
+                                    <span style={{fontSize:"0.65rem",color:"#64748b",display:"block"}}>
+                                      ({it.free_pack} pk × {it.packing})
+                                    </span>
+                                  )}
+                                  {parseFloat(it.free || 0) > 0 && (
+                                    <span style={{fontSize:"0.65rem",color:"#059669",display:"block",fontWeight:600}} title="Total Stock with Free">
+                                      Stock: {it.total_stock || (parseFloat(it.quantity || 0) + parseFloat(it.free || 0))}
+                                    </span>
+                                  )}
+                                </Td>
                                 <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.item_value||0).toFixed(2)}</Td>
                                 <Td style={{fontSize:"0.75rem"}}>
                                   {isOcr && !isVerified ? (
-                                    <Input value={it.mrp}
-                                      onChange={e => updateItem(it.id, "mrp", e.target.value)}
+                                    <Input value={it.pack_mrp || it.mrp}
+                                      onChange={e => updateItem(it.id, "pack_mrp", e.target.value)}
                                       style={{fontSize:"0.75rem",padding:"2px 5px",width:70}} />
-                                  ) : `₹${parseFloat(it.mrp||0).toFixed(2)}`}
+                                  ) : (
+                                    <span>
+                                      ₹{parseFloat(it.mrp||0).toFixed(2)}
+                                      {parseFloat(it.packing||0) > 1 && parseFloat(it.pack_mrp||0) > 0 && (
+                                        <span style={{fontSize:"0.62rem",color:"#64748b",display:"block"}}>
+                                          (₹{parseFloat(it.pack_mrp||0).toFixed(2)}/pk)
+                                        </span>
+                                      )}
+                                    </span>
+                                  )}
                                 </Td>
                                 <Td style={{fontSize:"0.75rem",color:"#15803d",fontWeight:600}}>
                                   ₹{parseFloat(it.selling_price||0).toFixed(2)}
@@ -2041,9 +2691,13 @@ const GRNGeneration = () => {
                       ))}
                       <SumCard>
                         <SumLabel>Round Off</SumLabel>
-                        <SumValue>₹ {grnData.round_amount}</SumValue>
-                        <Input name="round_amount" value={grnData.round_amount}
-                          onChange={handleGrnChange} style={{height:30,fontSize:"0.82rem",width:"100%"}} />
+                        {!isVerified ? (
+                          <Input name="round_amount" value={grnData.round_amount}
+                            onChange={handleGrnChange} placeholder="0.00"
+                            style={{height:30,fontSize:"0.82rem",width:"100%",marginTop:4}} />
+                        ) : (
+                          <SumValue>₹ {grnData.round_amount || "0.00"}</SumValue>
+                        )}
                       </SumCard>
                       <SumCard>
                         <SumLabel>Net Invoice Amount</SumLabel>
@@ -2226,6 +2880,22 @@ const GRNGeneration = () => {
             setShowEditReasonModal(false)
             pendingPayloadRef.current = null
           }}
+        />
+      )}
+
+      {/* ── Add Medicine Modal ── */}
+      {showAddMedModal && (
+        <AddMedicineModal
+          onClose={() => setShowAddMedModal(false)}
+          onAdded={handleAddMedDone}
+        />
+      )}
+
+      {/* ── Save Success Modal ── */}
+      {savedDraftInfo && (
+        <SaveSuccessModal
+          draftNo={savedDraftInfo.draftNo}
+          onClose={() => { setSavedDraftInfo(null); resetForm(); }}
         />
       )}
 

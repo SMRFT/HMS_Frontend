@@ -845,16 +845,30 @@ const formatTime = (iso) => {
   return `${String(hours12).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")} ${ampm}`;
 };
 
+// Helper to format expiry date as date/month/year (DD/MM/YYYY)
 const formatExpiryForBill = (dateStr) => {
-  if (!dateStr || dateStr === "—" || dateStr === "N/A") return "—";
+  if (!dateStr || dateStr === "—" || dateStr === "N/A" || dateStr === "null" || dateStr === "undefined") return "—";
   const raw = String(dateStr).split("T")[0].trim();
   const parts = raw.split(/[-/]/);
-  if (parts.length >= 2) {
+  if (parts.length >= 3) {
     if (parts[0].length === 4) {
-      return `${parts[0]}/${parts[1].padStart(2, "0")}`;
+      const year = parts[0];
+      const month = parts[1].padStart(2, "0");
+      const day = parts[2].padStart(2, "0");
+      return `${day}/${month}/${year}`;
     }
-    if (parts[2] && parts[2].length === 4) {
-      return `${parts[2]}/${parts[1].padStart(2, "0")}`;
+    if (parts[2].length === 4) {
+      const day = parts[0].padStart(2, "0");
+      const month = parts[1].padStart(2, "0");
+      const year = parts[2];
+      return `${day}/${month}/${year}`;
+    }
+  } else if (parts.length === 2) {
+    if (parts[0].length === 4) {
+      return `${parts[1].padStart(2, "0")}/${parts[0]}`;
+    }
+    if (parts[1].length === 4) {
+      return `${parts[0].padStart(2, "0")}/${parts[1]}`;
     }
   }
   return raw;
@@ -2286,13 +2300,17 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             }, 0);
 
                             const explicitNet = Number(printBill.net_amount || 0);
-                            const explicitDisc = Number(printBill.overall_discount_amount || printBill.discount || printBill.total_discount || computedItemDisc || 0);
-                            const previewNet = explicitNet > 0 ? explicitNet : Math.max(0, previewGross - explicitDisc);
-                            const previewDisc = Math.max(
-                              0,
-                              explicitDisc,
-                              previewGross > previewNet ? (previewGross - previewNet) : 0
+                            const explicitDisc = Number(
+                              printBill.overall_discount_amount ||
+                              printBill.discount_amount ||
+                              printBill.total_item_discount ||
+                              printBill.discount ||
+                              printBill.total_discount ||
+                              computedItemDisc ||
+                              0
                             );
+                            const previewNet = explicitNet > 0 ? explicitNet : Math.max(0, previewGross - explicitDisc);
+                            const previewDisc = Math.max(0, explicitDisc);
                             const previewPct = previewGross > 0 ? (previewDisc / previewGross) * 100 : 0;
                             const previewPctLabel = previewPct > 0
                               ? ` (${previewPct % 1 === 0 ? previewPct.toFixed(0) : previewPct.toFixed(2).replace(/\.?0+$/, "")}%)`

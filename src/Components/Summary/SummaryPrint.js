@@ -197,14 +197,14 @@ const GLOBAL_CSS = `
     box-sizing: border-box;
   }
 
-  .sp-body { padding: 7px 10px 16px; font-size: 12px; color: #111; line-height: 1.5; }
-  .sp-section { margin-bottom: 5px; }
+  .sp-body { padding: 6px 10px 14px; font-size: 12px; color: #111; line-height: 1.48; }
+  .sp-section { margin-bottom: 3px; }
   .sp-section-title {
     font-size: 12px; font-weight: 700; color: #1a3a6e; text-transform: uppercase;
     letter-spacing: .5px; padding: 2px 7px; border-left: 3px solid #2563a8;
-    margin: 7px 0 3px; background: #f4f6fb; text-decoration: underline;
+    margin: 5px 0 2px; background: #f4f6fb; text-decoration: underline;
   }
-  .sp-section-content { font-size: 12px; line-height: 1.55; padding-left: 10px; white-space: pre-wrap; color: #222; text-align: justify; }
+  .sp-section-content { font-size: 12px; line-height: 1.5; padding-left: 10px; white-space: pre-wrap; color: #222; text-align: justify; }
   .sp-section-content strong, .sp-section-content b { font-weight: 700; color: #000; }
 
   .sp-lab-title {
@@ -261,10 +261,10 @@ const GLOBAL_CSS = `
   .sp-signoff-name { font-weight: 700; color: #0f172a; }
   .sp-signoff-desig { font-size: 10px; color: #555; }
 
-  .sp-explained { display: flex; justify-content: space-between; margin-top: 40px; font-size: 12px; padding: 0 10px 16px; }
+  .sp-explained { display: flex; justify-content: space-between; margin-top: 20px; font-size: 12px; padding: 0 10px 14px; }
   .sp-explained-col { width: 46%; }
-  .sp-explained-title { font-weight: 700; margin-bottom: 30px; color: #1a3a6e; text-transform: uppercase; font-size: 12px; letter-spacing: .5px; }
-  .sp-explained-field { margin-bottom: 40px; color: #333; }
+  .sp-explained-title { font-weight: 700; margin-bottom: 6px; color: #1a3a6e; text-transform: uppercase; font-size: 12px; letter-spacing: .5px; }
+  .sp-explained-field { margin-bottom: 24px; color: #333; }
 
   .sp-home-services {
     margin-top: 20px;
@@ -633,6 +633,8 @@ const SummaryPrint = () => {
   const pageRef = useRef(null);
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const [previewTotalPages, setPreviewTotalPages] = useState(1);
   const [zoomScale, setZoomScale] = useState(1);
@@ -761,7 +763,7 @@ const SummaryPrint = () => {
       const bodyRect = bodyRef.current.getBoundingClientRect();
       const curScale = previewScaleRef.current || 1;
       const allBlocks = Array.from(
-        bodyRef.current.querySelectorAll("[data-block-top]")
+        bodyRef.current.querySelectorAll("[data-block-top], .sp-section")
       );
       let contentH = 0;
       for (const el of [...allBlocks, ...Array.from(bodyRef.current.children)]) {
@@ -839,6 +841,7 @@ const SummaryPrint = () => {
   ══════════════════════════════════════════════════════════ */
   const handlePrint = async (returnBlob = false) => {
     if (!summaryData || !bodyRef.current) return;
+    if (!returnBlob) setGeneratingPdf(true);
     setLoading(true);
     try {
       await loadSignoffs();
@@ -964,15 +967,47 @@ const SummaryPrint = () => {
           return { elTop: getRelTop(r), elBot: getRelBot(r) };
         });
 
-      // every text line inside a section, so we never slice through a line
-      const lineBounds = Array.from(bodyClone.querySelectorAll(".sp-section-content > div")).map((el) => {
-        const r = el.getBoundingClientRect();
-        return { top: getRelTop(r), bot: getRelBot(r) };
-      });
+      // Keep section heading together with at least its first line (or entire section if <= 2 lines)
+      const sectionHeaderBounds = Array.from(bodyClone.querySelectorAll(".sp-section")).map((sec) => {
+        const titleEl = sec.querySelector(".sp-section-title");
+        if (!titleEl) return null;
+        const top = getRelTop(titleEl.getBoundingClientRect());
+        const lineEls = Array.from(sec.querySelectorAll(".sp-section-content > div"));
+        let keepEl = null;
+        if (lineEls.length <= 2 && lineEls.length > 0) {
+          keepEl = lineEls[lineEls.length - 1];
+        } else if (lineEls.length > 2) {
+          keepEl = lineEls[0];
+        }
+        let bot;
+        if (keepEl) {
+          const rects = Array.from(keepEl.getClientRects());
+          const r = rects[rects.length - 1] || keepEl.getBoundingClientRect();
+          bot = getRelBot(r);
+        } else {
+          const firstChild = sec.querySelector("table, .sp-dept-header");
+          bot = firstChild ? getRelBot(firstChild.getBoundingClientRect()) : getRelBot(titleEl.getBoundingClientRect()) + 30 * SCALE;
+        }
+        return { top, bot };
+      }).filter(Boolean);
+
+      // Every text line inside a section, including individual visual lines of wrapped text
+      const lineBounds = [];
+      for (const el of bodyClone.querySelectorAll(".sp-section-content > div")) {
+        const rects = Array.from(el.getClientRects());
+        if (rects.length > 1) {
+          for (const r of rects) {
+            lineBounds.push({ top: getRelTop(r), bot: getRelBot(r) });
+          }
+        } else {
+          const r = el.getBoundingClientRect();
+          lineBounds.push({ top: getRelTop(r), bot: getRelBot(r) });
+        }
+      }
 
       let contentBottom = 0;
       for (const el of [
-        ...bodyClone.querySelectorAll("[data-block-top]"),
+        ...bodyClone.querySelectorAll("[data-block-top], .sp-section"),
         ...Array.from(bodyClone.children),
       ]) {
         const r = el.getBoundingClientRect();
@@ -1001,10 +1036,18 @@ const SummaryPrint = () => {
           }
         }
 
-        // Level 2: keep small blocks (titles + their text) together
+        // Level 1.5: keep section title together with initial content (prevent orphan headings)
+        for (const { top, bot } of sectionHeaderBounds) {
+          if (proposedCut > top && proposedCut < bot) {
+            if (top > yOffset) return top;
+          }
+        }
+
+        // Level 2: keep small atomic blocks (signatures, explained box, footers) together
         for (const { elTop, elBot } of nonTableBlockBounds) {
           if (proposedCut > elTop && proposedCut < elBot) {
-            if (elBot - elTop <= proposedCut - yOffset) return elTop;
+            const blockH = elBot - elTop;
+            if (blockH <= proposedCut - yOffset && elTop > yOffset) return elTop;
           }
         }
 
@@ -1196,6 +1239,7 @@ const SummaryPrint = () => {
       alert("PDF error: " + (err.message || err));
     } finally {
       document.querySelectorAll("[data-pdf-clone]").forEach((n) => n.remove());
+      if (!returnBlob) setGeneratingPdf(false);
       setLoading(false);
     }
   };
@@ -1218,6 +1262,7 @@ const SummaryPrint = () => {
       return;
     }
 
+    setSharing(true);
     setLoading(true);
     try {
       // 1. Generate PDF blob
@@ -1252,6 +1297,7 @@ const SummaryPrint = () => {
       console.error("WhatsApp sending error:", err);
       alert("Error sending WhatsApp: " + (err.message || err));
     } finally {
+      setSharing(false);
       setLoading(false);
     }
   };
@@ -1274,6 +1320,7 @@ const SummaryPrint = () => {
       return;
     }
 
+    setSharing(true);
     setLoading(true);
     try {
       // 1. Generate PDF blob
@@ -1318,6 +1365,7 @@ const SummaryPrint = () => {
       console.error("Email sending error:", err);
       alert("Error sending email: " + (err.message || err));
     } finally {
+      setSharing(false);
       setLoading(false);
     }
   };
@@ -1821,9 +1869,9 @@ const SummaryPrint = () => {
             <button
               className="sp-btn sp-btn-primary"
               onClick={() => handlePrint(false)}
-              disabled={loading}
+              disabled={generatingPdf || sharing}
             >
-              {loading ? (
+              {generatingPdf ? (
                 <>
                   <span className="sp-btn-spinner" /> Generating…
                 </>
@@ -1853,14 +1901,14 @@ const SummaryPrint = () => {
                   if (!isApproved) return;
                   setShowSendDropdown((prev) => !prev);
                 }}
-                disabled={loading || !isApproved}
+                disabled={generatingPdf || sharing || !isApproved}
                 title={
                   isApproved
                     ? "Send summary via WhatsApp or Email"
                     : "Send is available only after the summary is approved"
                 }
               >
-                {loading ? (
+                {sharing ? (
                   <>
                     <span className="sp-btn-spinner" /> Sharing…
                   </>
@@ -1885,7 +1933,7 @@ const SummaryPrint = () => {
                   </>
                 )}
               </button>
-              {isApproved && showSendDropdown && !loading && (
+              {isApproved && showSendDropdown && !generatingPdf && !sharing && (
                 <div className="sp-dropdown-menu">
                   <button
                     className="sp-dropdown-item"
@@ -2056,7 +2104,7 @@ const SummaryPrint = () => {
                       summaryData.testdetails?.length > 0;
                     if (!hasContent && !hasLab) return null;
                     return (
-                      <div key={key || idx} className="sp-section" data-block-top="true">
+                      <div key={key || idx} className="sp-section">
                         <div className="sp-section-title">{key}</div>
                         {hasContent && (
                           <div className="sp-section-content">

@@ -9,6 +9,7 @@ export const PAGE_PERMISSIONS = {
     "/RoomShifting": "HMS-P-RSHFT",
     "/LaundryAdmin": "HMS-P-LND",
     "/NursingStation": "HMS-P-NS",
+    "/PatientsMaster": "HMS-P-AIN",
 };
 
 /**
