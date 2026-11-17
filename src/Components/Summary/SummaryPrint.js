@@ -845,7 +845,8 @@ const SummaryPrint = () => {
     setLoading(true);
     try {
       await loadSignoffs();
-      const SCALE = 2;
+      // const SCALE = 2;
+      const SCALE = (bodyRef.current.scrollHeight * 3 > 14000) ? 2 : 3;
       const PX_W = 794;
       const PX_H = 1123;
       const MARGIN = 19;
@@ -924,8 +925,8 @@ const SummaryPrint = () => {
 
       /* ── STEP B: all measurements come from the clone (scale is always 1 there) ── */
       const bodyRect = bodyClone.getBoundingClientRect();
-      const getRelTop = (r) => (r.top - bodyRect.top) * SCALE;
-      const getRelBot = (r) => (r.bottom - bodyRect.top) * SCALE;
+      const getRelTop = (r) => Math.round((r.top - bodyRect.top) * SCALE);
+      const getRelBot = (r) => Math.round((r.bottom - bodyRect.top) * SCALE);
 
       const theadInfos = [];
       for (const thead of bodyClone.querySelectorAll("thead[data-thead-id]")) {
@@ -1124,6 +1125,7 @@ const SummaryPrint = () => {
         out.width = A4W;
         out.height = A4H;
         const ctx = out.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
 
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, A4W, A4H);
@@ -1219,12 +1221,14 @@ const SummaryPrint = () => {
 
         if (pageIdx > 0) doc.addPage();
         doc.addImage(
-          out.toDataURL("image/jpeg", 0.88),
-          "JPEG",
+          out.toDataURL("image/png"),
+          "PNG",
           0,
           0,
           PAGE_W_MM,
           PAGE_H_MM,
+          undefined,
+          "FAST"
         );
       }
 
