@@ -543,7 +543,7 @@ export default function SearchSelect({
           ? { bottom: `${Math.max(6, window.innerHeight - dropdownPos.top)}px` }
           : { top: `${Math.max(6, dropdownPos.top)}px` }),
         left: `${dropdownPos.left}px`,
-        width: `${dropdownPos.width}px`,
+        width: `${Math.max(dropdownPos.width, 320)}px`,
         boxSizing: "border-box",
         background: "#ffffff",
         border: "1.5px solid #0d9488",
@@ -666,7 +666,8 @@ export default function SearchSelect({
                     style={{
                       overflow: "hidden",
                       textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      whiteSpace: "normal",
+                      wordBreak: "break-word",
                       flex: 1,
                       color: itemColor,
                       fontWeight: itemWeight,

@@ -365,6 +365,113 @@ const EditInfoBanner = styled.div`
   padding: 9px 13px; margin-bottom: 10px; font-size: 0.79rem; color: #92400e;
 `
 
+/* ─── Add Medicine Modal Component ──────────────────────────────────────── */
+const AddMedicineModal = ({ onClose, onAdded }) => {
+  const [form, setForm]       = useState({ item_name: "", item_last_name: "", hsn: "", packing: "1" })
+  const [saving, setSaving]   = useState(false)
+
+  const handleChange = (e) => setForm(p => ({ ...p, [e.target.name]: e.target.value }))
+
+  const handleSave = async () => {
+    if (!form.item_name.trim()) { toast.error("Medicine name is required"); return }
+    setSaving(true)
+    try {
+      const r = await apiRequest(`${baseUrl}pharmacy_items/`, "POST", {
+        item_name:      form.item_name.trim().toUpperCase(),
+        item_last_name: form.item_last_name.trim().toUpperCase(),
+        hsn:            form.hsn.trim(),
+        packing:        parseFloat(form.packing) || 1,
+      })
+      if (r?.success) {
+        toast.success("Medicine added successfully!")
+        onAdded(r.data)
+      } else {
+        toast.error(r?.error || "Failed to add medicine")
+      }
+    } catch { toast.error("Network error") } finally { setSaving(false) }
+  }
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalBox onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+        <ModalTitle>➕ Add New Medicine</ModalTitle>
+        <ModalSubtitle>Quick-add a medicine to the master list. Fill details and save.</ModalSubtitle>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <ModalLabel>Medicine Name <span style={{ color: "#dc2626" }}>*</span></ModalLabel>
+            <Input name="item_name" value={form.item_name} onChange={handleChange}
+              placeholder="e.g. PARACETAMOL" autoFocus style={{ width: "100%", fontSize: "0.84rem" }} />
+          </div>
+          <div>
+            <ModalLabel>Suffix / Last Name</ModalLabel>
+            <Input name="item_last_name" value={form.item_last_name} onChange={handleChange}
+              placeholder="e.g. 500MG TAB" style={{ width: "100%", fontSize: "0.84rem" }} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div>
+              <ModalLabel>HSN Code</ModalLabel>
+              <Input name="hsn" value={form.hsn} onChange={handleChange}
+                placeholder="e.g. 30049099" style={{ width: "100%", fontSize: "0.84rem" }} />
+            </div>
+            <div>
+              <ModalLabel>Default Packing</ModalLabel>
+              <Input name="packing" value={form.packing} onChange={handleChange}
+                placeholder="1" type="number" min="1" style={{ width: "100%", fontSize: "0.84rem" }} />
+            </div>
+          </div>
+        </div>
+        <ModalBtns>
+          <button onClick={onClose} style={{ padding: "8px 18px", borderRadius: 7,
+            border: "1.5px solid #d1d5db", background: "white", cursor: "pointer", fontSize: "0.84rem", fontWeight: 600 }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: "8px 20px", borderRadius: 7, border: "none",
+            background: saving ? "#94a3b8" : "#0d9488", color: "white", cursor: saving ? "not-allowed" : "pointer",
+            fontSize: "0.84rem", fontWeight: 700 }}>
+            {saving ? "Saving…" : "Add Medicine"}
+          </button>
+        </ModalBtns>
+      </ModalBox>
+    </ModalOverlay>
+  )
+}
+
+/* ─── Save Success Modal Component ─────────────────────────────────────── */
+const SaveSuccessModal = ({ draftNo, onClose }) => {
+  const last4 = draftNo ? draftNo.slice(-4) : "—"
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalBox onClick={e => e.stopPropagation()} style={{ maxWidth: 380, textAlign: "center" }}>
+        <div style={{ fontSize: "3rem", marginBottom: 8 }}>✅</div>
+        <ModalTitle style={{ textAlign: "center", fontSize: "1.1rem" }}>Draft Saved Successfully!</ModalTitle>
+        <ModalSubtitle style={{ textAlign: "center" }}>Your GRN draft has been saved.</ModalSubtitle>
+        <div style={{
+          background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10,
+          padding: "18px 24px", margin: "16px 0",
+        }}>
+          <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+            Draft Number
+          </div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#166534", letterSpacing: "0.1em" }}>
+            {draftNo || "—"}
+          </div>
+          {draftNo && (
+            <div style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: 4 }}>
+              Last 4 digits: <strong style={{ color: "#166534", fontSize: "1.1rem" }}>#{last4}</strong>
+            </div>
+          )}
+        </div>
+        <ModalBtns style={{ justifyContent: "center" }}>
+          <button onClick={onClose} style={{ padding: "10px 32px", borderRadius: 7, border: "none",
+            background: "#0d9488", color: "white", cursor: "pointer", fontSize: "0.9rem", fontWeight: 700 }}>
+            OK — Start New GRN
+          </button>
+        </ModalBtns>
+      </ModalBox>
+    </ModalOverlay>
+  )
+}
+
 /* ─── Edit Reason Modal Component ───────────────────────────────────────── */
 const EditReasonModal = ({ draftNumber, onConfirm, onCancel }) => {
   const [reason, setReason]     = useState("")
@@ -467,7 +574,7 @@ const EMPTY_GRN = {
 const EMPTY_ITEM = {
   name:"",item_id:"",hsn:"",batch:"",
   expiry_month:"",expiry_year:"",expiry:"",
-  packing:"",unit:"",quantity:"0",free:"0",
+  packing:"",unit:"",quantity:"0",free:"0",free_qty:"0",total_stock:"0",
   item_value:"0.00",packing_price:"",unit_price:"0.00",_priceSource:"packing_price",
   purchase_tax_label:"RATE OF 5%",purchase_tax_rate:"5",
   cgst_percent:"2.50",sgst_percent:"2.50",
@@ -561,10 +668,28 @@ function recalcItem(item, editedField = null) {
   const selling_cgst_amt = selling_price * (sellingCgstPct / 100)
   const selling_sgst_amt = selling_price * (sellingCgstPct / 100)
 
+  // ── Calculate Free Quantity & Total Stock ──
+  const freeVal = parseFloat(item.free) || 0
+  let freeQty = 0
+  if (freeVal > 0) {
+    if (packing > 1) {
+      if (unit > 0 && freeVal > unit && Math.round(freeVal) % Math.round(packing) === 0) {
+        freeQty = freeVal
+      } else {
+        freeQty = freeVal * packing
+      }
+    } else {
+      freeQty = freeVal
+    }
+  }
+  const totalStock = quantity + freeQty
+
   return {
     ...item,
     _priceSource:          priceSource,
     quantity:              String(quantity),
+    free_qty:              String(freeQty),
+    total_stock:           String(totalStock),
     packing_price:         finalPackingPrice,
     item_value:            finalItemValue,
     unit_price:            finalUnitPrice,
@@ -993,9 +1118,11 @@ const GRNGeneration = () => {
   const [listTotalCount, setListTotalCount] = useState(0);
   const [listTotalPages, setListTotalPages] = useState(1);
 
-  // ── NEW: edit reason modal state ──────────────────────────────────────────
-  const [editingItemId, setEditingItemId] = useState(null)
+  // ── modal states ──────────────────────────────────────────────────────────
+  const [editingItemId,       setEditingItemId]       = useState(null)
   const [showEditReasonModal, setShowEditReasonModal] = useState(false)
+  const [showAddMedModal,     setShowAddMedModal]     = useState(false)
+  const [savedDraftInfo,      setSavedDraftInfo]      = useState(null)   // { draftNo }
   // pendingPayload holds the ready-to-send payload while awaiting the reason
   const pendingPayloadRef = useRef(null)
 
@@ -1317,17 +1444,18 @@ const GRNGeneration = () => {
   }
 
   const parseItems = (raw) => {
+    let list = []
     if (!raw) return []
-    if (Array.isArray(raw)) return raw
-    if (typeof raw === "string") {
+    if (Array.isArray(raw)) list = raw
+    else if (typeof raw === "string") {
       try {
         const p = JSON.parse(raw)
-        return Array.isArray(p) ? p : (Array.isArray(p?.data) ? p.data : [])
+        list = Array.isArray(p) ? p : (Array.isArray(p?.data) ? p.data : [])
       } catch {
         return []
       }
     }
-    return []
+    return list.map(it => recalcItem(it))
   }
 
   const removeItem = (id) => {
@@ -1374,12 +1502,12 @@ const GRNGeneration = () => {
       const r = await apiRequest(url, method, payload)
       if(r.success){
         const draftNo = r.data?.draft_number || ""
-        toast.success(isEdit ? `GRN updated (${draftNo})` : `Draft saved: ${draftNo}`)
         if(!isEdit){
-          setEditDraftNo(r.data?.draft_number || "")
-          setEditStatus(r.data?.status || "Draft")
-          if(r.data?.grn_number !== undefined) setGrnData(p=>({...p, grn_number: r.data.grn_number}))
+          // New draft saved — show success modal; form will reset when modal is closed
+          setSavedDraftInfo({ draftNo })
+          toast.success(`Draft saved: ${draftNo}`)
         } else {
+          toast.success(`GRN updated (${draftNo})`)
           // Refresh edit audit fields from the response
           if (r.data?.edited_by)     setGrnData(p => ({ ...p, edited_by:     r.data.edited_by }))
           if (r.data?.edited_date)   setGrnData(p => ({ ...p, edited_date:   r.data.edited_date }))
@@ -1465,8 +1593,21 @@ const GRNGeneration = () => {
     setEditDraftNo(""); setEditStatus(""); setVendorInfo(null); setLastStock(null)
     setOcrApplied(false)
     setOcrModalOpen(false)
+    setSavedDraftInfo(null)
     pendingPayloadRef.current = null
     setShowEditReasonModal(false)
+  }
+
+  /* ── Add medicine done handler ── */
+  const handleAddMedDone = async (newMed) => {
+    setShowAddMedModal(false)
+    await fetchMedicines()
+    if (newMed?.item_id) {
+      const fullName = `${newMed.item_name||""} ${newMed.item_last_name||""}`.trim()
+      setCurItem(p => recalcItem({ ...p, name: fullName, item_id: newMed.item_id, hsn: newMed.hsn || "" }))
+      fetchLastStock(newMed.item_id)
+      toast.success(`Medicine "${fullName}" added and selected!`)
+    }
   }
 
   /* ── Helpers ── */
@@ -1715,16 +1856,34 @@ const GRNGeneration = () => {
                           <GridRow cols="2fr 1fr" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Medicine Name *</Lbl>
-                              <div ref={medSearchInputRef}>
-                                <Select
-                                  name="item_id"
-                                  value={curItem.item_id ? String(curItem.item_id) : ""}
-                                  onChange={handleMedicineChange}
-                                  options={medicineOptions}
-                                  placeholder={curItem.name || "Search medicine…"}
+                              <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                                <div ref={medSearchInputRef} style={{ flex: 1, minWidth: 0 }}>
+                                  <Select
+                                    name="item_id"
+                                    value={curItem.item_id ? String(curItem.item_id) : ""}
+                                    onChange={handleMedicineChange}
+                                    options={medicineOptions}
+                                    placeholder={curItem.name || "Search medicine…"}
+                                    disabled={isVerified}
+                                    style={{fontSize:"0.8rem"}}
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  title="Add new medicine to master"
+                                  onClick={() => setShowAddMedModal(true)}
                                   disabled={isVerified}
-                                  style={{fontSize:"0.8rem"}}
-                                />
+                                  style={{
+                                    flexShrink: 0, width: 30, height: 34,
+                                    border: "1.5px solid #0d9488", borderRadius: 6,
+                                    background: "#0d9488", color: "white",
+                                    cursor: isVerified ? "not-allowed" : "pointer",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    fontSize: "1.1rem", fontWeight: 700, opacity: isVerified ? 0.4 : 1,
+                                  }}
+                                >
+                                  +
+                                </button>
                               </div>
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
@@ -1795,6 +1954,11 @@ const GRNGeneration = () => {
                               <Lbl>Free</Lbl>
                               <Input name="free" value={curItem.free}
                                 onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
+                              {parseFloat(curItem.free || 0) > 0 && (
+                                <LastHint style={{ color: "#059669", fontWeight: 600 }}>
+                                  Free Qty: {curItem.free_qty || curItem.free} | Total Stock: {curItem.total_stock || (parseFloat(curItem.quantity || 0) + parseFloat(curItem.free || 0))}
+                                </LastHint>
+                              )}
                             </InputWrapper>
                           </GridRow>
 
@@ -2103,7 +2267,14 @@ const GRNGeneration = () => {
                                   ) : (it.unit||"—")}
                                 </Td>
                                 <Td style={{fontSize:"0.75rem"}}>{it.quantity}</Td>
-                                <Td style={{fontSize:"0.75rem"}}>{it.free}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>
+                                  {it.free}
+                                  {parseFloat(it.free || 0) > 0 && (
+                                    <span style={{fontSize:"0.65rem",color:"#059669",display:"block",fontWeight:600}} title="Total Stock with Free">
+                                      Stock: {it.total_stock || (parseFloat(it.quantity || 0) + (parseFloat(it.free_qty) || (parseFloat(it.free || 0) * (parseFloat(it.packing) || 1))))}
+                                    </span>
+                                  )}
+                                </Td>
                                 <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.item_value||0).toFixed(2)}</Td>
                                 <Td style={{fontSize:"0.75rem"}}>
                                   {isOcr && !isVerified ? (
@@ -2355,6 +2526,22 @@ const GRNGeneration = () => {
             setShowEditReasonModal(false)
             pendingPayloadRef.current = null
           }}
+        />
+      )}
+
+      {/* ── Add Medicine Modal ── */}
+      {showAddMedModal && (
+        <AddMedicineModal
+          onClose={() => setShowAddMedModal(false)}
+          onAdded={handleAddMedDone}
+        />
+      )}
+
+      {/* ── Save Success Modal ── */}
+      {savedDraftInfo && (
+        <SaveSuccessModal
+          draftNo={savedDraftInfo.draftNo}
+          onClose={() => { setSavedDraftInfo(null); resetForm(); }}
         />
       )}
 

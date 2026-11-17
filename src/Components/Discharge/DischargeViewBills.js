@@ -874,8 +874,13 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                   {/* GST */}
                   <LTD style={{ color: T.blue }}>₹{fmt(b.gst_amount)}</LTD>
                   {/* Net Amount */}
-                  <LTD style={{ fontWeight: 700, color: isCanc ? T.textMuted : T.success }}>
+                  <LTD style={{ fontWeight: 700, color: isCanc ? T.textMuted : (parseFloat(b.net_amount) < 0 ? T.danger : T.success) }}>
                     ₹{fmt(b.net_amount)}
+                    {parseFloat(b.net_amount) < 0 && (
+                      <span style={{ fontSize: "0.68rem", marginLeft: 4, color: T.danger, fontWeight: 800 }}>
+                        (Refund)
+                      </span>
+                    )}
                   </LTD>
                   {/* Status */}
                   <LTD>
