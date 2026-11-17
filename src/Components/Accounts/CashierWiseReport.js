@@ -642,7 +642,7 @@ const CashierWiseReport = ({
                                 </tr>
                                 <tr>
                                     <td><strong>Staff Name:</strong> {block.cashierName}</td>
-                                    <td><strong>Date:</strong> {block.date ? dayjs(block.date).format("DD/MM/YYYY") : "All Dates"}</td>
+                                    <td><strong>Date:</strong> {block.date ? formatDateSafe(block.date) : "All Dates"}</td>
                                     <td style={{ textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
                                 </tr>
                             </tbody>
