@@ -177,8 +177,8 @@ const searchableSelectStyles = {
     backgroundColor: state.isSelected
       ? colors.primary
       : state.isFocused
-      ? "#f0fdfa"
-      : "transparent",
+        ? "#f0fdfa"
+        : "transparent",
     color: state.isSelected ? "#ffffff" : colors.textMain,
     cursor: "pointer",
   }),
@@ -752,6 +752,7 @@ const BillsReport = () => {
   const [refundRemarks, setRefundRemarks] = useState("");
   const [refundRemarksErr, setRefundRemarksErr] = useState(false);
   const [viewRefundBill, setViewRefundBill] = useState(null);
+  const [nameSearch, setNameSearch] = useState("");
 
   // Print modal state — { bill, isEstimate }
   const [printJob, setPrintJob] = useState(null);
@@ -832,17 +833,33 @@ const BillsReport = () => {
   }, [HMSURL]);
 
   // belt-and-suspenders client side IP/OP filter
+  // client-side IP/OP + patient name filter
   useEffect(() => {
+    const tokens = nameSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
     setFilteredBills(
       estimateBills.filter((bill) => {
         if (filters.patientType === "IP" && !(bill.uhid && bill.ipNumber))
           return false;
         if (filters.patientType === "OP" && !(bill.uhid && !bill.ipNumber))
           return false;
+
+        if (tokens.length) {
+          const fullName = [
+            bill.salutation,
+            bill.firstName,
+            bill.middleName,
+            bill.lastName,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          if (!tokens.every((t) => fullName.includes(t))) return false;
+        }
         return true;
       }),
     );
-  }, [estimateBills, filters.patientType]);
+  }, [estimateBills, filters.patientType, nameSearch]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -1123,6 +1140,16 @@ const BillsReport = () => {
               name="uhid"
               value={filters.uhid}
               onChange={handleFilterChange}
+            />
+          </InputWrapper>
+          <InputWrapper>
+            <Label>Patient Name</Label>
+            <Input
+              type="text"
+              name="patientName"
+              placeholder="Search by name"
+              value={nameSearch}
+              onChange={(e) => setNameSearch(e.target.value)}
             />
           </InputWrapper>
 
