@@ -1443,9 +1443,7 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
                             >
                               {expandedRow === req.id ? "▴" : "▾"}
                             </button>
-                            {req.status === "Result Pending" && (
-                              <button onClick={() => handleCancelRequest(req.id)} style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer", fontSize: "1rem" }} title="Cancel Entire Request">✕</button>
-                            )}
+
                           </div>
                         </Td>
                       </Tr>
