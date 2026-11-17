@@ -365,25 +365,133 @@ const EditInfoBanner = styled.div`
   padding: 9px 13px; margin-bottom: 10px; font-size: 0.79rem; color: #92400e;
 `
 
-/* ─── Add Medicine Modal Component ──────────────────────────────────────── */
-const AddMedicineModal = ({ onClose, onAdded }) => {
-  const [form, setForm]       = useState({ item_name: "", item_last_name: "", hsn: "", packing: "1" })
-  const [saving, setSaving]   = useState(false)
+/* ─── Add Medicine Modal (Full Pharmacy Item Form) ───────────────────────── */
+const AddMedFormSectionTitle = styled.h4`
+  font-size: 0.82rem; font-weight: 700; color: #0d9488;
+  margin: 14px 0 8px; padding-bottom: 5px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex; align-items: center; gap: 6px;
+`
+const AddMedOutletGrid = styled.div`
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px; margin-bottom: 10px; width: 100%; box-sizing: border-box;
+`
+const AddMedOutletCard = styled.div`
+  background: ${p => p.active ? "#f0fdfa" : "#f8fafc"};
+  border: 1px solid ${p => p.active ? "#99f6e4" : "#e2e8f0"};
+  border-radius: 8px; padding: 10px 12px; box-sizing: border-box;
+`
+const AddMedCheckLabel = styled.label`
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer; user-select: none;
+  input[type="checkbox"] { accent-color: #0d9488; width: 14px; height: 14px; cursor: pointer; }
+`
+const AddMedFlagsGrid = styled.div`
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px; margin: 8px 0 12px; width: 100%; box-sizing: border-box;
+`
+const AddMedFlagCard = styled.label`
+  display: flex; align-items: center; gap: 7px; padding: 8px 10px;
+  border-radius: 7px; cursor: pointer; user-select: none;
+  font-size: 0.74rem; font-weight: 600; box-sizing: border-box;
+  border: 1px solid ${p => p.checked ? (p.borderColor || "#cbd5e1") : "#e2e8f0"};
+  background: ${p => p.checked ? (p.bgColor || "#f8fafc") : "#ffffff"};
+  color: ${p => p.checked ? (p.textColor || "#374151") : "#64748b"};
+  input[type="checkbox"] { accent-color: ${p => p.accentColor || "#0d9488"}; width: 14px; height: 14px; }
+`
 
-  const handleChange = (e) => setForm(p => ({ ...p, [e.target.name]: e.target.value }))
+const ADD_MED_EMPTY = {
+  item_name: "", item_last_name: "", category: "", hsn: "",
+  brand_name: "", chemical_composition: "",
+  high_risk: false, look_alike: false, sound_alike: false,
+  reorder_level: "",
+  IP_available: true, IP_shelf_no: "", IP_rack_no: "",
+  OP_available: true, OP_shelf_no: "", OP_rack_no: "",
+  G_available: true,  G_shelf_no: "", G_rack_no: "",
+  is_blocked: false, blocked_reason: "",
+}
+
+const AddMedicineModal = ({ onClose, onAdded }) => {
+  const [form, setForm]       = useState(ADD_MED_EMPTY)
+  const [errors, setErrors]   = useState({})
+  const [saving, setSaving]   = useState(false)
+  const [categories, setCategories] = useState([])
+  const [compositions, setCompositions] = useState([])
+  const [compQuery, setCompQuery] = useState("")
+  const [compOpen, setCompOpen]   = useState(false)
+  const compRef = useRef(null)
+
+  // Load categories & compositions once
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [catRes, compRes] = await Promise.all([
+          apiRequest(`${baseUrl}pharmacy-category/?page=all`, "GET"),
+          apiRequest(`${baseUrl}chemical-composition/?page=all`, "GET"),
+        ])
+        const toList = (r) => {
+          const p = r?.data
+          return Array.isArray(p) ? p : (Array.isArray(p?.data) ? p.data : (Array.isArray(p?.results) ? p.results : []))
+        }
+        setCategories(toList(catRes).map(c => ({ ...c, category_name: (c.category_name || "").toUpperCase() }))
+          .sort((a, b) => a.category_name.localeCompare(b.category_name)))
+        setCompositions(toList(compRes).map(c => ({ ...c, composition_name: (c.composition_name || "").toUpperCase() }))
+          .sort((a, b) => a.composition_name.localeCompare(b.composition_name)))
+      } catch {}
+    }
+    load()
+  }, [])
+
+  // Close composition dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (compRef.current && !compRef.current.contains(e.target)) setCompOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  const selectedComp = compositions.find(c => String(c.composition_id) === String(form.chemical_composition))
+  const filteredComps = compositions.filter(c => c.composition_name.toLowerCase().includes(compQuery.toLowerCase()))
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target
+    setForm(p => ({ ...p, [name]: type === "checkbox" ? checked : value }))
+    if (errors[name]) setErrors(p => ({ ...p, [name]: "" }))
+  }
+
+  const validate = () => {
+    const errs = {}
+    if (!form.item_name.trim()) errs.item_name = "Item name is required"
+    if (!form.category) errs.category = "Category is required"
+    if (form.is_blocked && !form.blocked_reason.trim()) errs.blocked_reason = "Reason required"
+    return errs
+  }
 
   const handleSave = async () => {
-    if (!form.item_name.trim()) { toast.error("Medicine name is required"); return }
+    const errs = validate()
+    if (Object.keys(errs).length) { setErrors(errs); return }
     setSaving(true)
     try {
-      const r = await apiRequest(`${baseUrl}pharmacy_items/`, "POST", {
-        item_name:      form.item_name.trim().toUpperCase(),
+      const payload = {
+        ...form,
+        is_active: true,
+        item_name: form.item_name.trim().toUpperCase(),
         item_last_name: form.item_last_name.trim().toUpperCase(),
-        hsn:            form.hsn.trim(),
-        packing:        parseFloat(form.packing) || 1,
-      })
+        reorder_level: Number(form.reorder_level) || 0,
+        category: form.category ? Number(form.category) : null,
+        chemical_composition: form.chemical_composition || null,
+        IP_shelf_no: form.IP_available ? form.IP_shelf_no : "",
+        IP_rack_no:  form.IP_available ? form.IP_rack_no  : "",
+        OP_shelf_no: form.OP_available ? form.OP_shelf_no : "",
+        OP_rack_no:  form.OP_available ? form.OP_rack_no  : "",
+        G_shelf_no:  form.G_available  ? form.G_shelf_no  : "",
+        G_rack_no:   form.G_available  ? form.G_rack_no   : "",
+        blocked_reason: form.is_blocked ? form.blocked_reason : "",
+      }
+      const r = await apiRequest(`${baseUrl}pharmacy_items/`, "POST", payload)
       if (r?.success) {
-        toast.success("Medicine added successfully!")
+        toast.success(`✅ Medicine "${payload.item_name}${payload.item_last_name ? " " + payload.item_last_name : ""}" added!`)
         onAdded(r.data)
       } else {
         toast.error(r?.error || "Failed to add medicine")
@@ -391,50 +499,171 @@ const AddMedicineModal = ({ onClose, onAdded }) => {
     } catch { toast.error("Network error") } finally { setSaving(false) }
   }
 
+  const fieldStyle = (name) => errors[name] ? { borderColor: "#dc2626" } : {}
+
   return (
     <ModalOverlay onClick={onClose}>
-      <ModalBox onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-        <ModalTitle>➕ Add New Medicine</ModalTitle>
-        <ModalSubtitle>Quick-add a medicine to the master list. Fill details and save.</ModalSubtitle>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <ModalBox onClick={e => e.stopPropagation()} style={{ maxWidth: 720, maxHeight: "92vh", overflowY: "auto", padding: "20px 24px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid #e2e8f0" }}>
           <div>
-            <ModalLabel>Medicine Name <span style={{ color: "#dc2626" }}>*</span></ModalLabel>
-            <Input name="item_name" value={form.item_name} onChange={handleChange}
-              placeholder="e.g. PARACETAMOL" autoFocus style={{ width: "100%", fontSize: "0.84rem" }} />
+            <div style={{ fontSize: "1rem", fontWeight: 700, color: "#0d9488" }}>💊 Add Pharmacy Item</div>
+            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>Add a new medicine to the master list. It will appear in the GRN dropdown immediately.</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.2rem", color: "#64748b", padding: 4 }}>✕</button>
+        </div>
+
+        {/* Basic Info */}
+        <AddMedFormSectionTitle>📋 Basic Information</AddMedFormSectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 14px", marginBottom: 4 }}>
+          <div>
+            <Lbl>Item Name <span style={{ color: "#dc2626" }}>*</span></Lbl>
+            <Input name="item_name" value={form.item_name} onChange={handleChange} autoFocus
+              placeholder="Brand / Trade Name" style={{ fontSize: "0.82rem", ...fieldStyle("item_name") }} />
+            {errors.item_name && <div style={{ color: "#dc2626", fontSize: "0.72rem", marginTop: 2 }}>{errors.item_name}</div>}
           </div>
           <div>
-            <ModalLabel>Suffix / Last Name</ModalLabel>
+            <Lbl>Extended Name / Suffix</Lbl>
             <Input name="item_last_name" value={form.item_last_name} onChange={handleChange}
-              placeholder="e.g. 500MG TAB" style={{ width: "100%", fontSize: "0.84rem" }} />
+              placeholder="e.g. 500mg Strip, 100ml Syrup" style={{ fontSize: "0.82rem" }} />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div>
-              <ModalLabel>HSN Code</ModalLabel>
-              <Input name="hsn" value={form.hsn} onChange={handleChange}
-                placeholder="e.g. 30049099" style={{ width: "100%", fontSize: "0.84rem" }} />
-            </div>
-            <div>
-              <ModalLabel>Default Packing</ModalLabel>
-              <Input name="packing" value={form.packing} onChange={handleChange}
-                placeholder="1" type="number" min="1" style={{ width: "100%", fontSize: "0.84rem" }} />
-            </div>
+          <div>
+            <Lbl>Category <span style={{ color: "#dc2626" }}>*</span></Lbl>
+            <select name="category" value={form.category} onChange={handleChange}
+              style={{ width: "100%", height: 34, fontSize: "0.82rem", padding: "0 8px",
+                border: `1px solid ${errors.category ? "#dc2626" : "#cbd5e1"}`, borderRadius: 6,
+                background: "white", outline: "none", cursor: "pointer" }}>
+              <option value="">-- Select Category --</option>
+              {categories.map(c => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
+            </select>
+            {errors.category && <div style={{ color: "#dc2626", fontSize: "0.72rem", marginTop: 2 }}>{errors.category}</div>}
+          </div>
+          {/* Composition searchable */}
+          <div ref={compRef} style={{ position: "relative" }}>
+            <Lbl>Generic / Composition</Lbl>
+            <Input
+              value={selectedComp ? selectedComp.composition_name : compQuery}
+              placeholder="Type to search generic salt..."
+              onChange={(e) => { setCompQuery(e.target.value); setCompOpen(true) }}
+              onFocus={() => { setCompQuery(""); setCompOpen(true) }}
+              style={{ fontSize: "0.82rem" }}
+            />
+            {compOpen && (
+              <div style={{ position: "absolute", zIndex: 2000, top: "100%", left: 0, right: 0,
+                maxHeight: 180, overflowY: "auto", background: "#fff",
+                border: "1px solid #0d9488", borderRadius: 6, boxShadow: "0 6px 20px rgba(0,0,0,0.1)" }}>
+                {filteredComps.length === 0
+                  ? <div style={{ padding: "8px 12px", fontSize: "0.78rem", color: "#94a3b8" }}>No matches</div>
+                  : filteredComps.map(c => (
+                    <div key={c.composition_id}
+                      onMouseDown={() => { setForm(p => ({ ...p, chemical_composition: String(c.composition_id) })); setCompQuery(""); setCompOpen(false) }}
+                      style={{ padding: "7px 12px", fontSize: "0.8rem", cursor: "pointer",
+                        background: String(c.composition_id) === String(form.chemical_composition) ? "#f0fdfa" : "white" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "#f0fdfa" }}
+                      onMouseLeave={e => { e.currentTarget.style.background = String(c.composition_id) === String(form.chemical_composition) ? "#f0fdfa" : "white" }}
+                    >{c.composition_name}</div>
+                  ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <Lbl>Brand / Manufacturer</Lbl>
+            <Input name="brand_name" value={form.brand_name} onChange={handleChange}
+              placeholder="e.g. Cipla, Sun Pharma" style={{ fontSize: "0.82rem" }} />
+          </div>
+          <div>
+            <Lbl>HSN Code</Lbl>
+            <Input name="hsn" value={form.hsn} onChange={handleChange}
+              placeholder="e.g. 3004" style={{ fontSize: "0.82rem" }} />
+          </div>
+          <div>
+            <Lbl>Reorder Level (Min Qty)</Lbl>
+            <Input name="reorder_level" value={form.reorder_level} onChange={handleChange}
+              placeholder="e.g. 50" style={{ fontSize: "0.82rem" }} />
           </div>
         </div>
-        <ModalBtns>
-          <button onClick={onClose} style={{ padding: "8px 18px", borderRadius: 7,
+
+        {/* Outlet Availability */}
+        <AddMedFormSectionTitle>🏬 Outlet Availability &amp; Storage</AddMedFormSectionTitle>
+        <AddMedOutletGrid>
+          {[
+            { key: "IP", label: "IP Pharmacy" },
+            { key: "OP", label: "OP Pharmacy" },
+            { key: "G",  label: "General Store" },
+          ].map(({ key, label }) => (
+            <AddMedOutletCard key={key} active={form[`${key}_available`]}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: form[`${key}_available`] ? 8 : 0 }}>
+                <AddMedCheckLabel>
+                  <input type="checkbox" name={`${key}_available`} checked={form[`${key}_available`]} onChange={handleChange} />
+                  {label}
+                </AddMedCheckLabel>
+                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: form[`${key}_available`] ? "#0d9488" : "#94a3b8" }}>
+                  {form[`${key}_available`] ? "Active" : "Disabled"}
+                </span>
+              </div>
+              {form[`${key}_available`] && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 6 }}>
+                  <div>
+                    <Lbl style={{ fontSize: "0.68rem" }}>Shelf No.</Lbl>
+                    <Input name={`${key}_shelf_no`} value={form[`${key}_shelf_no`]} onChange={handleChange} placeholder="e.g. S-12" style={{ fontSize: "0.78rem" }} />
+                  </div>
+                  <div>
+                    <Lbl style={{ fontSize: "0.68rem" }}>Rack No.</Lbl>
+                    <Input name={`${key}_rack_no`} value={form[`${key}_rack_no`]} onChange={handleChange} placeholder="e.g. R-04" style={{ fontSize: "0.78rem" }} />
+                  </div>
+                </div>
+              )}
+            </AddMedOutletCard>
+          ))}
+        </AddMedOutletGrid>
+
+        {/* Safety Flags */}
+        <AddMedFormSectionTitle>⚠️ Safety &amp; Compliance Flags</AddMedFormSectionTitle>
+        <AddMedFlagsGrid>
+          <AddMedFlagCard checked={form.high_risk} bgColor="#fef2f2" borderColor="#fca5a5" textColor="#b91c1c" accentColor="#dc2626">
+            <input type="checkbox" name="high_risk" checked={form.high_risk} onChange={handleChange} />
+            🚨 High Risk
+          </AddMedFlagCard>
+          <AddMedFlagCard checked={form.look_alike} bgColor="#fffbeb" borderColor="#fde68a" textColor="#92400e" accentColor="#d97706">
+            <input type="checkbox" name="look_alike" checked={form.look_alike} onChange={handleChange} />
+            👁️ Look-Alike
+          </AddMedFlagCard>
+          <AddMedFlagCard checked={form.sound_alike} bgColor="#fffbeb" borderColor="#fde68a" textColor="#92400e" accentColor="#d97706">
+            <input type="checkbox" name="sound_alike" checked={form.sound_alike} onChange={handleChange} />
+            🔊 Sound-Alike
+          </AddMedFlagCard>
+          <AddMedFlagCard checked={form.is_blocked} bgColor="#fef2f2" borderColor="#fca5a5" textColor="#991b1b" accentColor="#dc2626">
+            <input type="checkbox" name="is_blocked" checked={form.is_blocked} onChange={handleChange} />
+            ⛔ Block Item
+          </AddMedFlagCard>
+        </AddMedFlagsGrid>
+        {form.is_blocked && (
+          <div style={{ marginBottom: 12 }}>
+            <Lbl>Blocked Reason <span style={{ color: "#dc2626" }}>*</span></Lbl>
+            <Input name="blocked_reason" value={form.blocked_reason} onChange={handleChange}
+              placeholder="Explain why this medicine is blocked..."
+              style={{ fontSize: "0.82rem", ...fieldStyle("blocked_reason") }} />
+            {errors.blocked_reason && <div style={{ color: "#dc2626", fontSize: "0.72rem", marginTop: 2 }}>{errors.blocked_reason}</div>}
+          </div>
+        )}
+
+        {/* Footer Buttons */}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16, paddingTop: 14, borderTop: "1px solid #e2e8f0" }}>
+          <button onClick={onClose} style={{ padding: "8px 20px", borderRadius: 7,
             border: "1.5px solid #d1d5db", background: "white", cursor: "pointer", fontSize: "0.84rem", fontWeight: 600 }}>
             Cancel
           </button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: "8px 20px", borderRadius: 7, border: "none",
-            background: saving ? "#94a3b8" : "#0d9488", color: "white", cursor: saving ? "not-allowed" : "pointer",
-            fontSize: "0.84rem", fontWeight: 700 }}>
-            {saving ? "Saving…" : "Add Medicine"}
+          <button onClick={handleSave} disabled={saving} style={{ padding: "8px 24px", borderRadius: 7, border: "none",
+            background: saving ? "#94a3b8" : "#0d9488", color: "white",
+            cursor: saving ? "not-allowed" : "pointer", fontSize: "0.84rem", fontWeight: 700 }}>
+            {saving ? "Saving…" : "💾 Save Medicine"}
           </button>
-        </ModalBtns>
+        </div>
       </ModalBox>
     </ModalOverlay>
   )
 }
+
 
 /* ─── Save Success Modal Component ─────────────────────────────────────── */
 const SaveSuccessModal = ({ draftNo, onClose }) => {
@@ -566,7 +795,7 @@ const EMPTY_GRN = {
   taxable_amount:"0.00",non_taxable_amount:"0.00",
   cgst:"0.00",sgst:"0.00",igst:"0.00",
   tax_paid_to_supplier:"0.00",total_discount:"0.00",
-  round_amount:"0",total_amount:"0.00",net_invoice_amount:"0.00",
+  round_amount:"0.00",total_amount:"0.00",net_invoice_amount:"0.00",
   // edit audit fields (read-only, shown in UI when populated)
   edited_by:"", edited_date:"", edited_reason:"",
 }
@@ -574,7 +803,7 @@ const EMPTY_GRN = {
 const EMPTY_ITEM = {
   name:"",item_id:"",hsn:"",batch:"",
   expiry_month:"",expiry_year:"",expiry:"",
-  packing:"",unit:"",quantity:"0",free:"0",free_qty:"0",total_stock:"0",
+  packing:"",unit:"",quantity:"0",free_pack:"",free:"0",free_qty:"0",total_stock:"0",
   item_value:"0.00",packing_price:"",unit_price:"0.00",_priceSource:"packing_price",
   purchase_tax_label:"RATE OF 5%",purchase_tax_rate:"5",
   cgst_percent:"2.50",sgst_percent:"2.50",
@@ -669,26 +898,41 @@ function recalcItem(item, editedField = null) {
   const selling_sgst_amt = selling_price * (sellingCgstPct / 100)
 
   // ── Calculate Free Quantity & Total Stock ──
-  const freeVal = parseFloat(item.free) || 0
-  let freeQty = 0
-  if (freeVal > 0) {
-    if (packing > 1) {
-      if (unit > 0 && freeVal > unit && Math.round(freeVal) % Math.round(packing) === 0) {
-        freeQty = freeVal
-      } else {
-        freeQty = freeVal * packing
-      }
-    } else {
-      freeQty = freeVal
+  const freePackVal = parseFloat(item.free_pack) || 0
+  let freeVal = parseFloat(item.free) || 0
+
+  if (editedField === "free_pack") {
+    // When free_pack is entered, calculate and display directly in free
+    freeVal = packing > 1 ? freePackVal * packing : freePackVal
+  } else if (editedField === "packing") {
+    // When packing changes, if free_pack exists, re-calculate free directly
+    if (freePackVal > 0) {
+      freeVal = packing > 1 ? freePackVal * packing : freePackVal
+    }
+  } else if (editedField === "free") {
+    // User directly edited free
+    freeVal = parseFloat(item.free) || 0
+  } else {
+    // Default / loading
+    if (freePackVal > 0) {
+      freeVal = packing > 1 ? freePackVal * packing : freePackVal
+    } else if (freeVal > 0 && packing > 1 && item.free_qty && parseFloat(item.free_qty) > freeVal) {
+      // Historical item where free was packs and free_qty was units
+      item.free_pack = String(freeVal)
+      freeVal = parseFloat(item.free_qty)
     }
   }
-  const totalStock = quantity + freeQty
+
+  const freeFinal = freeVal > 0 ? (Number.isInteger(freeVal) ? String(freeVal) : String(Number(freeVal.toFixed(2)))) : "0"
+  const totalStock = quantity + (parseFloat(freeFinal) || 0)
 
   return {
     ...item,
     _priceSource:          priceSource,
     quantity:              String(quantity),
-    free_qty:              String(freeQty),
+    free_pack:             item.free_pack !== undefined ? String(item.free_pack) : "",
+    free:                  freeFinal,
+    free_qty:              freeFinal,
     total_stock:           String(totalStock),
     packing_price:         finalPackingPrice,
     item_value:            finalItemValue,
@@ -1240,20 +1484,20 @@ const GRNGeneration = () => {
       return a
     },{tax:0,cgst:0,sgst:0,disc:0,tot:0})
     const totRounded = Number(t.tot.toFixed(2))
-    const netWhole = Math.floor(totRounded)
-    const autoRound = Number((netWhole - totRounded).toFixed(2))
-    setGrnData(p=>({
-      ...p,
-      taxable_amount:      t.tax.toFixed(2),
-      non_taxable_amount:  t.tax.toFixed(2),
-      cgst:                t.cgst.toFixed(2),
-      sgst:                t.sgst.toFixed(2),
-      tax_paid_to_supplier:(t.cgst+t.sgst).toFixed(2),
-      total_discount:      t.disc.toFixed(2),
-      round_amount:        autoRound === 0 ? "0.00" : autoRound.toFixed(2),
-      total_amount:        totRounded.toFixed(2),
-      net_invoice_amount:  netWhole.toFixed(2),
-    }))
+    setGrnData(p => {
+      const userRound = parseFloat(p.round_amount) || 0
+      return {
+        ...p,
+        taxable_amount:      t.tax.toFixed(2),
+        non_taxable_amount:  t.tax.toFixed(2),
+        cgst:                t.cgst.toFixed(2),
+        sgst:                t.sgst.toFixed(2),
+        tax_paid_to_supplier:(t.cgst+t.sgst).toFixed(2),
+        total_discount:      t.disc.toFixed(2),
+        total_amount:        totRounded.toFixed(2),
+        net_invoice_amount:  (totRounded + userRound).toFixed(2),
+      }
+    })
   },[items])
 
   useEffect(()=>{
@@ -1455,7 +1699,18 @@ const GRNGeneration = () => {
         return []
       }
     }
-    return list.map(it => recalcItem(it))
+    return list.map(it => {
+      const pack = parseFloat(it.packing) || 1
+      const free = parseFloat(it.free) || 0
+      const freeQty = parseFloat(it.free_qty) || 0
+      let freePack = it.free_pack || ""
+      if (!freePack && pack > 1 && free > 0) {
+        if (freeQty > free) {
+          freePack = String(free)
+        }
+      }
+      return recalcItem({ ...it, free_pack: freePack })
+    })
   }
 
   const removeItem = (id) => {
@@ -1501,7 +1756,8 @@ const GRNGeneration = () => {
     try {
       const r = await apiRequest(url, method, payload)
       if(r.success){
-        const draftNo = r.data?.draft_number || ""
+        const resData = r.data?.data || r.data || {}
+        const draftNo = resData.draft_number || resData.draftNo || r.data?.draft_number || editDraftNo || ""
         if(!isEdit){
           // New draft saved — show success modal; form will reset when modal is closed
           setSavedDraftInfo({ draftNo })
@@ -1509,9 +1765,9 @@ const GRNGeneration = () => {
         } else {
           toast.success(`GRN updated (${draftNo})`)
           // Refresh edit audit fields from the response
-          if (r.data?.edited_by)     setGrnData(p => ({ ...p, edited_by:     r.data.edited_by }))
-          if (r.data?.edited_date)   setGrnData(p => ({ ...p, edited_date:   r.data.edited_date }))
-          if (r.data?.edited_reason) setGrnData(p => ({ ...p, edited_reason: r.data.edited_reason }))
+          if (resData.edited_by)     setGrnData(p => ({ ...p, edited_by:     resData.edited_by }))
+          if (resData.edited_date)   setGrnData(p => ({ ...p, edited_date:   resData.edited_date }))
+          if (resData.edited_reason) setGrnData(p => ({ ...p, edited_reason: resData.edited_reason }))
         }
         fetchGRNList()
       } else {
@@ -1569,7 +1825,7 @@ const GRNGeneration = () => {
       igst:                 grn.igst||"0.00",
       tax_paid_to_supplier: grn.tax_paid_to_supplier||"0.00",
       total_discount:       grn.total_discount||"0.00",
-      round_amount:         grn.round_amount||"0",
+      round_amount:         grn.round_amount||"0.00",
       total_amount:         grn.total_amount||"0.00",
       net_invoice_amount:   grn.net_invoice_amount||"0.00",
       grn_number:           grn.grn_number||"",
@@ -1933,7 +2189,7 @@ const GRNGeneration = () => {
                             </div>
                           )}
 
-                          <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
+                          <GridRow cols="repeat(5,1fr)" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Packing <span style={{color:"#dc2626"}}>*</span></Lbl>
                               <Input name="packing" value={curItem.packing}
@@ -1951,12 +2207,16 @@ const GRNGeneration = () => {
                               <CalcInput value={curItem.quantity} readOnly />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
-                              <Lbl>Free</Lbl>
-                              <Input name="free" value={curItem.free}
+                              <Lbl>Free (Pack)</Lbl>
+                              <Input name="free_pack" value={curItem.free_pack || ""}
                                 onChange={handleItemChange} placeholder="0" style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Free (auto)</Lbl>
+                              <CalcInput value={curItem.free} readOnly />
                               {parseFloat(curItem.free || 0) > 0 && (
                                 <LastHint style={{ color: "#059669", fontWeight: 600 }}>
-                                  Free Qty: {curItem.free_qty || curItem.free} | Total Stock: {curItem.total_stock || (parseFloat(curItem.quantity || 0) + parseFloat(curItem.free || 0))}
+                                  Total Stock: {curItem.total_stock}
                                 </LastHint>
                               )}
                             </InputWrapper>
@@ -2269,9 +2529,14 @@ const GRNGeneration = () => {
                                 <Td style={{fontSize:"0.75rem"}}>{it.quantity}</Td>
                                 <Td style={{fontSize:"0.75rem"}}>
                                   {it.free}
+                                  {parseFloat(it.free_pack || 0) > 0 && parseFloat(it.packing || 1) > 1 && (
+                                    <span style={{fontSize:"0.65rem",color:"#64748b",display:"block"}}>
+                                      ({it.free_pack} pk)
+                                    </span>
+                                  )}
                                   {parseFloat(it.free || 0) > 0 && (
                                     <span style={{fontSize:"0.65rem",color:"#059669",display:"block",fontWeight:600}} title="Total Stock with Free">
-                                      Stock: {it.total_stock || (parseFloat(it.quantity || 0) + (parseFloat(it.free_qty) || (parseFloat(it.free || 0) * (parseFloat(it.packing) || 1))))}
+                                      Stock: {it.total_stock || (parseFloat(it.quantity || 0) + parseFloat(it.free || 0))}
                                     </span>
                                   )}
                                 </Td>
@@ -2341,9 +2606,13 @@ const GRNGeneration = () => {
                       ))}
                       <SumCard>
                         <SumLabel>Round Off</SumLabel>
-                        <SumValue>₹ {grnData.round_amount}</SumValue>
-                        <Input name="round_amount" value={grnData.round_amount}
-                          onChange={handleGrnChange} style={{height:30,fontSize:"0.82rem",width:"100%"}} />
+                        {!isVerified ? (
+                          <Input name="round_amount" value={grnData.round_amount}
+                            onChange={handleGrnChange} placeholder="0.00"
+                            style={{height:30,fontSize:"0.82rem",width:"100%",marginTop:4}} />
+                        ) : (
+                          <SumValue>₹ {grnData.round_amount || "0.00"}</SumValue>
+                        )}
                       </SumCard>
                       <SumCard>
                         <SumLabel>Net Invoice Amount</SumLabel>
