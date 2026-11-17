@@ -622,6 +622,7 @@ const EMPTY_FORM = {
   gst_amount: "", room_tax: "",
   discount_percent: "", discount_amount: "", disc_reason: "", remarks: "",
   next_visit_date: "",
+  discharge_date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
   bill_upto: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
 };
 const EMPTY_ITEM = {
@@ -738,6 +739,7 @@ const buildPayload = (items, f, totals, status, patient, editReason = "", insura
   net_amount: totals.netAmount,
   remarks: f.remarks || "",
   next_visit_date: f.next_visit_date || null,
+  discharge_date: f.discharge_date || null,
   edit_reason: editReason || "",
   payment_method: status === "Estimate" ? null : (paymentMethod || f.payment_method || "Cash"),
 });
@@ -869,6 +871,9 @@ const estToForm = e => ({
   next_visit_date: e.next_visit_date
     ? new Date(e.next_visit_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
     : "",
+  discharge_date: e.discharge_date
+    ? new Date(e.discharge_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+    : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
   bill_upto: e.bill_date
     ? new Date(e.bill_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
     : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
@@ -1330,6 +1335,15 @@ const FinancialGrid = ({ f, onChange, totals }) => {
             value={f.disc_reason}
             onChange={e => onChange("disc_reason", e.target.value)}
             placeholder="Reason for discount…"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl style={{ color: "#dc2626", fontWeight: 700 }}>📅 Discharge Date *</FinLbl>
+          <FinIn
+            type="date"
+            value={f.discharge_date || ""}
+            onChange={e => onChange("discharge_date", e.target.value)}
+            style={{ flex: 1, minWidth: 0, border: "1.5px solid #dc2626", borderRadius: 5, padding: "3px 7px", fontSize: "0.82rem", fontWeight: 600 }}
           />
         </FinRow>
         <FinRow>
@@ -2347,7 +2361,9 @@ const DischargeBilling = () => {
       /room|ward|nursing|maintenance|accommodation|bed|icu|ccu|day care|stay|admission fee/i.test(`${added.itemName} ${added.item_description || ""}`)
     );
 
-    if (!isAccom && rawName) {
+    const isConsultation = /consultation|consult/i.test(rawName);
+
+    if (!isAccom && !isConsultation && rawName) {
       let matched = false;
       setItems(prev => {
         const idx = prev.findIndex(p => {
