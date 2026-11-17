@@ -811,7 +811,10 @@ const EMPTY_ITEM = {
   purchase_discount:"0",purchase_discount_amt:"0.00",
   deduct_discount_for_tax: true,
   purchase_cost:"0.00",
+  total_mrp:"",
+  pack_mrp:"",
   mrp:"",
+  unit_mrp:"",
   max_packing_mrp:"0.00",
   selling_discount:"0",
   selling_price:"0.00",
@@ -884,13 +887,47 @@ function recalcItem(item, editedField = null) {
 
   const sellingTaxRate  = parseFloat(item.selling_tax_rate) || 0
   const sellingCgstPct  = sellingTaxRate / 2
-  const mrp             = parseFloat(item.mrp) || 0
   const taxInclusive    = item.tax_inclusive !== false
   const sellingDisc     = parseFloat(item.selling_discount) || 0
 
+  // ── MRP splitting based on packing and units: user enters total_mrp or pack_mrp, derived to single med MRP ──
+  let unitMrp = parseFloat(item.mrp) || 0
+  if (editedField === "total_mrp") {
+    const rawTotalMrp = parseFloat(item.total_mrp) || 0
+    unitMrp = quantity > 0 ? rawTotalMrp / quantity : (packing > 0 && unit > 0 ? rawTotalMrp / (packing * unit) : rawTotalMrp)
+  } else if (editedField === "pack_mrp") {
+    const rawPackMrp = parseFloat(item.pack_mrp) || 0
+    unitMrp = packing > 0 ? rawPackMrp / packing : rawPackMrp
+  } else if (editedField === "mrp") {
+    unitMrp = parseFloat(item.mrp) || 0
+  } else if (editedField === "unit_mrp") {
+    unitMrp = parseFloat(item.unit_mrp) || 0
+  } else if (editedField === "packing" || editedField === "unit") {
+    if (item.pack_mrp && parseFloat(item.pack_mrp) > 0) {
+      unitMrp = packing > 0 ? parseFloat(item.pack_mrp) / packing : parseFloat(item.pack_mrp)
+    } else if (item.total_mrp && parseFloat(item.total_mrp) > 0) {
+      unitMrp = quantity > 0 ? parseFloat(item.total_mrp) / quantity : 0
+    } else {
+      unitMrp = parseFloat(item.unit_mrp || item.mrp) || 0
+    }
+  } else {
+    // Default / loading: derive unit_mrp from pack_mrp or total_mrp if available
+    const packMrpVal = parseFloat(item.pack_mrp) || 0
+    const totalMrpVal = parseFloat(item.total_mrp) || 0
+    if (packMrpVal > 0 && packing > 0) {
+      unitMrp = packMrpVal / packing
+    } else if (totalMrpVal > 0 && quantity > 0) {
+      unitMrp = totalMrpVal / quantity
+    } else {
+      unitMrp = parseFloat(item.unit_mrp) || parseFloat(item.mrp) || 0
+    }
+  }
+  const finalPackMrp = packing > 0 ? (unitMrp * packing).toFixed(4) : (unitMrp > 0 ? unitMrp.toFixed(4) : "")
+  const finalTotalMrp = quantity > 0 ? (unitMrp * quantity).toFixed(2) : (unit > 0 ? (unitMrp * (packing || 1) * unit).toFixed(2) : "")
+
   let selling_price = taxInclusive && sellingTaxRate > 0
-    ? mrp / (1 + sellingTaxRate / 100)
-    : mrp
+    ? unitMrp / (1 + sellingTaxRate / 100)
+    : unitMrp
 
   selling_price = selling_price * (1 - sellingDisc / 100)
 
@@ -953,6 +990,11 @@ function recalcItem(item, editedField = null) {
     selling_price:         selling_price.toFixed(2),
     selling_cgst_amt:      selling_cgst_amt.toFixed(4),
     selling_sgst_amt:      selling_sgst_amt.toFixed(4),
+    // MRP fields
+    total_mrp:             editedField === "total_mrp" ? (item.total_mrp ?? "") : (finalTotalMrp ? Number(finalTotalMrp).toString() : ""),
+    pack_mrp:              editedField === "pack_mrp" ? (item.pack_mrp ?? "") : (finalPackMrp ? Number(parseFloat(finalPackMrp).toFixed(2)).toString() : ""),
+    unit_mrp:              unitMrp > 0 ? Number(unitMrp.toFixed(4)).toString() : "",
+    mrp:                   unitMrp > 0 ? Number(unitMrp.toFixed(4)).toString() : "",
   }
 }
 
@@ -1605,7 +1647,8 @@ const GRNGeneration = () => {
   const selectMedicine = (med) => {
     if(isVerified) return
     const fullName = `${med.item_name} ${med.item_last_name||""}`.trim()
-    setCurItem(p => recalcItem({...p, name:fullName, item_id:med.item_id, hsn:med.hsn||""}))
+    // Reset MRP fields when switching medicine so user enters fresh pack_mrp
+    setCurItem(p => recalcItem({...p, name:fullName, item_id:med.item_id, hsn:med.hsn||"", pack_mrp:"", mrp:"", unit_mrp:""}))
     fetchLastStock(med.item_id)
     setTimeout(() => {
       batchInputRef.current?.focus()
@@ -1650,7 +1693,9 @@ const GRNGeneration = () => {
     if(!curItem.packing || parseFloat(curItem.packing)<=0){ toast.error("Packing is mandatory and must be greater than 0"); return false }
     if(!curItem.unit || parseFloat(curItem.unit)<=0){ toast.error("No. of Units is mandatory and must be greater than 0"); return false }
     if(!curItem.packing_price || parseFloat(curItem.packing_price)<=0){ toast.error("Packing Price is mandatory and must be greater than 0"); return false }
-    if(!curItem.mrp || parseFloat(curItem.mrp)<=0){ toast.error("MRP is mandatory and must be greater than 0"); return false }
+    if((!curItem.pack_mrp || parseFloat(curItem.pack_mrp)<=0) && (!curItem.total_mrp || parseFloat(curItem.total_mrp)<=0) && (!curItem.mrp || parseFloat(curItem.mrp)<=0)){
+      toast.error("MRP is mandatory and must be greater than 0"); return false
+    }
     return true
   }
 
@@ -1709,7 +1754,15 @@ const GRNGeneration = () => {
           freePack = String(free)
         }
       }
-      return recalcItem({ ...it, free_pack: freePack })
+      // Restore pack_mrp: if unit_mrp stored, derive pack_mrp = unit_mrp × packing
+      // If pack_mrp already stored, use it; otherwise derive from mrp × packing
+      let packMrp = it.pack_mrp || ""
+      if (!packMrp && it.mrp && pack > 1) {
+        packMrp = (parseFloat(it.mrp) * pack).toFixed(4)
+      } else if (!packMrp && it.mrp) {
+        packMrp = it.mrp
+      }
+      return recalcItem({ ...it, free_pack: freePack, pack_mrp: packMrp })
     })
   }
 
@@ -1893,11 +1946,12 @@ const GRNGeneration = () => {
     } catch { return d }
   }
 
-  const lastPurchasePrice = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)}` : "—"
+  const lastPurchasePrice = lastStock ? `₹ ${parseFloat(lastStock.packing_price||0).toFixed(2)}` : "—"
   const lastPurchaseCost  = lastStock
-    ? `₹ ${(parseFloat(lastStock.CGST_Amt||0) + parseFloat(lastStock.SGST_Amt||0) + parseFloat(lastStock.mrp||0)).toFixed(2)}`
+    ? `₹ ${(parseFloat(lastStock.CGST_Amt||0) + parseFloat(lastStock.SGST_Amt||0) + parseFloat(lastStock.packing_price||lastStock.mrp||0)).toFixed(2)}`
     : "—"
-  const lastMRP           = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)}` : "—"
+  // lastStock.mrp is unit MRP; show it as unit MRP hint
+  const lastMRP           = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)} /unit` : "—"
   const lastSellingPrice  = lastStock
     ? `₹ ${parseFloat(lastStock.selling_price || lastStock.mrp || 0).toFixed(2)}`
     : "—"
@@ -2294,13 +2348,35 @@ const GRNGeneration = () => {
                         {/* ── RIGHT: Tax Details ── */}
                         <Panel>
                           <PanelTitle>Tax Details</PanelTitle>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>MRP ₹ <span style={{color:"#dc2626"}}>*</span></Lbl>
-                            <Input name="mrp" value={curItem.mrp}
-                              onChange={handleItemChange} placeholder="0.00"
-                              style={{fontSize:"0.8rem", borderColor: curItem.name && !(parseFloat(curItem.mrp) > 0) ? "#fca5a5" : undefined}} />
-                            <LastHint>Last MRP: {lastMRP}</LastHint>
-                          </InputWrapper>
+                          <GridRow cols="repeat(3,1fr)" style={{marginBottom:7}}>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Total MRP ₹</Lbl>
+                              <Input name="total_mrp" value={curItem.total_mrp || ""}
+                                onChange={handleItemChange} placeholder="0.00"
+                                style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Pack MRP ₹ <span style={{color:"#dc2626"}}>*</span></Lbl>
+                              <Input name="pack_mrp" value={curItem.pack_mrp || ""}
+                                onChange={handleItemChange} placeholder="0.00"
+                                style={{fontSize:"0.8rem", borderColor: curItem.name && !(parseFloat(curItem.pack_mrp) > 0 || parseFloat(curItem.mrp) > 0) ? "#fca5a5" : undefined}} />
+                              <LastHint>Last MRP: {lastMRP}</LastHint>
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Unit MRP ₹ <span style={{fontSize:"0.65rem",color:"#059669"}}>(Single Med)</span></Lbl>
+                              <CalcInput
+                                value={parseFloat(curItem.mrp || 0) > 0 ? `₹ ${parseFloat(curItem.mrp).toFixed(2)}` : "—"}
+                                readOnly
+                                style={{fontWeight:700, color:"#0f766e"}}
+                                title={`MRP for single medicine unit (${curItem.pack_mrp || 0} ÷ ${curItem.packing || 1})`}
+                              />
+                              {parseFloat(curItem.packing || 0) > 1 && parseFloat(curItem.pack_mrp || 0) > 0 && (
+                                <LastHint style={{color:"#0369a1"}}>
+                                  {curItem.pack_mrp} ÷ {curItem.packing} = ₹{parseFloat(curItem.mrp || 0).toFixed(2)}/unit
+                                </LastHint>
+                              )}
+                            </InputWrapper>
+                          </GridRow>
 
                           <GreenBox>
                             <div style={{fontSize:"0.68rem",fontWeight:700,color:"#15803d",marginBottom:7}}>
@@ -2463,7 +2539,7 @@ const GRNGeneration = () => {
                           <Th style={{fontSize:"0.72rem"}}>Qty</Th>
                           <Th style={{fontSize:"0.72rem"}}>Free</Th>
                           <Th style={{fontSize:"0.72rem"}}>Item Val</Th>
-                          <Th style={{fontSize:"0.72rem"}}>MRP</Th>
+                          <Th style={{fontSize:"0.72rem"}}>MRP<br/><span style={{fontWeight:400,fontSize:"0.6rem",color:"#94a3b8"}}>/unit</span></Th>
                           <Th style={{fontSize:"0.72rem"}}>S.Rate</Th>
                           <Th style={{fontSize:"0.72rem"}}>Tax%</Th>
                           <Th style={{fontSize:"0.72rem"}}>CGST</Th>
@@ -2531,7 +2607,7 @@ const GRNGeneration = () => {
                                   {it.free}
                                   {parseFloat(it.free_pack || 0) > 0 && parseFloat(it.packing || 1) > 1 && (
                                     <span style={{fontSize:"0.65rem",color:"#64748b",display:"block"}}>
-                                      ({it.free_pack} pk)
+                                      ({it.free_pack} pk × {it.packing})
                                     </span>
                                   )}
                                   {parseFloat(it.free || 0) > 0 && (
@@ -2543,10 +2619,19 @@ const GRNGeneration = () => {
                                 <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.item_value||0).toFixed(2)}</Td>
                                 <Td style={{fontSize:"0.75rem"}}>
                                   {isOcr && !isVerified ? (
-                                    <Input value={it.mrp}
-                                      onChange={e => updateItem(it.id, "mrp", e.target.value)}
+                                    <Input value={it.pack_mrp || it.mrp}
+                                      onChange={e => updateItem(it.id, "pack_mrp", e.target.value)}
                                       style={{fontSize:"0.75rem",padding:"2px 5px",width:70}} />
-                                  ) : `₹${parseFloat(it.mrp||0).toFixed(2)}`}
+                                  ) : (
+                                    <span>
+                                      ₹{parseFloat(it.mrp||0).toFixed(2)}
+                                      {parseFloat(it.packing||0) > 1 && parseFloat(it.pack_mrp||0) > 0 && (
+                                        <span style={{fontSize:"0.62rem",color:"#64748b",display:"block"}}>
+                                          (₹{parseFloat(it.pack_mrp||0).toFixed(2)}/pk)
+                                        </span>
+                                      )}
+                                    </span>
+                                  )}
                                 </Td>
                                 <Td style={{fontSize:"0.75rem",color:"#15803d",fontWeight:600}}>
                                   ₹{parseFloat(it.selling_price||0).toFixed(2)}

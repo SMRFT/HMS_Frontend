@@ -422,7 +422,10 @@ const SearchableDropdown = ({
 
   const filtered = options.filter((o) => {
     const label = typeof o === "string" ? o : o[displayKey];
-    return String(label || "").toLowerCase().includes(inputValue.toLowerCase());
+    const sc = typeof o === "string" ? "" : o.shortcut;
+    const q = inputValue.toLowerCase();
+    return String(label || "").toLowerCase().includes(q) ||
+      String(sc || "").toLowerCase().includes(q);
   });
 
   // Ensure highlightedIndex stays in bounds when filtered options change
@@ -447,13 +450,24 @@ const SearchableDropdown = ({
   }, [isOpen, highlightedIndex]);
 
   const handleInputChange = (e) => {
+    const typed = e.target.value;
     isSearchingRef.current = true;
-    setInputValue(e.target.value);
+    setInputValue(typed);
     setIsOpen(true);
     setHighlightedIndex(0);
-    if (e.target.value === "") {
+    if (typed === "") {
       isSearchingRef.current = false;
-      onChange(""); // clear parent
+      onChange("");
+      return;
+    }
+
+    // Exact shortcut typed → show the test name in the field and select it
+    const t = typed.trim().toLowerCase();
+    const sc = (o) => (typeof o === "string" ? "" : String(o.shortcut || "").trim().toLowerCase());
+    const exact = options.filter((o) => sc(o) === t);
+    const longerExists = options.some((o) => sc(o) && sc(o) !== t && sc(o).startsWith(t));
+    if (exact.length === 1 && !longerExists) {
+      handleSelect(exact[0]);
     }
   };
 
@@ -657,6 +671,7 @@ const InvestigationBilling = () => {
   const [productList, setProductList] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isPriceEditable, setIsPriceEditable] = useState(false);
 
   // ── Print modal state: { bill, isEstimate, toastMsg } ──────────────────────
   const [printJob, setPrintJob] = useState(null);
@@ -808,13 +823,8 @@ const InvestigationBilling = () => {
 
     if (bt) {
       const billTypeNo = bt.billTypeNo ?? bt.BillTypeNo ?? 0;
-      handleBillTypeChange(
-        bt.bill_name,
-        bt.bill_type,
-        billTypeNo,
-        bt.is_allowDiscount ?? true,
-        false, // preserve loaded items on initial page load
-      );
+      handleBillTypeChange(bt.bill_name, bt.bill_type, billTypeNo,
+        bt.is_allowDiscount ?? true, true, bt.is_edit ?? false);
     }
   }, [billTypes, location.state]); // eslint-disable-line
 
@@ -826,8 +836,10 @@ const InvestigationBilling = () => {
     billTypeNo,
     allowDiscount = true,
     clearProducts = true,
+    isEdit = false,
   ) => {
     setIsDiscountAllowed(allowDiscount);
+    setIsPriceEditable(Boolean(isEdit));
     if (clearProducts) {
       setProductList([]);
     }
@@ -939,7 +951,10 @@ const InvestigationBilling = () => {
       toast.warning("Selected item price is missing!");
       return;
     }
-
+    if (selectedPrice === "" || isNaN(Number(selectedPrice)) || Number(selectedPrice) < 0) {
+      toast.warning("Please enter a valid price!");
+      return;
+    }
     const obj = items.find((item) => item.itemName === selectedItem);
 
     // Validate if the same item is already added to the product list
@@ -1128,8 +1143,9 @@ const InvestigationBilling = () => {
       toast.warning("Total amount is required!");
       return false;
     }
-    if (!formData.finalPrice || parseFloat(formData.finalPrice) <= 0) {
-      toast.warning("Final Price is required!");
+    const finalPriceNum = parseFloat(formData.finalPrice);
+    if (isNaN(finalPriceNum) || finalPriceNum < 0) {
+      toast.warning("Final Price is invalid!");
       return false;
     }
     if (!formData.paymentMethod?.trim()) {
@@ -1322,12 +1338,12 @@ const InvestigationBilling = () => {
   }, [productList, selectedBillTypeNo, formData.package_id]);
 
   useEffect(() => {
-    const discountAmount = (formData.total * formData.discountPercent) / 100;
-    const calculatedFinalPrice = formData.total - discountAmount;
+    const pct = Math.min(100, Math.max(0, Number(formData.discountPercent) || 0));
+    const discountAmount = (Number(formData.total) * pct) / 100;
     setFormData((prev) => ({
       ...prev,
       discount: discountAmount.toFixed(2),
-      finalPrice: calculatedFinalPrice.toFixed(2),
+      finalPrice: (Number(formData.total) - discountAmount).toFixed(2),
     }));
   }, [formData.total, formData.discountPercent]);
 
@@ -1643,12 +1659,8 @@ const InvestigationBilling = () => {
                   const bt = billTypes.find((b) => b.bill_name === billName);
                   if (bt) {
                     const billTypeNo = bt.billTypeNo ?? bt.BillTypeNo ?? 0;
-                    handleBillTypeChange(
-                      bt.bill_name,
-                      bt.bill_type,
-                      billTypeNo,
-                      bt.is_allowDiscount ?? true,
-                    );
+                    handleBillTypeChange(bt.bill_name, bt.bill_type, billTypeNo,
+                      bt.is_allowDiscount ?? true, false, bt.is_edit ?? false);
                   }
                 }}
                 options={billTypes.map((bt) => bt.bill_name)}
@@ -1744,7 +1756,13 @@ const InvestigationBilling = () => {
                   <SearchableDropdown
                     value={selectedItem}
                     onChange={handleItemChange}
-                    options={items.map((item) => item.itemName)}
+                    options={items.map((item) => ({
+                      id: item.itemName,
+                      name: item.itemName,
+                      shortcut: item.shortcut || "",
+                    }))}
+                    displayKey="name"
+                    valueKey="id"
                     placeholder="Select item..."
                     disabled={!selectedBillTypeNo}
                   />
@@ -1770,14 +1788,9 @@ const InvestigationBilling = () => {
                         if (e.key === "Enter") {
                           e.preventDefault();
                           e.stopPropagation();
-                          if (selectedItem) {
+                          if (selectedItem && !isPriceEditable) {
                             addProduct();
-                            setTimeout(() => {
-                              const itemInput = document.querySelector(
-                                'input[placeholder="Select item..."]'
-                              );
-                              if (itemInput) itemInput.focus();
-                            }, 50);
+                            setTimeout(() => document.querySelector('input[placeholder="Select item..."]')?.focus(), 50);
                           } else {
                             moveToNextField(e.target);
                           }
@@ -1789,7 +1802,15 @@ const InvestigationBilling = () => {
 
                 <InputWrapper>
                   <Label required>Price</Label>
-                  <Input type="text" value={selectedPrice} readOnly />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={selectedPrice}
+                    readOnly={!isPriceEditable}
+                    onChange={(e) => setSelectedPrice(e.target.value)}
+                    placeholder={isPriceEditable ? "Enter price" : ""}
+                  />
                 </InputWrapper>
 
                 <AddBtn type="button" data-skip-enter="true" onClick={addProduct}>

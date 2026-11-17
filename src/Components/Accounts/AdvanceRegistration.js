@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { format } from "date-fns";
@@ -38,12 +40,14 @@ const SummaryCard = styled.div`
     animation: ${fadeIn} 0.4s ease-out;
 `;
 
-const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialStartDate, initialEndDate }) => {
+const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialStartDate, initialEndDate, outlet: propOutlet, initialOutlet }) => {
     const location = useLocation();
     const effectiveStart = startDate || initialStartDate || location.state?.startDate || location.state?.from_date;
     const effectiveEnd = endDate || initialEndDate || location.state?.endDate || location.state?.to_date;
+    const effectiveOutlet = propOutlet || initialOutlet || location.state?.outlet_code || location.state?.outlet || "all";
     const [fromDate, setFromDate] = useState(effectiveStart || format(new Date(), "yyyy-MM-01"));
     const [toDate, setToDate] = useState(effectiveEnd || format(new Date(), "yyyy-MM-dd"));
+    const [outlet, setOutlet] = useState(effectiveOutlet);
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -52,15 +56,18 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
     useEffect(() => {
         const s = startDate || initialStartDate || location.state?.startDate || location.state?.from_date;
         const e = endDate || initialEndDate || location.state?.endDate || location.state?.to_date;
+        const o = propOutlet || initialOutlet || location.state?.outlet_code || location.state?.outlet;
         if (s) setFromDate(s);
         if (e) setToDate(e);
-    }, [startDate, endDate, initialStartDate, initialEndDate, location.state]);
+        if (o) setOutlet(o);
+    }, [startDate, endDate, initialStartDate, initialEndDate, propOutlet, initialOutlet, location.state]);
 
     const fetchReport = useCallback(async () => {
         if (!fromDate || !toDate) return;
         setLoading(true);
         try {
-            const url = `${HmsBaseUrl}advance-registration-report/?from_date=${fromDate}&to_date=${toDate}`;
+            const outletParam = outlet && outlet !== "all" ? `&outlet_code=${outlet}` : "";
+            const url = `${HmsBaseUrl}advance-registration-report/?from_date=${fromDate}&to_date=${toDate}${outletParam}`;
             const response = await apiRequest(url, "GET");
             if (response && (response.success || response.status === 200 || response.data)) {
                 let rows = [];
@@ -84,7 +91,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate, HmsBaseUrl]);
+    }, [fromDate, toDate, outlet, HmsBaseUrl]);
 
     useEffect(() => {
         fetchReport();
@@ -157,6 +164,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                         "Date": dateStr,
                         "SLNO": globalIndex++,
                         "BILLNUMBER": row.billnumber || row.bill_no || row.billno || "",
+                        "UHID": row.uhid || "",
                         "IPNUMBER": row.ipNumber || row.ip_number || row.ipno || "",
                         "PATIENTNAME": row.patientname || row.patient_name || "",
                         "CASH AMOUNT": safeCash > 0 ? Number(safeCash.toFixed(2)) : 0,
@@ -170,6 +178,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                     "Date": dateStr,
                     "SLNO": "",
                     "BILLNUMBER": "",
+                    "UHID": "",
                     "IPNUMBER": "",
                     "PATIENTNAME": "Total",
                     "CASH AMOUNT": Number(dayCash.toFixed(2)),
@@ -183,6 +192,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                 "Date": "Grand Total",
                 "SLNO": "",
                 "BILLNUMBER": "",
+                "UHID": "",
                 "IPNUMBER": "",
                 "PATIENTNAME": "Grand Total",
                 "CASH AMOUNT": Number(grandTotals.cash.toFixed(2)),
@@ -283,6 +293,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                         <Tr>
                             <Th style={{ width: "50px" }}>SLNO</Th>
                             <Th>BILLNUMBER</Th>
+                            <Th>UHID</Th>
                             <Th>IPNUMBER</Th>
                             <Th>PATIENTNAME</Th>
                             <Th style={{ textAlign: "right" }}>CASH AMOUNT</Th>
@@ -293,7 +304,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                     <tbody>
                         {loading ? (
                             <Tr>
-                                <Td colSpan="7" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                <Td colSpan="8" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
                                     Loading advance records...
                                 </Td>
                             </Tr>
@@ -305,7 +316,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                                 return (
                                     <React.Fragment key={dateStr || grpIdx}>
                                         <Tr style={{ background: "#f1f5f9", fontWeight: "bold" }}>
-                                            <Td colSpan="7" style={{ color: "#0f172a", fontSize: "0.95rem", padding: "10px 14px" }}>
+                                            <Td colSpan="8" style={{ color: "#0f172a", fontSize: "0.95rem", padding: "10px 14px" }}>
                                                 {dateStr}
                                             </Td>
                                         </Tr>
@@ -322,6 +333,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                                                 <Tr key={`${row.billnumber || row.bill_no || 'row'}-${grpIdx}-${rowIdx}`}>
                                                     <Td>{sl}</Td>
                                                     <Td style={{ fontWeight: "600" }}>{row.billnumber || row.bill_no || row.billno || "—"}</Td>
+                                                    <Td>{row.uhid || "—"}</Td>
                                                     <Td>{row.ipNumber || row.ip_number || row.ipno || "—"}</Td>
                                                     <Td style={{ fontWeight: "600" }}>{row.patientname || row.patient_name || "—"}</Td>
                                                     <Td style={{ textAlign: "right", color: safeCash > 0 ? colors.success : "inherit" }}>
@@ -338,7 +350,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                                         })}
                                         {/* Daily Subtotal Row */}
                                         <Tr style={{ background: "#e2e8f0", fontWeight: "bold" }}>
-                                            <Td colSpan="4" style={{ textAlign: "right" }}>Total</Td>
+                                            <Td colSpan="5" style={{ textAlign: "right" }}>Total</Td>
                                             <Td style={{ textAlign: "right" }}>{dayCash.toFixed(2)}</Td>
                                             <Td style={{ textAlign: "right" }}>{dayCredit.toFixed(2)}</Td>
                                             <Td></Td>
@@ -348,7 +360,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                             })
                         ) : (
                             <Tr>
-                                <Td colSpan="7" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                <Td colSpan="8" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
                                     No advance records found for the selected dates.
                                 </Td>
                             </Tr>
@@ -357,7 +369,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                     {reportData.length > 0 && !loading && (
                         <tfoot>
                             <Tr style={{ background: "#cbd5e1", fontWeight: "900", fontSize: "1rem" }}>
-                                <Td colSpan="4" style={{ textAlign: "right" }}>Grand Total</Td>
+                                <Td colSpan="5" style={{ textAlign: "right" }}>Grand Total</Td>
                                 <Td style={{ textAlign: "right" }}>{grandTotals.cash.toFixed(2)}</Td>
                                 <Td style={{ textAlign: "right" }}>{grandTotals.credit.toFixed(2)}</Td>
                                 <Td>End</Td>
@@ -413,12 +425,13 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                 <PrintTable>
                     <thead>
                         <tr>
-                            <th style={{ width: "6%" }}>SLNO</th>
-                            <th style={{ width: "16%" }}>BILLNUMBER</th>
-                            <th style={{ width: "15%" }}>IPNUMBER</th>
-                            <th style={{ width: "27%" }}>PATIENTNAME</th>
-                            <th style={{ width: "13%", textAlign: "right" }}>CASH AMOUNT</th>
-                            <th style={{ width: "13%", textAlign: "right" }}>CREDIT AMOUNT</th>
+                            <th style={{ width: "5%" }}>SLNO</th>
+                            <th style={{ width: "15%" }}>BILLNUMBER</th>
+                            <th style={{ width: "12%" }}>UHID</th>
+                            <th style={{ width: "13%" }}>IPNUMBER</th>
+                            <th style={{ width: "23%" }}>PATIENTNAME</th>
+                            <th style={{ width: "11%", textAlign: "right" }}>CASH AMOUNT</th>
+                            <th style={{ width: "11%", textAlign: "right" }}>CREDIT AMOUNT</th>
                             <th style={{ width: "10%" }}>User</th>
                         </tr>
                     </thead>
@@ -432,7 +445,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                                 return (
                                     <React.Fragment key={`print-${dateStr}-${grpIdx}`}>
                                         <tr className="date-group-header">
-                                            <td colSpan="7" style={{ fontWeight: "bold", textAlign: "left", padding: "4px 6px", borderBottom: "1px dashed #666" }}>
+                                            <td colSpan="8" style={{ fontWeight: "bold", textAlign: "left", padding: "4px 6px", borderBottom: "1px dashed #666" }}>
                                                 {dateStr}
                                             </td>
                                         </tr>
@@ -449,6 +462,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                                                 <tr key={`print-row-${curSl}-${rowIdx}`}>
                                                     <td>{curSl}</td>
                                                     <td>{row.billnumber || row.bill_no || row.billno || "—"}</td>
+                                                    <td>{row.uhid || "—"}</td>
                                                     <td>{row.ipNumber || row.ip_number || row.ipno || "—"}</td>
                                                     <td>{row.patientname || row.patient_name || "—"}</td>
                                                     <td style={{ textAlign: "right" }}>{safeCash > 0 ? safeCash.toFixed(2) : "0.00"}</td>
@@ -459,7 +473,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                                         })}
                                         {/* Date Subtotal */}
                                         <tr className="subtotal-row" style={{ fontWeight: "bold", borderTop: "1px solid #000", borderBottom: "1px solid #000" }}>
-                                            <td colSpan="4" style={{ textAlign: "left", paddingLeft: "10px" }}>Total</td>
+                                            <td colSpan="5" style={{ textAlign: "left", paddingLeft: "10px" }}>Total</td>
                                             <td style={{ textAlign: "right" }}>{dayCash.toFixed(2)}</td>
                                             <td style={{ textAlign: "right" }}>{dayCredit.toFixed(2)}</td>
                                             <td></td>
@@ -472,7 +486,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                         {/* Grand Total */}
                         {reportData.length > 0 && (
                             <tr className="grand-total-row" style={{ fontWeight: "bold", borderTop: "2px solid #000", borderBottom: "2px solid #000" }}>
-                                <td colSpan="4" style={{ textAlign: "left", paddingLeft: "10px" }}>Grand Total</td>
+                                <td colSpan="5" style={{ textAlign: "left", paddingLeft: "10px" }}>Grand Total</td>
                                 <td style={{ textAlign: "right" }}>{grandTotals.cash.toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>{grandTotals.credit.toFixed(2)}</td>
                                 <td></td>

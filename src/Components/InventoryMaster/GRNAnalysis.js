@@ -141,9 +141,29 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
   const normalizedItems = (items || []).map((it, i) => {
     const qty = parseFloat(it.quantity || it.qty || 0);
     const pack = parseFloat(it.packing || it.pack || 1) || 1;
-    const free = parseFloat(it.free || it.free_qty || 0);
+    // Free quantity everywhere in units:
+    let free = parseFloat(it.free_qty || 0);
+    if (!free && it.free_pack && pack > 0) {
+      free = parseFloat(it.free_pack) * pack;
+    }
+    if (!free && it.free) {
+      free = parseFloat(it.free) || 0;
+    }
+
     const pRate = parseFloat(it.unitPrice || it.unit_price || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
-    const mrp = parseFloat(it.mrp || 0);
+
+    // MRP for single medicine unit:
+    let mrp = parseFloat(it.unit_mrp || 0);
+    if (!mrp && it.mrp) {
+      const rawMrp = parseFloat(it.mrp) || 0;
+      if (it.pack_mrp && pack > 1) {
+        mrp = parseFloat(it.pack_mrp) / pack;
+      } else if (pack > 1 && rawMrp > 0) {
+        mrp = rawMrp / pack;
+      } else {
+        mrp = rawMrp;
+      }
+    }
     const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
     const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / pack)) - disc);
     const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
