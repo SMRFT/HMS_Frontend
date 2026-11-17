@@ -2401,27 +2401,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                             >
                               {hasPendingReturn ? "⌛ Return Pending" : "↺ Return"}
                             </button>
-                            {canCancel && (
-                              <button
-                                onClick={() => handleCancelRequest(req.Bill_id || req.id)}
-                                style={{
-                                  background: "#fee2e2",
-                                  color: "#dc2626",
-                                  border: "none",
-                                  borderRadius: "5px",
-                                  padding: "5px 10px",
-                                  cursor: "pointer",
-                                  fontSize: "0.78rem",
-                                  fontWeight: "600",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "3px",
-                                }}
-                                title="Cancel Request"
-                              >
-                                ✕ Cancel
-                              </button>
-                            )}
+
                           </div>
                         </td>
                       </tr>
