@@ -499,6 +499,15 @@ const A4PageSheet = styled.div`
         min-height: auto !important;
 
         .no-print,
+        .hide-on-print,
+        .action-column,
+        th.hide-on-print,
+        td.hide-on-print,
+        th.action-column,
+        td.action-column,
+        th:last-child.action-column,
+        td:last-child.action-column,
+        button,
         .in-report-filters {
             display: none !important;
         }
@@ -590,23 +599,26 @@ const A4PageSheet = styled.div`
 
         /* Group Headers */
         tbody tr[class*="DateGroup"] td,
-        tbody tr[class*="date-group"] td {
-            background: transparent !important;
+        tbody tr[class*="date-group"] td,
+        tbody tr.date-group-header td {
+            background: #f1f5f9 !important;
             font-weight: 700 !important;
             font-size: 10px !important;
-            padding: 6px 4px 2px 4px !important;
+            padding: 6px 6px !important;
             color: #000 !important;
-            border: none !important;
+            border-top: 1.5px solid #000 !important;
+            border-bottom: 1px solid #333 !important;
         }
 
         /* Subtotal Rows */
         tbody tr[class*="Subtotal"] td,
-        tbody tr[class*="subtotal"] td {
+        tbody tr[class*="subtotal"] td,
+        tbody tr.subtotal-row td {
             font-weight: 700 !important;
             color: #000 !important;
-            border-top: 1px solid #cbd5e1 !important;
-            border-bottom: 1px solid #94a3b8 !important;
-            background: transparent !important;
+            border-top: 1px solid #444 !important;
+            border-bottom: 1.5px solid #000 !important;
+            background: #f8fafc !important;
         }
 
         /* Grand Total Rows */
@@ -868,9 +880,9 @@ const A4MultiPageViewer = ({
 
     const hospitalName = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
     const isNoOutletReport = [
-        "ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge", "101", "102"
+        "discharge_detailed", "admission_vs_discharge", "101", "102"
     ].includes(String(selectedReport?.id)) || [
-        "/AdvanceRegistration", "/AdvanceRegistrationInsurence", "/IPAdvanceReport", "/DischargeBillsDetailed"
+        "/DischargeBillsDetailed"
     ].includes(selectedReport?.route);
     const isCategoryReport = ["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_reg", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "misc_payment"].includes(selectedReport?.id);
 

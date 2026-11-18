@@ -631,6 +631,7 @@ const SummaryPrint = () => {
   const location = useLocation();
   const bodyRef = useRef(null);
   const pageRef = useRef(null);
+  const pdfCacheRef = useRef(null); // cached PDF blob so repeat Open/Send is instant
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -645,6 +646,10 @@ const SummaryPrint = () => {
   const [signoffs, setSignoffs] = useState({ prepared: null, approved: null });
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+  // Invalidate the cached PDF whenever the data or signatures change
+  useEffect(() => {
+    pdfCacheRef.current = null;
+  }, [summaryData, signoffs]);
 
   const fetchEmployeeSign = async (id) => {
     const empId = String(id || "").trim();
@@ -841,11 +846,41 @@ const SummaryPrint = () => {
   ══════════════════════════════════════════════════════════ */
   const handlePrint = async (returnBlob = false) => {
     if (!summaryData || !bodyRef.current) return;
+
+    // Open the tab NOW (inside the click gesture) so the popup blocker allows it.
+    // It is pointed at the real PDF once generation finishes.
+    let pdfWindow = null;
+    if (!returnBlob) {
+      pdfWindow = window.open("", "_blank");
+      if (pdfWindow) {
+        pdfWindow.document.write(
+          "<html><head><title>Generating PDF…</title></head>" +
+          '<body style="font-family:Arial,sans-serif;display:flex;align-items:center;' +
+          'justify-content:center;height:100vh;margin:0;color:#1a3a6e;">' +
+          "<div>Generating discharge summary PDF, please wait…</div></body></html>"
+        );
+        pdfWindow.document.close();
+      }
+    }
+
+    // Instant path: PDF already generated for this data
+    if (pdfCacheRef.current) {
+      if (returnBlob) return pdfCacheRef.current;
+      const cachedUrl = URL.createObjectURL(pdfCacheRef.current);
+      if (pdfWindow && !pdfWindow.closed) {
+        pdfWindow.location.href = cachedUrl;
+      } else {
+        window.open(cachedUrl, "_blank");
+      }
+      setTimeout(() => URL.revokeObjectURL(cachedUrl), 60000);
+      return;
+    }
+
     if (!returnBlob) setGeneratingPdf(true);
     setLoading(true);
     try {
       await loadSignoffs();
-      const SCALE = 2;
+      const SCALE = 2; // 2 is sharp enough for reading/printing and much faster than 3
       const PX_W = 794;
       const PX_H = 1123;
       const MARGIN = 19;
@@ -888,7 +923,8 @@ const SummaryPrint = () => {
         return c;
       };
 
-      /* ── STEP A: capture body (keep the clone so we measure the SAME layout we render) ── */
+      /* ── STEP A: capture body + header/footer in parallel
+            (keep the body clone so we measure the SAME layout we render) ── */
       const bodyClone = bodyRef.current.cloneNode(true);
       bodyClone.setAttribute("data-pdf-clone", "1");
       Object.assign(bodyClone.style, {
@@ -902,21 +938,23 @@ const SummaryPrint = () => {
         fontFamily: "'Source Sans 3', Arial, sans-serif",
       });
       document.body.appendChild(bodyClone);
-      const bodyCanvas = await html2canvas(bodyClone, {
-        scale: SCALE,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        width: INNER_W,
-        height: bodyClone.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
-      });
 
-      const hdr1Canvas = await captureEl(document.getElementById("sp-cap-hdr1"), INNER_W);
-      const hdrCCanvas = await captureEl(document.getElementById("sp-cap-hdrc"), INNER_W);
-      const ftrCanvas = await captureEl(document.getElementById("sp-cap-ftr"), INNER_W);
+      const [bodyCanvas, hdr1Canvas, hdrCCanvas, ftrCanvas] = await Promise.all([
+        html2canvas(bodyClone, {
+          scale: SCALE,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: "#ffffff",
+          width: INNER_W,
+          height: bodyClone.scrollHeight,
+          scrollX: 0,
+          scrollY: 0,
+        }),
+        captureEl(document.getElementById("sp-cap-hdr1"), INNER_W),
+        captureEl(document.getElementById("sp-cap-hdrc"), INNER_W),
+        captureEl(document.getElementById("sp-cap-ftr"), INNER_W),
+      ]);
 
       const hdr1H = hdr1Canvas.height;
       const hdrCH = hdrCCanvas.height;
@@ -924,8 +962,8 @@ const SummaryPrint = () => {
 
       /* ── STEP B: all measurements come from the clone (scale is always 1 there) ── */
       const bodyRect = bodyClone.getBoundingClientRect();
-      const getRelTop = (r) => (r.top - bodyRect.top) * SCALE;
-      const getRelBot = (r) => (r.bottom - bodyRect.top) * SCALE;
+      const getRelTop = (r) => Math.round((r.top - bodyRect.top) * SCALE);
+      const getRelBot = (r) => Math.round((r.bottom - bodyRect.top) * SCALE);
 
       const theadInfos = [];
       for (const thead of bodyClone.querySelectorAll("thead[data-thead-id]")) {
@@ -1124,6 +1162,7 @@ const SummaryPrint = () => {
         out.width = A4W;
         out.height = A4H;
         const ctx = out.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
 
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, A4W, A4H);
@@ -1218,24 +1257,42 @@ const SummaryPrint = () => {
         );
 
         if (pageIdx > 0) doc.addPage();
+        // JPEG is far faster to encode than PNG and gives a much smaller file
         doc.addImage(
-          out.toDataURL("image/jpeg", 0.88),
+          out.toDataURL("image/jpeg", 0.92),
           "JPEG",
           0,
           0,
           PAGE_W_MM,
           PAGE_H_MM,
+          undefined,
+          "FAST"
         );
       }
 
       const pdfBlob = doc.output("blob");
+      pdfCacheRef.current = pdfBlob;
+
       if (returnBlob) {
         return pdfBlob;
-      } else {
-        window.open(URL.createObjectURL(pdfBlob), "_blank");
       }
+
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      if (pdfWindow && !pdfWindow.closed) {
+        pdfWindow.location.href = blobUrl;
+      } else {
+        // Popup was blocked or closed: fall back to a download
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `${summaryData.patient || "Patient"}_Discharge_Summary.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     } catch (err) {
       console.error("PDF error:", err);
+      if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
       alert("PDF error: " + (err.message || err));
     } finally {
       document.querySelectorAll("[data-pdf-clone]").forEach((n) => n.remove());
@@ -2121,6 +2178,15 @@ const SummaryPrint = () => {
                       </div>
                     );
                   })}
+                  {summaryData.testdetails?.length > 0 &&
+                    !fieldsData.some(
+                      (f) => String(f.key || "").trim().toUpperCase() === "INVESTIGATIONS"
+                    ) && (
+                      <div className="sp-section">
+                        <div className="sp-section-title">INVESTIGATIONS</div>
+                        <LabReport />
+                      </div>
+                    )}
                   {(() => {
                     // API data wins; fall back to what get-printsummary already returned
                     const preparedSig = signoffs.prepared || summaryData.prepared_by_sign;

@@ -1652,23 +1652,7 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
                       >
                         {expandedRow === req.id ? "▴" : "▾"}
                       </button>
-                      {req.status === "Result Pending" && (
-                        <button
-                          onClick={() => handleCancelRequest(req.id)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: colors.danger,
-                            cursor: "pointer",
-                            fontSize: "1rem",
-                            display: "flex",
-                            alignItems: "center"
-                          }}
-                          title="Cancel Request"
-                        >
-                          ✕
-                        </button>
-                      )}
+
                     </div>
                   </Td>
                 </Tr>

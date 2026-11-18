@@ -196,7 +196,8 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
             const rows = filteredData.map((bill, index) => ({
                 "S.No": index + 1,
                 "Patient Name": bill.patient_details?.patient_name || "N/A",
-                "UHID / OP No": bill.patient_details?.uhid || bill.uhid || "N/A",
+                "UHID": bill.uhid || bill.patient_details?.uhid || "N/A",
+                "IP Number": bill.ip_number || bill.patient_details?.ip_number || bill.ipNumber || "—",
                 "Bill No": bill.bill_no || "",
                 "Bill Type": bill.payment_mode || "Cash",
                 "Bill Amount (₹)": Number((Number(bill.total_amount) || 0).toFixed(2)),
@@ -318,7 +319,8 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                         <Tr>
                             <Th>S.No</Th>
                             <Th>Patient Name</Th>
-                            <Th>OP.No / UHID</Th>
+                            <Th>UHID</Th>
+                            <Th>IP Number</Th>
                             <Th>Bill No</Th>
                             <Th>Bill Type</Th>
                             <Th style={{ textAlign: "right" }}>Bill Amount</Th>
@@ -332,7 +334,8 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                                 <Tr key={index}>
                                     <Td>{index + 1}</Td>
                                     <Td style={{ fontWeight: "600" }}>{bill.patient_details?.patient_name || "N/A"}</Td>
-                                    <Td>{bill.uhid}</Td>
+                                    <Td>{bill.uhid || "—"}</Td>
+                                    <Td>{bill.ip_number || bill.patient_details?.ip_number || bill.ipNumber || "—"}</Td>
                                     <Td>{bill.bill_no}</Td>
                                     <Td>{bill.payment_mode || "Cash"}</Td>
                                     <Td style={{ textAlign: "right" }}>₹{(bill.total_amount || 0).toFixed(2)}</Td>
@@ -342,7 +345,7 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                             ))
                         ) : (
                             <Tr>
-                                <Td colSpan="8" style={{ textAlign: "center", padding: "30px", color: colors.textMuted }}>
+                                <Td colSpan="9" style={{ textAlign: "center", padding: "30px", color: colors.textMuted }}>
                                     No records found for the selected period.
                                 </Td>
                             </Tr>
@@ -351,13 +354,13 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                     {filteredData.length > 0 && (
                         <tfoot>
                             <Tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
-                                <Td colSpan="5" style={{ textAlign: "right" }}>Total Amount:</Td>
+                                <Td colSpan="6" style={{ textAlign: "right" }}>Total Amount:</Td>
                                 <Td style={{ textAlign: "right" }}>₹{totals.amount.toFixed(2)}</Td>
                                 <Td style={{ textAlign: "right" }}>Total Discount:</Td>
                                 <Td style={{ textAlign: "right", color: colors.danger }}>₹{totals.discount.toFixed(2)}</Td>
                             </Tr>
                             <Tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
-                                <Td colSpan="5" style={{ textAlign: "right" }}>Grand Total:</Td>
+                                <Td colSpan="6" style={{ textAlign: "right" }}>Grand Total:</Td>
                                 <Td style={{ textAlign: "right", color: colors.success }}>₹{totals.net.toFixed(2)}</Td>
                                 <Td colSpan="2"></Td>
                             </Tr>
@@ -410,7 +413,8 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                         <tr>
                             <th>S.No</th>
                             <th>Patient Name</th>
-                            <th>OP.No / UHID</th>
+                            <th>UHID</th>
+                            <th>IP Number</th>
                             <th>Bill No</th>
                             <th>Bill Type</th>
                             <th style={{ textAlign: "right" }}>Bill Amount</th>
@@ -424,7 +428,8 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                                 <tr key={index}>
                                     <td>{index + 1}</td>
                                     <td>{bill.patient_details?.patient_name || "N/A"}</td>
-                                    <td>{bill.uhid}</td>
+                                    <td>{bill.uhid || "—"}</td>
+                                    <td>{bill.ip_number || bill.patient_details?.ip_number || bill.ipNumber || "—"}</td>
                                     <td>{bill.bill_no}</td>
                                     <td>{bill.payment_mode || "Cash"}</td>
                                     <td style={{ textAlign: "right" }}>₹{(bill.total_amount || 0).toFixed(2)}</td>
@@ -434,19 +439,19 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="8" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>
+                                <td colSpan="9" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>
                             </tr>
                         )}
                         {reportData.length > 0 && (
                             <>
                                 <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
-                                    <td colSpan="5" style={{ textAlign: "right" }}>Total Amount:</td>
+                                    <td colSpan="6" style={{ textAlign: "right" }}>Total Amount:</td>
                                     <td style={{ textAlign: "right" }}>₹{totals.amount.toFixed(2)}</td>
                                     <td style={{ textAlign: "right" }}>Total Discount:</td>
                                     <td style={{ textAlign: "right" }}>₹{totals.discount.toFixed(2)}</td>
                                 </tr>
                                 <tr style={{ fontWeight: "bold", background: "#e6e6e6" }}>
-                                    <td colSpan="5" style={{ textAlign: "right" }}>Grand Total:</td>
+                                    <td colSpan="6" style={{ textAlign: "right" }}>Grand Total:</td>
                                     <td style={{ textAlign: "right" }}>₹{totals.net.toFixed(2)}</td>
                                     <td colSpan="2"></td>
                                 </tr>
