@@ -169,9 +169,11 @@ const StatusBadge = styled.span`
           ? "#ffedd5"
           : status === "Sample Collected"
             ? "#e0f2fe"
-            : status === "Result Pending"
-              ? colors.secondary + "15"
-              : colors.textMuted + "10"};
+            : status === "Billed"
+              ? "#e0e7ff"
+              : status === "Result Pending"
+                ? colors.secondary + "15"
+                : colors.textMuted + "10"};
   color: ${({ status }) =>
     status === "Cancelled"
       ? "#b91c1c"
@@ -181,9 +183,11 @@ const StatusBadge = styled.span`
           ? "#c2410c"
           : status === "Sample Collected"
             ? "#0284c7"
-            : status === "Result Pending"
-              ? colors.secondary
-              : colors.textMuted};
+            : status === "Billed"
+              ? "#4338ca"
+              : status === "Result Pending"
+                ? colors.secondary
+                : colors.textMuted};
   border: 1px solid ${({ status }) =>
     status === "Cancelled"
       ? "#fca5a5"
@@ -193,7 +197,9 @@ const StatusBadge = styled.span`
           ? "#fed7aa"
           : status === "Sample Collected"
             ? "#7dd3fc"
-            : "currentColor"};
+            : status === "Billed"
+              ? "#c7d2fe"
+              : "currentColor"};
   border-radius: 20px;
   padding: 3px 10px;
   font-size: 0.72rem;
@@ -1635,7 +1641,26 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
                     </div>
                   </Td>
                   <Td>{req.userName}</Td>
-                  <Td>{req.billNo}</Td>
+                  <Td>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontWeight: 600 }}>{req.billNo}</span>
+                      {req.billSource && (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            fontSize: "0.68rem",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            background: req.billSource === "Estimate" ? "#fef3c7" : "#e0e7ff",
+                            color: req.billSource === "Estimate" ? "#b45309" : "#3730a3",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {req.billSource}
+                        </span>
+                      )}
+                    </div>
+                  </Td>
                   <Td>{req.billType}</Td>
                   <Td>{req.wardName}</Td>
                   <Td
@@ -1681,14 +1706,13 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
                               <Th>Bill Type</Th>
                               <Th>Price</Th>
                               <Th>Status</Th>
-                              <Th style={{ textAlign: "center" }}>Action</Th>
                             </Tr>
                           </thead>
                           <tbody>
                             {req.tests.length === 0 ? (
                               <Tr>
                                 <Td
-                                  colSpan={5}
+                                  colSpan={4}
                                   style={{ textAlign: "center", color: colors.textMuted }}
                                 >
                                   No tests found
@@ -1697,8 +1721,6 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
                             ) : (
                               req.tests.map((t, i) => {
                                 const itemStatus = t.status || req.status || "Result Pending";
-                                const isPending = itemStatus === "Result Pending" || itemStatus === "Pending";
-                                const isDone = itemStatus === "Completed" || itemStatus === "Result Entered";
                                 return (
                                   <Tr key={i}>
                                     <Td>
@@ -1720,39 +1742,6 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
                                       <StatusBadge status={itemStatus}>
                                         {itemStatus}
                                       </StatusBadge>
-                                    </Td>
-                                    <Td style={{ textAlign: "center" }}>
-                                      {isPending ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveIndividualTest(req.id, t)}
-                                          style={{
-                                            background: "#fee2e2",
-                                            border: "1px solid #fca5a5",
-                                            color: "#b91c1c",
-                                            cursor: "pointer",
-                                            fontSize: "0.75rem",
-                                            fontWeight: "700",
-                                            padding: "3px 9px",
-                                            borderRadius: "6px",
-                                            display: "inline-flex",
-                                            alignItems: "center",
-                                            gap: "4px",
-                                            transition: "all 0.15s"
-                                          }}
-                                          title={`Remove test ${t.name}`}
-                                        >
-                                          ✕ Remove
-                                        </button>
-                                      ) : isDone ? (
-                                        <span style={{ fontSize: "0.74rem", color: "#16a34a", fontWeight: "700" }}>
-                                          ✓ Completed
-                                        </span>
-                                      ) : (
-                                        <span style={{ fontSize: "0.74rem", color: "#64748b", fontWeight: "600" }}>
-                                          -
-                                        </span>
-                                      )}
                                     </Td>
                                   </Tr>
                                 );

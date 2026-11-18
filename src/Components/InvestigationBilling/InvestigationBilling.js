@@ -752,6 +752,15 @@ const InvestigationBilling = () => {
       itemsArray = data.item;
     }
 
+    // Normalize items to ensure itemName, price, quantity, status are well-formed
+    itemsArray = itemsArray.map((it) => ({
+      ...it,
+      itemName: it.itemName || it.name || it.test_name || "",
+      price: it.price !== undefined ? it.price : 0,
+      quantity: it.quantity || 1,
+      status: it.status || "Result Pending",
+    }));
+
     const resolvedBillName = data.bill_name || data.billType || "";
 
     setFormData({
@@ -779,6 +788,10 @@ const InvestigationBilling = () => {
       paymentStatus: "Pending",
       item: JSON.stringify(itemsArray),
       EstBillNo: data.EstBillNo || "",
+      roomNo: data.roomNo || "",
+      wardName: data.wardName || "",
+      is_ward_request: Boolean(data.is_ward_request),
+      ward_request_type: data.ward_request_type || "",
       customer_type: data.customer_type || "",
       company_name: data.company_name || "",
       company_code: data.company_code || "",
@@ -824,7 +837,7 @@ const InvestigationBilling = () => {
     if (bt) {
       const billTypeNo = bt.billTypeNo ?? bt.BillTypeNo ?? 0;
       handleBillTypeChange(bt.bill_name, bt.bill_type, billTypeNo,
-        bt.is_allowDiscount ?? true, true, bt.is_edit ?? false);
+        bt.is_allowDiscount ?? true, false, bt.is_edit ?? false);
     }
   }, [billTypes, location.state]); // eslint-disable-line
 
@@ -1218,6 +1231,9 @@ const InvestigationBilling = () => {
       age: formData.calculatedAge || formData.age || "",
       age_type: formData.ageType || "",
       roomNo: formData.roomNo || "",
+      wardName: formData.wardName || "",
+      is_ward_request: Boolean(formData.is_ward_request),
+      ward_request_type: formData.ward_request_type || "",
       ...getPatientIdentityFields(),
     };
 
@@ -1287,6 +1303,9 @@ const InvestigationBilling = () => {
       age: formData.calculatedAge || formData.age || "",
       age_type: formData.ageType || "",
       roomNo: formData.roomNo || "",
+      wardName: formData.wardName || "",
+      is_ward_request: Boolean(formData.is_ward_request),
+      ward_request_type: formData.ward_request_type || "",
       ...getPatientIdentityFields(),
       ...(isEditMode && formData.editRemarks
         ? { editRemarks: formData.editRemarks }
