@@ -412,6 +412,64 @@ export const AdmittedPatientSummaryCard = ({
               </MetricBox>
             </div>
           </PatientMetrics2Col>
+
+          {patient.totalAdvance !== undefined && (
+            <div style={{
+              marginTop: 10,
+              padding: "10px 14px",
+              background: "#f0fdfa",
+              border: "1px solid #99f6e4",
+              borderRadius: 8,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 12,
+            }}>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+                <div>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.03em", display: "block" }}>
+                    💳 Total Advance
+                  </span>
+                  <span style={{ fontSize: "1rem", fontWeight: 800, color: "#0f766e" }}>
+                    ₹{Number(patient.totalAdvance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div style={{ width: 1, height: 28, background: "#99f6e4" }} />
+                <div>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.03em", display: "block" }}>
+                    🧾 Total Final Bill
+                  </span>
+                  <span style={{ fontSize: "1rem", fontWeight: 800, color: "#1e40af" }}>
+                    ₹{Number(patient.finalBill || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div style={{ width: 1, height: 28, background: "#99f6e4" }} />
+                <div>
+                  <span style={{
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    color: (Number(patient.outstanding) || 0) > 0 ? "#b91c1c" : (Number(patient.outstanding) || 0) < 0 ? "#6b21a8" : "#15803d",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.03em",
+                    display: "block"
+                  }}>
+                    ⚖️ Outstanding (Bill − Adv)
+                  </span>
+                  <span style={{
+                    fontSize: "1rem",
+                    fontWeight: 800,
+                    color: (Number(patient.outstanding) || 0) > 0 ? "#dc2626" : (Number(patient.outstanding) || 0) < 0 ? "#7c3aed" : "#16a34a"
+                  }}>
+                    ₹{Number(Math.abs(patient.outstanding || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, marginLeft: 4 }}>
+                      {(Number(patient.outstanding) || 0) > 0 ? "(Due)" : (Number(patient.outstanding) || 0) < 0 ? "(Excess/Refund)" : "(Settled)"}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </PatientProfileCard>
       ) : (
         <PatientEmptyState>

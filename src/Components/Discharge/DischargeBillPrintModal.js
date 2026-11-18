@@ -491,6 +491,16 @@ const NormalBillSheet = ({
     });
   }
 
+  // Sort displayItems: 1. Consultation, 2. Investigation/Lab, 3. Medicine/Pharmacy, 4. Everything else
+  const itemSortOrder = (name) => {
+    const n = String(name || "").toUpperCase();
+    if (/CONSULT|DOCTOR|PHYSICIAN|SPECIALIST|INDOOR|OPD/.test(n)) return 1;
+    if (/INVEST|LAB|RADIOL|X-RAY|XRAY|CT SCAN|MRI|ULTRASOUND|USG|ECG|ECHO|BLOOD|BIOCHEM|URINE|TEST|PROFILE|PANEL|SCAN/.test(n)) return 2;
+    if (/MEDICINE|PHARMACY|DRUG|INJECT|CONSUMABLE|IV FLUID|TABLET|CAPSULE|SYRUP|SUTURE/.test(n)) return 4;
+    return 3;
+  };
+  displayItems.sort((a, b) => itemSortOrder(a.name) - itemSortOrder(b.name));
+
   const itemsSum = displayItems.reduce((acc, it) => acc + (it.amount || 0), 0);
   const totalAmt = Math.max(parseFloat(bill.total_amount) || 0, itemsSum);
   const advAmt = parseFloat(bill.advance_amount) || 0;
@@ -876,26 +886,48 @@ const InsuranceClaimSheet = ({
         : (Array.isArray(loadedMeds) ? loadedMeds : []))
     : [];
 
-  // Insurance view: always show ONE consolidated medicine row (no itemised breakdown)
-  const totalMedForIns = pharmacyMedicines.length > 0
-    ? pharmacyMedicines.reduce((s, m) => s + (parseFloat(m.amount || m.calculated_price || 0)), 0)
-    : medAmt;
-  // Remove any existing medicine rows (summary or detail) and replace with single row
-  groups["MEDICINE / PHARMACY CHARGES"] = groups["MEDICINE / PHARMACY CHARGES"].filter(
-    i => {
-      const n = String(i.itemName || "").toUpperCase();
-      return !n.startsWith("MEDICINE") && !n.startsWith("PHARMACY");
-    }
-  );
-  if (totalMedForIns > 0) {
-    groups["MEDICINE / PHARMACY CHARGES"].push({
-      itemName: "MEDICINE CHARGES",
-      nabh_code: "-",
-      doctor: "",
-      amount: totalMedForIns,
-      quantity: 1,
-      rate: totalMedForIns,
+  // Insurance view: consolidated or breakdown based on viewMode
+  const isInsBreakdown = viewMode === "INSURANCE_BREAKDOWN";
+  if (isInsBreakdown && pharmacyMedicines.length > 0) {
+    // INSURANCE BREAKDOWN: list each individual medicine
+    groups["MEDICINE / PHARMACY CHARGES"] = groups["MEDICINE / PHARMACY CHARGES"].filter(
+      i => {
+        const n = String(i.itemName || "").toUpperCase();
+        return !n.startsWith("MEDICINE") && !n.startsWith("PHARMACY");
+      }
+    );
+    pharmacyMedicines.forEach(med => {
+      groups["MEDICINE / PHARMACY CHARGES"].push({
+        itemName: String(med.itemName || med.item_name || med.name || "PHARMACY MEDICINE").toUpperCase(),
+        item_description: "",
+        nabh_code: "-",
+        doctor: "",
+        amount: parseFloat(med.amount || med.calculated_price || 0),
+        quantity: parseFloat(med.quantity || med.qty || 1),
+        rate: parseFloat(med.rate || med.price || 0),
+      });
     });
+  } else {
+    // INSURANCE (default): always show ONE consolidated medicine row (no itemised breakdown)
+    const totalMedForIns = pharmacyMedicines.length > 0
+      ? pharmacyMedicines.reduce((s, m) => s + (parseFloat(m.amount || m.calculated_price || 0)), 0)
+      : medAmt;
+    groups["MEDICINE / PHARMACY CHARGES"] = groups["MEDICINE / PHARMACY CHARGES"].filter(
+      i => {
+        const n = String(i.itemName || "").toUpperCase();
+        return !n.startsWith("MEDICINE") && !n.startsWith("PHARMACY");
+      }
+    );
+    if (totalMedForIns > 0) {
+      groups["MEDICINE / PHARMACY CHARGES"].push({
+        itemName: "MEDICINE CHARGES",
+        nabh_code: "-",
+        doctor: "",
+        amount: totalMedForIns,
+        quantity: 1,
+        rate: totalMedForIns,
+      });
+    }
   }
 
   const impAmt = parseFloat(bill.implant_amount) || 0;
@@ -1550,7 +1582,7 @@ export const PrintSheet = React.forwardRef(({
         }
       `}</style>
 
-      {viewMode === "INSURANCE_CLAIM" ? (
+      {(viewMode === "INSURANCE_CLAIM" || viewMode === "INSURANCE_BREAKDOWN") ? (
         <InsuranceClaimSheet
           bill={bill}
           insuranceFormat={insuranceFormat}
@@ -1605,7 +1637,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
 
   const handleSelectViewMode = (mode) => {
     setViewMode(mode);
-    if (mode === "INSURANCE_CLAIM") {
+    if (mode === "INSURANCE_CLAIM" || mode === "INSURANCE_BREAKDOWN") {
       setPaperSize("A4");
       setHeaderSpacerHeight(200);
     } else {
@@ -2041,14 +2073,24 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
                 📑 BREAKDOWN
               </HeadBtn>
               {(isInsurance || bill.is_insurance_bill || bill.insurance_bill_number) && (
-                <HeadBtn
-                  type="button"
-                  $active={viewMode === "INSURANCE_CLAIM"}
-                  onClick={() => handleSelectViewMode("INSURANCE_CLAIM")}
-                  title="NABH Insurance Claim Format - A4 format"
-                >
-                  🛡️ INSURANCE
-                </HeadBtn>
+                <>
+                  <HeadBtn
+                    type="button"
+                    $active={viewMode === "INSURANCE_CLAIM"}
+                    onClick={() => handleSelectViewMode("INSURANCE_CLAIM")}
+                    title="NABH Insurance Claim Format - consolidated medicine row - A4 format"
+                  >
+                    🛡️ INSURANCE
+                  </HeadBtn>
+                  <HeadBtn
+                    type="button"
+                    $active={viewMode === "INSURANCE_BREAKDOWN"}
+                    onClick={() => handleSelectViewMode("INSURANCE_BREAKDOWN")}
+                    title="NABH Insurance Claim Format with itemised medicine breakdown - A4 format"
+                  >
+                    📋 INS. BREAKDOWN
+                  </HeadBtn>
+                </>
               )}
             </div>
 
@@ -2132,8 +2174,8 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
               </div>
             )}
 
-            {/* ── NABH format toggle: shown when viewMode is INSURANCE_CLAIM ── */}
-            {viewMode === "INSURANCE_CLAIM" && (
+            {/* ── NABH format toggle: shown when viewMode is INSURANCE_CLAIM or INSURANCE_BREAKDOWN ── */}
+            {(viewMode === "INSURANCE_CLAIM" || viewMode === "INSURANCE_BREAKDOWN") && (
               <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
                 <HeadBtn
                   type="button"

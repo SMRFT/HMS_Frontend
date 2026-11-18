@@ -1338,15 +1338,6 @@ const FinancialGrid = ({ f, onChange, totals }) => {
           />
         </FinRow>
         <FinRow>
-          <FinLbl style={{ color: "#dc2626", fontWeight: 700 }}>📅 Discharge Date *</FinLbl>
-          <FinIn
-            type="date"
-            value={f.discharge_date || ""}
-            onChange={e => onChange("discharge_date", e.target.value)}
-            style={{ flex: 1, minWidth: 0, border: "1.5px solid #dc2626", borderRadius: 5, padding: "3px 7px", fontSize: "0.82rem", fontWeight: 600 }}
-          />
-        </FinRow>
-        <FinRow>
           <FinLbl>Remarks</FinLbl>
           <FinIn
             $align="left"
@@ -2919,7 +2910,7 @@ const DischargeBilling = () => {
                   </div>
 
                   <PatientMetrics2Col>
-                    {/* Left Column: Doctor & Admission Date */}
+                    {/* Left Column: Doctor & Admission Date & Discharge Date */}
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
                       <MetricBox>
                         <MetricLabel>👨‍⚕️ Attending Doctor</MetricLabel>
@@ -2928,6 +2919,20 @@ const DischargeBilling = () => {
                       <MetricBox>
                         <MetricLabel>📅 Admission Date</MetricLabel>
                         <MetricVal>{formatAdmissionDate(patient.admission_date)}</MetricVal>
+                      </MetricBox>
+                      <MetricBox>
+                        <MetricLabel style={{ color: "#dc2626", fontWeight: 700 }}>🏥 Discharge Date *</MetricLabel>
+                        <input
+                          type="date"
+                          value={form.discharge_date || ""}
+                          onChange={e => setForm("discharge_date", e.target.value)}
+                          style={{
+                            border: "1.5px solid #dc2626", borderRadius: 5,
+                            padding: "3px 8px", fontSize: "0.82rem", fontWeight: 700,
+                            color: "#dc2626", background: "#fff5f5", cursor: "pointer",
+                            outline: "none", width: "100%", marginTop: 2
+                          }}
+                        />
                       </MetricBox>
                     </div>
 

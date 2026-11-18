@@ -40,9 +40,10 @@ const NewAdmBtn = styled.button`
 // ─── Stat Cards ────────────────────────────────────────────────────────────────
 const StatStrip = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   width: 100%;
   border-bottom: 1px solid #e5e7eb;
+  @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); }
   @media (max-width: 768px) { grid-template-columns: 1fr; }
 `;
 const StatCard = styled.div`
@@ -2060,6 +2061,17 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const [regPage, setRegPage] = useState(1);
   const [regSort, setRegSort] = useState({ key: "uhid", direction: "desc" });
   const [todayRegCount, setTodayRegCount] = useState(0);
+  const [totalAdmittedCount, setTotalAdmittedCount] = useState(0);
+
+  const fetchTotalAdmittedCount = useCallback(async () => {
+    try {
+      const res = await apiRequest(`${API_ADMISSION_LIST}?status=Admitted`, "GET");
+      const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
+      setTotalAdmittedCount(res?.count ?? list.length);
+    } catch (e) {
+      console.warn("Failed to fetch total admitted count:", e);
+    }
+  }, [API_ADMISSION_LIST]);
 
   const handleResetFilters = () => {
     setFFrom(today);
@@ -2077,6 +2089,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       customer_type: "ALL",
       status: "All"
     });
+    fetchTotalAdmittedCount();
   };
 
   const handleSearchClick = () => {
@@ -2300,7 +2313,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     fetchCustomerTypes();
     fetchInsuranceProviders();
     fetchRegisteredPatients(today);
-  }, []);
+    fetchTotalAdmittedCount();
+  }, [fetchTotalAdmittedCount]);
 
   useEffect(() => {
     if (viewMode === "registered") {
@@ -2416,6 +2430,9 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       const res = await apiRequest(`${API_ADMISSION_LIST}${q}`, "GET");
       const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
       setAdmissions(list.map(normalizeAdm));
+      if (statVal === "Admitted" && !fromVal && !toVal) {
+        setTotalAdmittedCount(res?.count ?? list.length);
+      }
     } catch { setAdmissions([]); }
     finally { setLoading(false); }
   };
@@ -2677,6 +2694,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       is_high_risk: !!adm.is_high_risk,
       high_risk_reason: adm.high_risk_reason || "",
       high_risk_date: adm.high_risk_date ? String(adm.high_risk_date).slice(0, 10) : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+      is_discharged: Boolean(adm.is_discharged || getAdmStatus(adm) === "discharged"),
       room_details: safeParseList(adm.room_details),
       roomShitingDetails: safeParseList(adm.roomShitingDetails),
       edit_history: safeParseList(adm.edit_history),
@@ -3075,6 +3093,19 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     payload.append("customerType", cTypeUpper);
     payload.append("customer_type", cTypeUpper);
 
+    // If not Insurance, ensure insurance company and company code are stripped
+    if (cTypeUpper !== "INSURANCE") {
+      payload.set("company_code", "");
+      payload.set("insuranceCompanyName", "");
+      payload.set("insurance_company", "");
+    } else {
+      if (form.company_code) payload.set("company_code", form.company_code);
+      if (form.insuranceCompanyName) {
+        payload.set("insuranceCompanyName", form.insuranceCompanyName);
+        payload.set("insurance_company", form.insuranceCompanyName);
+      }
+    }
+
     if (saveAge !== undefined && saveAge !== null && saveAge !== "") {
       payload.append("age", saveAge);
       payload.append("age_type", saveAgeType);
@@ -3153,6 +3184,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
         closeForm();
         fetchAdmissions();
+        fetchTotalAdmittedCount();
         setPrintData(slipData);
         if (onSaved && typeof onSaved === "function") {
           onSaved(slipData);
@@ -3182,7 +3214,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         action: "cancel",
         cancelled_Reason: reason,
       });
-      if (res.success) { toast.success("Admission cancelled"); fetchAdmissions(); }
+      if (res.success) { toast.success("Admission cancelled"); fetchAdmissions(); fetchTotalAdmittedCount(); }
       else showInfo({ type: "error", title: "Cancel Failed", message: res.error || "Failed to cancel admission." });
     } catch { showInfo({ type: "error", title: "Error", message: "Failed to cancel admission. Please try again." }); }
   };
@@ -3694,6 +3726,16 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
               activeBorder: "#0d9488",
               activeColor: "#0f766e"
             },
+            {
+              id: "total_admissions",
+              label: "Total Admitted",
+              value: totalAdmittedCount,
+              icon: "🏥",
+              bg: "#faf5ff",
+              activeBg: "#f3e8ff",
+              activeBorder: "#9333ea",
+              activeColor: "#7e22ce"
+            },
           ].map((s, i) => {
             const isActive = s.id === "today_registered" ? viewMode === "registered" : activeStatFilter === s.id;
             return (
@@ -3707,13 +3749,30 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                   if (s.id === "today_registered") {
                     setViewMode(prev => prev === "registered" ? "table" : "registered");
                     if (formOpen) closeForm();
+                  } else if (s.id === "total_admissions") {
+                    if (viewMode === "registered") setViewMode("table");
+                    if (activeStatFilter === "total_admissions") {
+                      setActiveStatFilter(null);
+                      setPage(1);
+                      fetchAdmissions({ from_date: fFrom, to_date: fTo, doctor: fDoctor, customer_type: fCustomerType, status: fStatus });
+                    } else {
+                      setActiveStatFilter("total_admissions");
+                      setPage(1);
+                      fetchAdmissions({ from_date: "", to_date: "", doctor: "ALL", customer_type: "ALL", status: "Admitted" });
+                    }
                   } else {
                     if (viewMode === "registered") setViewMode("table");
-                    setActiveStatFilter(prev => prev === s.id ? null : s.id);
-                    setPage(1);
+                    if (activeStatFilter === s.id) {
+                      setActiveStatFilter(null);
+                      setPage(1);
+                      fetchAdmissions({ from_date: fFrom, to_date: fTo, doctor: fDoctor, customer_type: fCustomerType, status: fStatus });
+                    } else {
+                      setActiveStatFilter(s.id);
+                      setPage(1);
+                    }
                   }
                 }}
-                title={s.id === "today_registered" ? "Click to view today's registered patients & convert to admission" : `Click to filter table by ${s.label}`}
+                title={s.id === "today_registered" ? "Click to view today's registered patients & convert to admission" : s.id === "total_admissions" ? "Click to list all currently admitted patients till now" : `Click to filter table by ${s.label}`}
               >
                 <SIcon bg={s.bg}>{s.icon}</SIcon>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -3909,7 +3968,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       setForm(p => ({
                         ...p,
                         customerType: val,
-                        ...(val !== "INSURANCE" ? { insuranceCompanyName: "", company_code: "" } : {})
+                        ...(val !== "INSURANCE" ? { insuranceCompanyName: "", company_code: "", insurance_company: "" } : {})
                       }));
                     }}
                     options={[
@@ -4085,29 +4144,45 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                   />
                 </Field>
 
-                <SecDiv>Room &amp; Bed</SecDiv>
+                <SecDiv style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>Room &amp; Bed</span>
+                  {form.is_discharged && (
+                    <span style={{ fontSize: ".72rem", color: "#b91c1c", fontWeight: 700, background: "#fee2e2", padding: "2px 8px", borderRadius: 4 }}>
+                      🔒 Room Locked (Patient Discharged)
+                    </span>
+                  )}
+                </SecDiv>
                 <Field span={3}>
-                  <Lbl req>Room No.</Lbl>
+                  <Lbl req={!form.is_discharged}>Room No.{form.is_discharged && " (Locked)"}</Lbl>
                   <IRow>
                     <Inp
                       name="roomNo"
                       value={form.roomNo}
                       onChange={handleFormChange}
-                      placeholder="Click 🔍 to pick"
-                      style={errors.roomNo ? { borderColor: "#ef4444" } : {}}
+                      placeholder={form.is_discharged ? "Room locked" : "Click 🔍 to pick"}
+                      readOnly={Boolean(form.is_discharged)}
+                      style={{
+                        background: form.is_discharged ? "#f3f4f6" : "#fff",
+                        cursor: form.is_discharged ? "not-allowed" : "text",
+                        ...(errors.roomNo ? { borderColor: "#ef4444" } : {})
+                      }}
+                      title={form.is_discharged ? "Room cannot be changed for discharged patient" : ""}
                     />
-                    <IconBtn type="button" onClick={openRoomModal}>🔍</IconBtn>
+                    {!form.is_discharged && (
+                      <IconBtn type="button" onClick={openRoomModal} title="Pick Room">🔍</IconBtn>
+                    )}
                   </IRow>
                   {errors.roomNo && <FieldError>{errors.roomNo}</FieldError>}
                 </Field>
                 <Field span={3}>
-                  <Lbl req>Bed No.</Lbl>
+                  <Lbl req={!form.is_discharged}>Bed No.{form.is_discharged && " (Locked)"}</Lbl>
                   <Inp
                     name="bedNo"
                     value={form.bedNo}
                     readOnly
-                    style={{ background: "#f3f4f6", ...(errors.bedNo ? { borderColor: "#ef4444" } : {}) }}
+                    style={{ background: "#f3f4f6", cursor: form.is_discharged ? "not-allowed" : "default", ...(errors.bedNo ? { borderColor: "#ef4444" } : {}) }}
                     placeholder="Auto-filled"
+                    title={form.is_discharged ? "Bed cannot be changed for discharged patient" : ""}
                   />
                   {errors.bedNo && <FieldError>{errors.bedNo}</FieldError>}
                 </Field>
@@ -4339,11 +4414,26 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                 </TableSelect>
               </div>
               {activeStatFilter && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "3px 10px", borderRadius: 12, fontSize: ".72rem", color: "#166534" }}>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: activeStatFilter === "total_admissions" ? "#faf5ff" : "#f0fdf4",
+                  border: `1px solid ${activeStatFilter === "total_admissions" ? "#e9d5ff" : "#bbf7d0"}`,
+                  padding: "3px 10px", borderRadius: 12, fontSize: ".72rem",
+                  color: activeStatFilter === "total_admissions" ? "#7e22ce" : "#166534"
+                }}>
                   <span>Filtering: <strong>{
-                    activeStatFilter === "today_admissions" ? "Today Admissions" : "Today Discharges"
+                    activeStatFilter === "today_admissions" ? "Today Admissions" :
+                    activeStatFilter === "today_discharges" ? "Today Discharges" :
+                    activeStatFilter === "total_admissions" ? "Total Admitted Patients (Till Now)" : activeStatFilter
                   }</strong> ({filtered.length} records)</span>
-                  <button onClick={() => { setActiveStatFilter(null); setPage(1); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontWeight: 800, padding: "0 2px", fontSize: ".75rem" }} title="Clear Filter">✕</button>
+                  <button onClick={() => {
+                    const wasTotal = activeStatFilter === "total_admissions";
+                    setActiveStatFilter(null);
+                    setPage(1);
+                    if (wasTotal) {
+                      fetchAdmissions({ from_date: fFrom, to_date: fTo, doctor: fDoctor, customer_type: fCustomerType, status: fStatus });
+                    }
+                  }} style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontWeight: 800, padding: "0 2px", fontSize: ".75rem" }} title="Clear Filter">✕</button>
                 </div>
               )}
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
@@ -4392,7 +4482,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     <tr><Td colSpan={13} style={{ textAlign: "center", padding: 28, color: "#6b7280" }}>No admissions found</Td></tr>
                   ) : paginated.map((adm, idx) => {
                     const t = getAdmStatus(adm);
-                    const { roomNo, bedNo } = getAdmittedRoom(adm);
+                    const { roomNo, bedNo } = getActiveRoom(adm);
                     const rdCount = (Array.isArray(adm.room_details) && adm.room_details.length > 0) ? 1 : (adm.roomNo ? 1 : 0);
                     const shCount = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails.length : 0;
                     const totalCount = rdCount + shCount;
@@ -4557,9 +4647,9 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
             <DI onClick={() => { setOpenMenu(null); setViewModalAdm(adm); }}>
               👁️ View Details
             </DI>
-            <DI onClick={() => { if (isAdmitted) openEditForm(adm); }} disabled={!isAdmitted}
-              title={!isAdmitted ? `Cannot edit — admission is ${t}` : "Edit admission"}>
-              ✏️ Edit{!isAdmitted && <span style={{ fontSize: ".62rem", color: "#9ca3af", marginLeft: "auto" }}>({t})</span>}
+            <DI onClick={() => { if (!adm.is_cancelled) openEditForm(adm); }} disabled={adm.is_cancelled}
+              title={adm.is_cancelled ? `Cannot edit — admission is ${t}` : t === "discharged" ? "Edit admission (Discharged patient - room locked)" : "Edit admission"}>
+              ✏️ Edit{adm.is_cancelled ? <span style={{ fontSize: ".62rem", color: "#9ca3af", marginLeft: "auto" }}>({t})</span> : t === "discharged" ? <span style={{ fontSize: ".62rem", color: "#2563eb", marginLeft: "auto", fontWeight: 700 }}>(Discharged)</span> : null}
             </DI>
             <DI onClick={() => { setOpenMenu(null); setHistoryAdm(adm); }}>🏨 Room History</DI>
             {/* ── Room Shifting ── */}
