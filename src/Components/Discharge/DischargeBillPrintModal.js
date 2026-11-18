@@ -291,7 +291,7 @@ const formatDoctor = (pd, doctorsMap = {}) => {
 };
 
 const formatDepartment = (pd, bill) => {
-  const dept = pd.department || bill.department || "GYNEACOLOGY";
+  const dept = pd.department || bill.department || "PULMONOLOGY"
   return String(dept).toUpperCase();
 };
 
@@ -411,8 +411,8 @@ const NormalBillSheet = ({
   });
   const pharmacyMedicines = (medAmt > 0 || hasMedItemInBill)
     ? ((Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
-        ? bill.pharmacy_medicines
-        : (Array.isArray(loadedMeds) ? loadedMeds : []))
+      ? bill.pharmacy_medicines
+      : (Array.isArray(loadedMeds) ? loadedMeds : []))
     : [];
 
   const totalMedsSum = pharmacyMedicines.reduce(
@@ -882,8 +882,8 @@ const InsuranceClaimSheet = ({
   });
   const pharmacyMedicines = (medAmt > 0 || hasMedItemInBill)
     ? ((Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
-        ? bill.pharmacy_medicines
-        : (Array.isArray(loadedMeds) ? loadedMeds : []))
+      ? bill.pharmacy_medicines
+      : (Array.isArray(loadedMeds) ? loadedMeds : []))
     : [];
 
   // Insurance view: consolidated or breakdown based on viewMode
@@ -1695,7 +1695,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             setLoadedMeds(meds);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [bill]);
 
@@ -1809,7 +1809,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
       const isA5 = paperSize === "A5";
       let iframe = document.getElementById("discharge-print-iframe");
       if (iframe) {
-        try { document.body.removeChild(iframe); } catch {}
+        try { document.body.removeChild(iframe); } catch { }
       }
 
       iframe = document.createElement("iframe");
@@ -2023,11 +2023,11 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
     const element = printRef.current;
     const isA5 = paperSize === "A5";
     const opt = {
-      margin:       isA5 ? [0.12, 0.15, 0.12, 0.15] : [0.2, 0.25, 0.2, 0.25],
-      filename:     `Bill_${(bill.insurance_bill_number || bill.bill_no || "DischargeBill").replace(/\//g, "_")}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, logging: false },
-      jsPDF:        { unit: 'in', format: isA5 ? 'a5' : 'a4', orientation: 'portrait' }
+      margin: isA5 ? [0.12, 0.15, 0.12, 0.15] : [0.2, 0.25, 0.2, 0.25],
+      filename: `Bill_${(bill.insurance_bill_number || bill.bill_no || "DischargeBill").replace(/\//g, "_")}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'in', format: isA5 ? 'a5' : 'a4', orientation: 'portrait' }
     };
     if (window.html2pdf) {
       window.html2pdf().set(opt).from(element).save();

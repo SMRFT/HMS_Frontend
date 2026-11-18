@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
-import { Search, Plus, X, ChevronDown } from "lucide-react";
+import { Search, Plus, X, ChevronDown, Loader2 } from "lucide-react";
+
+const spinAnimation = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const SpinningLoader = styled(Loader2)`
+  animation: ${spinAnimation} 1s linear infinite;
+`;
 
 // --- Color Palette matching the screenshot ---
 // ─── Color palette (mirrors Radiology/Lab pattern) ──────────────────────
@@ -960,6 +969,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
   const toggleRow = (id) => setExpandedRow((prev) => (prev === id ? null : id));
 
@@ -1025,6 +1035,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     const safeUhid = resolvedPatient.uhid && resolvedPatient.uhid !== "-" ? resolvedPatient.uhid : "";
     if (!safeUhid) return;
     try {
+      setLoading(true);
       const url = `${HmsBaseUrl}get_medicine_ward_requests/?uhid=${encodeURIComponent(safeUhid)}${safeIp ? `&ipNumber=${encodeURIComponent(safeIp)}` : ""}`;
       const res = await apiRequest(url, "GET");
       if (res.success) {
@@ -1033,6 +1044,8 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       }
     } catch (e) {
       console.error("Error fetching requests:", e);
+    } finally {
+      setLoading(false);
     }
   }, [HmsBaseUrl, resolvedPatient.uhid, resolvedPatient.ipNo]);
 
@@ -1460,8 +1473,10 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
   };
 
   const handleConfirm = async () => {
+    if (isSubmitting) return;
     if (selectedMedicines.length === 0) return alert("No medicines added.");
 
+    setIsSubmitting(true);
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
@@ -1506,14 +1521,21 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       if (res.success) {
         setSelectedMedicines([]);
         setIsDischarge(false);
+        setShowForm(false);
+        setEditingRequest(null);
         fetchRequests();
         const goBack = window.confirm("Ward Request saved successfully!\n\nDo you want to return to the Actions Menu?");
         if (goBack && onBack) {
           onBack();
         }
+      } else {
+        alert("Failed to save ward request: " + (res.error || res.data?.message || "Unknown error"));
       }
     } catch (e) {
       console.error("Save error", e);
+      alert("An error occurred while saving the request.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -2192,10 +2214,17 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                   </div>
                 ) : (
                   <AddBtn
-                    style={{ width: "100%", padding: "8px", height: "34px" }}
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      height: "34px",
+                      opacity: isSubmitting ? 0.65 : 1,
+                      cursor: isSubmitting ? "not-allowed" : "pointer",
+                    }}
                     onClick={handleConfirm}
+                    disabled={isSubmitting}
                   >
-                    Confirm Request
+                    {isSubmitting ? "Submitting..." : "Confirm Request"}
                   </AddBtn>
                 )}
               </SidePanelFooter>
@@ -2231,17 +2260,34 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
               </tr>
             </thead>
             <tbody>
-              {requests.length === 0 ? (
+              {loading ? (
                 <tr>
                   <td
                     colSpan="8"
                     style={{
                       textAlign: "center",
-                      padding: "30px",
-                      color: colors.textMuted,
+                      padding: "40px",
+                      color: colors.primary,
                     }}
                   >
-                    No request history found.
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontWeight: 600 }}>
+                      <SpinningLoader size={18} />
+                      <span>Loading medicine requests...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : requests.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan="8"
+                    style={{
+                      textAlign: "center",
+                      padding: "40px",
+                      color: colors.textMuted,
+                      fontWeight: 500,
+                    }}
+                  >
+                    No medicine requests found.
                   </td>
                 </tr>
               ) : (

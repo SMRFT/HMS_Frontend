@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
+import { Loader2 } from "lucide-react";
 import {
   colors,
   PageWrapper,
@@ -19,6 +20,15 @@ import {
   ModalHeader,
   CloseButton
 } from "../GlobalStyles";
+
+const spinAnimation = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const SpinningLoader = styled(Loader2)`
+  animation: ${spinAnimation} 1s linear infinite;
+`;
 
 // ─── Patient Info Panel ───────────────────────────────────────────────────────
 const PatientPanel = styled.div`
@@ -836,6 +846,7 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
   const [search, setSearch] = useState("");
   const [showUpTo, setShowUpTo] = useState("10");
   const [requests, setRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
 
   // Request form state
   const [doctor, setDoctor] = useState("");
@@ -1055,6 +1066,7 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
       return;
     }
     try {
+      setRequestsLoading(true);
       console.log(`Fetching lab requests for UHID: ${uhid}, IP: ${ipNo}`);
       const res = await apiRequest(
         `${HmsBaseUrl}get_lab_ward_requests/?uhid=${uhid}&ipNumber=${ipNo}`,
@@ -1068,6 +1080,8 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
       }
     } catch (error) {
       console.error("Lab Request API Error", error);
+    } finally {
+      setRequestsLoading(false);
     }
   };
 
@@ -1628,7 +1642,23 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
             </Tr>
           </thead>
           <tbody>
-            {Array.isArray(filteredRequests) && filteredRequests.map((req) => (
+            {requestsLoading ? (
+              <Tr>
+                <Td colSpan="8" style={{ textAlign: "center", padding: "40px", color: colors.primary }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontWeight: 600 }}>
+                    <SpinningLoader size={18} />
+                    <span>Loading lab requests...</span>
+                  </div>
+                </Td>
+              </Tr>
+            ) : (!filteredRequests || filteredRequests.length === 0) ? (
+              <Tr>
+                <Td colSpan="8" style={{ textAlign: "center", padding: "40px", color: colors.textMuted, fontWeight: 500 }}>
+                  No lab requests found
+                </Td>
+              </Tr>
+            ) : (
+              Array.isArray(filteredRequests) && filteredRequests.map((req) => (
               <React.Fragment key={req.id}>
                 <Tr>
                   <Td>
@@ -1764,7 +1794,7 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
                   </Tr>
                 )}
               </React.Fragment>
-            ))}
+            )))}
           </tbody>
         </Table>
       </TableWrapper>
