@@ -2195,11 +2195,15 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                   <span style={{ color: "#222" }}>Room</span><span>:</span><span>{printBill.room_no || printBill.room || printBill.roomNo}</span>
                                 </>
                               )}
-                              {(printBill.insurance_name || printBill.insurance_company) && (
-                                <>
-                                  <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{printBill.insurance_name || printBill.insurance_company}</span>
-                                </>
-                              )}
+                              {(() => {
+                                const ins = printBill.insurance_name || printBill.insurance_company;
+                                if (!ins || ["general", "cash", "self"].includes(String(ins).trim().toLowerCase())) return null;
+                                return (
+                                  <>
+                                    <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{ins}</span>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         </>
@@ -2219,21 +2223,22 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, margin: "2px 0" }}>
                         <thead>
                           <tr style={{ borderTop: "1px solid #111" }}>
-                            <th rowSpan={2} style={{ textAlign: "left", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5, width: 180 }}>Particulars</th>
-                            <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>HSN Code</th>
-                            <th rowSpan={2} style={{ width: 75, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
-                            <th rowSpan={2} style={{ width: 60, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
+                            <th rowSpan={2} style={{ textAlign: "left", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5, width: 170 }}>Particulars</th>
+                            <th rowSpan={2} style={{ width: 65, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>HSN Code</th>
+                            <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
+                            <th rowSpan={2} style={{ width: 55, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
                             <th rowSpan={2} style={{ width: 35, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Qty</th>
                             <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Rate</th>
                             <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>CGST</th>
                             <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>SGST</th>
-                            <th rowSpan={2} style={{ width: 70, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amount</th>
+                            <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Disc Amt</th>
+                            <th rowSpan={2} style={{ width: 68, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amount</th>
                           </tr>
                           <tr style={{ borderBottom: "1px solid #111" }}>
-                            <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
-                            <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
-                            <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
-                            <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
+                            <th style={{ width: 28, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
+                            <th style={{ width: 42, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
+                            <th style={{ width: 28, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
+                            <th style={{ width: 42, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
                           </tr>
                         </thead>
                         <tbody style={{ borderBottom: "1px solid #111" }}>
@@ -2247,9 +2252,12 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               const sgstPct  = pricing.sgstRate;
                               const cgstAmt  = pricing.cgstAmt;
                               const sgstAmt  = pricing.sgstAmt;
+                              const itemDiscAmt = pricing.totalDiscountOnMrp > 0
+                                ? pricing.totalDiscountOnMrp.toFixed(2)
+                                : (Number(med.discount_amount || 0) > 0 ? Number(med.discount_amount).toFixed(2) : "0.00");
                               return (
                                 <tr key={i}>
-                                  <td style={{ padding: "2.5px 4px", fontWeight: 500, maxWidth: 185, wordBreak: "break-word", lineHeight: 1.25 }}>
+                                  <td style={{ padding: "2.5px 4px", fontWeight: 500, maxWidth: 170, wordBreak: "break-word", lineHeight: 1.25 }}>
                                     <div>{(med.item_name && med.item_name.trim()) || (med.medicine_name && med.medicine_name.trim()) || (med.name && med.name.trim()) || `Item #${med.item_id || i + 1}`}</div>
                                     {med.dosage && (
                                       <div style={{ fontSize: 9.5, color: "#166534", fontWeight: 600 }}>
@@ -2266,13 +2274,14 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                   <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{cgstAmt.toFixed(2)}</td>
                                   <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{sgstPct}</td>
                                   <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{sgstAmt.toFixed(2)}</td>
+                                  <td style={{ padding: "2.5px 4px", textAlign: "right", whiteSpace: "nowrap", fontWeight: 600 }}>{itemDiscAmt}</td>
                                   <td style={{ padding: "2.5px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{amt.toFixed(2)}</td>
                                 </tr>
                               );
                             })
                           ) : (
                             <tr>
-                              <td colSpan={11} style={{ textAlign: "center", color: "#999", padding: "6px" }}>No medicine details available</td>
+                              <td colSpan={12} style={{ textAlign: "center", color: "#999", padding: "6px" }}>No medicine details available</td>
                             </tr>
                           )}
                         </tbody>
@@ -2300,6 +2309,8 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             }, 0);
 
                             const explicitNet = Number(printBill.net_amount || 0);
+                            const overallDiscAmt = Number(printBill.overall_discount_amount || 0);
+                            const itemDiscAmt = Number(printBill.total_item_discount || computedItemDisc || 0);
                             const explicitDisc = Number(
                               printBill.overall_discount_amount ||
                               printBill.discount_amount ||
@@ -2311,9 +2322,16 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             );
                             const previewNet = explicitNet > 0 ? explicitNet : Math.max(0, previewGross - explicitDisc);
                             const previewDisc = Math.max(0, explicitDisc);
-                            const previewPct = previewGross > 0 ? (previewDisc / previewGross) * 100 : 0;
-                            const previewPctLabel = previewPct > 0
-                              ? ` (${previewPct % 1 === 0 ? previewPct.toFixed(0) : previewPct.toFixed(2).replace(/\.?0+$/, "")}%)`
+                            const totalItemDiscPct = (allMeds || []).reduce((sum, m) => {
+                              const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
+                              return sum + (isNaN(dVal) ? 0 : dVal);
+                            }, 0);
+                            const overallDiscPct = (String(printBill.overall_discount_type || "").toLowerCase() === "percent")
+                              ? (parseFloat(printBill.overall_discount_value || 0) || 0)
+                              : 0;
+                            const totalDiscPct = totalItemDiscPct + overallDiscPct;
+                            const totalPctLabel = totalDiscPct > 0
+                              ? ` (${totalDiscPct % 1 === 0 ? totalDiscPct.toFixed(0) : totalDiscPct.toFixed(2).replace(/\.?0+$/, "")}%)`
                               : "";
 
                             const totalCgst = (allMeds || []).reduce((sum, m) => {
@@ -2357,14 +2375,43 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                         {formatBillCurrency(previewGross)}
                                       </td>
                                     </tr>
-                                    <tr>
-                                      <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
-                                        {previewDisc > 0 ? `Discount Amt${previewPctLabel}:` : "Discount :"}
-                                      </td>
-                                      <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
-                                        {formatBillCurrency(previewDisc || 0)}
-                                      </td>
-                                    </tr>
+                                    {itemDiscAmt > 0 && overallDiscAmt > 0 ? (
+                                      <>
+                                        <tr>
+                                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                            Item Disc Amt{totalItemDiscPct > 0 ? ` (${totalItemDiscPct % 1 === 0 ? totalItemDiscPct.toFixed(0) : totalItemDiscPct.toFixed(2).replace(/\.?0+$/, "")}%):` : " :"}
+                                          </td>
+                                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                            {formatBillCurrency(itemDiscAmt)}
+                                          </td>
+                                        </tr>
+                                        <tr>
+                                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                            Overall Disc Amt{overallDiscPct > 0 ? ` (${overallDiscPct % 1 === 0 ? overallDiscPct.toFixed(0) : overallDiscPct.toFixed(2).replace(/\.?0+$/, "")}%):` : " :"}
+                                          </td>
+                                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                            {formatBillCurrency(overallDiscAmt)}
+                                          </td>
+                                        </tr>
+                                        <tr>
+                                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                            Total Discount{totalPctLabel}:
+                                          </td>
+                                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                            {formatBillCurrency(previewDisc || 0)}
+                                          </td>
+                                        </tr>
+                                      </>
+                                    ) : (
+                                      <tr>
+                                        <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                          {previewDisc > 0 ? `Discount Amt${totalPctLabel}:` : "Discount :"}
+                                        </td>
+                                        <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                          {formatBillCurrency(previewDisc || 0)}
+                                        </td>
+                                      </tr>
+                                    )}
                                     <tr>
                                       <td style={{ padding: "2.5px 12px 2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" }}>Net Amount (Payable) :</td>
                                       <td style={{ padding: "2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, minWidth: 72 }}>

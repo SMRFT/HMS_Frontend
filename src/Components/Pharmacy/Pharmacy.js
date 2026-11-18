@@ -990,7 +990,10 @@ const buildPrintBillHtml = (data) => {
 
   const inpatientNo = inpatientNumber || inpatient_number || (data && (data.ipNumber || data.ip_number)) || "";
   const resolvedRoom = roomNo || (data && (data.room || data.room_no)) || "";
-  const resolvedInsurance = insuranceName || insurance_company || (data && (data.insurance_name || data.customer_type)) || "";
+  const rawIns = insuranceName || insurance_company || (data && data.insurance_name) || "";
+  const resolvedInsurance = (rawIns && !["general", "cash", "self"].includes(rawIns.toLowerCase()))
+    ? rawIns
+    : ((data && String(data.customer_type || "").toLowerCase() === "insurance") ? "INSURANCE" : "");
 
   const resolvedPaymentMode = String(
     (data && (data.payment_mode || data.paymentMode || data.payment_method)) ||
@@ -1076,10 +1079,16 @@ const buildPrintBillHtml = (data) => {
     Number(data?.discount || 0)
   );
 
-  // Show percentage label ONLY if explicit overall percentage discount was given
-  const isOverallPercent = overallDiscountType === "percent" && parseFloat(overallDiscountValue || 0) > 0;
-  const pctLabel = isOverallPercent
-    ? ` (${parseFloat(overallDiscountValue)}%)`
+  const totalItemDiscPct = (medicines || []).reduce((sum, m) => {
+    const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
+    return sum + (isNaN(dVal) ? 0 : dVal);
+  }, 0);
+  const overallDiscPct = (overallDiscountType === "percent")
+    ? (parseFloat(overallDiscountValue || 0) || 0)
+    : 0;
+  const totalDiscPct = totalItemDiscPct + overallDiscPct;
+  const pctLabel = totalDiscPct > 0
+    ? ` (${totalDiscPct % 1 === 0 ? totalDiscPct.toFixed(0) : totalDiscPct.toFixed(2).replace(/\.?0+$/, "")}%)`
     : "";
 
   const medicinePages = chunkMedicinesForPrint(medicines);
@@ -1088,10 +1097,13 @@ const buildPrintBillHtml = (data) => {
   const renderMedicineRow = (m) => {
     const pricing = calculateMedicinePricing(m);
     const rate = pricing.mrp;
+    const itemDiscAmt = pricing.totalDiscountOnMrp > 0
+      ? pricing.totalDiscountOnMrp.toFixed(2)
+      : (Number(m.discount_amount || 0) > 0 ? Number(m.discount_amount).toFixed(2) : "0.00");
 
     return `
       <tr>
-        <td style="font-weight: 500; text-align: left; padding: 2.5px 4px; max-width: 185px; word-break: break-word; line-height: 1.25;">${m.name || m.item_name || "—"}</td>
+        <td style="font-weight: 500; text-align: left; padding: 2.5px 4px; max-width: 170px; word-break: break-word; line-height: 1.25;">${m.name || m.item_name || "—"}</td>
         <td style="text-align: center; padding: 2.5px 3px; white-space: nowrap;">${m.hsn_code || "—"}</td>
         <td style="text-align: center; padding: 2.5px 3px; white-space: nowrap;">${m.batch_number || m.batch || "—"}</td>
         <td style="text-align: center; padding: 2.5px 3px; white-space: nowrap;">${formatExpiryDate(m.expiry_date || m.expiry)}</td>
@@ -1101,6 +1113,7 @@ const buildPrintBillHtml = (data) => {
         <td style="text-align: right; padding: 2.5px 3px; white-space: nowrap;">${pricing.cgstAmt.toFixed(2)}</td>
         <td style="text-align: center; padding: 2.5px 3px;">${pricing.sgstRate}</td>
         <td style="text-align: right; padding: 2.5px 3px; white-space: nowrap;">${pricing.sgstAmt.toFixed(2)}</td>
+        <td style="text-align: right; padding: 2.5px 4px; white-space: nowrap; font-weight: 600;">${itemDiscAmt}</td>
         <td style="text-align: right; font-weight: 700; color: #111; padding: 2.5px 4px; white-space: nowrap;">${pricing.lineTotal.toFixed(2)}</td>
       </tr>
     `;
@@ -1187,21 +1200,22 @@ const buildPrintBillHtml = (data) => {
       <table class="bill-table">
         <thead>
           <tr style="border-top: 1px solid #111;">
-            <th rowspan="2" style="text-align: left; padding: 3px 4px; width: 180px;">Particulars</th>
-            <th rowspan="2" style="width: 70px; text-align: center; padding: 3px;">HSN Code</th>
-            <th rowspan="2" style="width: 75px; text-align: center; padding: 3px;">Batch</th>
-            <th rowspan="2" style="width: 60px; text-align: center; padding: 3px;">Expiry</th>
+            <th rowspan="2" style="text-align: left; padding: 3px 4px; width: 170px;">Particulars</th>
+            <th rowspan="2" style="width: 65px; text-align: center; padding: 3px;">HSN Code</th>
+            <th rowspan="2" style="width: 70px; text-align: center; padding: 3px;">Batch</th>
+            <th rowspan="2" style="width: 55px; text-align: center; padding: 3px;">Expiry</th>
             <th rowspan="2" style="width: 35px; text-align: center; padding: 3px;">Qty</th>
             <th rowspan="2" style="width: 55px; text-align: right; padding: 3px 4px;">Rate</th>
             <th colspan="2" style="text-align: center; padding: 2px 3px; border-bottom: 1px solid #888;">CGST</th>
             <th colspan="2" style="text-align: center; padding: 2px 3px; border-bottom: 1px solid #888;">SGST</th>
-            <th rowspan="2" style="width: 70px; text-align: right; padding: 3px 4px;">Amount</th>
+            <th rowspan="2" style="width: 55px; text-align: right; padding: 3px 4px;">Disc Amt</th>
+            <th rowspan="2" style="width: 68px; text-align: right; padding: 3px 4px;">Amount</th>
           </tr>
           <tr style="border-bottom: 1px solid #111;">
-            <th style="width: 30px; text-align: center; padding: 2px 3px;">%</th>
-            <th style="width: 45px; text-align: right; padding: 2px 3px;">Amt</th>
-            <th style="width: 30px; text-align: center; padding: 2px 3px;">%</th>
-            <th style="width: 45px; text-align: right; padding: 2px 3px;">Amt</th>
+            <th style="width: 28px; text-align: center; padding: 2px 3px;">%</th>
+            <th style="width: 42px; text-align: right; padding: 2px 3px;">Amt</th>
+            <th style="width: 28px; text-align: center; padding: 2px 3px;">%</th>
+            <th style="width: 42px; text-align: right; padding: 2px 3px;">Amt</th>
           </tr>
         </thead>
         <tbody style="border-bottom: 1px solid #111;">
@@ -1239,12 +1253,27 @@ const buildPrintBillHtml = (data) => {
               <td style="padding: 1.5px 12px 1.5px 0; text-align: right; font-weight: 700; white-space: nowrap;">Total :</td>
               <td style="padding: 1.5px 0; text-align: right; font-weight: 700; min-width: 72px;">${formatCurrency(grossTotal)}</td>
             </tr>
+            ${itemDiscountSum > 0 && overallDiscAmt > 0 ? `
+            <tr>
+              <td style="padding: 1.5px 12px 1.5px 0; text-align: right; font-weight: 700; white-space: nowrap;">Item Disc Amt${totalItemDiscPct > 0 ? ` (${totalItemDiscPct % 1 === 0 ? totalItemDiscPct.toFixed(0) : totalItemDiscPct.toFixed(2).replace(/\.?0+$/, "")}%):` : " :"}</td>
+              <td style="padding: 1.5px 0; text-align: right; font-weight: 700; min-width: 72px;">${formatCurrency(itemDiscountSum)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 1.5px 12px 1.5px 0; text-align: right; font-weight: 700; white-space: nowrap;">Overall Disc Amt${overallDiscPct > 0 ? ` (${overallDiscPct % 1 === 0 ? overallDiscPct.toFixed(0) : overallDiscPct.toFixed(2).replace(/\.?0+$/, "")}%):` : " :"}</td>
+              <td style="padding: 1.5px 0; text-align: right; font-weight: 700; min-width: 72px;">${formatCurrency(overallDiscAmt)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 1.5px 12px 1.5px 0; text-align: right; font-weight: 700; white-space: nowrap;">Total Discount${pctLabel}:</td>
+              <td style="padding: 1.5px 0; text-align: right; font-weight: 700; min-width: 72px;">${formatCurrency(totalDiscount || 0)}</td>
+            </tr>
+            ` : `
             <tr>
               <td style="padding: 1.5px 12px 1.5px 0; text-align: right; font-weight: 700; white-space: nowrap;">
                 ${totalDiscount > 0 ? `Discount Amt${pctLabel}:` : "Discount :"}
               </td>
               <td style="padding: 1.5px 0; text-align: right; font-weight: 700; min-width: 72px;">${formatCurrency(totalDiscount || 0)}</td>
             </tr>
+            `}
             <tr>
               <td style="padding: 2.5px 12px 2.5px 0; text-align: right; font-weight: 800; font-size: 12.5px; white-space: nowrap;">Net Amount (Payable) :</td>
               <td style="padding: 2.5px 0; text-align: right; font-weight: 800; font-size: 12.5px; min-width: 72px;">${formatCurrency(netAmount)}</td>
@@ -3316,7 +3345,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             discount_type:    pricing.discType,
             discount_value:   pricing.discVal,
             discount_percent: "%",
-            discount_amount:  pricing.discAmtOnBase,
+            discount_amount:  pricing.totalDiscountOnMrp,
             total:            pricing.lineTotal,
             dosage:           m.dosage       || "",
             noOfDays:         m.noOfDays     || m.no_of_days || "",
@@ -3426,7 +3455,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             cashierId:            formData.cashier_id || "",
             roomNo:               formData.roomNo || admissionRoomNo || "",
             inpatientNumber:      formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
-            insuranceName:        insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : patientType) || "",
+            insuranceName:        insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "",
             billTypeName:         formData.billTypeName || "OP Pharmacy",
             medicines:            [...addedMedicines],
             totalAmount:          updatedTotalAmount,
@@ -3536,7 +3565,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           discount_type: pricing.discType,
           discount_value: pricing.discVal,
           discount_percent: "%",
-          discount_amount: pricing.discAmtOnBase,
+          discount_amount: pricing.totalDiscountOnMrp,
           discount: pricing.discVal,
           total: pricing.lineTotal,
         };
@@ -3733,7 +3762,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             cashierId: formData.cashier_id || "",
             roomNo: formData.roomNo || admissionRoomNo || "",
             inpatientNumber: formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
-            insuranceName: insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : patientType) || "",
+            insuranceName: insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "",
             billTypeName: formData.billTypeName || "OP Pharmacy",
             medicines: [...addedMedicines],
             totalAmount: grossTotalAmount,
@@ -4765,7 +4794,7 @@ const loadedMedicines = rawMeds.map((item) => {
       doctorName:           docName,
       roomNo:               formData.roomNo || admissionRoomNo || "",
       inpatientNumber:      formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
-      insuranceName:        insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : patientType) || "",
+      insuranceName:        insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "",
       isDuplicate:          true,
       billTypeName:         formData.billTypeName || "OP Pharmacy",
       paymentMode:          selectedPaymentMode || "Cash",
@@ -6870,11 +6899,15 @@ const loadedMedicines = rawMeds.map((item) => {
                                       <span style={{ color: "#222" }}>Room</span><span>:</span><span>{printBillData.roomNo || printBillData.room || printBillData.room_no}</span>
                                     </>
                                   )}
-                                  {(printBillData.insuranceName || printBillData.insurance_company || printBillData.insurance_name) && (
-                                    <>
-                                      <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{printBillData.insuranceName || printBillData.insurance_company || printBillData.insurance_name}</span>
-                                    </>
-                                  )}
+                                  {(() => {
+                                    const ins = printBillData.insuranceName || printBillData.insurance_company || printBillData.insurance_name;
+                                    if (!ins || ["general", "cash", "self"].includes(String(ins).trim().toLowerCase())) return null;
+                                    return (
+                                      <>
+                                        <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{ins}</span>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </>
@@ -6894,30 +6927,34 @@ const loadedMedicines = rawMeds.map((item) => {
                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, margin: "2px 0" }}>
                             <thead>
                               <tr style={{ borderTop: "1px solid #111" }}>
-                                <th rowSpan={2} style={{ textAlign: "left", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5, width: 180 }}>Particulars</th>
-                                <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>HSN Code</th>
-                                <th rowSpan={2} style={{ width: 75, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
-                                <th rowSpan={2} style={{ width: 60, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
+                                <th rowSpan={2} style={{ textAlign: "left", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5, width: 170 }}>Particulars</th>
+                                <th rowSpan={2} style={{ width: 65, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>HSN Code</th>
+                                <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
+                                <th rowSpan={2} style={{ width: 55, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
                                 <th rowSpan={2} style={{ width: 35, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Qty</th>
                                 <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Rate</th>
                                 <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>CGST</th>
                                 <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>SGST</th>
-                                <th rowSpan={2} style={{ width: 70, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amount</th>
+                                <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Disc Amt</th>
+                                <th rowSpan={2} style={{ width: 68, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amount</th>
                               </tr>
                               <tr style={{ borderBottom: "1px solid #111" }}>
-                                <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
-                                <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
-                                <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
-                                <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
+                                <th style={{ width: 28, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
+                                <th style={{ width: 42, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
+                                <th style={{ width: 28, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
+                                <th style={{ width: 42, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
                               </tr>
                             </thead>
                             <tbody style={{ borderBottom: "1px solid #111" }}>
                               {pageMeds.map((m, i) => {
                                 const pricing = calculateMedicinePricing(m);
                                 const rate = pricing.mrp;
+                                const itemDiscAmt = pricing.totalDiscountOnMrp > 0
+                                  ? pricing.totalDiscountOnMrp.toFixed(2)
+                                  : (Number(m.discount_amount || 0) > 0 ? Number(m.discount_amount).toFixed(2) : "0.00");
                                 return (
                                   <tr key={i}>
-                                    <td style={{ padding: "2.5px 4px", fontWeight: 500, maxWidth: 185, wordBreak: "break-word", lineHeight: 1.25 }}>{m.name || m.item_name || "—"}</td>
+                                    <td style={{ padding: "2.5px 4px", fontWeight: 500, maxWidth: 170, wordBreak: "break-word", lineHeight: 1.25 }}>{m.name || m.item_name || "—"}</td>
                                     <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.hsn_code || "—"}</td>
                                     <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.batch_number || m.batch || "—"}</td>
                                     <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryDate(m.expiry_date || m.expiry)}</td>
@@ -6927,6 +6964,7 @@ const loadedMedicines = rawMeds.map((item) => {
                                     <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{pricing.cgstAmt.toFixed(2)}</td>
                                     <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{pricing.sgstRate}</td>
                                     <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{pricing.sgstAmt.toFixed(2)}</td>
+                                    <td style={{ padding: "2.5px 4px", textAlign: "right", whiteSpace: "nowrap", fontWeight: 600 }}>{itemDiscAmt}</td>
                                     <td style={{ padding: "2.5px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{pricing.lineTotal.toFixed(2)}</td>
                                   </tr>
                                 );
@@ -6969,9 +7007,16 @@ const loadedMedicines = rawMeds.map((item) => {
                                   Number(printBillData.discount || 0)
                                 );
 
-                                const isPreviewOverallPct = printBillData.overallDiscountType === "percent" && parseFloat(printBillData.overallDiscountValue || 0) > 0;
-                                const previewPctLabel = isPreviewOverallPct
-                                  ? ` (${parseFloat(printBillData.overallDiscountValue)}%)`
+                                const previewItemDiscPct = (printBillData.medicines || []).reduce((sum, m) => {
+                                  const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
+                                  return sum + (isNaN(dVal) ? 0 : dVal);
+                                }, 0);
+                                const previewOverallDiscPct = (printBillData.overallDiscountType === "percent")
+                                  ? (parseFloat(printBillData.overallDiscountValue || 0) || 0)
+                                  : 0;
+                                const previewTotalDiscPct = previewItemDiscPct + previewOverallDiscPct;
+                                const previewPctLabel = previewTotalDiscPct > 0
+                                  ? ` (${previewTotalDiscPct % 1 === 0 ? previewTotalDiscPct.toFixed(0) : previewTotalDiscPct.toFixed(2).replace(/\.?0+$/, "")}%)`
                                   : "";
 
                                 const previewCgst = (printBillData.medicines || []).reduce((sum, m) => {
@@ -7019,14 +7064,41 @@ const loadedMedicines = rawMeds.map((item) => {
                                             {previewGross.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                           </td>
                                         </tr>
-                                        <tr>
-                                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
-                                            {previewTotalDisc > 0 ? `Discount Amt${previewPctLabel}:` : "Discount :"}
-                                          </td>
-                                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
-                                            {previewTotalDisc.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                          </td>
-                                        </tr>
+                                        {itemDiscSum > 0 && previewOverallDisc > 0 ? (
+                                          <>
+                                            <tr>
+                                              <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                                Item Disc Amt{previewItemDiscPct > 0 ? ` (${previewItemDiscPct % 1 === 0 ? previewItemDiscPct.toFixed(0) : previewItemDiscPct.toFixed(2).replace(/\.?0+$/, "")}%):` : " :"}
+                                              </td>
+                                              <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                                {itemDiscSum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                                Overall Disc Amt{previewOverallDiscPct > 0 ? ` (${previewOverallDiscPct % 1 === 0 ? previewOverallDiscPct.toFixed(0) : previewOverallDiscPct.toFixed(2).replace(/\.?0+$/, "")}%):` : " :"}
+                                              </td>
+                                              <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                                {previewOverallDisc.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>Total Discount{previewPctLabel}:</td>
+                                              <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                                {previewTotalDisc.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                              </td>
+                                            </tr>
+                                          </>
+                                        ) : (
+                                          <tr>
+                                            <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                              {previewTotalDisc > 0 ? `Discount Amt${previewPctLabel}:` : "Discount :"}
+                                            </td>
+                                            <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                              {previewTotalDisc.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </td>
+                                          </tr>
+                                        )}
                                         <tr>
                                           <td style={{ padding: "2.5px 12px 2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" }}>Net Amount (Payable) :</td>
                                           <td style={{ padding: "2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, minWidth: 72 }}>
