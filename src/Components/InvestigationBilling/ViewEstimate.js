@@ -177,8 +177,8 @@ const searchableSelectStyles = {
     backgroundColor: state.isSelected
       ? colors.primary
       : state.isFocused
-      ? "#f0fdfa"
-      : "transparent",
+        ? "#f0fdfa"
+        : "transparent",
     color: state.isSelected ? "#ffffff" : colors.textMain,
     cursor: "pointer",
   }),
