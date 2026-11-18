@@ -1690,19 +1690,28 @@ const DropdownItem = styled.li`
 const getBillKey = (patient) =>
   `bill-${patient?.Bill_id ?? patient?.bill_id ?? patient?.uhid}`;
 
-// Safely extracts YYYY-MM-DD from ISO datetime or local string
+const ensureUtcIso = (iso) => {
+  if (!iso) return iso;
+  let s = String(iso).trim();
+  if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
+  if (s && s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
+    return s + "Z";
+  }
+  return s;
+};
+
+// Safely extracts YYYY-MM-DD from ISO datetime or local string (in Asia/Kolkata timezone)
 const extractWardDate = (dateVal) => {
   if (!dateVal) return "";
-  if (typeof dateVal === "string" && dateVal.includes("T")) {
-    return dateVal.split("T")[0];
-  }
   try {
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("en-CA");
+    const d = new Date(ensureUtcIso(dateVal));
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    }
   } catch {
-    return "";
+    // fallback
   }
+  return String(dateVal).split("T")[0];
 };
 
 // Returns Selling_Price in place of Unit Price, with fallbacks to price and mrp
@@ -1839,20 +1848,11 @@ const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) 
 const formatBillDateTime = (val) => {
   if (!val || val === "—" || val === "N/A") return "—";
   try {
-    let s = String(val).trim();
-    if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
-    if (s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) s += "Z";
-    const d = new Date(s);
+    const d = new Date(ensureUtcIso(val));
     if (isNaN(d.getTime())) return String(val);
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    const hours24 = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    const seconds = String(d.getSeconds()).padStart(2, "0");
-    const ampm = hours24 >= 12 ? "PM" : "AM";
-    const hours12 = String(hours24 % 12 || 12).padStart(2, "0");
-    return `${day}/${month}/${year} ${hours12}:${minutes}:${seconds} ${ampm}`;
+    const datePart = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
+    const timePart = d.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).toUpperCase();
+    return `${datePart} ${timePart}`;
   } catch (e) {
     return String(val);
   }
@@ -1885,16 +1885,16 @@ const getUnitPrice = (item) => {
 
 // --------- MAIN COMPONENT ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeTab, selectedOutlet }) => {
-  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
+  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }), []);
   const yesterdayStr = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
-    return d.toLocaleDateString("en-CA");
+    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   }, []);
   const last7Str = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() - 6);
-    return d.toLocaleDateString("en-CA");
+    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   }, []);
 
   const [medicineData, setMedicineData]       = useState([]);
@@ -1921,18 +1921,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const formatDateTime = (dateVal) => {
     if (!dateVal) return "—";
     try {
-      const d = new Date(dateVal);
+      const d = new Date(ensureUtcIso(dateVal));
       if (isNaN(d.getTime())) return String(dateVal);
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      let hours = d.getHours();
-      const minutes = String(d.getMinutes()).padStart(2, "0");
-      const ampm = hours >= 12 ? "pm" : "am";
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      const strHours = String(hours).padStart(2, "0");
-      return `${day}/${month}/${year} • ${strHours}:${minutes} ${ampm}`;
+      const datePart = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
+      const timePart = d.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase();
+      return `${datePart} • ${timePart}`;
     } catch {
       return String(dateVal);
     }
@@ -1941,12 +1934,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const formatDateOnly = (dateVal) => {
     if (!dateVal) return "—";
     try {
-      const d = new Date(dateVal);
+      const d = new Date(ensureUtcIso(dateVal));
       if (isNaN(d.getTime())) return String(dateVal);
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      return `${day}/${month}/${year}`;
+      return d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
     } catch {
       return String(dateVal);
     }
@@ -1955,15 +1945,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const formatTimeOnly = (dateVal) => {
     if (!dateVal) return "";
     try {
-      const d = new Date(dateVal);
+      const d = new Date(ensureUtcIso(dateVal));
       if (isNaN(d.getTime())) return "";
-      let hours = d.getHours();
-      const minutes = String(d.getMinutes()).padStart(2, "0");
-      const ampm = hours >= 12 ? "pm" : "am";
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      const strHours = String(hours).padStart(2, "0");
-      return `${strHours}:${minutes} ${ampm}`;
+      return d.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase();
     } catch {
       return "";
     }

@@ -1488,7 +1488,9 @@ export default function CentralCashCounter() {
     return rows;
   };
 
-  const netAmount = selectedBill?.total || 0;
+  const rawNetVal = parseFloat(selectedBill?.total ?? selectedBill?.amount ?? 0);
+  const isRefundBill = rawNetVal < 0 || selectedBill?.is_refund || selectedBill?.source === "ReturnBill";
+  const netAmount = isRefundBill ? Math.abs(rawNetVal) : rawNetVal;
 
   const paidAmount =
     (selectedMethods.cash ? parseFloat(payments.cash) || 0 : 0) +
@@ -1505,7 +1507,9 @@ export default function CentralCashCounter() {
       ? { ...bill, source: "ReturnBill" }
       : bill;
     setSelectedBill(enrichedBill);
-    const totalAmt = parseFloat(bill?.total || 0);
+    const rawVal = parseFloat(bill?.total ?? bill?.amount ?? 0);
+    const isRefund = rawVal < 0 || bill?.is_refund || enrichedBill?.source === "ReturnBill";
+    const totalAmt = isRefund ? Math.abs(rawVal) : Math.max(rawVal, 0);
     setIsMultipleMode(false);
     setSelectedMethods({ cash: true, card: false, cheque: false, credit: false });
     setPayments({
@@ -1683,6 +1687,9 @@ export default function CentralCashCounter() {
           Bill_id: item.raw?.patient_id || null,
           uhid: item.uhid || item.raw?.uhid || "-",
           source: item.type === "Discharge" ? "IP" : "OP",
+          customer_type: item.customer_type || item.raw?.customer_type || "",
+          is_mhc: Boolean(item.is_mhc || item.raw?.is_mhc || String(item.customer_type || item.raw?.customer_type || "").toLowerCase().includes("mhc")),
+          sub_text: item.sub_text || item.raw?.sub_text || (String(item.customer_type || item.raw?.customer_type || "").toLowerCase().includes("mhc") ? "MHC" : ""),
         };
       });
 
@@ -1756,6 +1763,9 @@ export default function CentralCashCounter() {
           Bill_id: item.raw?.patient_id || null,
           uhid: item.uhid || item.raw?.uhid || "-",
           source: item.type === "Discharge" ? "IP" : "OP",
+          customer_type: item.customer_type || item.raw?.customer_type || "",
+          is_mhc: Boolean(item.is_mhc || item.raw?.is_mhc || String(item.customer_type || item.raw?.customer_type || "").toLowerCase().includes("mhc")),
+          sub_text: item.sub_text || item.raw?.sub_text || (String(item.customer_type || item.raw?.customer_type || "").toLowerCase().includes("mhc") ? "MHC" : ""),
         };
       });
 
@@ -1822,6 +1832,9 @@ export default function CentralCashCounter() {
             Bill_id: item.raw?.patient_id || null,
             uhid: item.uhid || item.raw?.uhid || "-",
             source: item.type === "Discharge" ? "IP" : "OP",
+            customer_type: item.customer_type || item.raw?.customer_type || "",
+            is_mhc: Boolean(item.is_mhc || item.raw?.is_mhc || String(item.customer_type || item.raw?.customer_type || "").toLowerCase().includes("mhc")),
+            sub_text: item.sub_text || item.raw?.sub_text || (String(item.customer_type || item.raw?.customer_type || "").toLowerCase().includes("mhc") ? "MHC" : ""),
           };
         });
 
@@ -3608,7 +3621,21 @@ export default function CentralCashCounter() {
                             ) : (
                               <>
                                 <TableCell>{bill.bill_no}</TableCell>
-                                <TableCell>{bill.bill_type}</TableCell>
+                                <TableCell>
+                                  <div>{bill.bill_type}</div>
+                                  {(bill.is_mhc || bill.sub_text === "MHC" || String(bill.customer_type || bill.raw?.customer_type || "").toLowerCase().includes("mhc")) && (
+                                    <div style={{
+                                      fontSize: "10.5px",
+                                      fontWeight: 700,
+                                      color: "#0f766e",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                      marginTop: "2px"
+                                    }}>
+                                      MHC
+                                    </div>
+                                  )}
+                                </TableCell>
                                 <TableCell>{bill.uhid_no}</TableCell>
                                 <TableCell style={{ maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis" }} title={bill.patient}>
                                   {bill.patient}
@@ -3701,37 +3728,50 @@ export default function CentralCashCounter() {
                             )}
 
                             <TableCell center>
-                              {(selectedType === "pending" || selectedType === "unpaid") && (
-                                <button
-                                  title="Collect Payment"
-                                  onClick={() => openPaymentModal(bill)}
-                                  style={{
-                                    background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
-                                    color: "#ffffff",
-                                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                                    padding: "5px 12px",
-                                    borderRadius: "8px",
-                                    cursor: "pointer",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "5px",
-                                    boxShadow: "0 2px 6px rgba(15, 118, 110, 0.28)",
-                                    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    whiteSpace: "nowrap"
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = "translateY(-1px)";
-                                    e.currentTarget.style.boxShadow = "0 4px 10px rgba(15, 118, 110, 0.35)";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = "none";
-                                    e.currentTarget.style.boxShadow = "0 2px 6px rgba(15, 118, 110, 0.28)";
-                                  }}
-                                >
-                                  <CreditCard size={13} />
-                                  <span style={{ fontSize: "11.5px", fontWeight: 650, letterSpacing: "0.01em" }}>Collect</span>
-                                </button>
-                              )}
+                              {(selectedType === "pending" || selectedType === "unpaid") && (() => {
+                                const isBillRefund = bill.is_refund || (parseFloat(bill.total || bill.amount || 0) < 0);
+                                return (
+                                  <button
+                                    title={isBillRefund ? "Refund Payment" : "Collect Payment"}
+                                    onClick={() => openPaymentModal(bill)}
+                                    style={{
+                                      background: isBillRefund
+                                        ? "linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)"
+                                        : "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+                                      color: "#ffffff",
+                                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                                      padding: "5px 12px",
+                                      borderRadius: "8px",
+                                      cursor: "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "5px",
+                                      boxShadow: isBillRefund
+                                        ? "0 2px 6px rgba(185, 28, 28, 0.28)"
+                                        : "0 2px 6px rgba(15, 118, 110, 0.28)",
+                                      transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      whiteSpace: "nowrap"
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.transform = "translateY(-1px)";
+                                      e.currentTarget.style.boxShadow = isBillRefund
+                                        ? "0 4px 10px rgba(185, 28, 28, 0.35)"
+                                        : "0 4px 10px rgba(15, 118, 110, 0.35)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.transform = "none";
+                                      e.currentTarget.style.boxShadow = isBillRefund
+                                        ? "0 2px 6px rgba(185, 28, 28, 0.28)"
+                                        : "0 2px 6px rgba(15, 118, 110, 0.28)";
+                                    }}
+                                  >
+                                    <CreditCard size={13} />
+                                    <span style={{ fontSize: "11.5px", fontWeight: 650, letterSpacing: "0.01em" }}>
+                                      {isBillRefund ? "Refund Payment" : "Collect"}
+                                    </span>
+                                  </button>
+                                );
+                              })()}
                             </TableCell>
                           </tr>
                         ))
@@ -3820,7 +3860,7 @@ export default function CentralCashCounter() {
           <ModalContainer style={{ maxWidth: 600 }}>
             <ModalHeader>
               <ModalTitle>
-                {selectedBill?.source === "ReturnBill" ? "💰 Process Refund" : "💳 Collect Payment"}
+                {selectedBill?.source === "ReturnBill" || isRefundBill ? "💰 Process Refund" : "💳 Collect Payment"}
               </ModalTitle>
               <CloseButton onClick={() => setShowPaymentModal(false)}>✕</CloseButton>
             </ModalHeader>
@@ -3881,14 +3921,19 @@ export default function CentralCashCounter() {
                     </BillInfoItem>
                     <BillInfoItem>
                       <BillInfoLabel>Bill Type</BillInfoLabel>
-                      <BillInfoValue>{selectedBill.bill_type}</BillInfoValue>
+                      <BillInfoValue>
+                        {selectedBill.bill_type}
+                        {(selectedBill.is_mhc || selectedBill.sub_text === "MHC" || String(selectedBill.customer_type || "").toLowerCase().includes("mhc")) && (
+                          <span style={{ fontSize: "11px", fontWeight: 700, color: "#0f766e", marginLeft: "6px" }}>(MHC)</span>
+                        )}
+                      </BillInfoValue>
                     </BillInfoItem>
                   </>
                 )}
               </BillInfoCard>
 
-              <NetAmountBanner>
-                <span>{selectedBill?.source === "ReturnBill" ? "Return Amount" : "Net Amount"}</span>
+              <NetAmountBanner style={isRefundBill ? { background: "linear-gradient(135deg, #b91c1c, #991b1b)" } : {}}>
+                <span>{selectedBill?.source === "ReturnBill" ? "Return Amount" : (isRefundBill ? "Refund Amount" : "Net Amount")}</span>
                 <span>₹ {netAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </NetAmountBanner>
 
@@ -4115,15 +4160,15 @@ export default function CentralCashCounter() {
 
               <SummaryCard>
                 <SummaryRow>
-                  <span>Net Amount</span>
+                  <span>{isRefundBill ? "Refund Amount" : "Net Amount"}</span>
                   <span>₹ {netAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </SummaryRow>
                 <SummaryRow>
-                  <span>Paid Amount</span>
+                  <span>{isRefundBill ? "Amount to Refund" : "Paid Amount"}</span>
                   <span>₹ {paidAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </SummaryRow>
                 <SummaryRow bold separator highlight={balance === 0} danger={balance !== 0}>
-                  <span>{balance > 0 ? "Pending Amount" : balance < 0 ? "Excess Amount" : "Balance"}</span>
+                  <span>{balance > 0 ? (isRefundBill ? "Pending Refund" : "Pending Amount") : balance < 0 ? (isRefundBill ? "Excess Refund" : "Excess Amount") : "Balance"}</span>
                   <span>₹ {Math.abs(balance).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </SummaryRow>
               </SummaryCard>
@@ -4217,10 +4262,11 @@ export default function CentralCashCounter() {
               <SaveButton
                 disabled={paidAmount === 0 || Math.abs(paidAmount - netAmount) > 0.01 || isSavingPayment}
                 onClick={selectedBill?.source === "ReturnBill" ? submitReturnPayment : submitPayment}
+                style={isRefundBill ? { background: "linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)" } : {}}
               >
                 {isSavingPayment
-                  ? "Saving Payment..."
-                  : (selectedBill?.source === "ReturnBill" ? "Process Refund" : "Save Payment")
+                  ? (isRefundBill ? "Processing Refund..." : "Saving Payment...")
+                  : (selectedBill?.source === "ReturnBill" || isRefundBill ? "Process Refund" : "Save Payment")
                 }
               </SaveButton>
             </ModalFooterBar>
