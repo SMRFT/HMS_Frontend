@@ -876,29 +876,25 @@ const InsuranceClaimSheet = ({
         : (Array.isArray(loadedMeds) ? loadedMeds : []))
     : [];
 
-  if (pharmacyMedicines.length > 0) {
-    groups["MEDICINE / PHARMACY CHARGES"] = groups["MEDICINE / PHARMACY CHARGES"].filter(
-      i => !String(i.itemName || "").toUpperCase().startsWith("MEDICINE CHARGES") && !String(i.itemName || "").toUpperCase().startsWith("PHARMACY MEDICINE CHARGES")
-    );
-    pharmacyMedicines.forEach(med => {
-      groups["MEDICINE / PHARMACY CHARGES"].push({
-        itemName: String(med.itemName || med.item_name || med.name || "PHARMACY MEDICINE").toUpperCase(),
-        item_description: "",
-        nabh_code: "-",
-        doctor: "",
-        amount: parseFloat(med.amount || med.calculated_price || 0),
-        quantity: parseFloat(med.quantity || med.qty || 1),
-        rate: parseFloat(med.rate || med.price || 0),
-      });
-    });
-  } else if (medAmt > 0 && groups["MEDICINE / PHARMACY CHARGES"].length === 0) {
+  // Insurance view: always show ONE consolidated medicine row (no itemised breakdown)
+  const totalMedForIns = pharmacyMedicines.length > 0
+    ? pharmacyMedicines.reduce((s, m) => s + (parseFloat(m.amount || m.calculated_price || 0)), 0)
+    : medAmt;
+  // Remove any existing medicine rows (summary or detail) and replace with single row
+  groups["MEDICINE / PHARMACY CHARGES"] = groups["MEDICINE / PHARMACY CHARGES"].filter(
+    i => {
+      const n = String(i.itemName || "").toUpperCase();
+      return !n.startsWith("MEDICINE") && !n.startsWith("PHARMACY");
+    }
+  );
+  if (totalMedForIns > 0) {
     groups["MEDICINE / PHARMACY CHARGES"].push({
-      itemName: "PHARMACY MEDICINE CHARGES",
+      itemName: "MEDICINE CHARGES",
       nabh_code: "-",
       doctor: "",
-      amount: medAmt,
+      amount: totalMedForIns,
       quantity: 1,
-      rate: medAmt
+      rate: totalMedForIns,
     });
   }
 
