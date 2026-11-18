@@ -2301,7 +2301,8 @@ const Summary = () => {
     let text = "INVESTIGATIONS:\n";
     selectedInvestigations.forEach((inv, idx) => {
       if (idx > 0) text += "\n---------------------\n";
-      text += `${inv.reportType}: \n${inv.investigation || "No details available"}\n\nImpression: \n${inv.impression || "No impression available"}\n`;
+      const dateLabel = inv.date ? ` (Date: ${formatDisplayDate(inv.date)})` : "";
+      text += `${inv.reportType}${dateLabel}: \n${inv.investigation || "No details available"}\n\nImpression: \n${inv.impression || "No impression available"}\n`;
     });
     if (formData.currentField === "INVESTIGATIONS") {
       setFormData((prev) => ({
@@ -4954,7 +4955,7 @@ const Summary = () => {
                   </button>
                 )}
                 <button style={S.outBtn(T.teal)} onClick={fetchInvestigations}>
-                  <Plus size={14} /> + Investigations
+                  <Plus size={14} /> + Add Radiology Investigation
                 </button>
                 <button style={S.outBtn(T.sky)} onClick={fetchMedicines}>
                   <Pill size={14} /> + Admission Meds
@@ -5057,6 +5058,11 @@ const Summary = () => {
                           >
                             <strong style={{ fontSize: 13, color: T.teal }}>
                               {inv.reportType}
+                              {inv.date && (
+                                <span style={{ color: T.muted, fontWeight: 600, marginLeft: 8 }}>
+                                  · {formatDisplayDate(inv.date)}
+                                </span>
+                              )}
                             </strong>
                             {!inv.is_approved && (
                               <span
