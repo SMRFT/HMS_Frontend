@@ -256,6 +256,159 @@ const ActionRow = styled.div`
   align-items: center;
   flex-wrap: nowrap;
 `;
+// ─── Actions eye button + sticky Actions column ───────────────────────────────
+
+const ActionsEyeBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1.5px solid #99f6e4;
+  background: rgba(13, 148, 136, 0.08);
+  color: #0f766e;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+  &:hover {
+    transform: scale(1.1);
+    background: rgba(13, 148, 136, 0.16);
+  }
+`;
+
+const EyeSVG = ({ size = 17 }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const StickyActionsTh = styled(Th)`
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+`;
+
+const StickyActionsTd = styled(Td)`
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: white;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+`;
+
+// ─── Actions modal ────────────────────────────────────────────────────────────
+
+const ActionsModalCard = styled.div`
+  background: white;
+  width: 640px;
+  max-width: 95vw;
+  max-height: 90vh;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+  animation: ${fadeIn} 0.25s ease;
+`;
+
+const ActionsModalBody = styled.div`
+  padding: 1.1rem 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+`;
+
+const ActionsInfoCard = styled.div`
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+`;
+
+const ActionsInfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.6rem 1rem;
+  font-size: 0.8rem;
+  margin-top: 0.6rem;
+`;
+
+const InfoLabel = styled.span`
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+`;
+
+const ActionsSectionLabel = styled.div`
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.65rem;
+`;
+
+const ActionsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+`;
+
+const ActionTile = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  text-align: left;
+  border: 1.5px solid ${(p) => p.$border};
+  background: ${(p) => p.$bg};
+  color: ${(p) => p.$color};
+  cursor: ${(p) => (p.disabled ? "not-allowed" : "pointer")};
+  opacity: ${(p) => (p.disabled ? 0.6 : 1)};
+  transition: transform 0.15s;
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+`;
+
+const ActionTileIcon = styled.div`
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  background: ${(p) => p.$bg};
+`;
+
+const ActionsModalFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+`;
 
 const IconBtn = styled.button`
   position: relative;
@@ -434,6 +587,7 @@ const MHCList = () => {
   const [printDetails, setPrintDetails] = useState(null);
   const [printSignature, setPrintSignature] = useState(null);
   const [loadingPrint, setLoadingPrint] = useState(false);
+  const [actionsRow, setActionsRow] = useState(null);
 
   const barcodeRef = useRef(null);
   const reqSeqRef = useRef(0);
@@ -1002,21 +1156,21 @@ const MHCList = () => {
                   <thead>
                     <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
                       ${item.parameter
-                        .map(
-                          (p) =>
-                            `<th style="background-color: #1e3a8a !important; color: #ffffff !important; padding: 4px 6px; text-align: center; font-weight: 800; border: 1px solid #cbd5e1; font-size: 9.5px;">${p.pm_name}</th>`,
-                        )
-                        .join("")}
+                .map(
+                  (p) =>
+                    `<th style="background-color: #1e3a8a !important; color: #ffffff !important; padding: 4px 6px; text-align: center; font-weight: 800; border: 1px solid #cbd5e1; font-size: 9.5px;">${p.pm_name}</th>`,
+                )
+                .join("")}
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       ${item.parameter
-                        .map(
-                          (p) =>
-                            `<td style="padding: 4px 6px; text-align: center; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; background: #ffffff; font-size: 9.5px;">${getVal("previous_medical_history", item.test_code, p.pm_code) || "-"}</td>`,
-                        )
-                        .join("")}
+                .map(
+                  (p) =>
+                    `<td style="padding: 4px 6px; text-align: center; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; background: #ffffff; font-size: 9.5px;">${getVal("previous_medical_history", item.test_code, p.pm_code) || "-"}</td>`,
+                )
+                .join("")}
                     </tr>
                   </tbody>
                 </table>
@@ -1031,11 +1185,11 @@ const MHCList = () => {
                   <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-bottom: 2px;">${item.test_name}:</div>
                   <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                     ${selectedOpts
-                      .map(
-                        (c) =>
-                          `<span style="background: #f0fdfa; border: 1px solid #0d9488; color: #0f766e; padding: 1px 6px; border-radius: 10px; font-size: 9.5px; font-weight: 700;">✓ ${c}</span>`,
-                      )
-                      .join("")}
+                  .map(
+                    (c) =>
+                      `<span style="background: #f0fdfa; border: 1px solid #0d9488; color: #0f766e; padding: 1px 6px; border-radius: 10px; font-size: 9.5px; font-weight: 700;">✓ ${c}</span>`,
+                  )
+                  .join("")}
                   </div>
                 </div>
               `;
@@ -1081,15 +1235,15 @@ const MHCList = () => {
               </thead>
               <tbody>
                 ${physItems
-                  .map(
-                    (it) => `
+            .map(
+              (it) => `
                   <tr>
                     <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3.5px 6px; border: 1px solid #cbd5e1; width: 30%; font-size: 10px;">${it.test_name}</td>
                     <td style="background: #ffffff; color: #0f172a; padding: 3.5px 6px; border: 1px solid #cbd5e1; width: 70%; font-size: 10px;">${getVal("physical_examination", it.test_code) || "-"}</td>
                   </tr>
                 `,
-                  )
-                  .join("")}
+            )
+            .join("")}
               </tbody>
             </table>
           </div>
@@ -1326,11 +1480,10 @@ const MHCList = () => {
             Report Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
           </div>
           <div style="text-align: center; min-width: 180px;">
-            ${
-              signatureData?.signatureBase64
-                ? `<img src="data:image/png;base64,${signatureData.signatureBase64}" style="max-height: 36px; max-width: 130px; object-fit: contain; margin-bottom: 2px;" />`
-                : `<div style="height: 25px;"></div>`
-            }
+            ${signatureData?.signatureBase64
+          ? `<img src="data:image/png;base64,${signatureData.signatureBase64}" style="max-height: 36px; max-width: 130px; object-fit: contain; margin-bottom: 2px;" />`
+          : `<div style="height: 25px;"></div>`
+        }
             <div style="border-top: 1.5px solid #0f172a; width: 100%; padding-top: 2px;">
               <strong style="font-size: 10px; color: #0f172a; display: block;">
                 ${signatureData?.employeeName || row.doctorName || row.doctor || "Consultant Physician"}
@@ -1338,11 +1491,10 @@ const MHCList = () => {
               <div style="font-size: 8.5px; color: #475569; margin-top: 1px;">
                 ${signatureData?.designation || "Consultant Physician / MHC"}
               </div>
-              ${
-                signatureData?.registrationNumber
-                  ? `<div style="font-size: 8px; color: #64748b; margin-top: 1px;">Reg. No: ${signatureData.registrationNumber}</div>`
-                  : ""
-              }
+              ${signatureData?.registrationNumber
+          ? `<div style="font-size: 8px; color: #64748b; margin-top: 1px;">Reg. No: ${signatureData.registrationNumber}</div>`
+          : ""
+        }
             </div>
           </div>
         </div>
@@ -1846,7 +1998,7 @@ const MHCList = () => {
                     <Th>Payment</Th>
                     <Th>Next Due Date</Th>
                     <Th>Report Status</Th>
-                    <Th style={{ textAlign: "center" }}>Actions</Th>
+                    <StickyActionsTh>Actions</StickyActionsTh>
                   </tr>
                 </thead>
                 <tbody>
@@ -1977,106 +2129,15 @@ const MHCList = () => {
                             </Badge>
                           )}
                         </Td>
-                        <Td style={{ textAlign: "center" }}>
-                          <ActionRow style={{ justifyContent: "center" }}>
-                            {!hasReport && !row.patientIn_DateTime && (
-                              <IconBtn
-                                onClick={() => isPaymentValid && handlePatientCheckIn(row)}
-                                disabled={!isPaymentValid}
-                                data-tip={!isPaymentValid ? "Payment Pending" : "Check-in Patient"}
-                              >
-                                ✓
-                              </IconBtn>
-                            )}
-                            <IconBtn
-                              onClick={() => !hasReport && !isApproved && isPaymentValid && handleNavigateToForm(row)}
-                              disabled={hasReport || isApproved || !isPaymentValid}
-                              data-tip={
-                                !isPaymentValid
-                                  ? "Payment Pending"
-                                  : hasReport
-                                  ? "Report Already Saved"
-                                  : isApproved
-                                  ? "Already Approved"
-                                  : "Go to Report"
-                              }
-                            >
-                              📋
-                            </IconBtn>
-                            <IconBtn
-                              onClick={() => handleOpenPrint(row)}
-                              disabled={!hasReport}
-                              data-tip="Preview Report"
-                            >
-                              👁
-                            </IconBtn>
-                            <IconBtn
-                              onClick={() => handleApproveReport(row)}
-                              disabled={!hasReport || isApproved}
-                              data-tip={
-                                isApproved
-                                  ? "Already Approved"
-                                  : "Approve Report"
-                              }
-                            >
-                              ✅
-                            </IconBtn>
-                            <IconBtn
-                              onClick={() => handleNavigateToForm(row)}
-                              disabled={!hasReport || isApproved}
-                              data-tip="Edit Report"
-                            >
-                              ✏️
-                            </IconBtn>
-                            <PrintDropdownWrapper
-                              onMouseEnter={(e) =>
-                                isApproved && showPrintDropdown(row, e)
-                              }
-                              onMouseLeave={hidePrintDropdown}
-                            >
-                              <IconBtn
-                                disabled={!isApproved}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (isApproved) {
-                                    if (activePrintRowId === row.investBillNo) {
-                                      hidePrintDropdown();
-                                    } else {
-                                      showPrintDropdown(row, e);
-                                    }
-                                  }
-                                }}
-                                data-tip={
-                                  !isApproved
-                                    ? "Approve report first to print"
-                                    : "Print Options"
-                                }
-                              >
-                                🖨️
-                              </IconBtn>
-                            </PrintDropdownWrapper>
-                            <IconBtn
-                              onClick={() => handleDispatchReport(row)}
-                              disabled={!isApproved || !!(row.is_Dispatched || row.dispatch_DateTime)}
-                              data-tip={
-                                row.is_Dispatched || row.dispatch_DateTime
-                                  ? "Already Dispatched"
-                                  : isApproved
-                                  ? "Dispatch Report"
-                                  : "Approve report first to dispatch"
-                              }
-                            >
-                              📤
-                            </IconBtn>
-                            <IconBtn
-                              onClick={() => handleDeleteReport(row)}
-                              disabled={!hasReport || isApproved}
-                              data-tip="Delete Report"
-                            >
-                              🗑️
-                            </IconBtn>
-                          </ActionRow>
-                        </Td>
+                        <StickyActionsTd>
+                          <ActionsEyeBtn
+                            type="button"
+                            title="View Actions"
+                            onClick={() => setActionsRow(row)}
+                          >
+                            <EyeSVG />
+                          </ActionsEyeBtn>
+                        </StickyActionsTd>
                       </Tr>
                     );
                   })}
@@ -2086,6 +2147,244 @@ const MHCList = () => {
           )}
         </ContentCard>
       </Container>
+      {/* ── Actions Modal (eye icon) ── */}
+      {actionsRow && (() => {
+        const r = actionsRow;
+        const close = () => setActionsRow(null);
+        const run = (fn) => {
+          close();
+          fn();
+        };
+
+        const approved = !!r.is_approved;
+        const hasRep = !!r.has_report;
+        const dispatched = !!(r.is_Dispatched || r.dispatch_DateTime);
+        const payOk = isPaymentAllowed(r.paymentMethod, r.paymentStatus);
+        const checkedIn = !!r.patientIn_DateTime;
+
+        const T = {
+          teal: { bg: "#f0fdfa", border: "#99f6e4", color: "#0f766e", iconBg: "rgba(13,148,136,0.15)" },
+          sky: { bg: "#f0f9ff", border: "#bae6fd", color: "#0369a1", iconBg: "rgba(2,132,199,0.15)" },
+          green: { bg: "#f0fdf4", border: "#bbf7d0", color: "#15803d", iconBg: "rgba(22,163,74,0.15)" },
+          amber: { bg: "#fffbeb", border: "#fde68a", color: "#b45309", iconBg: "rgba(245,158,11,0.18)" },
+          orange: { bg: "#fff7ed", border: "#fed7aa", color: "#c2410c", iconBg: "rgba(234,88,12,0.15)" },
+          slate: { bg: "#f8fafc", border: "#cbd5e1", color: "#334155", iconBg: "rgba(51,65,85,0.12)" },
+          pink: { bg: "#fdf2f8", border: "#fbcfe8", color: "#be185d", iconBg: "rgba(219,39,119,0.15)" },
+          red: { bg: "#fef2f2", border: "#fecaca", color: "#b91c1c", iconBg: "rgba(220,38,38,0.15)" },
+        };
+
+        const tiles = [
+          !hasRep && {
+            key: "checkin",
+            icon: "✓",
+            title: "Check-in Patient",
+            sub: checkedIn
+              ? "Already checked in"
+              : !payOk
+                ? "Payment pending"
+                : "Mark patient as arrived",
+            disabled: checkedIn || !payOk,
+            theme: T.green,
+            onClick: () => run(() => handlePatientCheckIn(r)),
+          },
+          {
+            key: "report",
+            icon: "📋",
+            title: "Go to Report",
+            sub: !payOk
+              ? "Payment pending"
+              : hasRep
+                ? "Report already saved"
+                : approved
+                  ? "Already approved"
+                  : "Fill the MHC report form",
+            disabled: hasRep || approved || !payOk,
+            theme: T.teal,
+            onClick: () => run(() => handleNavigateToForm(r)),
+          },
+          {
+            key: "preview",
+            icon: "👁",
+            title: "Preview Report",
+            sub: hasRep ? "View report on screen" : "No report yet",
+            disabled: !hasRep,
+            theme: T.sky,
+            onClick: () => run(() => handleOpenPrint(r)),
+          },
+          {
+            key: "approve",
+            icon: "✅",
+            title: "Approve Report",
+            sub: approved
+              ? "Already approved"
+              : !hasRep
+                ? "No report yet"
+                : "Finalize & sign off",
+            disabled: !hasRep || approved,
+            theme: T.green,
+            onClick: () => run(() => handleApproveReport(r)),
+          },
+          {
+            key: "edit",
+            icon: "✏️",
+            title: "Edit Report",
+            sub: approved
+              ? "Locked (approved)"
+              : !hasRep
+                ? "No report yet"
+                : "Modify report entries",
+            disabled: !hasRep || approved,
+            theme: T.amber,
+            onClick: () => run(() => handleNavigateToForm(r)),
+          },
+          {
+            key: "print-lp",
+            icon: "🖨️",
+            title: "Print with Letterpad",
+            sub: approved ? "With hospital header & footer" : "Approve report first to print",
+            disabled: !approved,
+            theme: T.orange,
+            onClick: () => run(() => handlePrintMHCReport(r, true)),
+          },
+          {
+            key: "print-plain",
+            icon: "📄",
+            title: "Print without Letterpad",
+            sub: approved ? "Plain paper" : "Approve report first to print",
+            disabled: !approved,
+            theme: T.slate,
+            onClick: () => run(() => handlePrintMHCReport(r, false)),
+          },
+          {
+            key: "dispatch",
+            icon: "📤",
+            title: "Dispatch Report",
+            sub: dispatched
+              ? "Already dispatched"
+              : approved
+                ? "Send report to patient"
+                : "Approve report first to dispatch",
+            disabled: !approved || dispatched,
+            theme: T.pink,
+            onClick: () => run(() => handleDispatchReport(r)),
+          },
+          {
+            key: "delete",
+            icon: "🗑️",
+            title: "Delete Report",
+            sub: approved
+              ? "Locked (approved)"
+              : !hasRep
+                ? "No report yet"
+                : "Permanently remove",
+            disabled: !hasRep || approved,
+            theme: T.red,
+            onClick: () => run(() => handleDeleteReport(r)),
+          },
+        ].filter(Boolean);
+
+        return (
+          <ModalOverlay onClick={close}>
+            <ActionsModalCard onClick={(e) => e.stopPropagation()}>
+              <ModalHeader style={{ background: "#0f766e", color: "white" }}>
+                <ModalTitle style={{ color: "white" }}>
+                  👁 MHC Actions — {r.investBillNo}
+                </ModalTitle>
+                <CloseButton style={{ color: "white" }} onClick={close}>
+                  &times;
+                </CloseButton>
+              </ModalHeader>
+
+              <ActionsModalBody>
+                <ActionsInfoCard>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <strong style={{ fontSize: "0.95rem", color: "#0f172a" }}>
+                      {r.patientName || "Patient"}
+                    </strong>
+                    {dispatched ? (
+                      <Badge bg="#fdf2f8" color="#db2777" border="#fbcfe8">📤 Dispatched</Badge>
+                    ) : approved ? (
+                      <Badge bg="#ccfbf1" color="#0f766e" border="#99f6e4">✓ Approved</Badge>
+                    ) : hasRep ? (
+                      <Badge bg="#dbeafe" color="#1d4ed8" border="#bfdbfe">📝 Report Done</Badge>
+                    ) : (
+                      <Badge bg="#f1f5f9" color="#475569" border="#cbd5e1">⏳ Pending</Badge>
+                    )}
+                  </div>
+                  <ActionsInfoGrid>
+                    <div>
+                      <InfoLabel>Bill No</InfoLabel>
+                      <strong>{r.investBillNo}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>UHID</InfoLabel>
+                      <strong>{r.uhid || "—"}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>IP No</InfoLabel>
+                      <strong>{r.ipNumber || "—"}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>Package</InfoLabel>
+                      <strong>{r.packageName || `Package #${r.package_id}`}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>Payment</InfoLabel>
+                      <strong>
+                        {r.paymentMethod || "Cash"} · {r.paymentStatus || "Pending"}
+                      </strong>
+                    </div>
+                    <div>
+                      <InfoLabel>Bill Date</InfoLabel>
+                      <strong>{r.investBillDate || "—"}</strong>
+                    </div>
+                  </ActionsInfoGrid>
+                </ActionsInfoCard>
+
+                <ActionsSectionLabel>Available Actions</ActionsSectionLabel>
+
+                <ActionsGrid>
+                  {tiles.map((t) => (
+                    <ActionTile
+                      key={t.key}
+                      type="button"
+                      disabled={t.disabled}
+                      onClick={t.onClick}
+                      $bg={t.disabled ? "#f8fafc" : t.theme.bg}
+                      $border={t.disabled ? "#e2e8f0" : t.theme.border}
+                      $color={t.disabled ? "#94a3b8" : t.theme.color}
+                    >
+                      <ActionTileIcon $bg={t.disabled ? "#e2e8f0" : t.theme.iconBg}>
+                        {t.icon}
+                      </ActionTileIcon>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: "0.88rem" }}>{t.title}</div>
+                        <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                          {t.sub}
+                        </div>
+                      </div>
+                    </ActionTile>
+                  ))}
+                </ActionsGrid>
+              </ActionsModalBody>
+
+              <ActionsModalFooter>
+                <ActionBtn type="button" bg="#64748b" onClick={close}>
+                  Close
+                </ActionBtn>
+              </ActionsModalFooter>
+            </ActionsModalCard>
+          </ModalOverlay>
+        );
+      })()}
 
       {/* ── Print Preview Modal ── */}
       {printRow && (
