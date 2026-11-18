@@ -489,6 +489,8 @@ const NormalBillSheet = ({
   const isA5 = paperSize === "A5";
   const pd = bill.patient_details || {};
   const rawItems = parseItems(bill.items);
+  // For insurance discharge billing, net amount excludes advance paid and IP return deductions
+  const insNetAmount = Math.max(0, (parseFloat(bill.total_amount) || 0) - (parseFloat(bill.discount_amount) || 0));
 
   // Credit vs Cash determination:
   // If payment method is Credit, or company name is present (like RAILWAY CTSE in Ref PDF 2), it's CREDIT BILL
@@ -890,16 +892,6 @@ const NormalBillSheet = ({
         fontSize: isA5 ? "8.5px" : "10px",
         color: "#222",
         fontStyle: "italic",
-        paddingTop: 2,
-        textAlign: "left",
-        lineHeight: "1.25"
-      }}>
-        Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST-Exempt Invoice
-      </div>
-      <div style={{
-        fontSize: "10px",
-        color: "#222",
-        fontStyle: "italic",
         paddingTop: 4,
         textAlign: "left",
         lineHeight: "1.3"
@@ -930,6 +922,8 @@ const InsuranceClaimSheet = ({
 
   const pd = bill.patient_details || {};
   const rawItems = parseItems(bill.items);
+  // For insurance discharge billing, net amount excludes advance paid and IP return deductions
+  const insNetAmount = Math.max(0, (parseFloat(bill.total_amount) || 0) - (parseFloat(bill.discount_amount) || 0));
 
   const groups = {};
   IP_CATEGORIES.forEach(cat => { groups[cat] = []; });
@@ -1069,12 +1063,12 @@ const InsuranceClaimSheet = ({
   );
 
   const renderSignatures = (pageNo, totalPages) => {
-    // Only display signatories at the end of the bill (on the final page)
-    const isEndOfBill = pageNo === totalPages;
+    // User requirement: add signature at the first page alone (only in the first page alone, signature enough)
+    const isFirstPage = pageNo === 1;
 
     return (
       <div style={{ marginTop: 14 }}>
-        {isEndOfBill && (
+        {isFirstPage && (
           <table style={{
             width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
             fontSize: "0.78rem", textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif"
@@ -1104,7 +1098,7 @@ const InsuranceClaimSheet = ({
 
         <div style={{
           textAlign: "center", fontWeight: "bold", fontSize: "0.78rem",
-          marginTop: isEndOfBill ? 12 : 6, marginBottom: 4, textTransform: "uppercase",
+          marginTop: isFirstPage ? 12 : 6, marginBottom: 4, textTransform: "uppercase",
           fontFamily: "'Times New Roman', Times, serif"
         }}>
           PAGE : {pageNo} OF {totalPages}
@@ -1265,7 +1259,7 @@ const InsuranceClaimSheet = ({
                     TOTAL AMOUNT
                   </td>
                   <td style={{ textAlign: "right", fontWeight: "bold", fontSize: "0.85rem", padding: "6px 4px" }}>
-                    ₹{fmt(bill.net_amount || bill.total_amount)}
+                    ₹{fmt(insNetAmount)}
                   </td>
                 </tr>
               </tbody>
@@ -1277,7 +1271,7 @@ const InsuranceClaimSheet = ({
               fontSize: "0.78rem", fontWeight: "bold", textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
-              RUPEE(S) {numberToWords(bill.net_amount || bill.total_amount).toUpperCase()} ONLY
+              RUPEE(S) {numberToWords(insNetAmount).toUpperCase()} ONLY
             </div>
           </div>
 
@@ -1356,22 +1350,10 @@ const InsuranceClaimSheet = ({
                       <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>TOTAL HOSPITAL CHARGES :</td>
                       <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.total_amount)}</td>
                     </tr>
-                    {parseFloat(bill.advance_amount) > 0 && (
-                      <tr style={{ color: "#b91c1c" }}>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: ADVANCE PAID :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.advance_amount)}</td>
-                      </tr>
-                    )}
                     {parseFloat(bill.discount_amount) > 0 && (
                       <tr style={{ color: "#b91c1c" }}>
                         <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: DISCOUNT :</td>
                         <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.discount_amount)}</td>
-                      </tr>
-                    )}
-                    {parseFloat(bill.sales_return) > 0 && (
-                      <tr style={{ color: "#b91c1c" }}>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: IP RETURN :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.sales_return)}</td>
                       </tr>
                     )}
                     <tr>
@@ -1379,7 +1361,7 @@ const InsuranceClaimSheet = ({
                         GRAND TOTAL / NET AMOUNT :
                       </td>
                       <td style={{ width: "130px", textAlign: "right", padding: "4px 4px 1px", fontWeight: "bold", fontSize: "0.86rem", borderTop: "1px dashed #000" }}>
-                        ₹{fmt(bill.net_amount || bill.total_amount)}
+                        ₹{fmt(insNetAmount)}
                       </td>
                     </tr>
                   </tbody>
@@ -1392,7 +1374,7 @@ const InsuranceClaimSheet = ({
                 fontSize: "0.76rem", fontWeight: "bold", textTransform: "uppercase",
                 fontFamily: "'Times New Roman', Times, serif"
               }}>
-                RUPEE(S) {numberToWords(bill.net_amount || bill.total_amount).toUpperCase()} ONLY
+                RUPEE(S) {numberToWords(insNetAmount).toUpperCase()} ONLY
               </div>
             </div>
 
