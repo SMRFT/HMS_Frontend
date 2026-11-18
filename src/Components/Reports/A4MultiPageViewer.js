@@ -695,6 +695,10 @@ const A4MultiPageViewer = ({
     outlets = [],
     selectedOutlet,
     setSelectedOutlet,
+    selectedFloor = "all",
+    setSelectedFloor,
+    selectedCompany = "all",
+    setSelectedCompany,
     isMaximized,
     setIsMaximized,
     onClose,
@@ -712,6 +716,8 @@ const A4MultiPageViewer = ({
     const [tempToDate, setTempToDate] = useState(dateRange?.[1] || dayjs());
     const [tempOutlet, setTempOutlet] = useState(selectedOutlet || "all");
     const [tempBillType, setTempBillType] = useState(billType || "All");
+    const [tempFloor, setTempFloor] = useState(selectedFloor || "all");
+    const [tempCompany, setTempCompany] = useState(selectedCompany || "all");
 
     const scrollAreaRef = useRef(null);
     const rawContainerRef = useRef(null);
@@ -730,7 +736,9 @@ const A4MultiPageViewer = ({
         if (dateRange?.[1]) setTempToDate(dateRange[1]);
         if (selectedOutlet) setTempOutlet(selectedOutlet);
         if (billType) setTempBillType(billType);
-    }, [dateRange, selectedOutlet, billType]);
+        if (selectedFloor !== undefined) setTempFloor(selectedFloor);
+        if (selectedCompany !== undefined) setTempCompany(selectedCompany);
+    }, [dateRange, selectedOutlet, billType, selectedFloor, selectedCompany]);
 
     // ─── DYNAMIC PAGINATION ENGINE ───────────────────────────────────────────
     useEffect(() => {
@@ -820,6 +828,12 @@ const A4MultiPageViewer = ({
         if (setBillType) {
             setBillType(tempBillType);
         }
+        if (setSelectedFloor) {
+            setSelectedFloor(tempFloor);
+        }
+        if (setSelectedCompany) {
+            setSelectedCompany(tempCompany);
+        }
     };
 
     // ─── EXPORT ACTIONS ──────────────────────────────────────────────────────
@@ -880,11 +894,11 @@ const A4MultiPageViewer = ({
 
     const hospitalName = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
     const isNoOutletReport = [
-        "discharge_detailed", "admission_vs_discharge", "101", "102"
+        "ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge", "101", "102"
     ].includes(String(selectedReport?.id)) || [
-        "/DischargeBillsDetailed"
+        "/AdvanceRegistration", "/AdvanceRegistrationInsurence", "/IPAdvanceReport", "/DischargeBillsDetailed"
     ].includes(selectedReport?.route);
-    const isCategoryReport = ["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_reg", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "misc_payment"].includes(selectedReport?.id);
+    const isCategoryReport = ["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "admission_vs_discharge", "misc_payment", "sales_return", "insurance_advance", "department_wise", "bill_type_wise"].includes(selectedReport?.id);
 
     return (
         <ModalContainer $isMaximized={isMaximized}>
@@ -968,20 +982,68 @@ const A4MultiPageViewer = ({
             {showFilterBar && (
                 <InViewerFilterBar>
                     {selectedReport?.id === "ip_advance" ? (
-                        <div className="filter-item">
-                            <span className="filter-label">As On Date:</span>
-                            <DatePicker 
-                                value={tempToDate || dayjs()}
-                                onChange={(d) => {
-                                    if (d) {
-                                        setTempFromDate(d);
-                                        setTempToDate(d);
-                                    }
-                                }}
-                                format="DD/MM/YYYY"
-                                allowClear={false}
-                            />
-                        </div>
+                        <>
+                            <div className="filter-item">
+                                <span className="filter-label">As On Date:</span>
+                                <DatePicker 
+                                    value={tempToDate || dayjs()}
+                                    onChange={(d) => {
+                                        if (d) {
+                                            setTempFromDate(d);
+                                            setTempToDate(d);
+                                        }
+                                    }}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                />
+                            </div>
+                            <div className="filter-item">
+                                <span className="filter-label">Floor:</span>
+                                <select 
+                                    value={tempFloor} 
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setTempFloor(val);
+                                        if (setSelectedFloor) setSelectedFloor(val);
+                                    }}
+                                >
+                                    <option value="all">All Floors</option>
+                                    <option value="1ST FLOOR">1ST FLOOR</option>
+                                    <option value="2ND FLOOR">2ND FLOOR</option>
+                                    <option value="3RD FLOOR">3RD FLOOR</option>
+                                    <option value="MICU">MICU</option>
+                                    <option value="CHEMO">CHEMO</option>
+                                    <option value="DAYCAR">DAYCAR</option>
+                                    <option value="DIALYSIS">DIALYSIS</option>
+                                </select>
+                            </div>
+                            <div className="filter-item">
+                                <span className="filter-label">Company:</span>
+                                <select 
+                                    value={tempCompany} 
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setTempCompany(val);
+                                        if (setSelectedCompany) setSelectedCompany(val);
+                                    }}
+                                >
+                                    <option value="all">All Companies</option>
+                                    <option value="GENERAL">GENERAL</option>
+                                    <option value="STAR HEALTH AND ALLIED INSURANCE LTD">STAR HEALTH</option>
+                                    <option value="MEDI ASSIST">MEDI ASSIST</option>
+                                    <option value="CGHS CREDIT">CGHS CREDIT</option>
+                                    <option value="ECHS">ECHS</option>
+                                    <option value="RAILWAY CTSE">RAILWAY CTSE</option>
+                                    <option value="TNCMCHIS">TNCMCHIS</option>
+                                    <option value="ESI">ESI</option>
+                                    <option value="ESIC">ESIC</option>
+                                    <option value="FOOD CORPORATION OF INDIA (FCI),">FCI</option>
+                                    <option value="TKT">TKT</option>
+                                    <option value="SELF PACKAGE">SELF PACKAGE</option>
+                                    <option value="VIDAL HEALTH">VIDAL HEALTH</option>
+                                </select>
+                            </div>
+                        </>
                     ) : (
                         <>
                             <div className="filter-item">
@@ -1011,7 +1073,11 @@ const A4MultiPageViewer = ({
                             <span className="filter-label">Outlet:</span>
                             <select 
                                 value={tempOutlet} 
-                                onChange={(e) => setTempOutlet(e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setTempOutlet(val);
+                                    if (setSelectedOutlet) setSelectedOutlet(val);
+                                }}
                             >
                                 <option value="all">All Outlets</option>
                                 {outlets.map((o) => (
@@ -1026,16 +1092,56 @@ const A4MultiPageViewer = ({
                     {isCategoryReport && (
                         <div className="filter-item">
                             <span className="filter-label">
-                                {selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax" ? "Patient:" :
+                                {selectedReport?.id === "sales_tax_register" || selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax_register" || selectedReport?.id === "daywise_sales_tax" ? "Patient:" :
+                                 selectedReport?.id === "admission_vs_discharge" ? "Status:" :
                                  selectedReport?.id === "discharge_bills" ? "Mode:" :
                                  selectedReport?.id === "misc_payment" ? "Receipt:" :
+                                 selectedReport?.id === "insurance_advance" ? "Company:" :
+                                 selectedReport?.id === "department_wise" ? "Department:" :
                                  "Category:"}
                             </span>
                             <select 
                                 value={tempBillType} 
-                                onChange={(e) => setTempBillType(e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setTempBillType(val);
+                                    if (setBillType) setBillType(val);
+                                }}
                             >
-                                {selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax" ? (
+                                {selectedReport?.id === "department_wise" ? (
+                                    <>
+                                        <option value="All">All Departments</option>
+                                        <option value="General">General</option>
+                                        <option value="General Surgeon">General Surgeon</option>
+                                        <option value="Consultants">Consultants</option>
+                                        <option value="Medical Oncology">Medical Oncology</option>
+                                        <option value="Cardiology">Cardiology</option>
+                                        <option value="Surgical  Gastro">Surgical Gastro</option>
+                                        <option value="General Medicine">General Medicine</option>
+                                        <option value="Obstetrician & Gynaecology">Obstetrician & Gynaecology</option>
+                                        <option value="Radiation Oncology">Radiation Oncology</option>
+                                        <option value="PULMONOLOGY">Pulmonology</option>
+                                        <option value="Master Health Checkup">Master Health Checkup</option>
+                                    </>
+                                ) : selectedReport?.id === "insurance_advance" ? (
+                                    <>
+                                        <option value="all">All Insurance Companies</option>
+                                        <option value="CGHS Credit">CGHS Credit</option>
+                                        <option value="ECHS">ECHS</option>
+                                        <option value="RAILWAY CTSE">Railway CTSE</option>
+                                        <option value="RAILWAY">Railway</option>
+                                        <option value="TNCMCHIS">TNCMCHIS</option>
+                                        <option value="STAR HEALTH AND ALLIED INSURANCE">Star Health</option>
+                                        <option value="MEDI ASSIST">Medi Assist</option>
+                                        <option value="MEDI ASSIST- GOVT EMPLOYEE">Medi Assist Govt Employee</option>
+                                        <option value="MD INDIA">MD India</option>
+                                        <option value="UNITED HEALTHCARE">United HealthCare</option>
+                                        <option value="CHOLA MS HELP">Chola MS</option>
+                                        <option value="BAJAJ ALLIANZ & ALLIED INSURANCE">Bajaj Allianz</option>
+                                        <option value="SELF PACKAGE">Self Package</option>
+                                        <option value="TKT">TKT</option>
+                                    </>
+                                ) : selectedReport?.id === "sales_tax_register" || selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax_register" || selectedReport?.id === "daywise_sales_tax" ? (
                                     <>
                                         <option value="all">All Patients (OP & IP)</option>
                                         <option value="op">Out-Patient (OP)</option>
@@ -1047,6 +1153,12 @@ const A4MultiPageViewer = ({
                                         <option value="discharge">Discharge Bills</option>
                                         <option value="advance">IP Advance</option>
                                         <option value="admission">IP Admission</option>
+                                    </>
+                                ) : selectedReport?.id === "admission_vs_discharge" ? (
+                                    <>
+                                        <option value="all">All Patients</option>
+                                        <option value="admitted">Currently Admitted</option>
+                                        <option value="discharged">Discharged Patients</option>
                                     </>
                                 ) : selectedReport?.id === "discharge_bills" ? (
                                     <>
