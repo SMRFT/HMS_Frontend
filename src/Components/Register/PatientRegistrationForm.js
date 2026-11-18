@@ -1253,6 +1253,12 @@ const PatientRegistrationForm = () => {
       formData.append("payment_method", (paymentMethod === "Insurance Credit" || paymentMethod === "Pay Later") ? "Credit" : (paymentMethod || "Cash"));
       formData.append("payment_status", "Pending");
 
+      // Ensure company_code is explicitly empty if customerType is not Insurance
+      const isInsuranceCust = (patient.customerType || "").toLowerCase() === "insurance";
+      if (!isInsuranceCust) {
+        formData.set("company_code", "");
+      }
+
       const result = await apiRequest(`${Hmsbaseurl}patients/register/`, "POST", formData);
 
       if (result.success) {
@@ -1287,7 +1293,7 @@ const PatientRegistrationForm = () => {
           billAmount: totalFees,
           date: formattedDateTime,
           dateTime: formattedDateTime,
-          company_name: patient.insuranceProviderCode || patient.company_name || "",
+          company_name: isInsuranceCust ? (patient.insuranceProviderCode || patient.company_name || "") : "",
           paymentMethod: isCreditReg ? "Credit" : "Cash",
           paymentStatus: "Pending",
           preparedBy: localStorage.getItem("name") || localStorage.getItem("employeeName") || localStorage.getItem("employeeId") || "Staff"
@@ -1356,6 +1362,7 @@ const PatientRegistrationForm = () => {
           referredDoctorPhone: "",
           sourceOfVisit: "",
           customerType: "General",
+          insuranceProviderCode: "",
           visitType: "New",
           department: "",
           isNewborn: false,
@@ -1515,7 +1522,9 @@ const PatientRegistrationForm = () => {
       sourceOfVisit: selectedPatient.sourceOfVisit || selectedPatient.source_of_visit || "",
       emergencyContact: cleanMobileNumber(selectedPatient.emergencyContact || selectedPatient.emergency_contact || ""),
       customerType: selectedPatient.customerType || selectedPatient.customer_type || "General",
-      insuranceProviderCode: selectedPatient.insuranceProviderCode || selectedPatient.company_code || "",
+      insuranceProviderCode: ((selectedPatient.customerType || selectedPatient.customer_type || "General").toLowerCase() === "insurance")
+        ? (selectedPatient.insuranceProviderCode || selectedPatient.company_code || "")
+        : "",
       abhaNumber: selectedPatient.abhaNumber || selectedPatient.abha_number || "",
       weight: parsedWeight,
       weightUnit: parsedWeightUnit,
@@ -1533,6 +1542,7 @@ const PatientRegistrationForm = () => {
     } else {
       setPaymentTiming("pay_now");
       setPaymentMethod("Cash");
+      setValidationErrors(prev => ({ ...prev, insuranceProviderCode: false }));
     }
     if (selectedPatient.uhid) setUhid(selectedPatient.uhid)
     if (selectedPatient.ip_number) setIpNumber(selectedPatient.ip_number)
@@ -2092,6 +2102,11 @@ const PatientRegistrationForm = () => {
                     if (validationErrors.customerType) {
                       setValidationErrors(prev => ({ ...prev, customerType: false }));
                     }
+                    const isIns = (selectedValue || "").toLowerCase() === "insurance";
+                    if (!isIns && validationErrors.insuranceProviderCode) {
+                      setValidationErrors(prev => ({ ...prev, insuranceProviderCode: false }));
+                    }
+
                     const typeObj = customerTypes.find(t => t.type_name === selectedValue);
                     const fee = typeObj ? parseFloat(typeObj.registration_fee) : 0;
                     setRegistrationFee(fee);
@@ -2107,7 +2122,7 @@ const PatientRegistrationForm = () => {
                     setTotalFees(total);
 
                     // Auto-toggle payment timing when customer type changes
-                    if (selectedValue.toLowerCase() === "insurance") {
+                    if (isIns) {
                       setPaymentTiming("pay_later");
                       setPaymentMethod("Credit");
                     } else if (paymentTiming === "pay_later" && paymentMethod === "Credit") {
@@ -2118,6 +2133,7 @@ const PatientRegistrationForm = () => {
                     setPatient(prev => ({
                       ...prev,
                       customerType: selectedValue,
+                      insuranceProviderCode: isIns ? prev.insuranceProviderCode : "",
                       registrationFee: fee,
                       consultingFee: newConsFee,
                       totalFees: total
