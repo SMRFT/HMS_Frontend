@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
+import { Loader2 } from "lucide-react";
 import {
   colors,
   PageWrapper,
@@ -17,6 +18,15 @@ import {
   ModalOverlay,
   ModalContainer
 } from "../GlobalStyles";
+
+const spinAnimation = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const SpinningLoader = styled(Loader2)`
+  animation: ${spinAnimation} 1s linear infinite;
+`;
 
 // ─── Styled Components ────────────────────────────────────────────────────────
 
@@ -741,6 +751,7 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requests, setRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
   const [doctors, setDoctors] = useState([]);
   const [billTypes, setBillTypes] = useState([]);
   const [investigationItems, setInvestigationItems] = useState([]);
@@ -924,9 +935,14 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
 
   const fetchRequests = async () => {
     try {
+      setRequestsLoading(true);
       const res = await apiRequest(`${HmsBaseUrl}get_radiology_ward_requests/?uhid=${resolvedPatient.uhid}&ipNumber=${resolvedPatient.ipNo}`, "GET");
       if (res.success) setRequests(res.data?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRequestsLoading(false);
+    }
   };
 
   const handleBillTypeChange = async (val) => {
@@ -1412,8 +1428,17 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
                 </Tr>
               </thead>
               <tbody>
-                {filteredRequests.length === 0 ? (
-                  <Tr><Td colSpan="9" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>No investigation history available</Td></Tr>
+                {requestsLoading ? (
+                  <Tr>
+                    <Td colSpan="9" style={{ textAlign: "center", padding: "40px", color: colors.primary }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontWeight: 600 }}>
+                        <SpinningLoader size={18} />
+                        <span>Loading radiology requests...</span>
+                      </div>
+                    </Td>
+                  </Tr>
+                ) : filteredRequests.length === 0 ? (
+                  <Tr><Td colSpan="9" style={{ textAlign: "center", padding: "40px", color: colors.textMuted, fontWeight: 500 }}>No radiology requests found</Td></Tr>
                 ) : (
                   Array.isArray(filteredRequests) && filteredRequests.map((req) => (
                     <React.Fragment key={req.id}>
