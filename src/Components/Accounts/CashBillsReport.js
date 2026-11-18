@@ -676,7 +676,10 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
                                                         {item.bill_no || "—"}
                                                     </Td>
                                                     <Td style={{ fontFamily: "monospace" }}>
-                                                        {item.mr_no || "—"}
+                                                        <div>{item.mr_no || "—"}</div>
+                                                        {item.ip_number && item.ip_number !== item.mr_no && !String(item.mr_no).includes(item.ip_number) && (
+                                                            <div style={{ fontSize: "0.72rem", color: "#64748b" }}>IP: {item.ip_number}</div>
+                                                        )}
                                                     </Td>
                                                     <Td>
                                                         <span style={{
@@ -846,7 +849,7 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
                                                         {item.patient_name || "—"}
                                                     </td>
                                                     <td>{item.bill_no || "—"}</td>
-                                                    <td>{item.mr_no || "—"}</td>
+                                                    <td>{item.mr_no || "—"}{item.ip_number && item.ip_number !== item.mr_no && !String(item.mr_no).includes(item.ip_number) ? ` / IP: ${item.ip_number}` : ""}</td>
                                                     <td>{item.payment_mode || "CASH"}</td>
                                                     <td style={{ textAlign: "right" }}>{formatINR(item.amount)}</td>
                                                     <td style={{ textAlign: "right" }}>{item.user || "STAFF"}</td>

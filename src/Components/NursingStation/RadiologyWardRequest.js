@@ -1443,9 +1443,7 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
                             >
                               {expandedRow === req.id ? "▴" : "▾"}
                             </button>
-                            {req.status === "Result Pending" && (
-                              <button onClick={() => handleCancelRequest(req.id)} style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer", fontSize: "1rem" }} title="Cancel Entire Request">✕</button>
-                            )}
+
                           </div>
                         </Td>
                       </Tr>
@@ -1461,14 +1459,11 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
                                     <Th>Bill Type / Modality</Th>
                                     <Th>Price</Th>
                                     <Th>Status</Th>
-                                    <Th style={{ textAlign: "center" }}>Action</Th>
                                   </Tr>
                                 </thead>
                                 <tbody>
                                   {req.tests.map((t, idx) => {
                                     const itemStatus = t.status || req.status || "Result Pending";
-                                    const isPending = itemStatus === "Result Pending" || itemStatus === "Pending";
-                                    const isDone = itemStatus === "Completed" || itemStatus === "Result Entered";
                                     return (
                                       <Tr key={idx}>
                                         <Td>
@@ -1490,39 +1485,6 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
                                           <StatusBadge status={itemStatus}>
                                             {itemStatus}
                                           </StatusBadge>
-                                        </Td>
-                                        <Td style={{ textAlign: "center" }}>
-                                          {isPending ? (
-                                            <button
-                                              type="button"
-                                              onClick={() => handleRemoveIndividualTest(req.id, t)}
-                                              style={{
-                                                background: "#fee2e2",
-                                                border: "1px solid #fca5a5",
-                                                color: "#b91c1c",
-                                                cursor: "pointer",
-                                                fontSize: "0.75rem",
-                                                fontWeight: "700",
-                                                padding: "3px 9px",
-                                                borderRadius: "6px",
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: "4px",
-                                                transition: "all 0.15s"
-                                              }}
-                                              title={`Remove test ${t.name}`}
-                                            >
-                                              ✕ Remove
-                                            </button>
-                                          ) : isDone ? (
-                                            <span style={{ fontSize: "0.74rem", color: "#16a34a", fontWeight: "700" }}>
-                                              ✓ Completed
-                                            </span>
-                                          ) : (
-                                            <span style={{ fontSize: "0.74rem", color: "#64748b", fontWeight: "600" }}>
-                                              -
-                                            </span>
-                                          )}
                                         </Td>
                                       </Tr>
                                     );

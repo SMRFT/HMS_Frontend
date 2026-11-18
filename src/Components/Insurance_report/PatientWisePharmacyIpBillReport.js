@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DatePicker, Spin, message } from 'antd';
 import dayjs from 'dayjs';
 import styled from 'styled-components';
@@ -401,6 +401,55 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
     const bills = Array.isArray(reportPayload?.bills) ? reportPayload.bills : [];
     const grandTotal = reportPayload?.grand_total ?? reportPayload?.summary?.net_amount ?? reportPayload?.summary?.gross_amount ?? bills.reduce((acc, b) => acc + (Array.isArray(b.items) ? b.items.reduce((s, it) => s + (Number(it.amount) || 0), 0) : (Number(b.bill_total) || 0)), 0);
 
+    const dateGroupedBills = useMemo(() => {
+        if (!Array.isArray(bills) || bills.length === 0) return [];
+
+        const parseSortKey = (dStr) => {
+            if (!dStr) return "00000000";
+            const parts = String(dStr).split(/[-/]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 4) return `${parts[0]}${parts[1].padStart(2, '0')}${parts[2].padStart(2, '0')}`;
+                return `${parts[2]}${parts[1].padStart(2, '0')}${parts[0].padStart(2, '0')}`;
+            }
+            return String(dStr);
+        };
+
+        const map = {};
+        bills.forEach(bill => {
+            const d = bill.bill_date || bill.date || "Unknown Date";
+            if (!map[d]) {
+                map[d] = {
+                    date: d,
+                    sortKey: parseSortKey(d),
+                    bills: [],
+                    totalTaxable: 0,
+                    totalGst: 0,
+                    totalNet: 0
+                };
+            }
+            map[d].bills.push(bill);
+
+            const bTaxable = (bill.taxable_amt !== undefined && bill.taxable_amt !== null && !isNaN(Number(bill.taxable_amt)))
+                ? Number(bill.taxable_amt)
+                : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.taxable_amt) || 0), 0) : 0);
+            const bCgst = (bill.cgst_amt !== undefined && bill.cgst_amt !== null && !isNaN(Number(bill.cgst_amt)))
+                ? Number(bill.cgst_amt)
+                : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.cgst_amt ?? it.cgst) || 0), 0) : 0);
+            const bSgst = (bill.sgst_amt !== undefined && bill.sgst_amt !== null && !isNaN(Number(bill.sgst_amt)))
+                ? Number(bill.sgst_amt)
+                : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.sgst_amt ?? it.sgst) || 0), 0) : 0);
+            const bNet = (bill.net_amount !== undefined && bill.net_amount !== null && !isNaN(Number(bill.net_amount)))
+                ? Number(bill.net_amount)
+                : (bill.bill_total ? Number(bill.bill_total) : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.amount) || 0), 0) : 0));
+
+            map[d].totalTaxable += bTaxable;
+            map[d].totalGst += (bCgst + bSgst);
+            map[d].totalNet += bNet;
+        });
+
+        return Object.values(map).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    }, [bills]);
+
     return (
         <Container>
             <style>{`
@@ -552,86 +601,114 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {(!Array.isArray(bills) || bills.length === 0) ? (
+                            {(!Array.isArray(dateGroupedBills) || dateGroupedBills.length === 0) ? (
                                 <tr>
                                     <td colSpan={11} style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
                                         No record found
                                     </td>
                                 </tr>
-                            ) : bills.map((bill, bIdx) => (
-                                <React.Fragment key={bIdx}>
-                                    <tr className="bill-group-header">
-                                        <td colSpan={6}>
-                                            Bill Number : {bill.bill_no}
-                                        </td>
-                                        <td colSpan={5} className="text-right">
-                                            Bill Date : {bill.bill_date} (IP CREDITS)
+                            ) : dateGroupedBills.map((group, gIdx) => (
+                                <React.Fragment key={gIdx}>
+                                    {/* Date Group Banner Header */}
+                                    <tr className="date-group-header">
+                                        <td colSpan={11} style={{ background: '#f1f5f9', fontWeight: 'bold', fontSize: '11px', padding: '6px 8px', borderTop: '1.5px solid #000', borderBottom: '1px solid #000', textTransform: 'uppercase' }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                                <span>DATE : {group.date}</span>
+                                                <span style={{ fontSize: '10px', background: '#e2e8f0', color: '#334155', padding: '1px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                                                    {group.bills.length} {group.bills.length === 1 ? 'BILL' : 'BILLS'}
+                                                </span>
+                                            </span>
                                         </td>
                                     </tr>
 
-                                    {Array.isArray(bill.items) && bill.items.map((it, iIdx) => {
-                                        const cgstVal = it.cgst_amt ?? it.cgst ?? 0;
-                                        const sgstVal = it.sgst_amt ?? it.sgst ?? 0;
-                                        return (
-                                            <tr key={iIdx}>
-                                                <td className="text-center">{it.qty}</td>
-                                                <td>{it.particulars}</td>
-                                                <td>{it.hsn || '-'}</td>
-                                                <td>{it.batch || '-'}</td>
-                                                <td>{it.expiry || '-'}</td>
-                                                <td className="text-right">{Number(it.taxable_amt || 0).toFixed(2)}</td>
-                                                <td className="text-center">{it.cgst_pct ?? '-'}</td>
-                                                <td className="text-right">{Number(cgstVal || 0).toFixed(2)}</td>
-                                                <td className="text-center">{it.sgst_pct ?? '-'}</td>
-                                                <td className="text-right">{Number(sgstVal || 0).toFixed(2)}</td>
-                                                <td className="text-right">{Number(it.amount || 0).toFixed(2)}</td>
-                                            </tr>
-                                        );
-                                    })}
-
-                                    {/* Subtotal per bill */}
-                                    {(() => {
-                                        const bTaxable = (bill.taxable_amt !== undefined && bill.taxable_amt !== null && !isNaN(Number(bill.taxable_amt)))
-                                            ? Number(bill.taxable_amt)
-                                            : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.taxable_amt) || 0), 0) : 0);
-                                        const bCgst = (bill.cgst_amt !== undefined && bill.cgst_amt !== null && !isNaN(Number(bill.cgst_amt)))
-                                            ? Number(bill.cgst_amt)
-                                            : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.cgst_amt ?? it.cgst) || 0), 0) : 0);
-                                        const bSgst = (bill.sgst_amt !== undefined && bill.sgst_amt !== null && !isNaN(Number(bill.sgst_amt)))
-                                            ? Number(bill.sgst_amt)
-                                            : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.sgst_amt ?? it.sgst) || 0), 0) : 0);
-                                        const bTotalGst = (bill.total_gst !== undefined && bill.total_gst !== null && !isNaN(Number(bill.total_gst)))
-                                            ? Number(bill.total_gst)
-                                            : (bCgst + bSgst);
-                                        const bNet = (bill.net_amount !== undefined && bill.net_amount !== null && !isNaN(Number(bill.net_amount)))
-                                            ? Number(bill.net_amount)
-                                            : (bill.bill_total ? Number(bill.bill_total) : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.amount) || 0), 0) : 0));
-
-                                        return (
-                                            <tr>
-                                                <td colSpan={11} style={{ padding: '0 0 10px 0' }}>
-                                                    <div className="tax-summary-box">
-                                                        <div className="tax-row">
-                                                            <span>Taxable Amt :</span>
-                                                            <span className="val">{bTaxable.toFixed(2)}</span>
-                                                        </div>
-                                                        <div className="tax-row">
-                                                            <span>CGST :</span>
-                                                            <span className="val">{bCgst.toFixed(2)}</span>
-                                                            <span style={{ marginLeft: '14px' }}>GST :</span>
-                                                            <span className="val">{bTotalGst.toFixed(2)}</span>
-                                                        </div>
-                                                        <div className="tax-row">
-                                                            <span>SGST :</span>
-                                                            <span className="val">{bSgst.toFixed(2)}</span>
-                                                            <span style={{ marginLeft: '14px' }}>Net Amount :</span>
-                                                            <span className="val">{bNet.toFixed(2)}</span>
-                                                        </div>
-                                                    </div>
+                                    {group.bills.map((bill, bIdx) => (
+                                        <React.Fragment key={`${gIdx}-${bIdx}`}>
+                                            <tr className="bill-group-header">
+                                                <td colSpan={6}>
+                                                    Bill Number : {bill.bill_no}
+                                                </td>
+                                                <td colSpan={5} className="text-right">
+                                                    Bill Date : {bill.bill_date} (IP CREDITS)
                                                 </td>
                                             </tr>
-                                        );
-                                    })()}
+
+                                            {Array.isArray(bill.items) && bill.items.map((it, iIdx) => {
+                                                const cgstVal = it.cgst_amt ?? it.cgst ?? 0;
+                                                const sgstVal = it.sgst_amt ?? it.sgst ?? 0;
+                                                return (
+                                                    <tr key={iIdx}>
+                                                        <td className="text-center">{it.qty}</td>
+                                                        <td>{it.particulars}</td>
+                                                        <td>{it.hsn || '-'}</td>
+                                                        <td>{it.batch || '-'}</td>
+                                                        <td>{it.expiry || '-'}</td>
+                                                        <td className="text-right">{Number(it.taxable_amt || 0).toFixed(2)}</td>
+                                                        <td className="text-center">{it.cgst_pct ?? '-'}</td>
+                                                        <td className="text-right">{Number(cgstVal || 0).toFixed(2)}</td>
+                                                        <td className="text-center">{it.sgst_pct ?? '-'}</td>
+                                                        <td className="text-right">{Number(sgstVal || 0).toFixed(2)}</td>
+                                                        <td className="text-right">{Number(it.amount || 0).toFixed(2)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+
+                                            {/* Subtotal per bill */}
+                                            {(() => {
+                                                const bTaxable = (bill.taxable_amt !== undefined && bill.taxable_amt !== null && !isNaN(Number(bill.taxable_amt)))
+                                                    ? Number(bill.taxable_amt)
+                                                    : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.taxable_amt) || 0), 0) : 0);
+                                                const bCgst = (bill.cgst_amt !== undefined && bill.cgst_amt !== null && !isNaN(Number(bill.cgst_amt)))
+                                                    ? Number(bill.cgst_amt)
+                                                    : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.cgst_amt ?? it.cgst) || 0), 0) : 0);
+                                                const bSgst = (bill.sgst_amt !== undefined && bill.sgst_amt !== null && !isNaN(Number(bill.sgst_amt)))
+                                                    ? Number(bill.sgst_amt)
+                                                    : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.sgst_amt ?? it.sgst) || 0), 0) : 0);
+                                                const bTotalGst = (bill.total_gst !== undefined && bill.total_gst !== null && !isNaN(Number(bill.total_gst)))
+                                                    ? Number(bill.total_gst)
+                                                    : (bCgst + bSgst);
+                                                const bNet = (bill.net_amount !== undefined && bill.net_amount !== null && !isNaN(Number(bill.net_amount)))
+                                                    ? Number(bill.net_amount)
+                                                    : (bill.bill_total ? Number(bill.bill_total) : (Array.isArray(bill.items) ? bill.items.reduce((acc, it) => acc + (Number(it.amount) || 0), 0) : 0));
+
+                                                return (
+                                                    <tr>
+                                                        <td colSpan={11} style={{ padding: '0 0 10px 0' }}>
+                                                            <div className="tax-summary-box">
+                                                                <div className="tax-row">
+                                                                    <span>Taxable Amt :</span>
+                                                                    <span className="val">{bTaxable.toFixed(2)}</span>
+                                                                </div>
+                                                                <div className="tax-row">
+                                                                    <span>CGST :</span>
+                                                                    <span className="val">{bCgst.toFixed(2)}</span>
+                                                                    <span style={{ marginLeft: '14px' }}>GST :</span>
+                                                                    <span className="val">{bTotalGst.toFixed(2)}</span>
+                                                                </div>
+                                                                <div className="tax-row">
+                                                                    <span>SGST :</span>
+                                                                    <span className="val">{bSgst.toFixed(2)}</span>
+                                                                    <span style={{ marginLeft: '14px' }}>Net Amount :</span>
+                                                                    <span className="val">{bNet.toFixed(2)}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })()}
+                                        </React.Fragment>
+                                    ))}
+
+                                    {/* Date Subtotal if multiple bills on same date */}
+                                    {group.bills.length > 1 && (
+                                        <tr className="date-subtotal-row" style={{ background: '#f8fafc', fontWeight: 'bold' }}>
+                                            <td colSpan={10} style={{ textAlign: 'right', padding: '6px 8px', borderTop: '1px solid #666', borderBottom: '1px solid #666', fontSize: '11px' }}>
+                                                SUBTOTAL FOR DATE {group.date} ({group.bills.length} BILLS) :
+                                            </td>
+                                            <td style={{ textAlign: 'right', padding: '6px 8px', borderTop: '1px solid #666', borderBottom: '1px solid #666', fontSize: '11px' }}>
+                                                {group.totalNet.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    )}
                                 </React.Fragment>
                             ))}
                         </tbody>
