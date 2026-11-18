@@ -945,6 +945,17 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   const [admittedCount, setAdmittedCount] = useState(0);
   const [admittedRefreshKey, setAdmittedRefreshKey] = useState(0);
 
+  // ── Patient Financial Summary (Total Advance, Final Bill, Outstanding) ─────
+  const [patientFinancials, setPatientFinancials] = useState({
+    totalAdvance: 0,
+    advanceCount: 0,
+    advancesList: [],
+    finalBill: 0,
+    outstanding: 0,
+    billStatus: "",
+    loading: false,
+  });
+
   // ── Patient search modal state & handlers ──────────────────────────────────
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [patientSearchMode, setPatientSearchMode] = useState("ip");
@@ -1460,11 +1471,109 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
         totalDays:       adm.total_days != null ? adm.total_days : prev.totalDays,
         creditLimit:     adm.creditLimit != null ? adm.creditLimit : prev.creditLimit,
       }));
+
+      // Set initial financial assessment from admission endpoint if available
+      if (adm.total_advance !== undefined) {
+        setPatientFinancials({
+          totalAdvance: parseFloat(adm.total_advance) || 0,
+          advanceCount: parseInt(adm.advance_count) || (adm.advances_breakdown || []).length,
+          advancesList: adm.advances_breakdown || [],
+          finalBill: parseFloat(adm.final_bill_amount) || 0,
+          outstanding: parseFloat(adm.outstanding_balance) || 0,
+          billStatus: adm.bill_source || "",
+          loading: false,
+        });
+      }
+
+      if (adm.ipNumber) {
+        fetchPatientFinancials(adm.ipNumber);
+      }
     } catch (err) {
       console.error(err);
       toast.error(err?.message || "No active admission found");
     } finally {
       setSearchingAdm(false);
+    }
+  };
+
+  // ── Fetch Patient Financials (All Advances & Outstanding Balance) ─────────
+  const fetchPatientFinancials = async (ipNo) => {
+    if (!ipNo) return;
+    setPatientFinancials(prev => ({ ...prev, loading: true }));
+    try {
+      // 1. Fetch all advances for this patient across admission
+      const advRes = await apiRequest(`${BASE}admission-advance/?ip_number=${encodeURIComponent(ipNo)}`, "GET");
+      const advData = Array.isArray(advRes?.data?.data) ? advRes.data.data : Array.isArray(advRes?.data) ? advRes.data : Array.isArray(advRes) ? advRes : [];
+
+      const activeAdvs = advData.filter(p => p.is_advanceActive && p.status !== "Cancelled" && p.status !== "Edited");
+      let totalAdv = 0;
+      const advancesList = activeAdvs.map(p => {
+        const amt = parseFloat(p.advance_amount) || 0;
+        const refList = Array.isArray(p.refund_details) ? p.refund_details : [];
+        const refAmt = refList.reduce((s, r) => s + (parseFloat(r.refunded_amount) || 0), 0);
+        const netAmt = Math.max(0, amt - refAmt);
+        totalAdv += netAmt;
+        return {
+          advance_id: p.advance_id || "",
+          bill_no: String(p.bill_no || p.bill_number || "").replace(/\//g, ""),
+          date: String(p.date || p.paid_date || p.created_date || "").slice(0, 10),
+          advance_amount: amt,
+          refunded_amount: refAmt,
+          net_amount: netAmt,
+          status: p.status || "Paid",
+          payment_mode: p.payment_mode || (p.payment_details && p.payment_details.method) || "Cash",
+        };
+      });
+      totalAdv = Math.round(totalAdv * 100) / 100;
+
+      // 2. Fetch Final Bill
+      let finalBill = 0;
+      let billStatus = "";
+
+      // Check discharge-billing first
+      try {
+        const billRes = await apiRequest(`${BASE}discharge-billing/?ip_number=${encodeURIComponent(ipNo)}`, "GET");
+        const billList = Array.isArray(billRes?.data?.data) ? billRes.data.data : Array.isArray(billRes?.data) ? billRes.data : Array.isArray(billRes) ? billRes : [];
+        const activeBill = billList.find(b => !b.is_cancelled) || billList[0];
+        if (activeBill) {
+          finalBill = parseFloat(activeBill.net_amount || activeBill.total_amount) || 0;
+          billStatus = activeBill.status || "Discharge Bill";
+        }
+      } catch (e) {
+        console.warn("discharge-billing check failed:", e);
+      }
+
+      // Fallback to search-discharge-patient for live running charges
+      if (finalBill <= 0) {
+        try {
+          const liveRes = await apiRequest(`${BASE}search-discharge-patient/?ipNumber=${encodeURIComponent(ipNo)}&for_print=true`, "GET");
+          const payload = liveRes?.data?.data || liveRes?.data || liveRes;
+          const items = payload?.invest_items || [];
+          if (items.length > 0) {
+            finalBill = items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
+            billStatus = "Running Charges";
+          }
+        } catch (e) {
+          console.warn("search-discharge-patient check failed:", e);
+        }
+      }
+      finalBill = Math.round(finalBill * 100) / 100;
+
+      // 3. Outstanding = Total Final Bill - Total Advance
+      const outstanding = Math.round((finalBill - totalAdv) * 100) / 100;
+
+      setPatientFinancials({
+        totalAdvance: totalAdv,
+        advanceCount: advancesList.length,
+        advancesList,
+        finalBill,
+        outstanding,
+        billStatus,
+        loading: false,
+      });
+    } catch (err) {
+      console.warn("fetchPatientFinancials error:", err);
+      setPatientFinancials(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -1549,6 +1658,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       }
       setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
       fetchAdvancesByDate(filterFromDate, filterToDate);
+      if (common.ipNumber) fetchPatientFinancials(common.ipNumber);
       if (savedRecord) {
         openPrintModal(savedRecord);
         if (onSaved && typeof onSaved === "function") {
@@ -1690,6 +1800,8 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       openPrintRefundModal(savedRefund);
       fetchAdvancesByDate(filterFromDate, filterToDate);
       fetchRefunds(filterFromDate, filterToDate);
+      const targetIp = refundRecord.ip_number || refundRecord.ipNumber || common.ipNumber;
+      if (targetIp) fetchPatientFinancials(targetIp);
     } catch (e) {
       toast.error(e.message || "Failed to process refund");
     } finally {
@@ -2162,6 +2274,15 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   const handleResetForm = () => {
     setCommon(EMPTY_COMMON);
     setAdmId(null);
+    setPatientFinancials({
+      totalAdvance: 0,
+      advanceCount: 0,
+      advancesList: [],
+      finalBill: 0,
+      outstanding: 0,
+      billStatus: "",
+      loading: false,
+    });
     cancelEditMode();
   };
 
@@ -2335,9 +2456,158 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                   totalDays: common.totalDays,
                   customerType: common.customer_type,
                   company: common.company,
+                  totalAdvance: patientFinancials.totalAdvance,
+                  finalBill: patientFinancials.finalBill,
+                  outstanding: patientFinancials.outstanding,
                 } : null}
               />
             </Card>
+
+            {/* ── PATIENT FINANCIAL STATUS & OUTSTANDING ASSESSMENT ── */}
+            {admissionId && (
+              <Card style={{ borderColor: "#cbd5e1" }}>
+                <CardHead color="blue">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span>💰 Patient Financial Status &amp; Balance Assessment</span>
+                    {patientFinancials.loading && (
+                      <span style={{ fontSize: "0.68rem", opacity: 0.9, fontWeight: 500 }}>
+                        (Updating live figures...)
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: "0.68rem", opacity: 0.9, fontWeight: 500 }}>
+                    IP: {common.ipNumber} · UHID: {common.uhid}
+                  </span>
+                </CardHead>
+                <CardBody>
+                  <StatsWrap style={{ marginBottom: patientFinancials.advancesList?.length ? 12 : 0 }}>
+                    {/* Total Final Bill */}
+                    <StatCard borderColor="#3b82f6" style={{ background: "#f8fafc" }}>
+                      <StatTitle>🧾 Total Final Bill</StatTitle>
+                      <StatVal style={{ color: "#1e40af" }}>
+                        ₹{fmt(patientFinancials.finalBill)}
+                      </StatVal>
+                      <StatSub>
+                        {patientFinancials.billStatus
+                          ? `Source: ${patientFinancials.billStatus}`
+                          : "Discharge Bill / Running Charges"}
+                      </StatSub>
+                    </StatCard>
+
+                    {/* Total Advance Collected */}
+                    <StatCard borderColor={T.teal} style={{ background: "#f0fdfa" }}>
+                      <StatTitle>💳 Total Advance Collected</StatTitle>
+                      <StatVal style={{ color: T.tealDark }}>
+                        ₹{fmt(patientFinancials.totalAdvance)}
+                      </StatVal>
+                      <StatSub>
+                        {patientFinancials.advanceCount || patientFinancials.advancesList?.length || 0} advance payment{(patientFinancials.advanceCount === 1) ? "" : "s"} collected
+                      </StatSub>
+                    </StatCard>
+
+                    {/* Outstanding Balance */}
+                    <StatCard
+                      borderColor={
+                        patientFinancials.outstanding > 0 ? T.red :
+                        patientFinancials.outstanding < 0 ? T.purple : T.green
+                      }
+                      style={{
+                        background:
+                          patientFinancials.outstanding > 0 ? "#fef2f2" :
+                          patientFinancials.outstanding < 0 ? "#faf5ff" : "#f0fdf4"
+                      }}
+                    >
+                      <StatTitle style={{
+                        color:
+                          patientFinancials.outstanding > 0 ? "#991b1b" :
+                          patientFinancials.outstanding < 0 ? "#6b21a8" : "#166534"
+                      }}>
+                        ⚖️ Outstanding Balance
+                      </StatTitle>
+                      <StatVal style={{
+                        color:
+                          patientFinancials.outstanding > 0 ? "#dc2626" :
+                          patientFinancials.outstanding < 0 ? "#7c3aed" : "#16a34a"
+                      }}>
+                        ₹{fmt(Math.abs(patientFinancials.outstanding))}
+                      </StatVal>
+                      <StatSub style={{
+                        color:
+                          patientFinancials.outstanding > 0 ? "#b91c1c" :
+                          patientFinancials.outstanding < 0 ? "#7e22ce" : "#15803d",
+                        fontWeight: 600,
+                      }}>
+                        {patientFinancials.outstanding > 0
+                          ? "⚠️ Balance to Collect (Total Bill − Advance)"
+                          : patientFinancials.outstanding < 0
+                          ? `ℹ️ Excess Advance (Refund Due: ₹${fmt(Math.abs(patientFinancials.outstanding))})`
+                          : "✓ Nil Outstanding (Fully Settled)"}
+                      </StatSub>
+                    </StatCard>
+                  </StatsWrap>
+
+                  {/* Individual advances pill list */}
+                  {patientFinancials.advancesList && patientFinancials.advancesList.length > 0 && (
+                    <div style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 6,
+                      padding: "8px 12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6
+                    }}>
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: "0.72rem",
+                        color: T.muted,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.03em"
+                      }}>
+                        <span>Advance Payment History ({patientFinancials.advancesList.length})</span>
+                        <span>Total Advance Collected: ₹{fmt(patientFinancials.totalAdvance)}</span>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {patientFinancials.advancesList.map((adv, idx) => (
+                          <div
+                            key={adv.advance_id || adv.bill_no || idx}
+                            style={{
+                              background: "#fff",
+                              border: "1px solid #ccfbf1",
+                              borderRadius: 5,
+                              padding: "4px 8px",
+                              fontSize: "0.74rem",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              boxShadow: "0 1px 2px rgba(0,0,0,0.03)"
+                            }}
+                          >
+                            <span style={{ fontWeight: 700, color: T.text }}>#{idx + 1} Bill {adv.bill_no || adv.advance_id}</span>
+                            <span style={{ color: "#cbd5e1" }}>|</span>
+                            <span style={{ color: T.tealDark, fontWeight: 800 }}>₹{fmt(adv.advance_amount)}</span>
+                            {adv.refunded_amount > 0 && (
+                              <span style={{ color: T.red, fontSize: "0.68rem", fontWeight: 600 }}>(Ref: ₹{fmt(adv.refunded_amount)})</span>
+                            )}
+                            <span style={{ color: "#cbd5e1" }}>|</span>
+                            <span style={{ color: "#64748b", fontSize: "0.7rem" }}>{adv.payment_mode || "Cash"}</span>
+                            {adv.date && (
+                              <>
+                                <span style={{ color: "#cbd5e1" }}>|</span>
+                                <span style={{ color: "#64748b", fontSize: "0.7rem" }}>{adv.date}</span>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardBody>
+              </Card>
+            )}
 
             {/* ── ADVANCE INPUT FORM ── */}
             <div ref={advanceFormRef}>
@@ -2359,6 +2629,37 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                 )}
 
                 <CardBody>
+                  {admissionId && (
+                    <div style={{
+                      background: "#f0fdfa",
+                      border: "1px solid #99f6e4",
+                      borderRadius: 6,
+                      padding: "8px 12px",
+                      marginBottom: 12,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      fontSize: "0.78rem"
+                    }}>
+                      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                        <span>🧾 Total Bill: <strong>₹{fmt(patientFinancials.finalBill)}</strong></span>
+                        <span>💳 Total Advance: <strong style={{ color: T.tealDark }}>₹{fmt(patientFinancials.totalAdvance)}</strong></span>
+                        <span>
+                          ⚖️ Outstanding:{" "}
+                          <strong style={{ color: patientFinancials.outstanding > 0 ? T.red : patientFinancials.outstanding < 0 ? T.purple : T.green }}>
+                            ₹{fmt(patientFinancials.outstanding)}
+                          </strong>
+                        </span>
+                      </div>
+                      {total > 0 && (
+                        <div style={{ color: T.tealDark, fontWeight: 700, background: "#ccfbf1", padding: "2px 8px", borderRadius: 4, fontSize: "0.74rem" }}>
+                          After this Advance: New Advance ₹{fmt(patientFinancials.totalAdvance + total)} · New Outstanding ₹{fmt(patientFinancials.outstanding - total)}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <Grid cols={6}>
                     <GroupLabel c="teal">Payment Details</GroupLabel>
                     <F span={2}>
