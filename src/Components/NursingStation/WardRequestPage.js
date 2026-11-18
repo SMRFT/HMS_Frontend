@@ -2295,7 +2295,31 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                           {req.reqDate} {req.reqTime}
                         </td>
                         <td style={{ fontWeight: 600, color: "#0d8a7a" }}>
-                          {String(req.bill_no || req.Bill_id || req.reqId || "-").replace(/\//g, "")}
+                          {req.is_converted || req.status === "Billed" ? (
+                            <div>
+                              <span style={{ color: "#0d8a7a", fontWeight: 700, fontSize: "0.85rem" }}>
+                                {String(req.bill_no || req.billed_bill_no || "-").replace(/\//g, "")}
+                              </span>
+                              {req.request_no && req.request_no !== req.bill_no && (
+                                <span style={{ display: "block", fontSize: "0.72rem", color: "#64748b", fontWeight: 500 }}>
+                                  Req: {req.request_no}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{
+                              background: "#ccfbf1",
+                              color: "#0f766e",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              border: "1px solid #99f6e4",
+                              fontSize: "0.82rem",
+                              fontWeight: 700,
+                              display: "inline-block"
+                            }}>
+                              {req.request_no || req.bill_no || "-"}
+                            </span>
+                          )}
                         </td>
                         <td style={{ color: "#334155" }}>
                           {req.doctorName || req.doctor || "-"}
@@ -2448,13 +2472,12 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                     <th>Route</th>
                                     <th>Batch No</th>
                                     <th style={{ textAlign: "center" }}>Item Status</th>
-                                    {canCancel && <th style={{ textAlign: "center", width: "70px" }}>Action</th>}
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {activeMeds.length === 0 ? (
                                     <tr>
-                                      <td colSpan={canCancel ? 10 : 9} style={{ textAlign: "center", color: "#94a3b8", padding: "16px" }}>
+                                      <td colSpan={9} style={{ textAlign: "center", color: "#94a3b8", padding: "16px" }}>
                                         No medicines found in this request.
                                       </td>
                                     </tr>
@@ -2484,27 +2507,6 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                             {(m.status || req.status) === "Billed" ? "✓ Dispensed / Billed" : (m.status || req.status || "Pending")}
                                           </span>
                                         </td>
-                                        {canCancel && (
-                                          <td style={{ textAlign: "center" }}>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleRemoveIndividualMedicine(req.Bill_id || req.id, m)}
-                                              style={{
-                                                background: "#fee2e2",
-                                                border: "none",
-                                                color: "#dc2626",
-                                                cursor: "pointer",
-                                                borderRadius: "4px",
-                                                padding: "2px 8px",
-                                                fontSize: "0.75rem",
-                                                fontWeight: 600,
-                                              }}
-                                              title="Remove this medicine"
-                                            >
-                                              ✕ Remove
-                                            </button>
-                                          </td>
-                                        )}
                                       </tr>
                                     ))
                                   )}
