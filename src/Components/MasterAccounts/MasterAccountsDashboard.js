@@ -1121,7 +1121,7 @@ const MasterAccountsDashboard = () => {
         if (!activeModalReport) return null;
         const Component = activeModalReport.component;
         const isNoOutlet = [
-            "ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge"
+            "ip_advance", "discharge_detailed", "insurance_advance", "admission_vs_discharge"
         ].includes(String(activeModalReport.id));
         return (
             <Suspense fallback={<div style={{ padding: "80px", textAlign: "center" }}><Spin size="large" /></div>}>
@@ -1399,7 +1399,7 @@ const MasterAccountsDashboard = () => {
                     )}
 
                     {!([
-                        "ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge"
+                        "ip_advance", "discharge_detailed", "insurance_advance", "admission_vs_discharge"
                     ].includes(String(activeModalReport?.id))) && (
                         <div className="field-group" style={{ marginTop: "12px" }}>
                             <label>Outlet / Counter</label>
