@@ -94,8 +94,8 @@ const MasterSalesReturnReport = ({
     const summary = reportData?.summary || {};
 
     const filtered = useMemo(() => {
-        // Only display records with status "Paid"
-        let list = records.filter(r => String(r.status || "").toLowerCase() === "paid");
+        // Display valid return records (Paid / Completed)
+        let list = records.filter(r => !r.status || ["paid", "completed"].includes(String(r.status).toLowerCase()));
         if (!searchTerm.trim()) return list;
         const q = searchTerm.toLowerCase();
         return list.filter(r =>

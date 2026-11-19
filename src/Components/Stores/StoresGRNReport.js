@@ -301,19 +301,56 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
         const qty = parseFloat(it.quantity || it.qty || 0);
         const pack = parseFloat(it.packing || it.pack || 1) || 1;
         const free = parseFloat(it.free || it.free_qty || 0);
-        const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
+        const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || it.purchaseDiscountAmt || 0);
+
+        let taxable = 0;
+        if (it.itemValue !== undefined && it.itemValue !== null && it.itemValue !== '') {
+            taxable = parseFloat(it.itemValue) || 0;
+        } else if (it.baseAmount !== undefined && it.baseAmount !== null && it.baseAmount !== '') {
+            taxable = parseFloat(it.baseAmount) || 0;
+        } else if (it.item_value !== undefined && it.item_value !== null && it.item_value !== '') {
+            taxable = parseFloat(it.item_value) || 0;
+        } else if (it.taxableAmount !== undefined && it.taxableAmount !== null && it.taxableAmount !== '') {
+            taxable = parseFloat(it.taxableAmount) || 0;
+        } else if (it.taxableAmt !== undefined && it.taxableAmt !== null && it.taxableAmt !== '') {
+            taxable = parseFloat(it.taxableAmt) || 0;
+        } else {
+            const unitPrice = parseFloat(it.unitPrice || 0);
+            const packingPrice = parseFloat(it.packingPrice || it.packing_price || 0);
+            if (unitPrice > 0 && qty > 0) {
+                taxable = (unitPrice * qty) - disc;
+            } else if (packingPrice > 0) {
+                const noOfUnit = parseFloat(it.no_of_unit || 0) || (pack > 0 ? qty / pack : 1);
+                taxable = (packingPrice * noOfUnit) - disc;
+            } else {
+                const pRateFallback = parseFloat(it.purchaseRate || it.rate || 0);
+                taxable = (pRateFallback * qty) - disc;
+            }
+        }
+
+        const unitPrice = parseFloat(it.unitPrice || 0);
+        const pRate = unitPrice > 0 ? unitPrice : (qty > 0 && taxable > 0 ? Number((taxable / qty).toFixed(2)) : parseFloat(it.purchaseRate || it.packingPrice || it.rate || 0));
         const mrp = parseFloat(it.mrp || 0);
-        const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
-        const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / pack)) - disc);
+
         const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
         const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
         const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
 
-        const cgstAmt = cgstRate > 0 ? Number(((taxable * cgstRate) / 100).toFixed(2)) : parseFloat(it.cgst_amt || it.cgstAmt || 0);
-        const sgstAmt = sgstRate > 0 ? Number(((taxable * sgstRate) / 100).toFixed(2)) : parseFloat(it.sgst_amt || it.sgstAmt || 0);
-        const igstAmt = igstRate > 0 ? Number(((taxable * igstRate) / 100).toFixed(2)) : parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
-        const totalAmt = Number((taxable + cgstAmt + sgstAmt + igstAmt).toFixed(2));
-        const pCost = qty > 0 ? Number((totalAmt / qty).toFixed(2)) : pRate;
+        const storedCgst = parseFloat(it.cgst_amt || it.cgstAmt || 0);
+        const storedSgst = parseFloat(it.sgst_amt || it.sgstAmt || 0);
+        const storedIgst = parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
+
+        const cgstAmt = storedCgst > 0 ? storedCgst : (cgstRate > 0 ? Number(((taxable * cgstRate) / 100).toFixed(2)) : 0);
+        const sgstAmt = storedSgst > 0 ? storedSgst : (sgstRate > 0 ? Number(((taxable * sgstRate) / 100).toFixed(2)) : 0);
+        const igstAmt = storedIgst > 0 ? storedIgst : (igstRate > 0 ? Number(((taxable * igstRate) / 100).toFixed(2)) : 0);
+
+        const storedPurchaseCost = parseFloat(it.purchaseCost || 0);
+        const totalAmt = storedPurchaseCost > 0 && Math.abs(storedPurchaseCost - (taxable + cgstAmt + sgstAmt + igstAmt)) <= 1
+            ? storedPurchaseCost
+            : Number((taxable + cgstAmt + sgstAmt + igstAmt).toFixed(2));
+
+        const storedUnitCost = parseFloat(it.unitCost || 0);
+        const pCost = storedUnitCost > 0 ? storedUnitCost : (qty > 0 ? Number((totalAmt / qty).toFixed(2)) : pRate);
 
         let expDisplay = it.expiry || it.expDate || "—";
         if (expDisplay && expDisplay !== "—") {
@@ -355,13 +392,16 @@ const StoresGRNDocument = ({ grn, vendorName, items = [], getDepartmentName: get
     const totalGst = totalCgst + totalSgst + totalIgst;
 
     const calcNet = totalTaxable - totalDisc + totalGst + taxOnFree;
-    const storedNet = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || 0);
+    const storedNet = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || grn.total_amount || 0);
     const storedRound = parseFloat(grn.round_amount?.$numberDecimal || grn.round_amount || 0);
 
     let netAmt = 0;
     let roundOff = storedRound;
 
-    if (storedNet > 0 && Math.abs(storedNet - calcNet) <= 5) {
+    if (storedNet > 0 && Math.abs(storedNet - calcNet) <= 10) {
+        netAmt = storedNet;
+        roundOff = Number((netAmt - (totalTaxable - totalDisc + totalGst + taxOnFree)).toFixed(2));
+    } else if (storedNet > 0) {
         netAmt = storedNet;
         roundOff = Number((netAmt - calcNet).toFixed(2));
     } else {
@@ -969,19 +1009,56 @@ const StoresGRNReport = () => {
             const qty = parseFloat(it.quantity || it.qty || 0);
             const pack = parseFloat(it.packing || it.pack || 1) || 1;
             const free = parseFloat(it.free || it.free_qty || 0);
-            const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
+            const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || it.purchaseDiscountAmt || 0);
+
+            let taxable = 0;
+            if (it.itemValue !== undefined && it.itemValue !== null && it.itemValue !== '') {
+                taxable = parseFloat(it.itemValue) || 0;
+            } else if (it.baseAmount !== undefined && it.baseAmount !== null && it.baseAmount !== '') {
+                taxable = parseFloat(it.baseAmount) || 0;
+            } else if (it.item_value !== undefined && it.item_value !== null && it.item_value !== '') {
+                taxable = parseFloat(it.item_value) || 0;
+            } else if (it.taxableAmount !== undefined && it.taxableAmount !== null && it.taxableAmount !== '') {
+                taxable = parseFloat(it.taxableAmount) || 0;
+            } else if (it.taxableAmt !== undefined && it.taxableAmt !== null && it.taxableAmt !== '') {
+                taxable = parseFloat(it.taxableAmt) || 0;
+            } else {
+                const unitPrice = parseFloat(it.unitPrice || 0);
+                const packingPrice = parseFloat(it.packingPrice || it.packing_price || 0);
+                if (unitPrice > 0 && qty > 0) {
+                    taxable = (unitPrice * qty) - disc;
+                } else if (packingPrice > 0) {
+                    const noOfUnit = parseFloat(it.no_of_unit || 0) || (pack > 0 ? qty / pack : 1);
+                    taxable = (packingPrice * noOfUnit) - disc;
+                } else {
+                    const pRateFallback = parseFloat(it.purchaseRate || it.rate || 0);
+                    taxable = (pRateFallback * qty) - disc;
+                }
+            }
+
+            const unitPrice = parseFloat(it.unitPrice || 0);
+            const pRate = unitPrice > 0 ? unitPrice : (qty > 0 && taxable > 0 ? Number((taxable / qty).toFixed(2)) : parseFloat(it.purchaseRate || it.packingPrice || it.rate || 0));
             const mrp = parseFloat(it.mrp || 0);
-            const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
-            const taxable = parseFloat(it.item_value || it.taxableAmt || (pRate * (qty / pack)) - disc);
+
             const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
             const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
             const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);
 
-            const cgstAmt = cgstRate > 0 ? Number(((taxable * cgstRate) / 100).toFixed(2)) : parseFloat(it.cgst_amt || it.cgstAmt || 0);
-            const sgstAmt = sgstRate > 0 ? Number(((taxable * sgstRate) / 100).toFixed(2)) : parseFloat(it.sgst_amt || it.sgstAmt || 0);
-            const igstAmt = igstRate > 0 ? Number(((taxable * igstRate) / 100).toFixed(2)) : parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
-            const totalAmt = Number((taxable + cgstAmt + sgstAmt + igstAmt).toFixed(2));
-            const pCost = qty > 0 ? Number((totalAmt / qty).toFixed(2)) : pRate;
+            const storedCgst = parseFloat(it.cgst_amt || it.cgstAmt || 0);
+            const storedSgst = parseFloat(it.sgst_amt || it.sgstAmt || 0);
+            const storedIgst = parseFloat(it.igst_amt || it.igstAmt || it.igst || 0);
+
+            const cgstAmt = storedCgst > 0 ? storedCgst : (cgstRate > 0 ? Number(((taxable * cgstRate) / 100).toFixed(2)) : 0);
+            const sgstAmt = storedSgst > 0 ? storedSgst : (sgstRate > 0 ? Number(((taxable * sgstRate) / 100).toFixed(2)) : 0);
+            const igstAmt = storedIgst > 0 ? storedIgst : (igstRate > 0 ? Number(((taxable * igstRate) / 100).toFixed(2)) : 0);
+
+            const storedPurchaseCost = parseFloat(it.purchaseCost || 0);
+            const totalAmt = storedPurchaseCost > 0 && Math.abs(storedPurchaseCost - (taxable + cgstAmt + sgstAmt + igstAmt)) <= 1
+                ? storedPurchaseCost
+                : Number((taxable + cgstAmt + sgstAmt + igstAmt).toFixed(2));
+
+            const storedUnitCost = parseFloat(it.unitCost || 0);
+            const pCost = storedUnitCost > 0 ? storedUnitCost : (qty > 0 ? Number((totalAmt / qty).toFixed(2)) : pRate);
 
             let expDisplay = it.expiry || it.expDate || "—";
             if (expDisplay && expDisplay !== "—") {
@@ -1023,13 +1100,16 @@ const StoresGRNReport = () => {
         const totalGst = totalCgst + totalSgst + totalIgst;
 
         const calcNet = totalTaxable - totalDisc + totalGst + taxOnFree;
-        const storedNet = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || 0);
+        const storedNet = parseFloat(grn.net_invoice_amount?.$numberDecimal || grn.net_invoice_amount || grn.net_amount || grn.total_amount || 0);
         const storedRound = parseFloat(grn.round_amount?.$numberDecimal || grn.round_amount || 0);
 
         let netAmt = 0;
         let roundOff = storedRound;
 
-        if (storedNet > 0 && Math.abs(storedNet - calcNet) <= 5) {
+        if (storedNet > 0 && Math.abs(storedNet - calcNet) <= 10) {
+            netAmt = storedNet;
+            roundOff = Number((netAmt - (totalTaxable - totalDisc + totalGst + taxOnFree)).toFixed(2));
+        } else if (storedNet > 0) {
             netAmt = storedNet;
             roundOff = Number((netAmt - calcNet).toFixed(2));
         } else {
@@ -1467,7 +1547,30 @@ const StoresGRNReport = () => {
                 const pack = parseFloat(it.packing || it.pack || 1) || 1;
                 const pRate = parseFloat(it.unitPrice || it.purchaseRate || it.packingPrice || it.packing_price || it.rate || 0);
                 const disc = parseFloat(it.purchase_discount_amt || it.discountedAmt || it.discount || 0);
-                const taxable = parseFloat(it.item_value || it.itemValue || it.taxableAmt || ((pRate * (qty / pack)) - disc));
+                let taxable = 0;
+                if (it.itemValue !== undefined && it.itemValue !== null && it.itemValue !== '') {
+                    taxable = parseFloat(it.itemValue) || 0;
+                } else if (it.baseAmount !== undefined && it.baseAmount !== null && it.baseAmount !== '') {
+                    taxable = parseFloat(it.baseAmount) || 0;
+                } else if (it.item_value !== undefined && it.item_value !== null && it.item_value !== '') {
+                    taxable = parseFloat(it.item_value) || 0;
+                } else if (it.taxableAmount !== undefined && it.taxableAmount !== null && it.taxableAmount !== '') {
+                    taxable = parseFloat(it.taxableAmount) || 0;
+                } else if (it.taxableAmt !== undefined && it.taxableAmt !== null && it.taxableAmt !== '') {
+                    taxable = parseFloat(it.taxableAmt) || 0;
+                } else {
+                    const unitPrice = parseFloat(it.unitPrice || 0);
+                    const packingPrice = parseFloat(it.packingPrice || it.packing_price || 0);
+                    if (unitPrice > 0 && qty > 0) {
+                        taxable = (unitPrice * qty) - disc;
+                    } else if (packingPrice > 0) {
+                        const noOfUnit = parseFloat(it.no_of_unit || 0) || (pack > 0 ? qty / pack : 1);
+                        taxable = (packingPrice * noOfUnit) - disc;
+                    } else {
+                        const pRateFallback = parseFloat(it.purchaseRate || it.rate || 0);
+                        taxable = (pRateFallback * qty) - disc;
+                    }
+                }
                 const cgstRate = parseFloat(it.cgst_percent || it.cgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
                 const sgstRate = parseFloat(it.sgst_percent || it.sgstPercent || (it.tax ? it.tax / 2 : 0) || 0);
                 const igstRate = parseFloat(it.igst_percent || it.igstPercent || 0);

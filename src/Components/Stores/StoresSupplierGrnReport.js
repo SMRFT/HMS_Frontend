@@ -7,6 +7,7 @@ import {
     Building2, Download, Printer
 } from 'lucide-react';
 import { printStoresReport } from './printStoresReport';
+import SearchSelect from '../Common/SearchSelect';
 import {
     PageWrapper,
     Container,
@@ -39,6 +40,7 @@ const StoresSupplierGrnReport = () => {
     const [fromDate, setFromDate] = useState(oneMonthAgo);
     const [toDate, setToDate] = useState(today);
     const [selectedVendor, setSelectedVendor] = useState('');
+    const [vendors, setVendors] = useState([]);
     const [expandedSupplier, setExpandedSupplier] = useState(null);
 
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
@@ -68,6 +70,7 @@ const StoresSupplierGrnReport = () => {
                     if (printContainer) printContainer._reportData = reportList;
                 }, 50);
                 if (resPayload.summary) setSummary(resPayload.summary);
+                if (resPayload.vendors) setVendors(resPayload.vendors);
             } else {
                 setReportData([]);
             }
@@ -110,8 +113,6 @@ const StoresSupplierGrnReport = () => {
             "Taxable Amount (₹)": s.taxable_amount,
             "Tax Paid (₹)": s.tax_amount,
             "Total Invoice Amount (₹)": s.total_amount,
-            "Total Paid (₹)": s.total_paid,
-            "Pending Balance (₹)": s.pending_amount,
             "Items Received Qty": s.total_items_qty
         }));
 
@@ -127,8 +128,6 @@ const StoresSupplierGrnReport = () => {
                         "Invoice No": g.invoice_no || '',
                         "Invoice Date": g.invoice_date || '',
                         "Total Amount (₹)": g.total_amount,
-                        "Total Paid (₹)": g.total_paid,
-                        "Pending Balance (₹)": g.pending_amount,
                         "Approval Status": g.is_approved ? 'Approved' : 'Pending',
                         "Items Summary": Array.isArray(g.items) ? g.items.map(it => `${it.itemName || it.name || 'Item'} (${it.quantity || 0} Qty)`).join(', ') : ''
                     });
@@ -180,27 +179,30 @@ const StoresSupplierGrnReport = () => {
                         </h2>
                         <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Taxable + Taxes</span>
                     </div>
-
-                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                        <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL PAID</span>
-                        <h2 style={{ margin: '8px 0 0 0', fontSize: '1.6rem', color: '#16a34a', fontWeight: '700' }}>
-                            ₹{Number(summary.grand_total_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </h2>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Cleared Payments</span>
-                    </div>
-
-                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                        <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>PENDING BALANCE</span>
-                        <h2 style={{ margin: '8px 0 0 0', fontSize: '1.6rem', color: (summary.grand_pending_amount > 0 ? '#dc2626' : '#16a34a'), fontWeight: '700' }}>
-                            ₹{Number(summary.grand_pending_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </h2>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Outstanding Supplier Balance</span>
-                    </div>
                 </div>
 
                 {/* Filter Controls Bar */}
                 <ControlsContainer style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
                     <form onSubmit={handleFilterSubmit} style={{ width: '100%', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ minWidth: '240px', flex: '1 1 220px' }}>
+                            <SearchSelect
+                                options={[
+                                    { value: "", label: "All Store Suppliers" },
+                                    ...vendors.map((v) => ({
+                                        value: String(v.vendor_id),
+                                        label: `${v.name} (${v.vendor_id})`
+                                    }))
+                                ]}
+                                value={selectedVendor || ""}
+                                onChange={(e) => {
+                                    setSelectedVendor(e.target.value);
+                                }}
+                                placeholder="All Store Suppliers"
+                                height="42px"
+                                style={{ width: "100%" }}
+                            />
+                        </div>
+
                         <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
                             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: colors.textMuted }} />
                             <Input
@@ -264,15 +266,13 @@ const StoresSupplierGrnReport = () => {
                                         <Th style={{ textAlign: 'right' }}>Taxable Amount</Th>
                                         <Th style={{ textAlign: 'right' }}>Tax Paid</Th>
                                         <Th style={{ textAlign: 'right' }}>Total Invoice Amount</Th>
-                                        <Th style={{ textAlign: 'right' }}>Total Paid</Th>
-                                        <Th style={{ textAlign: 'right' }}>Pending Balance</Th>
                                         <Th style={{ textAlign: 'center' }}>Items Recd</Th>
                                     </Tr>
                                 </thead>
                                 <tbody>
                                     {!Array.isArray(reportData) || reportData.length === 0 ? (
                                         <Tr>
-                                            <Td colSpan={9} style={{ textAlign: 'center', padding: '30px', color: colors.textMuted }}>
+                                            <Td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: colors.textMuted }}>
                                                 No Supplier GRN records found for the selected period.
                                             </Td>
                                         </Tr>
@@ -304,12 +304,6 @@ const StoresSupplierGrnReport = () => {
                                                         <Td style={{ textAlign: 'right', fontWeight: '700', color: colors.textMain }}>
                                                             ₹{Number(supplier.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                         </Td>
-                                                        <Td style={{ textAlign: 'right', fontWeight: '700', color: '#16a34a' }}>
-                                                            ₹{Number(supplier.total_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                        </Td>
-                                                        <Td style={{ textAlign: 'right', fontWeight: '700', color: supplier.pending_amount > 0 ? '#dc2626' : '#16a34a' }}>
-                                                            ₹{Number(supplier.pending_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                        </Td>
                                                         <Td style={{ textAlign: 'center', fontWeight: '600' }}>
                                                             {supplier.total_items_qty} units
                                                         </Td>
@@ -318,7 +312,7 @@ const StoresSupplierGrnReport = () => {
                                                     {/* Expanded Sub-Table for GRNs */}
                                                     {isExpanded && (
                                                         <Tr>
-                                                            <Td colSpan={9} style={{ background: '#f8fafc', padding: '16px 24px' }}>
+                                                            <Td colSpan={7} style={{ background: '#f8fafc', padding: '16px 24px' }}>
                                                                 <div style={{ marginBottom: '10px', fontWeight: '700', color: colors.primary, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                     <FileText size={16} /> GRNs from {supplier.vendor_name} ({supplier.grns?.length} Invoices)
                                                                 </div>
@@ -330,8 +324,6 @@ const StoresSupplierGrnReport = () => {
                                                                             <Th style={{ fontSize: '0.8rem' }}>GRN Date</Th>
                                                                             <Th style={{ fontSize: '0.8rem' }}>Invoice No & Date</Th>
                                                                             <Th style={{ fontSize: '0.8rem', textAlign: 'right' }}>Total Amount</Th>
-                                                                            <Th style={{ fontSize: '0.8rem', textAlign: 'right' }}>Amount Paid</Th>
-                                                                            <Th style={{ fontSize: '0.8rem', textAlign: 'right' }}>Pending</Th>
                                                                             <Th style={{ fontSize: '0.8rem' }}>Items Summary</Th>
                                                                         </Tr>
                                                                     </thead>
@@ -348,12 +340,6 @@ const StoresSupplierGrnReport = () => {
                                                                                 </Td>
                                                                                 <Td style={{ textAlign: 'right', fontWeight: '600', fontSize: '0.85rem' }}>
                                                                                     ₹{Number(g.total_amount || 0).toFixed(2)}
-                                                                                </Td>
-                                                                                <Td style={{ textAlign: 'right', color: '#16a34a', fontWeight: '600', fontSize: '0.85rem' }}>
-                                                                                    ₹{Number(g.total_paid || 0).toFixed(2)}
-                                                                                </Td>
-                                                                                <Td style={{ textAlign: 'right', color: g.pending_amount > 0 ? '#dc2626' : '#16a34a', fontWeight: '600', fontSize: '0.85rem' }}>
-                                                                                    ₹{Number(g.pending_amount || 0).toFixed(2)}
                                                                                 </Td>
                                                                                 <Td style={{ fontSize: '0.8rem' }}>
                                                                                     {Array.isArray(g.items) && g.items.length > 0 ? (
