@@ -10,7 +10,7 @@ import IPAdvance from "./IPAdvance";                // ← IP Advance component
 import AdmissionGrid from "./AdmissionGrid";
 import PatientSearchModal from "../Common/PatientSearchModal";
 import OccupiedBedDetailModal from "./OccupiedBedDetailModal";
-import BedSelectionModal, { RoomSummaryCardBody, RoomPaginationBar, groupRoomsList, sortRoomsByFloorOrder } from "../Rooms/BedSelectionModal";
+import BedSelectionModal, { RoomSummaryCardBody, RoomPaginationBar, groupRoomsList, sortRoomsByFloorOrder, isPrivateRoom } from "../Rooms/BedSelectionModal";
 import {
   PageWrapper, Container, ModalOverlay, ModalContainer,
   ModalHeader, ModalTitle, CloseButton, ModalBody,
@@ -3152,6 +3152,9 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       payload.append("is_day_care", "true");
       payload.append("ward_status", "Sent for billing");
     }
+    if (form.room_category || form.roomCategory) {
+      payload.append("room_category", form.room_category || form.roomCategory);
+    }
 
     if (editingId) {
       payload.append("action", "edit");
@@ -3204,9 +3207,10 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           ward_status: savedAdm.ward_status || (isDaycare ? "Sent for billing" : (form.ward_status || "")),
           roomNo: savedAdm.roomNo || form.roomNo,
           bedNo: savedAdm.bedNo || form.bedNo,
+          room_category: form.room_category || form.roomCategory || savedAdm.room_category || "",
           room_details: safeParseList(savedAdm.room_details).length > 0
             ? safeParseList(savedAdm.room_details)
-            : [{ roomNo: form.roomNo, bedNo: form.bedNo, is_roomActive: true }],
+            : [{ roomNo: form.roomNo, bedNo: form.bedNo, room_category: form.room_category || form.roomCategory || "", is_roomActive: true }],
         };
 
         closeForm();
@@ -3246,7 +3250,14 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     } catch { showInfo({ type: "error", title: "Error", message: "Failed to cancel admission. Please try again." }); }
   };
 
-  const handlePrint = adm => { setOpenMenu(null); setPrintData({ ...adm, admittingDoctorName: getDrName(adm.admittingDoctor) }); };
+  const handlePrint = adm => {
+    setOpenMenu(null);
+    setPrintData({
+      ...adm,
+      admittingDoctorName: getDrName(adm.admittingDoctor),
+      room_category: adm.room_category || (Array.isArray(adm.room_details) && adm.room_details[0]?.room_category) || "",
+    });
+  };
 
   useEffect(() => {
     if (openMenu === null) return;
@@ -3388,8 +3399,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     // Aadhaar / Adhar
     const adharNo = pd.aadhaar || pd.aadhar || "";
 
-    // Room
-    const roomDisplay = roomNo !== "-" ? `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}` : "-";
+    // Room: For Private Rooms (e.g. SR-405), display only the room number without bed number (/ 1)
+    const isPrivate = isPrivateRoom(roomNo, pd?.room_category || pd?.roomCategory);
+    const roomDisplay = roomNo !== "-"
+      ? (isPrivate || !bedNo || bedNo === "-" ? roomNo : `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}`)
+      : "-";
 
     const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: IST_TZ });
     const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ });
@@ -3670,15 +3684,60 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     return groupRoomsList(filteredRoomsList.slice(start, start + roomPageSize));
   }, [filteredRoomsList, safeRoomPage, roomPageSize]);
   const handleRoomClick = room => {
-    if (getRoomStatus(room.beds) === "maintenance") return;
-    const hasAvail = (room.beds || []).some(b => b.status === "Available");
-    if (!hasAvail) return;
-    setSelRoom(room); setShowRoom(false); setShowBed(true);
+    if (getRoomStatus(room.beds) === "maintenance") {
+      toast.warning(`Room ${room.room_number} is under maintenance`);
+      return;
+    }
+    const cat = String(room.room_category || room.room_type || "").trim().toUpperCase();
+    const isPrivate = isPrivateRoom(room.room_number, cat, (room.beds || []).length);
+
+    if (isPrivate) {
+      const availBed = (room.beds || []).find(b => (b.status || b.bed_status || "").toLowerCase() === "available");
+      if (!availBed && (room.beds || []).length > 0) {
+        toast.warning(`Room ${room.room_number} is currently occupied`);
+        return;
+      }
+      const bedNo = availBed ? (availBed.bed_number || "1") : ((room.beds && room.beds[0]?.bed_number) || "1");
+      setForm(p => ({
+        ...p,
+        roomNo: room.room_number,
+        bedNo: String(bedNo),
+        roomCategory: room.room_category || room.room_type || "PRIVATE ROOM",
+        room_category: room.room_category || room.room_type || "PRIVATE ROOM",
+      }));
+      setErrors(p => {
+        const next = { ...p };
+        delete next.roomNo;
+        delete next.bedNo;
+        return next;
+      });
+      setShowBed(false);
+      setShowRoom(false);
+      toast.success(`Room ${room.room_number} selected`);
+      return;
+    }
+
+    const hasAvail = (room.beds || []).some(b => (b.status || b.bed_status || "").toLowerCase() === "available");
+    if (!hasAvail) {
+      toast.warning(`Room ${room.room_number} has no available beds`);
+      return;
+    }
+    setSelRoom(room);
+    setShowRoom(false);
+    setShowBed(true);
   };
   const handleBedSelect = (bedNumber, room) => {
     const r = room || selRoom;
     if (!r) return;
-    setForm(p => ({ ...p, roomNo: r.room_number, bedNo: bedNumber }));
+    const cat = String(r.room_category || r.room_type || "").trim().toUpperCase();
+    const isPrivate = isPrivateRoom(r.room_number, cat, (r.beds || []).length);
+    setForm(p => ({
+      ...p,
+      roomNo: r.room_number,
+      bedNo: bedNumber,
+      roomCategory: r.room_category || r.room_type || "",
+      room_category: r.room_category || r.room_type || "",
+    }));
     setErrors(p => {
       const next = { ...p };
       delete next.roomNo;
@@ -3686,7 +3745,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       return next;
     });
     setShowBed(false); setShowRoom(false);
-    toast.success(`Room ${r.room_number} / Bed ${bedNumber} selected`);
+    if (isPrivate) {
+      toast.success(`Room ${r.room_number} selected`);
+    } else {
+      toast.success(`Room ${r.room_number} / Bed ${bedNumber} selected`);
+    }
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -4993,10 +5056,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                                 key={room.room_number}
                                 hasOccupied={hasOcc}
                                 style={{ cursor: "pointer" }}
-                                onClick={() => {
-                                  setSelRoom(room);
-                                  setShowBed(true);
-                                }}
+                                onClick={() => handleRoomClick(room)}
                                 title={`Click to view ${room.beds?.length || 0} bed(s) in Room ${room.room_number}`}
                               >
                                 <RCT hasOccupied={hasOcc}>
@@ -5095,7 +5155,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       <SLn style={{ fontWeight: 900 }}>UHID : {printData.uhid || ""}</SLn>
                       <SLn>DOA  : {printData.admissionDateTime ? fmtDate(printData.admissionDateTime) : "-"}</SLn>
                       <SLn>TIME : {parseTimestamp(printData.admissionDateTime) ? new Date(parseTimestamp(printData.admissionDateTime)).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ }) : "-"}</SLn>
-                      <SLn>Room : {roomNo} / {bedNo}</SLn>
+                      <SLn>Room : {isPrivateRoom(roomNo, printData?.room_category || printData?.roomCategory) || !bedNo || bedNo === "-" ? roomNo : `${roomNo} / ${bedNo}`}</SLn>
                     </SRt>
                   </SR>
                 </Slip>

@@ -16,7 +16,7 @@ import {
 import apiRequest from "../../Auth/apiRequest";
 import PatientSearchModal from "../Common/PatientSearchModal";
 import OccupiedBedDetailModal from "./OccupiedBedDetailModal";
-import BedSelectionModal, { RoomSummaryCardBody, RoomPaginationBar, groupRoomsList, sortRoomsByFloorOrder } from "../Rooms/BedSelectionModal";
+import BedSelectionModal, { RoomSummaryCardBody, RoomPaginationBar, groupRoomsList, sortRoomsByFloorOrder, isPrivateRoom } from "../Rooms/BedSelectionModal";
 import { AdmittedPatientsPanel, AdmittedPatientSummaryCard } from "./AdmittedPatientsPanel";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
@@ -791,17 +791,49 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
   }, [allRooms]);
 
   const handleRoomClick = room => {
-    if (getRoomStatus(room.beds) === "maintenance") return;
-    const hasAvail = (room.beds||[]).some(b => b.status === "Available");
-    if (!hasAvail) return;
-    setSelRoom(room); setShowBed(true);
+    if (getRoomStatus(room.beds) === "maintenance") {
+      toast.warning(`Room ${room.room_number} is under maintenance`);
+      return;
+    }
+    const cat = String(room.room_category || room.room_type || "").trim().toUpperCase();
+    const isPrivate = isPrivateRoom(room.room_number, cat, (room.beds || []).length);
+
+    if (isPrivate) {
+      const availBed = (room.beds || []).find(b => (b.status || b.bed_status || "").toLowerCase() === "available");
+      if (!availBed && (room.beds || []).length > 0) {
+        toast.warning(`Room ${room.room_number} is currently occupied`);
+        return;
+      }
+      const bedNo = availBed ? (availBed.bed_number || "1") : ((room.beds && room.beds[0]?.bed_number) || "1");
+      onSelect(room.room_number, String(bedNo), room);
+      setShowBed(false);
+      onClose();
+      toast.success(`Room ${room.room_number} selected`);
+      return;
+    }
+
+    const hasAvail = (room.beds || []).some(b => (b.status || b.bed_status || "").toLowerCase() === "available");
+    if (!hasAvail) {
+      toast.warning(`Room ${room.room_number} has no available beds`);
+      return;
+    }
+    setSelRoom(room);
+    setShowBed(true);
   };
 
   const handleBedSelect = (bedNo, room) => {
     const r = room || selRoom;
     if (!r) return;
-    onSelect(r.room_number, bedNo);
-    toast.success(`Room ${r.room_number} / Bed ${bedNo} selected`);
+    onSelect(r.room_number, bedNo, r);
+    setShowBed(false);
+    onClose();
+    const cat = String(r.room_category || r.room_type || "").trim().toUpperCase();
+    const isPrivate = isPrivateRoom(r.room_number, cat, (r.beds || []).length);
+    if (isPrivate) {
+      toast.success(`Room ${r.room_number} selected`);
+    } else {
+      toast.success(`Room ${r.room_number} / Bed ${bedNo} selected`);
+    }
   };
 
   return (
@@ -956,10 +988,7 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
                             key={room.room_number}
                             hasOccupied={hasOcc}
                             style={{ cursor: "pointer" }}
-                            onClick={() => {
-                              setSelRoom(room);
-                              setShowBed(true);
-                            }}
+                            onClick={() => handleRoomClick(room)}
                             title={`Click to view ${room.beds?.length || 0} bed(s) in Room ${room.room_number}`}
                           >
                             <RCT hasOccupied={hasOcc}>
