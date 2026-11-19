@@ -495,7 +495,7 @@ export const generateLabOverallPrintHtml = ({ patient, billedItems = [], totalAm
     <thead>
       <tr>
         <th class="text-center">#</th>
-        <th>Bill No</th>
+        <th>Req No</th>
         <th>Date &amp; Time</th>
         <th>Lab Test Name</th>
         <th>Bill Type</th>
@@ -567,7 +567,7 @@ export const generateMedicineOverallPrintHtml = ({ patient, requests = [], size 
     const meds = req.medicines || req.items || [];
     meds.forEach((m) => {
       allMeds.push({
-        reqId: req.bill_id || req.Bill_id || "—",
+        reqId: req.requestNo || req.request_no || "—",
         reqDateTime: `${req.reqDate || ""} ${req.reqTime || ""}`.trim() || formatDateTime(req.created_date),
         doctor: req.doctorName || req.doctor || "—",
         dispatchStatus: getItemDispatchStatus(m),
@@ -794,7 +794,7 @@ export const generateMedicineSingleSlipHtml = ({ patient, request, size = "a4" }
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Medicine Requisition Slip - ${request.bill_id || request.Bill_id || "Req"}</title>
+  <title>Medicine Requisition Slip - ${request.requestNo || "Req"}</title>
   <style>${getBaseStyles(size)}</style>
 </head>
 <body>
@@ -807,7 +807,7 @@ export const generateMedicineSingleSlipHtml = ({ patient, request, size = "a4" }
       </div>
       <div style="text-align: right;">
         <span class="doc-badge">💊 OT MEDICINE REQUISITION SLIP</span>
-        <div style="font-size: 11px; font-weight: 700; color: #0f172a; margin-top: 4px;">REQ ID: ${request.bill_id || request.Bill_id || "—"}</div>
+        <div style="font-size: 11px; font-weight: 700; color: #0f172a; margin-top: 4px;">REQ ID: ${request.requestNo || request.request_no || "—"}</div>
       </div>
     </div>
   </div>

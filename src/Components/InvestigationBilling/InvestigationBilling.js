@@ -1320,6 +1320,11 @@ const InvestigationBilling = () => {
     if (result.success) {
       const billNo = result.data?.investBillNo;
       if (billNo) {
+        if (isEditMode) {
+          toast.success("Bill updated successfully! Sent for approval in Dept BUD Report.");
+          navigate("/ViewBills");
+          return;
+        }
         // ── Open print modal with an in-modal toast instead of alert(). ──
         // ── The modal stays open until the user explicitly closes it — ──
         // ── form reset/reload happens on that close, not on a timer.  ──
