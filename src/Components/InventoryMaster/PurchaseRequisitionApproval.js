@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
-import {  InvTopToolbar, InvPagination, getTodayDateString, InvSelect , useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
+import { InvTopToolbar, InvPagination, getTodayDateString, InvSelect, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge } from "./InventoryUIHelper"
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -76,18 +76,6 @@ const CardHead = styled.div`background:${C.faint};border-bottom:1px solid ${C.bo
 /* ── Form controls ── */
 const FG  = styled.div`display:flex;flex-direction:column;gap:4px;`
 const Lbl = styled.label`font-size:.7rem;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:.05em;`
-const Sel = styled.select`
-  padding:9px 12px;border:1.5px solid ${C.border};border-radius:7px;font-size:.875rem;color:${C.text};
-  outline:none;width:100%;box-sizing:border-box;font-family:inherit;background:#fff;
-  transition:border-color .14s;
-  &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
-`
-const Inp = styled.input`
-  padding:9px 12px;border:1.5px solid ${C.border};border-radius:7px;font-size:.875rem;color:${C.text};
-  outline:none;width:100%;box-sizing:border-box;font-family:inherit;background:#fff;
-  transition:border-color .14s;
-  &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
-`
 const Textarea = styled.textarea`
   padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};border-radius:7px;font-size:.875rem;
   color:${C.text};outline:none;width:100%;box-sizing:border-box;font-family:inherit;background:#fff;
@@ -103,7 +91,6 @@ const Btn     = styled.button`
   &:active{transform:translateY(1px);}
   &:disabled{opacity:.5;cursor:not-allowed;}
 `
-const PrimBtn = styled(Btn)`background:${C.primary};color:#fff;border-color:${C.primary};&:hover:not(:disabled){background:${C.pDark};border-color:${C.pDark};}`
 const SecBtn  = styled(Btn)`background:#fff;color:#374151;border-color:${C.border};&:hover:not(:disabled){background:${C.faint};}`
 const BtnRow  = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid ${C.border};padding-top:16px;`
 
@@ -121,7 +108,7 @@ const Badge = ({ $s, children }) => {
     </span>
   )
 }
-const Pill = styled.span`background:${C.pLight};color:${C.pDark};padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;border:1px solid ${C.pBorder};font-family:monospace;`
+const Pill = styled.span`background:${C.pLight};color:${C.pDark};padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;border:1px solid ${C.pBorder};`
 
 /* ── Table ── */
 const TblWrap = styled.div`overflow-x:auto;`
@@ -129,69 +116,6 @@ const Tbl   = styled.table`width:100%;border-collapse:collapse;font-size:.8rem;`
 const Th    = styled.th`background:${C.faint};color:${C.muted};padding:10px 12px;text-align:left;font-size:.69rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid ${C.border};white-space:nowrap;`
 const Td    = styled.td`padding:10px 12px;border-bottom:1px solid #f1f5f9;color:${C.text};vertical-align:middle;`
 const Trow  = styled.tr`transition:background .1s;&:hover{background:#fafafa;}`
-
-/* ── Filter bar ── */
-const FBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:13px 18px;background:${C.faint};border-bottom:1px solid ${C.border};`
-const FItem = styled.div`display:flex;flex-direction:column;gap:3px;min-width:150px;`
-
-const TTBar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px;
-  border-bottom: 1px solid #e5e7eb;
-  flex-wrap: wrap;
-  gap: 8px;
-  background: #fff;
-`;
-
-const TableSelect = styled.select`
-  height: 28px;
-  width: 72px;
-  padding: 0 6px;
-  font-size: .75rem;
-  font-weight: 600;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
-  color: #1f2937;
-  cursor: pointer;
-  outline: none;
-  &:focus {
-    border-color: ${C.primary};
-  }
-`;
-
-const Pager = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 18px;
-  border-top: 1px solid #e5e7eb;
-  font-size: .75rem;
-  color: #6b7280;
-  flex-wrap: wrap;
-  gap: 6px;
-  background: #fff;
-`;
-
-const PB = styled.button`
-  height: 28px;
-  padding: 0 13px;
-  font-size: .75rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: ${p => p.active ? '#1e3a5f' : '#fff'};
-  color: ${p => p.active ? '#fff' : '#374151'};
-  cursor: pointer;
-  &:disabled {
-    opacity: .45;
-    cursor: default;
-  }
-  &:hover:not(:disabled) {
-    background: ${p => p.active ? '#1e3a5f' : '#f3f4f6'};
-  }
-`;
 
 /* ── Stats row ── */
 const StatsRow = styled.div`display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;`
@@ -238,13 +162,19 @@ const ActionModal = ({ pr, actionCfg, onConfirm, onClose, acting }) => {
         </MHead>
         <MBody>
           <div style={{ marginBottom: 14, background: C.faint, borderRadius: 8, padding: "10px 14px", border: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, paddingBottom: 6, borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: ".7rem", fontWeight: 800, textTransform: "uppercase", color: C.muted }}>Outlet:</span>
+              <span style={{ fontWeight: 700, fontSize: ".85rem", color: C.primary }}>{pr.outlet_name || pr.outlet_code || "—"}</span>
+            </div>
             <div style={{ fontSize: ".68rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 6 }}>Medicine Items</div>
             {items.length === 0 ? (
               <div style={{ color: C.muted, fontSize: ".82rem" }}>No items</div>
             ) : (
               <ul style={{ margin: 0, padding: "0 0 0 16px" }}>
                 {items.map((item, i) => (
-                  <li key={i} style={{ fontSize: ".82rem", fontWeight: 600, color: C.text, marginBottom: 2 }}>{item.medicine_name}</li>
+                  <li key={i} style={{ fontSize: ".82rem", fontWeight: 600, color: C.text, marginBottom: 3 }}>
+                    {item.medicine_name} — <span style={{ color: C.primary, fontWeight: 700 }}>Qty: {item.quantity || 1}</span>
+                  </li>
                 ))}
               </ul>
             )}
@@ -314,6 +244,12 @@ const ViewModal = ({ pr, onClose }) => {
         </MHead>
         <div style={{ padding: "20px 24px", maxHeight: "75vh", overflowY: "auto" }}>
 
+          {/* Outlet Info */}
+          <div style={{ background: C.faint, borderRadius: 8, padding: "10px 14px", border: `1px solid ${C.border}`, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: ".72rem", fontWeight: 800, textTransform: "uppercase", color: C.muted }}>Outlet:</span>
+            <span style={{ fontWeight: 700, fontSize: ".85rem", color: C.pDark }}>{pr.outlet_name || pr.outlet_code || "—"}</span>
+          </div>
+
           <Sec label="💊 Medicine Items" />
           {items.length === 0 ? (
             <div style={{ color: C.muted, fontSize: ".82rem", padding: "6px 0 12px" }}>No items</div>
@@ -324,6 +260,7 @@ const ViewModal = ({ pr, onClose }) => {
                   <tr>
                     <th style={{ background: C.faint, padding: "8px 12px", textAlign: "left", fontSize: ".68rem", fontWeight: 800, color: C.muted, textTransform: "uppercase", borderBottom: `1px solid ${C.border}`, width: 40 }}>#</th>
                     <th style={{ background: C.faint, padding: "8px 12px", textAlign: "left", fontSize: ".68rem", fontWeight: 800, color: C.muted, textTransform: "uppercase", borderBottom: `1px solid ${C.border}` }}>Medicine Name</th>
+                    <th style={{ background: C.faint, padding: "8px 12px", textAlign: "right", fontSize: ".68rem", fontWeight: 800, color: C.muted, textTransform: "uppercase", borderBottom: `1px solid ${C.border}`, width: 90 }}>Quantity</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -331,6 +268,7 @@ const ViewModal = ({ pr, onClose }) => {
                     <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? `1px solid #f1f5f9` : "none" }}>
                       <td style={{ padding: "8px 12px", color: C.muted, fontSize: ".72rem" }}>{idx + 1}</td>
                       <td style={{ padding: "8px 12px", fontWeight: 600 }}>{item.medicine_name}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: C.primary }}>{item.quantity || 1}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -428,12 +366,14 @@ const ALL_STATUSES = ["Draft", "Approved", "Rejected", "Purchase Order Initiated
 
 export default function PurchaseRequisitionAdmin() {
   const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
-  const [prList,      setPrList]      = useState([])
-  const [loading,     setLoading]     = useState(false)
-  const [acting,      setActing]      = useState(false)
-  const [viewPr,      setViewPr]      = useState(null)
-  const [actionModal, setActionModal] = useState(null)  // { pr, actionCfg }
+  const [prList,       setPrList]       = useState([])
+  const [outlets,      setOutlets]      = useState([])
+  const [loading,      setLoading]      = useState(false)
+  const [acting,       setActing]       = useState(false)
+  const [viewPr,       setViewPr]       = useState(null)
+  const [actionModal,  setActionModal]  = useState(null)  // { pr, actionCfg }
   const [filterStatus, setFilterStatus] = useState("")
+  const [filterOutlet, setFilterOutlet] = useState("")
   const [filterSearch, setFilterSearch] = useState("")
   const [filterFrom,   setFilterFrom]   = useState(getTodayDateString())
   const [filterTo,     setFilterTo]     = useState(getTodayDateString())
@@ -443,8 +383,21 @@ export default function PurchaseRequisitionAdmin() {
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
 
+  /* ── Fetch active outlets for filtering ── */
+  const fetchOutlets = useCallback(async () => {
+    try {
+      const r = await apiRequest(`${HmsBaseUrl}get_active_outlets/`, "GET")
+      const list = Array.isArray(r?.data) ? r.data : (Array.isArray(r) ? r : [])
+      setOutlets(list)
+    } catch {}
+  }, [HmsBaseUrl])
+
+  useEffect(() => {
+    fetchOutlets()
+  }, [fetchOutlets])
+
   /* ── Fetch list with server-side pagination ── */
-  const fetchList = useCallback(async (p = page, size = pageSize, q = filterSearch, stat = filterStatus, from = filterFrom, to = filterTo) => {
+  const fetchList = useCallback(async (p = page, size = pageSize, q = filterSearch, stat = filterStatus, out = filterOutlet, from = filterFrom, to = filterTo) => {
     setLoading(true)
     try {
       const params = new URLSearchParams({
@@ -453,10 +406,11 @@ export default function PurchaseRequisitionAdmin() {
       })
       if (q && q.trim()) params.append("search", q.trim())
       if (stat) params.append("status", stat)
-      if (from)   params.append("from_date", from)
-      if (to)     params.append("to_date", to)
+      if (out) params.append("outlet", out)
+      if (from) params.append("from_date", from)
+      if (to)   params.append("to_date", to)
 
-      const r   = await apiRequest(`${HmsBaseUrl}purchase-requisition/?${params.toString()}`, "GET")
+      const r = await apiRequest(`${HmsBaseUrl}purchase-requisition/?${params.toString()}`, "GET")
       const payload = r?.data
       const rows = payload?.data ?? (Array.isArray(payload) ? payload : [])
       setPrList(Array.isArray(rows) ? rows : [])
@@ -468,11 +422,11 @@ export default function PurchaseRequisitionAdmin() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, filterSearch, filterStatus, filterFrom, filterTo])
+  }, [page, pageSize, filterSearch, filterStatus, filterOutlet, filterFrom, filterTo, HmsBaseUrl])
 
   useEffect(() => {
-    fetchList(page, pageSize, filterSearch, filterStatus, filterFrom, filterTo)
-  }, [page, pageSize, filterSearch, filterStatus, filterFrom, filterTo, fetchList])
+    fetchList(page, pageSize, filterSearch, filterStatus, filterOutlet, filterFrom, filterTo)
+  }, [page, pageSize, filterSearch, filterStatus, filterOutlet, filterFrom, filterTo, fetchList])
 
   /* ── Perform action ── */
   const handleAction = async (reason) => {
@@ -588,19 +542,51 @@ export default function PurchaseRequisitionAdmin() {
             searchPlaceholder="Search PR number or medicine name…"
             totalRecords={totalCount}
             customFilters={
-              <InvSelect
-                style={{ width: 130, minWidth: 110, height: 30, fontSize: "0.78rem" }}
-                value={filterStatus}
-                onChange={(e) => {
-                  setFilterStatus(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">All Status</option>
-                {ALL_STATUSES.map((s) => (
-                  <option key={s} value={s}>{STATUS_META[s]?.label || s}</option>
-                ))}
-              </InvSelect>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {/* Outlet Filter (IP, OP, etc.) */}
+                <InvSelect
+                  style={{ width: 160, minWidth: 130, height: 30, fontSize: "0.78rem" }}
+                  value={filterOutlet}
+                  onChange={(e) => {
+                    setFilterOutlet(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All Outlets (IP & OP)</option>
+                  <option value="IP">IP Pharmacy</option>
+                  <option value="OP">OP Pharmacy</option>
+                  {outlets
+                    .filter((o) => {
+                      const nm = String(o.outlet_name || o.outlet || o.name || "").toUpperCase();
+                      const cd = String(o.outlet_code || o.outlet_id || "").toUpperCase();
+                      return !nm.includes("IP PHARMACY") && !nm.includes("OP PHARMACY") && cd !== "OLET001" && cd !== "OLET002";
+                    })
+                    .map((o) => {
+                      const code = o.outlet_code || o.outlet_id;
+                      const name = o.outlet_name || o.outlet || o.name || code;
+                      return (
+                        <option key={code} value={code}>
+                          {name}
+                        </option>
+                      );
+                    })}
+                </InvSelect>
+
+                {/* Status Filter */}
+                <InvSelect
+                  style={{ width: 130, minWidth: 110, height: 30, fontSize: "0.78rem" }}
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All Status</option>
+                  {ALL_STATUSES.map((s) => (
+                    <option key={s} value={s}>{STATUS_META[s]?.label || s}</option>
+                  ))}
+                </InvSelect>
+              </div>
             }
           />
 
@@ -615,17 +601,19 @@ export default function PurchaseRequisitionAdmin() {
                   <tr>
                     <Th>#</Th>
                     <Th>PR No</Th>
-                    <Th>Medicines</Th>
+                    <Th>Outlet</Th>
+                    <Th>Medicines (Qty)</Th>
                     <Th>Status</Th>
                     <Th>Requested By</Th>
                     <Th>Created</Th>
-                    <Th style={{ textAlign: "center", minWidth: 200 }}>Actions</Th>
+                    <Th style={{ textAlign: "center", minWidth: 100 }}>Actions</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {prList.map((pr, idx) => {
                     const items      = Array.isArray(pr.items) ? pr.items : []
                     const firstItem  = items[0]?.medicine_name || "—"
+                    const firstQty   = items[0]?.quantity || 1
                     const more       = items.length > 1 ? ` +${items.length - 1}` : ""
                     const actionList = ACTION_CONFIG[pr.status] || []
 
@@ -633,8 +621,12 @@ export default function PurchaseRequisitionAdmin() {
                       <Trow key={pr.pr_number || idx}>
                         <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                         <Td><InvCodePill>{pr.pr_number}</InvCodePill></Td>
-                        <Td style={{ maxWidth: 200 }}>
-                          <div style={{ fontWeight: 600, fontSize: ".82rem", textTransform: "uppercase" }}>{String(firstItem).toUpperCase()}</div>
+                        <Td><Pill>{pr.outlet_name || pr.outlet_code || "—"}</Pill></Td>
+                        <Td style={{ maxWidth: 220 }}>
+                          <div style={{ fontWeight: 600, fontSize: ".82rem", textTransform: "uppercase" }}>
+                            {String(firstItem).toUpperCase()}{" "}
+                            <span style={{ color: C.primary, fontWeight: 700 }}>(Qty: {firstQty})</span>
+                          </div>
                           {more && <div style={{ color: C.muted, fontSize: ".72rem" }}>{more} more</div>}
                         </Td>
                         <Td><InvStatusBadge status={pr.status}>{pr.status}</InvStatusBadge></Td>
