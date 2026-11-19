@@ -1352,7 +1352,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     const newMed = {
       item_id: selectedDrug.item_id,
       name: selectedDrug.name || "",
-      batch_number: selectedDrug.batch_number || "",
+      batch_number: "",
       qty: Number(qty),
       dispatched_qty: null,
       price: selectedDrug.price,
@@ -1497,7 +1497,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
         doseunit: m.doseunit || m.doseUnit || "",
         doseUnit: m.doseUnit || m.doseunit || "",
         route: m.route || "",
-        batch_number: m.batch_number || "",
+        batch_number: "",
         price: m.price || 0,
       })),
       total_amount: selectedMedicines.reduce(
