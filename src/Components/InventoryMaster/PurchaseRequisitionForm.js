@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import apiRequest from "../../Auth/apiRequest"
+import SearchSelect from "../Common/SearchSelect"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
 import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvDeleteBtn } from "./InventoryUIHelper"
@@ -72,23 +73,6 @@ const Textarea = styled.textarea`
 `
 const ErrMsg = styled.span`font-size:.68rem;color:${C.danger};margin-top:2px;`
 
-/* ── Medicine dropdown ── */
-const DropList = styled.ul`
-  position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:200;
-  background:#fff;border:1.5px solid ${C.primary};border-radius:8px;
-  list-style:none;margin:0;padding:4px;
-  max-height:220px;overflow-y:auto;
-  box-shadow:0 8px 24px rgba(0,0,0,.12);
-  ${css`animation:${fadeSlide} .13s ease;`}
-`
-const DropItem = styled.li`
-  padding:8px 12px;border-radius:6px;cursor:pointer;font-size:.82rem;
-  transition:background .1s;
-  &:hover{background:${C.pLight};color:${C.pDark};}
-`
-const DropName = styled.div`font-weight:700;color:${C.text};`
-const DropSub  = styled.div`font-size:.7rem;color:${C.muted};margin-top:1px;`
-
 /* ── Buttons ── */
 const Btn      = styled.button`
   display:inline-flex;align-items:center;gap:6px;padding:9px 22px;border:none;border-radius:7px;
@@ -99,7 +83,6 @@ const Btn      = styled.button`
 `
 const PrimBtn  = styled(Btn)`background:${C.primary};color:#fff;&:hover:not(:disabled){background:${C.pDark};}`
 const SecBtn   = styled(Btn)`background:#fff;color:#374151;border:1.5px solid ${C.border};&:hover:not(:disabled){background:${C.faint};}`
-const DangerBtn = styled(Btn)`background:#fff;color:${C.danger};border:1.5px solid #fca5a5;&:hover:not(:disabled){background:#fee2e2;}`
 const BtnRow   = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid ${C.border};padding-top:16px;`
 
 /* ── Badge / Pill ── */
@@ -140,7 +123,7 @@ const Badge = styled.span`
       p.$s==="Stock Restocked"?"#059669":"#d97706"
     };}
 `
-const Pill = styled.span`background:${C.pLight};color:${C.pDark};padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;border:1px solid ${C.pBorder};font-family:monospace;`
+const Pill = styled.span`background:${C.pLight};color:${C.pDark};padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;border:1px solid ${C.pBorder};`
 
 /* ── Items table ── */
 const TblWrap = styled.div`overflow-x:auto;border-radius:8px;border:1px solid ${C.border};`
@@ -153,7 +136,7 @@ const Trow    = styled.tr`transition:background .1s;&:hover{background:#fafafa;}
 const Spin = styled.span`display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;${css`animation:${spin} .6s linear infinite;`}`
 
 /* ── Add-item row ── */
-const AddRow = styled.div`display:flex;gap:10px;align-items:flex-end;padding:14px 16px;background:${C.pLight};border-top:1px solid ${C.pBorder};`
+const AddRow = styled.div`display:flex;gap:12px;align-items:flex-end;padding:14px 16px;background:${C.pLight};border-top:1px solid ${C.pBorder};flex-wrap:wrap;`
 
 /* ── Modal ── */
 const MOverlay = styled.div`position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1050;display:flex;align-items:center;justify-content:center;padding:16px;`
@@ -163,149 +146,6 @@ const MTitle   = styled.h3`margin:0 0 14px;font-size:1rem;font-weight:800;color:
 /* ── List table & pagination ── */
 const ListTblWrap = styled.div`overflow-x:auto;`
 const ListTbl = styled.table`width:100%;border-collapse:collapse;font-size:.8rem;`
-
-const TTBar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px;
-  border-bottom: 1px solid #e5e7eb;
-  flex-wrap: wrap;
-  gap: 8px;
-  background: #fff;
-`;
-
-const TableSelect = styled.select`
-  height: 28px;
-  width: 72px;
-  padding: 0 6px;
-  font-size: .75rem;
-  font-weight: 600;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
-  color: #1f2937;
-  cursor: pointer;
-  outline: none;
-  &:focus {
-    border-color: ${C.primary};
-  }
-`;
-
-const Pager = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 18px;
-  border-top: 1px solid #e5e7eb;
-  font-size: .75rem;
-  color: #6b7280;
-  flex-wrap: wrap;
-  gap: 6px;
-  background: #fff;
-`;
-
-const PB = styled.button`
-  height: 28px;
-  padding: 0 13px;
-  font-size: .75rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: ${p => p.active ? C.primary : '#fff'};
-  color: ${p => p.active ? '#fff' : '#374151'};
-  cursor: pointer;
-  &:disabled {
-    opacity: .45;
-    cursor: default;
-  }
-  &:hover:not(:disabled) {
-    background: ${p => p.active ? C.primary : '#f3f4f6'};
-  }
-`;
-
-/* ══════════════════════════════════════════════════════
-   MEDICINE SEARCH FIELD
-══════════════════════════════════════════════════════ */
-const MedicineSearchField = ({ value, onChange, fromOutlet, err, placeholder }) => {
-  const [inputVal, setInputVal]   = useState(value || "")
-  const [results,  setResults]    = useState([])
-  const [showDrop, setShowDrop]   = useState(false)
-  const [selectedItem, setSelectedItem] = useState(null)
-  const debounce  = useRef(null)
-  const wrapRef   = useRef(null)
-
-  useEffect(() => { setInputVal(value || "") }, [value])
-
-  useEffect(() => {
-    const h = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowDrop(false) }
-    document.addEventListener("mousedown", h)
-    return () => document.removeEventListener("mousedown", h)
-  }, [])
-
-  const doSearch = useCallback(async (q) => {
-    if (!q || q.length < 2) { setResults([]); setShowDrop(false); return }
-    try {
-      const cleanQ = q.trim().toUpperCase()
-      const params = new URLSearchParams({ search: q.trim(), page: "all", unlimited: "true" })
-      if (fromOutlet) params.append("outlet_code", fromOutlet)
-      const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET")
-      const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : []
-      const seen = new Set()
-      const unique = raw
-        .filter(s => { if (seen.has(s.item_id)) return false; seen.add(s.item_id); return true })
-        .map(s => ({
-          ...s,
-          item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
-        }))
-        .filter(s => String(s.item_name || "").toUpperCase().startsWith(cleanQ))
-        .sort((a, b) => String(a.item_name || a.medicine_name || "").localeCompare(String(b.item_name || b.medicine_name || ""), undefined, { sensitivity: "base" }))
-      setResults(unique)
-      setShowDrop(unique.length > 0)
-    } catch {
-      setResults([]); setShowDrop(false)
-    }
-  }, [fromOutlet])
-
-  const handleChange = (val) => {
-    setInputVal(val)
-    setSelectedItem(null)
-    onChange({ name: val, item: null })
-    clearTimeout(debounce.current)
-    debounce.current = setTimeout(() => doSearch(val), 260)
-  }
-
-  const handleSelect = (stock) => {
-    const name = String(stock.item_name || stock.medicine_name || stock.name || "").toUpperCase()
-    setInputVal(name)
-    setShowDrop(false)
-    setResults([])
-    setSelectedItem(stock)
-    onChange({ name, item: stock })
-  }
-
-  return (
-    <div ref={wrapRef} style={{ position: "relative", flex: 1 }}>
-      <Inp
-        $err={!!err}
-        value={inputVal}
-        onChange={e => handleChange(e.target.value)}
-        onFocus={() => { if (results.length) setShowDrop(true) }}
-        placeholder={placeholder || "Type to search medicine…"}
-        autoComplete="off"
-      />
-      {showDrop && (
-        <DropList>
-          {results.map((s, i) => (
-            <DropItem key={s.item_id || i} onMouseDown={() => handleSelect(s)}>
-              <DropName>{String(s.item_name || s.medicine_name || s.name || "").toUpperCase()}</DropName>
-              <DropSub>{[s.item_code || s.code, s.strength, s.category].filter(Boolean).join(" · ")}</DropSub>
-            </DropItem>
-          ))}
-        </DropList>
-      )}
-    </div>
-  )
-}
 
 /* ══════════════════════════════════════════════════════
    VIEW DETAIL MODAL
@@ -317,7 +157,7 @@ const ViewModal = ({ pr, onClose }) => {
 
   return (
     <MOverlay onClick={onClose}>
-      <MBox onClick={e => e.stopPropagation()} style={{ maxWidth: 560, width: "95%", padding: 0, overflow: "hidden" }}>
+      <MBox onClick={e => e.stopPropagation()} style={{ maxWidth: 580, width: "95%", padding: 0, overflow: "hidden" }}>
         <div style={{ background: `linear-gradient(135deg,${C.primary},${C.pDark})`, color: "#fff", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: "1rem" }}>{pr.pr_number}</div>
@@ -330,6 +170,12 @@ const ViewModal = ({ pr, onClose }) => {
         </div>
         <div style={{ padding: "20px 22px", maxHeight: "75vh", overflowY: "auto" }}>
 
+          {/* Outlet Info */}
+          <div style={{ background: C.faint, borderRadius: 8, padding: "10px 14px", border: `1px solid ${C.border}`, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: ".72rem", fontWeight: 800, textTransform: "uppercase", color: C.muted }}>Outlet:</span>
+            <span style={{ fontWeight: 700, fontSize: ".85rem", color: C.pDark }}>{pr.outlet_name || pr.outlet_code || "—"}</span>
+          </div>
+
           {/* Items */}
           <div style={{ fontSize: ".72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".05em", color: C.primary, marginBottom: 8, paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>💊 Medicine Items</div>
           {items.length === 0 ? (
@@ -339,8 +185,9 @@ const ViewModal = ({ pr, onClose }) => {
               <Tbl>
                 <thead>
                   <tr>
-                    <Th>#</Th>
+                    <Th style={{ width: 40 }}>#</Th>
                     <Th>Medicine Name</Th>
+                    <Th style={{ width: 90, textAlign: "right" }}>Quantity</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -348,6 +195,7 @@ const ViewModal = ({ pr, onClose }) => {
                     <Trow key={idx}>
                       <Td style={{ color: C.muted, fontSize: ".72rem", width: 40 }}>{idx + 1}</Td>
                       <Td style={{ fontWeight: 600 }}>{item.medicine_name || "—"}</Td>
+                      <Td style={{ textAlign: "right", fontWeight: 700, color: C.primary }}>{item.quantity || 1}</Td>
                     </Trow>
                   ))}
                 </tbody>
@@ -470,19 +318,23 @@ const EditReasonModal = ({ onConfirm, onClose, saving }) => {
 ══════════════════════════════════════════════════════ */
 export default function PurchaseRequisition() {
   const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
-  const [tab,         setTab]         = useState("form")
-  const [prList,      setPrList]      = useState([])
-  const [editPr,      setEditPr]      = useState(null)
-  const [items,       setItems]       = useState([])          // [{ item_id, medicine_name }]
-  const [addInput,    setAddInput]    = useState({ name: "", item: null })
-  const [addErr,      setAddErr]      = useState("")
-  const [saving,      setSaving]      = useState(false)
-  const [loading,     setLoading]     = useState(false)
-  const [viewPr,      setViewPr]      = useState(null)
+  const [tab,            setTab]            = useState("form")
+  const [prList,         setPrList]         = useState([])
+  const [editPr,         setEditPr]         = useState(null)
+  const [items,          setItems]          = useState([]) // [{ item_id, medicine_name, quantity }]
+  const [medicines,      setMedicines]      = useState([])
+  const [outlets,        setOutlets]        = useState([])
+  const [selectedOutlet, setSelectedOutlet] = useState(null) // { outlet_code, outlet_name }
+  const [curMedicineId,  setCurMedicineId]  = useState("")
+  const [curQty,         setCurQty]         = useState("1")
+  const [addErr,         setAddErr]         = useState("")
+  const [outletErr,      setOutletErr]      = useState("")
+  const [itemsErr,       setItemsErr]       = useState("")
+  const [saving,         setSaving]         = useState(false)
+  const [loading,        setLoading]        = useState(false)
+  const [viewPr,         setViewPr]         = useState(null)
   const [showEditReason, setShowEditReason] = useState(false)
-  const [itemsErr,    setItemsErr]    = useState("")
-  const [searchQ,     setSearchQ]     = useState("")
-  const addFieldKey = useRef(0)         // force-reset the medicine search input
+  const [searchQ,        setSearchQ]        = useState("")
 
   const [page,       setPage]       = useState(1)
   const [pageSize,   setPageSize]   = useState(10)
@@ -491,7 +343,64 @@ export default function PurchaseRequisition() {
   const [fromDate,   setFromDate]   = useState(getTodayDateString())
   const [toDate,     setToDate]     = useState(getTodayDateString())
 
-  const fromOutlet = localStorage.getItem("outlet_code") || null
+  /* ── Fetch active medicines for SearchSelect ── */
+  const fetchMedicines = useCallback(async () => {
+    try {
+      const r = await apiRequest(`${HmsBaseUrl}pharmacy_items/?page=all&unlimited=true`, "GET")
+      const payload = r?.data
+      const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.results) ? payload.results : []))
+      const sorted = (Array.isArray(list) ? list : []).map(m => ({
+        ...m,
+        item_name: m.item_name ? String(m.item_name).toUpperCase() : m.item_name,
+        item_last_name: m.item_last_name ? String(m.item_last_name).toUpperCase() : m.item_last_name
+      })).sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }))
+      setMedicines(sorted)
+    } catch {}
+  }, [HmsBaseUrl])
+
+  /* ── Fetch active outlets ── */
+  const fetchOutlets = useCallback(async () => {
+    try {
+      const r = await apiRequest(`${HmsBaseUrl}get_active_outlets/`, "GET")
+      const list = Array.isArray(r?.data) ? r.data : (Array.isArray(r) ? r : [])
+      setOutlets(list)
+
+      // Set default outlet if not set yet
+      const curCode = localStorage.getItem("outlet_code")
+      if (curCode) {
+        const found = list.find(o => (o.outlet_code || o.outlet_id) === curCode)
+        if (found) {
+          setSelectedOutlet({
+            outlet_code: found.outlet_code || found.outlet_id,
+            outlet_name: found.outlet_name || found.outlet || found.name,
+          })
+        }
+      } else if (list.length > 0) {
+        // default to first active outlet
+        setSelectedOutlet({
+          outlet_code: list[0].outlet_code || list[0].outlet_id,
+          outlet_name: list[0].outlet_name || list[0].outlet || list[0].name,
+        })
+      }
+    } catch {}
+  }, [HmsBaseUrl])
+
+  useEffect(() => {
+    fetchMedicines()
+    fetchOutlets()
+  }, [fetchMedicines, fetchOutlets])
+
+  /* ── Map medicines to SearchSelect options ── */
+  const medicineOptions = useMemo(() => {
+    return medicines.map(m => {
+      const label = `${String(m.item_name || "").toUpperCase()}${m.item_last_name ? " " + String(m.item_last_name).toUpperCase() : ""}`.trim()
+      return {
+        value: String(m.item_id),
+        label,
+        sub: m.hsn ? `HSN:${m.hsn}` : "",
+      }
+    })
+  }, [medicines])
 
   /* ── Fetch list with server-side pagination ── */
   const fetchList = useCallback(async (p = page, size = pageSize, q = searchQ, from = fromDate, to = toDate) => {
@@ -527,12 +436,31 @@ export default function PurchaseRequisition() {
 
   /* ── Add item to staging list ── */
   const handleAddItem = () => {
-    const name = addInput.name.trim()
-    if (!name) { setAddErr("Please select or type a medicine name"); return }
+    if (!curMedicineId) {
+      setAddErr("Please select a medicine from the dropdown")
+      return
+    }
+    const qtyNum = parseInt(curQty, 10)
+    if (!curQty || isNaN(qtyNum) || qtyNum <= 0) {
+      setAddErr("Please enter a valid quantity (min 1)")
+      return
+    }
+    const med = medicines.find(m => String(m.item_id) === String(curMedicineId))
+    const medName = med
+      ? `${String(med.item_name || "").toUpperCase()}${med.item_last_name ? " " + String(med.item_last_name).toUpperCase() : ""}`.trim()
+      : `Medicine #${curMedicineId}`
+
     setAddErr("")
-    setItems(prev => [...prev, { item_id: addInput.item?.item_id || null, medicine_name: name }])
-    setAddInput({ name: "", item: null })
-    addFieldKey.current += 1
+    setItems(prev => [
+      ...prev,
+      {
+        item_id: med ? med.item_id : parseInt(curMedicineId, 10) || null,
+        medicine_name: medName,
+        quantity: qtyNum,
+      }
+    ])
+    setCurMedicineId("")
+    setCurQty("1")
     setItemsErr("")
   }
 
@@ -543,14 +471,26 @@ export default function PurchaseRequisition() {
 
   /* ── Perform save (POST or PUT) ── */
   const doSave = async (editedReason) => {
-    if (items.length === 0) { setItemsErr("Add at least one medicine"); return }
+    if (!selectedOutlet?.outlet_code) {
+      setOutletErr("Please select an outlet")
+      return
+    }
+    setOutletErr("")
+    if (items.length === 0) {
+      setItemsErr("Add at least one medicine item")
+      return
+    }
     setItemsErr("")
     setSaving(true)
     try {
       const isEdit = !!editPr
       const url    = isEdit ? `${HmsBaseUrl}purchase-requisition/${editPr.pr_number}/` : `${HmsBaseUrl}purchase-requisition/`
       const method = isEdit ? "PUT" : "POST"
-      const payload = { items }
+      const payload = {
+        outlet_code: selectedOutlet.outlet_code,
+        outlet_name: selectedOutlet.outlet_name,
+        items,
+      }
       if (isEdit) payload.edited_reason = editedReason
 
       const r = await apiRequest(url, method, payload)
@@ -573,7 +513,14 @@ export default function PurchaseRequisition() {
 
   /* ── Submit handler ── */
   const handleSubmit = () => {
-    if (items.length === 0) { setItemsErr("Add at least one medicine"); return }
+    if (!selectedOutlet?.outlet_code) {
+      setOutletErr("Please select an outlet")
+      return
+    }
+    if (items.length === 0) {
+      setItemsErr("Add at least one medicine item")
+      return
+    }
     if (editPr) {
       setShowEditReason(true)
     } else {
@@ -588,11 +535,16 @@ export default function PurchaseRequisition() {
       return
     }
     setEditPr(pr)
+    setSelectedOutlet({
+      outlet_code: pr.outlet_code || "",
+      outlet_name: pr.outlet_name || "",
+    })
     setItems(Array.isArray(pr.items) ? pr.items : [])
     setItemsErr("")
     setAddErr("")
-    setAddInput({ name: "", item: null })
-    addFieldKey.current += 1
+    setOutletErr("")
+    setCurMedicineId("")
+    setCurQty("1")
     setTab("form")
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -601,10 +553,11 @@ export default function PurchaseRequisition() {
   const resetForm = () => {
     setEditPr(null)
     setItems([])
-    setAddInput({ name: "", item: null })
+    setCurMedicineId("")
+    setCurQty("1")
     setAddErr("")
     setItemsErr("")
-    addFieldKey.current += 1
+    setOutletErr("")
   }
 
   const fmtDT = d => { try { return d ? new Date(d).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—" } catch { return "—" } }
@@ -638,6 +591,53 @@ export default function PurchaseRequisition() {
             </CardHead>
             <CardBody>
 
+              {/* ── Outlet Selection ── */}
+              <div style={{ marginBottom: 18 }}>
+                <Lbl style={{ display: "block", marginBottom: 6 }}>
+                  Outlet <span style={{ color: C.danger }}>*</span>
+                </Lbl>
+                <select
+                  value={selectedOutlet?.outlet_code || ""}
+                  onChange={(e) => {
+                    const code = e.target.value
+                    const found = outlets.find(o => (o.outlet_code || o.outlet_id) === code)
+                    if (found) {
+                      setSelectedOutlet({
+                        outlet_code: found.outlet_code || found.outlet_id,
+                        outlet_name: found.outlet_name || found.outlet || found.name,
+                      })
+                    } else {
+                      setSelectedOutlet(null)
+                    }
+                    setOutletErr("")
+                  }}
+                  style={{
+                    padding: "9px 12px",
+                    borderRadius: 7,
+                    border: `1.5px solid ${outletErr ? C.danger : C.border}`,
+                    fontSize: ".875rem",
+                    color: C.text,
+                    outline: "none",
+                    width: "100%",
+                    maxWidth: 360,
+                    background: "#fff",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">-- Select Outlet --</option>
+                  {outlets.map((o) => {
+                    const code = o.outlet_code || o.outlet_id
+                    const name = o.outlet_name || o.outlet || o.name || code
+                    return (
+                      <option key={code} value={code}>
+                        {name} ({code})
+                      </option>
+                    )
+                  })}
+                </select>
+                {outletErr && <ErrMsg style={{ display: "block", marginTop: 4 }}>{outletErr}</ErrMsg>}
+              </div>
+
               {/* ── Items table ── */}
               <div style={{ marginBottom: 16 }}>
                 <Lbl style={{ display: "block", marginBottom: 8 }}>
@@ -650,7 +650,7 @@ export default function PurchaseRequisition() {
                 <TblWrap>
                   {items.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "28px 16px", color: C.muted, fontSize: ".82rem" }}>
-                      No medicines added yet. Use the field below to add.
+                      No medicines added yet. Use the fields below to select a medicine, enter quantity, and add.
                     </div>
                   ) : (
                     <Tbl>
@@ -658,6 +658,7 @@ export default function PurchaseRequisition() {
                         <tr>
                           <Th style={{ width: 40 }}>#</Th>
                           <Th>Medicine Name</Th>
+                          <Th style={{ width: 100, textAlign: "right" }}>Quantity</Th>
                           <Th style={{ width: 80, textAlign: "center" }}>Remove</Th>
                         </tr>
                       </thead>
@@ -666,6 +667,9 @@ export default function PurchaseRequisition() {
                           <Trow key={idx}>
                             <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
                             <Td style={{ fontWeight: 600 }}>{item.medicine_name}</Td>
+                            <Td style={{ textAlign: "right", fontWeight: 700, color: C.primary }}>
+                              {item.quantity}
+                            </Td>
                             <Td style={{ textAlign: "center" }}>
                               <InvDeleteBtn
                                 size={16}
@@ -681,16 +685,37 @@ export default function PurchaseRequisition() {
 
                   {/* Add item row */}
                   <AddRow>
-                    <MedicineSearchField
-                      key={addFieldKey.current}
-                      value={addInput.name}
-                      fromOutlet={fromOutlet}
-                      err={addErr}
-                      placeholder="Search and select medicine…"
-                      onChange={val => setAddInput({ name: val.name, item: val.item })}
-                    />
+                    <div style={{ flex: "1 1 280px", minWidth: 200 }}>
+                      <Lbl style={{ display: "block", marginBottom: 4, fontSize: ".68rem" }}>Medicine Name *</Lbl>
+                      <SearchSelect
+                        name="item_id"
+                        value={curMedicineId}
+                        onChange={(e) => {
+                          setCurMedicineId(e.target.value)
+                          setAddErr("")
+                        }}
+                        options={medicineOptions}
+                        placeholder="Search and select medicine…"
+                        style={{ fontSize: "0.82rem" }}
+                      />
+                    </div>
+                    <div style={{ width: 130 }}>
+                      <Lbl style={{ display: "block", marginBottom: 4, fontSize: ".68rem" }}>Quantity *</Lbl>
+                      <Inp
+                        type="number"
+                        min="1"
+                        value={curQty}
+                        onChange={(e) => {
+                          setCurQty(e.target.value)
+                          setAddErr("")
+                        }}
+                        placeholder="Qty"
+                        style={{ height: 38, fontSize: ".85rem" }}
+                      />
+                    </div>
                     <PrimBtn
-                      style={{ padding: "9px 18px", whiteSpace: "nowrap", flexShrink: 0 }}
+                      type="button"
+                      style={{ padding: "9px 20px", height: 38, whiteSpace: "nowrap", flexShrink: 0 }}
                       onClick={handleAddItem}
                     >
                       + Add
@@ -757,7 +782,8 @@ export default function PurchaseRequisition() {
                     <tr>
                       <Th>#</Th>
                       <Th>PR No</Th>
-                      <Th>Items</Th>
+                      <Th>Outlet</Th>
+                      <Th>Items (Qty)</Th>
                       <Th>Status</Th>
                       <Th>Created</Th>
                       <Th style={{ textAlign: "center" }}>Action</Th>
@@ -766,15 +792,16 @@ export default function PurchaseRequisition() {
                   <tbody>
                     {prList.map((r, idx) => {
                       const itemList  = Array.isArray(r.items) ? r.items : []
-                      const canEdit   = r.status === "Draft"
                       const firstItem = itemList[0]?.medicine_name || "—"
+                      const firstQty  = itemList[0]?.quantity || 1
                       const more      = itemList.length > 1 ? ` +${itemList.length - 1} more` : ""
                       return (
                         <Trow key={r.pr_number || idx}>
                           <Td style={{ color: C.muted, fontSize: ".72rem" }}>{(page - 1) * pageSize + idx + 1}</Td>
                           <Td><InvCodePill>{r.pr_number}</InvCodePill></Td>
+                          <Td><Pill>{r.outlet_name || r.outlet_code || "—"}</Pill></Td>
                           <Td style={{ fontWeight: 600, fontSize: ".82rem" }}>
-                            {firstItem}
+                            {firstItem} <span style={{ color: C.primary, fontWeight: 700 }}>(Qty: {firstQty})</span>
                             {more && <span style={{ color: C.muted, fontWeight: 400 }}>{more}</span>}
                           </Td>
                           <Td><InvStatusBadge status={r.status}>{r.status}</InvStatusBadge></Td>

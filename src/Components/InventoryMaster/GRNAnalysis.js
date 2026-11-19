@@ -4,6 +4,7 @@ import {
   Table, Th, Td, Tr, FormContent, colors,
 } from "../GlobalStyles"
 import apiRequest from "../../Auth/apiRequest"
+import SearchSelect from "../Common/SearchSelect"
 import { toast } from "react-toastify"
 import { X, Printer, ZoomIn, ZoomOut, RotateCcw, Download, FileText } from "lucide-react"
 import styled from "styled-components"
@@ -503,6 +504,8 @@ const GRNAnalysis = () => {
   const [toDate, setToDate] = useState(getTodayDateString())
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
+  const [vendorFilter, setVendorFilter] = useState("ALL")
+  const [statusFilter, setStatusFilter] = useState("")
   const [viewGrn, setViewGrn] = useState(null)
   const [viewItems, setViewItems] = useState([])
   const [zoom, setZoom] = useState(1)
@@ -523,7 +526,16 @@ const GRNAnalysis = () => {
     } catch { }
   }, [])
 
-  const fetchGRNList = useCallback(async (p = page, size = pageSize, q = search, from = fromDate, to = toDate, type = typeFilter) => {
+  const fetchGRNList = useCallback(async (
+    p = page,
+    size = pageSize,
+    q = search,
+    from = fromDate,
+    to = toDate,
+    type = typeFilter,
+    vendor = vendorFilter,
+    status = statusFilter
+  ) => {
     try {
       const query = new URLSearchParams({
         page: p,
@@ -533,6 +545,8 @@ const GRNAnalysis = () => {
       if (from) query.append("from_date", from);
       if (to) query.append("to_date", to);
       if (type) query.append("purchase_category", type);
+      if (vendor && vendor !== "ALL") query.append("vendor", vendor);
+      if (status && status !== "ALL") query.append("status", status);
       const r = await apiRequest(`${baseUrl}grn/?${query.toString()}`, "GET");
       if (r && r.success) {
         const payload = r.data;
@@ -545,15 +559,15 @@ const GRNAnalysis = () => {
         setPage(payload?.current_page || p);
       }
     } catch { }
-  }, [page, pageSize, search, fromDate, toDate, typeFilter])
+  }, [page, pageSize, search, fromDate, toDate, typeFilter, vendorFilter, statusFilter])
 
   useEffect(() => {
     fetchVendors();
   }, [fetchVendors]);
 
   useEffect(() => {
-    fetchGRNList(page, pageSize, search, fromDate, toDate, typeFilter);
-  }, [page, pageSize, search, fromDate, toDate, typeFilter, fetchGRNList]);
+    fetchGRNList(page, pageSize, search, fromDate, toDate, typeFilter, vendorFilter, statusFilter);
+  }, [page, pageSize, search, fromDate, toDate, typeFilter, vendorFilter, statusFilter, fetchGRNList]);
 
   const getVendor = (id) => vendors.find(x => Number(x.vendor_id) === Number(id)) || null
   const getVendorName = (id) => { const v = getVendor(id); return v ? v.name : String(id || "") }
@@ -718,7 +732,7 @@ const GRNAnalysis = () => {
       const r = await apiRequest(`${baseUrl}grn/${grn.draft_number}/`, "PUT", payload)
       if (!r.success) { toast.error(r.error || "Failed to verify GRN"); return }
       toast.success(`GRN Verified & stock updated! GRN: ${r.data?.grn_number}`)
-      fetchGRNList()
+      fetchGRNList(page, pageSize, search, fromDate, toDate, typeFilter, vendorFilter, statusFilter)
     } catch { toast.error("Network error") }
   }
 
@@ -757,21 +771,74 @@ const GRNAnalysis = () => {
             }}
             totalRecords={totalCount}
             customFilters={
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>Type:</span>
-                <InvNativeSelect
-                  value={typeFilter}
-                  onChange={(e) => {
-                    setTypeFilter(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ minWidth: 150, height: 30, fontSize: "0.78rem" }}
-                  aria-label="Filter by IP or OP Type"
-                >
-                  {GRN_TYPE_FILTERS.map((opt) => (
-                    <option key={opt.value || "all"} value={opt.value}>{opt.label}</option>
-                  ))}
-                </InvNativeSelect>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {/* Vendor Filter */}
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>
+                    Vendor:
+                  </span>
+                  <div style={{ width: 190 }}>
+                    <SearchSelect
+                      height={30}
+                      style={{ height: 30, fontSize: "0.78rem" }}
+                      value={vendorFilter}
+                      onChange={(val) => {
+                        setVendorFilter(val);
+                        setPage(1);
+                      }}
+                      options={[
+                        { value: "ALL", label: "All Vendors" },
+                        ...vendors.map((v) => ({
+                          value: String(v.vendor_id),
+                          label: v.name,
+                        })),
+                      ]}
+                      placeholder="All Vendors"
+                    />
+                  </div>
+                </div>
+
+                {/* Status Filter (Pending / Verified) */}
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>
+                    Status:
+                  </span>
+                  <InvNativeSelect
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ minWidth: 125, height: 30, fontSize: "0.78rem" }}
+                    aria-label="Filter by Status"
+                  >
+                    <option value="">All Status</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Verified">Verified</option>
+                  </InvNativeSelect>
+                </div>
+
+                {/* Type Filter */}
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>
+                    Type:
+                  </span>
+                  <InvNativeSelect
+                    value={typeFilter}
+                    onChange={(e) => {
+                      setTypeFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ minWidth: 140, height: 30, fontSize: "0.78rem" }}
+                    aria-label="Filter by IP or OP Type"
+                  >
+                    {GRN_TYPE_FILTERS.map((opt) => (
+                      <option key={opt.value || "all"} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </InvNativeSelect>
+                </div>
               </div>
             }
           />
