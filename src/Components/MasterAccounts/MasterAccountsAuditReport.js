@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
-import { DatePicker, Spin } from "antd";
+import { DatePicker, Spin, Tag, Popover } from "antd";
 import { FaPrint, FaSearch, FaFileExcel, FaSyncAlt } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
@@ -186,14 +186,17 @@ const MasterAccountsAuditReport = ({
             const rows = filteredData.map((row, index) => ({
                 "S.No": index + 1,
                 "Source": row.source || "",
+                "Bill Type": row.bill_type || row.source || "",
                 "Record No": row.record_no || "",
+                "Original Bill No": row.original_bill_no || row.record_no || "",
                 "UHID": row.uhid || "",
                 "Patient Name": row.patient_name || "",
-                "Field / Change": row.description || "",
+                "Billing Details / Change": row.description || "",
                 "Old Value": row.old_value !== undefined ? String(row.old_value) : "",
                 "New Value": row.new_value !== undefined ? String(row.new_value) : "",
-                "Edited By": row.edited_by_name || "",
-                "Edited Date": row.edited_date || ""
+                "Requested By": row.requested_by || row.edited_by_name || "",
+                "Approved By": row.approved_by || row.edited_by_name || "",
+                "Date": row.edited_date || ""
             }));
 
             const wb = XLSX.utils.book_new();
@@ -313,21 +316,40 @@ const MasterAccountsAuditReport = ({
                         <Table>
                             <thead>
                                 <Tr>
-                                    <Th style={{ width: "50px" }}>S.No</Th>
-                                    <Th style={{ width: "170px" }}>Source</Th>
+                                    <Th style={{ width: "45px" }}>S.No</Th>
+                                    <Th style={{ width: "150px" }}>Source</Th>
+                                    <Th style={{ width: "130px" }}>Bill Type</Th>
                                     <Th style={{ width: "120px" }}>Record No</Th>
-                                    <Th style={{ width: "120px" }}>UHID</Th>
-                                    <Th style={{ minWidth: "160px" }}>Patient Name</Th>
-                                    <Th style={{ minWidth: "160px" }}>Field / Change</Th>
-                                    <Th style={{ width: "110px", textAlign: "right" }}>Old Value</Th>
-                                    <Th style={{ width: "110px", textAlign: "right" }}>New Value</Th>
-                                    <Th style={{ width: "130px" }}>Edited By</Th>
-                                    <Th style={{ width: "140px" }}>Edited Date</Th>
+                                    <Th style={{ width: "110px" }}>UHID</Th>
+                                    <Th style={{ minWidth: "150px" }}>Patient Name</Th>
+                                    <Th style={{ minWidth: "180px" }}>Billing Details / Change</Th>
+                                    <Th style={{ width: "100px", textAlign: "right" }}>Old Value</Th>
+                                    <Th style={{ width: "100px", textAlign: "right" }}>New Value</Th>
+                                    <Th style={{ width: "130px" }}>Requested By</Th>
+                                    <Th style={{ width: "130px" }}>Approved By</Th>
+                                    <Th style={{ width: "130px" }}>Edited Date</Th>
                                 </Tr>
                             </thead>
                             <tbody>
                                 {filteredData.map((row, index) => {
                                     const badgeStyle = sourceColors[row.source] || { bg: "#f1f5f9", color: "#475569" };
+                                    const details = Array.isArray(row.billing_details) ? row.billing_details : [];
+                                    const hasDetails = details.length > 0;
+                                    
+                                    const detailsPopoverContent = hasDetails ? (
+                                        <div style={{ maxWidth: 320, maxHeight: 220, overflowY: "auto" }}>
+                                            <div style={{ fontWeight: 700, marginBottom: 6, fontSize: "12px", borderBottom: "1px solid #e2e8f0", paddingBottom: 4 }}>
+                                                Itemized Breakdown
+                                            </div>
+                                            {details.map((it, idx) => (
+                                                <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", padding: "3px 0", borderBottom: "1px dashed #f1f5f9" }}>
+                                                    <span>{it.name || it.itemName || it.item_name || "Item"} {it.quantity ? `x${it.quantity}` : ""}</span>
+                                                    <span style={{ fontWeight: 600, fontFamily: "monospace" }}>{formatINR(it.amount || it.price || it.total_fees || 0)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : null;
+
                                     return (
                                         <Tr key={row.id || index}>
                                             <Td>{index + 1}</Td>
@@ -336,10 +358,29 @@ const MasterAccountsAuditReport = ({
                                                     {row.source}
                                                 </SourceBadge>
                                             </Td>
-                                            <Td style={{ fontWeight: "700", fontFamily: "monospace" }}>{row.record_no}</Td>
+                                            <Td>
+                                                <Tag color={row.source === "Investigation Billing" ? "orange" : row.source === "Pharmacy Billing" ? "cyan" : row.source === "Sales Return" ? "red" : "blue"}>
+                                                    {row.bill_type || row.source}
+                                                </Tag>
+                                            </Td>
+                                            <Td style={{ fontWeight: "700", fontFamily: "monospace" }}>
+                                                {row.record_no}
+                                                {row.original_bill_no && row.original_bill_no !== row.record_no && (
+                                                    <div style={{ fontSize: "10px", color: colors.textMuted }}>Orig: {row.original_bill_no}</div>
+                                                )}
+                                            </Td>
                                             <Td style={{ fontFamily: "monospace" }}>{row.uhid || "-"}</Td>
                                             <Td><strong>{row.patient_name || "-"}</strong></Td>
-                                            <Td style={{ color: colors.textMuted, fontSize: "0.85rem" }}>{row.description}</Td>
+                                            <Td style={{ fontSize: "0.85rem" }}>
+                                                <div>{row.description}</div>
+                                                {hasDetails && (
+                                                    <Popover content={detailsPopoverContent} trigger="hover">
+                                                        <span style={{ fontSize: "11px", color: "#0284c7", cursor: "pointer", textDecoration: "underline" }}>
+                                                            View {details.length} item{details.length > 1 ? "s" : ""}
+                                                        </span>
+                                                    </Popover>
+                                                )}
+                                            </Td>
                                             <Td style={{ textAlign: "right", color: colors.danger, fontFamily: "monospace" }}>
                                                 {row.old_value !== undefined && row.old_value !== null && row.old_value !== "-" 
                                                     ? (!isNaN(Number(row.old_value)) && Number(row.old_value) !== 0 ? formatINR(row.old_value) : String(row.old_value))
@@ -350,7 +391,12 @@ const MasterAccountsAuditReport = ({
                                                     ? (!isNaN(Number(row.new_value)) ? formatINR(row.new_value) : String(row.new_value))
                                                     : "-"}
                                             </Td>
-                                            <Td style={{ fontSize: "0.85rem" }}>{row.edited_by_name || "Admin"}</Td>
+                                            <Td style={{ fontSize: "0.85rem", fontWeight: 600, color: "#334155" }}>
+                                                {row.requested_by || row.edited_by_name || "-"}
+                                            </Td>
+                                            <Td style={{ fontSize: "0.85rem", fontWeight: 600, color: "#16a34a" }}>
+                                                {row.approved_by || row.edited_by_name || "-"}
+                                            </Td>
                                             <Td style={{ fontSize: "0.8rem", color: colors.textMuted }}>{row.edited_date}</Td>
                                         </Tr>
                                     );

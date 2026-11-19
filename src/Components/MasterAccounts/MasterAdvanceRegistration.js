@@ -139,7 +139,13 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
         const load = async () => {
             try {
                 const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) setOutletsList(res.data);
+                if (res?.success && Array.isArray(res?.data)) {
+                    setOutletsList(res.data);
+                } else if (Array.isArray(res?.data)) {
+                    setOutletsList(res.data);
+                } else if (Array.isArray(res)) {
+                    setOutletsList(res);
+                }
             } catch (e) {}
         };
         load();
@@ -159,6 +165,19 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
                 if (Array.isArray(body.data))       rows = body.data;
                 else if (Array.isArray(body))        rows = body;
                 else if (Array.isArray(response.data)) rows = response.data;
+
+                // Ensure outlet filter fallback if needed
+                if (outlet && outlet !== "all") {
+                    const filteredRows = rows.filter(r => (
+                        (r.outlet_code && r.outlet_code === outlet) ||
+                        (r.outlet && r.outlet === outlet) ||
+                        (r.outlet_id && r.outlet_id === outlet)
+                    ));
+                    if (filteredRows.length > 0 || rows.some(r => r.outlet_code || r.outlet || r.outlet_id)) {
+                        rows = filteredRows;
+                    }
+                }
+
                 setReportData(rows);
             } else {
                 setReportData([]);
@@ -310,11 +329,15 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
                                 <Label>Outlet</Label>
                                 <Select value={outlet} onChange={e => setOutlet(e.target.value)}>
                                     <option value="all">All Outlets</option>
-                                    {outletsList.map((o, i) => (
-                                        <option key={i} value={o.outlet_code}>
-                                            {o.outlet_name || o.outlet_code}
-                                        </option>
-                                    ))}
+                                    {outletsList.map((o, i) => {
+                                        const code = o.outlet_code || o.outlet_id || o.id;
+                                        const name = o.outlet_name || o.name || code;
+                                        return (
+                                            <option key={code || i} value={code}>
+                                                {name} {code && name !== code ? `(${code})` : ""}
+                                            </option>
+                                        );
+                                    })}
                                 </Select>
                             </InputWrapper>
 
@@ -466,7 +489,9 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
                     <p>{localStorage.getItem("hospital_phone") || "0427-2706666"}</p>
                     <div className="report-title">
                         ADVANCE REGISTER (ACCOUNTS) From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}
-                        {outlet && outlet !== "all" ? ` — Outlet: ${outlet}` : ""}
+                        {outlet && outlet !== "all"
+                            ? ` — Outlet: ${(outletsList.find(o => (o.outlet_code === outlet || o.outlet_id === outlet))?.outlet_name) || outlet}`
+                            : " — All Outlets"}
                     </div>
                 </PrintHeader>
 
