@@ -1153,9 +1153,49 @@ const StoresGRNGeneration = () => {
             }
         }
 
-        if (name === 'itemValue' || name === 'purchaseDiscountPercent') {
-            const iv = parseFloat(name === 'itemValue' ? val : newCurrentItem.itemValue) || 0;
-            const pd = parseFloat(name === 'purchaseDiscountPercent' ? val : newCurrentItem.purchaseDiscountPercent) || 0;
+        // Calculate Item Value & Packing Price mutually based on each other
+        if (name === 'itemValue') {
+            const iv = parseFloat(val) || 0;
+            const n = parseFloat(newCurrentItem.no_of_unit) || 1;
+            const p = parseFloat(newCurrentItem.packing) || 1;
+            const q = parseFloat(newCurrentItem.quantity) || (p * n);
+            newCurrentItem.packingPrice = n > 0 ? Number((iv / n).toFixed(4)) : (q > 0 ? Number(((iv / q) * p).toFixed(4)) : iv);
+            newCurrentItem.unitPrice = q > 0 ? Number((iv / q).toFixed(4)) : 0;
+
+            const pd = parseFloat(newCurrentItem.purchaseDiscountPercent) || 0;
+            newCurrentItem.purchaseDiscountAmt = Number((iv * (pd / 100)).toFixed(2));
+        } else if (name === 'packingPrice') {
+            const pp = parseFloat(val) || 0;
+            const n = parseFloat(newCurrentItem.no_of_unit) || 1;
+            const p = parseFloat(newCurrentItem.packing) || 1;
+            const q = parseFloat(newCurrentItem.quantity) || (p * n);
+            const iv = Number((pp * n).toFixed(2));
+            newCurrentItem.itemValue = iv;
+            newCurrentItem.unitPrice = q > 0 ? Number((iv / q).toFixed(4)) : (p > 0 ? Number((pp / p).toFixed(4)) : 0);
+
+            const pd = parseFloat(newCurrentItem.purchaseDiscountPercent) || 0;
+            newCurrentItem.purchaseDiscountAmt = Number((iv * (pd / 100)).toFixed(2));
+        } else if (name === 'packing' || name === 'no_of_unit' || name === 'quantity') {
+            const n = parseFloat(newCurrentItem.no_of_unit) || 1;
+            const p = parseFloat(newCurrentItem.packing) || 1;
+            const q = parseFloat(newCurrentItem.quantity) || (p * n);
+            if (newCurrentItem.packingPrice && parseFloat(newCurrentItem.packingPrice) > 0) {
+                const pp = parseFloat(newCurrentItem.packingPrice);
+                const iv = Number((pp * n).toFixed(2));
+                newCurrentItem.itemValue = iv;
+                newCurrentItem.unitPrice = q > 0 ? Number((iv / q).toFixed(4)) : 0;
+                const pd = parseFloat(newCurrentItem.purchaseDiscountPercent) || 0;
+                newCurrentItem.purchaseDiscountAmt = Number((iv * (pd / 100)).toFixed(2));
+            } else if (newCurrentItem.itemValue && parseFloat(newCurrentItem.itemValue) > 0) {
+                const iv = parseFloat(newCurrentItem.itemValue);
+                newCurrentItem.packingPrice = n > 0 ? Number((iv / n).toFixed(4)) : 0;
+                newCurrentItem.unitPrice = q > 0 ? Number((iv / q).toFixed(4)) : 0;
+            }
+        }
+
+        if (name === 'purchaseDiscountPercent') {
+            const iv = parseFloat(newCurrentItem.itemValue) || 0;
+            const pd = parseFloat(val) || 0;
             newCurrentItem.purchaseDiscountAmt = Number((iv * (pd / 100)).toFixed(2));
         } else if (name === 'purchaseDiscountAmt') {
             const iv = parseFloat(newCurrentItem.itemValue) || 0;
@@ -1216,6 +1256,7 @@ const StoresGRNGeneration = () => {
                     mrp: itemMrp,
                     maxPackingMrp: itemMrp * (parseFloat(prev.quantity) || 1),
                     itemValue: itemRate,
+                    packingPrice: itemRate,
                     unitPrice: (parseFloat(prev.quantity) || 1) > 0 ? itemRate / (parseFloat(prev.quantity) || 1) : itemRate,
                     tax: taxBracket,
                     sellingTax: taxBracket,
@@ -3006,8 +3047,9 @@ const StoresGRNGeneration = () => {
                                                 <div>
                                                     <CompactLabel>Packing Price</CompactLabel>
                                                     <MoneyInput
-                                                        value={currPackingPrice > 0 ? currPackingPrice.toFixed(4) : "0.0000"}
-                                                        readOnly
+                                                        name="packingPrice"
+                                                        value={currentItem.packingPrice}
+                                                        onChange={handleCurrentItemChange}
                                                         placeholder="0.0000"
                                                     />
                                                 </div>
