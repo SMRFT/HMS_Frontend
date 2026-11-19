@@ -704,7 +704,139 @@ const RefundHistorySVG = () => (
     <path d="M12 7v5l4 2" />
   </svg>
 );
+// ─── Actions eye button + sticky Actions column ───────────────────────────────
 
+const ActionsEyeBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1.5px solid #99f6e4;
+  background: rgba(13, 148, 136, 0.08);
+  color: #0f766e;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+  &:hover {
+    transform: scale(1.1);
+    background: rgba(13, 148, 136, 0.16);
+  }
+`;
+
+const EyeSVG = ({ size = 16 }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const StickyActionsTh = styled(ScrollableTh)`
+  right: 0;
+  z-index: 4;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+`;
+
+const StickyActionsTd = styled(Td)`
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: white;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+  tr:hover & {
+    background: ${colors.rowHover || "#f8fafc"};
+  }
+`;
+
+// ─── Actions modal ────────────────────────────────────────────────────────────
+
+const ActionsInfoCard = styled.div`
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+`;
+
+const ActionsInfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 14px;
+  font-size: 0.76rem;
+  margin-top: 8px;
+`;
+
+const InfoLabel = styled.span`
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: ${colors.textMuted};
+`;
+
+const StatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: ${({ $ok }) => ($ok ? "#f0fdf4" : "#fffbeb")};
+  color: ${({ $ok }) => ($ok ? "#15803d" : "#b45309")};
+  border: 1.5px solid ${({ $ok }) => ($ok ? "#86efac" : "#fde68a")};
+`;
+
+const ActionsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+`;
+
+const ActionTile = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-align: left;
+  border: 1.5px solid ${({ $border }) => $border};
+  background: ${({ $bg }) => $bg};
+  color: ${({ $color }) => $color};
+  cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};
+  opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
+  transition: transform 0.15s;
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+`;
+
+const ActionTileIcon = styled.div`
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+  background: ${({ $bg }) => $bg};
+  color: ${({ $color }) => $color};
+`;
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const BillsReport = () => {
@@ -753,6 +885,7 @@ const BillsReport = () => {
   const [refundRemarksErr, setRefundRemarksErr] = useState(false);
   const [viewRefundBill, setViewRefundBill] = useState(null);
   const [nameSearch, setNameSearch] = useState("");
+  const [actionsBill, setActionsBill] = useState(null);
 
   // Print modal state — { bill, isEstimate }
   const [printJob, setPrintJob] = useState(null);
@@ -1216,7 +1349,7 @@ const BillsReport = () => {
                   <RemarksScrollableTh>Remarks</RemarksScrollableTh>{" "}
                   {/* see below */}
                   <ScrollableTh>Status</ScrollableTh>
-                  <ScrollableTh>Actions</ScrollableTh>
+                  <StickyActionsTh>Actions</StickyActionsTh>
                 </tr>
               </thead>
               <tbody>
@@ -1310,89 +1443,15 @@ const BillsReport = () => {
                         : "—"}
                     </RemarksTd>
                     <Td>{bill.paymentStatus}</Td>
-                    <Td>
-                      <ActionGroup>
-                        <PrintIconBtn
-                          onClick={() => handlePrint(bill)}
-                          title="Print"
-                        >
-                          <PrintSVG />
-                        </PrintIconBtn>
-                        <ViewIcon
-                          onClick={() => setViewBill(bill)}
-                          title="View Items"
-                        >
-                          👁
-                        </ViewIcon>
-                        {canEdit && (() => {
-                          const editDisabled =
-                            bill.paymentStatus !== "Pending" || isBarcodeLocked(bill);
-                          return (
-                            <EditIcon
-                              onClick={() => !editDisabled && handleEdit(bill)}
-                              title={
-                                isBarcodeLocked(bill)
-                                  ? "Edit not allowed (Barcode generated)"
-                                  : bill.paymentStatus !== "Pending"
-                                    ? "Edit not allowed"
-                                    : "Edit"
-                              }
-                              $disabled={editDisabled}
-                            >
-                              ✏️
-                            </EditIcon>
-                          );
-                        })()}
-
-                        {canDelete && (() => {
-                          const deleteDisabled =
-                            bill.paymentStatus !== "Pending" || isBarcodeLocked(bill);
-                          return (
-                            <DeleteIcon
-                              onClick={() => !deleteDisabled && handleDelete(bill)}
-                              title={
-                                isBarcodeLocked(bill)
-                                  ? "Delete not allowed (Barcode generated)"
-                                  : bill.paymentStatus !== "Pending"
-                                    ? "Delete not allowed"
-                                    : "Delete"
-                              }
-                              $disabled={deleteDisabled}
-                            >
-                              🗑️
-                            </DeleteIcon>
-                          );
-                        })()}
-
-                        {(() => {
-                          const refundDisabled =
-                            bill.paymentStatus === "Pending" || isBarcodeLocked(bill);
-                          return (
-                            <RefundIcon
-                              onClick={() => !refundDisabled && handleRefund(bill)}
-                              title={
-                                isBarcodeLocked(bill)
-                                  ? "Refund not allowed (Barcode generated)"
-                                  : bill.paymentStatus === "Pending"
-                                    ? "Refund not allowed (Pending)"
-                                    : "Refund"
-                              }
-                              $disabled={refundDisabled}
-                            >
-                              💸
-                            </RefundIcon>
-                          );
-                        })()}
-                        {bill.refunds && bill.refunds.length > 0 && (
-                          <RefundHistoryIconBtn
-                            onClick={() => setViewRefundBill(bill)}
-                            title="View Refunds"
-                          >
-                            <RefundHistorySVG />
-                          </RefundHistoryIconBtn>
-                        )}
-                      </ActionGroup>
-                    </Td>
+                    <StickyActionsTd>
+                      <ActionsEyeBtn
+                        type="button"
+                        title="View Actions"
+                        onClick={() => setActionsBill(bill)}
+                      >
+                        <EyeSVG />
+                      </ActionsEyeBtn>
+                    </StickyActionsTd>
                   </Tr>
                 ))}
               </tbody>
@@ -1404,6 +1463,190 @@ const BillsReport = () => {
           </EmptyState>
         )}
       </ContentCard>
+      {/* ── Actions Modal (eye icon) ── */}
+      {actionsBill && (() => {
+        const b = actionsBill;
+        const billNo = b.investBillNo || b.EstBillNo;
+        const locked = isBarcodeLocked(b);
+        const isPending = b.paymentStatus === "Pending";
+        const close = () => setActionsBill(null);
+        const run = (fn) => {
+          close();
+          fn(b);
+        };
+
+        const editDisabled = !isPending || locked;
+        const deleteDisabled = !isPending || locked;
+        const refundDisabled = isPending || locked;
+
+        const tiles = [
+          {
+            key: "print",
+            icon: <PrintSVG />,
+            title: "Print Bill",
+            sub: "Print or export PDF",
+            theme: { bg: "#f0f9ff", border: "#bae6fd", color: "#0369a1", iconBg: "rgba(2,132,199,0.15)" },
+            onClick: () => run(handlePrint),
+          },
+          {
+            key: "items",
+            icon: "👁",
+            title: "View Items",
+            sub: "See billed investigations",
+            theme: { bg: "#f5f3ff", border: "#ddd6fe", color: "#6d28d9", iconBg: "rgba(124,58,237,0.15)" },
+            onClick: () => run(setViewBill),
+          },
+          canEdit && {
+            key: "edit",
+            icon: "✏️",
+            title: "Edit Bill",
+            sub: locked
+              ? "Locked (Barcode generated)"
+              : !isPending
+                ? "Locked (Not pending)"
+                : "Modify bill items",
+            disabled: editDisabled,
+            theme: { bg: "#fffbeb", border: "#fde68a", color: "#b45309", iconBg: "rgba(245,158,11,0.18)" },
+            onClick: () => run(handleEdit),
+          },
+          canDelete && {
+            key: "delete",
+            icon: "🗑️",
+            title: "Delete Bill",
+            sub: locked
+              ? "Locked (Barcode generated)"
+              : !isPending
+                ? "Locked (Not pending)"
+                : "Permanently remove",
+            disabled: deleteDisabled,
+            theme: { bg: "#fef2f2", border: "#fecaca", color: "#b91c1c", iconBg: "rgba(220,38,38,0.15)" },
+            onClick: () => run(handleDelete),
+          },
+          {
+            key: "refund",
+            icon: "💸",
+            title: "Refund",
+            sub: locked
+              ? "Locked (Barcode generated)"
+              : isPending
+                ? "Not available (Pending)"
+                : "Refund selected items",
+            disabled: refundDisabled,
+            theme: { bg: "#ecfeff", border: "#a5f3fc", color: "#0e7490", iconBg: "rgba(8,145,178,0.15)" },
+            onClick: () => run(handleRefund),
+          },
+          b.refunds && b.refunds.length > 0 && {
+            key: "refund-history",
+            icon: <RefundHistorySVG />,
+            title: "View Refunds",
+            sub: `${b.refunds.length} refund${b.refunds.length > 1 ? "s" : ""} on this bill`,
+            theme: { bg: "#f0fdfa", border: "#99f6e4", color: "#0f766e", iconBg: "rgba(13,148,136,0.15)" },
+            onClick: () => run(setViewRefundBill),
+          },
+        ].filter(Boolean);
+
+        return (
+          <ModalOverlay onClick={close}>
+            <ModalBox style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+              <ModalHeader>
+                <ModalTitle>👁 Bill Actions — {billNo}</ModalTitle>
+                <ModalClose onClick={close}>✕</ModalClose>
+              </ModalHeader>
+
+              <ModalBody>
+                <ActionsInfoCard>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <strong style={{ fontSize: "0.9rem", color: colors.textMain }}>
+                      {fmtName(b.salutation, b.firstName, b.middleName, b.lastName) || "Patient"}
+                    </strong>
+                    <StatusBadge $ok={!isPending}>{b.paymentStatus || "—"}</StatusBadge>
+                  </div>
+                  <ActionsInfoGrid>
+                    <div>
+                      <InfoLabel>Bill No</InfoLabel>
+                      <strong>{billNo}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>UHID</InfoLabel>
+                      <strong>{b.uhid || "—"}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>IP No</InfoLabel>
+                      <strong>{b.ipNumber || "—"}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>Bill Type</InfoLabel>
+                      <strong>{b.bill_name || "—"}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>Amount</InfoLabel>
+                      <strong style={{ color: colors.primary }}>₹ {b.finalPrice}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>Date</InfoLabel>
+                      <strong>{formatBillDate(b.investBillDate || b.EstBillDate)}</strong>
+                    </div>
+                  </ActionsInfoGrid>
+                </ActionsInfoCard>
+
+                <div
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    color: colors.textMuted,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    marginBottom: 10,
+                  }}
+                >
+                  Available Actions
+                </div>
+
+                <ActionsGrid>
+                  {tiles.map((t) => (
+                    <ActionTile
+                      key={t.key}
+                      type="button"
+                      disabled={t.disabled}
+                      onClick={t.onClick}
+                      $bg={t.disabled ? "#f8fafc" : t.theme.bg}
+                      $border={t.disabled ? "#e2e8f0" : t.theme.border}
+                      $color={t.disabled ? "#94a3b8" : t.theme.color}
+                    >
+                      <ActionTileIcon
+                        $bg={t.disabled ? "#e2e8f0" : t.theme.iconBg}
+                        $color={t.disabled ? "#94a3b8" : t.theme.color}
+                      >
+                        {t.icon}
+                      </ActionTileIcon>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: "0.82rem" }}>{t.title}</div>
+                        <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: 2 }}>
+                          {t.sub}
+                        </div>
+                      </div>
+                    </ActionTile>
+                  ))}
+                </ActionsGrid>
+              </ModalBody>
+
+              <RemarksModalFooter>
+                <CancelBtn type="button" onClick={close}>
+                  Close
+                </CancelBtn>
+              </RemarksModalFooter>
+            </ModalBox>
+          </ModalOverlay>
+        );
+      })()}
       {/* ── View Items Modal ── */}
       {viewBill && (
         <ModalOverlay onClick={() => setViewBill(null)}>

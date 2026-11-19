@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
-import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvEditBtn, InvDeleteBtn } from "./InventoryUIHelper";
+import { InvTopToolbar, InvPagination, getTodayDateString, useInvDropMenu, InvDropBtn, InvDropMenu, InvMenuItem, InvCodePill, InvStatusBadge, InvEditBtn, InvDeleteBtn, InvNativeSelect } from "./InventoryUIHelper";
 import SearchSelect from "../Common/SearchSelect";
 import {
   Container,
@@ -214,6 +214,61 @@ const PB = styled.button`
   &:hover:not(:disabled) {
     background: ${(p) => (p.active ? "#0f766e" : "#f3f4f6")};
   }
+`;
+
+// ─── List Direction & Type Tabs ──────────────────────────────────────────────
+const ListTabContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 26px 0;
+  border-bottom: 2px solid #e5e7eb;
+  background: #f8fafc;
+  flex-wrap: wrap;
+`;
+
+const ListTabBtn = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-bottom: 3px solid ${p => p.$active ? "#0d9488" : "transparent"};
+  background: ${p => p.$active ? "#ffffff" : "transparent"};
+  color: ${p => p.$active ? "#0f766e" : "#64748b"};
+  font-size: 0.85rem;
+  font-weight: ${p => p.$active ? "700" : "600"};
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: -2px;
+  transition: all 0.15s ease;
+  &:hover {
+    color: #0f766e;
+    background: #ffffff;
+  }
+`;
+
+const ListTabBadge = styled.span`
+  background: ${p => p.$active ? "#0d9488" : "#e2e8f0"};
+  color: ${p => p.$active ? "#ffffff" : "#475569"};
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  line-height: 1.2;
+`;
+
+const DirectionBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: ${p => p.$isIncoming ? "#e0f2fe" : "#fef3c7"};
+  color: ${p => p.$isIncoming ? "#0369a1" : "#b45309"};
+  border: 1px solid ${p => p.$isIncoming ? "#bae6fd" : "#fde68a"};
 `;
 
 const FormPanel = styled.div`
@@ -1051,6 +1106,13 @@ const StockTransfer = () => {
   const [totalPages, setTotalPages]   = useState(1);
   const [searchQ, setSearchQ]         = useState("");
 
+  // ── Transfer Type Tabs & Custom Outlet Filters ─────────────────────────────
+  const [activeListTab, setActiveListTab]     = useState("created"); // "created" | "requested" | "all"
+  const [createdCount, setCreatedCount]       = useState(0);
+  const [requestedCount, setRequestedCount]   = useState(0);
+  const [filterOutlet, setFilterOutlet]       = useState("ALL");
+  const [filterStatus, setFilterStatus]       = useState("ALL");
+
   const [fromOutlet, setFromOutlet]   = useState(outletCode || "");
   const [toOutlet, setToOutlet]       = useState(null);
 
@@ -1159,6 +1221,15 @@ const StockTransfer = () => {
     return name.includes("OP") || outletCode === "OLET002";
   }, [loginOutletName, outletCode]);
 
+  const isIncomingTransfer = useCallback((t) => {
+    const to = String(t.to_outlet || "").trim().toUpperCase();
+    const curr = String(outletCode || "").trim().toUpperCase();
+    if (isDrugPurchase) {
+      return to === "" || to === "OLET006";
+    }
+    return to === curr;
+  }, [isDrugPurchase, outletCode]);
+
   useEffect(() => {
     const h = (e) => {
       if (medicineSearchRef.current && !medicineSearchRef.current.contains(e.target))
@@ -1168,7 +1239,16 @@ const StockTransfer = () => {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const fetchTransfers = useCallback(async (p = page, size = pageSize, q = searchQ, from = filterFromDate, to = filterToDate) => {
+  const fetchTransfers = useCallback(async (
+    p = page,
+    size = pageSize,
+    q = searchQ,
+    from = filterFromDate,
+    to = filterToDate,
+    tab = activeListTab,
+    oletFilter = filterOutlet,
+    statFilter = filterStatus
+  ) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -1178,6 +1258,9 @@ const StockTransfer = () => {
       if (q && q.trim()) params.append("search", q.trim());
       if (from) params.append("from_date", from);
       if (to)   params.append("to_date", to);
+      if (tab)  params.append("transfer_type", tab);
+      if (oletFilter && oletFilter !== "ALL") params.append("filter_outlet", oletFilter);
+      if (statFilter && statFilter !== "ALL") params.append("status", statFilter);
 
       const res = await apiRequest(
         `${HmsBaseUrl}stock-transfer/?${params.toString()}`, "GET"
@@ -1190,16 +1273,18 @@ const StockTransfer = () => {
       setTotalCount(count);
       setTotalPages(payload?.total_pages || Math.ceil(count / size) || 1);
       setPage(payload?.current_page || p);
+      if (payload?.created_count !== undefined) setCreatedCount(payload.created_count);
+      if (payload?.requested_count !== undefined) setRequestedCount(payload.requested_count);
     } catch {
       toast.error("Failed to fetch transfers");
     } finally {
       setLoading(false);
     }
-  }, [HmsBaseUrl, page, pageSize, searchQ, filterFromDate, filterToDate]);
+  }, [HmsBaseUrl, page, pageSize, searchQ, filterFromDate, filterToDate, activeListTab, filterOutlet, filterStatus]);
 
   useEffect(() => {
-    fetchTransfers(page, pageSize, searchQ, filterFromDate, filterToDate);
-  }, [page, pageSize, searchQ, filterFromDate, filterToDate, fetchTransfers]);
+    fetchTransfers(page, pageSize, searchQ, filterFromDate, filterToDate, activeListTab, filterOutlet, filterStatus);
+  }, [page, pageSize, searchQ, filterFromDate, filterToDate, activeListTab, filterOutlet, filterStatus, fetchTransfers]);
 
   // ── Search medicines ───────────────────────────────────────────────────────
   const searchMedicines = useCallback(async (query) => {
@@ -1220,10 +1305,15 @@ const StockTransfer = () => {
           if (seen.has(s.item_id)) return false;
           seen.add(s.item_id); return true;
         })
-        .map((s) => ({
-          ...s,
-          item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
-        }))
+        .map((s) => {
+          const avail = s.available_stock != null ? Number(s.available_stock) : (s.available_qty != null ? Number(s.available_qty) : 0);
+          return {
+            ...s,
+            item_name: s.item_name ? String(s.item_name).toUpperCase() : s.item_name,
+            available_qty: avail,
+            available_stock: avail,
+          };
+        })
         .filter((s) => String(s.item_name || "").toUpperCase().startsWith(cleanQ))
         .sort((a, b) => String(a.item_name || "").localeCompare(String(b.item_name || ""), undefined, { sensitivity: "base" }));
       setMedicineResults(unique);
@@ -1244,18 +1334,36 @@ const StockTransfer = () => {
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
       const payload = res?.data;
       const stocks = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(res) ? res : []));
+      const getAvailStock = (s) => {
+        if (s == null) return 0;
+        if (s.available_stock !== undefined && s.available_stock !== null && s.available_stock !== "") return Math.max(0, Number(s.available_stock));
+        if (s.available_qty !== undefined && s.available_qty !== null && s.available_qty !== "") return Math.max(0, Number(s.available_qty));
+        if (s.available_quantity !== undefined && s.available_quantity !== null && s.available_quantity !== "") return Math.max(0, Number(s.available_quantity));
+        const tot = Number(s.total_stock ?? 0);
+        const sold = Number(s.sold_quantity ?? 0);
+        const trans = Number(s.transferred_out_quantity ?? 0);
+        const grn = Number(s.grn_return_quantity ?? 0);
+        const blk = Number(s.blocked_quantity ?? 0);
+        const sret = Number(s.sales_return_quantity ?? 0);
+        return Math.max(0, tot - sold - trans - grn - blk + sret);
+      };
+
       const batches = stocks
-        .filter((s) => Number(s.available_qty ?? 0) > 0)
-        .map((s) => ({
-          stock_id:      s.stock_id,
-          batch_number:  s.batch_number || s.batch_no || s.batchNo || s.BatchNo || s.batch || "-",
-          hsn_code:      s.hsn_code     || "",
-          outlet_code:   s.outlet_code  || "",
-          mrp:           s.mrp          || 0,
-          Selling_Price: s.Selling_Price || s.selling_price || s.mrp || 0,
-          available_qty: Number(s.available_qty ?? 0),
-          expiry_date:   s.expiry_date  || null,
-        }));
+        .filter((s) => getAvailStock(s) > 0)
+        .map((s) => {
+          const avail = getAvailStock(s);
+          return {
+            stock_id:      s.stock_id,
+            batch_number:  s.batch_number || s.batch_no || s.batchNo || s.BatchNo || s.batch || "-",
+            hsn_code:      s.hsn_code     || "",
+            outlet_code:   s.outlet_code  || "",
+            mrp:           s.mrp          || 0,
+            Selling_Price: s.Selling_Price || s.selling_price || s.mrp || 0,
+            available_qty: avail,
+            available_stock: avail,
+            expiry_date:   s.expiry_date  || null,
+          };
+        });
       setAvailableBatches(batches);
       if (batches.length === 0) {
         setNoStockForSelected(true);
@@ -1429,7 +1537,9 @@ const StockTransfer = () => {
       if (res?.success) {
         toast.success("Stock Transfer saved as Draft");
         handleCancelForm();
-        fetchTransfers();
+        setActiveListTab("created");
+        setFilterOutlet("ALL");
+        setPage(1);
       } else {
         const err = res?.error;
         toast.error(Array.isArray(err) ? err.join(", ") : err || "Failed to save");
@@ -1932,6 +2042,54 @@ const StockTransfer = () => {
           </FormPanel>
         )}
 
+        {/* List Direction & Source/Destination Tabs */}
+        <ListTabContainer>
+          <ListTabBtn
+            type="button"
+            $active={activeListTab === "created"}
+            onClick={() => {
+              setActiveListTab("created");
+              setFilterOutlet("ALL");
+              setPage(1);
+            }}
+          >
+            📤 Created by Me
+            <ListTabBadge $active={activeListTab === "created"}>
+              {createdCount}
+            </ListTabBadge>
+          </ListTabBtn>
+
+          <ListTabBtn
+            type="button"
+            $active={activeListTab === "requested"}
+            onClick={() => {
+              setActiveListTab("requested");
+              setFilterOutlet("ALL");
+              setPage(1);
+            }}
+          >
+            📥 Requested to Me
+            <ListTabBadge $active={activeListTab === "requested"}>
+              {requestedCount}
+            </ListTabBadge>
+          </ListTabBtn>
+
+          <ListTabBtn
+            type="button"
+            $active={activeListTab === "all"}
+            onClick={() => {
+              setActiveListTab("all");
+              setFilterOutlet("ALL");
+              setPage(1);
+            }}
+          >
+            📋 All Transfers
+            <ListTabBadge $active={activeListTab === "all"}>
+              {createdCount + requestedCount}
+            </ListTabBadge>
+          </ListTabBtn>
+        </ListTabContainer>
+
         {/* Top Toolbar */}
         <InvTopToolbar
           pageSize={pageSize}
@@ -1956,12 +2114,70 @@ const StockTransfer = () => {
             setPage(1);
           }}
           totalRecords={totalCount}
+          customFilters={
+            <>
+              <InvNativeSelect
+                value={filterOutlet}
+                onChange={(e) => {
+                  setFilterOutlet(e.target.value);
+                  setPage(1);
+                }}
+                title={
+                  activeListTab === "requested"
+                    ? "Filter by Source (From Outlet)"
+                    : activeListTab === "created"
+                    ? "Filter by Destination (To Outlet / Dept)"
+                    : "Filter by Outlet / Dept"
+                }
+              >
+                <option value="ALL">
+                  {activeListTab === "requested"
+                    ? "All Sources"
+                    : activeListTab === "created"
+                    ? "All Destinations"
+                    : "All Outlets"}
+                </option>
+                <option value="OLET006">{DRUG_PURCHASE_LABEL}</option>
+                {outlets
+                  .filter((o) => o.outlet_code !== "OLET006")
+                  .map((o) => (
+                    <option key={o.outlet_code} value={o.outlet_code}>
+                      {o.outlet_name}
+                    </option>
+                  ))}
+                {stockDepartments.map((d) => (
+                  <option key={d.department_id} value={d.department_id}>
+                    {d.department_name}
+                  </option>
+                ))}
+              </InvNativeSelect>
+
+              <InvNativeSelect
+                value={filterStatus}
+                onChange={(e) => {
+                  setFilterStatus(e.target.value);
+                  setPage(1);
+                }}
+                title="Filter by Status"
+              >
+                <option value="ALL">All Status</option>
+                <option value="Draft">Draft (Pending)</option>
+                <option value="Verified">Verified</option>
+                <option value="Rejected">Rejected</option>
+              </InvNativeSelect>
+            </>
+          }
         />
 
         {/* Transfer Records Table */}
         <div style={{ padding: "0 26px 28px" }}>
           <SectionTitle style={{ marginTop: 16 }}>
-            📋 Transfer Records — {getOutletName(outletCode)}
+            {activeListTab === "requested"
+              ? "📥 Transfers Requested to Me"
+              : activeListTab === "created"
+              ? "📤 Transfers Created by Me"
+              : "📋 All Transfer Records"
+            } — {getOutletName(outletCode)}
             <span style={{
               background: "#e5e7eb", color: "#6b7280",
               fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: 600,
@@ -1980,6 +2196,7 @@ const StockTransfer = () => {
                 <thead>
                   <tr>
                     <Th>#</Th>
+                    <Th>Direction</Th>
                     <Th>Status</Th>
                     <Th>Date</Th>
                     <Th>Ref No</Th>
@@ -1994,7 +2211,7 @@ const StockTransfer = () => {
                 <tbody>
                   {transfers.length === 0 ? (
                     <Tr>
-                      <Td colSpan="10" style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0" }}>
+                      <Td colSpan="11" style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0" }}>
                         📭 No transfer records found
                       </Td>
                     </Tr>
@@ -2002,10 +2219,16 @@ const StockTransfer = () => {
                     transfers.map((t, idx) => {
                       const status = t.is_verified || "Draft";
                       const items  = Array.isArray(t.items) ? t.items : [];
+                      const isIncoming = isIncomingTransfer(t);
                       return (
                         <Tr key={t.transfer_ref_number || t.id || idx}>
                           <Td style={{ color: "#6b7280", fontSize: "0.8rem" }}>
                             {(page - 1) * pageSize + idx + 1}
+                          </Td>
+                          <Td>
+                            <DirectionBadge $isIncoming={isIncoming}>
+                              {isIncoming ? "📥 Requested" : "📤 Created"}
+                            </DirectionBadge>
                           </Td>
                           <Td>
                             <StatusBadge $status={status}>{status}</StatusBadge>
@@ -2018,8 +2241,12 @@ const StockTransfer = () => {
                           <Td style={{ fontWeight: 700, color: "#0d9488", fontFamily: "monospace" }}>
                             {t.transfer_ref_number}
                           </Td>
-                          <Td>{getOutletName(t.from_outlet ?? t.outlet_code)}</Td>
-                          <Td>{getOutletName(t.to_outlet)}</Td>
+                          <Td style={{ fontWeight: isIncoming ? 700 : 400, color: isIncoming ? "#0284c7" : "inherit" }}>
+                            {getOutletName(t.from_outlet ?? t.outlet_code)}
+                          </Td>
+                          <Td style={{ fontWeight: !isIncoming ? 700 : 400, color: !isIncoming ? "#b45309" : "inherit" }}>
+                            {getOutletName(t.to_outlet)}
+                          </Td>
                           <Td>
                             <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>
                               {items.length} item{items.length !== 1 ? "s" : ""}

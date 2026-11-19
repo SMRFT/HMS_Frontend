@@ -1,4 +1,4 @@
- import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     RotateCcw,
@@ -26,12 +26,14 @@ import {
     Package,
     Download,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    ChevronDown
 } from 'lucide-react';
 import styled from 'styled-components';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
+import SearchSelect from '../Common/SearchSelect';
 import { colors, PageWrapper, fadeIn } from '../GlobalStyles';
 import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
 
@@ -766,6 +768,7 @@ const DrugPurchaseReportsDashboard = () => {
     // Modal state
     const [activeModalReport, setActiveModalReport] = useState(null);
     const [loadingData, setLoadingData] = useState(false);
+    const [expandedSupplierModal, setExpandedSupplierModal] = useState(null);
     const [reportData, setReportData] = useState({
         columns: [],
         data: [],
@@ -845,11 +848,13 @@ const DrugPurchaseReportsDashboard = () => {
         setCurrentPage(1);
         setModalSearch('');
         setSelectedVendor('all');
+        setExpandedSupplierModal(null);
         fetchReportData(report, selectedScope, 'all', modalFromDate, modalToDate);
     };
 
     const handleCloseModal = () => {
         setActiveModalReport(null);
+        setExpandedSupplierModal(null);
     };
 
     // Filter cards for dashboard
@@ -871,17 +876,27 @@ const DrugPurchaseReportsDashboard = () => {
         let rows = reportData.data;
 
         if (selectedVendor && selectedVendor !== 'all') {
+            const sv = String(selectedVendor).trim().toLowerCase();
             rows = rows.filter((r) => 
-                (r.vendor_name && r.vendor_name.toLowerCase().includes(selectedVendor.toLowerCase())) ||
-                r.vendor_id === selectedVendor
+                String(r.vendor_id || '').trim().toLowerCase() === sv ||
+                String(r.vendor_name || '').toLowerCase().includes(sv)
             );
         }
 
         if (modalSearch && modalSearch.trim()) {
             const q = modalSearch.toLowerCase().trim();
             rows = rows.filter((r) => {
-                return Object.values(r).some((val) => 
-                    String(val || '').toLowerCase().includes(q)
+                const grnMatch = Array.isArray(r.grns) && r.grns.some(g => 
+                    String(g.grn_number || '').toLowerCase().includes(q) ||
+                    String(g.invoice_no || '').toLowerCase().includes(q) ||
+                    (Array.isArray(g.items) && g.items.some(it => String(it.name || it.itemName || '').toLowerCase().includes(q)))
+                );
+                return (
+                    String(r.vendor_name || '').toLowerCase().includes(q) ||
+                    String(r.vendor_id || '').toLowerCase().includes(q) ||
+                    String(r.vendor_gstin || '').toLowerCase().includes(q) ||
+                    grnMatch ||
+                    Object.values(r).some((val) => typeof val === 'string' && val.toLowerCase().includes(q))
                 );
             });
         }
@@ -901,6 +916,51 @@ const DrugPurchaseReportsDashboard = () => {
     const handleExportExcel = () => {
         if (!filteredTableRows || filteredTableRows.length === 0) return;
         try {
+            if (activeModalReport?.key === 'supplier_grn') {
+                const supplierRows = filteredTableRows.map(s => ({
+                    "Vendor ID": s.vendor_id,
+                    "Supplier Name": s.vendor_name,
+                    "GSTIN": s.vendor_gstin || '',
+                    "Total GRNs": s.total_grns,
+                    "Taxable Amount (₹)": s.taxable_amount,
+                    "Tax Paid (₹)": s.tax_amount,
+                    "Total Invoice Amount (₹)": s.total_amount,
+                    "Items Received Qty": s.total_items_qty
+                }));
+
+                const grnRows = [];
+                filteredTableRows.forEach(s => {
+                    if (Array.isArray(s.grns)) {
+                        s.grns.forEach(g => {
+                            grnRows.push({
+                                "Vendor ID": s.vendor_id,
+                                "Supplier Name": s.vendor_name,
+                                "GRN Number": g.grn_number,
+                                "GRN Date": g.date || '',
+                                "Invoice No": g.invoice_no || '',
+                                "Invoice Date": g.invoice_date || '',
+                                "Taxable Value (₹)": g.taxable_amount,
+                                "CGST (₹)": g.cgst,
+                                "SGST (₹)": g.sgst,
+                                "Total Amount (₹)": g.total_amount,
+                                "Payment Mode": g.payment_mode || 'Credit',
+                                "Approval Status": g.is_approved ? 'Approved' : 'Pending',
+                                "Items Summary": Array.isArray(g.items) ? g.items.map(it => `${it.name || it.itemName || 'Item'} (${it.quantity || 0} Qty)`).join(', ') : ''
+                            });
+                        });
+                    }
+                });
+
+                const wb = XLSX.utils.book_new();
+                const wsSupplier = XLSX.utils.json_to_sheet(supplierRows);
+                const wsGrns = XLSX.utils.json_to_sheet(grnRows);
+                XLSX.utils.book_append_sheet(wb, wsSupplier, "Supplier Summary");
+                XLSX.utils.book_append_sheet(wb, wsGrns, "Detailed GRN Invoices");
+                const filename = `Drug_Supplier_GRN_Report_${selectedScope.replace(/\s+/g, '_')}_${dayjs().format('YYYYMMDD')}.xlsx`;
+                XLSX.writeFile(wb, filename);
+                return;
+            }
+
             const exportData = filteredTableRows.map((row) => {
                 const cleanRow = {};
                 (reportData.columns || []).forEach((col) => {
@@ -1146,18 +1206,26 @@ const DrugPurchaseReportsDashboard = () => {
                             <FilterRow>
                                 <div className="left">
                                     {(reportData.vendors && reportData.vendors.length > 0) && (
-                                        <select
-                                            value={selectedVendor}
-                                            onChange={(e) => {
-                                                setSelectedVendor(e.target.value);
-                                                setCurrentPage(1);
-                                            }}
-                                        >
-                                            <option value="all">All Drug Suppliers</option>
-                                            {reportData.vendors.map((v) => (
-                                                <option key={v.vendor_id} value={v.vendor_id}>{v.name}</option>
-                                            ))}
-                                        </select>
+                                        <div style={{ minWidth: '260px', flex: '1 1 240px' }}>
+                                            <SearchSelect
+                                                options={[
+                                                    { value: "all", label: "All Drug Suppliers" },
+                                                    ...reportData.vendors.map((v) => ({
+                                                        value: String(v.vendor_id),
+                                                        label: `${v.name} (${v.vendor_id})`
+                                                    }))
+                                                ]}
+                                                value={selectedVendor || "all"}
+                                                onChange={(e) => {
+                                                    const v = e.target.value;
+                                                    setSelectedVendor(v);
+                                                    setCurrentPage(1);
+                                                }}
+                                                placeholder="All Drug Suppliers"
+                                                height="36px"
+                                                style={{ width: "100%" }}
+                                            />
+                                        </div>
                                     )}
 
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1212,6 +1280,129 @@ const DrugPurchaseReportsDashboard = () => {
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#059669', fontWeight: 700 }}>
                                     Loading {activeModalReport.title} data from drug purchase...
                                 </div>
+                            ) : activeModalReport?.key === 'supplier_grn' ? (
+                                <ReportTableWrapper>
+                                    <StyledTable>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '40px' }}></th>
+                                                <th>Drug Supplier / Vendor</th>
+                                                <th style={{ textAlign: 'center' }}>Total GRNs</th>
+                                                <th style={{ textAlign: 'right' }}>Taxable Amount</th>
+                                                <th style={{ textAlign: 'right' }}>Tax Paid</th>
+                                                <th style={{ textAlign: 'right' }}>Total Invoice Amount</th>
+                                                <th style={{ textAlign: 'center' }}>Items Recd</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paginatedRows.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                                                        No Drug Supplier GRN records found for the selected criteria in {selectedScope}.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                paginatedRows.map((supplier) => {
+                                                    const isExpanded = expandedSupplierModal === supplier.vendor_id;
+                                                    return (
+                                                        <React.Fragment key={supplier.vendor_id}>
+                                                            <tr 
+                                                                onClick={() => setExpandedSupplierModal(isExpanded ? null : supplier.vendor_id)}
+                                                                style={{ cursor: 'pointer', background: isExpanded ? '#f1f5f9' : 'transparent', transition: 'background 0.2s' }}
+                                                            >
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    {isExpanded ? <ChevronDown size={18} color="#059669" /> : <ChevronRight size={18} color="#94a3b8" />}
+                                                                </td>
+                                                                <td style={{ fontWeight: '700' }}>
+                                                                    <div style={{ color: '#059669', fontSize: '0.95rem' }}>{supplier.vendor_name}</div>
+                                                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                        ID: {supplier.vendor_id} {supplier.vendor_gstin ? `| GSTIN: ${supplier.vendor_gstin}` : ''}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ textAlign: 'center', fontWeight: '700', color: '#2563eb' }}>
+                                                                    {supplier.total_grns}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: '600' }}>
+                                                                    ₹{Number(supplier.taxable_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', color: '#d97706', fontWeight: '600' }}>
+                                                                    ₹{Number(supplier.tax_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: '700', color: '#1e293b' }}>
+                                                                    ₹{Number(supplier.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </td>
+                                                                <td style={{ textAlign: 'center', fontWeight: '600' }}>
+                                                                    {supplier.total_items_qty} units
+                                                                </td>
+                                                            </tr>
+
+                                                            {/* Expanded Sub-Table for GRNs */}
+                                                            {isExpanded && (
+                                                                <tr>
+                                                                    <td colSpan={7} style={{ background: '#f8fafc', padding: '16px 20px' }}>
+                                                                        <div style={{ marginBottom: '10px', fontWeight: '700', color: '#059669', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                            <FileText size={16} /> GRNs from {supplier.vendor_name} ({supplier.grns?.length || 0} Invoices)
+                                                                        </div>
+
+                                                                        <table style={{ width: '100%', background: '#ffffff', borderRadius: '8px', border: '1px solid #cbd5e1', borderCollapse: 'collapse', overflow: 'hidden' }}>
+                                                                            <thead>
+                                                                                <tr style={{ background: '#e2e8f0', color: '#334155' }}>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>GRN Number</th>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>GRN Date</th>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Invoice No & Date</th>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'right' }}>Total Amount</th>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Items Summary</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {Array.isArray(supplier.grns) && supplier.grns.map((g, gIdx) => (
+                                                                                    <tr key={gIdx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                                                        <td style={{ padding: '8px 12px', fontWeight: '600', color: '#059669', fontSize: '0.85rem' }}>
+                                                                                            {g.grn_number}
+                                                                                        </td>
+                                                                                        <td style={{ padding: '8px 12px', fontSize: '0.85rem', color: '#475569' }}>{g.date || '-'}</td>
+                                                                                        <td style={{ padding: '8px 12px', fontSize: '0.85rem' }}>
+                                                                                            <div style={{ fontWeight: 600 }}>{g.invoice_no || '-'}</div>
+                                                                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{g.invoice_date || '-'}</span>
+                                                                                        </td>
+                                                                                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '600', fontSize: '0.85rem' }}>
+                                                                                            ₹{Number(g.total_amount || 0).toFixed(2)}
+                                                                                        </td>
+                                                                                        <td style={{ padding: '8px 12px', fontSize: '0.8rem' }}>
+                                                                                            {Array.isArray(g.items) && g.items.length > 0 ? (
+                                                                                                <div>
+                                                                                                    {g.items.slice(0, 3).map((it, itIdx) => (
+                                                                                                        <span key={itIdx} style={{ display: 'block', background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '6px', margin: '4px 0', fontSize: '0.75rem' }}>
+                                                                                                            <div style={{ fontWeight: '700', color: '#1e293b' }}>{it.name || it.itemName || 'Medicine Item'}</div>
+                                                                                                            <div style={{ color: '#475569', fontSize: '0.72rem', marginTop: '2px' }}>
+                                                                                                                Qty: <span style={{ fontWeight: 600, color: '#16a34a' }}>{it.quantity || 0}</span>
+                                                                                                                {it.free ? <> (Free: <span style={{ fontWeight: 600 }}>{it.free}</span>)</> : null}
+                                                                                                                {it.batch ? <> | Batch: <span style={{ fontWeight: 600 }}>{it.batch}</span></> : null}
+                                                                                                                {it.expiry ? <> | Exp: <span style={{ fontWeight: 600 }}>{it.expiry}</span></> : null}
+                                                                                                                {it.purchase_cost ? <> | Cost: <span style={{ fontWeight: 600 }}>₹{it.purchase_cost}</span></> : null}
+                                                                                                            </div>
+                                                                                                        </span>
+                                                                                                    ))}
+                                                                                                    {g.items.length > 3 && (
+                                                                                                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}> +{g.items.length - 3} more</span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            ) : '-'}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </React.Fragment>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </StyledTable>
+                                </ReportTableWrapper>
                             ) : (
                                 <ReportTableWrapper>
                                     <StyledTable>

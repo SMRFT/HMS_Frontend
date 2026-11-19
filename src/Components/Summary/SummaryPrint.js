@@ -212,6 +212,10 @@ const GLOBAL_CSS = `
     letter-spacing: .8px; text-transform: uppercase; margin: 8px 0 4px;
     padding-bottom: 3px; border-bottom: 1.5px solid #2563a8; text-decoration: underline;
   }
+  .sp-date-header {
+    font-size: 12px; font-weight: 700; color: #ffffff; background: #2563a8;
+    letter-spacing: .5px; padding: 3px 10px; margin: 8px 0 0;
+  }
   .sp-dept-header {
     font-size: 12px; font-weight: 700; color: #1a3a6e; background: #e8eef8;
     text-align: center; letter-spacing: 1px; text-transform: uppercase;
@@ -1758,99 +1762,122 @@ const SummaryPrint = () => {
       const tests = summaryData.testdetails || [];
       if (!tests.length) return null;
 
-      const microTests = tests.filter((t) => t.is_microbiology);
-      const stdTests = tests.filter((t) => !t.is_microbiology);
-
-      const byDept = stdTests.reduce((a, t) => {
-        const d = t.department || "LABORATORY";
+      // Group every test (standard + microbiology) by its report date.
+      // Tests sharing a date are shown together under one date heading.
+      const byDate = tests.reduce((a, t) => {
+        const d = safeStr(t.test_date).trim();
         if (!a[d]) a[d] = [];
         a[d].push(t);
         return a;
       }, {});
-
-      const stdDepts = Object.keys(byDept).sort((a, b) => {
-        const ia = DEPT_ORDER.indexOf(a),
-          ib = DEPT_ORDER.indexOf(b);
-        if (ia !== -1 && ib !== -1) return ia - ib;
-        if (ia !== -1) return -1;
-        if (ib !== -1) return 1;
+      const dateKeys = Object.keys(byDate).sort((a, b) => {
+        if (!a) return 1; // undated tests go last
+        if (!b) return -1;
         return a.localeCompare(b);
       });
 
-      const stdSigs = getDeptConsultants(stdTests, false);
-      const microSigs = getDeptConsultants(microTests, true);
+      const renderDateGroup = (dateKey, dateTests, dateIdx) => {
+        const microTests = dateTests.filter((t) => t.is_microbiology);
+        const stdTests = dateTests.filter((t) => !t.is_microbiology);
+
+        const byDept = stdTests.reduce((a, t) => {
+          const d = t.department || "LABORATORY";
+          if (!a[d]) a[d] = [];
+          a[d].push(t);
+          return a;
+        }, {});
+
+        const stdDepts = Object.keys(byDept).sort((a, b) => {
+          const ia = DEPT_ORDER.indexOf(a),
+            ib = DEPT_ORDER.indexOf(b);
+          if (ia !== -1 && ib !== -1) return ia - ib;
+          if (ia !== -1) return -1;
+          if (ib !== -1) return 1;
+          return a.localeCompare(b);
+        });
+
+        const stdSigs = getDeptConsultants(stdTests, false);
+        const microSigs = getDeptConsultants(microTests, true);
+
+        // The date heading is rendered inside the same data-block-top wrapper
+        // as the first department header, so a page break can never separate
+        // the date from the first table under it.
+        const dateHeading = dateKey ? (
+          <div className="sp-date-header">Date : {fmtDate(dateKey)}</div>
+        ) : null;
+
+        return (
+          <div key={dateKey || "no-date"}>
+            {stdDepts.length > 0 && (
+              <div>
+                {stdDepts.map((dept, di) => {
+                  const dt = byDept[dept];
+                  const vSet = new Set(
+                    dt.map((t) => (t.verified_by || "").trim()).filter(Boolean),
+                  );
+                  const multi = vSet.size > 1;
+                  return (
+                    <div key={dept}>
+                      <div data-block-top="1">
+                        {di === 0 && dateHeading}
+                        <div className="sp-dept-header">{dept.toUpperCase()}</div>
+                      </div>
+                      <table className="sp-lab-table">
+                        <thead data-thead-id={`lab-${dateIdx}-${di}-${dept}`}>
+                          <tr>
+                            <th style={{ width: "28%" }}>Test</th>
+                            <th style={{ width: "11%" }}>Specimen</th>
+                            <th style={{ width: "12%" }}>Result</th>
+                            <th style={{ width: "9%" }}>Units</th>
+                            <th style={{ width: "20%" }}>Reference Value</th>
+                            <th style={{ width: "20%" }}>Method</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dt.map((t, ti) => (
+                            <StdRows key={ti} test={t} multi={multi} />
+                          ))}
+                          {!multi && vSet.size > 0 && (
+                            <tr>
+                              <td colSpan="6" className="sp-verified-text">
+                                Verified by: {Array.from(vSet).join(", ")}
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+                <SigBlock consultants={stdSigs} />
+              </div>
+            )}
+
+            {microTests.length > 0 && (
+              <div>
+                <div data-block-top="1">
+                  {stdDepts.length === 0 && dateHeading}
+                  <div className="sp-dept-header">MICROBIOLOGY</div>
+                </div>
+                {microTests.map((t, ti) => (
+                  <MicroTest
+                    key={ti}
+                    test={t}
+                    theadId={`micro-${dateIdx}-${ti}`}
+                  />
+                ))}
+                <SigBlock consultants={microSigs} />
+              </div>
+            )}
+          </div>
+        );
+      };
 
       return (
         <div>
           <div className="sp-lab-title">Laboratory Investigation Report</div>
 
-          {stdDepts.length > 0 && (
-            <div>
-              {stdDepts.map((dept, di) => {
-                const dt = byDept[dept];
-                const vSet = new Set(
-                  dt.map((t) => (t.verified_by || "").trim()).filter(Boolean),
-                );
-                const multi = vSet.size > 1;
-                return (
-                  <div key={dept}>
-                    {/*
-                     * KEY FIX: dept header is in its own data-block-top div
-                     * that contains NO <table>.
-                     * nonTableBlockBounds picks it up → if the cut lands between
-                     * the header and the table it snaps back to header top,
-                     * keeping the dept label on the same page as its first row.
-                     *
-                     * The <table> sits OUTSIDE so tableBoundaries handles
-                     * row-level snapping independently, and the thead overlay
-                     * (Test/Specimen/Result/Units/Reference Value/Method) fires
-                     * correctly on continuation pages.
-                     */}
-                    <div data-block-top="1">
-                      <div className="sp-dept-header">{dept.toUpperCase()}</div>
-                    </div>
-                    <table className="sp-lab-table">
-                      <thead data-thead-id={`lab-${di}-${dept}`}>
-                        <tr>
-                          <th style={{ width: "28%" }}>Test</th>
-                          <th style={{ width: "11%" }}>Specimen</th>
-                          <th style={{ width: "12%" }}>Result</th>
-                          <th style={{ width: "9%" }}>Units</th>
-                          <th style={{ width: "20%" }}>Reference Value</th>
-                          <th style={{ width: "20%" }}>Method</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dt.map((t, ti) => (
-                          <StdRows key={ti} test={t} multi={multi} />
-                        ))}
-                        {!multi && vSet.size > 0 && (
-                          <tr>
-                            <td colSpan="6" className="sp-verified-text">
-                              Verified by: {Array.from(vSet).join(", ")}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })}
-              <SigBlock consultants={stdSigs} />
-            </div>
-          )}
-
-          {microTests.length > 0 && (
-            <div>
-              <div data-block-top="1">
-                <div className="sp-dept-header">MICROBIOLOGY</div>
-              </div>
-              {microTests.map((t, ti) => (
-                <MicroTest key={ti} test={t} theadId={`micro-${ti}`} />
-              ))}
-              <SigBlock consultants={microSigs} />
-            </div>
-          )}
+          {dateKeys.map((dk, idx) => renderDateGroup(dk, byDate[dk], idx))}
 
           <div className="sp-end-marker" data-block-top="1">
             — End of Laboratory Report —

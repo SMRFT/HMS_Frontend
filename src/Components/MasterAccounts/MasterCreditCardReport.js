@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { DatePicker, Select, Button, Spin, Tag, Input } from "antd";
+import { DatePicker, Select, Button, Spin, Input } from "antd";
 import dayjs from "dayjs";
-import { Printer, Download, Search, RefreshCw, CreditCard } from "lucide-react";
+import { Printer, Download, Search, RefreshCw } from "lucide-react";
+import styled from "styled-components";
+import * as XLSX from "xlsx";
 import apiRequest from "../../Auth/apiRequest";
 import {
-    cleanNum,
     formatINR,
-    exportToExcel,
     printReportArea,
     extractReportData,
-    getSafeArray,
     ReportPageWrapper,
     ControlCard,
     HeaderBar,
@@ -24,7 +23,61 @@ import {
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
-const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initialOutlet = "all" }) => {
+const SectionHeaderTr = styled.tr`
+    background: #e2e8f0 !important;
+    td {
+        font-weight: 800 !important;
+        font-size: 0.82rem !important;
+        color: #0f172a !important;
+        padding: 8px 12px !important;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        background: #e2e8f0 !important;
+        border-top: 1px solid #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+    }
+`;
+
+const DateHeaderTr = styled.tr`
+    background: #f1f5f9 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    td {
+        font-weight: 700 !important;
+        font-size: 0.85rem !important;
+        color: #0f172a !important;
+        padding: 6px 12px !important;
+        background: #f1f5f9 !important;
+    }
+`;
+
+const SubtotalTr = styled.tr`
+    background: #f8fafc !important;
+    td {
+        font-weight: 700 !important;
+        font-size: 0.8rem !important;
+        color: #0f172a !important;
+        padding: 6px 12px !important;
+        border-top: 1px solid #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+    }
+`;
+
+const GrandTotalTr = styled.tr`
+    background: #f1f5f9 !important;
+    border-top: 2px solid #000000 !important;
+    border-bottom: 3px double #000000 !important;
+    td {
+        font-weight: 800 !important;
+        font-size: 0.92rem !important;
+        color: #000000 !important;
+        padding: 8px 12px !important;
+        background: #f1f5f9 !important;
+        border-top: 2px solid #000000 !important;
+        border-bottom: 3px double #000000 !important;
+    }
+`;
+
+const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initialOutlet = "all", initialBillType = "all" }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const [dateRange, setDateRange] = useState([
         startDate ? dayjs(startDate) : dayjs(),
@@ -35,7 +88,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedMachine, setSelectedMachine] = useState("all");
+    const [activeCategory, setActiveCategory] = useState(initialBillType || "all");
 
     useEffect(() => {
         const fetchOutlets = async () => {
@@ -48,18 +101,24 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
         };
         fetchOutlets();
     }, [HmsBaseUrl]);
+
     useEffect(() => {
         if (startDate && endDate) {
             setDateRange([dayjs(startDate), dayjs(endDate)]);
         }
     }, [startDate, endDate]);
+
     useEffect(() => {
         if (initialOutlet !== undefined && initialOutlet !== outlet) {
             setOutlet(initialOutlet);
         }
     }, [initialOutlet]);
 
-
+    useEffect(() => {
+        if (initialBillType !== undefined) {
+            setActiveCategory(initialBillType);
+        }
+    }, [initialBillType]);
 
     const fetchReport = async () => {
         try {
@@ -82,65 +141,195 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
         fetchReport();
     }, [dateRange, outlet]);
 
-    const txns = getSafeArray(reportData?.data);
-    const summary = reportData?.summary || {};
-    const machineSummary = reportData?.machine_summary || {};
+    // Extract unique categories for filtering
+    const categoriesList = useMemo(() => {
+        const set = new Set();
+        (reportData?.data || []).forEach(r => {
+            if (r.category) set.add(r.category);
+        });
+        return Array.from(set).sort();
+    }, [reportData]);
 
-    const filteredTxns = useMemo(() => {
-        let list = txns;
-        if (selectedMachine !== "all") {
-            list = list.filter(t => (t.terminal_machine || "Main POS") === selectedMachine);
-        }
-        if (!searchTerm.trim()) return list;
-        const q = searchTerm.toLowerCase();
-        return list.filter(t =>
-            String(t.bill_no || "").toLowerCase().includes(q) ||
-            String(t.patient_name || "").toLowerCase().includes(q) ||
-            String(t.auth_code || "").toLowerCase().includes(q) ||
-            String(t.card_type || "").toLowerCase().includes(q)
-        );
-    }, [txns, selectedMachine, searchTerm]);
+    // Build hierarchical grouped data filtered by search and category
+    const filteredGroupedData = useMemo(() => {
+        const q = searchTerm.toLowerCase().trim();
+        const filterVal = (activeCategory || "all").toLowerCase().trim();
+        const groups = reportData?.grouped_data || [];
+        let runningSlno = 1;
+
+        return groups.map(dGroup => {
+            const matchingSections = [];
+            let dateTotal = 0;
+            let dateCount = 0;
+
+            (dGroup.sections || []).forEach(sec => {
+                if (filterVal !== "all") {
+                    const secCat = (sec.category || "").toLowerCase().trim();
+                    const filterNorm = filterVal.replace(/[\s()_-]/g, "");
+                    const secNorm = secCat.replace(/[\s()_-]/g, "");
+
+                    const matches = secCat === filterVal ||
+                        secNorm === filterNorm ||
+                        secNorm.includes(filterNorm) ||
+                        filterNorm.includes(secNorm);
+
+                    if (!matches) {
+                        return;
+                    }
+                }
+
+                const matchingItems = (sec.items || []).filter(item => {
+                    if (!q) return true;
+                    return (
+                        (item.patient_name && String(item.patient_name).toLowerCase().includes(q)) ||
+                        (item.bill_no && String(item.bill_no).toLowerCase().includes(q)) ||
+                        (item.mr_no && String(item.mr_no).toLowerCase().includes(q)) ||
+                        (item.ip_number && String(item.ip_number).toLowerCase().includes(q)) ||
+                        (item.card_type && String(item.card_type).toLowerCase().includes(q)) ||
+                        (item.card_number && String(item.card_number).toLowerCase().includes(q)) ||
+                        (item.user && String(item.user).toLowerCase().includes(q)) ||
+                        (item.category && String(item.category).toLowerCase().includes(q))
+                    );
+                }).map(item => ({
+                    ...item,
+                    displaySlno: runningSlno++
+                }));
+
+                if (matchingItems.length > 0) {
+                    const secTotal = matchingItems.reduce((sum, it) => sum + (it.amount || it.bank || it.card_amount || 0), 0);
+                    matchingSections.push({
+                        category: sec.category,
+                        items: matchingItems,
+                        total: secTotal,
+                        count: matchingItems.length
+                    });
+                    dateTotal += secTotal;
+                    dateCount += matchingItems.length;
+                }
+            });
+
+            return {
+                ...dGroup,
+                sections: matchingSections,
+                date_total: dateTotal,
+                count: dateCount
+            };
+        }).filter(dGroup => dGroup.sections.length > 0);
+    }, [reportData, activeCategory, searchTerm]);
+
+    const filteredTotalAmount = useMemo(() => {
+        return filteredGroupedData.reduce((sum, dg) => sum + (dg.date_total || 0), 0);
+    }, [filteredGroupedData]);
+
+    const filteredTotalCount = useMemo(() => {
+        return filteredGroupedData.reduce((sum, dg) => sum + (dg.count || 0), 0);
+    }, [filteredGroupedData]);
+
+    const summary = reportData?.summary || {};
 
     const handleExport = () => {
-        const rows = filteredTxns.map(t => ({
-            "Bill No": t.bill_no,
-            "Date": t.date,
-            "Category": t.category,
-            "UHID": t.mr_no,
-            "Patient Name": t.patient_name,
-            "Card Amount": t.card_amount,
-            "Card Type / Network": t.card_type,
-            "POS Machine / Bank": t.terminal_machine,
-            "Auth / Ref Code": t.auth_code
-        }));
-        exportToExcel(rows, "Master_Credit_Card_Report", "ElectronicReceipts");
-    };
+        if (!filteredGroupedData || filteredGroupedData.length === 0) return;
 
-    const totalCardAmount = filteredTxns.reduce((a, x) => a + cleanNum(x.card_amount || x.bank || x.card || x.amount || x.net_amount), 0);
+        const excelRows = [];
+        filteredGroupedData.forEach(dg => {
+            excelRows.push({
+                "Slno": `Date: ${dg.date_display || dg.date}`,
+                "Name": "",
+                "Bill Number": "",
+                "MR. No": "",
+                "Card Type": "",
+                "Card Number": "",
+                "Bill Amount": "",
+                "User": ""
+            });
+
+            dg.sections.forEach(sec => {
+                excelRows.push({
+                    "Slno": sec.category,
+                    "Name": "",
+                    "Bill Number": "",
+                    "MR. No": "",
+                    "Card Type": "",
+                    "Card Number": "",
+                    "Bill Amount": "",
+                    "User": ""
+                });
+
+                sec.items.forEach(it => {
+                    excelRows.push({
+                        "Slno": it.displaySlno || it.slno,
+                        "Name": it.patient_name || "",
+                        "Bill Number": it.bill_no || "",
+                        "MR. No": it.mr_no || "",
+                        "Card Type": it.card_type || "CARD",
+                        "Card Number": it.card_number || "POS",
+                        "Bill Amount": Number((it.amount || it.bank || it.card_amount || 0).toFixed(2)),
+                        "User": it.user || ""
+                    });
+                });
+
+                excelRows.push({
+                    "Slno": "",
+                    "Name": "",
+                    "Bill Number": "",
+                    "MR. No": "",
+                    "Card Type": "",
+                    "Card Number": "Total - >",
+                    "Bill Amount": Number((sec.total || 0).toFixed(2)),
+                    "User": ""
+                });
+            });
+        });
+
+        excelRows.push({
+            "Slno": "",
+            "Name": "",
+            "Bill Number": "",
+            "MR. No": "",
+            "Card Type": "",
+            "Card Number": "Grand Total - >",
+            "Bill Amount": Number(filteredTotalAmount.toFixed(2)),
+            "User": ""
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelRows);
+        ws["!cols"] = [
+            { wch: 8 },
+            { wch: 28 },
+            { wch: 18 },
+            { wch: 16 },
+            { wch: 16 },
+            { wch: 16 },
+            { wch: 16 },
+            { wch: 14 }
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, "Credit Card Report");
+        XLSX.writeFile(wb, `Master_Credit_Card_Report_${dateRange[0].format("YYYY-MM-DD")}_to_${dateRange[1].format("YYYY-MM-DD")}.xlsx`);
+    };
 
     return (
         <ReportPageWrapper $isModal={isModalView}>
             {!isModalView && (
                 <ControlCard>
                     <HeaderBar>
-                    <div className="title-group">
-                        <h1>
-                            Credit Card & Electronic Payment Report
-                            <span className="badge">100% Shift Tallied</span>
-                        </h1>
-                        <p>Credit card swipe machine POS receipts, payment gateway settlements, and UPI collections</p>
-                    </div>
-                    <div className="btn-group no-print">
-                        <Button icon={<Download size={15} />} onClick={handleExport}>
-                            Excel Export
-                        </Button>
-                        <Button type="primary" icon={<Printer size={15} />} onClick={() => printReportArea("printable-report-area", "landscape")}>
-                            Print Report
-                        </Button>
-                    </div>
-                </HeaderBar>
+                        <div className="title-group">
+                            <h1>
+                                Credit Card & Electronic Payment Report
+                                <span className="badge">Bill Type Wise</span>
+                            </h1>
+                            <p>POS machine swipe card receipts and electronic payments grouped by Date and Billing Heads matching Shanmuga Hospital format</p>
+                        </div>
+                        <div className="btn-group no-print">
+                            <Button icon={<Download size={15} />} onClick={handleExport}>
+                                Excel Export
+                            </Button>
+                            <Button type="primary" icon={<Printer size={15} />} onClick={() => printReportArea("printable-report-area", "portrait")}>
+                                Print Report
+                            </Button>
+                        </div>
+                    </HeaderBar>
 
-                {!isModalView && (
                     <FilterBar className="no-print">
                         <div className="filter-item">
                             <label>Date Range:</label>
@@ -151,17 +340,28 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                             />
                         </div>
                         <div className="filter-item">
-                            <label>POS Terminal:</label>
-                            <Select value={selectedMachine} onChange={setSelectedMachine} style={{ width: 180 }}>
-                                <Option value="all">All Terminals</Option>
-                                {Object.keys(machineSummary).map(m => (
-                                    <Option key={m} value={m}>{m}</Option>
+                            <label>Outlet:</label>
+                            <Select value={outlet} onChange={setOutlet} style={{ width: 180 }}>
+                                <Option value="all">All Outlets</Option>
+                                {outletsList.map((o) => (
+                                    <Option key={o.outlet_code} value={o.outlet_code}>
+                                        {o.outlet_name || o.outlet_code}
+                                    </Option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div className="filter-item">
+                            <label>Bill Type / Category:</label>
+                            <Select value={activeCategory} onChange={setActiveCategory} style={{ width: 220 }}>
+                                <Option value="all">All Categories</Option>
+                                {categoriesList.map(cat => (
+                                    <Option key={cat} value={cat}>{cat}</Option>
                                 ))}
                             </Select>
                         </div>
                         <div className="filter-item">
                             <Input
-                                placeholder="Search bill / patient / auth code..."
+                                placeholder="Search bill / patient / UHID..."
                                 prefix={<Search size={14} color="#94a3b8" />}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -172,8 +372,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                             Refresh
                         </Button>
                     </FilterBar>
-                )}
-            </ControlCard>
+                </ControlCard>
             )}
 
             {loading ? (
@@ -182,74 +381,136 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                 <div id="printable-report-area">
                     {!isModalView && (
                         <ReportPrintHeader
-                            title="CreditCardReport"
+                            title="Credit Card & Electronic Payment Report"
                             fromDate={dateRange ? dateRange[0]?.format("YYYY-MM-DD") : undefined}
                             toDate={dateRange ? dateRange[1]?.format("YYYY-MM-DD") : undefined}
-                            typeDesc="Credit card swipe machine POS receipts, payment gateway settlements, and UPI collections"
+                            typeDesc="Electronic POS & Card Receipts Grouped By Billing Heads"
                         />
                     )}
+
                     {!isModalView && (
                         <KPIGrid className="no-print">
-                        <KPICard $border="#6366f1">
-                            <span className="kpi-title">Total Card / POS</span>
-                            <span className="kpi-value">₹{formatINR(summary.total_card_collection)}</span>
-                            <span className="kpi-subtitle">Tallies with shift credit total</span>
-                        </KPICard>
-                        <KPICard $border="#0ea5e9">
-                            <span className="kpi-title">Total Card Swipes</span>
-                            <span className="kpi-value">{summary.total_transactions || filteredTxns.length}</span>
-                            <span className="kpi-subtitle">Settled transactions</span>
-                        </KPICard>
-                        <KPICard $border="#10b981">
-                            <span className="kpi-title">Active POS Terminals</span>
-                            <span className="kpi-value">{Object.keys(machineSummary).length || 1}</span>
-                            <span className="kpi-subtitle">Bank swipe machines</span>
-                        </KPICard>
-                    </KPIGrid>
+                            <KPICard $border="#6366f1">
+                                <span className="kpi-title">Total Card / POS Collections</span>
+                                <span className="kpi-value">₹{formatINR(summary.total_card_collection || summary.total_card_amount || filteredTotalAmount)}</span>
+                                <span className="kpi-subtitle">Matches 100% with shift ledger</span>
+                            </KPICard>
+                            <KPICard $border="#0ea5e9">
+                                <span className="kpi-title">Total Card Swipes</span>
+                                <span className="kpi-value">{filteredTotalCount}</span>
+                                <span className="kpi-subtitle">Settled card transactions</span>
+                            </KPICard>
+                            <KPICard $border="#10b981">
+                                <span className="kpi-title">Active Categories</span>
+                                <span className="kpi-value">{categoriesList.length}</span>
+                                <span className="kpi-subtitle">Billing heads with card receipts</span>
+                            </KPICard>
+                        </KPIGrid>
                     )}
 
-                    <DataTableWrapper>
+                    <DataTableWrapper style={{ overflowX: "auto" }}>
                         <table>
                             <thead>
-                                <tr>
-                                    <th>Bill No</th>
-                                    <th>Date</th>
-                                    <th>Category</th>
-                                    <th>UHID</th>
-                                    <th>Patient Name</th>
-                                    <th>POS Terminal</th>
-                                    <th>Card Network / Type</th>
-                                    <th>Auth / Ref No</th>
-                                    <th className="text-right">Card Amount (₹)</th>
+                                <tr style={{ background: "#f1f5f9" }}>
+                                    <th style={{ width: "55px", textAlign: "center" }}>Slno</th>
+                                    <th style={{ minWidth: "170px" }}>Name</th>
+                                    <th style={{ minWidth: "135px" }}>Bill Number</th>
+                                    <th style={{ minWidth: "125px" }}>MR. No</th>
+                                    <th style={{ minWidth: "105px" }}>Card Type</th>
+                                    <th style={{ minWidth: "105px" }}>Card Number</th>
+                                    <th style={{ minWidth: "115px", textAlign: "right" }}>Bill Amount</th>
+                                    <th style={{ minWidth: "110px" }}>User</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredTxns.map((t, idx) => (
-                                    <tr key={idx}>
-                                        <td className="font-mono"><strong>{t.bill_no}</strong></td>
-                                        <td>{t.date}</td>
-                                        <td><Tag color="purple">{t.category}</Tag></td>
-                                        <td className="font-mono">{t.mr_no || "-"}</td>
-                                        <td>{t.patient_name || "General"}</td>
-                                        <td>{t.terminal_machine || "Main POS"}</td>
-                                        <td>{t.card_type || "Credit/Debit Card"}</td>
-                                        <td className="font-mono">{t.auth_code || "-"}</td>
-                                        <td className="text-right font-mono font-bold" style={{ color: "#4f46e5" }}>
-                                            {formatINR(t.card_amount || t.bank || t.card || t.amount || t.net_amount)}
+                                {filteredGroupedData.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={8} style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                                            No credit card collection records found for the selected criteria.
                                         </td>
                                     </tr>
-                                ))}
-                                <tr className="total-row">
-                                    <td colSpan={8}><strong>TOTAL ELECTRONIC SETTLEMENT ({filteredTxns.length} TRANSACTIONS)</strong></td>
-                                    <td className="text-right font-mono font-bold" style={{ color: "#4f46e5" }}>
-                                        ₹{formatINR(totalCardAmount || summary.total_card_collection || summary.total_card_amount)}
-                                    </td>
-                                </tr>
+                                ) : (
+                                    filteredGroupedData.map(dg => (
+                                        <React.Fragment key={dg.date}>
+                                            {/* Date Header Row */}
+                                            <DateHeaderTr className="DateGroup date-group">
+                                                <td colSpan={8} style={{ fontWeight: 700, color: "#0f172a" }}>
+                                                    Date : {dg.date_display || dg.date}
+                                                </td>
+                                            </DateHeaderTr>
+
+                                            {/* Category Sections */}
+                                            {dg.sections.map(sec => (
+                                                <React.Fragment key={`${dg.date}-${sec.category}`}>
+                                                    {/* Category Header Row */}
+                                                    <SectionHeaderTr className="SectionHeader section-header">
+                                                        <td colSpan={8}>
+                                                            {sec.category}
+                                                        </td>
+                                                    </SectionHeaderTr>
+
+                                                    {/* Item Rows */}
+                                                    {sec.items.map(item => (
+                                                        <tr key={item.bill_no + (item.displaySlno || item.slno)}>
+                                                            <td style={{ textAlign: "center", fontWeight: 500 }}>
+                                                                {item.displaySlno || item.slno}
+                                                            </td>
+                                                            <td style={{ fontWeight: 600, color: "#0f172a" }}>
+                                                                {item.patient_name || "—"}
+                                                            </td>
+                                                            <td style={{ fontFamily: "monospace", fontWeight: 600 }}>
+                                                                {item.bill_no || "—"}
+                                                            </td>
+                                                            <td style={{ fontFamily: "monospace", color: "#475569" }}>
+                                                                <div>{item.mr_no || "—"}</div>
+                                                                {item.ip_number && item.ip_number !== item.mr_no && !String(item.mr_no).includes(item.ip_number) && (
+                                                                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>IP: {item.ip_number}</div>
+                                                                )}
+                                                            </td>
+                                                            <td>{item.card_type || "CARD"}</td>
+                                                            <td>{item.card_number || "POS"}</td>
+                                                            <td style={{ textAlign: "right", fontWeight: 600, fontFamily: "monospace", color: "#0f172a" }}>
+                                                                {formatINR(item.amount || item.bank || item.card_amount)}
+                                                            </td>
+                                                            <td style={{ fontWeight: 500, color: "#334155", fontSize: "0.8rem" }}>
+                                                                {item.user || "STAFF"}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+
+                                                    {/* Section Subtotal Row */}
+                                                    <SubtotalTr className="SubTotal sub-total">
+                                                        <td colSpan={6} style={{ textAlign: "right", fontWeight: 700, color: "#1e293b" }}>
+                                                            Total - &gt;
+                                                        </td>
+                                                        <td style={{ textAlign: "right", fontWeight: 700, color: "#1e293b", fontFamily: "monospace" }}>
+                                                            {formatINR(sec.total)}
+                                                        </td>
+                                                        <td></td>
+                                                    </SubtotalTr>
+                                                </React.Fragment>
+                                            ))}
+                                        </React.Fragment>
+                                    ))
+                                )}
+
+                                {/* Grand Total Row */}
+                                {filteredGroupedData.length > 0 && (
+                                    <GrandTotalTr className="GrandTotal grand-total-row">
+                                        <td colSpan={6} style={{ textAlign: "right", fontWeight: 800, color: "#000000" }}>
+                                            Grand Total - &gt;
+                                        </td>
+                                        <td style={{ textAlign: "right", fontWeight: 800, fontFamily: "monospace", color: "#000000", fontSize: "0.95rem" }}>
+                                            {formatINR(filteredTotalAmount)}
+                                        </td>
+                                        <td></td>
+                                    </GrandTotalTr>
+                                )}
                             </tbody>
                         </table>
                     </DataTableWrapper>
 
-                    <ReportPrintFooter />
+                    {!isModalView && <ReportPrintFooter />}
                 </div>
             )}
         </ReportPageWrapper>

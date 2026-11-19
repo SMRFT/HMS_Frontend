@@ -255,20 +255,58 @@ const PrintableSheet = styled.div`
 
   .tax-summary-box {
     margin-left: auto;
-    width: 320px;
-    font-size: 11px;
-    line-height: 1.6;
+    width: 360px;
+    max-width: 100%;
     margin-top: 6px;
     margin-bottom: 14px;
-    border-top: 1px solid #000000;
-    padding-top: 4px;
+    border-top: 1.5px solid #000000;
+    border-bottom: 1px solid #000000;
+    padding: 6px 4px;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    font-size: 11px;
 
-    .tax-row {
+    .tax-col-left, .tax-col-right {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .tax-row-item {
       display: flex;
       justify-content: space-between;
-      .val {
+      align-items: center;
+      line-height: 1.5;
+
+      .tax-label {
+        color: #1e293b;
+        font-size: 11px;
+      }
+      .tax-val {
         font-weight: bold;
-        min-width: 80px;
+        font-size: 11px;
+        min-width: 65px;
+        text-align: right;
+      }
+    }
+
+    .net-amount-row {
+      margin-top: 3px;
+      padding-top: 4px;
+      border-top: 1px dashed #000000;
+
+      .net-label {
+        font-size: 13.5px;
+        font-weight: 800;
+        color: #000000;
+        letter-spacing: 0.3px;
+      }
+      .net-val {
+        font-size: 14px;
+        font-weight: 900;
+        color: #000000;
         text-align: right;
       }
     }
@@ -278,15 +316,26 @@ const PrintableSheet = styled.div`
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    border-top: 1px solid #000000;
-    border-bottom: 1px solid #000000;
-    padding: 6px 0;
-    font-size: 12px;
-    font-weight: bold;
-    margin-top: 10px;
+    border-top: 2px solid #000000;
+    border-bottom: 2px solid #000000;
+    padding: 8px 6px;
+    margin-top: 12px;
+    background: #f8fafc;
 
-    .label { margin-right: 30px; }
-    .amount { min-width: 80px; text-align: right; }
+    .label {
+      margin-right: 24px;
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #000000;
+    }
+    .amount {
+      min-width: 100px;
+      text-align: right;
+      font-size: 16px;
+      font-weight: 900;
+      color: #000000;
+    }
   }
 
   .footer-page-bar {
@@ -479,6 +528,94 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                     header, nav, aside, .sidebar, [class*="HeaderContainer"], [class*="SidebarContainer"], .no-print, button, input, select {
                         display: none !important;
                     }
+                    #printable-pharmacy-ip-sheet .tax-summary-box {
+                        margin-left: auto !important;
+                        width: 360px !important;
+                        display: flex !important;
+                        justify-content: space-between !important;
+                        gap: 20px !important;
+                        margin-top: 5px !important;
+                        margin-bottom: 8px !important;
+                        padding: 5px 2px !important;
+                        border-top: 1.5px solid #000000 !important;
+                        border-bottom: 1px solid #000000 !important;
+                        font-size: 8.5pt !important;
+                        page-break-inside: avoid !important;
+                    }
+                    #printable-pharmacy-ip-sheet .tax-col-left,
+                    #printable-pharmacy-ip-sheet .tax-col-right {
+                        flex: 1 !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        gap: 2px !important;
+                    }
+                    #printable-pharmacy-ip-sheet .tax-row-item {
+                        display: flex !important;
+                        justify-content: space-between !important;
+                        align-items: center !important;
+                        line-height: 1.4 !important;
+                    }
+                    #printable-pharmacy-ip-sheet .tax-label {
+                        font-size: 8.5pt !important;
+                        color: #000000 !important;
+                    }
+                    #printable-pharmacy-ip-sheet .tax-val {
+                        font-size: 8.5pt !important;
+                        font-weight: bold !important;
+                        text-align: right !important;
+                        min-width: 55px !important;
+                    }
+                    #printable-pharmacy-ip-sheet .net-amount-row {
+                        margin-top: 2px !important;
+                        padding-top: 3px !important;
+                        border-top: 1px dashed #000000 !important;
+                    }
+                    #printable-pharmacy-ip-sheet .net-label {
+                        font-size: 11pt !important;
+                        font-weight: 800 !important;
+                        color: #000000 !important;
+                        letter-spacing: 0.3px !important;
+                    }
+                    #printable-pharmacy-ip-sheet .net-val {
+                        font-size: 12pt !important;
+                        font-weight: 900 !important;
+                        color: #000000 !important;
+                        text-align: right !important;
+                    }
+                    #printable-pharmacy-ip-sheet .grand-total-bar {
+                        display: flex !important;
+                        justify-content: flex-end !important;
+                        align-items: center !important;
+                        border-top: 2px solid #000000 !important;
+                        border-bottom: 2px solid #000000 !important;
+                        padding: 6px 2px !important;
+                        margin-top: 10px !important;
+                        background: transparent !important;
+                        page-break-inside: avoid !important;
+                    }
+                    #printable-pharmacy-ip-sheet .grand-total-bar .label {
+                        margin-right: 20px !important;
+                        font-size: 11pt !important;
+                        font-weight: 800 !important;
+                        text-transform: uppercase !important;
+                        color: #000000 !important;
+                    }
+                    #printable-pharmacy-ip-sheet .grand-total-bar .amount {
+                        font-size: 13pt !important;
+                        font-weight: 900 !important;
+                        text-align: right !important;
+                        color: #000000 !important;
+                        min-width: 80px !important;
+                    }
+                    #printable-pharmacy-ip-sheet .text-right {
+                        text-align: right !important;
+                    }
+                    #printable-pharmacy-ip-sheet .text-center {
+                        text-align: center !important;
+                    }
+                    #printable-pharmacy-ip-sheet .text-left {
+                        text-align: left !important;
+                    }
                 }
             `}</style>
             {!embedded && (
@@ -509,7 +646,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                             value={dateRange}
                             onChange={(dates) => setDateRange(dates)}
                             format="DD/MM/YYYY"
-                            allowClear={false}
+                            allowClear={true}
                             style={{ height: '36px', borderRadius: '8px' }}
                         />
 
@@ -587,17 +724,17 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                     <table className="items-table">
                         <thead>
                             <tr>
-                                <th style={{ width: '35px' }}>Qty</th>
-                                <th>Particulars</th>
-                                <th>HSN</th>
-                                <th>Batch</th>
-                                <th>Expiry</th>
-                                <th className="text-right">Taxable Amt</th>
-                                <th className="text-center">CGST %</th>
-                                <th className="text-right">CGST</th>
-                                <th className="text-center">SGST %</th>
-                                <th className="text-right">SGST</th>
-                                <th className="text-right">Amount</th>
+                                <th style={{ width: '40px', textAlign: 'center' }} className="text-center">Qty</th>
+                                <th style={{ textAlign: 'left' }} className="text-left">Particulars</th>
+                                <th style={{ width: '70px', textAlign: 'center' }} className="text-center">HSN</th>
+                                <th style={{ width: '95px', textAlign: 'left' }} className="text-left">Batch</th>
+                                <th style={{ width: '85px', textAlign: 'center' }} className="text-center">Expiry</th>
+                                <th style={{ width: '90px', textAlign: 'right' }} className="text-right">Taxable Amt</th>
+                                <th style={{ width: '55px', textAlign: 'center' }} className="text-center">CGST %</th>
+                                <th style={{ width: '65px', textAlign: 'right' }} className="text-right">CGST</th>
+                                <th style={{ width: '55px', textAlign: 'center' }} className="text-center">SGST %</th>
+                                <th style={{ width: '65px', textAlign: 'right' }} className="text-right">SGST</th>
+                                <th style={{ width: '90px', textAlign: 'right' }} className="text-right">Amount</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -624,10 +761,10 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                     {group.bills.map((bill, bIdx) => (
                                         <React.Fragment key={`${gIdx}-${bIdx}`}>
                                             <tr className="bill-group-header">
-                                                <td colSpan={6}>
+                                                <td colSpan={6} style={{ textAlign: 'left' }}>
                                                     Bill Number : {bill.bill_no}
                                                 </td>
-                                                <td colSpan={5} className="text-right">
+                                                <td colSpan={5} className="text-right" style={{ textAlign: 'right' }}>
                                                     Bill Date : {bill.bill_date} (IP CREDITS)
                                                 </td>
                                             </tr>
@@ -637,17 +774,17 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                                 const sgstVal = it.sgst_amt ?? it.sgst ?? 0;
                                                 return (
                                                     <tr key={iIdx}>
-                                                        <td className="text-center">{it.qty}</td>
-                                                        <td>{it.particulars}</td>
-                                                        <td>{it.hsn || '-'}</td>
-                                                        <td>{it.batch || '-'}</td>
-                                                        <td>{it.expiry || '-'}</td>
-                                                        <td className="text-right">{Number(it.taxable_amt || 0).toFixed(2)}</td>
-                                                        <td className="text-center">{it.cgst_pct ?? '-'}</td>
-                                                        <td className="text-right">{Number(cgstVal || 0).toFixed(2)}</td>
-                                                        <td className="text-center">{it.sgst_pct ?? '-'}</td>
-                                                        <td className="text-right">{Number(sgstVal || 0).toFixed(2)}</td>
-                                                        <td className="text-right">{Number(it.amount || 0).toFixed(2)}</td>
+                                                        <td className="text-center" style={{ textAlign: 'center' }}>{it.qty}</td>
+                                                        <td className="text-left" style={{ textAlign: 'left' }}>{it.particulars}</td>
+                                                        <td className="text-center" style={{ textAlign: 'center' }}>{it.hsn || '-'}</td>
+                                                        <td className="text-left" style={{ textAlign: 'left' }}>{it.batch || '-'}</td>
+                                                        <td className="text-center" style={{ textAlign: 'center' }}>{it.expiry || '-'}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right' }}>{Number(it.taxable_amt || 0).toFixed(2)}</td>
+                                                        <td className="text-center" style={{ textAlign: 'center' }}>{it.cgst_pct ?? '-'}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right' }}>{Number(cgstVal || 0).toFixed(2)}</td>
+                                                        <td className="text-center" style={{ textAlign: 'center' }}>{it.sgst_pct ?? '-'}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right' }}>{Number(sgstVal || 0).toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 600 }}>{Number(it.amount || 0).toFixed(2)}</td>
                                                     </tr>
                                                 );
                                             })}
@@ -672,23 +809,75 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
 
                                                 return (
                                                     <tr>
-                                                        <td colSpan={11} style={{ padding: '0 0 10px 0' }}>
-                                                            <div className="tax-summary-box">
-                                                                <div className="tax-row">
-                                                                    <span>Taxable Amt :</span>
-                                                                    <span className="val">{bTaxable.toFixed(2)}</span>
+                                                        <td colSpan={11} style={{ padding: '0 0 10px 0', borderBottom: 'none' }}>
+                                                            <div className="tax-summary-box" style={{
+                                                                marginLeft: 'auto',
+                                                                width: '360px',
+                                                                maxWidth: '100%',
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                gap: '24px',
+                                                                marginTop: '6px',
+                                                                marginBottom: '12px',
+                                                                padding: '6px 4px',
+                                                                borderTop: '1.5px solid #000000',
+                                                                borderBottom: '1px solid #000000'
+                                                            }}>
+                                                                {/* Left Column: Taxable Amt, CGST, SGST */}
+                                                                <div className="tax-col-left" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                                    <div className="tax-row-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                        <span className="tax-label" style={{ fontSize: '11px', color: '#1e293b' }}>Taxable Amt :</span>
+                                                                        <span className="tax-val" style={{ fontSize: '11px', fontWeight: 'bold', minWidth: '70px', textAlign: 'right' }}>{bTaxable.toFixed(2)}</span>
+                                                                    </div>
+                                                                    <div className="tax-row-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                        <span className="tax-label" style={{ fontSize: '11px', color: '#1e293b' }}>CGST :</span>
+                                                                        <span className="tax-val" style={{ fontSize: '11px', fontWeight: 'bold', minWidth: '70px', textAlign: 'right' }}>{bCgst.toFixed(2)}</span>
+                                                                    </div>
+                                                                    <div className="tax-row-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                        <span className="tax-label" style={{ fontSize: '11px', color: '#1e293b' }}>SGST :</span>
+                                                                        <span className="tax-val" style={{ fontSize: '11px', fontWeight: 'bold', minWidth: '70px', textAlign: 'right' }}>{bSgst.toFixed(2)}</span>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="tax-row">
-                                                                    <span>CGST :</span>
-                                                                    <span className="val">{bCgst.toFixed(2)}</span>
-                                                                    <span style={{ marginLeft: '14px' }}>GST :</span>
-                                                                    <span className="val">{bTotalGst.toFixed(2)}</span>
-                                                                </div>
-                                                                <div className="tax-row">
-                                                                    <span>SGST :</span>
-                                                                    <span className="val">{bSgst.toFixed(2)}</span>
-                                                                    <span style={{ marginLeft: '14px' }}>Net Amount :</span>
-                                                                    <span className="val">{bNet.toFixed(2)}</span>
+
+                                                                {/* Right Column: GST, Discount (if any), Net Amount */}
+                                                                <div className="tax-col-right" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                                    <div className="tax-row-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                        <span className="tax-label" style={{ fontSize: '11px', color: '#1e293b' }}>GST :</span>
+                                                                        <span className="tax-val" style={{ fontSize: '11px', fontWeight: 'bold', minWidth: '75px', textAlign: 'right' }}>{bTotalGst.toFixed(2)}</span>
+                                                                    </div>
+                                                                    {Number(bill.discount_amount || 0) > 0 && (
+                                                                        <div className="tax-row-item discount-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#dc2626' }}>
+                                                                            <span className="tax-label" style={{ fontSize: '11px', color: '#dc2626' }}>Discount :</span>
+                                                                            <span className="tax-val" style={{ fontSize: '11px', fontWeight: 'bold', minWidth: '75px', textAlign: 'right', color: '#dc2626' }}>-{Number(bill.discount_amount).toFixed(2)}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="tax-row-item net-amount-row" style={{
+                                                                        display: 'flex',
+                                                                        justifyContent: 'space-between',
+                                                                        alignItems: 'center',
+                                                                        marginTop: '3px',
+                                                                        paddingTop: '4px',
+                                                                        borderTop: '1px dashed #000000'
+                                                                    }}>
+                                                                        <span className="tax-label net-label" style={{
+                                                                            fontSize: '13.5px',
+                                                                            fontWeight: '800',
+                                                                            color: '#000000',
+                                                                            letterSpacing: '0.3px',
+                                                                            whiteSpace: 'nowrap'
+                                                                        }}>
+                                                                            Net Amount :
+                                                                        </span>
+                                                                        <span className="tax-val net-val" style={{
+                                                                            fontSize: '14px',
+                                                                            fontWeight: '900',
+                                                                            color: '#000000',
+                                                                            minWidth: '75px',
+                                                                            textAlign: 'right'
+                                                                        }}>
+                                                                            {bNet.toFixed(2)}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </td>
@@ -701,10 +890,10 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                     {/* Date Subtotal if multiple bills on same date */}
                                     {group.bills.length > 1 && (
                                         <tr className="date-subtotal-row" style={{ background: '#f8fafc', fontWeight: 'bold' }}>
-                                            <td colSpan={10} style={{ textAlign: 'right', padding: '6px 8px', borderTop: '1px solid #666', borderBottom: '1px solid #666', fontSize: '11px' }}>
+                                            <td colSpan={10} style={{ textAlign: 'right', padding: '6px 8px', borderTop: '1px solid #666', borderBottom: '1px solid #666', fontSize: '12px' }}>
                                                 SUBTOTAL FOR DATE {group.date} ({group.bills.length} BILLS) :
                                             </td>
-                                            <td style={{ textAlign: 'right', padding: '6px 8px', borderTop: '1px solid #666', borderBottom: '1px solid #666', fontSize: '11px' }}>
+                                            <td style={{ textAlign: 'right', padding: '6px 8px', borderTop: '1px solid #666', borderBottom: '1px solid #666', fontSize: '12.5px', fontWeight: '800' }}>
                                                 {group.totalNet.toFixed(2)}
                                             </td>
                                         </tr>
@@ -715,9 +904,35 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                     </table>
 
                     {/* Grand Total */}
-                    <div className="grand-total-bar">
-                        <span className="label">Net Total Amount :</span>
-                        <span className="amount">{Number(grandTotal || 0).toFixed(2)}</span>
+                    <div className="grand-total-bar" style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        alignItems: 'center',
+                        borderTop: '2px solid #000000',
+                        borderBottom: '2px solid #000000',
+                        padding: '8px 4px',
+                        marginTop: '12px',
+                        background: '#f8fafc'
+                    }}>
+                        <span className="label" style={{
+                            marginRight: '24px',
+                            fontSize: '13.5px',
+                            fontWeight: '800',
+                            textTransform: 'uppercase',
+                            color: '#000000',
+                            letterSpacing: '0.5px'
+                        }}>
+                            Net Total Amount :
+                        </span>
+                        <span className="amount" style={{
+                            minWidth: '100px',
+                            textAlign: 'right',
+                            fontSize: '16px',
+                            fontWeight: '900',
+                            color: '#000000'
+                        }}>
+                            {Number(grandTotal || 0).toFixed(2)}
+                        </span>
                     </div>
 
                     <div className="footer-page-bar">

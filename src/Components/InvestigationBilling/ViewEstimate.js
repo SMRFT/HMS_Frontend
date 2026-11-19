@@ -177,8 +177,8 @@ const searchableSelectStyles = {
     backgroundColor: state.isSelected
       ? colors.primary
       : state.isFocused
-      ? "#f0fdfa"
-      : "transparent",
+        ? "#f0fdfa"
+        : "transparent",
     color: state.isSelected ? "#ffffff" : colors.textMain,
     cursor: "pointer",
   }),
@@ -373,6 +373,143 @@ const PrintSVG = () => (
     <rect x="6" y="14" width="12" height="8" />
   </svg>
 );
+// ─── Actions eye button + sticky Actions column ───────────────────────────────
+
+const ActionsEyeBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1.5px solid #99f6e4;
+  background: rgba(13, 148, 136, 0.08);
+  color: #0f766e;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+  &:hover {
+    transform: scale(1.1);
+    background: rgba(13, 148, 136, 0.16);
+  }
+`;
+
+const EyeSVG = ({ size = 16 }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const StickyActionsTh = styled(Th)`
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  background: ${colors.tabBg || "#f1f5f9"};
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+`;
+
+const StickyActionsTd = styled(Td)`
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: white;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+  tr:hover & {
+    background: ${colors.rowHover || "#f8fafc"};
+  }
+`;
+
+// ─── Actions modal ────────────────────────────────────────────────────────────
+
+const ActionsInfoCard = styled.div`
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+`;
+
+const ActionsInfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 14px;
+  font-size: 0.76rem;
+  margin-top: 8px;
+`;
+
+const InfoLabel = styled.span`
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: ${colors.textMuted};
+`;
+
+const ActionsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+`;
+
+const ActionTile = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-align: left;
+  border: 1.5px solid ${({ $border }) => $border};
+  background: ${({ $bg }) => $bg};
+  color: ${({ $color }) => $color};
+  cursor: pointer;
+  transition: transform 0.15s;
+  &:hover {
+    transform: translateY(-1px);
+  }
+`;
+
+const ActionTileIcon = styled.div`
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+  background: ${({ $bg }) => $bg};
+  color: ${({ $color }) => $color};
+`;
+
+const CloseBtn = styled(Button)`
+  background: ${colors.textMuted};
+  font-size: 0.78rem;
+  padding: 5px 14px;
+  &:hover {
+    background: #475569;
+  }
+`;
+
+const ActionsModalFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 14px;
+  border-top: 1px solid ${colors.border};
+`;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -381,6 +518,7 @@ const EstimateBillsReport = () => {
   // where useEffect sets them after the first fetch already fired with "".
   const [fromDate, setFromDate] = useState(dayjs());
   const [toDate, setToDate] = useState(dayjs());
+  const [actionsBill, setActionsBill] = useState(null);
 
   const [filters, setFilters] = useState({
     billType: "",
@@ -659,7 +797,7 @@ const EstimateBillsReport = () => {
                   <Th>Estimate Amount</Th>
                   <Th>Doctor</Th>
                   <Th>Billed By</Th>
-                  <Th>Actions</Th>
+                  <StickyActionsTh>Actions</StickyActionsTh>
                 </tr>
               </thead>
               <tbody>
@@ -688,25 +826,15 @@ const EstimateBillsReport = () => {
                     <Td>₹ {bill.finalPrice}</Td>
                     <Td>{bill.doctorName}</Td>
                     <Td>{bill.created_by}</Td>
-                    <Td>
-                      <ActionGroup>
-                        <PrintIconBtn
-                          onClick={() => handlePrint(bill)}
-                          title="Print"
-                        >
-                          <PrintSVG />
-                        </PrintIconBtn>
-                        <ViewIcon
-                          onClick={() => setViewBill(bill)}
-                          title="View Items"
-                        >
-                          👁
-                        </ViewIcon>
-                        <ConvertBtn onClick={() => handleConvert(bill)}>
-                          🔄 Convert
-                        </ConvertBtn>
-                      </ActionGroup>
-                    </Td>
+                    <StickyActionsTd>
+                      <ActionsEyeBtn
+                        type="button"
+                        title="View Actions"
+                        onClick={() => setActionsBill(bill)}
+                      >
+                        <EyeSVG />
+                      </ActionsEyeBtn>
+                    </StickyActionsTd>
                   </Tr>
                 ))}
               </tbody>
@@ -718,6 +846,129 @@ const EstimateBillsReport = () => {
           </EmptyState>
         )}
       </ContentCard>
+      {/* ── Actions Modal (eye icon) ── */}
+      {actionsBill && (() => {
+        const b = actionsBill;
+        const close = () => setActionsBill(null);
+        const run = (fn) => {
+          close();
+          fn(b);
+        };
+
+        const tiles = [
+          {
+            key: "print",
+            icon: <PrintSVG />,
+            title: "Print Estimate",
+            sub: "Print or export PDF",
+            theme: { bg: "#f0f9ff", border: "#bae6fd", color: "#0369a1", iconBg: "rgba(2,132,199,0.15)" },
+            onClick: () => run(handlePrint),
+          },
+          {
+            key: "items",
+            icon: "👁",
+            title: "View Items",
+            sub: "See estimated investigations",
+            theme: { bg: "#f5f3ff", border: "#ddd6fe", color: "#6d28d9", iconBg: "rgba(124,58,237,0.15)" },
+            onClick: () => run(setViewBill),
+          },
+          {
+            key: "convert",
+            icon: "🔄",
+            title: "Convert to Bill",
+            sub: "Open in Investigation Billing",
+            theme: { bg: "#fffbeb", border: "#fde68a", color: "#b45309", iconBg: "rgba(245,158,11,0.18)" },
+            onClick: () => run(handleConvert),
+          },
+        ];
+
+        return (
+          <ModalOverlay onClick={close}>
+            <ModalBox style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+              <ModalHeader>
+                <ModalTitle>👁 Estimate Actions — {b.EstBillNo}</ModalTitle>
+                <ModalClose onClick={close}>✕</ModalClose>
+              </ModalHeader>
+
+              <ModalBody>
+                <ActionsInfoCard>
+                  <strong style={{ fontSize: "0.9rem", color: colors.textMain }}>
+                    {fmtName(b.salutation, b.firstName, b.middleName, b.lastName) || "Patient"}
+                  </strong>
+                  <ActionsInfoGrid>
+                    <div>
+                      <InfoLabel>Estimate No</InfoLabel>
+                      <strong>{b.EstBillNo}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>UHID</InfoLabel>
+                      <strong>{b.uhid || "—"}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>IP No</InfoLabel>
+                      <strong>{b.ipNumber || "—"}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>Bill Type</InfoLabel>
+                      <strong>{b.bill_name || "—"}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>Amount</InfoLabel>
+                      <strong style={{ color: colors.primary }}>₹ {b.finalPrice}</strong>
+                    </div>
+                    <div>
+                      <InfoLabel>Date</InfoLabel>
+                      <strong>{formatDateTime(b.EstBillDate)}</strong>
+                    </div>
+                  </ActionsInfoGrid>
+                </ActionsInfoCard>
+
+                <div
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    color: colors.textMuted,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    marginBottom: 10,
+                  }}
+                >
+                  Available Actions
+                </div>
+
+                <ActionsGrid>
+                  {tiles.map((t) => (
+                    <ActionTile
+                      key={t.key}
+                      type="button"
+                      onClick={t.onClick}
+                      $bg={t.theme.bg}
+                      $border={t.theme.border}
+                      $color={t.theme.color}
+                    >
+                      <ActionTileIcon $bg={t.theme.iconBg} $color={t.theme.color}>
+                        {t.icon}
+                      </ActionTileIcon>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: "0.82rem" }}>{t.title}</div>
+                        <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: 2 }}>
+                          {t.sub}
+                        </div>
+                      </div>
+                    </ActionTile>
+                  ))}
+                </ActionsGrid>
+              </ModalBody>
+
+              <ActionsModalFooter>
+                <CloseBtn type="button" onClick={close}>
+                  Close
+                </CloseBtn>
+              </ActionsModalFooter>
+            </ModalBox>
+          </ModalOverlay>
+        );
+      })()}
 
       {/* ── View Items Modal ── */}
       {viewBill && (

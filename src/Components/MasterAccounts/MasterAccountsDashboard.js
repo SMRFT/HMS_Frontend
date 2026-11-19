@@ -31,9 +31,11 @@ import {
     ExternalLink,
     Receipt,
     Layers,
-    Building2
+    Building2,
+    BedDouble
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
+import { fetchMyReportPermissions, fetchReportMasters } from "../../Auth/reportConfigApi";
 import A4MultiPageViewer from "../Reports/A4MultiPageViewer";
 
 // Lazy-load all Master Accounts reports
@@ -46,9 +48,11 @@ const MasterCashierDetailedReport = lazy(() => import("./MasterCashierDetailedRe
 const MasterCreditCardReport = lazy(() => import("./MasterCreditCardReport"));
 const MasterDatewiseSummaryReport = lazy(() => import("./MasterDatewiseSummaryReport"));
 const MasterDepartmentWiseReport = lazy(() => import("./MasterDepartmentWiseReport"));
+const MasterBillTypeWiseReport = lazy(() => import("./MasterBillTypeWiseReport"));
 const MasterAdvanceRegistration = lazy(() => import("./MasterAdvanceRegistration"));
 const MasterInsuranceAdvanceReport = lazy(() => import("./MasterInsuranceAdvanceReport"));
 const MasterIPAdvanceReport = lazy(() => import("./MasterIPAdvanceReport"));
+const MasterAdmissionVsDischargeReport = lazy(() => import("./MasterAdmissionVsDischargeReport"));
 const MasterDischargeBillsReport = lazy(() => import("./MasterDischargeBillsReport"));
 const MasterDischargeDetailedReport = lazy(() => import("./MasterDischargeDetailedReport"));
 const MasterDebitDueBillsReport = lazy(() => import("./MasterDebitDueBillsReport"));
@@ -58,6 +62,7 @@ const MasterAccountsAuditReport = lazy(() => import("./MasterAccountsAuditReport
 const MasterBillWiseReport = lazy(() => import("./MasterBillWiseReport"));
 const MasterMiscPaymentReport = lazy(() => import("./MasterMiscPaymentReport"));
 const MasterSalesTaxRegister = lazy(() => import("./MasterSalesTaxRegister"));
+const MasterDaywiseSalesTaxRegister = lazy(() => import("./MasterDaywiseSalesTaxRegister"));
 const MasterOPPharmacyGSTReport = lazy(() => import("./MasterOPPharmacyGSTReport"));
 const MasterPurchaseGSTReport = lazy(() => import("./MasterPurchaseGSTReport"));
 const MasterStockReportIpOp = lazy(() => import("./MasterStockReportIpOp"));
@@ -447,9 +452,78 @@ const MasterAccountsDashboard = () => {
     const [dateRange, setDateRange] = useState([dayjs().startOf("month"), dayjs()]);
     const [selectedOutlet, setSelectedOutlet] = useState("all");
     const [outletsList, setOutletsList] = useState([]);
+    const [billTypesList, setBillTypesList] = useState([]);
     const [billType, setBillType] = useState("All");
+    const [selectedFloor, setSelectedFloor] = useState("all");
+    const [selectedCompany, setSelectedCompany] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCluster, setSelectedCluster] = useState("all");
+
+    // Dynamic Report Permissions from hospital_reportconfigurationmaster
+    const [userReportPerms, setUserReportPerms] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("report_permissions") || "null");
+        } catch {
+            return null;
+        }
+    });
+    const [hasCustomConfig, setHasCustomConfig] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("has_custom_report_config") || "false");
+        } catch {
+            return false;
+        }
+    });
+    const [dbReports, setDbReports] = useState([]);
+    const [loadingDbReports, setLoadingDbReports] = useState(false);
+
+    // Load active employee report permissions from hospital_reportconfigurationmaster
+    useEffect(() => {
+        const loadUserPermissions = async () => {
+            const empId = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || localStorage.getItem("auth-user-id");
+            if (!empId) return;
+            try {
+                const res = await fetchMyReportPermissions(empId);
+                if (res && res.success) {
+                    setUserReportPerms(res.report_permissions || {});
+                    setHasCustomConfig(Boolean(res.has_custom_config));
+                    localStorage.setItem("report_permissions", JSON.stringify(res.report_permissions || {}));
+                    localStorage.setItem("has_custom_report_config", JSON.stringify(Boolean(res.has_custom_config)));
+                }
+            } catch (err) {
+                console.error("Error loading user report permissions:", err);
+            }
+        };
+        loadUserPermissions();
+    }, []);
+
+    // Load Master Accounts report master definitions from hospital_reportmaster
+    useEffect(() => {
+        const loadMasterReportsFromDb = async () => {
+            try {
+                setLoadingDbReports(true);
+                const groups = await fetchReportMasters("Master Accounts");
+                if (Array.isArray(groups) && groups.length > 0) {
+                    const pages = [];
+                    for (const g of groups) {
+                        if (Array.isArray(g.pages)) {
+                            for (const page of g.pages) {
+                                pages.push(page);
+                            }
+                        }
+                    }
+                    if (pages.length > 0) {
+                        setDbReports(pages);
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading master accounts reports from hospital_reportmaster:", err);
+            } finally {
+                setLoadingDbReports(false);
+            }
+        };
+        loadMasterReportsFromDb();
+    }, []);
 
     // Modal state
     const [activeModalReport, setActiveModalReport] = useState(null);
@@ -466,7 +540,19 @@ const MasterAccountsDashboard = () => {
                 }
             } catch (e) {}
         };
+        const fetchBillTypes = async () => {
+            try {
+                const res = await apiRequest(`${HmsBaseUrl}bill-types_get/`, "GET");
+                const recs = res?.records || res?.data?.records || res?.data;
+                if (Array.isArray(recs)) {
+                    setBillTypesList(recs);
+                }
+            } catch (err) {
+                console.error("Failed to fetch bill types:", err);
+            }
+        };
         fetchOutlets();
+        fetchBillTypes();
     }, [HmsBaseUrl]);
 
     // Master list of 25 reports covering all clusters
@@ -565,14 +651,25 @@ const MasterAccountsDashboard = () => {
         },
         {
             id: "department_wise",
-            title: "Department-Wise Collection Report",
+            title: "Department-Wise Revenue & Volume Report",
             category: "Digital & Dept",
             cluster: "digital_dept",
-            description: "Financial revenue performance grouped by clinical departments, pharmacy, and diagnostic lab.",
+            description: "Clinical department revenue and volume breakdown across OP, IP, Pharmacy, and Doctor Performance.",
             icon: <Building2 size={24} />,
             color: "#6366f1",
             component: MasterDepartmentWiseReport,
             fullPageRoute: "/MasterDepartmentWiseReport"
+        },
+        {
+            id: "bill_type_wise",
+            title: "Bill Type-Wise Collection Report",
+            category: "Digital & Dept",
+            cluster: "digital_dept",
+            description: "Financial revenue performance grouped by hospital bill types, pharmacy, and diagnostic services.",
+            icon: <Layers size={24} />,
+            color: "#6366f1",
+            component: MasterBillTypeWiseReport,
+            fullPageRoute: "/MasterBillTypeWiseReport"
         },
 
         // Cluster 3: IP Admissions & Advances
@@ -608,6 +705,17 @@ const MasterAccountsDashboard = () => {
             color: "#d97706",
             component: MasterIPAdvanceReport,
             fullPageRoute: "/MasterIPAdvanceReport"
+        },
+        {
+            id: "admission_vs_discharge",
+            title: "Admission vs Discharge Report",
+            category: "Inpatient & Advances",
+            cluster: "ip_advances",
+            description: "Comprehensive tracking of inpatient admissions, bed occupancy, length of stay, advances, and discharge clearances.",
+            icon: <BedDouble size={24} />,
+            color: "#0891b2",
+            component: MasterAdmissionVsDischargeReport,
+            fullPageRoute: "/MasterAdmissionVsDischargeReport"
         },
         {
             id: "discharge_bills",
@@ -713,26 +821,159 @@ const MasterAccountsDashboard = () => {
             fullPageRoute: "/MasterSalesTaxRegister"
         },
         {
-            id: "op_pharmacy_sales_gst",
-            title: "OP Pharmacy Sales GST Register (GSTR-1)",
+            id: "daywise_sales_tax_register",
+            title: "Day-wise Sales Tax Register (GST)",
             category: "GST & Taxes",
             cluster: "gst_taxes",
-            description: "Outward patient sales invoices, HSN medicine summary, and document series in Winman format.",
-            icon: <FileSpreadsheet size={24} />,
-            color: "#7c3aed",
-            component: MasterOPPharmacyGSTReport,
-            fullPageRoute: "/MasterOPPharmacyGSTReport"
+            description: "Day-wise summary breakdown of pharmacy OP/IP bills and sales returns across GST tax slabs (Exempted, 5%, 12%, 18%) with Sales, Returns, and Net breakdown tabs.",
+            icon: <Layers size={24} />,
+            color: "#0891b2",
+            component: MasterDaywiseSalesTaxRegister,
+            fullPageRoute: "/MasterDaywiseSalesTaxRegister"
         },
         {
-            id: "purchase_gst_consolidated",
-            title: "Purchase GST Consolidated Register (ITC)",
+            id: "drug_b2b_report",
+            title: "Drug Purchase - B2B Invoices",
             category: "GST & Taxes",
             cluster: "gst_taxes",
-            description: "Consolidated inward supply register covering Drug Purchase & General Stores with Input Tax Credit (ITC).",
+            description: "Drug Purchase B2B invoice-level tax register in Winman GSTR-1 format.",
+            icon: <FileText size={24} />,
+            color: "#7c3aed",
+            component: MasterPurchaseGSTReport,
+            defaultSourceType: "drug",
+            defaultTab: "b2b",
+            lockedSourceType: true,
+            lockedTab: true,
+            fullPageRoute: "/MasterDrugPurchaseB2B"
+        },
+        {
+            id: "drug_hsn_report",
+            title: "Drug Purchase - HSN Wise Summary",
+            category: "GST & Taxes",
+            cluster: "gst_taxes",
+            description: "Drug Purchase medicine HSN-wise summaries with quantity, rate, and ITC breakdowns.",
+            icon: <Package size={24} />,
+            color: "#7c3aed",
+            component: MasterPurchaseGSTReport,
+            defaultSourceType: "drug",
+            defaultTab: "hsn",
+            lockedSourceType: true,
+            lockedTab: true,
+            fullPageRoute: "/MasterDrugHSNReport"
+        },
+        {
+            id: "drug_docs_report",
+            title: "Drug Purchase - Document Summary",
+            category: "GST & Taxes",
+            cluster: "gst_taxes",
+            description: "Drug Purchase inward supply invoice document series, range, and voucher counts.",
             icon: <Layers size={24} />,
             color: "#7c3aed",
             component: MasterPurchaseGSTReport,
+            defaultSourceType: "drug",
+            defaultTab: "docs",
+            lockedSourceType: true,
+            lockedTab: true,
+            fullPageRoute: "/MasterDrugDocsReport"
+        },
+        {
+            id: "store_b2b_report",
+            title: "General Stores - B2B Invoices",
+            category: "GST & Taxes",
+            cluster: "gst_taxes",
+            description: "General Stores inward purchase invoice tax register by tax rate.",
+            icon: <FileText size={24} />,
+            color: "#7c3aed",
+            component: MasterPurchaseGSTReport,
+            defaultSourceType: "stores",
+            defaultTab: "b2b",
+            lockedSourceType: true,
+            lockedTab: true,
+            fullPageRoute: "/MasterStoreB2BReport"
+        },
+        {
+            id: "store_hsn_report",
+            title: "General Stores - HSN Wise Summary",
+            category: "GST & Taxes",
+            cluster: "gst_taxes",
+            description: "General Stores product HSN summary with UOM, quantity, taxable value, and tax lines.",
+            icon: <Package size={24} />,
+            color: "#7c3aed",
+            component: MasterPurchaseGSTReport,
+            defaultSourceType: "stores",
+            defaultTab: "hsn",
+            lockedSourceType: true,
+            lockedTab: true,
+            fullPageRoute: "/MasterStoreHSNReport"
+        },
+        {
+            id: "store_docs_report",
+            title: "General Stores - Document Summary",
+            category: "GST & Taxes",
+            cluster: "gst_taxes",
+            description: "General Stores inward invoice series, serial ranges, and cancellation counts.",
+            icon: <Layers size={24} />,
+            color: "#7c3aed",
+            component: MasterPurchaseGSTReport,
+            defaultSourceType: "stores",
+            defaultTab: "docs",
+            lockedSourceType: true,
+            lockedTab: true,
+            fullPageRoute: "/MasterStoreDocsReport"
+        },
+        {
+            id: "purchase_gst_consolidated",
+            title: "Purchase GST Register - Consolidated (GSTR-1)",
+            category: "GST & Taxes",
+            cluster: "gst_taxes",
+            description: "Consolidated multi-tab register covering both Drug Purchase & General Stores.",
+            icon: <FileSpreadsheet size={24} />,
+            color: "#7c3aed",
+            component: MasterPurchaseGSTReport,
+            defaultSourceType: "all",
+            defaultTab: "b2b",
+            lockedSourceType: false,
+            lockedTab: false,
             fullPageRoute: "/MasterPurchaseGSTReport"
+        },
+        {
+            id: "op_pharmacy_sales_invoices",
+            title: "OP Pharmacy Sales - Invoices",
+            category: "GST & Taxes",
+            cluster: "gst_taxes",
+            description: "OP Pharmacy outward patient sales invoices with Bill No as Invoice No, Customer Name, and GST tax breakdown.",
+            icon: <FileText size={24} />,
+            color: "#7c3aed",
+            component: MasterOPPharmacyGSTReport,
+            defaultTab: "invoices",
+            lockedTab: true,
+            fullPageRoute: "/MasterOPPharmacySalesInvoices"
+        },
+        {
+            id: "op_pharmacy_sales_hsn",
+            title: "OP Pharmacy Sales - HSN Wise Summary",
+            category: "GST & Taxes",
+            cluster: "gst_taxes",
+            description: "HSN-wise medicine product sales summary with quantities, tax rates, and output GST totals.",
+            icon: <Package size={24} />,
+            color: "#7c3aed",
+            component: MasterOPPharmacyGSTReport,
+            defaultTab: "hsn",
+            lockedTab: true,
+            fullPageRoute: "/MasterOPPharmacySalesHSN"
+        },
+        {
+            id: "op_pharmacy_sales_docs",
+            title: "OP Pharmacy Sales - Document Summary",
+            category: "GST & Taxes",
+            cluster: "gst_taxes",
+            description: "Document summary of OP Pharmacy outward supply bills, serial number series from/to, and cancellations.",
+            icon: <Layers size={24} />,
+            color: "#7c3aed",
+            component: MasterOPPharmacyGSTReport,
+            defaultTab: "docs",
+            lockedTab: true,
+            fullPageRoute: "/MasterOPPharmacySalesDocs"
         },
 
         // Cluster 6: Inventory & Stock
@@ -760,9 +1001,57 @@ const MasterAccountsDashboard = () => {
         }
     ];
 
-    // Filter reports by search term and cluster tab
+    // Merge dynamic properties from hospital_reportmaster if present
+    const dynamicReports = useMemo(() => {
+        if (!dbReports || dbReports.length === 0) return reports;
+        const dbMap = {};
+        dbReports.forEach(p => {
+            if (p.route) dbMap[p.route] = p;
+        });
+        return reports.map(r => {
+            const dbPage = dbMap[r.fullPageRoute] || dbMap[r.route];
+            if (dbPage) {
+                return {
+                    ...r,
+                    title: dbPage.name || dbPage.title || r.title,
+                    description: dbPage.description || r.description,
+                    page_id: dbPage.page_id
+                };
+            }
+            return r;
+        });
+    }, [reports, dbReports]);
+
+    // Filter reports by hospital_reportconfigurationmaster permissions, search term, and cluster tab
     const filteredReports = useMemo(() => {
-        return reports.filter(r => {
+        return dynamicReports.filter(r => {
+            // Evaluate custom report configuration allocated to logged-in user
+            if (hasCustomConfig && userReportPerms && typeof userReportPerms === "object") {
+                const route = r.fullPageRoute || r.route;
+                const normRoute = route?.startsWith("/") ? route : `/${route}`;
+                const legacyRoute = route?.replace("/Master", "/");
+                const isAllowed = Boolean(
+                    userReportPerms[route] ||
+                    userReportPerms[normRoute] ||
+                    (legacyRoute && userReportPerms[legacyRoute]) ||
+                    userReportPerms[r.title] ||
+                    userReportPerms[r.id]
+                );
+                if (!isAllowed) return false;
+            } else if (userReportPerms && typeof userReportPerms === "object" && Object.keys(userReportPerms).length > 0) {
+                const route = r.fullPageRoute || r.route;
+                const normRoute = route?.startsWith("/") ? route : `/${route}`;
+                const legacyRoute = route?.replace("/Master", "/");
+                const isAllowed = Boolean(
+                    userReportPerms[route] ||
+                    userReportPerms[normRoute] ||
+                    (legacyRoute && userReportPerms[legacyRoute]) ||
+                    userReportPerms[r.title] ||
+                    userReportPerms[r.id]
+                );
+                if (!isAllowed) return false;
+            }
+
             if (selectedCluster !== "all" && r.cluster !== selectedCluster) {
                 return false;
             }
@@ -774,16 +1063,18 @@ const MasterAccountsDashboard = () => {
                 r.category.toLowerCase().includes(q)
             );
         });
-    }, [reports, selectedCluster, searchTerm]);
+    }, [dynamicReports, selectedCluster, searchTerm, hasCustomConfig, userReportPerms]);
 
     const handleOpenModal = (report) => {
         setActiveModalReport(report);
         if (report.id === "ip_advance") {
             setDateRange([dayjs(), dayjs()]);
+            setSelectedFloor("all");
+            setSelectedCompany("all");
         }
-        if (["bill_wise", "credit_card", "cash_bills", "discount_bills"].includes(report.id)) {
+        if (["bill_wise", "credit_card", "cash_bills", "discount_bills", "department_wise", "bill_type_wise"].includes(report.id)) {
             setBillType("All");
-        } else if (["sales_tax_register", "sales_tax_reg", "sales_return", "bill_cancel", "discharge_bills", "misc_payment"].includes(report.id)) {
+        } else if (["sales_tax_register", "sales_tax_reg", "sales_return", "bill_cancel", "discharge_bills", "misc_payment", "insurance_advance", "admission_vs_discharge"].includes(report.id)) {
             setBillType("all");
         }
         setIsConfigModalVisible(true);
@@ -803,12 +1094,25 @@ const MasterAccountsDashboard = () => {
         setActiveModalReport(null);
     };
 
-    const handleNavigateFull = (route) => {
+    const handleNavigateFull = (reportOrRoute) => {
+        const route = typeof reportOrRoute === "string" ? reportOrRoute : reportOrRoute?.fullPageRoute;
+        const report = typeof reportOrRoute === "object" ? reportOrRoute : null;
         navigate(route, {
             state: {
                 startDate: dateRange[0]?.format("YYYY-MM-DD"),
                 endDate: dateRange[1]?.format("YYYY-MM-DD"),
-                outlet: selectedOutlet
+                outlet: selectedOutlet,
+                billType: billType,
+                patientType: billType,
+                category: billType,
+                status: billType,
+                floor: selectedFloor,
+                company: selectedCompany,
+                defaultSourceType: report?.defaultSourceType,
+                defaultTab: report?.defaultTab,
+                lockedSourceType: report?.lockedSourceType,
+                lockedTab: report?.lockedTab,
+                title: report?.title,
             }
         });
     };
@@ -817,12 +1121,12 @@ const MasterAccountsDashboard = () => {
         if (!activeModalReport) return null;
         const Component = activeModalReport.component;
         const isNoOutlet = [
-            "discharge_detailed"
+            "ip_advance", "discharge_detailed", "insurance_advance", "admission_vs_discharge"
         ].includes(String(activeModalReport.id));
         return (
             <Suspense fallback={<div style={{ padding: "80px", textAlign: "center" }}><Spin size="large" /></div>}>
                 <Component
-                    key={`${activeModalReport.id}-${dateRange[0]?.format('YYYY-MM-DD')}-${dateRange[1]?.format('YYYY-MM-DD')}-${selectedOutlet}-${billType}`}
+                    key={`${activeModalReport.id}-${dateRange[0]?.format('YYYY-MM-DD')}-${dateRange[1]?.format('YYYY-MM-DD')}-${selectedOutlet}-${billType}-${selectedFloor}-${selectedCompany}`}
                     isModalView={true}
                     startDate={dateRange[0]?.format("YYYY-MM-DD")}
                     endDate={dateRange[1]?.format("YYYY-MM-DD")}
@@ -834,6 +1138,21 @@ const MasterAccountsDashboard = () => {
                     initialBillType={billType}
                     category={billType}
                     patientType={billType}
+                    status={billType}
+                    initialStatus={billType}
+                    department={billType}
+                    initialDepartment={billType}
+                    floor={selectedFloor}
+                    initialFloor={selectedFloor}
+                    company={selectedCompany}
+                    initialCompany={selectedCompany}
+                    mode={billType}
+                    paymentMode={billType}
+                    defaultSourceType={activeModalReport.defaultSourceType}
+                    defaultTab={activeModalReport.defaultTab}
+                    lockedSourceType={activeModalReport.lockedSourceType}
+                    lockedTab={activeModalReport.lockedTab}
+                    title={activeModalReport.title}
                 />
             </Suspense>
         );
@@ -855,7 +1174,7 @@ const MasterAccountsDashboard = () => {
                 </div>
                 <div className="kpi-pill">
                     <div className="item">
-                        <div className="num">25</div>
+                        <div className="num">{reports.length}</div>
                         <div className="label">Active Reports</div>
                     </div>
                     <div className="divider" />
@@ -958,46 +1277,60 @@ const MasterAccountsDashboard = () => {
             </ClusterTabs>
 
             {/* Reports Cards Grid */}
-            <ReportsGrid>
-                {filteredReports.map((report) => (
-                    <ReportCard key={report.id} $accent={report.color}>
-                        <div>
-                            <div className="card-top">
-                                <div className="icon-box">
-                                    {report.icon}
-                                </div>
-                                <div className="info">
-                                    <h3>{report.title}</h3>
-                                    <div className="category-tag">
-                                        <Tag color={report.color}>{report.category}</Tag>
+            {filteredReports.length === 0 ? (
+                <div style={{ padding: "60px 20px", textAlign: "center", background: "#ffffff", borderRadius: "16px", border: "1px solid #e2e8f0", margin: "20px 0" }}>
+                    <ShieldCheck size={44} style={{ color: "#94a3b8", marginBottom: "12px" }} />
+                    <h3 style={{ margin: "0 0 6px 0", color: "#1e293b", fontWeight: "700" }}>
+                        {hasCustomConfig ? "No Reports Configured For Your Account" : "No Reports Found"}
+                    </h3>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: "0.85rem" }}>
+                        {hasCustomConfig 
+                            ? "Please contact your hospital administrator to allocate Master Accounts reports to your employee profile in Report Configuration Master."
+                            : "No reports matched your cluster tab or search query."}
+                    </p>
+                </div>
+            ) : (
+                <ReportsGrid>
+                    {filteredReports.map((report) => (
+                        <ReportCard key={report.id} $accent={report.color}>
+                            <div>
+                                <div className="card-top">
+                                    <div className="icon-box">
+                                        {report.icon}
+                                    </div>
+                                    <div className="info">
+                                        <h3>{report.title}</h3>
+                                        <div className="category-tag">
+                                            <Tag color={report.color}>{report.category}</Tag>
+                                        </div>
                                     </div>
                                 </div>
+                                <div className="description">
+                                    {report.description}
+                                </div>
                             </div>
-                            <div className="description">
-                                {report.description}
-                            </div>
-                        </div>
 
-                        <div className="card-actions">
-                            <button
-                                className="btn-modal"
-                                onClick={() => handleOpenModal(report)}
-                            >
-                                <FileText size={14} />
-                                Generate Report
-                            </button>
-                            <button
-                                className="btn-full"
-                                onClick={() => handleNavigateFull(report.fullPageRoute)}
-                                title="Open Full Page"
-                            >
-                                <ExternalLink size={14} />
-                                Full Page
-                            </button>
-                        </div>
-                    </ReportCard>
-                ))}
-            </ReportsGrid>
+                            <div className="card-actions">
+                                <button
+                                    className="btn-modal"
+                                    onClick={() => handleOpenModal(report)}
+                                >
+                                    <FileText size={14} />
+                                    Generate Report
+                                </button>
+                                <button
+                                    className="btn-full"
+                                    onClick={() => handleNavigateFull(report)}
+                                    title="Open Full Page"
+                                >
+                                    <ExternalLink size={14} />
+                                    Full Page
+                                </button>
+                            </div>
+                        </ReportCard>
+                    ))}
+                </ReportsGrid>
+            )}
 
             {/* Date & Filter Configuration Modal matching Accounts Dashboard */}
             <StyledConfigModal
@@ -1066,7 +1399,7 @@ const MasterAccountsDashboard = () => {
                     )}
 
                     {!([
-                        "discharge_detailed"
+                        "ip_advance", "discharge_detailed", "insurance_advance", "admission_vs_discharge"
                     ].includes(String(activeModalReport?.id))) && (
                         <div className="field-group" style={{ marginTop: "12px" }}>
                             <label>Outlet / Counter</label>
@@ -1076,29 +1409,65 @@ const MasterAccountsDashboard = () => {
                             >
                                 <option value="all">All Outlets</option>
                                 {outletsList.map(o => (
-                                    <option key={o.outlet_code || o.id} value={o.outlet_code}>
-                                        {o.outlet_name || o.outlet_code} ({o.outlet_code})
+                                    <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                        {o.outlet_name || o.name || o.outlet_code} ({o.outlet_code || o.outlet_id})
                                     </option>
                                 ))}
                             </select>
                         </div>
                     )}
 
-                    {["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "misc_payment", "sales_return"].includes(activeModalReport?.id) && (
+                    {["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "admission_vs_discharge", "misc_payment", "sales_return", "insurance_advance", "department_wise", "bill_type_wise"].includes(activeModalReport?.id) && (
                         <div className="field-group" style={{ marginTop: "12px" }}>
                             <label>
                                 {activeModalReport?.id === "sales_tax_register" || activeModalReport?.id === "sales_tax_reg" ? "Patient Type" :
                                  activeModalReport?.id === "sales_return" ? "Return Type" :
+                                 activeModalReport?.id === "admission_vs_discharge" ? "Inpatient Status" :
                                  activeModalReport?.id === "discharge_bills" ? "Payment Mode" :
                                  activeModalReport?.id === "bill_cancel" ? "Cancelled Bill Type" :
                                  activeModalReport?.id === "misc_payment" ? "Receipt Type" :
+                                 activeModalReport?.id === "insurance_advance" ? "Insurance Company" :
+                                 activeModalReport?.id === "department_wise" ? "Clinical Department" :
                                  "Bill Type / Category"}
                             </label>
                             <select
                                 value={billType}
                                 onChange={(e) => setBillType(e.target.value)}
                             >
-                                {activeModalReport?.id === "sales_tax_register" || activeModalReport?.id === "sales_tax_reg" ? (
+                                {activeModalReport?.id === "department_wise" ? (
+                                    <>
+                                        <option value="All">All Departments</option>
+                                        <option value="General">General</option>
+                                        <option value="General Surgeon">General Surgeon</option>
+                                        <option value="Consultants">Consultants</option>
+                                        <option value="Medical Oncology">Medical Oncology</option>
+                                        <option value="Cardiology">Cardiology</option>
+                                        <option value="Surgical  Gastro">Surgical Gastro</option>
+                                        <option value="General Medicine">General Medicine</option>
+                                        <option value="Obstetrician & Gynaecology">Obstetrician & Gynaecology</option>
+                                        <option value="Radiation Oncology">Radiation Oncology</option>
+                                        <option value="PULMONOLOGY">Pulmonology</option>
+                                        <option value="Master Health Checkup">Master Health Checkup</option>
+                                    </>
+                                ) : activeModalReport?.id === "insurance_advance" ? (
+                                    <>
+                                        <option value="all">All Insurance Companies</option>
+                                        <option value="CGHS Credit">CGHS Credit</option>
+                                        <option value="ECHS">ECHS</option>
+                                        <option value="RAILWAY CTSE">Railway CTSE</option>
+                                        <option value="RAILWAY">Railway</option>
+                                        <option value="TNCMCHIS">TNCMCHIS</option>
+                                        <option value="STAR HEALTH AND ALLIED INSURANCE">Star Health</option>
+                                        <option value="MEDI ASSIST">Medi Assist</option>
+                                        <option value="MEDI ASSIST- GOVT EMPLOYEE">Medi Assist Govt Employee</option>
+                                        <option value="MD INDIA">MD India</option>
+                                        <option value="UNITED HEALTHCARE">United HealthCare</option>
+                                        <option value="CHOLA MS HELP">Chola MS</option>
+                                        <option value="BAJAJ ALLIANZ & ALLIED INSURANCE">Bajaj Allianz</option>
+                                        <option value="SELF PACKAGE">Self Package</option>
+                                        <option value="TKT">TKT</option>
+                                    </>
+                                ) : activeModalReport?.id === "sales_tax_register" || activeModalReport?.id === "sales_tax_reg" ? (
                                     <>
                                         <option value="all">All Patients (OP & IP)</option>
                                         <option value="op">Out-Patient (OP)</option>
@@ -1116,6 +1485,12 @@ const MasterAccountsDashboard = () => {
                                         <option value="discharge">Discharge Bills</option>
                                         <option value="advance">IP Advance</option>
                                         <option value="admission">IP Admission</option>
+                                    </>
+                                ) : activeModalReport?.id === "admission_vs_discharge" ? (
+                                    <>
+                                        <option value="all">All Inpatients</option>
+                                        <option value="admitted">Currently Admitted</option>
+                                        <option value="discharged">Discharged Patients</option>
                                     </>
                                 ) : activeModalReport?.id === "discharge_bills" ? (
                                     <>
@@ -1165,18 +1540,71 @@ const MasterAccountsDashboard = () => {
                                 ) : (
                                     <>
                                         <option value="All">All Types</option>
-                                        <option value="Registration">Registration</option>
-                                        <option value="Investigation">Investigation</option>
-                                        <option value="Pharmacy">Pharmacy</option>
-                                        <option value="Discharge">Discharge</option>
-                                        <option value="IP Advance">IP Advance</option>
-                                        <option value="Admission">Admission</option>
-                                        <option value="Sales Return">Sales Return</option>
-                                        <option value="Miscellaneous">Miscellaneous Payment</option>
+                                        {billTypesList && billTypesList.length > 0 ? (
+                                            billTypesList.map((bt, idx) => (
+                                                <option key={bt._id || bt.billTypeNo || idx} value={bt.bill_name || bt.bill_type}>
+                                                    {bt.bill_name} {bt.billTypeNo ? `(${bt.billTypeNo})` : ""}
+                                                </option>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <option value="Registration">Registration</option>
+                                                <option value="Investigation">Investigation</option>
+                                                <option value="Pharmacy">Pharmacy</option>
+                                                <option value="Discharge">Discharge</option>
+                                                <option value="IP Advance">IP Advance</option>
+                                                <option value="Admission">Admission</option>
+                                                <option value="Sales Return">Sales Return</option>
+                                                <option value="Miscellaneous">Miscellaneous Payment</option>
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </select>
                         </div>
+                    )}
+
+                    {activeModalReport?.id === "ip_advance" && (
+                        <>
+                            <div className="field-group" style={{ marginTop: "12px" }}>
+                                <label>Floor / Ward</label>
+                                <select
+                                    value={selectedFloor}
+                                    onChange={(e) => setSelectedFloor(e.target.value)}
+                                >
+                                    <option value="all">All Floors</option>
+                                    <option value="1ST FLOOR">1ST FLOOR</option>
+                                    <option value="2ND FLOOR">2ND FLOOR</option>
+                                    <option value="3RD FLOOR">3RD FLOOR</option>
+                                    <option value="MICU">MICU</option>
+                                    <option value="CHEMO">CHEMO</option>
+                                    <option value="DAYCAR">DAYCAR</option>
+                                    <option value="DIALYSIS">DIALYSIS</option>
+                                </select>
+                            </div>
+                            <div className="field-group" style={{ marginTop: "12px" }}>
+                                <label>Company / TPA</label>
+                                <select
+                                    value={selectedCompany}
+                                    onChange={(e) => setSelectedCompany(e.target.value)}
+                                >
+                                    <option value="all">All Companies</option>
+                                    <option value="GENERAL">GENERAL</option>
+                                    <option value="STAR HEALTH AND ALLIED INSURANCE LTD">STAR HEALTH</option>
+                                    <option value="MEDI ASSIST">MEDI ASSIST</option>
+                                    <option value="CGHS CREDIT">CGHS CREDIT</option>
+                                    <option value="ECHS">ECHS</option>
+                                    <option value="RAILWAY CTSE">RAILWAY CTSE</option>
+                                    <option value="TNCMCHIS">TNCMCHIS</option>
+                                    <option value="ESI">ESI</option>
+                                    <option value="ESIC">ESIC</option>
+                                    <option value="FOOD CORPORATION OF INDIA (FCI),">FCI</option>
+                                    <option value="TKT">TKT</option>
+                                    <option value="SELF PACKAGE">SELF PACKAGE</option>
+                                    <option value="VIDAL HEALTH">VIDAL HEALTH</option>
+                                </select>
+                            </div>
+                        </>
                     )}
 
                     <div className="info-note">
@@ -1207,6 +1635,10 @@ const MasterAccountsDashboard = () => {
                     outlets={outletsList}
                     selectedOutlet={selectedOutlet}
                     setSelectedOutlet={setSelectedOutlet}
+                    selectedFloor={selectedFloor}
+                    setSelectedFloor={setSelectedFloor}
+                    selectedCompany={selectedCompany}
+                    setSelectedCompany={setSelectedCompany}
                     isMaximized={isMaximized}
                     setIsMaximized={setIsMaximized}
                     onClose={handleCloseModal}

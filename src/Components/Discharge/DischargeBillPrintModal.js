@@ -93,31 +93,104 @@ const numberToWords = (num) => {
 
 // Item categorization for IP/NABH Insurance format
 const categorizeItem = (it) => {
-  const text = `${it.itemName || ""} ${it.category || ""} ${it.department || ""} ${it.item_description || ""} ${it.package_name || ""}`.toLowerCase();
+  const nabh = String(it?.nabh_code || it?.nabhCode || it?.nabh || it?.code || "").trim().toUpperCase();
+  const descNabhMatch = String(it?.item_description || "").match(/NABH:\s*([A-Za-z0-9]+)/i);
+  const effNabh = nabh || (descNabhMatch ? descNabhMatch[1].toUpperCase() : "");
 
-  if (/room|ward|nursing|maintenance|accommodation|bed|icu|ccu|day care|stay|admission fee/i.test(text)) {
+  const name = String(it?.itemName || it?.name || "").trim();
+  const name_u = name.toUpperCase();
+  const desc = String(it?.item_description || "").trim().toUpperCase();
+  const cat = String(it?.category || it?.item_type || it?.service_type || "").trim().toUpperCase();
+  const dept = String(it?.department || "").trim().toUpperCase();
+  const source = String(it?.source || "").trim().toLowerCase();
+  const btype = String(it?.billTypeNo || "").trim().toUpperCase();
+  const b_num = it?.bill_type;
+
+  // 1. ACCOMMODATION (Room rent, bed charges, nursing, ICU/CCU)
+  // Strict matching with word boundaries to avoid false positives (e.g. "occult" matching "ccu")
+  if (
+    source === "hospital_room_services" ||
+    source === "hospital_room_kits" ||
+    String(it?.invest_bill_no || "").startsWith("ROOM-") ||
+    String(it?.invest_bill_no || "").startsWith("KIT-") ||
+    name_u === "ROOM RENT" ||
+    name_u === "BED CHARGES" ||
+    name_u === "NURSING CHARGES" ||
+    name_u === "ICU CHARGES" ||
+    name_u === "CCU CHARGES" ||
+    name_u === "ROOM CHARGES" ||
+    name_u === "ACCOMMODATION CHARGES" ||
+    /\b(room rent|bed charges|nursing charges|icu charges|ccu charges|ward charges|room maintenance|accommodation charge)\b/i.test(name)
+  ) {
     return "ACCOMMODATION - TYPE OF WARD PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY CARE";
   }
-  if (/consult|doctor visit|physician|round|specialist|opd|indoor/i.test(text)) {
-    return "CONSULTATION CHARGES OPD/INDOOR";
-  }
-  if (/radiolog|x-ray|xray|ct scan|mri|ultrasound|usg|mammogra/i.test(text)) {
-    return "RADIOLOGY CHARGES";
-  }
-  if (/invest|lab|patholog|scan|ecg|echo|blood|biochem|microbio|urine|test|profile|panel/i.test(text)) {
-    return "INVESTIGATIONS / LABORATORY CHARGES";
-  }
-  if (/medicine|pharmacy|drug|inject|consumable|iv fluid|tablet|capsule|syrup|suture/i.test(text)) {
+
+  // 2. MEDICINE / PHARMACY CHARGES
+  // Explicit pharmacy bills and medicine charges (NOT surgical procedures mentioning "consumables" or "medicine")
+  if (
+    source === "hospital_pharmacybilling" ||
+    btype === "PHARM01" ||
+    b_num === 13 ||
+    b_num === "13" ||
+    name_u.startsWith("MEDICINE CHARGES") ||
+    name_u.startsWith("PHARMACY CHARGES") ||
+    name_u === "MEDICINE BILL" ||
+    name_u === "PHARMACY BILL" ||
+    name_u === "MEDICINES"
+  ) {
     return "MEDICINE / PHARMACY CHARGES";
   }
+
+  // 3. CONSULTATION CHARGES OPD/INDOOR
+  if (
+    effNabh.startsWith("CN") ||
+    source === "hospital_doctorconsultation" ||
+    source === "hospital_billing" ||
+    b_num === 5 ||
+    b_num === "5" ||
+    desc.includes("CONSULTATION") ||
+    /\b(consult|consultation|doctor visit|physician visit|doctor round|specialist consultation)\b/i.test(name)
+  ) {
+    return "CONSULTATION CHARGES OPD/INDOOR";
+  }
+
+  // 4. RADIOLOGY CHARGES
+  if (
+    effNabh.startsWith("RI") ||
+    desc.includes("RADIOLOGICAL") ||
+    desc.includes("RADIOLOGY") ||
+    /\b(radiolog|x-ray|xray|ct scan|ct abdomen|ct chest|ct brain|mri|ultrasound|usg|mammogra|opg)\b/i.test(name) ||
+    /\b(radiolog|x-ray|xray|ct scan|mri|ultrasound|usg)\b/i.test(dept)
+  ) {
+    return "RADIOLOGY CHARGES";
+  }
+
+  // 5. INVESTIGATIONS / LABORATORY CHARGES
+  if (
+    effNabh.startsWith("LB") ||
+    effNabh.startsWith("CI") ||
+    effNabh.startsWith("DI") ||
+    effNabh.startsWith("EI") ||
+    source === "hospital_investigationbilling" ||
+    source === "investigation" ||
+    Boolean(it?.invest_bill_no) ||
+    desc.includes("INVESTIGATION") ||
+    desc.includes("LABORATORY") ||
+    /\b(invest|lab|patholog|biochem|microbio|haematolog|culture|serum|blood|glucose|sugar|creatinine|urea|uric|calcium|sodium|potassium|chloride|bicarbonate|bilirubin|sgot|sgpt|alkaline|protein|albumin|globulin|lipid|cholesterol|triglyceride|hdl|ldl|vldl|tsh|t3|t4|thyroid|urine|stool|haemogram|cbc|platelet|wbc|rbc|esr|smear|crp|hba1c|electrolytes|iron|ferritin|tibc|troponin|d-dimer|ecg|echo|audiogram|audiometry|biopsy)\b/i.test(name) ||
+    /\b(invest|lab|patholog|biochem|microbio|haematolog)\b/i.test(dept)
+  ) {
+    return "INVESTIGATIONS / LABORATORY CHARGES";
+  }
+
+  // 6. SPECIALISED SERVICES / PROCEDURES / SURGERY
   return "SPECIALISED SERVICES / PROCEDURES / SURGERY";
 };
 
 const IP_CATEGORIES = [
   "ACCOMMODATION - TYPE OF WARD PRIVATE/SEMI-PRIVATE/GENERAL/ICU/CCU/DAY CARE",
   "CONSULTATION CHARGES OPD/INDOOR",
-  "RADIOLOGY CHARGES",
   "INVESTIGATIONS / LABORATORY CHARGES",
+  "RADIOLOGY CHARGES",
   "MEDICINE / PHARMACY CHARGES",
   "SPECIALISED SERVICES / PROCEDURES / SURGERY"
 ];
@@ -126,17 +199,48 @@ export const isAccommodationItem = (it, groupTitle = "") => {
   if (groupTitle && String(groupTitle).toUpperCase().includes("ACCOMMODATION")) {
     return true;
   }
-  const text = `${it?.itemName || it?.name || ""} ${it?.category || ""} ${it?.department || ""} ${it?.item_description || ""} ${it?.package_name || ""} ${it?.source || ""} ${it?.invest_bill_no || ""}`.toLowerCase();
-  if (/room|ward|nursing|maintenance|accommodation|bed|icu|ccu|day care|stay|admission fee/i.test(text)) {
-    return true;
-  }
-  if (it?.source === "hospital_room_services" || it?.source === "hospital_room_kits") {
-    return true;
-  }
-  if (it?.invest_bill_no && (String(it.invest_bill_no).startsWith("ROOM-") || String(it.invest_bill_no).startsWith("KIT-"))) {
+  const name = String(it?.itemName || it?.name || "").trim();
+  const name_u = name.toUpperCase();
+  const source = String(it?.source || "").trim().toLowerCase();
+  if (
+    source === "hospital_room_services" ||
+    source === "hospital_room_kits" ||
+    String(it?.invest_bill_no || "").startsWith("ROOM-") ||
+    String(it?.invest_bill_no || "").startsWith("KIT-") ||
+    name_u === "ROOM RENT" ||
+    name_u === "BED CHARGES" ||
+    name_u === "NURSING CHARGES" ||
+    name_u === "ICU CHARGES" ||
+    name_u === "CCU CHARGES" ||
+    name_u === "ROOM CHARGES" ||
+    name_u === "ACCOMMODATION CHARGES" ||
+    /\b(room rent|bed charges|nursing charges|icu charges|ccu charges|ward charges|room maintenance|accommodation charge)\b/i.test(name)
+  ) {
     return true;
   }
   return false;
+};
+
+export const itemSortOrder = (name) => {
+  const n = String(name || "").toUpperCase();
+  // 1. Room Rent / Accommodation
+  if (
+    n === "ROOM RENT" || n === "BED CHARGES" || n === "NURSING CHARGES" ||
+    n === "ICU CHARGES" || n === "CCU CHARGES" || n === "ROOM CHARGES" ||
+    /\b(ROOM RENT|BED CHARGES|NURSING CHARGES|ICU CHARGES|CCU CHARGES|WARD CHARGES|ROOM MAINTENANCE|ACCOMMODATION)\b/.test(n)
+  ) return 1;
+
+  // 2. Doctor Consultation
+  if (/\b(CONSULT|CONSULTATION|DOCTOR|PHYSICIAN|SPECIALIST|INDOOR|OPD)\b/.test(n)) return 2;
+
+  // 3. Investigation Charges (Laboratory + Radiology)
+  if (/\b(INVEST|LAB|RADIOL|X-RAY|XRAY|CT SCAN|CT ABDOMEN|CT CHEST|CT BRAIN|MRI|ULTRASOUND|USG|MAMMOGRA|OPG|ECG|ECHO|AUDIOGRAM|AUDIOMETRY|BIOPSY|PATHOLOG|BIOCHEM|MICROBIO|HAEMATOLOG|CULTURE|SERUM|BLOOD|GLUCOSE|SUGAR|CREATININE|UREA|URIC|CALCIUM|SODIUM|POTASSIUM|CHLORIDE|BICARBONATE|BILIRUBIN|SGOT|SGPT|ALKALINE|PROTEIN|ALBUMIN|GLOBULIN|LIPID|CHOLESTEROL|TRIGLYCERIDE|HDL|LDL|VLDL|TSH|T3|T4|THYROID|URINE|STOOL|HAEMOGRAM|CBC|PLATELET|WBC|RBC|ESR|SMEAR|CRP|HBA1C|ELECTROLYTES|IRON|FERRITIN|TIBC|TROPONIN|D-DIMER)\b/.test(n)) return 3;
+
+  // 4. Medicine Charges
+  if (/\b(MEDICINE|PHARMACY|DRUG|INJECT|IV FLUID|TABLET|CAPSULE|SYRUP|SUTURE)\b/.test(n) || n.startsWith("MEDICINE") || n.startsWith("PHARMACY")) return 4;
+
+  // 5. Specialised Services / Procedures / Surgery / Implants / Others
+  return 5;
 };
 
 export const isDoctorDisplayItem = (it) => {
@@ -291,7 +395,7 @@ const formatDoctor = (pd, doctorsMap = {}) => {
 };
 
 const formatDepartment = (pd, bill) => {
-  const dept = pd.department || bill.department || "GYNEACOLOGY";
+  const dept = pd.department || bill.department || "PULMONOLOGY"
   return String(dept).toUpperCase();
 };
 
@@ -385,6 +489,8 @@ const NormalBillSheet = ({
   const isA5 = paperSize === "A5";
   const pd = bill.patient_details || {};
   const rawItems = parseItems(bill.items);
+  // For insurance discharge billing, net amount excludes advance paid and IP return deductions
+  const insNetAmount = Math.max(0, (parseFloat(bill.total_amount) || 0) - (parseFloat(bill.discount_amount) || 0));
 
   // Credit vs Cash determination:
   // If payment method is Credit, or company name is present (like RAILWAY CTSE in Ref PDF 2), it's CREDIT BILL
@@ -411,8 +517,8 @@ const NormalBillSheet = ({
   });
   const pharmacyMedicines = (medAmt > 0 || hasMedItemInBill)
     ? ((Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
-        ? bill.pharmacy_medicines
-        : (Array.isArray(loadedMeds) ? loadedMeds : []))
+      ? bill.pharmacy_medicines
+      : (Array.isArray(loadedMeds) ? loadedMeds : []))
     : [];
 
   const totalMedsSum = pharmacyMedicines.reduce(
@@ -491,14 +597,7 @@ const NormalBillSheet = ({
     });
   }
 
-  // Sort displayItems: 1. Consultation, 2. Investigation/Lab, 3. Medicine/Pharmacy, 4. Everything else
-  const itemSortOrder = (name) => {
-    const n = String(name || "").toUpperCase();
-    if (/CONSULT|DOCTOR|PHYSICIAN|SPECIALIST|INDOOR|OPD/.test(n)) return 1;
-    if (/INVEST|LAB|RADIOL|X-RAY|XRAY|CT SCAN|MRI|ULTRASOUND|USG|ECG|ECHO|BLOOD|BIOCHEM|URINE|TEST|PROFILE|PANEL|SCAN/.test(n)) return 2;
-    if (/MEDICINE|PHARMACY|DRUG|INJECT|CONSUMABLE|IV FLUID|TABLET|CAPSULE|SYRUP|SUTURE/.test(n)) return 4;
-    return 3;
-  };
+  // Sort displayItems: 1. Consultation, 2. Investigation/Lab/Radiology, 3. Medicine/Pharmacy, 4. Everything else
   displayItems.sort((a, b) => itemSortOrder(a.name) - itemSortOrder(b.name));
 
   const itemsSum = displayItems.reduce((acc, it) => acc + (it.amount || 0), 0);
@@ -525,7 +624,7 @@ const NormalBillSheet = ({
   const ipNumber = String(bill.ip_number || pd.ip_number || pd.ipNumber || "—").toUpperCase();
   const billDate = fmtDateStr(bill.bill_date || bill.created_date || new Date());
   const doa = fmtDateStr(pd.admission_date || pd.admissionDateTime || pd.doa);
-  const dod = fmtDateStr(pd.discharge_date || pd.dischargeDateTime || bill.bill_date || pd.dod);
+  const dod = fmtDateStr(pd.discharge_date || bill.discharge_date || pd.dischargeDateTime || bill.dischargeDateTime || bill.bill_date || pd.dod);
   const roomNumber = String(pd.room_no || pd.roomNo || pd.bed_no || "—").toUpperCase();
   const billId = String(bill.estimate_number || bill.bill_id || bill.discharge_id || bill.bill_no || "—").toUpperCase();
 
@@ -793,16 +892,6 @@ const NormalBillSheet = ({
         fontSize: isA5 ? "8.5px" : "10px",
         color: "#222",
         fontStyle: "italic",
-        paddingTop: 2,
-        textAlign: "left",
-        lineHeight: "1.25"
-      }}>
-        Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST-Exempt Invoice
-      </div>
-      <div style={{
-        fontSize: "10px",
-        color: "#222",
-        fontStyle: "italic",
         paddingTop: 4,
         textAlign: "left",
         lineHeight: "1.3"
@@ -833,6 +922,8 @@ const InsuranceClaimSheet = ({
 
   const pd = bill.patient_details || {};
   const rawItems = parseItems(bill.items);
+  // For insurance discharge billing, net amount excludes advance paid and IP return deductions
+  const insNetAmount = Math.max(0, (parseFloat(bill.total_amount) || 0) - (parseFloat(bill.discount_amount) || 0));
 
   const groups = {};
   IP_CATEGORIES.forEach(cat => { groups[cat] = []; });
@@ -882,42 +973,34 @@ const InsuranceClaimSheet = ({
   });
   const pharmacyMedicines = (medAmt > 0 || hasMedItemInBill)
     ? ((Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
-        ? bill.pharmacy_medicines
-        : (Array.isArray(loadedMeds) ? loadedMeds : []))
+      ? bill.pharmacy_medicines
+      : (Array.isArray(loadedMeds) ? loadedMeds : []))
     : [];
 
   // Insurance view: consolidated or breakdown based on viewMode
   const isInsBreakdown = viewMode === "INSURANCE_BREAKDOWN";
   if (isInsBreakdown && pharmacyMedicines.length > 0) {
-    // INSURANCE BREAKDOWN: list each individual medicine
-    groups["MEDICINE / PHARMACY CHARGES"] = groups["MEDICINE / PHARMACY CHARGES"].filter(
-      i => {
-        const n = String(i.itemName || "").toUpperCase();
-        return !n.startsWith("MEDICINE") && !n.startsWith("PHARMACY");
-      }
-    );
-    pharmacyMedicines.forEach(med => {
-      groups["MEDICINE / PHARMACY CHARGES"].push({
-        itemName: String(med.itemName || med.item_name || med.name || "PHARMACY MEDICINE").toUpperCase(),
-        item_description: "",
-        nabh_code: "-",
-        doctor: "",
-        amount: parseFloat(med.amount || med.calculated_price || 0),
-        quantity: parseFloat(med.quantity || med.qty || 1),
-        rate: parseFloat(med.rate || med.price || 0),
-      });
-    });
+    // INSURANCE BREAKDOWN: completely replace with itemized medicines
+    groups["MEDICINE / PHARMACY CHARGES"] = pharmacyMedicines.map(med => ({
+      itemName: String(med.itemName || med.item_name || med.name || "PHARMACY MEDICINE").toUpperCase(),
+      item_description: "",
+      nabh_code: "-",
+      doctor: "",
+      amount: parseFloat(med.amount || med.calculated_price || 0),
+      quantity: parseFloat(med.quantity || med.qty || 1),
+      rate: parseFloat(med.rate || med.price || 0),
+    }));
   } else {
     // INSURANCE (default): always show ONE consolidated medicine row (no itemised breakdown)
+    const existingMedSum = (groups["MEDICINE / PHARMACY CHARGES"] || []).reduce(
+      (s, it) => s + (parseFloat(it.amount) || 0), 0
+    );
     const totalMedForIns = pharmacyMedicines.length > 0
       ? pharmacyMedicines.reduce((s, m) => s + (parseFloat(m.amount || m.calculated_price || 0)), 0)
-      : medAmt;
-    groups["MEDICINE / PHARMACY CHARGES"] = groups["MEDICINE / PHARMACY CHARGES"].filter(
-      i => {
-        const n = String(i.itemName || "").toUpperCase();
-        return !n.startsWith("MEDICINE") && !n.startsWith("PHARMACY");
-      }
-    );
+      : (medAmt > 0 ? medAmt : existingMedSum);
+
+    // Completely clear out any individual items under MEDICINE / PHARMACY CHARGES!
+    groups["MEDICINE / PHARMACY CHARGES"] = [];
     if (totalMedForIns > 0) {
       groups["MEDICINE / PHARMACY CHARGES"].push({
         itemName: "MEDICINE CHARGES",
@@ -980,12 +1063,12 @@ const InsuranceClaimSheet = ({
   );
 
   const renderSignatures = (pageNo, totalPages) => {
-    // Only display signatories at the end of the bill (on the final page)
-    const isEndOfBill = pageNo === totalPages;
+    // User requirement: add signature at the first page alone (only in the first page alone, signature enough)
+    const isFirstPage = pageNo === 1;
 
     return (
       <div style={{ marginTop: 14 }}>
-        {isEndOfBill && (
+        {isFirstPage && (
           <table style={{
             width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
             fontSize: "0.78rem", textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif"
@@ -1015,7 +1098,7 @@ const InsuranceClaimSheet = ({
 
         <div style={{
           textAlign: "center", fontWeight: "bold", fontSize: "0.78rem",
-          marginTop: isEndOfBill ? 12 : 6, marginBottom: 4, textTransform: "uppercase",
+          marginTop: isFirstPage ? 12 : 6, marginBottom: 4, textTransform: "uppercase",
           fontFamily: "'Times New Roman', Times, serif"
         }}>
           PAGE : {pageNo} OF {totalPages}
@@ -1068,7 +1151,7 @@ const InsuranceClaimSheet = ({
         lLabel: "ID CARD NO",
         lVal: String(bill.id_card_number || pd.id_card_number || pd.card_no || "—").toUpperCase(),
         rLabel: "DATE OF DISCHARGE",
-        rVal: fmtDateStr(bill.bill_date || pd.discharge_date)
+        rVal: fmtDateStr(pd.discharge_date || bill.discharge_date || pd.dischargeDateTime || bill.dischargeDateTime || bill.bill_date)
       },
       {
         lLabel: "REFERRAL NO",
@@ -1144,7 +1227,7 @@ const InsuranceClaimSheet = ({
                 </tr>
               </thead>
               <tbody>
-                {rawItems.map((it, idx) => {
+                {[...rawItems].sort((a, b) => itemSortOrder(a.itemName || a.name) - itemSortOrder(b.itemName || b.name)).map((it, idx) => {
                   const nabh = getNabhCode(it);
                   const desc = cleanDesc(it);
                   const showDoctor = isDoctorDisplayItem(it);
@@ -1176,7 +1259,7 @@ const InsuranceClaimSheet = ({
                     TOTAL AMOUNT
                   </td>
                   <td style={{ textAlign: "right", fontWeight: "bold", fontSize: "0.85rem", padding: "6px 4px" }}>
-                    ₹{fmt(bill.net_amount || bill.total_amount)}
+                    ₹{fmt(insNetAmount)}
                   </td>
                 </tr>
               </tbody>
@@ -1188,7 +1271,7 @@ const InsuranceClaimSheet = ({
               fontSize: "0.78rem", fontWeight: "bold", textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
-              RUPEE(S) {numberToWords(bill.net_amount || bill.total_amount).toUpperCase()} ONLY
+              RUPEE(S) {numberToWords(insNetAmount).toUpperCase()} ONLY
             </div>
           </div>
 
@@ -1267,22 +1350,10 @@ const InsuranceClaimSheet = ({
                       <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>TOTAL HOSPITAL CHARGES :</td>
                       <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.total_amount)}</td>
                     </tr>
-                    {parseFloat(bill.advance_amount) > 0 && (
-                      <tr style={{ color: "#b91c1c" }}>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: ADVANCE PAID :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.advance_amount)}</td>
-                      </tr>
-                    )}
                     {parseFloat(bill.discount_amount) > 0 && (
                       <tr style={{ color: "#b91c1c" }}>
                         <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: DISCOUNT :</td>
                         <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.discount_amount)}</td>
-                      </tr>
-                    )}
-                    {parseFloat(bill.sales_return) > 0 && (
-                      <tr style={{ color: "#b91c1c" }}>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: IP RETURN :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.sales_return)}</td>
                       </tr>
                     )}
                     <tr>
@@ -1290,7 +1361,7 @@ const InsuranceClaimSheet = ({
                         GRAND TOTAL / NET AMOUNT :
                       </td>
                       <td style={{ width: "130px", textAlign: "right", padding: "4px 4px 1px", fontWeight: "bold", fontSize: "0.86rem", borderTop: "1px dashed #000" }}>
-                        ₹{fmt(bill.net_amount || bill.total_amount)}
+                        ₹{fmt(insNetAmount)}
                       </td>
                     </tr>
                   </tbody>
@@ -1303,7 +1374,7 @@ const InsuranceClaimSheet = ({
                 fontSize: "0.76rem", fontWeight: "bold", textTransform: "uppercase",
                 fontFamily: "'Times New Roman', Times, serif"
               }}>
-                RUPEE(S) {numberToWords(bill.net_amount || bill.total_amount).toUpperCase()} ONLY
+                RUPEE(S) {numberToWords(insNetAmount).toUpperCase()} ONLY
               </div>
             </div>
 
@@ -1695,7 +1766,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             setLoadedMeds(meds);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [bill]);
 
@@ -1809,7 +1880,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
       const isA5 = paperSize === "A5";
       let iframe = document.getElementById("discharge-print-iframe");
       if (iframe) {
-        try { document.body.removeChild(iframe); } catch {}
+        try { document.body.removeChild(iframe); } catch { }
       }
 
       iframe = document.createElement("iframe");
@@ -2023,11 +2094,11 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
     const element = printRef.current;
     const isA5 = paperSize === "A5";
     const opt = {
-      margin:       isA5 ? [0.12, 0.15, 0.12, 0.15] : [0.2, 0.25, 0.2, 0.25],
-      filename:     `Bill_${(bill.insurance_bill_number || bill.bill_no || "DischargeBill").replace(/\//g, "_")}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, logging: false },
-      jsPDF:        { unit: 'in', format: isA5 ? 'a5' : 'a4', orientation: 'portrait' }
+      margin: isA5 ? [0.12, 0.15, 0.12, 0.15] : [0.2, 0.25, 0.2, 0.25],
+      filename: `Bill_${(bill.insurance_bill_number || bill.bill_no || "DischargeBill").replace(/\//g, "_")}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'in', format: isA5 ? 'a5' : 'a4', orientation: 'portrait' }
     };
     if (window.html2pdf) {
       window.html2pdf().set(opt).from(element).save();

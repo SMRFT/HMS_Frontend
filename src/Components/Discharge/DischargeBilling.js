@@ -740,6 +740,8 @@ const buildPayload = (items, f, totals, status, patient, editReason = "", insura
   remarks: f.remarks || "",
   next_visit_date: f.next_visit_date || null,
   discharge_date: f.discharge_date || null,
+  date_of_discharge: f.discharge_date || null,
+  bill_date: f.discharge_date || null,
   edit_reason: editReason || "",
   payment_method: status === "Estimate" ? null : (paymentMethod || f.payment_method || "Cash"),
 });
@@ -855,6 +857,31 @@ const parseItems = raw => {
   try { return JSON.parse(raw); } catch { return []; }
 };
 
+export const parseDateToYMD = (dStr) => {
+  if (!dStr) return "";
+  if (typeof dStr !== "string") {
+    try {
+      const d = new Date(dStr);
+      if (!isNaN(d.getTime())) return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    } catch { return ""; }
+    return "";
+  }
+  const s = dStr.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const dmyMatch = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const d = dmyMatch[1];
+    const m = dmyMatch[2];
+    const y = dmyMatch[3];
+    return y + "-" + m.padStart(2, "0") + "-" + d.padStart(2, "0");
+  }
+  try {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  } catch {}
+  return "";
+};
+
 const estToForm = e => ({
   advance_amount: String(parseFloat(e.advance_amount) || ""),
   sales_return: String(parseFloat(e.sales_return) || ""),
@@ -871,12 +898,10 @@ const estToForm = e => ({
   next_visit_date: e.next_visit_date
     ? new Date(e.next_visit_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
     : "",
-  discharge_date: e.discharge_date
-    ? new Date(e.discharge_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
-    : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
-  bill_upto: e.bill_date
-    ? new Date(e.bill_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
-    : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+  discharge_date: parseDateToYMD(e.discharge_date || e.dischargeDateTime || e.bill_date) ||
+    new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+  bill_upto: parseDateToYMD(e.bill_date || e.discharge_date) ||
+    new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
 });
 
 // ─── Normalise items from API ─────────────────────────────────────────────────
@@ -2245,6 +2270,10 @@ const DischargeBilling = () => {
         if (norm.uhid) setUhid(norm.uhid);
         if (norm.ip_number) setIpNumber(norm.ip_number);
         setPatientWard("SEMI-PRIVATE WARD");
+        if (norm.discharge_date || norm.dischargeDateTime) {
+          const parsedDod = parseDateToYMD(norm.discharge_date || norm.dischargeDateTime);
+          if (parsedDod) setForm("discharge_date", parsedDod);
+        }
         if (norm.advance_amount != null && norm.advance_amount !== "") {
           setForm("advance_amount", String(norm.advance_amount));
         }
@@ -2570,7 +2599,11 @@ const DischargeBilling = () => {
           } else showToast(JSON.stringify(res?.error || res), true);
         } else if (editingEst?.id) {
           await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient, reason, insPayload, paymentMethod));
-          const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/convert-to-bill/`, "POST", { payment_method: paymentMethod });
+          const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/convert-to-bill/`, "POST", {
+            payment_method: paymentMethod,
+            discharge_date: form.discharge_date || null,
+            bill_date: form.discharge_date || null,
+          });
           let d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id || d?.bill_no) {
             if (isIns) {

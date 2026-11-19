@@ -29,16 +29,23 @@ const MasterDischargeBillsReport = ({
     startDate, 
     endDate, 
     outlet: propOutlet, 
-    initialOutlet = "all" 
+    initialOutlet = "all",
+    billType: propBillType,
+    initialBillType = "all",
+    category: propCategory,
+    mode: propMode,
+    paymentMode: propPaymentMode
 }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
     const effectiveOutlet = propOutlet || initialOutlet || "all";
+    const effectiveMode = propPaymentMode || propMode || propCategory || propBillType || initialBillType || "all";
     const [dateRange, setDateRange] = useState([
         startDate ? dayjs(startDate) : dayjs().startOf("month"),
         endDate ? dayjs(endDate) : dayjs()
     ]);
     const [outlet, setOutlet] = useState(effectiveOutlet);
+    const [paymentMode, setPaymentMode] = useState(effectiveMode);
     const [outletsList, setOutletsList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
@@ -57,7 +64,15 @@ const MasterDischargeBillsReport = ({
         if (o !== undefined && o !== outlet) {
             setOutlet(o);
         }
-    }, [propOutlet, initialOutlet]);
+    }, [propOutlet, initialOutlet, outlet]);
+
+    /* Synchronize payment mode */
+    useEffect(() => {
+        const m = propPaymentMode || propMode || propCategory || propBillType || initialBillType;
+        if (m !== undefined && m !== paymentMode) {
+            setPaymentMode(m);
+        }
+    }, [propPaymentMode, propMode, propCategory, propBillType, initialBillType, paymentMode]);
 
     /* Load outlets list */
     useEffect(() => {
@@ -79,7 +94,9 @@ const MasterDischargeBillsReport = ({
             const fDate = dateRange[0].format("YYYY-MM-DD");
             const tDate = dateRange[1].format("YYYY-MM-DD");
             const outletParam = outlet && outlet !== "all" ? `&outlet_code=${outlet}` : "";
-            const url = `${HmsBaseUrl}master-accounts/discharge-bills-summary/?from_date=${fDate}&to_date=${tDate}${outletParam}`;
+            const isAllMode = !paymentMode || paymentMode.toLowerCase() === "all" || paymentMode.toLowerCase() === "all payment modes";
+            const modeParam = !isAllMode ? `&payment_mode=${encodeURIComponent(paymentMode)}` : "";
+            const url = `${HmsBaseUrl}master-accounts/discharge-bills-summary/?from_date=${fDate}&to_date=${tDate}${outletParam}${modeParam}`;
             const res = await apiRequest(url, "GET");
             if (res?.success) {
                 setReportData(extractReportData(res));
@@ -92,7 +109,7 @@ const MasterDischargeBillsReport = ({
         } finally {
             setLoading(false);
         }
-    }, [dateRange, outlet, HmsBaseUrl]);
+    }, [dateRange, outlet, paymentMode, HmsBaseUrl]);
 
     useEffect(() => {
         fetchReport();
@@ -101,18 +118,30 @@ const MasterDischargeBillsReport = ({
     const bills = getSafeArray(reportData?.data);
     const summary = reportData?.summary || {};
 
-    /* Search filter */
+    /* Search & Payment Mode filter */
     const filtered = useMemo(() => {
-        if (!searchTerm.trim()) return bills;
+        let list = bills;
+        if (paymentMode && paymentMode.toLowerCase() !== "all" && paymentMode.toLowerCase() !== "all payment modes") {
+            const fm = paymentMode.trim().toLowerCase();
+            list = list.filter(b => {
+                const bm = String(b.payment_mode || "").trim().toLowerCase();
+                if (fm === "cash") return bm === "cash";
+                if (fm === "card" || fm === "credit card") return bm.includes("card") || bm.includes("bank") || bm.includes("pos") || bm.includes("upi");
+                if (fm.includes("multi")) return bm.includes("multi");
+                if (fm === "cheque") return bm.includes("cheque");
+                return bm.includes(fm);
+            });
+        }
+        if (!searchTerm.trim()) return list;
         const q = searchTerm.toLowerCase();
-        return bills.filter(b =>
+        return list.filter(b =>
             String(b.bill_no || "").toLowerCase().includes(q) ||
             String(b.patient_name || "").toLowerCase().includes(q) ||
             String(b.ip_number || "").toLowerCase().includes(q) ||
             String(b.mr_no || "").toLowerCase().includes(q) ||
             String(b.payment_mode || "").toLowerCase().includes(q)
         );
-    }, [bills, searchTerm]);
+    }, [bills, paymentMode, searchTerm]);
 
     /* Date-wise grouping (just like Advance Registration) */
     const dateGroupedBills = useMemo(() => {
@@ -211,6 +240,16 @@ const MasterDischargeBillsReport = ({
                             </Select>
                         </div>
                         <div className="filter-item">
+                            <label>Payment Mode:</label>
+                            <Select value={paymentMode} onChange={setPaymentMode} style={{ width: 180 }}>
+                                <Option value="all">All Payment Modes</Option>
+                                <Option value="Cash">Cash</Option>
+                                <Option value="Card">Card</Option>
+                                <Option value="Cheque">Cheque</Option>
+                                <Option value="Multiple Payment">Multiple Payment</Option>
+                            </Select>
+                        </div>
+                        <div className="filter-item">
                             <Input
                                 placeholder="Search bill / patient / IP..."
                                 prefix={<Search size={14} color="#94a3b8" />}
@@ -282,7 +321,7 @@ const MasterDischargeBillsReport = ({
                                     <th className="text-right">Gross Bill (₹)</th>
                                     <th className="text-right">Advance Adj (₹)</th>
                                     <th className="text-right" style={{ color: "#059669" }}>Cash Amount (₹)</th>
-                                    <th className="text-right" style={{ color: "#4f46e5" }}>Credit Amount (₹)</th>
+                                    <th className="text-right" style={{ color: "#4f46e5" }}>Card / Credit (₹)</th>
                                     <th className="text-right">Net Paid (₹)</th>
                                     <th>Payment Mode</th>
                                 </tr>
@@ -366,19 +405,19 @@ const MasterDischargeBillsReport = ({
                                             <strong>GRAND TOTAL ({filtered.length} DISCHARGED PATIENTS)</strong>
                                         </td>
                                         <td className="text-right font-mono" style={{ color: "#ffffff" }}>
-                                            ₹{formatINR(summary.total_gross_bill || filtered.reduce((a, x) => a + cleanNum(x.bill_amount || x.gross_amount || x.gross || x.gross_bill), 0))}
+                                            ₹{formatINR(filtered.reduce((a, x) => a + cleanNum(x.bill_amount || x.gross_amount || x.gross || x.gross_bill), 0))}
                                         </td>
                                         <td className="text-right font-mono" style={{ color: "#fbbf24" }}>
-                                            ₹{formatINR(summary.total_advance_adjusted || filtered.reduce((a, x) => a + cleanNum(x.advance_adjusted || x.advance_adjustment || x.advance_amount), 0))}
+                                            ₹{formatINR(filtered.reduce((a, x) => a + cleanNum(x.advance_adjusted || x.advance_adjustment || x.advance_amount), 0))}
                                         </td>
                                         <td className="text-right font-mono" style={{ color: "#4ade80" }}>
-                                            ₹{formatINR(summary.total_cash || filtered.reduce((a, x) => a + cleanNum(x.cash || x.cash_amount), 0))}
+                                            ₹{formatINR(filtered.reduce((a, x) => a + cleanNum(x.cash || x.cash_amount), 0))}
                                         </td>
                                         <td className="text-right font-mono" style={{ color: "#a5b4fc" }}>
-                                            ₹{formatINR(summary.total_credit || filtered.reduce((a, x) => a + cleanNum(x.credit || x.credit_amount || x.bank || x.card), 0))}
+                                            ₹{formatINR(filtered.reduce((a, x) => a + cleanNum(x.credit || x.credit_amount || x.bank || x.card), 0))}
                                         </td>
                                         <td className="text-right font-mono font-bold" style={{ color: "#38bdf8" }}>
-                                            ₹{formatINR(summary.total_net_settlement || summary.total_settlement || filtered.reduce((a, x) => a + cleanNum(x.net_settlement || x.net_paid || x.amount), 0))}
+                                            ₹{formatINR(filtered.reduce((a, x) => a + cleanNum(x.net_settlement || x.net_paid || x.amount), 0))}
                                         </td>
                                         <td style={{ color: "#ffffff" }}>End</td>
                                     </tr>
