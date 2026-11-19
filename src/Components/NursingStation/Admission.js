@@ -10,7 +10,7 @@ import IPAdvance from "./IPAdvance";                // ← IP Advance component
 import AdmissionGrid from "./AdmissionGrid";
 import PatientSearchModal from "../Common/PatientSearchModal";
 import OccupiedBedDetailModal from "./OccupiedBedDetailModal";
-import BedSelectionModal, { RoomSummaryCardBody, RoomPaginationBar, groupRoomsList, sortRoomsByFloorOrder } from "../Rooms/BedSelectionModal";
+import BedSelectionModal, { RoomSummaryCardBody, RoomPaginationBar, groupRoomsList, sortRoomsByFloorOrder, isPrivateRoom } from "../Rooms/BedSelectionModal";
 import {
   PageWrapper, Container, ModalOverlay, ModalContainer,
   ModalHeader, ModalTitle, CloseButton, ModalBody,
@@ -2527,6 +2527,35 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     finally { setLoadRooms(false); }
   };
 
+  // ── Helper to check if a UHID has an active admission ─────────────────────
+  const checkActiveAdmission = async (uhidStr) => {
+    if (!uhidStr || !String(uhidStr).trim()) return null;
+    const cleanUhid = String(uhidStr).trim();
+    try {
+      const admRes = await apiRequest(`${API_ADMISSION_LIST}?uhid=${encodeURIComponent(cleanUhid)}`, "GET");
+      const admList = Array.isArray(admRes.data?.data) ? admRes.data.data : Array.isArray(admRes.data) ? admRes.data : [];
+      const activeAdm = admList.find(a =>
+        String(a.uhid || "").trim().toLowerCase() === cleanUhid.toLowerCase()
+        && (a.is_admitted || !a.is_discharged)
+        && !a.is_cancelled
+        && a.is_discharged !== true
+      );
+      if (activeAdm) {
+        const { roomNo, bedNo } = getActiveRoom(activeAdm);
+        return {
+          ...activeAdm,
+          ipNumber: activeAdm.ipNumber,
+          admissionDateTime: activeAdm.admissionDateTime,
+          roomNo: roomNo || activeAdm.roomNo,
+          bedNo: bedNo || activeAdm.bedNo,
+        };
+      }
+    } catch (e) {
+      console.warn("Active admission check error:", e);
+    }
+    return null;
+  };
+
   // ── Fetch patient by UHID — also checks for active admission ─────────────
   const fetchPatientByUHID = async (explicitUhid = null, silent = false) => {
     const isStr = typeof explicitUhid === "string" && explicitUhid.trim().length > 0;
@@ -2544,65 +2573,47 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       const d = res.data || res;
 
       // ── Check if patient has active admission from backend API ──────────────
-      let activeAdm = null;
-      try {
-        const admRes = await apiRequest(`${API_ADMISSION_LIST}?uhid=${encodeURIComponent(uhid)}`, "GET");
-        const admList = Array.isArray(admRes.data?.data) ? admRes.data.data : Array.isArray(admRes.data) ? admRes.data : [];
-        activeAdm = admList.find(a =>
-          String(a.uhid).trim().toLowerCase() === String(uhid).trim().toLowerCase()
-          && a.is_admitted
-          && !a.is_discharged
-          && !a.is_cancelled
-        );
-      } catch (e) {
-        console.error("Active admission check error:", e);
-      }
+      const activeAdm = await checkActiveAdmission(uhid);
+
+      const dobVal = d.dob || d.dateOfBirth || "";
+      const calcAge = calculateAgeFromDob(dobVal);
+      const finalAge = calcAge.age !== "" ? calcAge.age : (d.age || "");
+      const finalAgeType = calcAge.age_type || d.age_type || "Y";
+
+      setForm(p => ({
+        ...p,
+        uhid: uhid,
+        salutation: d.salutation || p.salutation || "",
+        firstName: d.firstName || d.patientname || d.patient_name || d.name || p.firstName || "",
+        middleName: d.middleName || p.middleName || "",
+        lastName: d.lastName || p.lastName || "",
+        dob: dobVal || p.dob || "",
+        age: finalAge || p.age || "",
+        age_type: finalAgeType || p.age_type || "Y",
+        gender: d.gender || p.gender || "",
+        mobilePhone: d.mobilePhone || d.phone || d.mobile || p.mobilePhone || "",
+        permanent_address: d.permanent_address || d.address || p.permanent_address || "",
+        area: d.area || p.area || "",
+        zipcode: d.zipcode || p.zipcode || "",
+        city: d.city || p.city || "",
+        state: d.state || p.state || "",
+        spouseName: d.spouseName || p.spouseName || "",
+        fatherName: d.fatherName || p.fatherName || "",
+        relationship: d.relationship || p.relationship || "",
+        aadhaar: d.aadhaar || d.aadhar || p.aadhaar || "",
+        customerType: String(d.customerType || d.customer_type || d.insurance_type || d.insuranceType || p.customerType || "GENERAL").trim().toUpperCase(),
+        insuranceCompanyName: d.insuranceCompanyName || d.company_name || d.insurance_company || p.insuranceCompanyName || "",
+        company_code: d.company_code || d.insuranceProviderCode || p.company_code || "",
+      }));
 
       if (activeAdm) {
-        const { roomNo, bedNo } = getActiveRoom(activeAdm);
-        const admInfo = {
-          ...activeAdm,
-          ipNumber: activeAdm.ipNumber,
-          admissionDateTime: activeAdm.admissionDateTime,
-          roomNo: roomNo || activeAdm.roomNo,
-          bedNo: bedNo || activeAdm.bedNo,
-        };
-        setAlreadyAdmInfo(admInfo);
-        loadAdmissionIntoForm(admInfo);
-        toast.info(`Active admission found (IP: ${activeAdm.ipNumber}) — loaded in Edit Admission mode`);
+        setAlreadyAdmInfo(activeAdm);
+        toast.error(
+          `Patient ${d.firstName || uhid} is currently admitted (IP: ${activeAdm.ipNumber}). Patient cannot be admitted again until discharged.`,
+          { autoClose: 7000 }
+        );
       } else {
         setAlreadyAdmInfo(null);
-        setEditingId(null);
-        const dobVal = d.dob || d.dateOfBirth || "";
-        const calcAge = calculateAgeFromDob(dobVal);
-        const finalAge = calcAge.age !== "" ? calcAge.age : (d.age || "");
-        const finalAgeType = calcAge.age_type || d.age_type || "Y";
-
-        setForm(p => ({
-          ...p,
-          uhid: uhid,
-          salutation: d.salutation || p.salutation || "",
-          firstName: d.firstName || d.patientname || d.patient_name || d.name || p.firstName || "",
-          middleName: d.middleName || p.middleName || "",
-          lastName: d.lastName || p.lastName || "",
-          dob: dobVal || p.dob || "",
-          age: finalAge || p.age || "",
-          age_type: finalAgeType || p.age_type || "Y",
-          gender: d.gender || p.gender || "",
-          mobilePhone: d.mobilePhone || d.phone || d.mobile || p.mobilePhone || "",
-          permanent_address: d.permanent_address || d.address || p.permanent_address || "",
-          area: d.area || p.area || "",
-          zipcode: d.zipcode || p.zipcode || "",
-          city: d.city || p.city || "",
-          state: d.state || p.state || "",
-          spouseName: d.spouseName || p.spouseName || "",
-          fatherName: d.fatherName || p.fatherName || "",
-          relationship: d.relationship || p.relationship || "",
-          aadhaar: d.aadhaar || d.aadhar || p.aadhaar || "",
-          customerType: String(d.customerType || d.customer_type || d.insurance_type || d.insuranceType || p.customerType || "GENERAL").trim().toUpperCase(),
-          insuranceCompanyName: d.insuranceCompanyName || d.company_name || d.insurance_company || p.insuranceCompanyName || "",
-          company_code: d.company_code || d.insuranceProviderCode || p.company_code || "",
-        }));
         if (!silent) toast.success("Patient loaded");
       }
     } catch {
@@ -2964,15 +2975,18 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       return;
     }
 
-    if (pat.is_admitted) {
+    const activeAdm = await checkActiveAdmission(pat.uhid);
+    if (activeAdm || pat.is_admitted) {
+      const ipNo = activeAdm?.ipNumber || pat.ipNumber || "Active";
       const proceed = await showConfirm({
         title: "Patient Already Admitted",
-        message: `Patient ${pat.patientName || pat.uhid} already has an active admission (IP: ${pat.ipNumber || "Active"}). Do you want to open and view/edit this admission?`,
-        confirmText: "Open Admission",
+        message: `Patient ${pat.patientName || pat.uhid} is currently admitted under IP Number: ${ipNo}. Patient cannot be admitted again until discharged. Do you want to view/edit this active admission?`,
+        confirmText: "Open Active Admission",
         cancelText: "Cancel"
       });
-      if (!proceed) return;
-      openEditForm({ ipNumber: pat.ipNumber, uhid: pat.uhid });
+      if (proceed) {
+        openEditForm(activeAdm || { ipNumber: pat.ipNumber, uhid: pat.uhid });
+      }
       return;
     }
 
@@ -3053,6 +3067,19 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     }
     setErrors({});
 
+    // CRITICAL: Prevent admitting if patient is currently admitted under that UHID
+    if (!editingId && form.uhid?.trim()) {
+      const activeAdm = await checkActiveAdmission(form.uhid.trim());
+      if (activeAdm) {
+        setAlreadyAdmInfo(activeAdm);
+        toast.error(
+          `Patient with UHID ${form.uhid.trim()} is currently admitted under IP Number: ${activeAdm.ipNumber}. Cannot admit again until discharged.`,
+          { autoClose: 7000 }
+        );
+        return;
+      }
+    }
+
     // Edit requires a reason — prompt via ReasonModal first
     if (editingId) {
       setReasonModal({ mode: "edit", adm: null });
@@ -3125,6 +3152,9 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       payload.append("is_day_care", "true");
       payload.append("ward_status", "Sent for billing");
     }
+    if (form.room_category || form.roomCategory) {
+      payload.append("room_category", form.room_category || form.roomCategory);
+    }
 
     if (editingId) {
       payload.append("action", "edit");
@@ -3177,9 +3207,10 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           ward_status: savedAdm.ward_status || (isDaycare ? "Sent for billing" : (form.ward_status || "")),
           roomNo: savedAdm.roomNo || form.roomNo,
           bedNo: savedAdm.bedNo || form.bedNo,
+          room_category: form.room_category || form.roomCategory || savedAdm.room_category || "",
           room_details: safeParseList(savedAdm.room_details).length > 0
             ? safeParseList(savedAdm.room_details)
-            : [{ roomNo: form.roomNo, bedNo: form.bedNo, is_roomActive: true }],
+            : [{ roomNo: form.roomNo, bedNo: form.bedNo, room_category: form.room_category || form.roomCategory || "", is_roomActive: true }],
         };
 
         closeForm();
@@ -3219,7 +3250,14 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     } catch { showInfo({ type: "error", title: "Error", message: "Failed to cancel admission. Please try again." }); }
   };
 
-  const handlePrint = adm => { setOpenMenu(null); setPrintData({ ...adm, admittingDoctorName: getDrName(adm.admittingDoctor) }); };
+  const handlePrint = adm => {
+    setOpenMenu(null);
+    setPrintData({
+      ...adm,
+      admittingDoctorName: getDrName(adm.admittingDoctor),
+      room_category: adm.room_category || (Array.isArray(adm.room_details) && adm.room_details[0]?.room_category) || "",
+    });
+  };
 
   useEffect(() => {
     if (openMenu === null) return;
@@ -3361,8 +3399,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     // Aadhaar / Adhar
     const adharNo = pd.aadhaar || pd.aadhar || "";
 
-    // Room
-    const roomDisplay = roomNo !== "-" ? `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}` : "-";
+    // Room: For Private Rooms (e.g. SR-405), display only the room number without bed number (/ 1)
+    const isPrivate = isPrivateRoom(roomNo, pd?.room_category || pd?.roomCategory);
+    const roomDisplay = roomNo !== "-"
+      ? (isPrivate || !bedNo || bedNo === "-" ? roomNo : `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}`)
+      : "-";
 
     const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: IST_TZ });
     const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ });
@@ -3643,15 +3684,60 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     return groupRoomsList(filteredRoomsList.slice(start, start + roomPageSize));
   }, [filteredRoomsList, safeRoomPage, roomPageSize]);
   const handleRoomClick = room => {
-    if (getRoomStatus(room.beds) === "maintenance") return;
-    const hasAvail = (room.beds || []).some(b => b.status === "Available");
-    if (!hasAvail) return;
-    setSelRoom(room); setShowRoom(false); setShowBed(true);
+    if (getRoomStatus(room.beds) === "maintenance") {
+      toast.warning(`Room ${room.room_number} is under maintenance`);
+      return;
+    }
+    const cat = String(room.room_category || room.room_type || "").trim().toUpperCase();
+    const isPrivate = isPrivateRoom(room.room_number, cat, (room.beds || []).length);
+
+    if (isPrivate) {
+      const availBed = (room.beds || []).find(b => (b.status || b.bed_status || "").toLowerCase() === "available");
+      if (!availBed && (room.beds || []).length > 0) {
+        toast.warning(`Room ${room.room_number} is currently occupied`);
+        return;
+      }
+      const bedNo = availBed ? (availBed.bed_number || "1") : ((room.beds && room.beds[0]?.bed_number) || "1");
+      setForm(p => ({
+        ...p,
+        roomNo: room.room_number,
+        bedNo: String(bedNo),
+        roomCategory: room.room_category || room.room_type || "PRIVATE ROOM",
+        room_category: room.room_category || room.room_type || "PRIVATE ROOM",
+      }));
+      setErrors(p => {
+        const next = { ...p };
+        delete next.roomNo;
+        delete next.bedNo;
+        return next;
+      });
+      setShowBed(false);
+      setShowRoom(false);
+      toast.success(`Room ${room.room_number} selected`);
+      return;
+    }
+
+    const hasAvail = (room.beds || []).some(b => (b.status || b.bed_status || "").toLowerCase() === "available");
+    if (!hasAvail) {
+      toast.warning(`Room ${room.room_number} has no available beds`);
+      return;
+    }
+    setSelRoom(room);
+    setShowRoom(false);
+    setShowBed(true);
   };
   const handleBedSelect = (bedNumber, room) => {
     const r = room || selRoom;
     if (!r) return;
-    setForm(p => ({ ...p, roomNo: r.room_number, bedNo: bedNumber }));
+    const cat = String(r.room_category || r.room_type || "").trim().toUpperCase();
+    const isPrivate = isPrivateRoom(r.room_number, cat, (r.beds || []).length);
+    setForm(p => ({
+      ...p,
+      roomNo: r.room_number,
+      bedNo: bedNumber,
+      roomCategory: r.room_category || r.room_type || "",
+      room_category: r.room_category || r.room_type || "",
+    }));
     setErrors(p => {
       const next = { ...p };
       delete next.roomNo;
@@ -3659,7 +3745,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       return next;
     });
     setShowBed(false); setShowRoom(false);
-    toast.success(`Room ${r.room_number} / Bed ${bedNumber} selected`);
+    if (isPrivate) {
+      toast.success(`Room ${r.room_number} selected`);
+    } else {
+      toast.success(`Room ${r.room_number} / Bed ${bedNumber} selected`);
+    }
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -3869,13 +3959,52 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
             <div style={{ background: "linear-gradient(180deg,#f0fdf4 0%,#fff 80px)" }}>
               <FGrid>
 
-                {/* ── Active admission warning banner (yellow container) ── */}
-                {alreadyAdmInfo && (
+                {/* ── Active admission error banner when trying to admit already-admitted patient ── */}
+                {alreadyAdmInfo && !editingId && (
+                  <div style={{
+                    gridColumn: "1 / -1",
+                    background: "#fef2f2",
+                    border: "2px solid #ef4444",
+                    borderRadius: 8,
+                    padding: "14px 18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 16,
+                    boxShadow: "0 4px 12px rgba(239, 68, 68, 0.12)"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                      <span style={{ fontSize: "1.6rem", lineHeight: 1 }}>🚫</span>
+                      <div>
+                        <div style={{ color: "#b91c1c", fontWeight: 800, fontSize: "0.95rem" }}>
+                          Patient is Currently Admitted — IP No: {alreadyAdmInfo.ipNumber}
+                        </div>
+                        <div style={{ color: "#7f1d1d", fontSize: "0.82rem", marginTop: 3 }}>
+                          This patient already has an active admission{alreadyAdmInfo.roomNo ? ` in Room ${alreadyAdmInfo.roomNo}${alreadyAdmInfo.bedNo ? ` / Bed ${alreadyAdmInfo.bedNo}` : ""}` : ""}{alreadyAdmInfo.admissionDateTime ? ` since ${fmtDateTime(alreadyAdmInfo.admissionDateTime)}` : ""}.
+                          <br />
+                          <strong style={{ color: "#991b1b" }}>Patient cannot be admitted again until discharged.</strong>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openEditForm({ ipNumber: alreadyAdmInfo.ipNumber, uhid: form.uhid || alreadyAdmInfo.uhid })}
+                      style={{
+                        background: "#dc2626", color: "#fff", border: "none", borderRadius: 6,
+                        padding: "8px 16px", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer",
+                        whiteSpace: "nowrap", boxShadow: "0 2px 6px rgba(220, 38, 38, 0.3)"
+                      }}
+                    >
+                      ✏️ View / Edit Active Admission
+                    </button>
+                  </div>
+                )}
+
+                {alreadyAdmInfo && editingId && (
                   <ActiveBanner style={{ gridColumn: "1 / -1" }}>
-                    ⚠️ <strong>Patient Has Active Admission</strong> — IP: {alreadyAdmInfo.ipNumber}
+                    ℹ️ <strong>Editing Active Admission</strong> — IP: {alreadyAdmInfo.ipNumber}
                     {alreadyAdmInfo.roomNo ? ` (Room: ${alreadyAdmInfo.roomNo} / Bed: ${alreadyAdmInfo.bedNo || "-"})` : ""}
                     {alreadyAdmInfo.admissionDateTime ? ` Admitted: ${fmtDateTime(alreadyAdmInfo.admissionDateTime)}` : ""}.
-                    &nbsp;Currently in Edit Admission mode.
                   </ActiveBanner>
                 )}
 
@@ -3886,6 +4015,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       name="uhid"
                       value={form.uhid}
                       onChange={handleFormChange}
+                      onBlur={() => {
+                        if (!editingId && form.uhid?.trim() && form.uhid.trim().length >= 3) {
+                          fetchPatientByUHID(form.uhid.trim(), true);
+                        }
+                      }}
                       placeholder="Enter UHID"
                       readOnly={!!editingId}
                       style={errors.uhid ? { borderColor: "#ef4444" } : {}}
@@ -4235,7 +4369,12 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
               <FActions>
                 <SmBtn secondary onClick={closeForm}>Discard</SmBtn>
-                <SmBtn onClick={handleSubmit} disabled={saving}>
+                <SmBtn
+                  onClick={handleSubmit}
+                  disabled={saving || (!editingId && Boolean(alreadyAdmInfo))}
+                  style={!editingId && alreadyAdmInfo ? { background: "#9ca3af", cursor: "not-allowed" } : {}}
+                  title={!editingId && alreadyAdmInfo ? "Patient is currently admitted. Cannot admit again until discharged." : ""}
+                >
                   {saving ? "Saving…" : editingId ? "Update Admission" : "Save Admission"}
                 </SmBtn>
               </FActions>
@@ -4917,10 +5056,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                                 key={room.room_number}
                                 hasOccupied={hasOcc}
                                 style={{ cursor: "pointer" }}
-                                onClick={() => {
-                                  setSelRoom(room);
-                                  setShowBed(true);
-                                }}
+                                onClick={() => handleRoomClick(room)}
                                 title={`Click to view ${room.beds?.length || 0} bed(s) in Room ${room.room_number}`}
                               >
                                 <RCT hasOccupied={hasOcc}>
@@ -5019,7 +5155,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       <SLn style={{ fontWeight: 900 }}>UHID : {printData.uhid || ""}</SLn>
                       <SLn>DOA  : {printData.admissionDateTime ? fmtDate(printData.admissionDateTime) : "-"}</SLn>
                       <SLn>TIME : {parseTimestamp(printData.admissionDateTime) ? new Date(parseTimestamp(printData.admissionDateTime)).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ }) : "-"}</SLn>
-                      <SLn>Room : {roomNo} / {bedNo}</SLn>
+                      <SLn>Room : {isPrivateRoom(roomNo, printData?.room_category || printData?.roomCategory) || !bedNo || bedNo === "-" ? roomNo : `${roomNo} / ${bedNo}`}</SLn>
                     </SRt>
                   </SR>
                 </Slip>

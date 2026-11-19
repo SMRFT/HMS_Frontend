@@ -1138,10 +1138,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       const paramObj = {};
       if (fromDate) paramObj.from_date = fromDate;
       if (toDate)   paramObj.to_date   = toDate;
-      const selectedOutlet = localStorage.getItem("selected_outlet");
-      if (selectedOutlet && selectedOutlet !== "all" && selectedOutlet !== "system") {
-        paramObj.outlet_code = selectedOutlet;
-      }
+      // Advances are displayed commonly across all outlets (not filtered by outlet)
       const qs  = new URLSearchParams(paramObj).toString();
       const res = await apiRequest(`${BASE}admission-advance/?${qs}`, "GET");
       if (!res.success) {
@@ -1194,10 +1191,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
       const paramObj = {};
       if (fromDate) paramObj.from_date = fromDate;
       if (toDate)   paramObj.to_date   = toDate;
-      const selectedOutlet = localStorage.getItem("selected_outlet");
-      if (selectedOutlet && selectedOutlet !== "all" && selectedOutlet !== "system") {
-        paramObj.outlet_code = selectedOutlet;
-      }
+      // Advances are displayed commonly across all outlets (not filtered by outlet)
       const qs  = new URLSearchParams(paramObj).toString();
       const res = await apiRequest(`${BASE}ip-advance-refunds/?${qs}`, "GET");
       const list = Array.isArray(res?.data?.data)
