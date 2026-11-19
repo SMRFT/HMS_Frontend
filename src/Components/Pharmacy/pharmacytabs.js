@@ -325,6 +325,8 @@ const OPPharmacyTabs = () => {
     // OPPharmacy.convertWardRequest() can find them regardless of how it reads them.
     const wardPayload = {
       // ── Identifiers ──
+      _id:              patient._id ? String(patient._id) : (patient.id || null),
+      record_id:        patient._id ? String(patient._id) : (patient.id || null),
       Bill_id:          patient.Bill_id          || patient.bill_id   || null,
       uhid:             patient.uhid              || "",
       inpatient_number: resolvedIP,

@@ -2292,28 +2292,67 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     }
     try {
       setSubstLoading(true);
-      const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST", { search: q });
+      const outlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "OLET001";
+      const branch = localStorage.getItem("selected_branch") || localStorage.getItem("branch_code") || "SHB001";
+      const hospital = localStorage.getItem("selected_hospital") || localStorage.getItem("hospital_code") || "SH001";
+      const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST", {
+        search: q,
+        "auth-hospital-code": hospital,
+        "auth-branch-code": branch,
+        "outlet_code": outlet,
+        include_zero_stock: true,
+      });
       const medicineArray = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.data) ? response.data.data : [];
-      if (response.success) {
-        const formatted = medicineArray.map((item) => ({
-          name:            item.item_name || "",
-          item_id:         item.item_id,
-          batch_number:    item.batch_number  || "N/A",
-          expiry_date:     item.expiry_date   || "N/A",
-          mrp:             parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
-          price:           parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
-          available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
-          category:        item.category || "",
-        }));
-        const seen = new Set();
-        const unique = formatted.filter(m => {
-          if (seen.has(m.item_id)) return false;
-          seen.add(m.item_id);
-          return true;
+      if (response.success && medicineArray.length > 0) {
+        // Group by item_id to aggregate total available stock across all batches
+        const map = new Map();
+        for (const item of medicineArray) {
+          const id = item.item_id;
+          if (!id) continue;
+          const name = item.item_name || `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim();
+          const stock = item.available_stock != null ? Number(item.available_stock) : Number(item.total_stock ?? 0);
+          const mrpVal = parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0);
+          const priceVal = parseFloat(item.price ?? item.Selling_Price ?? item.selling_price ?? item.mrp ?? 0);
+          const batchNum = item.batch_number || "N/A";
+          const expDate = item.expiry_date || "N/A";
+
+          if (!map.has(id)) {
+            map.set(id, {
+              name,
+              item_id: id,
+              batch_number: batchNum,
+              expiry_date: expDate,
+              mrp: mrpVal,
+              price: priceVal,
+              available_stock: stock,
+              category: item.category || "",
+              has_stock_batch: stock > 0,
+              batches: [item],
+            });
+          } else {
+            const existing = map.get(id);
+            existing.available_stock += stock;
+            existing.batches.push(item);
+            // If the existing batch had 0 stock, but this batch has available stock > 0, prefer this batch!
+            if (!existing.has_stock_batch && stock > 0) {
+              existing.batch_number = batchNum;
+              existing.expiry_date = expDate;
+              if (mrpVal > 0) existing.mrp = mrpVal;
+              if (priceVal > 0) existing.price = priceVal;
+              existing.has_stock_batch = true;
+            }
+          }
+        }
+        const grouped = Array.from(map.values());
+        // Sort items: items with available stock > 0 first, then alphabetically
+        grouped.sort((a, b) => {
+          if (a.available_stock > 0 && b.available_stock <= 0) return -1;
+          if (a.available_stock <= 0 && b.available_stock > 0) return 1;
+          return a.name.localeCompare(b.name);
         });
-        setMedicines(unique);
+        setMedicines(grouped);
       } else {
         setMedicines([]);
       }
@@ -2599,11 +2638,18 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       const name = (med.name || "").toLowerCase();
       if (name.startsWith(q)) {
         startsWith.push(med);
-      } else if (name.includes(` ${q}`) || name.includes(`-${q}`)) {
+      } else if (name.includes(` ${q}`) || name.includes(`-${q}`) || name.includes(q)) {
         others.push(med);
       }
     }
-    return startsWith.length > 0 ? startsWith : others;
+    const combined = [...startsWith, ...others];
+    return combined.sort((a, b) => {
+      const aStock = Number(a.available_stock || 0);
+      const bStock = Number(b.available_stock || 0);
+      if (aStock > 0 && bStock <= 0) return -1;
+      if (aStock <= 0 && bStock > 0) return 1;
+      return 0;
+    });
   }, [substSearch, medicines]);
 
   return (
@@ -3650,7 +3696,12 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           }}
                         >
                           <span style={{ fontWeight: 600 }}>{med.name}</span>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.75rem", color: T.primary }}>
+                          <span style={{
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: "0.75rem",
+                            fontWeight: 700,
+                            color: Number(med.available_stock || 0) > 0 ? T.primary : "#ef4444"
+                          }}>
                             Stock: {med.available_stock}
                           </span>
                         </DropdownItem>
