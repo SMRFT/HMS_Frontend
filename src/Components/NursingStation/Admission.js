@@ -324,6 +324,22 @@ const StickyTd = styled(Td)`
   background: #ffffff;
   ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid #e5e7eb;`}
 `;
+const StickyRightTh = styled(Th)`
+  position: sticky;
+  right: ${p => p.$right || "0px"};
+  z-index: 10;
+  background: #f9fafb;
+  box-shadow: -3px 0 6px -2px rgba(0,0,0,0.12);
+  border-left: 1px solid #e5e7eb;
+`;
+const StickyRightTd = styled(Td)`
+  position: sticky;
+  right: ${p => p.$right || "0px"};
+  z-index: 5;
+  background: #ffffff;
+  box-shadow: -3px 0 6px -2px rgba(0,0,0,0.12);
+  border-left: 1px solid #e5e7eb;
+`;
 const Badge = styled.span`padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:${p => p.t === 'admitted' ? '#dcfce7' : p.t === 'discharged' ? '#dbeafe' : '#fee2e2'};color:${p => p.t === 'admitted' ? '#166534' : p.t === 'discharged' ? '#1d4ed8' : '#991b1b'};`;
 const RoomHistBtn = styled.button`height:26px;padding:0 10px;font-size:.68rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;&:hover{background:#dbeafe;}`;
 const RoomSourceTag = styled.span`font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;background:${p => p.src === 'shifting' ? '#f3e8ff' : '#f0fdf4'};color:${p => p.src === 'shifting' ? '#7e22ce' : '#166534'};`;
@@ -4653,7 +4669,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     <Th>Admitting Dr.</Th>
                     <Th>Room / Bed</Th>
                     <Th>Room History</Th>
-                    <Th>Actions</Th>
+                    <StickyRightTh style={{ width: "60px", minWidth: "60px", textAlign: "center" }}>Actions</StickyRightTh>
                   </tr>
                 </Thead>
                 <tbody>
@@ -4776,9 +4792,9 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                             </RoomHistBtn>
                           ) : <span style={{ color: "#9ca3af", fontSize: ".72rem" }}>—</span>}
                         </Td>
-                        <Td>
+                        <StickyRightTd style={{ width: "60px", minWidth: "60px", textAlign: "center" }}>
                           <AW><DotB onClick={e => handleMenuToggle(adm.ipNumber, e)}>⋮</DotB></AW>
-                        </Td>
+                        </StickyRightTd>
                       </Tr>
                     );
                   })}

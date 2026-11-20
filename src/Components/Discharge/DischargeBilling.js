@@ -718,6 +718,7 @@ const buildPayload = (items, f, totals, status, patient, editReason = "", insura
     id_card_number: isIns ? (insurance?.idCardNumber || "") : "",
     insurance_bill_number: isIns ? (insurance?.insuranceBillNumber || "") : "",
     company_name: isIns ? (insurance?.companyName || patient?.company || "") : "",
+    pharmacy_medicines: Array.isArray(patient?.pharmacy_medicines) ? patient.pharmacy_medicines : [],
     items: items.map(({ _key, _fromInvest, _baseRate, _appliedWard, _rateCategory, ...r }) => ({
       ...r,
       billTypeNo: r.billTypeNo || "DIS01",
@@ -2257,7 +2258,8 @@ const DischargeBilling = () => {
       const res = raw.success && raw.data && raw.data.success ? raw.data.data : (raw.success ? raw.data : raw);
       const p = res?.patient;
       if (p) {
-        const norm = { ...p, ip_number: p.ip_number || p.ipNumber || "" };
+        const pMeds = res?.pharmacy_medicines || p.pharmacy_medicines || [];
+        const norm = { ...p, ip_number: p.ip_number || p.ipNumber || "", pharmacy_medicines: pMeds };
         setPatient(norm);
         const isIns = Boolean(
           (norm.customer_type && String(norm.customer_type).trim().toUpperCase().includes("INSURANCE")) ||
@@ -2619,7 +2621,11 @@ const DischargeBilling = () => {
           const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id || d?.bill_no) {
             showToast(isIns ? `✓ Insurance Bill updated — ${d.insurance_bill_number || d.bill_no || ""}` : `✓ Bill updated — ${d.bill_no || ""}`);
-            setPrintBillModal({ ...d, patient_details: { ...(patient || {}), ...(d.patient_details || {}) } });
+            setPrintBillModal({
+              ...d,
+              pharmacy_medicines: (d.pharmacy_medicines && d.pharmacy_medicines.length > 0) ? d.pharmacy_medicines : (patient?.pharmacy_medicines || []),
+              patient_details: { ...(patient || {}), ...(d.patient_details || {}) }
+            });
             handleReset(); setBillRefresh(n => n + 1); setTab("bills");
           } else showToast(JSON.stringify(res?.error || res), true);
         } else if (editingEst?.id) {
@@ -2643,7 +2649,11 @@ const DischargeBilling = () => {
               }
             }
             showToast(isIns ? `✓ Converted to Insurance Bill — ${d.insurance_bill_number || d.bill_no || ""}` : `✓ Converted to Bill — ${d.bill_no || ""}`);
-            setPrintBillModal({ ...d, patient_details: { ...(patient || {}), ...(d.patient_details || {}) } });
+            setPrintBillModal({
+              ...d,
+              pharmacy_medicines: (d.pharmacy_medicines && d.pharmacy_medicines.length > 0) ? d.pharmacy_medicines : (patient?.pharmacy_medicines || []),
+              patient_details: { ...(patient || {}), ...(d.patient_details || {}) }
+            });
             handleReset(); setEstRefresh(n => n + 1); setBillRefresh(n => n + 1); setTab("bills");
           } else showToast(JSON.stringify(res?.error || res), true);
         } else {
@@ -2651,7 +2661,11 @@ const DischargeBilling = () => {
           const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id) {
             showToast(isIns ? `✓ Insurance Bill saved — ${d.insurance_bill_number || d.bill_no || ""}` : `✓ Bill saved — ${d.bill_no || ""}`);
-            setPrintBillModal({ ...d, patient_details: { ...(patient || {}), ...(d.patient_details || {}) } });
+            setPrintBillModal({
+              ...d,
+              pharmacy_medicines: (d.pharmacy_medicines && d.pharmacy_medicines.length > 0) ? d.pharmacy_medicines : (patient?.pharmacy_medicines || []),
+              patient_details: { ...(patient || {}), ...(d.patient_details || {}) }
+            });
             handleReset(); setBillRefresh(n => n + 1); setTab("bills");
           } else showToast(JSON.stringify(res?.error || res), true);
         }

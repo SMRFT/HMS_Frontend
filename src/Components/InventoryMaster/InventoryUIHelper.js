@@ -277,6 +277,7 @@ export const InvTopToolbar = ({
   onToDateChange,
   onClearDate,
   onSetToday,
+  hideQuickDate = false,
   totalRecords,
   totalCount,
   customFilters,
@@ -352,12 +353,12 @@ export const InvTopToolbar = ({
         ) : null}
 
         {/* Quick Date Pills */}
-        {(onSetToday || (onFromDateChange && !onSetToday)) && (
+        {!hideQuickDate && (onSetToday || (onFromDateChange && !onSetToday)) && (
           <InvPillBtn onClick={onSetToday || handleDefaultToday} title="Set filter to today">
             Today
           </InvPillBtn>
         )}
-        {(onClearDate || (onFromDateChange && !onClearDate)) && isDateActive && (
+        {!hideQuickDate && (onClearDate || (onFromDateChange && !onClearDate)) && isDateActive && (
           <InvPillBtn onClick={onClearDate || handleDefaultClear} title="Show all dates">
             ✕ Clear
           </InvPillBtn>

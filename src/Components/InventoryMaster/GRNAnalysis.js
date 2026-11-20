@@ -748,6 +748,7 @@ const GRNAnalysis = () => {
 
         <FormContent style={{ padding: "10px 0" }}>
           <InvTopToolbar
+            hideQuickDate={true}
             pageSize={pageSize}
             onPageSizeChange={(newSize) => {
               setPageSize(newSize);
@@ -772,6 +773,64 @@ const GRNAnalysis = () => {
             totalRecords={totalCount}
             customFilters={
               <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {/* Status Radio Buttons (Pending / Verified / All) */}
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "#f8fafc",
+                  padding: "2px 8px",
+                  borderRadius: "6px",
+                  border: "1px solid #cbd5e1",
+                  height: 30,
+                  whiteSpace: "nowrap"
+                }}>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                    Status:
+                  </span>
+                  {[
+                    { value: "", label: "All" },
+                    { value: "Pending", label: "Pending" },
+                    { value: "Verified", label: "Verified" }
+                  ].map((opt) => {
+                    const isChecked = statusFilter === opt.value;
+                    return (
+                      <label
+                        key={opt.value}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                          fontSize: "0.75rem",
+                          fontWeight: isChecked ? 700 : 500,
+                          color: isChecked
+                            ? (opt.value === "Verified" ? "#166534" : opt.value === "Pending" ? "#c2410c" : "#0f766e")
+                            : "#475569",
+                          cursor: "pointer",
+                          userSelect: "none"
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="grn_status_radio"
+                          value={opt.value}
+                          checked={isChecked}
+                          onChange={() => {
+                            setStatusFilter(opt.value);
+                            setPage(1);
+                          }}
+                          style={{
+                            margin: 0,
+                            cursor: "pointer",
+                            accentColor: opt.value === "Verified" ? "#166534" : opt.value === "Pending" ? "#ea580c" : "#0f766e"
+                          }}
+                        />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+
                 {/* Vendor Filter */}
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                   <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>
@@ -796,26 +855,6 @@ const GRNAnalysis = () => {
                       placeholder="All Vendors"
                     />
                   </div>
-                </div>
-
-                {/* Status Filter (Pending / Verified) */}
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>
-                    Status:
-                  </span>
-                  <InvNativeSelect
-                    value={statusFilter}
-                    onChange={(e) => {
-                      setStatusFilter(e.target.value);
-                      setPage(1);
-                    }}
-                    style={{ minWidth: 125, height: 30, fontSize: "0.78rem" }}
-                    aria-label="Filter by Status"
-                  >
-                    <option value="">All Status</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Verified">Verified</option>
-                  </InvNativeSelect>
                 </div>
 
                 {/* Type Filter */}

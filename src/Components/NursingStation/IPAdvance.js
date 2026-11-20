@@ -444,6 +444,7 @@ const Tr = styled.tr`
   animation: ${rowIn} 0.2s ease;
   background: ${({ even }) => even ? "#f8fafc" : "#fff"};
   &:hover { background: ${T.tealGhost}; }
+  &:hover > td { background: ${T.tealGhost} !important; }
 `;
 
 const Td = styled.td`
@@ -452,6 +453,40 @@ const Td = styled.td`
   white-space: nowrap;
   font-size: 0.82rem;
   text-align: ${({ right }) => right ? "right" : "left"};
+`;
+
+const StickyTh = styled(Th)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 10;
+  background: #f1f5f9;
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid ${T.border};`}
+`;
+
+const StickyTd = styled(Td)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 5;
+  background: ${p => p.$bg || "#ffffff"};
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid ${T.border};`}
+`;
+
+const StickyRightTh = styled(Th)`
+  position: sticky;
+  right: ${p => p.$right || "0px"};
+  z-index: 10;
+  background: #f1f5f9;
+  box-shadow: -3px 0 6px -2px rgba(0,0,0,0.12);
+  border-left: 1px solid ${T.border};
+`;
+
+const StickyRightTd = styled(Td)`
+  position: sticky;
+  right: ${p => p.$right || "0px"};
+  z-index: 5;
+  background: ${p => p.$bg || "#ffffff"};
+  box-shadow: -3px 0 6px -2px rgba(0,0,0,0.12);
+  border-left: 1px solid ${T.border};
 `;
 
 const StatusBadge = styled.span`
@@ -2841,11 +2876,11 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                 <Tbl>
                   <thead>
                     <tr>
-                      <Th>#</Th>
-                      <Th>Bill Date</Th>
-                      <Th>Bill No</Th>
-                      <Th>IP No</Th>
-                      <Th>Patient Name</Th>
+                      <StickyTh $left="0px" style={{ width: 44, minWidth: 44, maxWidth: 44 }}>#</StickyTh>
+                      <StickyTh $left="44px" style={{ width: 95, minWidth: 95 }}>Bill Date</StickyTh>
+                      <StickyTh $left="139px" style={{ width: 110, minWidth: 110 }}>Bill No</StickyTh>
+                      <StickyTh $left="249px" style={{ width: 110, minWidth: 110 }}>IP No</StickyTh>
+                      <StickyTh $left="359px" $shadow style={{ width: 160, minWidth: 160 }}>Patient Name</StickyTh>
                       <Th>Payment Mode</Th>
                       <Th>Paid Date</Th>
                       <Th right>Advance Amount</Th>
@@ -2854,7 +2889,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                       <Th right>Total Refunded</Th>
                       <Th right>Net Balance</Th>
                       <Th>Status</Th>
-                      <Th>Actions</Th>
+                      <StickyRightTh style={{ textAlign: "center", width: 70, minWidth: 70 }}>Actions</StickyRightTh>
                     </tr>
                   </thead>
                   <tbody>
@@ -2875,6 +2910,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                     ) : (
                       paginatedPayments.map((p, i) => {
                         const rowIdx      = (page - 1) * perPage + i + 1;
+                        const rowBg       = i % 2 === 0 ? "#f8fafc" : "#fff";
                         const status      = p.status || "Pending";
                         const billDate    = p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "—";
                         const patientName = p.patient_name || p.name || p.patientName || "—";
@@ -2890,15 +2926,15 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
 
                         return (
                           <Tr key={menuId} even={i % 2 === 0}>
-                            <Td style={{ fontWeight: 700, color: T.muted }}>{rowIdx}</Td>
-                            <Td>{billDate}</Td>
-                            <Td style={{ fontFamily: "monospace", fontSize: "0.7rem", fontWeight: 700 }}>
+                            <StickyTd $left="0px" $bg={rowBg} style={{ fontWeight: 700, color: T.muted, width: 44, minWidth: 44 }}>{rowIdx}</StickyTd>
+                            <StickyTd $left="44px" $bg={rowBg} style={{ width: 95, minWidth: 95 }}>{billDate}</StickyTd>
+                            <StickyTd $left="139px" $bg={rowBg} style={{ fontFamily: "monospace", fontSize: "0.7rem", fontWeight: 700, width: 110, minWidth: 110 }}>
                               {(p.bill_no || "—").replace(/\//g, "")}
-                            </Td>
-                            <Td style={{ fontWeight: 700, color: T.tealDark }}>{ipNo}</Td>
-                            <Td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            </StickyTd>
+                            <StickyTd $left="249px" $bg={rowBg} style={{ fontWeight: 700, color: T.tealDark, width: 110, minWidth: 110 }}>{ipNo}</StickyTd>
+                            <StickyTd $left="359px" $shadow $bg={rowBg} style={{ width: 160, minWidth: 160, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
                               {patientName}
-                            </Td>
+                            </StickyTd>
                             <Td>{p.payment_mode || "-"}</Td>
                             <Td>
                               {p.paid_date ? new Date(p.paid_date).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "-"}
@@ -2925,7 +2961,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                             <Td>
                               <StatusBadge status={status}>{status}</StatusBadge>
                             </Td>
-                            <Td style={{ position: "relative", overflow: "visible" }}>
+                            <StickyRightTd $bg={rowBg} style={{ position: "sticky", right: 0, zIndex: openMenuId === menuId ? 25 : 5, textAlign: "center", width: 70, minWidth: 70 }}>
                               <KebabWrap>
                                 <KebabBtn onClick={(e) => toggleMenu(menuId, e)} title="Actions">
                                   ⋮
@@ -3025,7 +3061,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
 
                                 </DropMenu>
                               </KebabWrap>
-                            </Td>
+                            </StickyRightTd>
                           </Tr>
                         );
                       })
@@ -3163,19 +3199,19 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                 <Tbl>
                   <thead>
                     <tr>
-                      <Th style={{ width: 40 }}>#</Th>
-                      <Th>Refund Date</Th>
-                      <Th>Refund Bill No</Th>
-                      <Th>Original Bill</Th>
-                      <Th>UHID</Th>
-                      <Th>IP Number</Th>
-                      <Th>Patient Name</Th>
+                      <StickyTh $left="0px" style={{ width: 44, minWidth: 44 }}>#</StickyTh>
+                      <StickyTh $left="44px" style={{ width: 95, minWidth: 95 }}>Refund Date</StickyTh>
+                      <StickyTh $left="139px" style={{ width: 120, minWidth: 120 }}>Refund Bill No</StickyTh>
+                      <StickyTh $left="259px" style={{ width: 110, minWidth: 110 }}>Original Bill</StickyTh>
+                      <StickyTh $left="369px" style={{ width: 105, minWidth: 105 }}>UHID</StickyTh>
+                      <StickyTh $left="474px" style={{ width: 105, minWidth: 105 }}>IP Number</StickyTh>
+                      <StickyTh $left="579px" $shadow style={{ width: 160, minWidth: 160 }}>Patient Name</StickyTh>
                       <Th>Room</Th>
                       <Th style={{ textAlign: "right" }}>Refund Amount</Th>
                       <Th>Payment Mode</Th>
                       <Th>Remarks</Th>
                       <Th>Processed By</Th>
-                      <Th style={{ textAlign: "center", width: 120 }}>Action</Th>
+                      <StickyRightTh style={{ textAlign: "center", width: 110, minWidth: 110 }}>Action</StickyRightTh>
                     </tr>
                   </thead>
                   <tbody>
@@ -3196,24 +3232,27 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                         .slice((refundPage - 1) * refundPerPage, refundPage * refundPerPage)
                         .map((r, idx) => {
                           const slNo = (refundPage - 1) * refundPerPage + idx + 1;
+                          const rowBg = idx % 2 === 0 ? "#ffffff" : "#f8fafc";
                           const rBill = String(r.refund_bill_no || "—").replace(/\//g, "");
                           const oBill = String(r.bill_no || r.bill_number || "—").replace(/\//g, "");
                           const rAmt = parseFloat(r.refund_amount || r.refunded_amount) || 0;
                           return (
-                            <tr key={r._id || r.refund_bill_no || idx}>
-                              <Td style={{ fontWeight: 600 }}>{slNo}</Td>
-                              <Td style={{ whiteSpace: "nowrap" }}>
+                            <Tr key={r._id || r.refund_bill_no || idx} even={idx % 2 === 1}>
+                              <StickyTd $left="0px" $bg={rowBg} style={{ fontWeight: 600, width: 44, minWidth: 44 }}>{slNo}</StickyTd>
+                              <StickyTd $left="44px" $bg={rowBg} style={{ whiteSpace: "nowrap", width: 95, minWidth: 95 }}>
                                 {r.refund_date ? new Date(r.refund_date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "—"}
-                              </Td>
-                              <Td style={{ fontWeight: 700, color: T.purple, fontFamily: "monospace" }}>
+                              </StickyTd>
+                              <StickyTd $left="139px" $bg={rowBg} style={{ fontWeight: 700, color: T.purple, fontFamily: "monospace", width: 120, minWidth: 120 }}>
                                 {rBill}
-                              </Td>
-                              <Td style={{ fontFamily: "monospace", color: "#475569" }}>
+                              </StickyTd>
+                              <StickyTd $left="259px" $bg={rowBg} style={{ fontFamily: "monospace", color: "#475569", width: 110, minWidth: 110 }}>
                                 {oBill}
-                              </Td>
-                              <Td style={{ fontWeight: 600 }}>{r.uhid || "—"}</Td>
-                              <Td style={{ fontWeight: 600 }}>{r.ip_number || "—"}</Td>
-                              <Td style={{ fontWeight: 600 }}>{(r.patient_name || "—").toUpperCase()}</Td>
+                              </StickyTd>
+                              <StickyTd $left="369px" $bg={rowBg} style={{ fontWeight: 600, width: 105, minWidth: 105 }}>{r.uhid || "—"}</StickyTd>
+                              <StickyTd $left="474px" $bg={rowBg} style={{ fontWeight: 600, width: 105, minWidth: 105 }}>{r.ip_number || "—"}</StickyTd>
+                              <StickyTd $left="579px" $shadow $bg={rowBg} style={{ fontWeight: 600, width: 160, minWidth: 160, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {(r.patient_name || "—").toUpperCase()}
+                              </StickyTd>
                               <Td>{r.room || "—"}</Td>
                               <Td style={{ textAlign: "right", fontWeight: 700, color: "#b91c1c" }}>
                                 ₹{fmt(rAmt)}
@@ -3232,7 +3271,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                               <Td style={{ fontSize: "0.75rem" }}>
                                 {r.created_by_name || r.refunded_by_name || r.created_by || r.refunded_by || "—"}
                               </Td>
-                              <Td style={{ textAlign: "center" }}>
+                              <StickyRightTd $bg={rowBg} style={{ textAlign: "center", width: 110, minWidth: 110 }}>
                                 <Btn
                                   v="table"
                                   c="purple"
@@ -3242,8 +3281,8 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                                 >
                                   🖨️ Print Slip
                                 </Btn>
-                              </Td>
-                            </tr>
+                              </StickyRightTd>
+                            </Tr>
                           );
                         })
                     )}

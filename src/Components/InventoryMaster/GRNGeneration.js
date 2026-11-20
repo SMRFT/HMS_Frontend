@@ -2030,6 +2030,7 @@ const GRNGeneration = () => {
                 <CardHeader style={{ justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     📋 Inward Details
+                    <span style={{ fontSize: "0.72rem", color: "#64748b", background: "#f1f5f9", border: "1px solid #e2e8f0", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>Type: Invoice</span>
                     {ocrApplied && <OcrBadge><ScanLine size={10}/>OCR Auto-filled</OcrBadge>}
                     {isEdit && (
                       <span style={{display:"flex",alignItems:"center",gap:5}}>
@@ -2059,7 +2060,8 @@ const GRNGeneration = () => {
                   )}
                 </CardHeader>
                 <CardBody>
-                  <GridRow cols="repeat(3,1fr)">
+                  {/* Row 1: 4 fields — Purchase Category, Invoice Date, Invoice No, Vendor Selection */}
+                  <GridRow cols="repeat(4,1fr)">
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Purchase Category *</Lbl>
                       <Select
@@ -2079,11 +2081,24 @@ const GRNGeneration = () => {
                     </InputWrapper>
 
                     <InputWrapper style={{margin:0}}>
-                      <Lbl>Date</Lbl>
-                      <ReadOnlyInput
-                        type="date" name="date" value={grnData.date}
-                        readOnly disabled style={{fontSize:"0.8rem", background:"#f1f5f9", cursor:"not-allowed"}}
+                      <Lbl>
+                        Invoice Date
+                        {ocrApplied && grnData.invoice_date && <OcrFieldBadge>OCR</OcrFieldBadge>}
+                      </Lbl>
+                      <Input
+                        type="date" name="invoice_date" value={grnData.invoice_date}
+                        onChange={handleGrnChange}
+                        disabled={isVerified} style={{fontSize:"0.8rem"}}
                       />
+                    </InputWrapper>
+
+                    <InputWrapper style={{margin:0}}>
+                      <Lbl>
+                        Invoice No *
+                        {ocrApplied && grnData.invoice_no && <OcrFieldBadge>OCR</OcrFieldBadge>}
+                      </Lbl>
+                      <Input name="invoice_no" value={grnData.invoice_no} onChange={handleGrnChange}
+                        disabled={isVerified} placeholder="e.g. INV-52412" style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
 
                     <InputWrapper style={{margin:0}}>
@@ -2099,54 +2114,45 @@ const GRNGeneration = () => {
                     </InputWrapper>
                   </GridRow>
 
-                  <GridRow cols="repeat(3,1fr)">
+                  {/* Row 2: Others — Date, Payment Mode, Supplier Address, Contact Person, Phone */}
+                  <GridRow cols="repeat(5,1fr)" style={{marginBottom:0}}>
                     <InputWrapper style={{margin:0}}>
-                      <Lbl>Supplier Address</Lbl>
-                      <ReadOnlyInput value={getVendorAddress(vendorInfo)} readOnly placeholder="Auto-filled from vendor" style={{fontSize:"0.8rem"}} />
-                    </InputWrapper>
-                    <InputWrapper style={{margin:0}}>
-                      <Lbl>Contact Person</Lbl>
-                      <ReadOnlyInput value={vendorInfo?.contact_person || ""} readOnly placeholder="Auto-filled" style={{fontSize:"0.8rem"}} />
-                    </InputWrapper>
-                    <InputWrapper style={{margin:0}}>
-                      <Lbl>Phone</Lbl>
-                      <ReadOnlyInput value={vendorInfo?.phone || ""} readOnly placeholder="Auto-filled" style={{fontSize:"0.8rem"}} />
-                    </InputWrapper>
-                  </GridRow>
-
-                  <GridRow cols="repeat(4,1fr)" style={{marginBottom:0}}>
-                    <InputWrapper style={{margin:0}}>
-                      <Lbl>Type</Lbl>
-                      <ReadOnlyInput value="Invoice" readOnly style={{fontSize:"0.8rem"}} />
-                    </InputWrapper>
-                    <InputWrapper style={{margin:0}}>
-                      <Lbl>
-                        Invoice No *
-                        {ocrApplied && grnData.invoice_no && <OcrFieldBadge>OCR</OcrFieldBadge>}
-                      </Lbl>
-                      <Input name="invoice_no" value={grnData.invoice_no} onChange={handleGrnChange}
-                        disabled={isVerified} placeholder="e.g. INV-52412" style={{fontSize:"0.8rem"}} />
-                    </InputWrapper>
-                    <InputWrapper style={{margin:0}}>
-                      <Lbl>
-                        Invoice Date
-                        {ocrApplied && grnData.invoice_date && <OcrFieldBadge>OCR</OcrFieldBadge>}
-                      </Lbl>
-                      <Input
-                        type="date" name="invoice_date" value={grnData.invoice_date}
-                        onChange={handleGrnChange}
-                        disabled={isVerified} style={{fontSize:"0.8rem"}}
+                      <Lbl>Date</Lbl>
+                      <ReadOnlyInput
+                        type="date" name="date" value={grnData.date}
+                        readOnly disabled style={{fontSize:"0.8rem", background:"#f1f5f9", cursor:"not-allowed"}}
                       />
                     </InputWrapper>
+
                     <InputWrapper style={{margin:0}}>
                       <Lbl>
                         Payment Mode
                         {ocrApplied && <OcrFieldBadge>OCR</OcrFieldBadge>}
                       </Lbl>
-                      <Select name="payment_mode" value={grnData.payment_mode} onChange={handleGrnChange}
-                        disabled={isVerified} style={{fontSize:"0.8rem"}}>
-                        {PAYMENT_MODES.map(m=><option key={m} value={m}>{m}</option>)}
+                      <Select
+                        name="payment_mode"
+                        value={grnData.payment_mode || "CHEQUE"}
+                        onChange={handleGrnChange}
+                        disabled
+                        style={{ fontSize: "0.8rem", background: "#f1f5f9", cursor: "not-allowed", color: colors.textMuted }}
+                      >
+                        {PAYMENT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
                       </Select>
+                    </InputWrapper>
+
+                    <InputWrapper style={{margin:0}}>
+                      <Lbl>Supplier Address</Lbl>
+                      <ReadOnlyInput value={getVendorAddress(vendorInfo)} readOnly placeholder="Auto-filled from vendor" style={{fontSize:"0.8rem"}} />
+                    </InputWrapper>
+
+                    <InputWrapper style={{margin:0}}>
+                      <Lbl>Contact Person</Lbl>
+                      <ReadOnlyInput value={vendorInfo?.contact_person || ""} readOnly placeholder="Auto-filled" style={{fontSize:"0.8rem"}} />
+                    </InputWrapper>
+
+                    <InputWrapper style={{margin:0}}>
+                      <Lbl>Phone</Lbl>
+                      <ReadOnlyInput value={vendorInfo?.phone || ""} readOnly placeholder="Auto-filled" style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                   </GridRow>
                 </CardBody>
