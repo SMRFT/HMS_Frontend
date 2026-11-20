@@ -305,7 +305,9 @@ const OPPharmacyTabs = () => {
     const resolvedName   = patient.patient_details?.patient_name || patient.patient_name   || "";
     const resolvedAddr   = patient.patient_details?.address      || patient.address         || "";
     const resolvedMobile = patient.patient_details?.mobile       || patient.mobile          || "";
-    const resolvedRoom   = patient.ward_name || patient.room_no  || "";
+    const isOt = String(patient.billing_mode || patient.billingMode || "").toUpperCase().includes("OT");
+    const rawRoom = patient.ward_name || patient.room_no || "";
+    const resolvedRoom = isOt ? "OT Request" : (rawRoom && rawRoom !== "-" && rawRoom !== "—" ? rawRoom : "");
     const resolvedIP     = patient.inpatient_number || patient.ip_number || patient.ipNumber || "";
     const resolvedDoctor = patient.doctor_id || patient.admittingDoctor || patient.consultingDoctor || "";
     const resolvedCustType = patient.customer_type || patient.patient_details?.customer_type || "General";
@@ -337,6 +339,7 @@ const OPPharmacyTabs = () => {
       bill_type:        patient.bill_type         || 18,
       bill_name:        patient.bill_name         || "PHARMACY IP BILL",
       bill_type_name:   patient.bill_type_name    || patient.bill_name || "PHARMACY IP BILL",
+      billing_mode:     patient.billing_mode      || (isOt ? "OT REQUEST" : "WARD REQUEST"),
 
       // ── Doctor / ward ──
       doctor_id:        resolvedDoctor,
@@ -449,13 +452,23 @@ const OPPharmacyTabs = () => {
         localStorage.getItem("selected_outlet") ||
         localStorage.getItem("outlet_code") ||
         "";
+      const now = new Date();
+      const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
       const res = await apiRequest(`${Hmsbaseurl}pharmacy_medicinechart/`, "POST", {
         outlet_code: activeOutlet,
+        from_date: todayStr,
+        to_date: todayStr,
       });
 
       if (res.success && res.data) {
-        const list = res.data.data || [];
-        setMedichartCount(list.length);
+        const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        const activeCount = list.filter((bill) => {
+          if (bill.is_cancelled || bill.is_deleted) return false;
+          const s = String(bill.billing_status || "").trim().toLowerCase();
+          return s === "pending" || s === "processing";
+        }).length;
+
+        setMedichartCount(activeCount);
       }
     } catch {
       // silent fallback
