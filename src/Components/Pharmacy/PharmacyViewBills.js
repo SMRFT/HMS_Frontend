@@ -1950,10 +1950,11 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                   <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>🖨️</IconBtn>
                                 ) : (
                                   <>
-                                    {!isDeleted(bill) && !isPaid(bill) && (
+                                    {/* HIDE EDIT & DELETE TEMPORARILY - REMOVE 'false &&' TO REVERT */}
+                                    {false && !isDeleted(bill) && !isPaid(bill) && (
                                       <IconBtn variant="edit" title="Edit" onClick={() => openEditModal(bill)}>✏️</IconBtn>
                                     )}
-                                    {!isDeleted(bill) && (
+                                    {false && !isDeleted(bill) && (
                                       <IconBtn variant="delete" title="Delete" onClick={() => openDeleteModal(bill)}>🗑️</IconBtn>
                                     )}
                                     <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>🖨️</IconBtn>

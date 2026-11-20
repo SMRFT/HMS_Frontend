@@ -763,11 +763,12 @@ const PatientSummaryStrip = styled.div`
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 12px 20px;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  display: flex;
+  align-items: stretch;
   gap: 0;
 
   @media (max-width: 900px) {
+    display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
@@ -779,6 +780,8 @@ const StripCell = styled.div`
   gap: 3px;
   padding: 0 16px;
   border-right: 1px solid #e2e8f0;
+  flex: 1 1 0;
+  min-width: 120px;
 
   &:first-child {
     padding-left: 0;
@@ -2004,13 +2007,45 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     return (nonTitleParts[0][0] + nonTitleParts[nonTitleParts.length - 1][0]).toUpperCase();
   };
 
+  const isConsumableItem = (item) => Boolean(
+    item?.is_consumable_items === true ||
+    item?.is_consumable_items === "true" ||
+    item?.is_consumable_items === 1 ||
+    item?.consumable ||
+    String(item?.item_type || item?.type || "").toLowerCase().includes("consumable")
+  );
+
   const getPatientFinancials = (patient) => {
-    const items = Array.isArray(patient?.medicine_items) ? patient.medicine_items : [];
-    const prescriptionTotal = items.reduce((sum, it) => {
+    const rawItems = Array.isArray(patient?.medicine_items)
+      ? patient.medicine_items
+      : (Array.isArray(patient?.medicine_particulars) ? patient.medicine_particulars : []);
+    let prescriptionTotal = 0;
+    let consumableTotal = 0;
+
+    const rawStatus = String(patient?.billing_status || "").trim().toLowerCase();
+    const isBilled = rawStatus === "billed" || rawStatus === "paid" || rawStatus === "completed";
+
+    const activeItems = rawItems.filter((it) => {
+      if (it.deleted_is || it.is_deleted) return false;
+      if (isBilled) return true;
+      const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
+      const disp = Number(it.dispatched_qty ?? 0);
+      const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
+      return pend > 0;
+    });
+
+    activeItems.forEach((it) => {
       const rate = getUnitPrice(it);
-      const q = Number(it.qty ?? it.quantity ?? 1) || 1;
-      return sum + rate * q;
-    }, 0);
+      const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 1) || 1;
+      const disp = Number(it.dispatched_qty ?? 0);
+      const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
+      const q = isBilled ? orig : (pend > 0 ? pend : (Number(it.qty ?? it.quantity ?? 1) || 1));
+      const amount = rate * q;
+      prescriptionTotal += amount;
+      if (isConsumableItem(it)) {
+        consumableTotal += amount;
+      }
+    });
 
     const custType = String(
       patient?.customer_type ||
@@ -2035,21 +2070,15 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     const remaining = isGeneralIp ? Math.max(0, advance - prescriptionTotal) : 0;
 
     return {
-      itemsCount: items.length,
+      itemsCount: activeItems.length,
       prescriptionTotal,
+      consumableTotal,
       advance,
       remaining,
       isInsurance,
       isGeneralIp,
     };
   };
-
-  const isConsumableItem = (item) => Boolean(
-    item?.is_consumable_items === true ||
-    item?.is_consumable_items === "true" ||
-    item?.is_consumable_items === 1 ||
-    item?.consumable
-  );
 
   const getItemDotColor = (item) => {
     if (item?.is_substitute) return "#2563eb";
@@ -3048,8 +3077,13 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
                           {/* 6. Request Date & Time */}
                           <td>
-                            <div style={{ fontWeight: 600, fontSize: "0.74rem", color: "#0f172a", whiteSpace: "nowrap" }}>
-                              {dateFormatted}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontWeight: 700, fontSize: "0.76rem", color: "#0f172a", whiteSpace: "nowrap" }}>
+                                {formatDateOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
+                              </span>
+                              <span style={{ fontSize: "0.72rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                {formatTimeOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
+                              </span>
                             </div>
                             {reqNo ? (
                               <div style={{
@@ -3175,7 +3209,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           ) : (
             paginatedData.map(patient => {
               const billKey = getBillKey(patient);
-              const { itemsCount, prescriptionTotal, advance, isGeneralIp } = getPatientFinancials(patient);
+              const { itemsCount, prescriptionTotal, consumableTotal, advance, isGeneralIp } = getPatientFinancials(patient);
               const initials = getPatientInitials(patient);
               const pName = patient.patient_details?.patient_name || patient.patient_name || "—";
               const uhid = patient.uhid || "—";
@@ -3282,7 +3316,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     </CardItemsTitle>
                     <CardAdvanceSubtext style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 2 }}>
                       <span>{custType}{isGeneralIp ? ` • Adv ₹${formatCurrency(advance)}` : ""}</span>
-                      {Array.isArray(patient?.medicine_items) && patient.medicine_items.some(isConsumableItem) && (
+                      {consumableTotal > 0 && (
                         <span style={{
                           background: "#ffedd5",
                           color: "#c2410c",
@@ -3292,7 +3326,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           fontWeight: 700,
                           border: "1px solid #fed7aa"
                         }}>
-                          CONSUMABLES
+                          CONSUMABLES ₹{formatCurrency(consumableTotal)}
                         </span>
                       )}
                     </CardAdvanceSubtext>
@@ -3433,6 +3467,18 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
                     return pend > 0;
                   });
+
+              let modalPrescriptionTotal = 0;
+              let modalConsumableTotal = 0;
+              items.forEach((it) => {
+                const q = Number(it.qty ?? it.quantity ?? 1) || 1;
+                const unitPrice = getUnitPrice(it);
+                const amount = q * unitPrice;
+                modalPrescriptionTotal += amount;
+                if (isConsumableItem(it)) {
+                  modalConsumableTotal += amount;
+                }
+              });
               const isModalInsurance = Boolean(
                 patient.is_insurance ||
                 String(patient.customer_type || "").toLowerCase() === "insurance" ||
@@ -3547,8 +3593,14 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <StripVal title={modalRequestedBy}>{modalRequestedBy || "—"}</StripVal>
                     </StripCell>
                     <StripCell>
+                      <StripLabel>Consumable total</StripLabel>
+                      <StripVal style={{ color: modalConsumableTotal > 0 ? "#ea580c" : "inherit", fontWeight: 700 }}>
+                        ₹{formatCurrency(modalConsumableTotal)}
+                      </StripVal>
+                    </StripCell>
+                    <StripCell>
                       <StripLabel>Prescription total</StripLabel>
-                      <StripVal>₹{formatCurrency(prescriptionTotal)}</StripVal>
+                      <StripVal>₹{formatCurrency(modalPrescriptionTotal)}</StripVal>
                     </StripCell>
                     <StripCell>
                       <StripLabel>Customer Type</StripLabel>
@@ -3747,8 +3799,12 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                   </ModalTableContainer>
 
                   <DetailModalFooter>
-                    <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#0f172a" }}>
-                      {itemsCount} {itemsCount === 1 ? "item" : "items"} • Total ₹{formatCurrency(prescriptionTotal)}
+                    <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span>{items.length} {items.length === 1 ? "item" : "items"}</span>
+                      {modalConsumableTotal > 0 && (
+                        <span style={{ color: "#ea580c" }}>• Consumables ₹{formatCurrency(modalConsumableTotal)}</span>
+                      )}
+                      <span>• Total ₹{formatCurrency(modalPrescriptionTotal)}</span>
                     </div>
                     <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <button
