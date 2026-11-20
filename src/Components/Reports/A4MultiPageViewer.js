@@ -479,9 +479,9 @@ const A4PageSheet = styled.div`
     border-radius: 2px;
     box-sizing: border-box;
     width: 100%;
-    max-width: 1122px; /* Standard A4 Landscape */
+    max-width: ${props => props.$isWide ? "98%" : "1122px"};
     min-height: 794px;  /* Standard A4 Landscape height */
-    padding: 36px 44px 40px 44px;
+    padding: ${props => props.$isWide ? "18px 20px" : "36px 44px 40px 44px"};
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -558,27 +558,27 @@ const A4PageSheet = styled.div`
             width: 100% !important;
             border-collapse: collapse !important;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
-            font-size: 9.5px !important;
+            font-size: ${props => props.$isWide ? "11.5px" : "10.5px"} !important;
             color: #000 !important;
-            margin-top: 6px !important;
-            border: none !important;
+            margin-top: 4px !important;
+            border: ${props => props.$isWide ? "1.5px solid #334155" : "none"} !important;
         }
 
         thead tr,
         table thead tr {
             border-top: 1.5px solid #000 !important;
             border-bottom: 1.5px solid #000 !important;
-            background: transparent !important;
+            background: ${props => props.$isWide ? "#f1f5f9" : "transparent"} !important;
         }
 
         th {
-            background: transparent !important;
-            color: #000 !important;
+            background: ${props => props.$isWide ? "#f1f5f9" : "transparent"} !important;
+            color: #0f172a !important;
             font-weight: 700 !important;
-            font-size: 9.5px !important;
+            font-size: ${props => props.$isWide ? "11.5px" : "10.5px"} !important;
             text-transform: uppercase !important;
-            padding: 6px 5px !important;
-            border: none !important;
+            padding: ${props => props.$isWide ? "5px 6px" : "6px 5px"} !important;
+            border: ${props => props.$isWide ? "1px solid #94a3b8" : "none"} !important;
             border-bottom: 1.5px solid #000 !important;
             border-top: 1.5px solid #000 !important;
             letter-spacing: 0.02em !important;
@@ -586,11 +586,29 @@ const A4PageSheet = styled.div`
         }
 
         td {
-            color: #000 !important;
-            font-size: 9.5px !important;
-            padding: 4px 5px !important;
-            border: none !important;
-            border-bottom: 0.5px solid #e2e8f0 !important;
+            color: #0f172a !important;
+            font-size: ${props => props.$isWide ? "11.5px" : "10.5px"} !important;
+            padding: ${props => props.$isWide ? "3.5px 6px" : "4px 5px"} !important;
+            border: ${props => props.$isWide ? "1px solid #cbd5e1" : "none"} !important;
+            border-bottom: ${props => props.$isWide ? "1px solid #cbd5e1" : "0.5px solid #e2e8f0"} !important;
+        }
+
+        /* Number and Financial Amount Formatting - Large, Bold & Highly Legible */
+        td.text-right,
+        th.text-right,
+        td[align="right"],
+        th[align="right"],
+        .font-mono,
+        td.font-mono,
+        span.font-mono,
+        td:has(.font-mono),
+        .amount-cell,
+        .num-cell {
+            font-family: "Consolas", "Courier New", monospace !important;
+            font-size: ${props => props.$isWide ? "12.5px" : "11.5px"} !important;
+            font-weight: 700 !important;
+            font-variant-numeric: tabular-nums !important;
+            letter-spacing: -0.01em !important;
         }
 
         tbody tr:hover {
@@ -603,11 +621,24 @@ const A4PageSheet = styled.div`
         tbody tr.date-group-header td {
             background: #f1f5f9 !important;
             font-weight: 700 !important;
-            font-size: 10px !important;
-            padding: 6px 6px !important;
+            font-size: ${props => props.$isWide ? "12px" : "11px"} !important;
+            padding: ${props => props.$isWide ? "4px 8px" : "6px 6px"} !important;
             color: #000 !important;
+            border: 1px solid #94a3b8 !important;
             border-top: 1.5px solid #000 !important;
             border-bottom: 1px solid #333 !important;
+        }
+
+        /* Section Headers */
+        tbody tr[class*="SectionHeader"] td,
+        tbody tr[class*="section-header"] td,
+        tbody tr.section-header td {
+            background: #e2e8f0 !important;
+            font-weight: 800 !important;
+            font-size: ${props => props.$isWide ? "12px" : "11px"} !important;
+            padding: ${props => props.$isWide ? "4px 8px" : "5px 6px"} !important;
+            color: #0f172a !important;
+            border: 1px solid #94a3b8 !important;
         }
 
         /* Subtotal Rows */
@@ -615,10 +646,36 @@ const A4PageSheet = styled.div`
         tbody tr[class*="subtotal"] td,
         tbody tr.subtotal-row td {
             font-weight: 700 !important;
+            font-size: ${props => props.$isWide ? "12px" : "11px"} !important;
             color: #000 !important;
+            padding: ${props => props.$isWide ? "4px 6px" : "4px 5px"} !important;
+            border: 1px solid #cbd5e1 !important;
             border-top: 1px solid #444 !important;
             border-bottom: 1.5px solid #000 !important;
             background: #f8fafc !important;
+        }
+
+        tbody tr[class*="Subtotal"] td.text-right,
+        tbody tr[class*="subtotal"] td.text-right,
+        tbody tr.subtotal-row td.text-right,
+        tbody tr[class*="Subtotal"] .font-mono,
+        tbody tr[class*="subtotal"] .font-mono {
+            font-size: ${props => props.$isWide ? "13px" : "12px"} !important;
+            font-weight: 800 !important;
+        }
+
+        tfoot td.text-right,
+        table tfoot td.text-right,
+        tbody tr[class*="GrandTotal"] td.text-right,
+        tbody tr[class*="grand-total"] td.text-right,
+        tbody tr.grand-total-row td.text-right,
+        tbody tr[class*="GrandTotal"] .font-mono,
+        tbody tr[class*="grand-total"] .font-mono,
+        tr.total-row td.text-right,
+        tr.total-row .font-mono {
+            font-size: ${props => props.$isWide ? "14px" : "13px"} !important;
+            font-weight: 800 !important;
+            color: #000000 !important;
         }
 
         /* Grand Total Rows */
@@ -1282,7 +1339,7 @@ const A4MultiPageViewer = ({
                         }}
                     >
                         {/* Primary A4 Sheet */}
-                        <A4PageSheet id="pdf-page-1" className="a4-page-sheet">
+                        <A4PageSheet id="pdf-page-1" className="a4-page-sheet" $isWide={selectedReport?.id === "bill_wise" || selectedReport?.id === "daywise_sales_tax_register" || selectedReport?.id === "daywise_sales_tax" || Boolean(selectedReport?.isWide)}>
                             {/* Page 1 Header */}
                             <div className="page-header-block">
                                 <h2 className="hosp-name">{hospitalName}</h2>

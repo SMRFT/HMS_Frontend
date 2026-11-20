@@ -305,7 +305,8 @@ const LabAbstractReportDetailed = ({ embedded = false }) => {
                 uhid: patient.uhid || patient.op_number,
                 ip_number: patient.ip_number || ipNumber,
                 patient_name: patient.patient_name,
-                doctor: patient.doctor_name
+                doctor: patient.doctor_name || patient.doctor,
+                company: patient.company || patient.insurance_company || patient.company_name || '-'
             },
             orientation: 'portrait'
         });

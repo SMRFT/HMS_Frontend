@@ -35,6 +35,7 @@ import {
     BedDouble
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
+import { fetchCachedOutlets, cachedApiRequest } from "./masterAccountsHelper";
 import { fetchMyReportPermissions, fetchReportMasters } from "../../Auth/reportConfigApi";
 import A4MultiPageViewer from "../Reports/A4MultiPageViewer";
 
@@ -534,15 +535,15 @@ const MasterAccountsDashboard = () => {
     useEffect(() => {
         const fetchOutlets = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) {
-                    setOutletsList(res.data);
+                const data = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(data)) {
+                    setOutletsList(data);
                 }
             } catch (e) {}
         };
         const fetchBillTypes = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}bill-types_get/`, "GET");
+                const res = await cachedApiRequest(`${HmsBaseUrl}bill-types_get/`, "GET");
                 const recs = res?.records || res?.data?.records || res?.data;
                 if (Array.isArray(recs)) {
                     setBillTypesList(recs);
@@ -829,7 +830,8 @@ const MasterAccountsDashboard = () => {
             icon: <Layers size={24} />,
             color: "#0891b2",
             component: MasterDaywiseSalesTaxRegister,
-            fullPageRoute: "/MasterDaywiseSalesTaxRegister"
+            fullPageRoute: "/MasterDaywiseSalesTaxRegister",
+            isWide: true
         },
         {
             id: "drug_b2b_report",
@@ -1071,6 +1073,10 @@ const MasterAccountsDashboard = () => {
             setDateRange([dayjs(), dayjs()]);
             setSelectedFloor("all");
             setSelectedCompany("all");
+        } else if (report.id === "admission_vs_discharge") {
+            setSelectedOutlet("all");
+            setSelectedCompany("all");
+            setBillType("all");
         }
         if (["bill_wise", "credit_card", "cash_bills", "discount_bills", "department_wise", "bill_type_wise"].includes(report.id)) {
             setBillType("All");
@@ -1121,7 +1127,7 @@ const MasterAccountsDashboard = () => {
         if (!activeModalReport) return null;
         const Component = activeModalReport.component;
         const isNoOutlet = [
-            "ip_advance", "discharge_detailed", "insurance_advance", "admission_vs_discharge"
+            "ip_advance", "discharge_detailed", "insurance_advance"
         ].includes(String(activeModalReport.id));
         return (
             <Suspense fallback={<div style={{ padding: "80px", textAlign: "center" }}><Spin size="large" /></div>}>
@@ -1399,7 +1405,7 @@ const MasterAccountsDashboard = () => {
                     )}
 
                     {!([
-                        "ip_advance", "discharge_detailed", "insurance_advance", "admission_vs_discharge"
+                        "ip_advance", "discharge_detailed", "insurance_advance"
                     ].includes(String(activeModalReport?.id))) && (
                         <div className="field-group" style={{ marginTop: "12px" }}>
                             <label>Outlet / Counter</label>
@@ -1467,7 +1473,7 @@ const MasterAccountsDashboard = () => {
                                         <option value="SELF PACKAGE">Self Package</option>
                                         <option value="TKT">TKT</option>
                                     </>
-                                ) : activeModalReport?.id === "sales_tax_register" || activeModalReport?.id === "sales_tax_reg" ? (
+                                ) : activeModalReport?.id === "sales_tax_register" || activeModalReport?.id === "sales_tax_reg" || activeModalReport?.id === "daywise_sales_tax_register" || activeModalReport?.id === "daywise_sales_tax" ? (
                                     <>
                                         <option value="all">All Patients (OP & IP)</option>
                                         <option value="op">Out-Patient (OP)</option>
@@ -1605,6 +1611,35 @@ const MasterAccountsDashboard = () => {
                                 </select>
                             </div>
                         </>
+                    )}
+
+                    {activeModalReport?.id === "admission_vs_discharge" && (
+                        <div className="field-group" style={{ marginTop: "12px" }}>
+                            <label>Company / Corporate</label>
+                            <select
+                                value={selectedCompany}
+                                onChange={(e) => setSelectedCompany(e.target.value)}
+                            >
+                                <option value="all">All Companies</option>
+                                <option value="Cash / Self">Cash / Self</option>
+                                <option value="STAR HEALTH AND ALLIED INSURANCE LTD">STAR HEALTH</option>
+                                <option value="MEDI ASSIST">MEDI ASSIST</option>
+                                <option value="CGHS CREDIT">CGHS CREDIT</option>
+                                <option value="ECHS">ECHS</option>
+                                <option value="RAILWAY CTSE">RAILWAY CTSE</option>
+                                <option value="TNCMCHIS">TNCMCHIS</option>
+                                <option value="ESI">ESI</option>
+                                <option value="ESIC">ESIC</option>
+                                <option value="MD INDIA">MD INDIA</option>
+                                <option value="UNITED HEALTHCARE">UNITED HEALTHCARE</option>
+                                <option value="CHOLA MS HELP">CHOLA MS</option>
+                                <option value="BAJAJ ALLIANZ & ALLIED INSURANCE">BAJAJ ALLIANZ</option>
+                                <option value="FOOD CORPORATION OF INDIA (FCI),">FCI</option>
+                                <option value="TKT">TKT</option>
+                                <option value="SELF PACKAGE">SELF PACKAGE</option>
+                                <option value="VIDAL HEALTH">VIDAL HEALTH</option>
+                            </select>
+                        </div>
                     )}
 
                     <div className="info-note">

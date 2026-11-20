@@ -11,6 +11,8 @@ import {
     printReportArea,
     extractReportData,
     getSafeArray,
+    fetchCachedOutlets,
+    cachedApiRequest,
     ReportPageWrapper,
     ControlCard,
     HeaderBar,
@@ -26,21 +28,34 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 const CompactTableWrapper = styled(DataTableWrapper)`
+    width: 100%;
+    overflow-x: auto;
     table {
-        table-layout: auto;
-        font-size: 0.74rem;
+        table-layout: fixed;
+        width: 100%;
+        font-size: 0.85rem;
+        border-collapse: collapse;
+        border: 1.5px solid #334155 !important;
     }
     thead th {
-        padding: 6px 4px !important;
-        font-size: 0.70rem !important;
+        padding: 5px 6px !important;
+        font-size: 0.82rem !important;
         white-space: normal !important;
-        line-height: 1.15 !important;
+        line-height: 1.2 !important;
         text-align: left;
+        border: 1px solid #94a3b8 !important;
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+        font-weight: 700 !important;
     }
     tbody td {
-        padding: 4px 4px !important;
-        font-size: 0.74rem !important;
-        line-height: 1.2 !important;
+        padding: 3.5px 6px !important;
+        font-size: 0.84rem !important;
+        line-height: 1.25 !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .text-center {
         text-align: center !important;
@@ -49,6 +64,83 @@ const CompactTableWrapper = styled(DataTableWrapper)`
         text-align: right !important;
     }
 `;
+
+const SectionHeaderTr = styled.tr`
+    background: #e2e8f0 !important;
+    td {
+        font-weight: 800 !important;
+        font-size: 0.84rem !important;
+        color: #0f172a !important;
+        padding: 4px 8px !important;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        background: #e2e8f0 !important;
+        border: 1px solid #94a3b8 !important;
+    }
+`;
+
+const DateHeaderTr = styled.tr`
+    background: #f1f5f9 !important;
+    td {
+        font-weight: 700 !important;
+        font-size: 0.86rem !important;
+        color: #0f172a !important;
+        padding: 4px 8px !important;
+        background: #f1f5f9 !important;
+        border: 1px solid #94a3b8 !important;
+    }
+`;
+
+const SubtotalTr = styled.tr`
+    background: #f8fafc !important;
+    td {
+        font-weight: 700 !important;
+        font-size: 0.83rem !important;
+        color: #0f172a !important;
+        padding: 4px 6px !important;
+        border: 1px solid #cbd5e1 !important;
+        background: #f8fafc !important;
+    }
+`;
+
+const GrandTotalTr = styled.tr`
+    background: #f1f5f9 !important;
+    border-top: 2px solid #000000 !important;
+    border-bottom: 3px double #000000 !important;
+    td {
+        font-weight: 800 !important;
+        font-size: 0.88rem !important;
+        color: #000000 !important;
+        padding: 6px 8px !important;
+        background: #f1f5f9 !important;
+        border: 1px solid #64748b !important;
+        border-top: 2px solid #000000 !important;
+        border-bottom: 3px double #000000 !important;
+    }
+`;
+
+const extractDateKey = (dateVal) => {
+    if (!dateVal) return "Undated";
+    const str = String(dateVal).trim();
+    const ddmmyyyy = str.match(/^(\d{1,2}\/\d{1,2}\/\d{4})/);
+    if (ddmmyyyy) return ddmmyyyy[1];
+    const yyyymmdd = str.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (yyyymmdd) {
+        const parts = yyyymmdd[1].split("-");
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    if (str.includes(" ")) return str.split(" ")[0];
+    return str;
+};
+
+const extractTime = (dateVal) => {
+    if (!dateVal) return "";
+    const str = String(dateVal).trim();
+    if (str.includes(" ")) {
+        return str.substring(str.indexOf(" ") + 1).trim();
+    }
+    return "";
+};
 
 const MasterBillWiseReport = ({ 
     isModalView = false, 
@@ -90,9 +182,9 @@ const MasterBillWiseReport = ({
     useEffect(() => {
         const fetchOutlets = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) {
-                    setOutletsList(res.data);
+                const data = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(data)) {
+                    setOutletsList(data);
                 }
             } catch (e) {}
         };
@@ -100,14 +192,14 @@ const MasterBillWiseReport = ({
     }, [HmsBaseUrl]);
 
     /* Fetch report */
-    const fetchReport = useCallback(async () => {
+    const fetchReport = useCallback(async (isRefresh = false) => {
         try {
             setLoading(true);
             const fDate = dateRange[0].format("YYYY-MM-DD");
             const tDate = dateRange[1].format("YYYY-MM-DD");
             const outletParam = outlet && outlet !== "all" ? `&outlet_code=${outlet}` : "";
             const url = `${HmsBaseUrl}master-accounts/bill-wise-detailed/?from_date=${fDate}&to_date=${tDate}${outletParam}`;
-            const res = await apiRequest(url, "GET");
+            const res = await cachedApiRequest(url, "GET", null, { forceRefresh: isRefresh });
             if (res?.success) {
                 setReportData(extractReportData(res));
             } else {
@@ -142,16 +234,22 @@ const MasterBillWiseReport = ({
         if (selectedCategory !== "all") {
             list = list.filter(b => b.category === selectedCategory);
         }
-        if (!searchTerm.trim()) return list;
-        const q = searchTerm.toLowerCase();
-        return list.filter(b =>
-            String(b.bill_no || "").toLowerCase().includes(q) ||
-            String(b.patient_name || "").toLowerCase().includes(q) ||
-            String(b.mr_no || b.uhid || "").toLowerCase().includes(q) ||
-            String(b.ip_number || "").toLowerCase().includes(q) ||
-            String(b.category || "").toLowerCase().includes(q) ||
-            String(b.payment_mode || "").toLowerCase().includes(q)
-        );
+        if (searchTerm.trim()) {
+            const q = searchTerm.toLowerCase();
+            list = list.filter(b =>
+                String(b.bill_no || "").toLowerCase().includes(q) ||
+                String(b.patient_name || "").toLowerCase().includes(q) ||
+                String(b.mr_no || b.uhid || "").toLowerCase().includes(q) ||
+                String(b.ip_number || "").toLowerCase().includes(q) ||
+                String(b.category || "").toLowerCase().includes(q) ||
+                String(b.payment_mode || "").toLowerCase().includes(q)
+            );
+        }
+        return [...list].sort((a, b) => {
+            const s1 = String(a.bill_no || "").trim();
+            const s2 = String(b.bill_no || "").trim();
+            return s1.localeCompare(s2, undefined, { numeric: true, sensitivity: 'base' });
+        });
     }, [bills, selectedCategory, searchTerm]);
 
     /* Calculated totals */
@@ -195,33 +293,199 @@ const MasterBillWiseReport = ({
         };
     }, [filtered]);
 
-    /* Excel export with sales returns and expense payments */
-    const handleExport = () => {
-        const rows = filtered.map((b, idx) => {
-            const isSR = b.is_sales_return || String(b.category || "").toLowerCase().includes("return") || String(b.category || "").toLowerCase().includes("refund") || cleanNum(b.sales_return) > 0;
-            const isExp = b.is_expense || String(b.category || "").toLowerCase().includes("expense") || String(b.category || "").toLowerCase().includes("payment");
-            const srVal = isSR ? Math.abs(cleanNum(b.sales_return_amount || b.refund_amount || b.amount || b.gross)) : 0;
-            const expVal = isExp ? Math.abs(cleanNum(b.expense_amount || b.amount || b.gross)) : 0;
-            const netVal = isSR ? -srVal : isExp ? -expVal : cleanNum(b.gross || ((b.cash || 0) + (b.bank || 0) + (b.credit || 0)));
+    /* Grouped data by Date and Category */
+    const groupedData = useMemo(() => {
+        let runningSlno = 1;
+        const dateMap = new Map();
 
-            return {
-                "SLNO": idx + 1,
-                "Bill / Voucher No": b.bill_no,
-                "Date": b.date,
-                "Category": b.category,
-                "UHID": b.mr_no || b.uhid || "—",
-                "IP No": b.ip_number || "—",
-                "Patient / Account Name": b.patient_name || "—",
-                "Payment Mode": b.payment_mode || "Cash",
-                "Sales Return / Refund (₹)": srVal > 0 ? -srVal : 0,
-                "Expense Payment (₹)": expVal > 0 ? -expVal : 0,
-                "Cash (₹)": isSR && srVal > 0 ? -srVal : isExp && expVal > 0 ? -expVal : cleanNum(b.cash),
-                "Card & Bank (₹)": cleanNum(b.bank),
-                "Credit (₹)": cleanNum(b.credit),
-                "Net Total (₹)": netVal
-            };
+        filtered.forEach(b => {
+            const dateKey = extractDateKey(b.date);
+            const categoryKey = (b.category || "GENERAL").trim().toUpperCase();
+
+            if (!dateMap.has(dateKey)) {
+                dateMap.set(dateKey, new Map());
+            }
+            const catMap = dateMap.get(dateKey);
+            if (!catMap.has(categoryKey)) {
+                catMap.set(categoryKey, []);
+            }
+            catMap.get(categoryKey).push(b);
         });
-        exportToExcel(rows, "Master_Bill_Wise_Detailed_Report", "BillWise");
+
+        const result = [];
+        dateMap.forEach((catMap, dateKey) => {
+            const sections = [];
+            let dateSalesRet = 0;
+            let dateExpPaid = 0;
+            let dateCash = 0;
+            let dateCard = 0;
+            let dateNet = 0;
+            let dateCount = 0;
+
+            catMap.forEach((items, category) => {
+                let secSalesRet = 0;
+                let secExpPaid = 0;
+                let secCash = 0;
+                let secCard = 0;
+                let secNet = 0;
+
+                // Sort items in ascending bill number order
+                const sortedItems = [...items].sort((a, b) => {
+                    const s1 = String(a.bill_no || "").trim();
+                    const s2 = String(b.bill_no || "").trim();
+                    return s1.localeCompare(s2, undefined, { numeric: true, sensitivity: 'base' });
+                });
+
+                const enrichedItems = sortedItems.map(b => {
+                    const isSR = b.is_sales_return || String(b.category || "").toLowerCase().includes("return") || String(b.category || "").toLowerCase().includes("refund") || cleanNum(b.sales_return) > 0;
+                    const isExp = b.is_expense || String(b.category || "").toLowerCase().includes("expense") || String(b.category || "").toLowerCase().includes("payment");
+                    const srAmt = isSR ? Math.abs(cleanNum(b.sales_return_amount || b.refund_amount || b.amount || b.gross)) : 0;
+                    const expAmt = isExp ? Math.abs(cleanNum(b.expense_amount || b.amount || b.gross)) : 0;
+                    const netAmt = isSR ? -srAmt : isExp ? -expAmt : cleanNum(b.gross || ((b.cash || 0) + (b.bank || 0) + (b.credit || 0)));
+                    const cashAmt = isSR && srAmt > 0 ? -srAmt : isExp && expAmt > 0 ? -expAmt : cleanNum(b.cash);
+                    const cardAmt = cleanNum(b.bank);
+
+                    secSalesRet += srAmt;
+                    secExpPaid += expAmt;
+                    secCash += cashAmt;
+                    secCard += cardAmt;
+                    secNet += netAmt;
+
+                    return {
+                        ...b,
+                        displaySlno: runningSlno++,
+                        isSR,
+                        isExp,
+                        srAmt,
+                        expAmt,
+                        netAmt,
+                        cashAmt,
+                        cardAmt,
+                        timeStr: extractTime(b.date)
+                    };
+                });
+
+                sections.push({
+                    category,
+                    items: enrichedItems,
+                    totalSalesRet: secSalesRet,
+                    totalExpPaid: secExpPaid,
+                    totalCash: secCash,
+                    totalCard: secCard,
+                    totalNet: secNet,
+                    count: enrichedItems.length
+                });
+
+                dateSalesRet += secSalesRet;
+                dateExpPaid += secExpPaid;
+                dateCash += secCash;
+                dateCard += secCard;
+                dateNet += secNet;
+                dateCount += enrichedItems.length;
+            });
+
+            result.push({
+                date: dateKey,
+                sections,
+                dateSalesRet,
+                dateExpPaid,
+                dateCash,
+                dateCard,
+                dateNet,
+                count: dateCount
+            });
+        });
+
+        return result;
+    }, [filtered]);
+
+    /* Excel export with hierarchical date, category, and subtotals */
+    const handleExport = () => {
+        if (!groupedData || groupedData.length === 0) return;
+
+        const excelRows = [];
+        groupedData.forEach(dg => {
+            excelRows.push({
+                "SLNO": `Date: ${dg.date}`,
+                "Bill / Voucher No": "",
+                "Time": "",
+                "UHID": "",
+                "IP No": "",
+                "Patient / Particulars": "",
+                "Mode": "",
+                "Sales Return (₹)": "",
+                "Expense Payment (₹)": "",
+                "Cash (₹)": "",
+                "Card / POS (₹)": "",
+                "Net Amount (₹)": ""
+            });
+
+            dg.sections.forEach(sec => {
+                excelRows.push({
+                    "SLNO": sec.category,
+                    "Bill / Voucher No": "",
+                    "Time": "",
+                    "UHID": "",
+                    "IP No": "",
+                    "Patient / Particulars": "",
+                    "Mode": "",
+                    "Sales Return (₹)": "",
+                    "Expense Payment (₹)": "",
+                    "Cash (₹)": "",
+                    "Card / POS (₹)": "",
+                    "Net Amount (₹)": ""
+                });
+
+                sec.items.forEach(it => {
+                    excelRows.push({
+                        "SLNO": it.displaySlno,
+                        "Bill / Voucher No": it.bill_no,
+                        "Time": it.timeStr || it.date || "",
+                        "UHID": it.mr_no || it.uhid || "—",
+                        "IP No": it.ip_number || "—",
+                        "Patient / Particulars": it.patient_name || "—",
+                        "Mode": it.payment_mode || "Cash",
+                        "Sales Return (₹)": it.srAmt > 0 ? -it.srAmt : 0,
+                        "Expense Payment (₹)": it.expAmt > 0 ? -it.expAmt : 0,
+                        "Cash (₹)": it.cashAmt,
+                        "Card / POS (₹)": it.cardAmt,
+                        "Net Amount (₹)": it.netAmt
+                    });
+                });
+
+                excelRows.push({
+                    "SLNO": "",
+                    "Bill / Voucher No": "",
+                    "Time": "",
+                    "UHID": "",
+                    "IP No": "",
+                    "Patient / Particulars": "",
+                    "Mode": "Total ->",
+                    "Sales Return (₹)": sec.totalSalesRet > 0 ? -sec.totalSalesRet : 0,
+                    "Expense Payment (₹)": sec.totalExpPaid > 0 ? -sec.totalExpPaid : 0,
+                    "Cash (₹)": sec.totalCash,
+                    "Card / POS (₹)": sec.totalCard,
+                    "Net Amount (₹)": sec.totalNet
+                });
+            });
+        });
+
+        excelRows.push({
+            "SLNO": "",
+            "Bill / Voucher No": "",
+            "Time": "",
+            "UHID": "",
+            "IP No": "",
+            "Patient / Particulars": "",
+            "Mode": `Grand Total -> (${filtered.length} Bills)`,
+            "Sales Return (₹)": totals.salesRet > 0 ? -totals.salesRet : 0,
+            "Expense Payment (₹)": totals.expPaid > 0 ? -totals.expPaid : 0,
+            "Cash (₹)": totals.cashIn - totals.salesRet - totals.expPaid,
+            "Card / POS (₹)": totals.cardIn,
+            "Net Amount (₹)": totals.netRev
+        });
+
+        exportToExcel(excelRows, "Master_Bill_Wise_Detailed_Report", "BillWise");
     };
 
     return (
@@ -284,7 +548,7 @@ const MasterBillWiseReport = ({
                                 style={{ width: 220 }}
                             />
                         </div>
-                        <Button icon={<RefreshCw size={14} />} onClick={fetchReport} loading={loading}>
+                        <Button icon={<RefreshCw size={14} />} onClick={() => fetchReport(true)} loading={loading}>
                             Refresh
                         </Button>
                     </FilterBar>
@@ -354,117 +618,166 @@ const MasterBillWiseReport = ({
                         <table>
                             <thead>
                                 <tr>
-                                    <th style={{ width: "35px", textAlign: "center" }}>SLNO</th>
-                                    <th style={{ width: "85px" }}>Bill / Voucher No</th>
-                                    <th style={{ width: "75px" }}>Date</th>
-                                    <th style={{ width: "80px" }}>Category</th>
-                                    <th style={{ width: "72px" }}>UHID</th>
-                                    <th style={{ width: "60px" }}>IP No</th>
-                                    <th style={{ minWidth: "110px" }}>Patient / Particulars</th>
-                                    <th style={{ width: "45px" }}>Mode</th>
-                                    <th style={{ width: "72px", color: "#dc2626" }} className="text-right">Sales Return (₹)</th>
-                                    <th style={{ width: "72px", color: "#d97706" }} className="text-right">Expense Payment (₹)</th>
-                                    <th style={{ width: "68px" }} className="text-right">Cash (₹)</th>
-                                    <th style={{ width: "68px" }} className="text-right">Card / POS (₹)</th>
-                                    <th style={{ width: "62px" }} className="text-right">Credit (₹)</th>
-                                    <th style={{ width: "72px" }} className="text-right">Net Amount (₹)</th>
+                                    <th style={{ width: "3.5%", textAlign: "center" }}>SLNO</th>
+                                    <th style={{ width: "11%" }}>Bill / Voucher No</th>
+                                    <th style={{ width: "7.5%" }}>Time</th>
+                                    <th style={{ width: "8.5%" }}>UHID</th>
+                                    <th style={{ width: "8%" }}>IP No</th>
+                                    <th style={{ width: "23%" }}>Patient / Particulars</th>
+                                    <th style={{ width: "5.5%" }}>Mode</th>
+                                    <th style={{ width: "8%", color: "#dc2626" }} className="text-right">Sales Return (₹)</th>
+                                    <th style={{ width: "8.5%", color: "#d97706" }} className="text-right">Expense Payment (₹)</th>
+                                    <th style={{ width: "8%" }} className="text-right">Cash (₹)</th>
+                                    <th style={{ width: "8%" }} className="text-right">Card / POS (₹)</th>
+                                    <th style={{ width: "8.5%" }} className="text-right">Net Amount (₹)</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.length === 0 ? (
+                                {groupedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={14} style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>
-                                            No records found for the selected criteria.
+                                        <td colSpan={12} style={{ textAlign: "center", padding: "35px", color: "#64748b" }}>
+                                            No billing records found for the selected criteria.
                                         </td>
                                     </tr>
                                 ) : (
-                                    filtered.map((b, idx) => {
-                                        const isSR = b.is_sales_return || String(b.category || "").toLowerCase().includes("return") || String(b.category || "").toLowerCase().includes("refund") || cleanNum(b.sales_return) > 0;
-                                        const isExp = b.is_expense || String(b.category || "").toLowerCase().includes("expense") || String(b.category || "").toLowerCase().includes("payment");
-                                        const srAmt = isSR ? Math.abs(cleanNum(b.sales_return_amount || b.refund_amount || b.amount || b.gross)) : 0;
-                                        const expAmt = isExp ? Math.abs(cleanNum(b.expense_amount || b.amount || b.gross)) : 0;
-                                        const netAmt = isSR ? -srAmt : isExp ? -expAmt : cleanNum(b.gross || ((b.cash || 0) + (b.bank || 0) + (b.credit || 0)));
+                                    groupedData.map(dg => (
+                                        <React.Fragment key={dg.date}>
+                                            {/* Date Header Row */}
+                                            <DateHeaderTr className="DateGroup date-group">
+                                                <td colSpan={12} style={{ padding: "4px 8px", background: "#f1f5f9", fontWeight: 700 }}>
+                                                    Date : {dg.date}
+                                                </td>
+                                            </DateHeaderTr>
 
-                                        return (
-                                            <tr 
-                                                key={idx}
-                                                style={{
-                                                    background: isSR ? "#fef2f2" : isExp ? "#fffbeb" : "inherit"
-                                                }}
-                                            >
-                                                <td className="text-center">{idx + 1}</td>
-                                                <td className="font-mono" style={{ fontSize: "0.72rem" }}><strong>{b.bill_no}</strong></td>
-                                                <td style={{ fontSize: "0.70rem" }}>{b.date}</td>
-                                                <td style={{ fontSize: "0.70rem" }}>
-                                                    <Tag color={isSR ? "red" : isExp ? "orange" : "blue"} style={{ fontSize: "0.68rem", padding: "0 4px", lineHeight: "17px", margin: 0 }}>
-                                                        {b.category}
-                                                    </Tag>
-                                                </td>
-                                                <td className="font-mono" style={{ fontSize: "0.70rem" }}>{b.mr_no || b.uhid || "—"}</td>
-                                                <td className="font-mono" style={{ fontSize: "0.70rem" }}>{b.ip_number || "—"}</td>
-                                                <td>
-                                                    <strong style={{ fontSize: "0.72rem" }}>{b.patient_name || (b.mr_no || b.uhid ? "Patient" : "General Patient")}</strong>
-                                                    {Array.isArray(b.particulars) && b.particulars.length > 0 && b.particulars[0]?.itemName && (
-                                                        <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: "1px" }}>
-                                                            {b.particulars[0].itemName}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td style={{ fontSize: "0.70rem" }}>{b.payment_mode || "Cash"}</td>
-                                                <td className="text-right font-mono font-bold" style={{ color: srAmt > 0 ? "#dc2626" : "#94a3b8" }}>
-                                                    {srAmt > 0 ? `-₹${formatINR(srAmt)}` : "—"}
-                                                </td>
-                                                <td className="text-right font-mono font-bold" style={{ color: expAmt > 0 ? "#d97706" : "#94a3b8" }}>
-                                                    {expAmt > 0 ? `-₹${formatINR(expAmt)}` : "—"}
-                                                </td>
-                                                <td className="text-right font-mono">
-                                                    {isSR && srAmt > 0 ? (
-                                                        <span style={{ color: "#dc2626", fontWeight: 700 }}>-₹{formatINR(srAmt)}</span>
-                                                    ) : isExp && expAmt > 0 ? (
-                                                        <span style={{ color: "#d97706", fontWeight: 700 }}>-₹{formatINR(expAmt)}</span>
-                                                    ) : cleanNum(b.cash) > 0 ? (
-                                                        <span style={{ color: "#059669", fontWeight: 600 }}>{formatINR(b.cash)}</span>
-                                                    ) : cleanNum(b.cash) < 0 ? (
-                                                        <span style={{ color: "#dc2626", fontWeight: 600 }}>{formatINR(b.cash)}</span>
-                                                    ) : (
-                                                        "0.00"
-                                                    )}
-                                                </td>
-                                                <td className="text-right font-mono">{formatINR(b.bank)}</td>
-                                                <td className="text-right font-mono">{formatINR(b.credit)}</td>
-                                                <td className="text-right font-mono font-bold" style={{ color: netAmt < 0 ? "#dc2626" : "#0284c7" }}>
-                                                    {formatINR(netAmt)}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
+                                            {/* Category Sections */}
+                                            {dg.sections.map(sec => (
+                                                <React.Fragment key={`${dg.date}-${sec.category}`}>
+                                                    {/* Category Header Row */}
+                                                    <SectionHeaderTr className="SectionHeader section-header">
+                                                        <td colSpan={12} style={{ padding: "4px 8px", background: "#e2e8f0", fontWeight: 800 }}>
+                                                            {sec.category}
+                                                        </td>
+                                                    </SectionHeaderTr>
+
+                                                    {/* Item Rows */}
+                                                    {sec.items.map(it => {
+                                                        const pName = (it.patient_name || (it.mr_no || it.uhid ? "Patient" : "General Patient")).trim();
+                                                        const itemDesc = Array.isArray(it.particulars) && it.particulars.length > 0 
+                                                            ? (it.particulars[0]?.itemName || it.particulars[0]?.item_name || "").trim() 
+                                                            : "";
+                                                        const showSubDesc = Boolean(itemDesc && itemDesc.toLowerCase() !== pName.toLowerCase());
+
+                                                        return (
+                                                            <tr 
+                                                                key={it.bill_no + "-" + it.displaySlno}
+                                                                style={{
+                                                                    background: it.isSR ? "#fef2f2" : it.isExp ? "#fffbeb" : "inherit"
+                                                                }}
+                                                            >
+                                                                <td className="text-center" style={{ fontWeight: 600, fontSize: "0.85rem" }}>
+                                                                    {it.displaySlno}
+                                                                </td>
+                                                                <td className="font-mono" style={{ fontSize: "0.88rem", fontWeight: 700 }}>
+                                                                    <strong>{it.bill_no}</strong>
+                                                                </td>
+                                                                <td style={{ fontSize: "0.80rem", color: "#334155" }}>
+                                                                    {it.timeStr || it.date || "—"}
+                                                                </td>
+                                                                <td className="font-mono" style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                                                                    {it.mr_no || it.uhid || "—"}
+                                                                </td>
+                                                                <td className="font-mono" style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                                                                    {it.ip_number || "—"}
+                                                                </td>
+                                                                <td style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+                                                                    <strong style={{ fontSize: "0.88rem", color: "#0f172a" }}>
+                                                                        {pName}
+                                                                    </strong>
+                                                                    {showSubDesc && (
+                                                                        <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: "1px" }}>
+                                                                            {itemDesc}
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                                <td style={{ fontSize: "0.82rem", fontWeight: 500 }}>{it.payment_mode || "Cash"}</td>
+                                                                <td className="text-right font-mono font-bold" style={{ color: it.srAmt > 0 ? "#dc2626" : "#64748b", fontSize: "0.92rem" }}>
+                                                                    {it.srAmt > 0 ? `-₹${formatINR(it.srAmt)}` : "—"}
+                                                                </td>
+                                                                <td className="text-right font-mono font-bold" style={{ color: it.expAmt > 0 ? "#d97706" : "#64748b", fontSize: "0.92rem" }}>
+                                                                    {it.expAmt > 0 ? `-₹${formatINR(it.expAmt)}` : "—"}
+                                                                </td>
+                                                                <td className="text-right font-mono font-bold" style={{ fontSize: "0.92rem" }}>
+                                                                    {it.isSR && it.srAmt > 0 ? (
+                                                                        <span style={{ color: "#dc2626", fontWeight: 700 }}>-₹${formatINR(it.srAmt)}</span>
+                                                                    ) : it.isExp && it.expAmt > 0 ? (
+                                                                        <span style={{ color: "#d97706", fontWeight: 700 }}>-₹${formatINR(it.expAmt)}</span>
+                                                                    ) : cleanNum(it.cash) > 0 ? (
+                                                                        <span style={{ color: "#059669", fontWeight: 700 }}>{formatINR(it.cash)}</span>
+                                                                    ) : cleanNum(it.cash) < 0 ? (
+                                                                        <span style={{ color: "#dc2626", fontWeight: 700 }}>{formatINR(it.cash)}</span>
+                                                                    ) : (
+                                                                        "0.00"
+                                                                    )}
+                                                                </td>
+                                                                <td className="text-right font-mono font-bold" style={{ fontSize: "0.92rem", color: cleanNum(it.bank) > 0 ? "#2563eb" : "#0f172a" }}>
+                                                                    {formatINR(it.bank)}
+                                                                </td>
+                                                                <td className="text-right font-mono font-bold" style={{ color: it.netAmt < 0 ? "#dc2626" : "#0284c7", fontSize: "0.94rem" }}>
+                                                                    {formatINR(it.netAmt)}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+
+                                                    {/* Section Subtotal Row */}
+                                                    <SubtotalTr className="SubTotal sub-total">
+                                                        <td colSpan={7} style={{ textAlign: "right", fontWeight: 700, color: "#1e293b", fontSize: "0.88rem" }}>
+                                                            Total -&gt;
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold" style={{ color: sec.totalSalesRet > 0 ? "#dc2626" : "#64748b", fontSize: "0.95rem" }}>
+                                                            {sec.totalSalesRet > 0 ? `-₹${formatINR(sec.totalSalesRet)}` : "—"}
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold" style={{ color: sec.totalExpPaid > 0 ? "#d97706" : "#64748b", fontSize: "0.95rem" }}>
+                                                            {sec.totalExpPaid > 0 ? `-₹${formatINR(sec.totalExpPaid)}` : "—"}
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold" style={{ color: sec.totalCash < 0 ? "#dc2626" : "#059669", fontSize: "0.95rem" }}>
+                                                            {sec.totalCash < 0 ? `-₹${formatINR(Math.abs(sec.totalCash))}` : formatINR(sec.totalCash)}
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold" style={{ fontSize: "0.95rem", color: "#2563eb" }}>
+                                                            {formatINR(sec.totalCard)}
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold" style={{ color: sec.totalNet < 0 ? "#dc2626" : "#0284c7", fontSize: "0.98rem" }}>
+                                                            {sec.totalNet < 0 ? `-₹${formatINR(Math.abs(sec.totalNet))}` : formatINR(sec.totalNet)}
+                                                        </td>
+                                                    </SubtotalTr>
+                                                </React.Fragment>
+                                            ))}
+                                        </React.Fragment>
+                                    ))
                                 )}
 
                                 {/* Grand Totals Row */}
-                                {filtered.length > 0 && (
-                                    <tr className="total-row" style={{ background: "#0f172a", color: "#ffffff", fontWeight: 800 }}>
-                                        <td colSpan={8} style={{ color: "#ffffff", padding: "6px 4px" }}>
-                                            <strong>TOTALS ({filtered.length} RECORDS)</strong>
+                                {groupedData.length > 0 && (
+                                    <GrandTotalTr className="GrandTotal grand-total-row">
+                                        <td colSpan={7} style={{ textAlign: "right", fontWeight: 800, color: "#000000", fontSize: "0.94rem" }}>
+                                            Grand Total -&gt; ({filtered.length} Bills)
                                         </td>
-                                        <td className="text-right font-mono font-bold" style={{ color: "#f87171", padding: "6px 4px" }}>
-                                            {totals.salesRet > 0 ? `-₹${formatINR(totals.salesRet)}` : "₹0.00"}
+                                        <td className="text-right font-mono font-bold" style={{ color: totals.salesRet > 0 ? "#dc2626" : "#000000", fontSize: "1.05rem" }}>
+                                            {totals.salesRet > 0 ? `-₹${formatINR(totals.salesRet)}` : "0.00"}
                                         </td>
-                                        <td className="text-right font-mono font-bold" style={{ color: "#fbbf24", padding: "6px 4px" }}>
-                                            {totals.expPaid > 0 ? `-₹${formatINR(totals.expPaid)}` : "₹0.00"}
+                                        <td className="text-right font-mono font-bold" style={{ color: totals.expPaid > 0 ? "#d97706" : "#000000", fontSize: "1.05rem" }}>
+                                            {totals.expPaid > 0 ? `-₹${formatINR(totals.expPaid)}` : "0.00"}
                                         </td>
-                                        <td className="text-right font-mono" style={{ color: "#4ade80", padding: "6px 4px" }}>
-                                            ₹{formatINR(totals.cashIn - totals.salesRet - totals.expPaid)}
+                                        <td className="text-right font-mono font-bold" style={{ color: (totals.cashIn - totals.salesRet - totals.expPaid) < 0 ? "#dc2626" : "#000000", fontSize: "1.05rem" }}>
+                                            {formatINR(totals.cashIn - totals.salesRet - totals.expPaid)}
                                         </td>
-                                        <td className="text-right font-mono" style={{ color: "#ffffff", padding: "6px 4px" }}>
-                                            ₹{formatINR(totals.cardIn)}
+                                        <td className="text-right font-mono font-bold" style={{ color: "#000000", fontSize: "1.05rem" }}>
+                                            {formatINR(totals.cardIn)}
                                         </td>
-                                        <td className="text-right font-mono" style={{ color: "#ffffff", padding: "6px 4px" }}>
-                                            ₹{formatINR(totals.creditIn)}
+                                        <td className="text-right font-mono font-bold" style={{ color: totals.netRev < 0 ? "#dc2626" : "#000000", fontSize: "1.08rem" }}>
+                                            {formatINR(totals.netRev)}
                                         </td>
-                                        <td className="text-right font-mono font-bold" style={{ color: "#38bdf8", padding: "6px 4px" }}>
-                                            ₹{formatINR(totals.netRev)}
-                                        </td>
-                                    </tr>
+                                    </GrandTotalTr>
                                 )}
                             </tbody>
                         </table>

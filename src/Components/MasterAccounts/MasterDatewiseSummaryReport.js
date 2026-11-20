@@ -9,6 +9,8 @@ import apiRequest from "../../Auth/apiRequest";
 import {
     formatINR,
     cleanNum,
+    fetchCachedOutlets,
+    cachedApiRequest,
     ReportPageWrapper,
     ControlCard,
     HeaderBar,
@@ -129,9 +131,9 @@ const MasterDatewiseSummaryReport = ({
     useEffect(() => {
         const fetchOutlets = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) {
-                    setOutletsList(res.data);
+                const data = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(data)) {
+                    setOutletsList(data);
                 }
             } catch (e) {
                 console.error("Error loading outlets:", e);
@@ -141,7 +143,7 @@ const MasterDatewiseSummaryReport = ({
     }, [HmsBaseUrl]);
 
     // Fetch Date-Wise Summary Report Data
-    const fetchReport = useCallback(async () => {
+    const fetchReport = useCallback(async (isRefresh = false) => {
         if (!fromDate || !toDate) {
             toast.warning("Please select both From Date and To Date");
             return;
@@ -154,7 +156,7 @@ const MasterDatewiseSummaryReport = ({
                 url += `&outlet_code=${encodeURIComponent(outlet)}`;
             }
 
-            const res = await apiRequest(url, "GET");
+            const res = await cachedApiRequest(url, "GET", null, { forceRefresh: isRefresh });
 
             if (res && res.success && Array.isArray(res.data)) {
                 setRawData(res.data);
@@ -507,7 +509,7 @@ const MasterDatewiseSummaryReport = ({
 
                         <Button
                             icon={<RefreshCw size={14} className={loading ? "fa-spin" : ""} />}
-                            onClick={fetchReport}
+                            onClick={() => fetchReport(true)}
                             loading={loading}
                             style={{ height: "36px" }}
                         >
