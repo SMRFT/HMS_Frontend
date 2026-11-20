@@ -3455,7 +3455,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       }
     });
 
-    const isWardReqBill = Boolean(isWardRequest || patientDetails?.is_ward_request || patientDetails?.Bill_id || recordId);
+    const isWardReqBill = Boolean(isWardRequest || wardRequestToLoad?.is_ward_request || wardRequestToLoad?.Bill_id || recordId);
 
     if (invalidStockItems.length > 0) {
       if (!isWardReqBill) {

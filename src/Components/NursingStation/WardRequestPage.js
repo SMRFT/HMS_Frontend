@@ -1489,16 +1489,13 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       medicine_particulars: selectedMedicines.map((m) => ({
         item_id: m.item_id,
         qty: Number(m.qty) || 0,
-        dispatched_qty: m.dispatched_qty !== undefined ? m.dispatched_qty : null,
+        dispatched_qty: null,
         dosage: m.dosage || "",
         noOfDays: m.noOfDays || "",
         remark: m.remark || "",
         dose: m.dose || "",
-        doseunit: m.doseunit || m.doseUnit || "",
         doseUnit: m.doseUnit || m.doseunit || "",
         route: m.route || "",
-        batch_number: "",
-        price: m.price || 0,
       })),
       total_amount: selectedMedicines.reduce(
         (acc, m) => acc + (m.price || 0) * (m.qty || 0),

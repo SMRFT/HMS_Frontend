@@ -2480,6 +2480,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         const reqBy   = String(patient.created_by_name || patient.prepared_by || patient.created_by || patient.patient_details?.created_by_name || "").toLowerCase();
         const mobile  = String(patient.patient_details?.mobile || patient.mobile || "").toLowerCase();
         const company = String(patient.insurance_company || "").toLowerCase();
+        const reqNo   = String(patient.request_no || patient.requestNo || "").toLowerCase();
 
         return (
           pName.includes(q) ||
@@ -2489,7 +2490,8 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           doc.includes(q) ||
           reqBy.includes(q) ||
           mobile.includes(q) ||
-          company.includes(q)
+          company.includes(q) ||
+          reqNo.includes(q)
         );
       }
 
@@ -2918,7 +2920,8 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       const ipNo = patient.inpatient_number || patient.ip_number || "—";
                       const ward = patient.ward_name || patient.room_no || "—";
                       const isOtRequest = String(patient.billing_mode || patient.billingMode || "").toUpperCase().includes("OT");
-                      const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date);
+                      const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date || patient.bill_date);
+                      const reqNo = patient.request_no || patient.requestNo || "";
                       const isInsurance = Boolean(
                         patient.is_insurance ||
                         String(patient.customer_type || "").toLowerCase() === "insurance" ||
@@ -3031,11 +3034,25 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           {/* 6. Request Date & Time */}
                           <td>
                             <div style={{ fontWeight: 600, fontSize: "0.74rem", color: "#0f172a", whiteSpace: "nowrap" }}>
-                              {formatDateOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
+                              {dateFormatted}
                             </div>
-                            <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: 2, whiteSpace: "nowrap" }}>
-                              {formatTimeOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
-                            </div>
+                            {reqNo ? (
+                              <div style={{
+                                marginTop: 3,
+                                display: "inline-block",
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                color: "#0f766e",
+                                background: "#f0fdfa",
+                                border: "1px solid #99f6e4",
+                                borderRadius: 4,
+                                padding: "1px 6px",
+                                letterSpacing: "0.2px",
+                                whiteSpace: "nowrap"
+                              }}>
+                                {reqNo}
+                              </div>
+                            ) : null}
                           </td>
 
                           {/* 7. Status */}
@@ -3202,7 +3219,23 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                         )}
                       </div>
                     )}
-                    <CardDateSubtext style={{ marginTop: 2 }}>{dateFormatted}</CardDateSubtext>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                      <CardDateSubtext>{dateFormatted}</CardDateSubtext>
+                      {(patient.request_no || patient.requestNo) && (
+                        <span style={{
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          color: "#0f766e",
+                          background: "#f0fdfa",
+                          border: "1px solid #99f6e4",
+                          borderRadius: 4,
+                          padding: "1px 5px",
+                          letterSpacing: "0.2px"
+                        }}>
+                          {patient.request_no || patient.requestNo}
+                        </span>
+                      )}
+                    </div>
                     {requestedBy && (
                       <div
                         style={{
@@ -3438,6 +3471,19 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           </span>
                         )}
                         <span>{dateFormatted}</span>
+                        {(patient.request_no || patient.requestNo) && (
+                          <span style={{
+                            background: "#f0fdfa",
+                            color: "#0f766e",
+                            border: "1px solid #99f6e4",
+                            padding: "1px 6px",
+                            borderRadius: 4,
+                            fontWeight: 700,
+                            fontSize: "0.72rem"
+                          }}>
+                            Req No: {patient.request_no || patient.requestNo}
+                          </span>
+                        )}
                         {modalRequestedBy && (
                           <span style={{ color: "#0f766e", fontWeight: 700 }}>
                             Requested by: {modalRequestedBy}
