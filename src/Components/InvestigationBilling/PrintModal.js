@@ -249,7 +249,8 @@ function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = fa
     body { width: 72mm; max-width: 100%; font-size: 11px; padding: 4px 6px 4px 14px; margin: 0 auto; }
     .hospital-name { font-size: 13px; }
     .bill-title { font-size: 12px; }
-    table th, table td { padding: 3px 4px; font-size: 11px; }
+    table th { padding: 3px 4px; font-size: 11px; }
+table td { padding: 5px 4px; font-size: 11px; }
     .total-row { font-size: 12px; }
     .net-row { font-size: 13px; }
     .bill-meta { flex-direction: column; gap: 0; }
@@ -261,13 +262,24 @@ function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = fa
   `
     : isA5
       ? `
-    body { width: 148mm; font-size: 12px; padding: 10mm; }
-    .hospital-name { font-size: 14px; }
+    body { width: 148mm; font-size: 13.5px; padding: 10mm; }
+    .hospital-name { font-size: 16px; }
+    table th { font-size: 13px; padding: 5px 7px; }
+table td { font-size: 13px; padding: 11px 7px; }
+    .meta-row { font-size: 0.95em; }
+    .total-row { font-size: 13px; }
+    .net-row { font-size: 14.5px; }
     @page { size: A5 portrait; margin: 8mm; }
   `
       : `
-    body { width: 210mm; font-size: 13px; padding: 14mm; }
-    .hospital-name { font-size: 16px; }
+    body { width: 210mm; font-size: 15px; padding: 14mm; }
+    .hospital-name { font-size: 18px; }
+   table th { font-size: 14px; padding: 6px 8px; }
+table th { font-size: 14px; padding: 6px 8px; }
+table td { font-size: 14px; padding: 13px 8px; }
+    .meta-row { font-size: 0.95em; }
+    .total-row { font-size: 14px; }
+    .net-row { font-size: 16px; }
     @page { size: A4 portrait; margin: 14mm; }
   `;
 
@@ -369,16 +381,16 @@ function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = fa
 
   <div class="bill-meta">
     <div class="meta-col">
-      <div class="meta-row"><span class="meta-label">${isEstimate ? "Estimate No" : "Bill Number"}</span><span class="meta-colon">:</span><span class="meta-val">${billNo}</span></div>
-      <div class="meta-row"><span class="meta-label">OP Number</span><span class="meta-colon">:</span><span class="meta-val">${bill.uhid || ""}</span></div>
-      ${bill.ipNumber ? `<div class="meta-row"><span class="meta-label">IP Number</span><span class="meta-colon">:</span><span class="meta-val">${bill.ipNumber}</span></div>` : ""}
-      <div class="meta-row"><span class="meta-label">Date & Time</span><span class="meta-colon">:</span><span class="meta-val">${fmtDate(billDate)} ${fmtTime12(bill.time)}</span></div>
-    </div>
-    <div class="meta-col">
       <div class="meta-row"><span class="meta-label">Name</span><span class="meta-colon">:</span><span class="meta-val">${patientName}</span></div>
       <div class="meta-row"><span class="meta-label">Age / Gender</span><span class="meta-colon">:</span><span class="meta-val">${age} / ${bill.gender || ""}</span></div>
       <div class="meta-row"><span class="meta-label">Doctor</span><span class="meta-colon">:</span><span class="meta-val">${doctorName}</span></div>
       ${roomNo ? `<div class="meta-row"><span class="meta-label">Room No</span><span class="meta-colon">:</span><span class="meta-val">${roomNo}</span></div>` : ""}
+    </div>
+    <div class="meta-col">
+      <div class="meta-row"><span class="meta-label">${isEstimate ? "Estimate No" : "Bill Number"}</span><span class="meta-colon">:</span><span class="meta-val">${billNo}</span></div>
+      <div class="meta-row"><span class="meta-label">OP Number</span><span class="meta-colon">:</span><span class="meta-val">${bill.uhid || ""}</span></div>
+      ${bill.ipNumber ? `<div class="meta-row"><span class="meta-label">IP Number</span><span class="meta-colon">:</span><span class="meta-val">${bill.ipNumber}</span></div>` : ""}
+      <div class="meta-row"><span class="meta-label">Date & Time</span><span class="meta-colon">:</span><span class="meta-val">${fmtDate(billDate)} ${fmtTime12(bill.time)}</span></div>
     </div>
   </div>
 
