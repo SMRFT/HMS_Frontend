@@ -509,10 +509,12 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
     };
   }, [openMenu]);
 
-  // ── Filtering (Safety local client-side filter) ──────────────────────────────
+  // ── Filtering (Safety local client-side filter + in-memory instant search) ───
   const filtered = useMemo(() => {
-    return bills.filter(b => {
-      if (selectedCustomerType !== "ALL") {
+    let list = bills;
+
+    if (selectedCustomerType !== "ALL") {
+      list = list.filter(b => {
         const ct = (b.customer_type || b.patient_details?.customer_type || "").toUpperCase();
         if (selectedCustomerType === "GENERAL") {
           if (b.is_insurance_bill || (ct && !ct.includes("GENERAL"))) return false;
@@ -522,10 +524,54 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
           const comp = (b.company_name || b.patient_details?.company || b.patient_details?.company_name || "").toUpperCase();
           if (!ct.includes(selectedCustomerType.toUpperCase()) && !comp.includes(selectedCustomerType.toUpperCase())) return false;
         }
-      }
-      return true;
-    });
-  }, [bills, selectedCustomerType]);
+        return true;
+      });
+    }
+
+    if (inputQ && inputQ.trim()) {
+      const q = inputQ.trim().toLowerCase();
+      list = list.filter(b => {
+        const pd = b.patient_details || {};
+        const pName = pd.patient_name || pd.name || b.patient_name || "";
+        const fName = pd.firstName || "";
+        const lName = pd.lastName || "";
+        const docName = b.doctor || pd.doctor || pd.admittingDoctorName || "";
+        const fullSearchString = [
+          b.uhid,
+          b.ip_number,
+          b.bill_no,
+          b.estimate_number,
+          b.insurance_bill_number,
+          pName,
+          fName,
+          lName,
+          docName,
+          b.customer_type,
+          pd.customer_type,
+          b.company_name,
+          pd.company,
+          pd.company_name,
+          pd.claim_number,
+          pd.id_card_number,
+          pd.card_no,
+          pd.referral_number,
+          pd.mobilePhone,
+          pd.mobile,
+          pd.phone,
+          pd.address,
+          pd.room_no,
+          b.status,
+          b.bill_date,
+          b.created_by,
+          b.created_by_name,
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        return fullSearchString.includes(q);
+      });
+    }
+
+    return list;
+  }, [bills, selectedCustomerType, inputQ]);
 
   // ── Summary totals ─────────────────────────────────────────────────────────
   const summary = filtered.reduce((acc, b) => {
@@ -693,7 +739,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
           <FL>Search</FL>
           <FInput
             value={inputQ}
-            onChange={e => setInputQ(e.target.value)}
+            onChange={e => { setInputQ(e.target.value); setPage(1); }}
             onKeyDown={handleKeyDown}
             placeholder="Name, UHID, IP, Bill No, Doctor…"
           />
@@ -820,7 +866,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                   </StickyLTD>
                   {/* Bill No. */}
                   <StickyLTD $left="216px" $bg={stickyBg} style={{ width: 145, minWidth: 145, maxWidth: 145 }}>
-                    {b.is_insurance_bill ? (
+                    {b.is_insurance_bill && String(b.customer_type || b.patient_details?.customer_type || "").toUpperCase().includes("INSURANCE") ? (
                       <div>
                         <Mono style={{ color: "#065f46", fontWeight: 700, fontSize: "0.82rem" }}>
                           {(b.insurance_bill_number || b.bill_no || "").replace(/\//g, "")}
@@ -958,7 +1004,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             <DI onClick={() => { setOpenMenu(null); handleOpenPrint(b, "NORMAL"); }}>
               🖨️ Print Bill
             </DI>
-            {(b.is_insurance_bill || b.insurance_bill_number) && (
+            {(b.is_insurance_bill || b.insurance_bill_number) && String(b.customer_type || b.patient_details?.customer_type || "").toUpperCase().includes("INSURANCE") && (
               <DI onClick={() => { setOpenMenu(null); handleOpenPrint(b, "INSURANCE_CLAIM"); }}>
                 🛡️ Insurance Print Bill
               </DI>

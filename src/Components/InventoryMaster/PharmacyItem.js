@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
-import SearchSelect from "../Common/SearchSelect";
 import {
   InvTheme,
   InvPageHeader,
@@ -21,12 +20,6 @@ import {
   InvDeleteBtn,
   InvHistoryBtn,
   InvModalOverlay,
-  InvModalContainer,
-  InvModalHeader,
-  InvModalTitle,
-  InvModalCloseBtn,
-  InvModalBody,
-  InvModalFooter,
   InvSlideFormPanel,
   InvSlideFormHead,
   InvSlideFormTitle,
@@ -437,17 +430,24 @@ const PharmacyItem = () => {
         page_size: String(pageSize),
       });
       const res = await apiRequest(`${baseUrl}pharmacy_item_purchase_history/?${q.toString()}`, "GET");
-      const payload = res?.data || res;
-      if (res && res.success && payload) {
-        const records = payload.records || payload.data || [];
+      let payload = res?.data !== undefined ? res.data : res;
+      if (typeof payload === "string") {
+        try { payload = JSON.parse(payload); } catch {}
+      }
+      const isSuccess = res?.success || payload?.success;
+      if (isSuccess && payload) {
+        const records = payload.records || payload.data || (Array.isArray(payload) ? payload : []);
         setHistoryData(Array.isArray(records) ? records : []);
-        setHistoryTotalRecords(payload.total_records ?? payload.count ?? (Array.isArray(records) ? records.length : 0));
-        setHistoryTotalPages(payload.total_pages || 1);
-        if (payload.suppliers && Array.isArray(payload.suppliers)) {
-          setHistorySuppliers(payload.suppliers);
+        setHistoryTotalRecords(
+          payload.total_records ?? payload.count ?? res?.total_records ?? res?.count ?? (Array.isArray(records) ? records.length : 0)
+        );
+        setHistoryTotalPages(payload.total_pages ?? res?.total_pages ?? 1);
+        const suppliersList = payload.suppliers || res?.suppliers;
+        if (Array.isArray(suppliersList)) {
+          setHistorySuppliers(suppliersList);
         }
       } else {
-        showToast(res?.error || "Failed to fetch purchase history", "error");
+        showToast(res?.error || payload?.error || "Failed to fetch purchase history", "error");
       }
     } catch {
       showToast("Error fetching purchase history", "error");
@@ -457,13 +457,14 @@ const PharmacyItem = () => {
   }, []);
 
   const handleOpenPurchaseHistory = (item) => {
+    const itmId = item?.item_id ?? item?.id ?? item?.medicine_id;
     setHistoryItem(item);
     setSelectedSupplier("ALL");
     setHistorySearch("");
     setHistoryCurrentPage(1);
     setHistoryPageSize(10);
     setHistoryModalOpen(true);
-    fetchPurchaseHistory(item.item_id, "ALL", 1, 10);
+    fetchPurchaseHistory(itmId, "ALL", 1, 10);
   };
 
   const getCompositionName = (id) => {
@@ -1188,7 +1189,7 @@ const PharmacyItem = () => {
                       const val = e.target.value;
                       setSelectedSupplier(val);
                       setHistoryCurrentPage(1);
-                      fetchPurchaseHistory(historyItem?.item_id, val, 1, historyPageSize);
+                      fetchPurchaseHistory(historyItem?.item_id ?? historyItem?.id, val, 1, historyPageSize);
                     }}
                     style={{
                       width: "100%",
@@ -1203,7 +1204,7 @@ const PharmacyItem = () => {
                       outline: "none",
                     }}
                   >
-                    <option value="ALL"></option>
+                    <option value="ALL">All Suppliers</option>
                     {historySuppliers.map((s) => (
                       <option key={s.vendor_id} value={String(s.vendor_id)}>
                         {s.name}
@@ -1222,7 +1223,7 @@ const PharmacyItem = () => {
                     const sz = Number(e.target.value);
                     setHistoryPageSize(sz);
                     setHistoryCurrentPage(1);
-                    fetchPurchaseHistory(historyItem?.item_id, selectedSupplier, 1, sz);
+                    fetchPurchaseHistory(historyItem?.item_id ?? historyItem?.id, selectedSupplier, 1, sz);
                   }}
                   style={{
                     height: 30,
@@ -1497,7 +1498,7 @@ const PharmacyItem = () => {
                     onClick={() => {
                       const prev = historyCurrentPage - 1;
                       setHistoryCurrentPage(prev);
-                      fetchPurchaseHistory(historyItem?.item_id, selectedSupplier, prev, historyPageSize);
+                      fetchPurchaseHistory(historyItem?.item_id ?? historyItem?.id, selectedSupplier, prev, historyPageSize);
                     }}
                     style={{
                       height: 32,
@@ -1520,7 +1521,7 @@ const PharmacyItem = () => {
                       key={p}
                       onClick={() => {
                         setHistoryCurrentPage(p);
-                        fetchPurchaseHistory(historyItem?.item_id, selectedSupplier, p, historyPageSize);
+                        fetchPurchaseHistory(historyItem?.item_id ?? historyItem?.id, selectedSupplier, p, historyPageSize);
                       }}
                       style={{
                         height: 32,
@@ -1544,7 +1545,7 @@ const PharmacyItem = () => {
                     onClick={() => {
                       const next = historyCurrentPage + 1;
                       setHistoryCurrentPage(next);
-                      fetchPurchaseHistory(historyItem?.item_id, selectedSupplier, next, historyPageSize);
+                      fetchPurchaseHistory(historyItem?.item_id ?? historyItem?.id, selectedSupplier, next, historyPageSize);
                     }}
                     style={{
                       height: 32,
