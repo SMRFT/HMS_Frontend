@@ -243,6 +243,87 @@ const getInsurancePdfStyle = (orientation = "landscape") => `
         text-align: center !important;
     }
 
+    /* Pharmacy IP Bill tax summary box in print */
+    .tax-summary-box {
+        margin-left: auto !important;
+        width: 360px !important;
+        max-width: 100% !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        gap: 20px !important;
+        margin-top: 5px !important;
+        margin-bottom: 8px !important;
+        padding: 5px 2px !important;
+        border-top: 1.5px solid #000000 !important;
+        border-bottom: 1px solid #000000 !important;
+        font-size: 8.5pt !important;
+        page-break-inside: avoid !important;
+    }
+    .tax-col-left, .tax-col-right {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 2px !important;
+    }
+    .tax-row-item {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        line-height: 1.4 !important;
+    }
+    .tax-label {
+        font-size: 8.5pt !important;
+        color: #000000 !important;
+    }
+    .tax-val {
+        font-size: 8.5pt !important;
+        font-weight: bold !important;
+        text-align: right !important;
+        min-width: 55px !important;
+    }
+    .net-amount-row {
+        margin-top: 2px !important;
+        padding-top: 3px !important;
+        border-top: 1px dashed #000000 !important;
+    }
+    .net-label {
+        font-size: 10.5pt !important;
+        font-weight: 800 !important;
+        color: #000000 !important;
+        letter-spacing: 0.3px !important;
+    }
+    .net-val {
+        font-size: 11.5pt !important;
+        font-weight: 900 !important;
+        color: #000000 !important;
+        text-align: right !important;
+    }
+    .grand-total-bar {
+        display: flex !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        border-top: 2px solid #000000 !important;
+        border-bottom: 2px solid #000000 !important;
+        padding: 6px 2px !important;
+        margin-top: 10px !important;
+        background: transparent !important;
+        page-break-inside: avoid !important;
+    }
+    .grand-total-bar .label {
+        margin-right: 20px !important;
+        font-size: 10.5pt !important;
+        font-weight: 800 !important;
+        text-transform: uppercase !important;
+        color: #000000 !important;
+    }
+    .grand-total-bar .amount {
+        font-size: 12.5pt !important;
+        font-weight: 900 !important;
+        text-align: right !important;
+        color: #000000 !important;
+        min-width: 80px !important;
+    }
+
     /* Metadata pills / chips in print */
     .info-chip, [class*="info-chip"] {
         display: inline-block !important;

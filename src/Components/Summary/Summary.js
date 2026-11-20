@@ -1565,7 +1565,7 @@ const Summary = () => {
       setDoctors(
         (r.data || []).map((doc) => ({
           ...doc,
-          employeeName: (doc.employeeName || "").toUpperCase(),
+          employeeName: (doc.employeeName || "").trim(),
         }))
       );
     }
@@ -2301,7 +2301,8 @@ const Summary = () => {
     let text = "INVESTIGATIONS:\n";
     selectedInvestigations.forEach((inv, idx) => {
       if (idx > 0) text += "\n---------------------\n";
-      text += `${inv.reportType}: \n${inv.investigation || "No details available"}\n\nImpression: \n${inv.impression || "No impression available"}\n`;
+      const dateLabel = inv.date ? ` (Date: ${formatDisplayDate(inv.date)})` : "";
+      text += `${inv.reportType}${dateLabel}: \n${inv.investigation || "No details available"}\n\nImpression: \n${inv.impression || "No impression available"}\n`;
     });
     if (formData.currentField === "INVESTIGATIONS") {
       setFormData((prev) => ({
@@ -3541,27 +3542,30 @@ const Summary = () => {
       summaryType: filters.summaryType,
     });
 
-  const doctorOptions = useMemo(() => {
-    return (doctors || []).map((d) => {
-      const name = (d.employeeName || "").trim().toUpperCase();
-      return { label: name, value: name };
-    });
-  }, [doctors]);
+  const doctorOptions = useMemo(
+    () =>
+      (doctors || [])
+        .map((d) => {
+          const name = (d.employeeName || "").trim();
+          return { label: name, value: name };
+        })
+        .filter((o) => o.value),
+    [doctors]
+  );
 
   const selectedDoctorOption = useMemo(() => {
     if (!formData.doctor) return null;
-    const current = String(formData.doctor || "").trim().toUpperCase();
+    const current = String(formData.doctor).trim();
+    const cur = current.toLowerCase();
     const found = doctors.find(
       (d) =>
-        String(d.employeeId || "").trim() === current ||
-        (d.employeeName && d.employeeName.trim().toUpperCase() === current)
+        String(d.employeeId || "").trim().toLowerCase() === cur ||
+        (d.employeeName || "").trim().toLowerCase() === cur
     );
-    if (found) {
-      const upper = (found.employeeName || "").trim().toUpperCase();
-      return { label: upper, value: upper };
-    }
-    return { label: current, value: current };
+    const name = found ? (found.employeeName || "").trim() : current;
+    return { label: name, value: name };
   }, [formData.doctor, doctors]);
+
 
   // Handle returning from SummaryPrint with archiveFilter (ipNo + date)
   useEffect(() => {
@@ -3593,35 +3597,47 @@ const Summary = () => {
       }, 350);
     }
   }, [location.state]);
+  /* Normalise doctor text: uppercase, drop "DR." prefix and punctuation, collapse spaces */
+  /* Consultant Doctor name exactly as returned by the API (no case change) */
+  const getConsultantName = (s) =>
+    String(
+      resolveEmpName(
+        s.doctor || s.consultant,
+        s.doctor_name || s.consultant_name
+      ) || ""
+    ).trim();
+
+  /* Filter options come from the rows themselves, so they always match */
+  const summaryDoctorOptions = useMemo(() => {
+    const names = new Set();
+    summaries.forEach((s) => {
+      const n = getConsultantName(s);
+      if (n) names.add(n);
+    });
+    return [...names]
+      .sort((a, b) => a.localeCompare(b))
+      .map((n) => ({ label: n, value: n }));
+  }, [summaries, doctors, empNameMap]);
+
+  /* Exact match on the Consultant Doctor column (ignores only case and spacing) */
+  const matchesDoctorFilter = (s, docFilter) => {
+    const target = String(docFilter || "").trim().toLowerCase();
+    if (!target) return true;
+    return getConsultantName(s).toLowerCase() === target;
+  };
+
   const filteredSummaries = summaries.filter(
     (s) =>
       (!filters.patient ||
-        (s.patient || "")
-          .toLowerCase()
-          .includes(filters.patient.toLowerCase().trim())) &&
-      (!filters.doctor || (() => {
-        const docFilter = filters.doctor.toLowerCase().trim();
-        const docField = (s.doctor || "").toLowerCase();
-        if (docField.includes(docFilter)) return true;
-        const matchedDoc = doctors.find(
-          (d) =>
-            (d.employeeId && String(d.employeeId).toLowerCase() === docFilter) ||
-            (d.employeeName && d.employeeName.toLowerCase() === docFilter)
-        );
-        if (matchedDoc && (matchedDoc.employeeName || "").toLowerCase().includes(docFilter)) {
-          return true;
-        }
-        return false;
-      })()) &&
-      (!filters.status ||
-        (filters.status === "approved" ? s.approve : !s.approve)) &&
+        (s.patient || "").toLowerCase().includes(filters.patient.toLowerCase().trim())) &&
+      matchesDoctorFilter(s, filters.doctor) &&
+      (!filters.status || (filters.status === "approved" ? s.approve : !s.approve)) &&
       (!filters.uhid ||
         (s.uhid || "").toLowerCase().includes(filters.uhid.toLowerCase().trim())) &&
       (!filters.ipNo ||
         (s.ipNo || "").toLowerCase().includes(filters.ipNo.toLowerCase().trim())) &&
       (!filters.summaryType ||
-        (s.summaryType || "").toLowerCase() ===
-        filters.summaryType.toLowerCase())
+        (s.summaryType || "").toLowerCase() === filters.summaryType.toLowerCase())
   );
 
   /* ─── Filter input style (compact) ───────────────────────────────────── */
@@ -3909,11 +3925,11 @@ const Summary = () => {
                 <ReactSelect
                   value={selectedDoctorOption}
                   onChange={(selected) => {
-                    const val = selected ? (selected.value || "").toUpperCase() : "";
+                    const val = selected ? (selected.value || "").trim() : "";
                     setFormData((prev) => ({
                       ...prev,
                       doctor: val,
-                      explainedBy: prev.explainedBy || (val ? (val.startsWith("DR.") ? val : `DR. ${val}`) : ""),
+                      explainedBy: prev.explainedBy,
                     }));
                   }}
                   options={doctorOptions}
@@ -3944,14 +3960,12 @@ const Summary = () => {
                       ...provided,
                       margin: 0,
                       padding: 0,
-                      textTransform: "uppercase",
                       fontSize: 13,
                     }),
                     menu: (provided) => ({
                       ...provided,
                       zIndex: 9999,
                       fontSize: 12.5,
-                      textTransform: "uppercase",
                     }),
                     menuPortal: (provided) => ({ ...provided, zIndex: 9999 }),
                     option: (provided, state) => ({
@@ -3959,8 +3973,8 @@ const Summary = () => {
                       backgroundColor: state.isSelected
                         ? "#0d9488"
                         : state.isFocused
-                        ? "rgba(13, 148, 136, 0.1)"
-                        : "white",
+                          ? "rgba(13, 148, 136, 0.1)"
+                          : "white",
                       color: state.isSelected ? "white" : "#0f172a",
                       cursor: "pointer",
                       padding: "8px 12px",
@@ -4941,7 +4955,7 @@ const Summary = () => {
                   </button>
                 )}
                 <button style={S.outBtn(T.teal)} onClick={fetchInvestigations}>
-                  <Plus size={14} /> + Investigations
+                  <Plus size={14} /> + Add Radiology Investigation
                 </button>
                 <button style={S.outBtn(T.sky)} onClick={fetchMedicines}>
                   <Pill size={14} /> + Admission Meds
@@ -5044,6 +5058,11 @@ const Summary = () => {
                           >
                             <strong style={{ fontSize: 13, color: T.teal }}>
                               {inv.reportType}
+                              {inv.date && (
+                                <span style={{ color: T.muted, fontWeight: 600, marginLeft: 8 }}>
+                                  · {formatDisplayDate(inv.date)}
+                                </span>
+                              )}
                             </strong>
                             {!inv.is_approved && (
                               <span
@@ -5410,18 +5429,11 @@ const Summary = () => {
               <div style={S.fld} className="sum-fg2-doc">
                 <span style={{ ...S.lbl, color: T.teal }}>Doctor Name</span>
                 <ReactSelect
-                  value={
-                    filters.doctor
-                      ? doctorOptions.find((opt) => opt.value === filters.doctor.toUpperCase()) || {
-                          label: filters.doctor.toUpperCase(),
-                          value: filters.doctor.toUpperCase(),
-                        }
-                      : null
-                  }
+                  value={filters.doctor ? { label: filters.doctor, value: filters.doctor } : null}
                   onChange={(selected) => {
                     setFilters((prev) => ({ ...prev, doctor: selected ? selected.value : "" }));
                   }}
-                  options={doctorOptions}
+                  options={summaryDoctorOptions}
                   placeholder="Filter by Doctor…"
                   isClearable
                   isSearchable
@@ -5459,8 +5471,8 @@ const Summary = () => {
                       backgroundColor: state.isSelected
                         ? T.teal
                         : state.isFocused
-                        ? "rgba(13, 148, 136, 0.1)"
-                        : "white",
+                          ? "rgba(13, 148, 136, 0.1)"
+                          : "white",
                       color: state.isSelected ? "white" : "#0f172a",
                       cursor: "pointer",
                       padding: "8px 12px",
@@ -5529,7 +5541,7 @@ const Summary = () => {
             </div>
           ) : (
             <div style={{ overflowX: "auto" }} className="sum-custom-scroll">
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <thead>
                   <tr>
                     {[
@@ -5537,6 +5549,7 @@ const Summary = () => {
                       "Patient Name",
                       "Status",
                       "Summary Type",
+                      "Consultant Doctor",
                       "UHID",
                       "IP No",
                       "Prepared By",
@@ -5549,7 +5562,17 @@ const Summary = () => {
                         key={h}
                         style={{
                           ...S.th,
-                          ...(h === "Actions" ? { textAlign: "center", width: 80 } : {}),
+                          ...(h === "Actions"
+                            ? {
+                              textAlign: "center",
+                              width: 80,
+                              position: "sticky",
+                              right: 0,
+                              zIndex: 3,
+                              background: "#f1f5f9",
+                              boxShadow: "-4px 0 8px -4px rgba(15, 23, 42, 0.18)",
+                            }
+                            : {}),
                         }}
                       >
                         {h}
@@ -5580,6 +5603,9 @@ const Summary = () => {
                         </span>
                       </td>
                       <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600 }}>{s.summaryType}</td>
+                      <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600, color: "#0f766e" }}>
+                        {getConsultantName(s) || "—"}
+                      </td>
                       <td style={{ ...S.td, color: "#475569" }}>{s.uhid}</td>
                       <td style={{ ...S.td, fontWeight: 700, color: "#0f172a" }}>{s.ipNo}</td>
                       <td style={{ ...S.td, fontSize: 12.5, fontWeight: 600, color: "#334155" }}>
@@ -5605,7 +5631,18 @@ const Summary = () => {
                       <td style={{ ...S.td, fontSize: 12, color: "#64748b" }}>
                         {fmtDateTime(s.approve_time)}
                       </td>
-                      <td style={{ ...S.td, textAlign: "center", width: 80 }}>
+                      <td
+                        style={{
+                          ...S.td,
+                          textAlign: "center",
+                          width: 80,
+                          position: "sticky",
+                          right: 0,
+                          zIndex: 2,
+                          background: "inherit", // follows the row's zebra / hover colour
+                          boxShadow: "-4px 0 8px -4px rgba(15, 23, 42, 0.18)",
+                        }}
+                      >
                         <button
                           className="sum-btn-hover"
                           style={{

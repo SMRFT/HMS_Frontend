@@ -306,7 +306,15 @@ const PrintFooter = styled.div`
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 
-const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
+const IPAdvanceReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    floor: propFloor,
+    initialFloor,
+    company: propCompany,
+    initialCompany
+}) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
 
@@ -314,16 +322,19 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
     const [asOnDate, setAsOnDate] = useState(
         endDate || dayjs().format("YYYY-MM-DD")
     );
-    const [selectedFloor, setSelectedFloor] = useState("all");
+    const [selectedFloor, setSelectedFloor] = useState(propFloor || initialFloor || "all");
+    const [selectedCompany, setSelectedCompany] = useState(propCompany || initialCompany || "all");
+    const [companiesList, setCompaniesList] = useState([]);
     const [advanceFilter, setAdvanceFilter] = useState("all"); // 'all' | 'with_advance' | 'zero_advance'
     const [customerType, setCustomerType] = useState("all"); // 'all' | 'General' | 'Insurance'
     const [searchTerm, setSearchTerm] = useState("");
-    const [isGroupedView, setIsGroupedView] = useState(true);
+    const [groupBy, setGroupBy] = useState("floor"); // 'floor' | 'company' | 'flat'
 
     // Data state
     const [loading, setLoading] = useState(false);
     const [records, setRecords] = useState([]);
-    const [groupedData, setGroupedData] = useState([]);
+    const [floorGroupedData, setFloorGroupedData] = useState([]);
+    const [companyGroupedData, setCompanyGroupedData] = useState([]);
     const [floorsList, setFloorsList] = useState([]);
     const [summary, setSummary] = useState({
         total_patients: 0,
@@ -343,6 +354,7 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
             const params = new URLSearchParams();
             if (asOnDate) params.append("as_on_date", asOnDate);
             if (selectedFloor && selectedFloor !== "all") params.append("floor", selectedFloor);
+            if (selectedCompany && selectedCompany !== "all") params.append("company", selectedCompany);
             if (advanceFilter && advanceFilter !== "all") params.append("has_advance", advanceFilter);
             if (customerType && customerType !== "all") params.append("customer_type", customerType);
             if (searchTerm.trim()) params.append("search", searchTerm.trim());
@@ -354,16 +366,25 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                 const list = Array.isArray(resPayload)
                     ? resPayload
                     : (Array.isArray(resPayload.data) ? resPayload.data : []);
-                const grp = Array.isArray(resPayload.grouped_data)
-                    ? resPayload.grouped_data
+                const flrGrp = Array.isArray(resPayload.floor_grouped_data)
+                    ? resPayload.floor_grouped_data
+                    : (Array.isArray(resPayload.grouped_data) ? resPayload.grouped_data : []);
+                const compGrp = Array.isArray(resPayload.company_grouped_data)
+                    ? resPayload.company_grouped_data
                     : [];
                 const flrs = Array.isArray(resPayload.floors_list)
                     ? resPayload.floors_list
                     : [];
+                const comps = Array.isArray(resPayload.companies_list)
+                    ? resPayload.companies_list
+                    : (Array.isArray(resPayload.unique_companies) ? resPayload.unique_companies : []);
 
                 setRecords(list);
-                setGroupedData(grp);
-                setFloorsList(flrs);
+                setFloorGroupedData(flrGrp);
+                setCompanyGroupedData(compGrp);
+                if (flrs.length > 0) setFloorsList(flrs);
+                if (comps.length > 0) setCompaniesList(comps);
+
                 if (resPayload.summary) {
                     setSummary(resPayload.summary);
                 } else {
@@ -377,18 +398,20 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                 }
             } else {
                 setRecords([]);
-                setGroupedData([]);
+                setFloorGroupedData([]);
+                setCompanyGroupedData([]);
                 toast.error(response?.error || response?.message || "Failed to load IP Advance Report");
             }
         } catch (error) {
             console.error("Error fetching IP advance report:", error);
             setRecords([]);
-            setGroupedData([]);
+            setFloorGroupedData([]);
+            setCompanyGroupedData([]);
             toast.error("Failed to load IP Advance Report");
         } finally {
             setLoading(false);
         }
-    }, [asOnDate, selectedFloor, advanceFilter, customerType, searchTerm, HmsBaseUrl]);
+    }, [asOnDate, selectedFloor, selectedCompany, advanceFilter, customerType, searchTerm, HmsBaseUrl]);
 
     // Initial fetch
     useEffect(() => {
@@ -400,6 +423,22 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
         if (endDate) setAsOnDate(endDate);
         else setAsOnDate(dayjs().format("YYYY-MM-DD"));
     }, [endDate]);
+
+    useEffect(() => {
+        const f = propFloor || initialFloor;
+        if (f !== undefined && f !== selectedFloor) setSelectedFloor(f);
+    }, [propFloor, initialFloor, selectedFloor]);
+
+    useEffect(() => {
+        const c = propCompany || initialCompany;
+        if (c !== undefined && c !== selectedCompany) setSelectedCompany(c);
+    }, [propCompany, initialCompany, selectedCompany]);
+
+    const activeGroups = useMemo(() => {
+        if (groupBy === "company") return companyGroupedData;
+        if (groupBy === "floor") return floorGroupedData;
+        return [];
+    }, [groupBy, companyGroupedData, floorGroupedData]);
 
     // Excel Export
     const handleExportExcel = () => {
@@ -416,36 +455,53 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
             // Title block
             exportRows.push({ "Sl-No": hospName });
             exportRows.push({ "Sl-No": hospAddr });
-            exportRows.push({ "Sl-No": `Patient advance details as on date ${summary.as_on_date || dayjs(asOnDate).format("DD/MM/YYYY")}` });
+            exportRows.push({ 
+                "Sl-No": `Patient advance details as on date ${summary.as_on_date || dayjs(asOnDate).format("DD/MM/YYYY")}${selectedFloor !== "all" ? ` | Floor: ${selectedFloor}` : ""}${selectedCompany !== "all" ? ` | Company: ${selectedCompany}` : ""}` 
+            });
             exportRows.push({}); // blank line
 
-            // Header row info
-            (groupedData || []).forEach(group => {
-                exportRows.push({ "Sl-No": `*** ${group.floor} ***` });
-                (group.records || []).forEach(r => {
+            if (groupBy === "flat") {
+                (records || []).forEach(r => {
                     exportRows.push({
                         "Sl-No": r.sl_no,
-                        "ROOM": r.room,
+                        "ROOM": r.room || r.room_no,
                         "IPNUMBER": r.ip_number,
                         "PATIENTNAME": r.patient_name,
-                        "ADMITTINGDATE": r.admitting_date,
+                        "ADMITTINGDATE": r.admitting_date || r.admission_date,
                         "No of days": r.no_of_days,
-                        "ADVANCE": Number((r.advance || 0).toFixed(2)),
-                        "COMPANY NAME": r.company_name || ""
+                        "ADVANCE": Number((r.advance || r.advance_amount || 0).toFixed(2)),
+                        "COMPANY NAME": r.company_name || r.customer_type || ""
                     });
                 });
-                exportRows.push({
-                    "Sl-No": "",
-                    "ROOM": "",
-                    "IPNUMBER": "",
-                    "PATIENTNAME": `Subtotal (${group.floor}):`,
-                    "ADMITTINGDATE": "",
-                    "No of days": `${group.count} Patients`,
-                    "ADVANCE": Number((group.subtotal_advance || 0).toFixed(2)),
-                    "COMPANY NAME": ""
+            } else {
+                (activeGroups || []).forEach(group => {
+                    const groupLabel = groupBy === "company" ? (group.company || "GENERAL") : group.floor;
+                    exportRows.push({ "Sl-No": `*** ${groupLabel} ***` });
+                    (group.records || group.patients || []).forEach(r => {
+                        exportRows.push({
+                            "Sl-No": r.sl_no,
+                            "ROOM": r.room || r.room_no,
+                            "IPNUMBER": r.ip_number,
+                            "PATIENTNAME": r.patient_name,
+                            "ADMITTINGDATE": r.admitting_date || r.admission_date,
+                            "No of days": r.no_of_days,
+                            "ADVANCE": Number((r.advance || r.advance_amount || 0).toFixed(2)),
+                            "COMPANY NAME": r.company_name || r.customer_type || ""
+                        });
+                    });
+                    exportRows.push({
+                        "Sl-No": "",
+                        "ROOM": "",
+                        "IPNUMBER": "",
+                        "PATIENTNAME": `Subtotal (${groupLabel}):`,
+                        "ADMITTINGDATE": "",
+                        "No of days": `${group.count || (group.records || []).length} Patients`,
+                        "ADVANCE": Number((group.subtotal_advance || group.subtotal || 0).toFixed(2)),
+                        "COMPANY NAME": ""
+                    });
+                    exportRows.push({}); // blank line
                 });
-                exportRows.push({}); // blank line
-            });
+            }
 
             // Grand Total
             exportRows.push({
@@ -496,17 +552,16 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                 <SectionTitle>
                     <h3>IP Advance Report</h3>
                     <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                        Patient advance details of currently admitted in-patients grouped by Floor and Ward
+                        Patient advance details of currently admitted in-patients with Floor and Company filters
                     </p>
                 </SectionTitle>
             )}
-
 
             {/* Filter Controls Bar */}
             {!isModalView && (
                 <FilterCard className="no-print">
                     <FormRow style={{ alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
-                        <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
+                        <InputWrapper style={{ minWidth: "150px", flex: "1 1 150px" }}>
                             <Label>As on Date</Label>
                             <DatePicker
                                 value={asOnDate ? dayjs(asOnDate) : null}
@@ -517,7 +572,7 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                             />
                         </InputWrapper>
 
-                        <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
+                        <InputWrapper style={{ minWidth: "150px", flex: "1 1 150px" }}>
                             <Label>Floor / Ward</Label>
                             <Select
                                 value={selectedFloor}
@@ -531,7 +586,34 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                             </Select>
                         </InputWrapper>
 
-                        <InputWrapper style={{ minWidth: "170px", flex: "1 1 170px" }}>
+                        <InputWrapper style={{ minWidth: "180px", flex: "1.2 1 180px" }}>
+                            <Label>Company / TPA</Label>
+                            <Select
+                                value={selectedCompany}
+                                onChange={(e) => setSelectedCompany(e.target.value)}
+                                style={{ height: "38px" }}
+                            >
+                                <option value="all">All Companies</option>
+                                {(companiesList || []).map((comp) => (
+                                    <option key={comp} value={comp}>{comp}</option>
+                                ))}
+                            </Select>
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "140px", flex: "1 1 140px" }}>
+                            <Label>Group By</Label>
+                            <Select
+                                value={groupBy}
+                                onChange={(e) => setGroupBy(e.target.value)}
+                                style={{ height: "38px", fontWeight: "600" }}
+                            >
+                                <option value="floor">Floor Wise</option>
+                                <option value="company">Company Wise</option>
+                                <option value="flat">Flat List</option>
+                            </Select>
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "150px", flex: "1 1 150px" }}>
                             <Label>Advance Status</Label>
                             <Select
                                 value={advanceFilter}
@@ -544,11 +626,11 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                             </Select>
                         </InputWrapper>
 
-                        <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
+                        <InputWrapper style={{ minWidth: "150px", flex: "1 1 150px" }}>
                             <Label>Category</Label>
                             <Select
                                 value={customerType}
-                                onChange={(e) => setSelectedFloor(e.target.value)}
+                                onChange={(e) => setCustomerType(e.target.value)}
                                 style={{ height: "38px" }}
                             >
                                 <option value="all">All Categories</option>
@@ -557,7 +639,7 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                             </Select>
                         </InputWrapper>
 
-                        <InputWrapper style={{ minWidth: "200px", flex: "2 1 200px" }}>
+                        <InputWrapper style={{ minWidth: "180px", flex: "1.5 1 180px" }}>
                             <Label>Search</Label>
                             <Input
                                 placeholder="Room, IP Number, Patient, Company..."
@@ -573,10 +655,11 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                             </ActionBtn>
                             <ActionBtn 
                                 variant="secondary" 
-                                onClick={() => setIsGroupedView(prev => !prev)}
-                                title="Toggle Grouped / Flat View"
+                                onClick={() => setGroupBy(prev => prev === "floor" ? "company" : prev === "company" ? "flat" : "floor")}
+                                title="Toggle View Grouping"
                             >
-                                {isGroupedView ? <FaListUl /> : <FaLayerGroup />} {isGroupedView ? "Flat List" : "Group by Floor"}
+                                {groupBy === "floor" ? <FaLayerGroup /> : groupBy === "company" ? <FaUsers /> : <FaListUl />} 
+                                {groupBy === "floor" ? "Floor Wise" : groupBy === "company" ? "Company Wise" : "Flat List"}
                             </ActionBtn>
                             <ActionBtn 
                                 variant="success" 
@@ -675,75 +758,85 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                             </Tr>
                         </thead>
                         <tbody>
-                            {isGroupedView ? (
-                                (groupedData || []).map((group) => (
-                                    <React.Fragment key={group.floor}>
-                                        <FloorHeaderRow>
-                                            <td colSpan={9}>
-                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                    <span>{group.floor}</span>
-                                                    <span style={{ fontSize: "0.78rem", fontWeight: "600", color: "#475569" }}>
-                                                        {group.count} {group.count === 1 ? "Patient" : "Patients"} &bull; Advance: ₹{Number(group.subtotal_advance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                        </FloorHeaderRow>
-                                        {(group.records || []).map((row) => (
-                                            <Tr key={row.ip_number} style={{ cursor: "pointer" }} onClick={() => setSelectedPatient(row)}>
-                                                <Td style={{ textAlign: "center", fontWeight: "600", color: "#64748b" }}>{row.sl_no}</Td>
-                                                <Td style={{ fontWeight: "700", color: "#0f172a" }}>{row.room}</Td>
-                                                <Td style={{ fontFamily: "monospace", fontWeight: "600", color: colors.primary }}>{row.ip_number}</Td>
-                                                <Td style={{ fontWeight: "600" }}>{row.patient_name}</Td>
-                                                <Td>{row.admitting_date}</Td>
-                                                <Td style={{ textAlign: "center" }}>
-                                                    <Badge 
-                                                        count={row.no_of_days} 
-                                                        style={{ 
-                                                            backgroundColor: row.no_of_days > 30 ? "#fee2e2" : row.no_of_days > 7 ? "#fef3c7" : "#f1f5f9",
-                                                            color: row.no_of_days > 30 ? "#b91c1c" : row.no_of_days > 7 ? "#b45309" : "#334155",
-                                                            fontWeight: "bold"
-                                                        }} 
-                                                    />
-                                                </Td>
-                                                <Td style={{ 
-                                                    textAlign: "right", 
-                                                    fontWeight: "700", 
-                                                    color: row.advance > 0 ? "#15803d" : "#94a3b8" 
-                                                }}>
-                                                    ₹{Number(row.advance || 0).toFixed(2)}
-                                                </Td>
-                                                <Td style={{ textTransform: "uppercase", fontSize: "0.8rem", color: row.company_name ? "#1e293b" : "#94a3b8" }}>
-                                                    {row.company_name || "-"}
-                                                </Td>
-                                                <Td style={{ textAlign: "center" }} onClick={(e) => { e.stopPropagation(); setSelectedPatient(row); }}>
-                                                    <Tooltip title="View Advance Details">
-                                                        <Button secondary style={{ padding: "4px 8px", height: "auto" }}>
-                                                            <FaEye size={12} />
-                                                        </Button>
-                                                    </Tooltip>
-                                                </Td>
-                                            </Tr>
-                                        ))}
-                                        <SubtotalRow>
-                                            <td colSpan={5} style={{ textAlign: "right", textTransform: "uppercase" }}>
-                                                {group.floor} Subtotal ({group.count} Patients):
-                                            </td>
-                                            <td style={{ textAlign: "center" }}></td>
-                                            <td style={{ textAlign: "right", color: "#0f172a" }}>
-                                                ₹{Number(group.subtotal_advance || 0).toFixed(2)}
-                                            </td>
-                                            <td colSpan={2}></td>
-                                        </SubtotalRow>
-                                    </React.Fragment>
-                                ))
+                            {groupBy !== "flat" ? (
+                                (activeGroups || []).map((group) => {
+                                    const groupTitle = groupBy === "company" ? (group.company || "GENERAL") : group.floor;
+                                    const patientCount = group.count || (group.records || []).length;
+                                    const subtotalAdv = Number(group.subtotal_advance || group.subtotal || 0);
+                                    return (
+                                        <React.Fragment key={groupTitle}>
+                                            <FloorHeaderRow>
+                                                <td colSpan={9}>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                        <span>
+                                                            <strong style={{ color: colors.primary, marginRight: "8px" }}>
+                                                                {groupBy === "company" ? "🏢 COMPANY:" : "🏢 FLOOR:"}
+                                                            </strong>
+                                                            {groupTitle}
+                                                        </span>
+                                                        <span style={{ fontSize: "0.78rem", fontWeight: "600", color: "#475569" }}>
+                                                            {patientCount} {patientCount === 1 ? "Patient" : "Patients"} &bull; Advance: ₹{subtotalAdv.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </FloorHeaderRow>
+                                            {(group.records || group.patients || []).map((row) => (
+                                                <Tr key={row.ip_number} style={{ cursor: "pointer" }} onClick={() => setSelectedPatient(row)}>
+                                                    <Td style={{ textAlign: "center", fontWeight: "600", color: "#64748b" }}>{row.sl_no}</Td>
+                                                    <Td style={{ fontWeight: "700", color: "#0f172a" }}>{row.room || row.room_no}</Td>
+                                                    <Td style={{ fontFamily: "monospace", fontWeight: "600", color: colors.primary }}>{row.ip_number}</Td>
+                                                    <Td style={{ fontWeight: "600" }}>{row.patient_name}</Td>
+                                                    <Td>{row.admitting_date || row.admission_date}</Td>
+                                                    <Td style={{ textAlign: "center" }}>
+                                                        <Badge 
+                                                            count={row.no_of_days} 
+                                                            style={{ 
+                                                                backgroundColor: row.no_of_days > 30 ? "#fee2e2" : row.no_of_days > 7 ? "#fef3c7" : "#f1f5f9",
+                                                                color: row.no_of_days > 30 ? "#b91c1c" : row.no_of_days > 7 ? "#b45309" : "#334155",
+                                                                fontWeight: "bold"
+                                                            }} 
+                                                        />
+                                                    </Td>
+                                                    <Td style={{ 
+                                                        textAlign: "right", 
+                                                        fontWeight: "700", 
+                                                        color: (row.advance || row.advance_amount || 0) > 0 ? "#15803d" : "#94a3b8" 
+                                                    }}>
+                                                        ₹{Number(row.advance || row.advance_amount || 0).toFixed(2)}
+                                                    </Td>
+                                                    <Td style={{ textTransform: "uppercase", fontSize: "0.8rem", color: (row.company_name || row.customer_type) ? "#1e293b" : "#94a3b8" }}>
+                                                        {row.company_name || row.customer_type || "-"}
+                                                    </Td>
+                                                    <Td style={{ textAlign: "center" }} onClick={(e) => { e.stopPropagation(); setSelectedPatient(row); }}>
+                                                        <Tooltip title="View Advance Details">
+                                                            <Button secondary style={{ padding: "4px 8px", height: "auto" }}>
+                                                                <FaEye size={12} />
+                                                            </Button>
+                                                        </Tooltip>
+                                                    </Td>
+                                                </Tr>
+                                            ))}
+                                            <SubtotalRow>
+                                                <td colSpan={5} style={{ textAlign: "right", textTransform: "uppercase" }}>
+                                                    {groupTitle} Subtotal ({patientCount} Patients):
+                                                </td>
+                                                <td style={{ textAlign: "center" }}></td>
+                                                <td style={{ textAlign: "right", color: "#0f172a" }}>
+                                                    ₹{subtotalAdv.toFixed(2)}
+                                                </td>
+                                                <td colSpan={2}></td>
+                                            </SubtotalRow>
+                                        </React.Fragment>
+                                    );
+                                })
                             ) : (
                                 (records || []).map((row) => (
                                     <Tr key={row.ip_number} style={{ cursor: "pointer" }} onClick={() => setSelectedPatient(row)}>
                                         <Td style={{ textAlign: "center", fontWeight: "600", color: "#64748b" }}>{row.sl_no}</Td>
-                                        <Td style={{ fontWeight: "700", color: "#0f172a" }}>{row.room}</Td>
+                                        <Td style={{ fontWeight: "700", color: "#0f172a" }}>{row.room || row.room_no}</Td>
                                         <Td style={{ fontFamily: "monospace", fontWeight: "600", color: colors.primary }}>{row.ip_number}</Td>
                                         <Td style={{ fontWeight: "600" }}>{row.patient_name}</Td>
-                                        <Td>{row.admitting_date}</Td>
+                                        <Td>{row.admitting_date || row.admission_date}</Td>
                                         <Td style={{ textAlign: "center" }}>
                                             <Badge 
                                                 count={row.no_of_days} 
@@ -757,12 +850,12 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                                         <Td style={{ 
                                             textAlign: "right", 
                                             fontWeight: "700", 
-                                            color: row.advance > 0 ? "#15803d" : "#94a3b8" 
+                                            color: (row.advance || row.advance_amount || 0) > 0 ? "#15803d" : "#94a3b8" 
                                         }}>
-                                            ₹{Number(row.advance || 0).toFixed(2)}
+                                            ₹{Number(row.advance || row.advance_amount || 0).toFixed(2)}
                                         </Td>
-                                        <Td style={{ textTransform: "uppercase", fontSize: "0.8rem", color: row.company_name ? "#1e293b" : "#94a3b8" }}>
-                                            {row.company_name || "-"}
+                                        <Td style={{ textTransform: "uppercase", fontSize: "0.8rem", color: (row.company_name || row.customer_type) ? "#1e293b" : "#94a3b8" }}>
+                                            {row.company_name || row.customer_type || "-"}
                                         </Td>
                                         <Td style={{ textAlign: "center" }} onClick={(e) => { e.stopPropagation(); setSelectedPatient(row); }}>
                                             <Tooltip title="View Advance Details">
@@ -815,25 +908,55 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {(groupedData || []).map((group) => (
-                            <React.Fragment key={`print-${group.floor}`}>
-                                <tr className="floor-heading">
-                                    <td colSpan={8}>{group.floor}</td>
+                        {groupBy !== "flat" ? (
+                            (activeGroups || []).map((group) => {
+                                const groupTitle = groupBy === "company" ? (group.company || "GENERAL") : group.floor;
+                                const patientCount = group.count || (group.records || []).length;
+                                const subtotalAdv = Number(group.subtotal_advance || group.subtotal || 0);
+                                return (
+                                    <React.Fragment key={`print-${groupTitle}`}>
+                                        <tr className="floor-heading">
+                                            <td colSpan={8} style={{ fontWeight: "700", background: "#f1f5f9" }}>
+                                                {groupBy === "company" ? `COMPANY: ${groupTitle}` : `FLOOR: ${groupTitle}`}
+                                            </td>
+                                        </tr>
+                                        {(group.records || group.patients || []).map((r) => (
+                                            <tr key={`print-row-${r.ip_number}`}>
+                                                <td style={{ textAlign: "left" }}>{r.sl_no}</td>
+                                                <td>{r.room || r.room_no}</td>
+                                                <td>{r.ip_number}</td>
+                                                <td style={{ textTransform: "uppercase" }}>{r.patient_name}</td>
+                                                <td>{r.admitting_date || r.admission_date}</td>
+                                                <td style={{ textAlign: "center" }}>{r.no_of_days}</td>
+                                                <td style={{ textAlign: "right" }}>{Number(r.advance || r.advance_amount || 0).toFixed(2)}</td>
+                                                <td style={{ paddingLeft: "10px", textTransform: "uppercase" }}>{r.company_name || r.customer_type || ""}</td>
+                                            </tr>
+                                        ))}
+                                        <tr className="subtotal-row" style={{ fontWeight: "600", background: "#f8fafc" }}>
+                                            <td colSpan={5} style={{ textAlign: "right", textTransform: "uppercase" }}>
+                                                {groupTitle} Subtotal ({patientCount} Patients):
+                                            </td>
+                                            <td style={{ textAlign: "center" }}>{patientCount}</td>
+                                            <td style={{ textAlign: "right" }}>{subtotalAdv.toFixed(2)}</td>
+                                            <td></td>
+                                        </tr>
+                                    </React.Fragment>
+                                );
+                            })
+                        ) : (
+                            (records || []).map((r) => (
+                                <tr key={`print-row-${r.ip_number}`}>
+                                    <td style={{ textAlign: "left" }}>{r.sl_no}</td>
+                                    <td>{r.room || r.room_no}</td>
+                                    <td>{r.ip_number}</td>
+                                    <td style={{ textTransform: "uppercase" }}>{r.patient_name}</td>
+                                    <td>{r.admitting_date || r.admission_date}</td>
+                                    <td style={{ textAlign: "center" }}>{r.no_of_days}</td>
+                                    <td style={{ textAlign: "right" }}>{Number(r.advance || r.advance_amount || 0).toFixed(2)}</td>
+                                    <td style={{ paddingLeft: "10px", textTransform: "uppercase" }}>{r.company_name || r.customer_type || ""}</td>
                                 </tr>
-                                {(group.records || []).map((r) => (
-                                    <tr key={`print-row-${r.ip_number}`}>
-                                        <td style={{ textAlign: "left" }}>{r.sl_no}</td>
-                                        <td>{r.room}</td>
-                                        <td>{r.ip_number}</td>
-                                        <td style={{ textTransform: "uppercase" }}>{r.patient_name}</td>
-                                        <td>{r.admitting_date}</td>
-                                        <td style={{ textAlign: "center" }}>{r.no_of_days}</td>
-                                        <td style={{ textAlign: "right" }}>{Number(r.advance || 0).toFixed(2)}</td>
-                                        <td style={{ paddingLeft: "10px", textTransform: "uppercase" }}>{r.company_name || ""}</td>
-                                    </tr>
-                                ))}
-                            </React.Fragment>
-                        ))}
+                            ))
+                        )}
                         <tr className="grand-total-row">
                             <td colSpan={5} style={{ textAlign: "right", textTransform: "uppercase" }}>
                                 Grand Total ({summary.total_patients} Patients):

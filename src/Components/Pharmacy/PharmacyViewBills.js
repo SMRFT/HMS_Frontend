@@ -448,6 +448,8 @@ const Badge = styled.span`
       case "billed":   return "background:#fefcbf; color:#744210; border:1px solid #f6e05e;";
       case "deleted":  return "background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;";
       case "pending":  return "background:#fef3c7; color:#92400e; border:1px solid #fcd34d;";
+      case "processing":
+      case "partially-billed": return "background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe;";
       case "refund":   return "background:#fce7f3; color:#9d174d; border:1px solid #f9a8d4;";
       case "sales-returned": return "background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; font-weight:700;";
       default:         return "background:#e2e8f0; color:#4a5568; border:1px solid #cbd5e0;";
@@ -877,35 +879,27 @@ const formatExpiryForBill = (dateStr) => {
 // ── Helper to Paginate Medicines for Print Layout (A5 Landscape) ──
 const chunkMedicinesForPrint = (items) => {
   const list = items || [];
-  // If 7 or fewer, fits comfortably on a single A5 landscape page along with header, totals & footer
-  if (list.length <= 7) return [list];
+  // If 13 or fewer, fits on a single A5 landscape page along with header, totals & footer
+  if (list.length <= 13) return [list];
 
   const pages = [];
   let remaining = [...list];
 
-  // First page has the full header, can take up to 7 items comfortably
-  let firstTake = 7;
-  if (list.length <= 14) {
-    firstTake = Math.ceil(list.length / 2);
-  }
+  // First page has the full header but NO totals/footer; fills all the way to bottom (up to 16 items)
+  const firstTake = Math.min(16, list.length - 1);
   pages.push(remaining.slice(0, firstTake));
   remaining = remaining.slice(firstTake);
 
   while (remaining.length > 0) {
-    // Subsequent pages have NO big header, so final page with totals & footer can hold up to 10 items
-    if (remaining.length <= 10) {
+    // Final page has no big header; with totals & footer it can hold up to 14 items
+    if (remaining.length <= 14) {
       pages.push(remaining);
       break;
     }
-    if (remaining.length <= 20) {
-      const take = Math.ceil(remaining.length / 2);
-      pages.push(remaining.slice(0, take));
-      remaining = remaining.slice(take);
-    } else {
-      const take = 12;
-      pages.push(remaining.slice(0, take));
-      remaining = remaining.slice(take);
-    }
+    // Intermediate page has neither big header nor totals/footer; can hold up to 18 items
+    const take = Math.min(18, remaining.length - 1);
+    pages.push(remaining.slice(0, take));
+    remaining = remaining.slice(take);
   }
   return pages;
 };
@@ -1308,7 +1302,7 @@ const formatBillData = (bills, employeeName = "") => {
       prepared_by:    b.prepared_by || b.billed_name || b.employee_name || "",
       employee_name:  b.billed_name || b.employee_name || b.prepared_by || b.created_by_name || b.created_by || b.cashier_id || employeeName || "",
       cashier_id:     b.cashier_id     || b.created_by || "",
-      medicine_particulars: parseMedicineParticulars(b.medicine_particulars),
+      medicine_particulars: parseMedicineParticulars(b.medicine_particulars).filter((m) => !m.deleted_is && !m.is_deleted),
     });
     // Inline return rows derived from edit_history
     extractReturnRows(b, b.billed_name || b.employee_name || b.prepared_by || b.created_by_name || b.created_by || b.cashier_id || employeeName).forEach((r) => rows.push(r));
@@ -1722,9 +1716,11 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     return false;
   };
   const isDeleted = (bill) => (bill?.billing_status || "").toLowerCase() === "deleted" || bill?.is_deleted === true;
+  const isPartiallyBilled = (bill) => !bill?._isReturn && !isDeleted(bill) && (String(bill?.billing_status || "").toLowerCase().includes("processing") || String(bill?.billing_status || "").toLowerCase().includes("partially"));
 
   const paidCount         = dateFiltered.filter((b) => !b._isReturn && isPaid(b)).length;
-  const billedCount       = dateFiltered.filter((b) => !b._isReturn && !isPaid(b) && !isDeleted(b)).length;
+  const partiallyBilledCount = dateFiltered.filter(isPartiallyBilled).length;
+  const billedCount       = dateFiltered.filter((b) => !b._isReturn && !isPaid(b) && !isDeleted(b) && !isPartiallyBilled(b)).length;
   const deletedCount      = dateFiltered.filter((b) => !b._isReturn && isDeleted(b)).length;
   const salesReturnCount  = dateFiltered.filter((b) => b._isReturn).length;
 
@@ -1759,6 +1755,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
           <div style={{ display:"flex", gap:10, marginBottom:12, flexWrap:"wrap" }}>
             <StatPill color="#276749" bg="#c6f6d5" border="#9ae6b4">✅ Paid: {paidCount}</StatPill>
             <StatPill color="#744210" bg="#fefcbf" border="#f6e05e">🧾 Billed: {billedCount}</StatPill>
+            {partiallyBilledCount > 0 && (
+              <StatPill color="#7e22ce" bg="#f3e8ff" border="#d8b4fe">⏳ Partially Billed: {partiallyBilledCount}</StatPill>
+            )}
             <StatPill color="#991b1b" bg="#fee2e2" border="#fca5a5">🗑️ Deleted: {deletedCount}</StatPill>
             <StatPill color="#5b21b6" bg="#ede9fe" border="#c4b5fd">🔄 Sales Returned: {salesReturnCount}</StatPill>
             <StatPill color="#2b6cb0" bg="#ebf8ff" border="#bee3f8">📋 Total: {dateFiltered.length}</StatPill>
@@ -1905,10 +1904,17 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                 </div>
                               ) : (
                                 <Badge variant={
-                                  isDeleted(bill) ? "deleted" :
-                                  isPaidBill      ? "paid"    : "billed"
+                                  isDeleted(bill)         ? "deleted"    :
+                                  isPaidBill              ? "paid"       :
+                                  isPartiallyBilled(bill) ? "processing" : "billed"
                                 }>
-                                  {isDeleted(bill) ? "🗑️ Deleted" : isPaidBill ? "Paid" : bill.billing_status || "—"}
+                                  {isDeleted(bill)
+                                    ? "🗑️ Deleted"
+                                    : isPaidBill
+                                      ? "Paid"
+                                      : isPartiallyBilled(bill)
+                                        ? "⏳ Partially Billed"
+                                        : bill.billing_status || "—"}
                                 </Badge>
                               )}
                             </Td>
@@ -2076,7 +2082,25 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
 
             <div id="print-area" style={{ padding: "16px 20px", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 11.5, color: "#111", lineHeight: 1.35, background: "#f8fafc" }}>
               {(() => {
-                const allMeds = parseMedicineParticulars(printBill.medicine_particulars || []);
+                const rawMeds = parseMedicineParticulars(printBill.medicine_particulars || []);
+                const isPartiallyBilled = Boolean(
+                  printBill.is_ward_request ||
+                  String(printBill.billing_status || "").toLowerCase().includes("processing") ||
+                  String(printBill.billing_status || "").toLowerCase().includes("partially")
+                );
+                const allMeds = rawMeds.filter((m) => {
+                  if (m.deleted_is || m.is_deleted) return false;
+                  if (isPartiallyBilled && m.dispatched_qty !== undefined) {
+                    return Number(m.dispatched_qty || 0) > 0;
+                  }
+                  return Number(m.qty || m.quantity || 0) > 0;
+                }).map((m) => {
+                  const dQty = Number(m.dispatched_qty);
+                  if (isPartiallyBilled && !isNaN(dQty) && dQty > 0) {
+                    return { ...m, qty: dQty, quantity: dQty };
+                  }
+                  return m;
+                });
                 const previewPages = chunkMedicinesForPrint(allMeds);
                 const totalPreviewPages = previewPages.length;
 
@@ -2195,11 +2219,15 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                   <span style={{ color: "#222" }}>Room</span><span>:</span><span>{printBill.room_no || printBill.room || printBill.roomNo}</span>
                                 </>
                               )}
-                              {(printBill.insurance_name || printBill.insurance_company) && (
-                                <>
-                                  <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{printBill.insurance_name || printBill.insurance_company}</span>
-                                </>
-                              )}
+                              {(() => {
+                                const ins = printBill.insurance_name || printBill.insurance_company;
+                                if (!ins || ["general", "cash", "self"].includes(String(ins).trim().toLowerCase())) return null;
+                                return (
+                                  <>
+                                    <span style={{ color: "#222" }}>Insurance</span><span>:</span><span>{ins}</span>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         </>
@@ -2219,24 +2247,25 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, margin: "2px 0" }}>
                         <thead>
                           <tr style={{ borderTop: "1px solid #111" }}>
-                            <th rowSpan={2} style={{ textAlign: "left", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5, width: 180 }}>Particulars</th>
-                            <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>HSN Code</th>
-                            <th rowSpan={2} style={{ width: 75, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
-                            <th rowSpan={2} style={{ width: 60, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
+                            <th rowSpan={2} style={{ textAlign: "left", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5, width: 170 }}>Particulars</th>
+                            <th rowSpan={2} style={{ width: 65, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>HSN Code</th>
+                            <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
+                            <th rowSpan={2} style={{ width: 55, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
                             <th rowSpan={2} style={{ width: 35, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Qty</th>
                             <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Rate</th>
                             <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>CGST</th>
                             <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>SGST</th>
-                            <th rowSpan={2} style={{ width: 70, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amount</th>
+                            <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Disc Amt</th>
+                            <th rowSpan={2} style={{ width: 68, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amount</th>
                           </tr>
                           <tr style={{ borderBottom: "1px solid #111" }}>
-                            <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
-                            <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
-                            <th style={{ width: 30, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
-                            <th style={{ width: 45, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
+                            <th style={{ width: 28, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
+                            <th style={{ width: 42, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
+                            <th style={{ width: 28, textAlign: "center", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>%</th>
+                            <th style={{ width: 42, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
                           </tr>
                         </thead>
-                        <tbody style={{ borderBottom: "1px solid #111" }}>
+                        <tbody style={{ borderBottom: isLastPage ? "1px solid #111" : "none" }}>
                           {pageMeds && pageMeds.length > 0 ? (
                             pageMeds.map((med, i) => {
                               const pricing  = calculateMedicinePricing(med);
@@ -2247,32 +2276,36 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               const sgstPct  = pricing.sgstRate;
                               const cgstAmt  = pricing.cgstAmt;
                               const sgstAmt  = pricing.sgstAmt;
+                              const itemDiscAmt = pricing.totalDiscountOnMrp > 0
+                                ? pricing.totalDiscountOnMrp.toFixed(2)
+                                : (Number(med.discount_amount || 0) > 0 ? Number(med.discount_amount).toFixed(2) : "0.00");
                               return (
                                 <tr key={i}>
-                                  <td style={{ padding: "2.5px 4px", fontWeight: 500, maxWidth: 185, wordBreak: "break-word", lineHeight: 1.25 }}>
+                                  <td style={{ padding: "2px 4px", fontWeight: 500, maxWidth: 170, wordBreak: "break-word", lineHeight: 1.2 }}>
                                     <div>{(med.item_name && med.item_name.trim()) || (med.medicine_name && med.medicine_name.trim()) || (med.name && med.name.trim()) || `Item #${med.item_id || i + 1}`}</div>
                                     {med.dosage && (
-                                      <div style={{ fontSize: 9.5, color: "#166534", fontWeight: 600 }}>
+                                      <div style={{ fontSize: 9, color: "#166534", fontWeight: 600, marginTop: 1 }}>
                                         Dosage: {med.dosage} {med.noOfDays ? `(${med.noOfDays} Days)` : ""}
                                       </div>
                                     )}
                                   </td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.hsn_code || med.hsn || "—"}</td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.batch_number || med.batch || "—"}</td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryForBill(med.expiry_date || med.expiry)}</td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "center", fontWeight: 700 }}>{qty}</td>
-                                  <td style={{ padding: "2.5px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{price.toFixed(2)}</td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{cgstPct}</td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{cgstAmt.toFixed(2)}</td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{sgstPct}</td>
-                                  <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{sgstAmt.toFixed(2)}</td>
-                                  <td style={{ padding: "2.5px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{amt.toFixed(2)}</td>
+                                  <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.hsn_code || med.hsn || "—"}</td>
+                                  <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.batch_number || med.batch || "—"}</td>
+                                  <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryForBill(med.expiry_date || med.expiry)}</td>
+                                  <td style={{ padding: "2px 3px", textAlign: "center", fontWeight: 700 }}>{qty}</td>
+                                  <td style={{ padding: "2px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{price.toFixed(2)}</td>
+                                  <td style={{ padding: "2px 3px", textAlign: "center" }}>{cgstPct}</td>
+                                  <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{cgstAmt.toFixed(2)}</td>
+                                  <td style={{ padding: "2px 3px", textAlign: "center" }}>{sgstPct}</td>
+                                  <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{sgstAmt.toFixed(2)}</td>
+                                  <td style={{ padding: "2px 4px", textAlign: "right", whiteSpace: "nowrap", fontWeight: 600 }}>{itemDiscAmt}</td>
+                                  <td style={{ padding: "2px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{amt.toFixed(2)}</td>
                                 </tr>
                               );
                             })
                           ) : (
                             <tr>
-                              <td colSpan={11} style={{ textAlign: "center", color: "#999", padding: "6px" }}>No medicine details available</td>
+                              <td colSpan={12} style={{ textAlign: "center", color: "#999", padding: "6px" }}>No medicine details available</td>
                             </tr>
                           )}
                         </tbody>
@@ -2280,7 +2313,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
 
                       {/* Continuation indicator OR Totals & Footer */}
                       {!isLastPage ? (
-                        <div style={{ display: "flex", justify_content: "space-between", alignItems: "center", borderTop: "1px solid #111", padding: "4px 2px", marginTop: 4, fontSize: 11, fontStyle: "italic", color: "#444" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 2px", marginTop: 4, fontSize: 11, fontStyle: "italic", color: "#444" }}>
                           <span>Continued on Page {pageIdx + 2}...</span>
                           <span style={{ fontWeight: 700, fontStyle: "normal", color: "#005b8e" }}>Page {pageIdx + 1} of {totalPreviewPages}</span>
                         </div>
@@ -2300,6 +2333,8 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             }, 0);
 
                             const explicitNet = Number(printBill.net_amount || 0);
+                            const overallDiscAmt = Number(printBill.overall_discount_amount || 0);
+                            const itemDiscAmt = Number(printBill.total_item_discount || computedItemDisc || 0);
                             const explicitDisc = Number(
                               printBill.overall_discount_amount ||
                               printBill.discount_amount ||
@@ -2311,9 +2346,16 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             );
                             const previewNet = explicitNet > 0 ? explicitNet : Math.max(0, previewGross - explicitDisc);
                             const previewDisc = Math.max(0, explicitDisc);
-                            const previewPct = previewGross > 0 ? (previewDisc / previewGross) * 100 : 0;
-                            const previewPctLabel = previewPct > 0
-                              ? ` (${previewPct % 1 === 0 ? previewPct.toFixed(0) : previewPct.toFixed(2).replace(/\.?0+$/, "")}%)`
+                            const totalItemDiscPct = (allMeds || []).reduce((sum, m) => {
+                              const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
+                              return sum + (isNaN(dVal) ? 0 : dVal);
+                            }, 0);
+                            const overallDiscPct = (String(printBill.overall_discount_type || "").toLowerCase() === "percent")
+                              ? (parseFloat(printBill.overall_discount_value || 0) || 0)
+                              : 0;
+                            const totalDiscPct = totalItemDiscPct + overallDiscPct;
+                            const totalPctLabel = totalDiscPct > 0
+                              ? ` (${totalDiscPct % 1 === 0 ? totalDiscPct.toFixed(0) : totalDiscPct.toFixed(2).replace(/\.?0+$/, "")}%)`
                               : "";
 
                             const totalCgst = (allMeds || []).reduce((sum, m) => {
@@ -2357,14 +2399,43 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                         {formatBillCurrency(previewGross)}
                                       </td>
                                     </tr>
-                                    <tr>
-                                      <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
-                                        {previewDisc > 0 ? `Discount Amt${previewPctLabel}:` : "Discount :"}
-                                      </td>
-                                      <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
-                                        {formatBillCurrency(previewDisc || 0)}
-                                      </td>
-                                    </tr>
+                                    {itemDiscAmt > 0 && overallDiscAmt > 0 ? (
+                                      <>
+                                        <tr>
+                                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                            Item Disc Amt{totalItemDiscPct > 0 ? ` (${totalItemDiscPct % 1 === 0 ? totalItemDiscPct.toFixed(0) : totalItemDiscPct.toFixed(2).replace(/\.?0+$/, "")}%):` : " :"}
+                                          </td>
+                                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                            {formatBillCurrency(itemDiscAmt)}
+                                          </td>
+                                        </tr>
+                                        <tr>
+                                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                            Overall Disc Amt{overallDiscPct > 0 ? ` (${overallDiscPct % 1 === 0 ? overallDiscPct.toFixed(0) : overallDiscPct.toFixed(2).replace(/\.?0+$/, "")}%):` : " :"}
+                                          </td>
+                                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                            {formatBillCurrency(overallDiscAmt)}
+                                          </td>
+                                        </tr>
+                                        <tr>
+                                          <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                            Total Discount{totalPctLabel}:
+                                          </td>
+                                          <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                            {formatBillCurrency(previewDisc || 0)}
+                                          </td>
+                                        </tr>
+                                      </>
+                                    ) : (
+                                      <tr>
+                                        <td style={{ padding: "1.5px 12px 1.5px 0", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                          {previewDisc > 0 ? `Discount Amt${totalPctLabel}:` : "Discount :"}
+                                        </td>
+                                        <td style={{ padding: "1.5px 0", textAlign: "right", fontWeight: 700, minWidth: 72 }}>
+                                          {formatBillCurrency(previewDisc || 0)}
+                                        </td>
+                                      </tr>
+                                    )}
                                     <tr>
                                       <td style={{ padding: "2.5px 12px 2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" }}>Net Amount (Payable) :</td>
                                       <td style={{ padding: "2.5px 0", textAlign: "right", fontWeight: 800, fontSize: 12.5, minWidth: 72 }}>

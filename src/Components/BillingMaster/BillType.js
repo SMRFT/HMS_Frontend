@@ -207,6 +207,7 @@ const EMPTY_FORM = {
 
   payment_mode: "both",
   centralCash: false,
+  is_edit: false,
   is_allowAdvance: false,
   is_active: true,
   is_allowDiscount: false,
@@ -631,11 +632,11 @@ const BillType = () => {
 
         const priceRows = items.length
           ? items
-              .map(
-                (it) =>
-                  `<tr><td>${it.name}</td><td>${it.nabh_code || "—"}</td><td style="text-align:right">₹${it.price}</td></tr>`,
-              )
-              .join("")
+            .map(
+              (it) =>
+                `<tr><td>${it.name}</td><td>${it.nabh_code || "—"}</td><td style="text-align:right">₹${it.price}</td></tr>`,
+            )
+            .join("")
           : `<tr><td colspan="3" style="text-align:center;color:#64748B;">No investigation prices set.</td></tr>`;
 
         return `
@@ -984,6 +985,7 @@ const BillType = () => {
                     { id: "centralCash", label: "Central Cash" },
                     { id: "is_allowAdvance", label: "Allow Advance" },
                     { id: "is_allowDiscount", label: "Allow Discount" },
+                    { id: "is_edit", label: "Allow Edit" },
                     { id: "sales_return", label: "Sales Return" },
                     { id: "IP_billType", label: "IP Bill" },
                     { id: "GST_export", label: "GST Export" },
@@ -1069,7 +1071,7 @@ const BillType = () => {
                         const val = e.target.value;
                         setSelectedInvCat(val);
                         setFormData((prev) => ({ ...prev, billTypeNo: val }));
-                        
+
                         const billTypeKey = String(formData.bill_type);
                         const cat = invCategories.find((c) => c.billTypeNo === val);
                         const prices = {};
@@ -1394,6 +1396,7 @@ const BillType = () => {
                     { id: "centralCash", label: "Central Cash" },
                     { id: "is_allowAdvance", label: "Allow Advance" },
                     { id: "is_allowDiscount", label: "Allow Discount" },
+                    { id: "is_edit", label: "Allow Edit" },
                     { id: "sales_return", label: "Sales Return" },
                     { id: "IP_billType", label: "IP Bill" },
                     { id: "GST_export", label: "GST Export" },
@@ -1844,8 +1847,8 @@ const BillType = () => {
                 {matrixSaving
                   ? "Saving Configuration..."
                   : changedItems.length > 0
-                  ? `Save Changes (${changedItems.length} Modified)`
-                  : "Save Ward Configuration (0 Changes)"}
+                    ? `Save Changes (${changedItems.length} Modified)`
+                    : "Save Ward Configuration (0 Changes)"}
               </button>
             </div>
           </div>

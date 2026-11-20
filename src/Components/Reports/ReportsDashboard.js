@@ -27,7 +27,8 @@ import {
     RotateCcw,
     FileSpreadsheet,
     Boxes,
-    Layers
+    Layers,
+    Receipt
 } from "lucide-react";
 import styled from "styled-components";
 import { Modal, DatePicker, Button, Spin } from "antd";
@@ -63,6 +64,7 @@ const DiscountBillsReport = lazy(() => import("../Accounts/DiscountBillsReport")
 const PharmacyExpiryReport = lazy(() => import("./PharmacyExpiryReport"));
 const SalesReturnReport = lazy(() => import("./SalesReturnReport"));
 const AdmissionVsDischargeReport = lazy(() => import("../Accounts/AdmissionVsDischargeReport"));
+const UnifiedAccountsReport = lazy(() => import("../Accounts/UnifiedAccountsReport"));
 
 // Dynamic mapping of routes to lazy-loaded components
 const componentMap = {
@@ -103,6 +105,7 @@ const componentMap = {
     "/PharmacyExpiryReport": PharmacyExpiryReport,
     "/SalesReturnReport": SalesReturnReport,
     "/AdmissionVsDischargeReport": AdmissionVsDischargeReport,
+    "/UnifiedAccountsReport": UnifiedAccountsReport,
 };
 
 // Route-specific props for specialized modal and register views
@@ -1019,6 +1022,15 @@ const ReportsDashboard = () => {
             icon: <CreditCard size={24} />,
             component: CreditCardReport,
             color: colors.primary
+        },
+        {
+            id: "unified_accounts",
+            route: "/UnifiedAccountsReport",
+            title: "Unified Accounts & Reconciliation",
+            description: "100% Reconciled financial statement: Gross Collections, Counter Expense Deductions, Net Cash Handover, and Shift-Wise Tally",
+            icon: <Receipt size={24} />,
+            component: UnifiedAccountsReport,
+            color: "#0284c7"
         },
         {
             id: "cash_bills",

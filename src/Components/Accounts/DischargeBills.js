@@ -344,6 +344,7 @@ const DischargeBills = ({
                     "Bill Date": bill.bill_date ? dayjs(bill.bill_date).format("DD/MM/YYYY") : "—",
                     "Bill Number": bill.bill_no || "",
                     "Patient Name": bill.patient_details?.patient_name || bill.patient_name || "N/A",
+                    "UHID": bill.uhid || bill.patient_details?.uhid || "—",
                     "Ip Number": bill.ip_number || "—",
                     "Gross": Number(formatINR(gross)),
                     "Cash": Number(formatINR(isCash ? netAmt : 0)),
@@ -466,6 +467,7 @@ const DischargeBills = ({
                             <th style={{ width: "95px" }}>Bill date</th>
                             <th style={{ width: "115px" }}>Bill Number</th>
                             <th>Patient Name</th>
+                            <th style={{ width: "100px" }}>UHID</th>
                             <th style={{ width: "110px" }}>Ip Number</th>
                             <th className="num" style={{ width: "90px" }}>Gross</th>
                             <th className="num" style={{ width: "90px" }}>Cash</th>
@@ -475,7 +477,7 @@ const DischargeBills = ({
                     </thead>
                     <tbody>
                         <tr>
-                            <td colSpan="9" className="bill-type-banner">
+                            <td colSpan="10" className="bill-type-banner">
                                 BILLTYPE : DISCHARGE
                             </td>
                         </tr>
@@ -516,6 +518,7 @@ const DischargeBills = ({
                                                 <div className="cancelled">CANCELLED:({formatINR(gross)})</div>
                                             )}
                                         </td>
+                                        <td>{b.uhid || "—"}</td>
                                         <td>{b.ip_number || "—"}</td>
                                         <td className="num">{formatINR(gross)}</td>
                                         <td className="num">{cashVal !== 0 ? formatINR(cashVal) : ""}</td>
@@ -526,7 +529,7 @@ const DischargeBills = ({
                             })
                         ) : (
                             <tr>
-                                <td colSpan="9" style={{ textAlign: "center", padding: "30px", color: "#666" }}>
+                                <td colSpan="10" style={{ textAlign: "center", padding: "30px", color: "#666" }}>
                                     {loading ? "Loading Discharge Bills..." : "No discharge bills found for the selected period."}
                                 </td>
                             </tr>
@@ -535,7 +538,7 @@ const DischargeBills = ({
                         {reportData.length > 0 && (
                             <tr className="total-row">
                                 <td className="flag"></td>
-                                <td colSpan="4">Total...</td>
+                                <td colSpan="5">Total...</td>
                                 <td className="num">{formatINR(computedTotals.gross)}</td>
                                 <td className="num">{formatINR(computedTotals.cash)}</td>
                                 <td className="num">{formatINR(computedTotals.credit)}</td>

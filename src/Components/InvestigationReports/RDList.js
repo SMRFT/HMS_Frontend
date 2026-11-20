@@ -506,6 +506,133 @@ const ActionRow = styled.div`
   align-items: center;
   flex-wrap: nowrap;
 `;
+// ─── Actions eye button + sticky Actions column ───────────────────────────────
+
+const ActionsEyeBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1.5px solid #99f6e4;
+  background: rgba(13, 148, 136, 0.08);
+  color: #0f766e;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+  &:hover {
+    transform: scale(1.1);
+    background: rgba(13, 148, 136, 0.16);
+  }
+`;
+
+const EyeSVG = ({ size = 17 }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const StickyActionsTh = styled(StickyTh)`
+  right: 0;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+
+  @media (max-width: 768px) {
+    position: sticky !important;
+    right: 0 !important;
+    left: auto !important;
+    top: 0 !important;
+    z-index: 35 !important;
+    box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18) !important;
+  }
+`;
+
+const StickyActionsSearchTh = styled(SearchTh)`
+  right: 0;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+
+  @media (max-width: 768px) {
+    position: sticky !important;
+    right: 0 !important;
+    left: auto !important;
+    top: 33px !important;
+    z-index: 35 !important;
+    box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18) !important;
+  }
+`;
+
+const StickyActionsTd = styled(StickyTd)`
+  right: 0;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+
+  @media (max-width: 768px) {
+    position: sticky !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 15 !important;
+    box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18) !important;
+  }
+`;
+
+const ActionsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+`;
+
+const ActionTile = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  text-align: left;
+  border: 1.5px solid ${(p) => p.$border};
+  background: ${(p) => p.$bg};
+  color: ${(p) => p.$color};
+  cursor: ${(p) => (p.disabled ? "not-allowed" : "pointer")};
+  opacity: ${(p) => (p.disabled ? 0.6 : 1)};
+  transition: transform 0.15s;
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+`;
+
+const ActionTileIcon = styled.div`
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  background: ${(p) => p.$bg};
+`;
+
+const ActionsSectionLabel = styled.div`
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 1rem 0 0.65rem;
+`;
 
 // ─── Print Dropdown ───────────────────────────────────────────────────────────
 
@@ -3700,6 +3827,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [billTypes, setBillTypes] = useState([]);
 
   const [searchSlotStatus, setSearchSlotStatus] = useState("");
+  const [actionsRow, setActionsRow] = useState(null);
 
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
@@ -4743,7 +4871,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   <StickyTh>Scan Started</StickyTh>
                   <StickyTh>Dispatch</StickyTh>
                   <StickyTh>Status</StickyTh>
-                  <StickyTh>Actions</StickyTh>
+                  <StickyActionsTh sticky>Actions</StickyActionsTh>
                 </tr>
                 <tr>
                   <SearchTh sticky stickyLeft={0} style={{ width: "50px", minWidth: "50px" }} />
@@ -4786,8 +4914,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       onChange={(e) => setSearchPatient(e.target.value)}
                     />
                   </SearchTh>
-                  <SearchTh />
-                  <SearchTh />
+                  <StickyActionsSearchTh sticky />
                   <SearchTh>
                     <SearchSelect
                       value={searchCustomerType}
@@ -5091,130 +5218,17 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                           <StatusBadge hasReport>⏱ Reported</StatusBadge>
                         )}
                       </Td>
-                      <Td>
-                        <ActionRow>
-                          {row.ipNumber && (
-                            <IconBtn
-                              onClick={() => handleOpenSlot(row)}
-                              disabled={
-                                row.report?.is_approved ||
-                                !!row.report?.scan_started_DateTime
-                              }
-                              data-tip={
-                                row.report?.is_approved
-                                  ? "Slot locked (approved)"
-                                  : row.report?.scan_started_DateTime
-                                    ? "Slot locked (scan started)"
-                                    : row.report?.slot_DateTime
-                                      ? "Update Slot"
-                                      : "Set Slot"
-                              }
-                            >
-                              🕐
-                            </IconBtn>
-                          )}
-                          <IconBtn
-                            onClick={() => handleGoToReport(row)}
-                            disabled={
-                              !isPaymentAllowed(row.paymentMethod, row.paymentStatus) ||
-                              row.report?.is_approved ||
-                              !row.report?.patientIn_DateTime ||
-                              !row.report?.scan_started_DateTime ||
-                              (row.hasReport && !row.ipNumber) ||
-                              (row.hasReport &&
-                                row.ipNumber &&
-                                row.report?.impression?.trim())
-                            }
-                            data-tip={
-                              !isPaymentAllowed(row.paymentMethod, row.paymentStatus)
-                                ? "Payment Pending"
-                                : !row.report?.patientIn_DateTime
-                                  ? "Patient not checked in yet"
-                                  : !row.report?.scan_started_DateTime
-                                    ? "Scan not started yet"
-                                    : row.report?.is_approved
-                                      ? "Already Approved"
-                                      : row.hasReport &&
-                                        row.report?.impression?.trim()
-                                        ? "Already Submitted"
-                                        : "Go to Report"
-                            }
-                          >
-                            📋
-                          </IconBtn>
-                          <IconBtn
-                            onClick={() => handlePreview(row)}
-                            disabled={!row.hasReport}
-                            data-tip="Preview Report"
-                          >
-                            👁
-                          </IconBtn>
-                          <IconBtn
-                            onClick={() => handleViewDicom(row)}
-                            data-tip="View DICOM Images"
-                            style={{ color: "#0284c7" }}
-                          >
-                            🩻
-                          </IconBtn>
-                          {canApprove && (
-                            <IconBtn
-                              onClick={() => handleApprove(row)}
-                              disabled={
-                                !row.hasReport || row.report?.is_approved
-                              }
-                              data-tip={
-                                row.report?.is_approved
-                                  ? "Already Approved"
-                                  : "Approve Report"
-                              }
-                            >
-                              ✅
-                            </IconBtn>
-                          )}
-                          {canEdit && (
-                            <IconBtn
-                              onClick={() => handleEdit(row)}
-                              disabled={
-                                !row.hasReport || row.report?.is_approved
-                              }
-                              data-tip="Edit Report"
-                            >
-                              ✏️
-                            </IconBtn>
-                          )}
-                          <PrintDropdownWrapper
-                            onMouseEnter={(e) =>
-                              row.report?.is_approved &&
-                              showPrintDropdown(row, e)
-                            }
-                            onMouseLeave={hidePrintDropdown}
-                          >
-                            <IconBtn
-                              disabled={!row.report?.is_approved}
-                              data-tip={
-                                row.report?.is_approved
-                                  ? "Print Options"
-                                  : !row.hasReport
-                                    ? "No Report"
-                                    : "Not Yet Approved"
-                              }
-                            >
-                              🖨️
-                            </IconBtn>
-                          </PrintDropdownWrapper>
-                          {canDelete && (
-                            <IconBtn
-                              onClick={() => handleDelete(row)}
-                              disabled={
-                                !row.hasReport || row.report?.is_approved
-                              }
-                              data-tip="Delete Report"
-                            >
-                              🗑️
-                            </IconBtn>
-                          )}
-                        </ActionRow>
-                      </Td>
+                      <StickyActionsTd
+                        style={{ backgroundColor: row.hasReport ? "#f1f8f4" : "#ffffff" }}
+                      >
+                        <ActionsEyeBtn
+                          type="button"
+                          title="View Actions"
+                          onClick={() => setActionsRow(row)}
+                        >
+                          <EyeSVG />
+                        </ActionsEyeBtn>
+                      </StickyActionsTd>
                     </Tr>
                   ))
                 ) : (
@@ -5268,6 +5282,259 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           </PortalDropdownMenu>,
           document.body,
         )}
+      {/* ── Actions Modal (eye icon) ── */}
+      {actionsRow && (() => {
+        const r = actionsRow;
+        const close = () => setActionsRow(null);
+        const run = (fn) => {
+          close();
+          fn();
+        };
+
+        const approved = !!r.report?.is_approved;
+        const dispatched = !!r.report?.is_Dispatched;
+        const scanStarted = !!r.report?.scan_started_DateTime;
+        const checkedIn = !!r.report?.patientIn_DateTime;
+        const submitted = !!r.report?.impression?.trim();
+        const payOk = isPaymentAllowed(r.paymentMethod, r.paymentStatus);
+
+        const reportDisabled =
+          !payOk ||
+          approved ||
+          !checkedIn ||
+          !scanStarted ||
+          (r.hasReport && !r.ipNumber) ||
+          (r.hasReport && r.ipNumber && submitted);
+
+        const reportSub = !payOk
+          ? "Payment pending"
+          : !checkedIn
+            ? "Patient not checked in yet"
+            : !scanStarted
+              ? "Scan not started yet"
+              : approved
+                ? "Already approved"
+                : r.hasReport && !r.ipNumber
+                  ? "Report already created"
+                  : r.hasReport && submitted
+                    ? "Already submitted"
+                    : "Enter findings & impression";
+
+        const T = {
+          teal: { bg: "#f0fdfa", border: "#99f6e4", color: "#0f766e", iconBg: "rgba(13,148,136,0.15)" },
+          violet: { bg: "#f5f3ff", border: "#ddd6fe", color: "#6d28d9", iconBg: "rgba(124,58,237,0.15)" },
+          sky: { bg: "#f0f9ff", border: "#bae6fd", color: "#0369a1", iconBg: "rgba(2,132,199,0.15)" },
+          green: { bg: "#f0fdf4", border: "#bbf7d0", color: "#15803d", iconBg: "rgba(22,163,74,0.15)" },
+          amber: { bg: "#fffbeb", border: "#fde68a", color: "#b45309", iconBg: "rgba(245,158,11,0.18)" },
+          orange: { bg: "#fff7ed", border: "#fed7aa", color: "#c2410c", iconBg: "rgba(234,88,12,0.15)" },
+          slate: { bg: "#f8fafc", border: "#cbd5e1", color: "#334155", iconBg: "rgba(51,65,85,0.12)" },
+          red: { bg: "#fef2f2", border: "#fecaca", color: "#b91c1c", iconBg: "rgba(220,38,38,0.15)" },
+        };
+
+        const tiles = [
+          !!r.ipNumber && {
+            key: "slot",
+            icon: "🕐",
+            title: r.report?.slot_DateTime ? "Update Slot" : "Set Slot",
+            sub: approved
+              ? "Locked (approved)"
+              : scanStarted
+                ? "Locked (scan started)"
+                : "Schedule date & time",
+            disabled: approved || scanStarted,
+            theme: T.violet,
+            onClick: () => run(() => handleOpenSlot(r)),
+          },
+          {
+            key: "report",
+            icon: "📋",
+            title: "Go to Report",
+            sub: reportSub,
+            disabled: reportDisabled,
+            theme: T.teal,
+            onClick: () => run(() => handleGoToReport(r)),
+          },
+          {
+            key: "preview",
+            icon: "👁",
+            title: "Preview Report",
+            sub: r.hasReport ? "View report findings" : "No report yet",
+            disabled: !r.hasReport,
+            theme: T.sky,
+            onClick: () => run(() => handlePreview(r)),
+          },
+          {
+            key: "dicom",
+            icon: "🩻",
+            title: "View DICOM Images",
+            sub: dicomLoading ? "Connecting to PACS…" : "Open OHIF viewer",
+            disabled: dicomLoading,
+            theme: T.sky,
+            onClick: () => run(() => handleViewDicom(r)),
+          },
+          canApprove && {
+            key: "approve",
+            icon: "✅",
+            title: "Approve Report",
+            sub: approved
+              ? "Already approved"
+              : !r.hasReport
+                ? "No report yet"
+                : "Finalize & sign off",
+            disabled: !r.hasReport || approved,
+            theme: T.green,
+            onClick: () => run(() => handleApprove(r)),
+          },
+          canEdit && {
+            key: "edit",
+            icon: "✏️",
+            title: "Edit Report",
+            sub: approved
+              ? "Locked (approved)"
+              : !r.hasReport
+                ? "No report yet"
+                : "Modify findings & impression",
+            disabled: !r.hasReport || approved,
+            theme: T.amber,
+            onClick: () => run(() => handleEdit(r)),
+          },
+          {
+            key: "print-lp",
+            icon: "🖨️",
+            title: "Print with Letterpad",
+            sub: approved
+              ? "With hospital header & footer"
+              : !r.hasReport
+                ? "No report yet"
+                : "Not yet approved",
+            disabled: !approved,
+            theme: T.orange,
+            onClick: () => run(() => handlePrintWithTitleMap(r, true)),
+          },
+          {
+            key: "print-plain",
+            icon: "📄",
+            title: "Print without Letterpad",
+            sub: approved
+              ? "Plain paper"
+              : !r.hasReport
+                ? "No report yet"
+                : "Not yet approved",
+            disabled: !approved,
+            theme: T.slate,
+            onClick: () => run(() => handlePrintWithTitleMap(r, false)),
+          },
+          canDelete && {
+            key: "delete",
+            icon: "🗑️",
+            title: "Delete Report",
+            sub: approved
+              ? "Locked (approved)"
+              : !r.hasReport
+                ? "No report yet"
+                : "Permanently remove",
+            disabled: !r.hasReport || approved,
+            theme: T.red,
+            onClick: () => run(() => handleDelete(r)),
+          },
+        ].filter(Boolean);
+
+        return (
+          <StyledModalOverlay onClick={close}>
+            <StyledModalContent
+              style={{ maxWidth: 640 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <StyledModalHeader>
+                <ModalIcon>👁</ModalIcon>
+                <ModalTitle>Investigation Actions</ModalTitle>
+              </StyledModalHeader>
+
+              <ModalBody style={{ padding: 0 }}>
+                <InfoBanner>
+                  <InfoChip>
+                    <InfoChipLabel>Patient</InfoChipLabel>
+                    <InfoChipValue
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}
+                    >
+                      <span>{r.patientName}</span>
+                      {r.is_high_risk && (
+                        <HighRiskBadge reason={r.high_risk_reason} size="sm" />
+                      )}
+                    </InfoChipValue>
+                  </InfoChip>
+                  <InfoChip>
+                    <InfoChipLabel>Bill No</InfoChipLabel>
+                    <InfoChipValue>{r.investBillNo}</InfoChipValue>
+                  </InfoChip>
+                  <InfoChip>
+                    <InfoChipLabel>UHID</InfoChipLabel>
+                    <InfoChipValue>{r.uhid || "—"}</InfoChipValue>
+                  </InfoChip>
+                  <InfoChip>
+                    <InfoChipLabel>IP Number</InfoChipLabel>
+                    <InfoChipValue>{r.ipNumber || "—"}</InfoChipValue>
+                  </InfoChip>
+                  <InfoChip>
+                    <InfoChipLabel>Item</InfoChipLabel>
+                    <InfoChipValue>{r.itemName || "—"}</InfoChipValue>
+                  </InfoChip>
+                  <InfoChip>
+                    <InfoChipLabel>Status</InfoChipLabel>
+                    <InfoChipValue>
+                      {!r.hasReport ? (
+                        <StatusBadge hasReport={false}>⏳ Pending</StatusBadge>
+                      ) : dispatched ? (
+                        <StatusBadge hasReport approved dispatched>📤 Dispatched</StatusBadge>
+                      ) : approved ? (
+                        <StatusBadge hasReport approved>✓ Approved</StatusBadge>
+                      ) : (
+                        <StatusBadge hasReport>⏱ Reported</StatusBadge>
+                      )}
+                    </InfoChipValue>
+                  </InfoChip>
+                </InfoBanner>
+
+                <ActionsSectionLabel>Available Actions</ActionsSectionLabel>
+
+                <ActionsGrid>
+                  {tiles.map((t) => (
+                    <ActionTile
+                      key={t.key}
+                      type="button"
+                      disabled={t.disabled}
+                      onClick={t.onClick}
+                      $bg={t.disabled ? "#f8fafc" : t.theme.bg}
+                      $border={t.disabled ? "#e2e8f0" : t.theme.border}
+                      $color={t.disabled ? "#94a3b8" : t.theme.color}
+                    >
+                      <ActionTileIcon $bg={t.disabled ? "#e2e8f0" : t.theme.iconBg}>
+                        {t.icon}
+                      </ActionTileIcon>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: "0.88rem" }}>{t.title}</div>
+                        <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                          {t.sub}
+                        </div>
+                      </div>
+                    </ActionTile>
+                  ))}
+                </ActionsGrid>
+              </ModalBody>
+
+              <ModalFooter>
+                <ModalActionButton
+                  bg="linear-gradient(135deg,#757575,#616161)"
+                  color="white"
+                  onClick={close}
+                >
+                  Close
+                </ModalActionButton>
+              </ModalFooter>
+            </StyledModalContent>
+          </StyledModalOverlay>
+        );
+      })()}
 
       {isModalOpen && selectedRow && (
         <Modal

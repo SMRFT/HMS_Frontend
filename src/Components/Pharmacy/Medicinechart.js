@@ -632,15 +632,35 @@ const StatusPill = styled.span`
   box-sizing: border-box;
   text-align: center;
   white-space: nowrap;
-  background: ${({ $status }) => ($status === "Processing" ? "#f5f3ff" : "#fff7ed")};
-  color: ${({ $status }) => ($status === "Processing" ? "#7c3aed" : "#c2410c")};
-  border: 1px solid ${({ $status }) => ($status === "Processing" ? "#ede9fe" : "#ffedd5")};
+  background: ${({ $status }) => {
+    const s = String($status || "").toLowerCase();
+    if (s === "processing") return "#f5f3ff";
+    if (s === "billed" || s === "paid" || s === "completed") return "#ecfdf5";
+    return "#fff7ed";
+  }};
+  color: ${({ $status }) => {
+    const s = String($status || "").toLowerCase();
+    if (s === "processing") return "#7c3aed";
+    if (s === "billed" || s === "paid" || s === "completed") return "#059669";
+    return "#c2410c";
+  }};
+  border: 1px solid ${({ $status }) => {
+    const s = String($status || "").toLowerCase();
+    if (s === "processing") return "#ede9fe";
+    if (s === "billed" || s === "paid" || s === "completed") return "#a7f3d0";
+    return "#ffedd5";
+  }};
 
   .dot {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: ${({ $status }) => ($status === "Processing" ? "#8b5cf6" : "#f97316")};
+    background: ${({ $status }) => {
+      const s = String($status || "").toLowerCase();
+      if (s === "processing") return "#8b5cf6";
+      if (s === "billed" || s === "paid" || s === "completed") return "#10b981";
+      return "#f97316";
+    }};
   }
 `;
 
@@ -1690,19 +1710,28 @@ const DropdownItem = styled.li`
 const getBillKey = (patient) =>
   `bill-${patient?.Bill_id ?? patient?.bill_id ?? patient?.uhid}`;
 
-// Safely extracts YYYY-MM-DD from ISO datetime or local string
+const ensureUtcIso = (iso) => {
+  if (!iso) return iso;
+  let s = String(iso).trim();
+  if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
+  if (s && s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) {
+    return s + "Z";
+  }
+  return s;
+};
+
+// Safely extracts YYYY-MM-DD from ISO datetime or local string (in Asia/Kolkata timezone)
 const extractWardDate = (dateVal) => {
   if (!dateVal) return "";
-  if (typeof dateVal === "string" && dateVal.includes("T")) {
-    return dateVal.split("T")[0];
-  }
   try {
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("en-CA");
+    const d = new Date(ensureUtcIso(dateVal));
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    }
   } catch {
-    return "";
+    // fallback
   }
+  return String(dateVal).split("T")[0];
 };
 
 // Returns Selling_Price in place of Unit Price, with fallbacks to price and mrp
@@ -1839,20 +1868,11 @@ const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) 
 const formatBillDateTime = (val) => {
   if (!val || val === "—" || val === "N/A") return "—";
   try {
-    let s = String(val).trim();
-    if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
-    if (s.includes("T") && !s.endsWith("Z") && !s.includes("+") && !/-\d{2}:\d{2}$/.test(s)) s += "Z";
-    const d = new Date(s);
+    const d = new Date(ensureUtcIso(val));
     if (isNaN(d.getTime())) return String(val);
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    const hours24 = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    const seconds = String(d.getSeconds()).padStart(2, "0");
-    const ampm = hours24 >= 12 ? "PM" : "AM";
-    const hours12 = String(hours24 % 12 || 12).padStart(2, "0");
-    return `${day}/${month}/${year} ${hours12}:${minutes}:${seconds} ${ampm}`;
+    const datePart = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
+    const timePart = d.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).toUpperCase();
+    return `${datePart} ${timePart}`;
   } catch (e) {
     return String(val);
   }
@@ -1885,16 +1905,16 @@ const getUnitPrice = (item) => {
 
 // --------- MAIN COMPONENT ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeTab, selectedOutlet }) => {
-  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
+  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }), []);
   const yesterdayStr = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
-    return d.toLocaleDateString("en-CA");
+    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   }, []);
   const last7Str = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() - 6);
-    return d.toLocaleDateString("en-CA");
+    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   }, []);
 
   const [medicineData, setMedicineData]       = useState([]);
@@ -1921,18 +1941,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const formatDateTime = (dateVal) => {
     if (!dateVal) return "—";
     try {
-      const d = new Date(dateVal);
+      const d = new Date(ensureUtcIso(dateVal));
       if (isNaN(d.getTime())) return String(dateVal);
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      let hours = d.getHours();
-      const minutes = String(d.getMinutes()).padStart(2, "0");
-      const ampm = hours >= 12 ? "pm" : "am";
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      const strHours = String(hours).padStart(2, "0");
-      return `${day}/${month}/${year} • ${strHours}:${minutes} ${ampm}`;
+      const datePart = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
+      const timePart = d.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase();
+      return `${datePart} • ${timePart}`;
     } catch {
       return String(dateVal);
     }
@@ -1941,12 +1954,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const formatDateOnly = (dateVal) => {
     if (!dateVal) return "—";
     try {
-      const d = new Date(dateVal);
+      const d = new Date(ensureUtcIso(dateVal));
       if (isNaN(d.getTime())) return String(dateVal);
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      return `${day}/${month}/${year}`;
+      return d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
     } catch {
       return String(dateVal);
     }
@@ -1955,15 +1965,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const formatTimeOnly = (dateVal) => {
     if (!dateVal) return "";
     try {
-      const d = new Date(dateVal);
+      const d = new Date(ensureUtcIso(dateVal));
       if (isNaN(d.getTime())) return "";
-      let hours = d.getHours();
-      const minutes = String(d.getMinutes()).padStart(2, "0");
-      const ampm = hours >= 12 ? "pm" : "am";
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      const strHours = String(hours).padStart(2, "0");
-      return `${strHours}:${minutes} ${ampm}`;
+      return d.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase();
     } catch {
       return "";
     }
@@ -2194,31 +2198,33 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
             return false;
           }
         }
-        // Status filter: Billed bills must NEVER display in Medicine Chart
+        // Status filter: Cancelled bills must never display in Medicine Chart
         const bStatus = String(bill.billing_status || "").trim().toLowerCase();
-        if (bStatus === "billed" || bStatus === "paid" || bStatus === "completed" || bStatus === "cancelled") {
+        if (bStatus === "cancelled" || bill.is_cancelled || bill.is_deleted) {
           return false;
         }
-        // Items filter: Must have at least one item with remaining pending qty > 0
-        const items = Array.isArray(bill.medicine_items)
-          ? bill.medicine_items
-          : (Array.isArray(bill.medicine_particulars) ? bill.medicine_particulars : []);
-        if (items.length > 0) {
-          const hasPending = items.some((it) => {
-            const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
-            const disp = Number(it.dispatched_qty ?? 0);
-            const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
-            return pend > 0;
-          });
-          if (!hasPending) return false;
+
+        const isBilled = bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
+        if (!isBilled) {
+          // Items filter: For active Pending/Processing requests, must have at least one item with remaining pending qty > 0
+          const items = Array.isArray(bill.medicine_items)
+            ? bill.medicine_items
+            : (Array.isArray(bill.medicine_particulars) ? bill.medicine_particulars : []);
+          if (items.length > 0) {
+            const hasPending = items.some((it) => {
+              if (it.deleted_is || it.is_deleted) return false;
+              const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
+              const disp = Number(it.dispatched_qty ?? 0);
+              const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
+              return pend > 0;
+            });
+            if (!hasPending) return false;
+          }
         }
         return true;
       });
 
       setMedicineData(filteredList);
-      if (typeof onCountChange === "function") {
-        onCountChange(filteredList.length);
-      }
     } catch (err) {
       console.error("Error fetching medicine chart:", err);
       if (!silent) setError("Failed to load data. Please try again.");
@@ -2308,28 +2314,67 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     }
     try {
       setSubstLoading(true);
-      const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST", { search: q });
+      const outlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "OLET001";
+      const branch = localStorage.getItem("selected_branch") || localStorage.getItem("branch_code") || "SHB001";
+      const hospital = localStorage.getItem("selected_hospital") || localStorage.getItem("hospital_code") || "SH001";
+      const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST", {
+        search: q,
+        "auth-hospital-code": hospital,
+        "auth-branch-code": branch,
+        "outlet_code": outlet,
+        include_zero_stock: true,
+      });
       const medicineArray = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.data) ? response.data.data : [];
-      if (response.success) {
-        const formatted = medicineArray.map((item) => ({
-          name:            item.item_name || "",
-          item_id:         item.item_id,
-          batch_number:    item.batch_number  || "N/A",
-          expiry_date:     item.expiry_date   || "N/A",
-          mrp:             parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
-          price:           parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0),
-          available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
-          category:        item.category || "",
-        }));
-        const seen = new Set();
-        const unique = formatted.filter(m => {
-          if (seen.has(m.item_id)) return false;
-          seen.add(m.item_id);
-          return true;
+      if (response.success && medicineArray.length > 0) {
+        // Group by item_id to aggregate total available stock across all batches
+        const map = new Map();
+        for (const item of medicineArray) {
+          const id = item.item_id;
+          if (!id) continue;
+          const name = item.item_name || `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim();
+          const stock = item.available_stock != null ? Number(item.available_stock) : Number(item.total_stock ?? 0);
+          const mrpVal = parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0);
+          const priceVal = parseFloat(item.price ?? item.Selling_Price ?? item.selling_price ?? item.mrp ?? 0);
+          const batchNum = item.batch_number || "N/A";
+          const expDate = item.expiry_date || "N/A";
+
+          if (!map.has(id)) {
+            map.set(id, {
+              name,
+              item_id: id,
+              batch_number: batchNum,
+              expiry_date: expDate,
+              mrp: mrpVal,
+              price: priceVal,
+              available_stock: stock,
+              category: item.category || "",
+              has_stock_batch: stock > 0,
+              batches: [item],
+            });
+          } else {
+            const existing = map.get(id);
+            existing.available_stock += stock;
+            existing.batches.push(item);
+            // If the existing batch had 0 stock, but this batch has available stock > 0, prefer this batch!
+            if (!existing.has_stock_batch && stock > 0) {
+              existing.batch_number = batchNum;
+              existing.expiry_date = expDate;
+              if (mrpVal > 0) existing.mrp = mrpVal;
+              if (priceVal > 0) existing.price = priceVal;
+              existing.has_stock_batch = true;
+            }
+          }
+        }
+        const grouped = Array.from(map.values());
+        // Sort items: items with available stock > 0 first, then alphabetically
+        grouped.sort((a, b) => {
+          if (a.available_stock > 0 && b.available_stock <= 0) return -1;
+          if (a.available_stock <= 0 && b.available_stock > 0) return 1;
+          return a.name.localeCompare(b.name);
         });
-        setMedicines(unique);
+        setMedicines(grouped);
       } else {
         setMedicines([]);
       }
@@ -2368,30 +2413,61 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
   // --------- Computed Statistics for KPI cards (reflecting active date range) ------------------
   const stats = useMemo(() => {
-    const total = dateFilteredData.length;
     let pending = 0;
     let processing = 0;
+    let billed = 0;
     let insuranceCount = 0;
+    let generalCount = 0;
     let totalAdvance = 0;
 
     dateFilteredData.forEach((p) => {
-      if (p.billing_status === "Pending") pending += 1;
-      if (p.billing_status === "Processing") processing += 1;
-      if (p.is_insurance) insuranceCount += 1;
+      const bStatus = String(p.billing_status || "").trim().toLowerCase();
+      const isB = bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
+      if (bStatus === "pending") pending += 1;
+      else if (bStatus === "processing") processing += 1;
+      else if (isB) billed += 1;
+
+      // Active pending/processing counts for Insurance and General
+      if (!isB) {
+        if (p.is_insurance) insuranceCount += 1;
+        else generalCount += 1;
+      }
       totalAdvance += Number(p.total_ip_advance || 0);
     });
 
-    return { total, pending, processing, insuranceCount, totalAdvance };
+    // "All" reflects only active Pending and Processing prescriptions
+    const total = pending + processing;
+
+    return { total, pending, processing, billed, insuranceCount, generalCount, totalAdvance };
   }, [dateFilteredData]);
+
+  // Sync active count with parent tab badge whenever stats.total changes
+  useEffect(() => {
+    if (typeof onCountChange === "function") {
+      onCountChange(stats.total);
+    }
+  }, [stats.total, onCountChange]);
 
   // --------- Filtered Data (by status tabs and search query) ------------------------------------------------------------------
   const filteredData = useMemo(() => {
     return dateFilteredData.filter((patient) => {
-      // 1. Active Tab Filter
-      if (activeFilter === "Pending" && patient.billing_status !== "Pending") return false;
-      if (activeFilter === "Processing" && patient.billing_status !== "Processing") return false;
-      if (activeFilter === "Insurance" && !patient.is_insurance) return false;
-      if (activeFilter === "General" && patient.is_insurance) return false;
+      const bStatus = String(patient.billing_status || "").trim().toLowerCase();
+      const isBilled = bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
+
+      // 1. Active Tab Filter: "All" displays Pending and Processing alone; Billed is viewed under "Billed" tab
+      if (activeFilter === "All") {
+        if (isBilled) return false;
+      } else if (activeFilter === "Pending") {
+        if (bStatus !== "pending") return false;
+      } else if (activeFilter === "Processing") {
+        if (bStatus !== "processing") return false;
+      } else if (activeFilter === "Billed") {
+        if (!isBilled) return false;
+      } else if (activeFilter === "Insurance") {
+        if (isBilled || !patient.is_insurance) return false;
+      } else if (activeFilter === "General") {
+        if (isBilled || patient.is_insurance) return false;
+      }
 
       // 2. Search Query
       if (searchQuery.trim()) {
@@ -2404,6 +2480,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         const reqBy   = String(patient.created_by_name || patient.prepared_by || patient.created_by || patient.patient_details?.created_by_name || "").toLowerCase();
         const mobile  = String(patient.patient_details?.mobile || patient.mobile || "").toLowerCase();
         const company = String(patient.insurance_company || "").toLowerCase();
+        const reqNo   = String(patient.request_no || patient.requestNo || "").toLowerCase();
 
         return (
           pName.includes(q) ||
@@ -2413,7 +2490,8 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           doc.includes(q) ||
           reqBy.includes(q) ||
           mobile.includes(q) ||
-          company.includes(q)
+          company.includes(q) ||
+          reqNo.includes(q)
         );
       }
 
@@ -2615,11 +2693,18 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       const name = (med.name || "").toLowerCase();
       if (name.startsWith(q)) {
         startsWith.push(med);
-      } else if (name.includes(` ${q}`) || name.includes(`-${q}`)) {
+      } else if (name.includes(` ${q}`) || name.includes(`-${q}`) || name.includes(q)) {
         others.push(med);
       }
     }
-    return startsWith.length > 0 ? startsWith : others;
+    const combined = [...startsWith, ...others];
+    return combined.sort((a, b) => {
+      const aStock = Number(a.available_stock || 0);
+      const bStock = Number(b.available_stock || 0);
+      if (aStock > 0 && bStock <= 0) return -1;
+      if (aStock <= 0 && bStock > 0) return 1;
+      return 0;
+    });
   }, [substSearch, medicines]);
 
   return (
@@ -2741,8 +2826,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
               { id: "All", label: "All", count: stats.total },
               { id: "Pending", label: "Pending", count: stats.pending },
               { id: "Processing", label: "Processing", count: stats.processing },
+              { id: "Billed", label: "Billed", count: stats.billed },
               { id: "Insurance", label: "Insurance", count: stats.insuranceCount },
-              { id: "General", label: "General", count: stats.total - stats.insuranceCount },
+              { id: "General", label: "General", count: stats.generalCount },
             ].map(tab => (
               <SegmentPillBtn
                 key={tab.id}
@@ -2833,7 +2919,9 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       const uhid = patient.uhid || "—";
                       const ipNo = patient.inpatient_number || patient.ip_number || "—";
                       const ward = patient.ward_name || patient.room_no || "—";
-                      const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date);
+                      const isOtRequest = String(patient.billing_mode || patient.billingMode || "").toUpperCase().includes("OT");
+                      const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date || patient.bill_date);
+                      const reqNo = patient.request_no || patient.requestNo || "";
                       const isInsurance = Boolean(
                         patient.is_insurance ||
                         String(patient.customer_type || "").toLowerCase() === "insurance" ||
@@ -2899,10 +2987,33 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           {/* 5. Ward & Room Number */}
                           <td>
                             <div>
-                              <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.76rem" }}>
-                                Room {ward}
-                              </div>
-                              {(roomCat || block || nursingStation) && (
+                              {isOtRequest ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                  <span style={{
+                                    background: "#fef3c7",
+                                    color: "#b45309",
+                                    border: "1px solid #fde68a",
+                                    padding: "2px 8px",
+                                    borderRadius: 4,
+                                    fontWeight: 800,
+                                    fontSize: "0.72rem",
+                                    display: "inline-block",
+                                    width: "fit-content"
+                                  }}>
+                                    🏥 OT Request
+                                  </span>
+                                  {ward && ward !== "—" && ward !== "-" && !ward.toLowerCase().includes("ot request") && (
+                                    <span style={{ fontSize: "0.68rem", color: "#475569", fontWeight: 600 }}>
+                                      {ward}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.76rem" }}>
+                                  Room {ward}
+                                </div>
+                              )}
+                              {(roomCat || block || nursingStation) && !isOtRequest && (
                                 <div style={{ fontSize: "0.65rem", color: "#0f766e", marginTop: 2, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", lineHeight: 1.2 }}>
                                   {roomCat && (
                                     <span style={{ background: "#ccfbf1", color: "#0f766e", padding: "1px 4px", borderRadius: 3, fontWeight: 700, fontSize: "0.62rem", textTransform: "uppercase" }}>
@@ -2923,11 +3034,25 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           {/* 6. Request Date & Time */}
                           <td>
                             <div style={{ fontWeight: 600, fontSize: "0.74rem", color: "#0f172a", whiteSpace: "nowrap" }}>
-                              {formatDateOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
+                              {dateFormatted}
                             </div>
-                            <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: 2, whiteSpace: "nowrap" }}>
-                              {formatTimeOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
-                            </div>
+                            {reqNo ? (
+                              <div style={{
+                                marginTop: 3,
+                                display: "inline-block",
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                color: "#0f766e",
+                                background: "#f0fdfa",
+                                border: "1px solid #99f6e4",
+                                borderRadius: 4,
+                                padding: "1px 6px",
+                                letterSpacing: "0.2px",
+                                whiteSpace: "nowrap"
+                              }}>
+                                {reqNo}
+                              </div>
+                            ) : null}
                           </td>
 
                           {/* 7. Status */}
@@ -3041,6 +3166,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
               const uhid = patient.uhid || "—";
               const ipNo = patient.inpatient_number || patient.ip_number || "—";
               const ward = patient.ward_name || patient.room_no || "—";
+              const isOtRequest = String(patient.billing_mode || patient.billingMode || "").toUpperCase().includes("OT");
               const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date);
               const isInsurance = Boolean(
                 patient.is_insurance ||
@@ -3069,8 +3195,12 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                   </div>
 
                   <div style={{ minWidth: 0 }}>
-                    <CardRoomTitle>Room {ward}</CardRoomTitle>
-                    {(roomCat || block || nursingStation) && (
+                    {isOtRequest ? (
+                      <CardRoomTitle style={{ color: "#b45309" }}>🏥 OT Request</CardRoomTitle>
+                    ) : (
+                      <CardRoomTitle>Room {ward}</CardRoomTitle>
+                    )}
+                    {(roomCat || block || nursingStation) && !isOtRequest && (
                       <div style={{ fontSize: "0.68rem", color: "#0f766e", marginTop: 2, display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", lineHeight: 1.2 }}>
                         {roomCat && (
                           <span style={{ background: "#ccfbf1", color: "#0f766e", padding: "1px 5px", borderRadius: 4, fontWeight: 700, fontSize: "0.65rem", textTransform: "uppercase" }}>
@@ -3089,7 +3219,23 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                         )}
                       </div>
                     )}
-                    <CardDateSubtext style={{ marginTop: 2 }}>{dateFormatted}</CardDateSubtext>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                      <CardDateSubtext>{dateFormatted}</CardDateSubtext>
+                      {(patient.request_no || patient.requestNo) && (
+                        <span style={{
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          color: "#0f766e",
+                          background: "#f0fdfa",
+                          border: "1px solid #99f6e4",
+                          borderRadius: 4,
+                          padding: "1px 5px",
+                          letterSpacing: "0.2px"
+                        }}>
+                          {patient.request_no || patient.requestNo}
+                        </span>
+                      )}
+                    </div>
                     {requestedBy && (
                       <div
                         style={{
@@ -3251,21 +3397,27 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
               const uhid = patient.uhid || "—";
               const ipNo = patient.inpatient_number || patient.ip_number || "—";
               const ward = patient.ward_name || patient.room_no || "—";
+              const isOtRequest = String(patient.billing_mode || patient.billingMode || "").toUpperCase().includes("OT");
               const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date);
               const doctorName = patient.doctor_name
                 ? (patient.doctor_name.toLowerCase().startsWith("dr") ? patient.doctor_name : `Dr. ${patient.doctor_name}`)
                 : "Dr. Murugavel R";
               const contact = patient.patient_details?.mobile || patient.mobile || patient.contact || "—";
+              const rawStatus = String(patient.billing_status || "").trim().toLowerCase();
+              const isBilled = rawStatus === "billed" || rawStatus === "paid" || rawStatus === "completed";
               const rawItems = Array.isArray(patient.medicine_items)
                 ? patient.medicine_items
                 : (Array.isArray(patient.medicine_particulars) ? patient.medicine_particulars : []);
-              // Only display pending items in the medicine chart modal:
-              const items = rawItems.filter((it) => {
-                const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
-                const disp = Number(it.dispatched_qty ?? 0);
-                const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
-                return pend > 0;
-              });
+              // If billed, display all items that were billed; if pending/processing, display only remaining pending items (excluding deleted):
+              const items = isBilled
+                ? rawItems.filter((it) => !it.deleted_is && !it.is_deleted)
+                : rawItems.filter((it) => {
+                    if (it.deleted_is || it.is_deleted) return false;
+                    const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
+                    const disp = Number(it.dispatched_qty ?? 0);
+                    const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
+                    return pend > 0;
+                  });
               const isModalInsurance = Boolean(
                 patient.is_insurance ||
                 String(patient.customer_type || "").toLowerCase() === "insurance" ||
@@ -3296,7 +3448,13 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <div style={{ fontSize: "0.73rem", color: "#64748b", marginTop: 4, display: "flex", gap: 12, flexWrap: "wrap", letterSpacing: "0.01em", alignItems: "center" }}>
                         <span>UHID {uhid}</span>
                         <span>IP {ipNo}</span>
-                        <span>Room {ward}</span>
+                        {isOtRequest ? (
+                          <span style={{ background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a", padding: "1px 7px", borderRadius: 4, fontWeight: 800, fontSize: "0.7rem" }}>
+                            🏥 OT Request
+                          </span>
+                        ) : (
+                          <span>Room {ward}</span>
+                        )}
                         {modalRoomCat && (
                           <span style={{ background: "#ccfbf1", color: "#0f766e", padding: "1px 6px", borderRadius: 4, fontWeight: 700, fontSize: "0.68rem", textTransform: "uppercase" }}>
                             {modalRoomCat}
@@ -3313,6 +3471,19 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           </span>
                         )}
                         <span>{dateFormatted}</span>
+                        {(patient.request_no || patient.requestNo) && (
+                          <span style={{
+                            background: "#f0fdfa",
+                            color: "#0f766e",
+                            border: "1px solid #99f6e4",
+                            padding: "1px 6px",
+                            borderRadius: 4,
+                            fontWeight: 700,
+                            fontSize: "0.72rem"
+                          }}>
+                            Req No: {patient.request_no || patient.requestNo}
+                          </span>
+                        )}
                         {modalRequestedBy && (
                           <span style={{ color: "#0f766e", fontWeight: 700 }}>
                             Requested by: {modalRequestedBy}
@@ -3346,6 +3517,12 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                   </DetailModalHeader>
 
                   <PatientSummaryStrip>
+                    {isOtRequest && (
+                      <StripCell>
+                        <StripLabel>Request Type</StripLabel>
+                        <StripVal style={{ color: "#b45309", fontWeight: 800 }}>OT Request</StripVal>
+                      </StripCell>
+                    )}
                     <StripCell>
                       <StripLabel>Admitting doctor</StripLabel>
                       <StripVal>{doctorName}</StripVal>
@@ -3425,8 +3602,10 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             return (
                               <tr key={item.item_id || idx}>
                                 <td>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span style={{ fontWeight: 700, color: "#64748b", fontSize: "0.78rem", minWidth: 16 }}>
+                                      {idx + 1}.
+                                    </span>
                                     <span style={{ fontWeight: 700, color: "#0f172a", textTransform: "uppercase" }}>
                                       {item.item_name || item.medicine_name || `Item #${idx + 1}`}
                                     </span>
@@ -3525,22 +3704,24 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                                 </td>
                                 <td style={{ fontSize: "0.73rem", color: "#64748b" }}>{requestedTime}</td>
                                 <td style={{ textAlign: "center" }}>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => openSubstituteModal(patient, item, e)}
-                                    style={{
-                                      background: "#ffffff",
-                                      border: "1px solid #e2e8f0",
-                                      color: "#334155",
-                                      borderRadius: 6,
-                                      padding: "4px 12px",
-                                      fontSize: "0.72rem",
-                                      fontWeight: 600,
-                                      cursor: "pointer"
-                                    }}
-                                  >
-                                    Substitute
-                                  </button>
+                                  {!isBilled && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => openSubstituteModal(patient, item, e)}
+                                      style={{
+                                        background: "#ffffff",
+                                        border: "1px solid #e2e8f0",
+                                        color: "#334155",
+                                        borderRadius: 6,
+                                        padding: "4px 12px",
+                                        fontSize: "0.72rem",
+                                        fontWeight: 600,
+                                        cursor: "pointer"
+                                      }}
+                                    >
+                                      Substitute
+                                    </button>
+                                  )}
                                 </td>
                               </tr>
                             );
@@ -3554,7 +3735,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#0f172a" }}>
                       {itemsCount} {itemsCount === 1 ? "item" : "items"} • Total ₹{formatCurrency(prescriptionTotal)}
                     </div>
-                    <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <button
                         type="button"
                         onClick={() => {
@@ -3574,25 +3755,44 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       >
                         Print
                       </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          setSelectedPatientModal(null);
-                          handleConvertToBillSafe(patient, e);
-                        }}
-                        style={{
-                          background: "#0f766e",
-                          color: "#ffffff",
-                          border: "none",
-                          borderRadius: 8,
-                          padding: "8px 20px",
-                          fontSize: "0.8rem",
-                          fontWeight: 700,
-                          cursor: "pointer"
-                        }}
-                      >
-                        Convert to bill
-                      </button>
+                      {isBilled ? (
+                        <span
+                          style={{
+                            background: "#ecfdf5",
+                            color: "#059669",
+                            border: "1px solid #a7f3d0",
+                            borderRadius: 8,
+                            padding: "8px 18px",
+                            fontSize: "0.8rem",
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6
+                          }}
+                        >
+                          ✓ Billed {patient.bill_no ? `(#${patient.bill_no})` : ""}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            setSelectedPatientModal(null);
+                            handleConvertToBillSafe(patient, e);
+                          }}
+                          style={{
+                            background: "#0f766e",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: 8,
+                            padding: "8px 20px",
+                            fontSize: "0.8rem",
+                            fontWeight: 700,
+                            cursor: "pointer"
+                          }}
+                        >
+                          Convert to bill
+                        </button>
+                      )}
                     </div>
                   </DetailModalFooter>
                 </>
@@ -3666,7 +3866,12 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           }}
                         >
                           <span style={{ fontWeight: 600 }}>{med.name}</span>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.75rem", color: T.primary }}>
+                          <span style={{
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: "0.75rem",
+                            fontWeight: 700,
+                            color: Number(med.available_stock || 0) > 0 ? T.primary : "#ef4444"
+                          }}>
                             Stock: {med.available_stock}
                           </span>
                         </DropdownItem>
@@ -3722,7 +3927,10 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         const billNo = p.bill_number || p.bill_no || p.Bill_id || "2627/007336";
         const rawDate = p.bill_date || p.ward_request_date || p.created_date;
         const billDateStr = formatBillDateTime(rawDate);
-        const roomLabel = p.ward_name || p.room_no || p.room || "SICU";
+        const isOt = String(p.billing_mode || p.billingMode || "").toUpperCase().includes("OT");
+        const roomLabel = isOt
+          ? "OT Request"
+          : (p.ward_name && p.ward_name !== "-" && p.ward_name !== "—" ? p.ward_name : (p.room_no && p.room_no !== "-" && p.room_no !== "—" ? p.room_no : (p.room || "—")));
         const preparedBy = p.prepared_by || p.created_by_name || p.created_by || localStorage.getItem("userName") || localStorage.getItem("user_name") || "BALAM";
 
         const isInsurance = Boolean(p.is_insurance || String(p.customer_type || '').toLowerCase() === 'insurance');

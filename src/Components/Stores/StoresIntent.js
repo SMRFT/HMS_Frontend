@@ -708,20 +708,55 @@ const StoresIntentManager = () => {
                         <SectionFrame>
                             <SectionHeader>
                                 <h3>Items Collection ({intentForm.items.length})</h3>
-                                <div style={{ width: '320px' }}>
+                                <div style={{ width: '450px', maxWidth: '100%' }}>
                                     <Select
                                         showSearch
                                         placeholder="+ Add Stock Item"
                                         value={null}
                                         onSelect={handleAddItem}
                                         style={{ width: '100%', height: '38px' }}
-                                        optionFilterProp="children"
+                                        filterOption={(input, option) => {
+                                            const searchStr = `${option?.data_name || ''} ${option?.data_id || ''} ${option?.data_hsn || ''}`.toLowerCase();
+                                            return searchStr.includes(input.toLowerCase());
+                                        }}
                                     >
-                                        {itemsMaster.filter(i => !i.is_VM).map(i => (
-                                            <Option key={i.item_id} value={i.item_id}>
-                                                {i.itemName} {i.hsn ? `(HSN: ${i.hsn})` : ''}
-                                            </Option>
-                                        ))}
+                                        {itemsMaster.filter(i => !i.is_VM).map(i => {
+                                            const stockVal = Number(i.available_stock ?? (Number(i.total_quantity || 0) - Number(i.approved_quantity || 0))) || 0;
+                                            const hasStock = stockVal > 0;
+                                            return (
+                                                <Option
+                                                    key={i.item_id}
+                                                    value={i.item_id}
+                                                    data_name={i.itemName || i.name}
+                                                    data_id={i.item_id}
+                                                    data_hsn={i.hsn}
+                                                >
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '12px' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                                            <span style={{ fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                {i.itemName}
+                                                            </span>
+                                                            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                                                {i.item_id} {i.hsn && i.hsn !== '-' ? `• HSN: ${i.hsn}` : ''}
+                                                            </span>
+                                                        </div>
+                                                        <span style={{
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 700,
+                                                            padding: '2px 8px',
+                                                            borderRadius: '12px',
+                                                            background: hasStock ? '#ecfdf5' : '#fef2f2',
+                                                            color: hasStock ? '#047857' : '#b91c1c',
+                                                            border: `1px solid ${hasStock ? '#a7f3d0' : '#fecaca'}`,
+                                                            whiteSpace: 'nowrap',
+                                                            flexShrink: 0
+                                                        }}>
+                                                            Stock: {stockVal}
+                                                        </span>
+                                                    </div>
+                                                </Option>
+                                            );
+                                        })}
                                     </Select>
                                 </div>
                             </SectionHeader>

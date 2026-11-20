@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
 import { 
     ShieldCheck, RefreshCw, Download, Printer, 
-    Search, ArrowLeft, Filter, Building2
+    Search, ArrowLeft, Filter, ChevronDown, ChevronRight, FileText
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 import {
@@ -21,7 +21,8 @@ import {
     Tr,
     colors
 } from '../GlobalStyles';
-import { SCOPE_OPTIONS, getStoredScope, setStoredScope, formatCurrency, printDrugReport } from './drugReportHelper';
+import SearchSelect from '../Common/SearchSelect';
+import { SCOPE_OPTIONS, getStoredScope, setStoredScope, printDrugReport } from './drugReportHelper';
 
 const DrugSupplierGrnReport = () => {
     const navigate = useNavigate();
@@ -35,13 +36,15 @@ const DrugSupplierGrnReport = () => {
     const [selectedVendor, setSelectedVendor] = useState('');
     const [vendors, setVendors] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [expandedSupplier, setExpandedSupplier] = useState(null);
     const [loading, setLoading] = useState(false);
 
     const [summary, setSummary] = useState({
+        total_suppliers: 0,
         total_grns: 0,
-        total_taxable_amount: 0,
-        total_tax_itc: 0,
-        total_net_purchases: 0
+        grand_taxable_amount: 0,
+        grand_tax_amount: 0,
+        grand_total_amount: 0
     });
     const [reportData, setReportData] = useState([]);
 
@@ -92,45 +95,74 @@ const DrugSupplierGrnReport = () => {
         setTimeout(() => fetchReport(), 50);
     };
 
+    const toggleExpandSupplier = (vendorId) => {
+        if (expandedSupplier === vendorId) {
+            setExpandedSupplier(null);
+        } else {
+            setExpandedSupplier(vendorId);
+        }
+    };
+
     const exportToExcel = () => {
         if (!reportData || reportData.length === 0) return;
+
+        const supplierRows = reportData.map(s => ({
+            "Vendor ID": s.vendor_id,
+            "Supplier Name": s.vendor_name,
+            "GSTIN": s.vendor_gstin || '',
+            "Total GRNs": s.total_grns,
+            "Taxable Amount (₹)": s.taxable_amount,
+            "Tax Paid (₹)": s.tax_amount,
+            "Total Invoice Amount (₹)": s.total_amount,
+            "Items Received Qty": s.total_items_qty
+        }));
+
+        const grnRows = [];
+        reportData.forEach(s => {
+            if (Array.isArray(s.grns)) {
+                s.grns.forEach(g => {
+                    grnRows.push({
+                        "Vendor ID": s.vendor_id,
+                        "Supplier Name": s.vendor_name,
+                        "GRN Number": g.grn_number,
+                        "GRN Date": g.date || '',
+                        "Invoice No": g.invoice_no || '',
+                        "Invoice Date": g.invoice_date || '',
+                        "Taxable Value (₹)": g.taxable_amount,
+                        "CGST (₹)": g.cgst,
+                        "SGST (₹)": g.sgst,
+                        "Total Amount (₹)": g.total_amount,
+                        "Payment Mode": g.payment_mode || 'Credit',
+                        "Approval Status": g.is_approved ? 'Approved' : 'Pending',
+                        "Items Summary": Array.isArray(g.items) ? g.items.map(it => `${it.name || it.itemName || 'Item'} (${it.quantity || 0} Qty)`).join(', ') : ''
+                    });
+                });
+            }
+        });
+
         const wb = XLSX.utils.book_new();
-        const wsData = XLSX.utils.json_to_sheet(reportData.map((r, i) => ({
-            'S.No': i + 1,
-            'GRN Number': r.grn_number || '',
-            'Invoice No': r.invoice_no || '',
-            'Invoice Date': r.invoice_date || '',
-            'Drug Supplier': r.vendor_name || '',
-            'GSTIN': r.vendor_gstin || '',
-            'Payment Mode': r.payment_mode || '',
-            'Taxable Value (₹)': r.taxable_amount || 0,
-            'CGST (₹)': r.cgst || 0,
-            'SGST (₹)': r.sgst || 0,
-            'Discount (₹)': r.total_discount || 0,
-            'Net Invoice Amount (₹)': r.net_amount || 0,
-            'Outlet': r.scope || scope
-        })));
-        XLSX.utils.book_append_sheet(wb, wsData, 'SupplierGRN');
-        XLSX.writeFile(wb, `Drug_Supplier_GRN_${scope.replace(/\s+/g, '_')}_${today}.xlsx`);
+        const wsSupplier = XLSX.utils.json_to_sheet(supplierRows);
+        const wsGrns = XLSX.utils.json_to_sheet(grnRows);
+
+        XLSX.utils.book_append_sheet(wb, wsSupplier, "Supplier Summary");
+        XLSX.utils.book_append_sheet(wb, wsGrns, "Detailed GRN Invoices");
+
+        XLSX.writeFile(wb, `Drug_Supplier_GRN_Report_${scope.replace(/\s+/g, '_')}_${today}.xlsx`);
     };
 
     const handlePrint = () => {
         printDrugReport({
-            title: `SUPPLIER-BASED GRN REPORT (${scope})`,
+            title: `SUPPLIER-BASED DRUG GRN REPORT (${scope})`,
             fromDate,
             toDate,
             scope,
             columns: [
-                { key: 'sno', label: 'S/No', width: '45px' },
-                { key: 'grn_number', label: 'GRN No', width: '120px' },
-                { key: 'invoice_no', label: 'Inv No', width: '100px' },
-                { key: 'invoice_date', label: 'Date', width: '90px' },
-                { key: 'vendor_name', label: 'Drug Supplier' },
-                { key: 'vendor_gstin', label: 'GSTIN', width: '120px' },
-                { key: 'taxable_amount', label: 'Taxable (₹)', width: '100px', align: 'right' },
-                { key: 'cgst', label: 'CGST', width: '70px', align: 'right' },
-                { key: 'sgst', label: 'SGST', width: '70px', align: 'right' },
-                { key: 'net_amount', label: 'Net Amount (₹)', width: '110px', align: 'right' }
+                { key: 'vendor_name', label: 'Supplier / Vendor', width: '220px' },
+                { key: 'total_grns', label: 'Total GRNs', width: '90px', align: 'center' },
+                { key: 'taxable_amount', label: 'Taxable (₹)', width: '120px', align: 'right' },
+                { key: 'tax_amount', label: 'Tax Paid (₹)', width: '110px', align: 'right' },
+                { key: 'total_amount', label: 'Net Total (₹)', width: '130px', align: 'right' },
+                { key: 'total_items_qty', label: 'Units Recd', width: '90px', align: 'center' }
             ],
             data: reportData,
             summary
@@ -151,11 +183,11 @@ const DrugSupplierGrnReport = () => {
                                 <ArrowLeft size={16} /> Back
                             </Button>
                             <h1 style={{ margin: 0, color: colors.primary, fontSize: '1.75rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <ShieldCheck size={28} color={colors.primary} /> Supplier-Based GRN Report
+                                <ShieldCheck size={28} color={colors.primary} /> Supplier-Based Drug GRN Report
                             </h1>
                         </div>
                         <p style={{ margin: '6px 0 0 0', color: colors.textMuted, fontSize: '0.9rem' }}>
-                            Goods Received Note (GRN) report categorized by Drug Supplier / Vendor with tax breakdowns from <code>hospital_grn</code>.
+                            Comprehensive Drug GRN report categorized by Supplier / Vendor, including tax breakdown, invoices, and received medicines.
                         </p>
                     </div>
 
@@ -172,6 +204,29 @@ const DrugSupplierGrnReport = () => {
                         >
                             <Printer size={16} /> Print Report
                         </Button>
+                    </div>
+                </div>
+
+                {/* Key Metrics Cards - 3 cards without Total Paid / Pending Balance */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #0891b2', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL SUPPLIERS</span>
+                        <h2 style={{ margin: '8px 0 0 0', fontSize: '1.6rem', color: '#0891b2', fontWeight: '700' }}>{summary.total_suppliers || reportData.length || 0}</h2>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Active Drug Suppliers</span>
+                    </div>
+
+                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #2563eb', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL GRNS</span>
+                        <h2 style={{ margin: '8px 0 0 0', fontSize: '1.6rem', color: '#2563eb', fontWeight: '700' }}>{summary.total_grns || 0}</h2>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Invoices Received</span>
+                    </div>
+
+                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #059669', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>GRAND TOTAL GRN VALUE</span>
+                        <h2 style={{ margin: '8px 0 0 0', fontSize: '1.6rem', color: '#059669', fontWeight: '700' }}>
+                            ₹{Number(summary.grand_total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </h2>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Taxable + Taxes</span>
                     </div>
                 </div>
 
@@ -212,25 +267,29 @@ const DrugSupplierGrnReport = () => {
                         />
                     </div>
 
-                    <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+                    <div style={{ flex: '1 1 240px', minWidth: '220px' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>DRUG SUPPLIER</label>
-                        <Select 
-                            value={selectedVendor} 
+                        <SearchSelect 
+                            options={[
+                                { value: "", label: "All Drug Suppliers" },
+                                ...vendors.map(v => ({
+                                    value: String(v.vendor_id),
+                                    label: `${v.name} (${v.vendor_id})`
+                                }))
+                            ]}
+                            value={selectedVendor || ""} 
                             onChange={e => setSelectedVendor(e.target.value)} 
+                            placeholder="All Drug Suppliers"
+                            height="40px"
                             style={{ width: '100%' }}
-                        >
-                            <option value="">All Drug Suppliers</option>
-                            {vendors.map(v => (
-                                <option key={v.vendor_id} value={v.vendor_id}>{v.name} ({v.vendor_id})</option>
-                            ))}
-                        </Select>
+                        />
                     </div>
 
-                    <div style={{ flex: '1 1 180px', minWidth: '160px' }}>
+                    <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>SEARCH</label>
                         <Input 
                             type="text" 
-                            placeholder="GRN No / Inv / Supplier..." 
+                            placeholder="Supplier / GRN No / Inv..." 
                             value={searchTerm} 
                             onChange={e => setSearchTerm(e.target.value)} 
                             style={{ width: '100%' }} 
@@ -254,116 +313,137 @@ const DrugSupplierGrnReport = () => {
                     </div>
                 </ControlsContainer>
 
-                {/* Key Metrics Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                    <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #059669', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                        <div style={{ color: colors.textMuted, fontSize: '0.75rem', fontWeight: '800', letterSpacing: '0.5px' }}>TOTAL NET PURCHASES</div>
-                        <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#059669', marginTop: '4px' }}>
-                            {formatCurrency(summary.total_net_purchases || 0)}
+                {/* Expandable Table Matching StoresSupplierGrnReport */}
+                <div style={{ background: '#ffffff', borderRadius: '12px', border: `1px solid ${colors.border}`, padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>
+                            <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} /> Loading Drug Supplier GRN Report...
                         </div>
-                        <div style={{ fontSize: '0.78rem', color: colors.textMuted, marginTop: '4px' }}>
-                            Net bill amounts across GRNs
-                        </div>
-                    </div>
-
-                    <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #0284c7', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                        <div style={{ color: colors.textMuted, fontSize: '0.75rem', fontWeight: '800', letterSpacing: '0.5px' }}>TOTAL GRNS</div>
-                        <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0284c7', marginTop: '4px' }}>
-                            {summary.total_grns || 0}
-                        </div>
-                        <div style={{ fontSize: '0.78rem', color: colors.textMuted, marginTop: '4px' }}>
-                            Inward consignments recorded
-                        </div>
-                    </div>
-
-                    <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #7c3aed', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                        <div style={{ color: colors.textMuted, fontSize: '0.75rem', fontWeight: '800', letterSpacing: '0.5px' }}>TAXABLE VALUE</div>
-                        <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#7c3aed', marginTop: '4px' }}>
-                            {formatCurrency(summary.total_taxable_amount || 0)}
-                        </div>
-                        <div style={{ fontSize: '0.78rem', color: colors.textMuted, marginTop: '4px' }}>
-                            Base assessable value
-                        </div>
-                    </div>
-
-                    <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #d97706', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                        <div style={{ color: colors.textMuted, fontSize: '0.75rem', fontWeight: '800', letterSpacing: '0.5px' }}>TOTAL GST (ITC)</div>
-                        <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>
-                            {formatCurrency(summary.total_tax_itc || 0)}
-                        </div>
-                        <div style={{ fontSize: '0.78rem', color: colors.textMuted, marginTop: '4px' }}>
-                            CGST + SGST Input Tax Credit
-                        </div>
-                    </div>
-                </div>
-
-                {/* Table */}
-                {loading ? (
-                    <div style={{ background: '#ffffff', padding: '60px', borderRadius: '12px', textAlign: 'center', border: `1px solid ${colors.border}` }}>
-                        <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite', color: colors.primary }} />
-                        <p style={{ marginTop: '12px', fontWeight: '700', color: colors.textMuted }}>Loading Supplier GRN Data...</p>
-                    </div>
-                ) : reportData.length === 0 ? (
-                    <div style={{ background: '#ffffff', padding: '50px 20px', borderRadius: '12px', textAlign: 'center', border: `1px solid ${colors.border}` }}>
-                        <ShieldCheck size={44} color="#94a3b8" style={{ margin: '0 auto 12px auto' }} />
-                        <h3 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', fontWeight: '700' }}>No Supplier GRN Records Found</h3>
-                        <p style={{ margin: '6px 0 16px 0', color: '#64748b', fontSize: '0.88rem' }}>
-                            No GRN invoices matched your current filters for {scope}.
-                        </p>
-                        <Button onClick={handleReset} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
-                            Reset All Filters
-                        </Button>
-                    </div>
-                ) : (
-                    <TableWrapper style={{ background: '#ffffff', borderRadius: '12px', border: `1px solid ${colors.border}`, overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                        <Table>
-                            <thead>
-                                <Tr style={{ background: '#f8fafc', borderBottom: `2px solid ${colors.border}` }}>
-                                    <Th style={{ width: '50px', textAlign: 'center', padding: '12px 10px' }}>S.NO</Th>
-                                    <Th style={{ minWidth: '130px', padding: '12px 10px' }}>GRN NUMBER</Th>
-                                    <Th style={{ minWidth: '110px', padding: '12px 10px' }}>INVOICE NO</Th>
-                                    <Th style={{ minWidth: '100px', padding: '12px 10px' }}>INV DATE</Th>
-                                    <Th style={{ minWidth: '220px', padding: '12px 10px' }}>DRUG SUPPLIER (VENDOR)</Th>
-                                    <Th style={{ minWidth: '130px', padding: '12px 10px' }}>GSTIN</Th>
-                                    <Th style={{ minWidth: '100px', padding: '12px 10px' }}>PAY MODE</Th>
-                                    <Th style={{ minWidth: '120px', textAlign: 'right', padding: '12px 10px' }}>TAXABLE (₹)</Th>
-                                    <Th style={{ minWidth: '90px', textAlign: 'right', padding: '12px 10px' }}>CGST (₹)</Th>
-                                    <Th style={{ minWidth: '90px', textAlign: 'right', padding: '12px 10px' }}>SGST (₹)</Th>
-                                    <Th style={{ minWidth: '90px', textAlign: 'right', padding: '12px 10px' }}>DISC (₹)</Th>
-                                    <Th style={{ minWidth: '130px', textAlign: 'right', padding: '12px 10px' }}>NET AMOUNT (₹)</Th>
-                                </Tr>
-                            </thead>
-                            <tbody>
-                                {reportData.map((r, idx) => (
-                                    <Tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 1 ? '#fcfcfd' : '#ffffff' }}>
-                                        <Td style={{ textAlign: 'center', fontWeight: '600', color: '#64748b' }}>{r.sno || idx + 1}</Td>
-                                        <Td style={{ fontWeight: '700', color: '#0f172a' }}>{r.grn_number || '-'}</Td>
-                                        <Td style={{ color: '#475569', fontSize: '0.85rem' }}>{r.invoice_no || '-'}</Td>
-                                        <Td style={{ color: '#475569', fontSize: '0.85rem' }}>{r.invoice_date || '-'}</Td>
-                                        <Td style={{ fontWeight: '700', color: '#1e293b' }}>{r.vendor_name || 'N/A'}</Td>
-                                        <Td style={{ color: '#64748b', fontSize: '0.82rem' }}><code>{r.vendor_gstin || '-'}</code></Td>
-                                        <Td style={{ color: '#475569', fontSize: '0.82rem' }}>{r.payment_mode || 'CREDIT'}</Td>
-                                        <Td style={{ textAlign: 'right', fontWeight: '600', color: '#334155' }}>
-                                            {(r.taxable_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </Td>
-                                        <Td style={{ textAlign: 'right', color: '#059669', fontSize: '0.85rem' }}>
-                                            {(r.cgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </Td>
-                                        <Td style={{ textAlign: 'right', color: '#059669', fontSize: '0.85rem' }}>
-                                            {(r.sgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </Td>
-                                        <Td style={{ textAlign: 'right', color: '#dc2626', fontSize: '0.85rem' }}>
-                                            {(r.total_discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </Td>
-                                        <Td style={{ textAlign: 'right', fontWeight: '800', color: '#059669' }}>
-                                            {formatCurrency(r.net_amount || 0)}
-                                        </Td>
+                    ) : (
+                        <TableWrapper>
+                            <Table>
+                                <thead>
+                                    <Tr>
+                                        <Th style={{ width: '40px' }}></Th>
+                                        <Th>Drug Supplier / Vendor</Th>
+                                        <Th style={{ textAlign: 'center' }}>Total GRNs</Th>
+                                        <Th style={{ textAlign: 'right' }}>Taxable Amount</Th>
+                                        <Th style={{ textAlign: 'right' }}>Tax Paid</Th>
+                                        <Th style={{ textAlign: 'right' }}>Total Invoice Amount</Th>
+                                        <Th style={{ textAlign: 'center' }}>Items Recd</Th>
                                     </Tr>
-                                ))}
-                            </tbody>
-                        </Table>
-                    </TableWrapper>
-                )}
+                                </thead>
+                                <tbody>
+                                    {!Array.isArray(reportData) || reportData.length === 0 ? (
+                                        <Tr>
+                                            <Td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: colors.textMuted }}>
+                                                No Drug Supplier GRN records found for the selected period.
+                                            </Td>
+                                        </Tr>
+                                    ) : (
+                                        reportData.map((supplier) => {
+                                            const isExpanded = expandedSupplier === supplier.vendor_id;
+                                            return (
+                                                <React.Fragment key={supplier.vendor_id}>
+                                                    <Tr
+                                                        onClick={() => toggleExpandSupplier(supplier.vendor_id)}
+                                                        style={{ cursor: 'pointer', background: isExpanded ? '#f1f5f9' : 'transparent', transition: 'background 0.2s' }}
+                                                    >
+                                                        <Td style={{ textAlign: 'center' }}>
+                                                            {isExpanded ? <ChevronDown size={18} color={colors.primary} /> : <ChevronRight size={18} color={colors.textMuted} />}
+                                                        </Td>
+                                                        <Td style={{ fontWeight: '700' }}>
+                                                            <div style={{ color: colors.primary, fontSize: '0.95rem' }}>{supplier.vendor_name}</div>
+                                                            <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>
+                                                                ID: {supplier.vendor_id} {supplier.vendor_gstin ? `| GSTIN: ${supplier.vendor_gstin}` : ''}
+                                                            </span>
+                                                        </Td>
+                                                        <Td style={{ textAlign: 'center', fontWeight: '700', color: '#2563eb' }}>
+                                                            {supplier.total_grns}
+                                                        </Td>
+                                                        <Td style={{ textAlign: 'right', fontWeight: '600' }}>
+                                                            ₹{Number(supplier.taxable_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </Td>
+                                                        <Td style={{ textAlign: 'right', color: '#d97706', fontWeight: '600' }}>
+                                                            ₹{Number(supplier.tax_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </Td>
+                                                        <Td style={{ textAlign: 'right', fontWeight: '700', color: colors.textMain }}>
+                                                            ₹{Number(supplier.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </Td>
+                                                        <Td style={{ textAlign: 'center', fontWeight: '600' }}>
+                                                            {supplier.total_items_qty} units
+                                                        </Td>
+                                                    </Tr>
+
+                                                    {/* Expanded Sub-Table for GRNs */}
+                                                    {isExpanded && (
+                                                        <Tr>
+                                                            <Td colSpan={7} style={{ background: '#f8fafc', padding: '16px 24px' }}>
+                                                                <div style={{ marginBottom: '10px', fontWeight: '700', color: colors.primary, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <FileText size={16} /> GRNs from {supplier.vendor_name} ({supplier.grns?.length || 0} Invoices)
+                                                                </div>
+
+                                                                <Table style={{ background: '#ffffff', borderRadius: '8px', border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
+                                                                    <thead>
+                                                                        <Tr style={{ background: '#e2e8f0' }}>
+                                                                            <Th style={{ fontSize: '0.8rem' }}>GRN Number</Th>
+                                                                            <Th style={{ fontSize: '0.8rem' }}>GRN Date</Th>
+                                                                            <Th style={{ fontSize: '0.8rem' }}>Invoice No & Date</Th>
+                                                                            <Th style={{ fontSize: '0.8rem', textAlign: 'right' }}>Total Amount</Th>
+                                                                            <Th style={{ fontSize: '0.8rem' }}>Items Summary</Th>
+                                                                        </Tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {Array.isArray(supplier.grns) && supplier.grns.map((g, gIdx) => (
+                                                                            <Tr key={gIdx}>
+                                                                                <Td style={{ fontWeight: '600', color: colors.primary, fontSize: '0.85rem' }}>
+                                                                                    {g.grn_number}
+                                                                                </Td>
+                                                                                <Td style={{ fontSize: '0.85rem' }}>{g.date || '-'}</Td>
+                                                                                <Td style={{ fontSize: '0.85rem' }}>
+                                                                                    <div>{g.invoice_no || '-'}</div>
+                                                                                    <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>{g.invoice_date || '-'}</span>
+                                                                                </Td>
+                                                                                <Td style={{ textAlign: 'right', fontWeight: '600', fontSize: '0.85rem' }}>
+                                                                                    ₹{Number(g.total_amount || 0).toFixed(2)}
+                                                                                </Td>
+                                                                                <Td style={{ fontSize: '0.8rem' }}>
+                                                                                    {Array.isArray(g.items) && g.items.length > 0 ? (
+                                                                                        <div>
+                                                                                            {g.items.slice(0, 3).map((it, itIdx) => (
+                                                                                                <span key={itIdx} style={{ display: 'block', background: '#ffffff', border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '6px', margin: '4px 0', fontSize: '0.75rem' }}>
+                                                                                                    <div style={{ fontWeight: '700', color: colors.textMain }}>{it.name || it.itemName || 'Medicine Item'}</div>
+                                                                                                    <div style={{ color: '#475569', fontSize: '0.72rem', marginTop: '2px' }}>
+                                                                                                        Qty: <span style={{ fontWeight: 600, color: '#16a34a' }}>{it.quantity || 0}</span>
+                                                                                                        {it.free ? <> (Free: <span style={{ fontWeight: 600 }}>{it.free}</span>)</> : null}
+                                                                                                        {it.batch ? <> | Batch: <span style={{ fontWeight: 600 }}>{it.batch}</span></> : null}
+                                                                                                        {it.expiry ? <> | Exp: <span style={{ fontWeight: 600 }}>{it.expiry}</span></> : null}
+                                                                                                        {it.purchase_cost ? <> | Cost: <span style={{ fontWeight: 600 }}>₹{it.purchase_cost}</span></> : null}
+                                                                                                    </div>
+                                                                                                </span>
+                                                                                            ))}
+                                                                                            {g.items.length > 3 && (
+                                                                                                <span style={{ fontSize: '0.75rem', color: colors.textMuted }}> +{g.items.length - 3} more</span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    ) : '-'}
+                                                                                </Td>
+                                                                            </Tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </Table>
+                                                            </Td>
+                                                        </Tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </Table>
+                        </TableWrapper>
+                    )}
+                </div>
             </Container>
         </PageWrapper>
     );

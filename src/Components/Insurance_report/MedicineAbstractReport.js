@@ -354,20 +354,28 @@ const MedicineAbstractReport = () => {
             return;
         }
 
-        const excelRows = reportData.bills.map((b) => ({
-            'Slno': b.sl_no,
-            'Bill Date': b.bill_date,
-            'Bill Number': b.bill_number,
-            'Credit Status': b.credit_status,
-            'Taxable Amt': Number(b.taxable_amt || 0).toFixed(2),
-            'Cgst': Number(b.cgst || 0).toFixed(2),
-            'Sgst': Number(b.sgst || 0).toFixed(2),
-            'Gst': Number(b.gst || 0).toFixed(2),
-            'Bill Amount': Number(b.bill_amount || 0).toFixed(2)
-        }));
+        const hasDiscount = (reportData.summary?.total_discount || 0) > 0 || reportData.bills.some(b => Number(b.discount_amount || 0) > 0);
+
+        const excelRows = reportData.bills.map((b) => {
+            const row = {
+                'Slno': b.sl_no,
+                'Bill Date': b.bill_date,
+                'Bill Number': b.bill_number,
+                'Credit Status': b.credit_status,
+                'Taxable Amt': Number(b.taxable_amt || 0).toFixed(2),
+                'Cgst': Number(b.cgst || 0).toFixed(2),
+                'Sgst': Number(b.sgst || 0).toFixed(2),
+                'Gst': Number(b.gst || 0).toFixed(2)
+            };
+            if (hasDiscount) {
+                row['Discount'] = Number(b.discount_amount || 0).toFixed(2);
+            }
+            row['Bill Amount'] = Number(b.net_amount ?? b.bill_amount ?? 0).toFixed(2);
+            return row;
+        });
 
         // Append Grand Total Row
-        excelRows.push({
+        const totalRow = {
             'Slno': 'Total',
             'Bill Date': '',
             'Bill Number': '',
@@ -375,9 +383,13 @@ const MedicineAbstractReport = () => {
             'Taxable Amt': Number(reportData.summary?.total_taxable || 0).toFixed(2),
             'Cgst': Number(reportData.summary?.total_cgst || 0).toFixed(2),
             'Sgst': Number(reportData.summary?.total_sgst || 0).toFixed(2),
-            'Gst': Number(reportData.summary?.total_gst || 0).toFixed(2),
-            'Bill Amount': Number(reportData.summary?.total_bill_amount || 0).toFixed(2)
-        });
+            'Gst': Number(reportData.summary?.total_gst || 0).toFixed(2)
+        };
+        if (hasDiscount) {
+            totalRow['Discount'] = Number(reportData.summary?.total_discount || 0).toFixed(2);
+        }
+        totalRow['Bill Amount'] = Number(reportData.summary?.total_bill_amount ?? reportData.summary?.total_net_amount ?? 0).toFixed(2);
+        excelRows.push(totalRow);
 
         const ws = XLSX.utils.json_to_sheet(excelRows);
         const wb = XLSX.utils.book_new();
@@ -402,6 +414,7 @@ const MedicineAbstractReport = () => {
     const patient = reportData?.patient_info;
     const bills = reportData?.bills || [];
     const summary = reportData?.summary || {};
+    const hasDiscount = (summary?.total_discount || 0) > 0 || bills.some(b => Number(b.discount_amount || 0) > 0);
 
     return (
         <Container>
@@ -510,6 +523,7 @@ const MedicineAbstractReport = () => {
                                         <th style={{ width: '65px' }} className="text-right">Cgst</th>
                                         <th style={{ width: '65px' }} className="text-right">Sgst</th>
                                         <th style={{ width: '65px' }} className="text-right">Gst</th>
+                                        {hasDiscount && <th style={{ width: '75px' }} className="text-right">Discount</th>}
                                         <th style={{ width: '95px' }} className="text-right">Bill Amount</th>
                                     </tr>
                                 </thead>
@@ -524,7 +538,8 @@ const MedicineAbstractReport = () => {
                                             <td className="text-right">{Number(b.cgst || 0).toFixed(2)}</td>
                                             <td className="text-right">{Number(b.sgst || 0).toFixed(2)}</td>
                                             <td className="text-right">{Number(b.gst || 0).toFixed(2)}</td>
-                                            <td className="text-right">{Number(b.bill_amount || 0).toFixed(2)}</td>
+                                            {hasDiscount && <td className="text-right" style={{ color: '#b91c1c' }}>{Number(b.discount_amount || 0) > 0 ? `-${Number(b.discount_amount).toFixed(2)}` : '0.00'}</td>}
+                                            <td className="text-right">{Number(b.net_amount ?? b.bill_amount ?? 0).toFixed(2)}</td>
                                         </tr>
                                     ))}
 
@@ -535,7 +550,8 @@ const MedicineAbstractReport = () => {
                                         <td className="text-right">{Number(summary.total_cgst || 0).toFixed(2)}</td>
                                         <td className="text-right">{Number(summary.total_sgst || 0).toFixed(2)}</td>
                                         <td className="text-right">{Number(summary.total_gst || 0).toFixed(2)}</td>
-                                        <td className="text-right">{Number(summary.total_bill_amount || 0).toFixed(2)}</td>
+                                        {hasDiscount && <td className="text-right" style={{ color: '#b91c1c' }}>{Number(summary.total_discount || 0) > 0 ? `-${Number(summary.total_discount).toFixed(2)}` : '0.00'}</td>}
+                                        <td className="text-right">{Number(summary.total_bill_amount ?? summary.total_net_amount ?? 0).toFixed(2)}</td>
                                     </tr>
                                 </tbody>
                             </table>

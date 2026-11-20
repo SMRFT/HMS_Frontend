@@ -763,6 +763,54 @@ const cleanPatientName = (name) => {
   return cleanWords.join(" ");
 };
 
+// ─── Date & Time Formatting in IST (DD/MM/YYYY hh:mm:ss AM/PM) ───────────────
+const formatDate = (iso) => {
+  if (!iso) return "—";
+  try {
+    const s = String(iso).trim();
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+    let isoStr = s;
+    if (s && !s.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(s) && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s)) {
+      isoStr = s.replace(" ", "T") + "Z";
+    }
+    const date = new Date(isoStr);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
+    }
+  } catch (e) {}
+  return String(iso);
+};
+
+const formatDateTime = (raw) => {
+  if (!raw || raw === "—" || raw === "N/A") return "—";
+  try {
+    const s = String(raw).trim();
+    // If already has 12hr AM/PM formatted timestamp
+    if (/\b(AM|PM)\b/i.test(s)) return s;
+    let iso = s;
+    if (s && !s.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(s)) {
+      if (s.includes("T")) {
+        iso = s + "Z";
+      } else if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s)) {
+        iso = s.replace(" ", "T") + "Z";
+      }
+    }
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) {
+      const datePart = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
+      const timePart = d.toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }).toUpperCase();
+      return `${datePart} ${timePart}`;
+    }
+  } catch (e) {}
+  return formatDate(raw);
+};
+
 // ─── Sales Return Slip HTML Builder (Thermal Monospace Layout) ────────────────
 const buildPrintSlipHtml = (data) => {
   const {
@@ -782,6 +830,7 @@ const buildPrintSlipHtml = (data) => {
 
   const totalNum = parseFloat(total_amount || 0).toFixed(2);
   const patientUhid = op_number || uhid || "—";
+  const displayDateTime = formatDateTime(formatted_datetime !== "—" ? formatted_datetime : data?.return_bill_date);
 
   const rowsHtml = (items || []).map((it) => {
     const qty = it.billed_qty ?? it.qty ?? 1;
@@ -874,7 +923,7 @@ const buildPrintSlipHtml = (data) => {
       <div><span class="bold">Patient   :</span> ${patient_name || "—"}</div>
       <div><span class="bold">UHID :</span> ${patientUhid}</div>
       <div style="display: flex; justify-content: space-between;">
-        <div><span class="bold">Date&amp;Time :</span> ${formatted_datetime}</div>
+        <div><span class="bold">Date&amp;Time :</span> ${displayDateTime}</div>
         <div><span class="bold">Bill Number:</span> ${bill_no}</div>
       </div>
     </div>
@@ -1164,6 +1213,7 @@ const SalesReturn = () => {
       setReturnList(rawList.map((r) => ({
         ...r,
         patient_name: cleanPatientName(r.patient_name),
+        formatted_datetime: r.formatted_datetime || formatDateTime(r.return_bill_date),
       })));
     } catch (err) {
       console.error("Sales return fetch error:", err);
@@ -1452,6 +1502,8 @@ const SalesReturn = () => {
 
   const handlePrintReturnBill = async (row) => {
     try {
+      const rowDt = formatDateTime(row.formatted_datetime || row.return_bill_date);
+
       // Immediate view if row already has items
       if (Array.isArray(row.items) && row.items.length > 0) {
         setPrintSlipData({
@@ -1463,7 +1515,7 @@ const SalesReturn = () => {
           uhid: row.uhid,
           op_number: row.uhid,
           patient_name: cleanPatientName(row.patient_name),
-          formatted_datetime: formatDate(row.return_bill_date),
+          formatted_datetime: rowDt,
           pharmacist_name: row.pharmacist_name || row.created_by || row.user || "Pharmacist",
           total_amount: parseFloat(row.return_amount || 0),
           refund_amount: parseFloat(row.return_amount || 0).toFixed(2),
@@ -1478,7 +1530,9 @@ const SalesReturn = () => {
         "GET"
       );
       if (res?.data?.status === "success" && res.data.data) {
-        setPrintSlipData(res.data.data);
+        const fetched = res.data.data;
+        fetched.formatted_datetime = formatDateTime(fetched.formatted_datetime || fetched.return_bill_date || rowDt);
+        setPrintSlipData(fetched);
         setShowPrintModal(true);
       } else if (!Array.isArray(row.items) || row.items.length === 0) {
         setPrintSlipData({
@@ -1490,7 +1544,7 @@ const SalesReturn = () => {
           uhid: row.uhid,
           op_number: row.uhid,
           patient_name: cleanPatientName(row.patient_name),
-          formatted_datetime: formatDate(row.return_bill_date),
+          formatted_datetime: rowDt,
           pharmacist_name: row.pharmacist_name || row.created_by || row.user || "Pharmacist",
           total_amount: parseFloat(row.return_amount || 0),
           refund_amount: parseFloat(row.return_amount || 0).toFixed(2),
@@ -1510,7 +1564,7 @@ const SalesReturn = () => {
           uhid: row.uhid,
           op_number: row.uhid,
           patient_name: cleanPatientName(row.patient_name),
-          formatted_datetime: formatDate(row.return_bill_date),
+          formatted_datetime: formatDateTime(row.formatted_datetime || row.return_bill_date),
           pharmacist_name: row.pharmacist_name || row.created_by || row.user || "Pharmacist",
           total_amount: parseFloat(row.return_amount || 0),
           refund_amount: parseFloat(row.return_amount || 0).toFixed(2),
@@ -1575,7 +1629,7 @@ const SalesReturn = () => {
         ["SALES Refund Order No.:", printSlipData.return_bill_no || "—"],
         ["Patient Name:", printSlipData.patient_name || "—"],
         ["UHID:", printSlipData.uhid || printSlipData.op_number || "—"],
-        ["Date & Time:", printSlipData.formatted_datetime || "—", "Bill Number:", printSlipData.bill_no || "—"],
+        ["Date & Time:", formatDateTime(printSlipData.formatted_datetime || printSlipData.return_bill_date), "Bill Number:", printSlipData.bill_no || "—"],
         [],
         ["Qty", "Particulars", "Re.cost", "Re.Qty", "Gst", "Batch", "Expiry", "Amount"]
       ];
@@ -1705,7 +1759,7 @@ const SalesReturn = () => {
           uhid: form.uhidNo,
           op_number: form.uhidNo,
           patient_name: form.name,
-          formatted_datetime: new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata" }).replace(",", " &"),
+          formatted_datetime: formatDateTime(new Date()),
           pharmacist_name: localStorage.getItem("username") || "Pharmacist",
           total_amount: totalReturnAmount,
           refund_amount: totalReturnAmount.toFixed(2),
@@ -1734,15 +1788,6 @@ const SalesReturn = () => {
     }
   };
 
-  const formatDate = iso => {
-    if (!iso) return "—";
-    const date = new Date(iso);
-    if (isNaN(date)) return iso;
-    const dd = String(date.getDate()).padStart(2, "0");
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const yyyy = date.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  };
 
   return (
     <>
@@ -2424,7 +2469,7 @@ const SalesReturn = () => {
                   <div><span style={{ fontWeight: "bold" }}>Patient   :</span> {cleanPatientName(printSlipData.patient_name) || "—"}</div>
                   <div><span style={{ fontWeight: "bold" }}>UHID :</span> {printSlipData.uhid || printSlipData.op_number || "—"}</div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <div><span style={{ fontWeight: "bold" }}>Date&amp;Time :</span> {printSlipData.formatted_datetime || formatDate(printSlipData.return_bill_date)}</div>
+                    <div><span style={{ fontWeight: "bold" }}>Date&amp;Time :</span> {formatDateTime(printSlipData.formatted_datetime || printSlipData.return_bill_date)}</div>
                     <div><span style={{ fontWeight: "bold" }}>Bill Number:</span> {printSlipData.bill_no}</div>
                   </div>
                 </div>
