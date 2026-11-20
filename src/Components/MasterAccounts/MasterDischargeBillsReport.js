@@ -10,6 +10,8 @@ import {
     printReportArea,
     extractReportData,
     getSafeArray,
+    fetchCachedOutlets,
+    cachedApiRequest,
     ReportPageWrapper,
     ControlCard,
     HeaderBar,
@@ -78,9 +80,9 @@ const MasterDischargeBillsReport = ({
     useEffect(() => {
         const fetchOutlets = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) {
-                    setOutletsList(res.data);
+                const data = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(data)) {
+                    setOutletsList(data);
                 }
             } catch (e) {}
         };
@@ -88,7 +90,7 @@ const MasterDischargeBillsReport = ({
     }, [HmsBaseUrl]);
 
     /* Fetch report */
-    const fetchReport = useCallback(async () => {
+    const fetchReport = useCallback(async (isRefresh = false) => {
         try {
             setLoading(true);
             const fDate = dateRange[0].format("YYYY-MM-DD");
@@ -97,7 +99,7 @@ const MasterDischargeBillsReport = ({
             const isAllMode = !paymentMode || paymentMode.toLowerCase() === "all" || paymentMode.toLowerCase() === "all payment modes";
             const modeParam = !isAllMode ? `&payment_mode=${encodeURIComponent(paymentMode)}` : "";
             const url = `${HmsBaseUrl}master-accounts/discharge-bills-summary/?from_date=${fDate}&to_date=${tDate}${outletParam}${modeParam}`;
-            const res = await apiRequest(url, "GET");
+            const res = await cachedApiRequest(url, "GET", null, { forceRefresh: isRefresh });
             if (res?.success) {
                 setReportData(extractReportData(res));
             } else {
@@ -258,7 +260,7 @@ const MasterDischargeBillsReport = ({
                                 style={{ width: 220 }}
                             />
                         </div>
-                        <Button icon={<RefreshCw size={14} />} onClick={fetchReport} loading={loading}>
+                        <Button icon={<RefreshCw size={14} />} onClick={() => fetchReport(true)} loading={loading}>
                             Refresh
                         </Button>
                     </FilterBar>

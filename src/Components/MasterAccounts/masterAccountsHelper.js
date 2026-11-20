@@ -2,7 +2,98 @@ import React from "react";
 import styled from "styled-components";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
+import apiRequest from "../../Auth/apiRequest";
 import { printAccountsReport as basePrintAccountsReport } from "../Accounts/printAccountsReport";
+
+// ─── IN-MEMORY GLOBAL CACHES & DEDUPLICATION ─────────────────────────────────
+let outletsCache = null;
+let outletsPromise = null;
+
+const apiCache = new Map();
+const inFlightRequests = new Map();
+
+/**
+ * Fetches and globally caches hospital outlets.
+ * Prevents redundant HTTP calls when switching between reports or mounting components.
+ */
+export const fetchCachedOutlets = async (HmsBaseUrl) => {
+    if (outletsCache && Array.isArray(outletsCache) && outletsCache.length > 0) {
+        return outletsCache;
+    }
+    if (outletsPromise) {
+        return outletsPromise;
+    }
+    outletsPromise = (async () => {
+        try {
+            const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
+            let list = [];
+            if (res?.success && Array.isArray(res?.data)) {
+                list = res.data;
+            } else if (Array.isArray(res?.data?.data)) {
+                list = res.data.data;
+            } else if (Array.isArray(res?.data?.outlets)) {
+                list = res.data.outlets;
+            }
+            if (list.length > 0) {
+                outletsCache = list;
+            }
+            return list;
+        } catch (err) {
+            console.error("Failed to fetch outlets:", err);
+            return [];
+        } finally {
+            outletsPromise = null;
+        }
+    })();
+    return outletsPromise;
+};
+
+export const getCachedOutlets = () => outletsCache || [];
+
+/**
+ * Deduplicated, short-TTL cached apiRequest for GET endpoints.
+ * Automatically deduplicates simultaneous in-flight requests and caches responses for `ttl` ms (default 30s).
+ */
+export const cachedApiRequest = async (url, method = "GET", data = null, options = {}) => {
+    const m = (method || "GET").toUpperCase();
+    const { ttl = 30000, forceRefresh = false } = options;
+
+    if (m !== "GET" || forceRefresh) {
+        if (forceRefresh) {
+            apiCache.delete(url);
+        }
+        return apiRequest(url, method, data);
+    }
+
+    const now = Date.now();
+    const cached = apiCache.get(url);
+    if (cached && (now - cached.timestamp < ttl)) {
+        return cached.response;
+    }
+
+    if (inFlightRequests.has(url)) {
+        return inFlightRequests.get(url);
+    }
+
+    const promise = (async () => {
+        try {
+            const response = await apiRequest(url, method, data);
+            if (response && response.success) {
+                apiCache.set(url, { timestamp: Date.now(), response });
+            }
+            return response;
+        } finally {
+            inFlightRequests.delete(url);
+        }
+    })();
+
+    inFlightRequests.set(url, promise);
+    return promise;
+};
+
+export const clearReportCache = () => {
+    apiCache.clear();
+};
 
 export const formatINR = (val) => {
     const num = cleanNum(val);
@@ -182,32 +273,49 @@ export const DataTableWrapper = styled.div`
     table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.84rem;
+        font-size: 0.88rem;
         text-align: left;
     }
 
     thead th {
         background: #f8fafc;
-        color: #475569;
+        color: #1e293b;
         font-weight: 700;
-        padding: 10px 12px;
+        padding: 9px 12px;
         border-bottom: 1.5px solid #cbd5e1;
-        font-size: 0.78rem;
+        font-size: 0.82rem;
         text-transform: uppercase;
         letter-spacing: 0.03em;
         white-space: nowrap;
     }
 
     tbody td {
-        padding: 8px 12px;
+        padding: 7px 12px;
         border-bottom: 1px solid #f1f5f9;
-        color: #1e293b;
-        font-size: 0.82rem;
+        color: #0f172a;
+        font-size: 0.86rem;
         white-space: nowrap;
     }
 
     tbody tr:hover {
         background: #f8fafc;
+    }
+
+    .text-center {
+        text-align: center !important;
+    }
+
+    .text-right, td[align="right"], th[align="right"] {
+        text-align: right !important;
+    }
+
+    /* Make all numbers bold, clearly sized, and highly legible */
+    .font-mono, td.text-right, span.font-mono, td[align="right"] {
+        font-family: "Consolas", "Courier New", monospace !important;
+        font-size: 0.94rem !important;
+        font-weight: 700 !important;
+        font-variant-numeric: tabular-nums !important;
+        color: #0f172a;
     }
 
     tr.total-row {
@@ -217,9 +325,14 @@ export const DataTableWrapper = styled.div`
         border-bottom: 2px double #475569;
 
         td {
-            font-size: 0.85rem;
+            font-size: 0.92rem;
             color: #0f172a;
-            padding: 10px 12px;
+            padding: 9px 12px;
+        }
+
+        .text-right, .font-mono {
+            font-size: 1.05rem !important;
+            font-weight: 800 !important;
         }
     }
 `;

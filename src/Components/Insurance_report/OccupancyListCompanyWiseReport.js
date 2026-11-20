@@ -308,6 +308,7 @@ const OccupancyListCompanyWiseReport = ({ embedded = false }) => {
                 'OP Number': r.op_number,
                 'Patient Name': r.patient_name,
                 'Age/Gender': r.age_gender,
+                'Doctor': r.doctor_name || r.doctor || '',
                 'Address': r.address,
                 'Admitting Date': r.admitting_date,
                 'Room Number': r.room_number
@@ -464,6 +465,7 @@ const OccupancyListCompanyWiseReport = ({ embedded = false }) => {
                                                         <div className="pat-name-box">
                                                             <div className="bold-name">{r.patient_name}</div>
                                                             {r.age_gender && <div className="detail-line">Age: {r.age_gender}</div>}
+                                                            {(r.doctor_name || r.doctor) && <div className="detail-line">Doctor: {r.doctor_name || r.doctor}</div>}
                                                             {(r.relative_info || r.relation) && <div className="detail-line">{r.relative_info || r.relation}</div>}
                                                             {r.address && <div className="detail-line">{r.address}</div>}
                                                         </div>

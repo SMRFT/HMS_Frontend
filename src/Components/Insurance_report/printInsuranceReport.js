@@ -474,7 +474,7 @@ export const printInsuranceReport = (elementOrId, options = {}) => {
                     <div class="patient-meta-item"><strong>Age / Sex:</strong> <span>${patientInfo.age_gender || patientInfo.age || "-"}</span></div>
                     <div class="patient-meta-item"><strong>Admitted:</strong> <span>${formatDate(patientInfo.admitted_date) || "-"}</span></div>
                     <div class="patient-meta-item"><strong>Discharge:</strong> <span>${formatDate(patientInfo.discharge_date) || "-"}</span></div>
-                    <div class="patient-meta-item"><strong>Doctor:</strong> <span>${patientInfo.doctor || "-"}</span></div>
+                    <div class="patient-meta-item"><strong>Doctor:</strong> <span>${patientInfo.doctor || patientInfo.doctor_name || "-"}</span></div>
                     <div class="patient-meta-item"><strong>Company/TPA:</strong> <span>${patientInfo.company || patientInfo.insurance_company || "-"}</span></div>
                 </div>
             </div>

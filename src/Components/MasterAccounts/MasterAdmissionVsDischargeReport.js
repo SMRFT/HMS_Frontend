@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useLocation } from "react-router-dom";
+import styled from "styled-components";
 import { DatePicker, Select, Button, Spin, Input } from "antd";
 import dayjs from "dayjs";
 import {
@@ -9,10 +11,10 @@ import {
     Users,
     BedDouble,
     CheckCircle2,
-    LogOut,
     ArrowUpDown,
     DollarSign,
-    Clock
+    Building2,
+    Store
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 import {
@@ -22,6 +24,7 @@ import {
     printReportArea,
     extractReportData,
     getSafeArray,
+    fetchCachedOutlets,
     ReportPageWrapper,
     ControlCard,
     HeaderBar,
@@ -36,6 +39,139 @@ import {
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
+const DateHeaderTr = styled.tr`
+    background: #f1f5f9 !important;
+    td {
+        background: #f1f5f9 !important;
+        font-weight: 800 !important;
+        color: #0f172a !important;
+        font-size: 0.90rem !important;
+        letter-spacing: 0.03em;
+        border-top: 2px solid #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        padding: 6px 10px !important;
+    }
+`;
+
+const CompanyHeaderTr = styled.tr`
+    background: #e2e8f0 !important;
+    td {
+        background: #e2e8f0 !important;
+        font-weight: 700 !important;
+        color: #1e293b !important;
+        font-size: 0.85rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border-top: 1px solid #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        padding: 5px 10px 5px 22px !important;
+    }
+`;
+
+const RoomHeaderTr = styled.tr`
+    background: #f8fafc !important;
+    td {
+        background: #f8fafc !important;
+        font-weight: 700 !important;
+        color: #0369a1 !important;
+        font-size: 0.82rem !important;
+        letter-spacing: 0.02em;
+        border-top: 1px dashed #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        padding: 4px 10px 4px 38px !important;
+    }
+`;
+
+const SubtotalTr = styled.tr`
+    background: #f8fafc !important;
+    font-weight: 700 !important;
+    td {
+        background: #f8fafc !important;
+        border-top: 1px dashed #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        font-size: 0.85rem !important;
+        padding: 5px 8px !important;
+    }
+`;
+
+const AdmissionTable = styled.table`
+    width: 100%;
+    border-collapse: collapse !important;
+    table-layout: fixed;
+
+    th {
+        border: 1px solid #cbd5e1 !important;
+        padding: 7px 5px !important;
+        background: #f8fafc;
+        font-size: 0.80rem !important;
+        text-align: left;
+        color: #1e293b;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 6px 8px !important;
+        font-size: 0.84rem;
+        vertical-align: middle;
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
+
+    .font-mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+        font-size: 0.86rem !important;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    .text-right {
+        text-align: right;
+    }
+
+    .total-row {
+        background: #0f172a !important;
+        color: #ffffff !important;
+        font-weight: 800;
+        border-top: 2px solid #0284c7 !important;
+
+        td {
+            padding: 8px 8px !important;
+            font-size: 0.88rem !important;
+            color: #ffffff !important;
+        }
+    }
+`;
+
+const extractAdmitDate = (val) => {
+    if (!val) return "Unknown Date";
+    const s = String(val).trim();
+    const firstPart = s.split(" ")[0];
+    if (firstPart.includes("/")) return firstPart;
+    if (firstPart.includes("-") && firstPart.length === 10) {
+        const parts = firstPart.split("-");
+        if (parts[0].length === 4) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return firstPart;
+    }
+    return firstPart || "Unknown Date";
+};
+
+const extractAdmitTime = (val) => {
+    if (!val) return "-";
+    const s = String(val).trim();
+    if (s.includes(" ")) {
+        return s.split(" ").slice(1).join(" ");
+    }
+    return "-";
+};
+
 const MasterAdmissionVsDischargeReport = ({
     isModalView = false,
     startDate,
@@ -46,15 +182,20 @@ const MasterAdmissionVsDischargeReport = ({
     initialStatus = "all",
     company: propCompany,
     initialCompany = "all",
+    outlet: propOutlet,
+    initialOutlet = "all",
     billType: propBillType,
     category: propCategory
 }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+    const location = useLocation();
+    const routerState = location?.state || {};
 
-    const start = startDate || initialStartDate;
-    const end = endDate || initialEndDate;
-    const effectiveStatus = propStatus || "all";
-    const effectiveCompany = propCompany || propCategory || propBillType || initialCompany || "all";
+    const start = startDate || initialStartDate || routerState.startDate;
+    const end = endDate || initialEndDate || routerState.endDate;
+    const effectiveStatus = propStatus || initialStatus || routerState.status || "all";
+    const effectiveCompany = propCompany || propCategory || propBillType || initialCompany || routerState.company || "all";
+    const effectiveOutlet = propOutlet || initialOutlet || routerState.outlet || "all";
 
     const [dateRange, setDateRange] = useState([
         start ? dayjs(start) : dayjs().startOf("month"),
@@ -62,6 +203,8 @@ const MasterAdmissionVsDischargeReport = ({
     ]);
     const [statusFilter, setStatusFilter] = useState(effectiveStatus);
     const [companyFilter, setCompanyFilter] = useState(effectiveCompany);
+    const [outlet, setOutlet] = useState(effectiveOutlet);
+    const [outletsList, setOutletsList] = useState([]);
     const [sortOrder, setSortOrder] = useState("asc");
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
@@ -89,6 +232,29 @@ const MasterAdmissionVsDischargeReport = ({
         }
     }, [propCompany, propCategory, propBillType, initialCompany, companyFilter]);
 
+    // Synchronize outlet
+    useEffect(() => {
+        const o = propOutlet || initialOutlet;
+        if (o !== undefined && o !== outlet) {
+            setOutlet(o);
+        }
+    }, [propOutlet, initialOutlet, outlet]);
+
+    // Load Outlets cached list
+    useEffect(() => {
+        const loadOutlets = async () => {
+            try {
+                const list = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(list)) {
+                    setOutletsList(list);
+                }
+            } catch (e) {
+                console.error("Failed to load outlets:", e);
+            }
+        };
+        loadOutlets();
+    }, [HmsBaseUrl]);
+
     // Fetch report data
     const fetchReport = useCallback(async () => {
         try {
@@ -98,9 +264,10 @@ const MasterAdmissionVsDischargeReport = ({
             const statusParam = statusFilter && statusFilter !== "all" ? `&status=${encodeURIComponent(statusFilter)}` : "";
             const isAllCompany = !companyFilter || companyFilter.toLowerCase() === "all" || companyFilter.toLowerCase() === "all companies";
             const companyParam = !isAllCompany ? `&company=${encodeURIComponent(companyFilter)}` : "";
+            const outletParam = outlet && outlet.toLowerCase() !== "all" ? `&outlet=${encodeURIComponent(outlet)}&outlet_code=${encodeURIComponent(outlet)}` : "";
             const sortParam = `&sort_order=${sortOrder}`;
 
-            const url = `${HmsBaseUrl}master-accounts/admission-vs-discharge/?from_date=${fDate}&to_date=${tDate}${statusParam}${companyParam}${sortParam}`;
+            const url = `${HmsBaseUrl}master-accounts/admission-vs-discharge/?from_date=${fDate}&to_date=${tDate}${statusParam}${companyParam}${outletParam}${sortParam}`;
             const res = await apiRequest(url, "GET");
 
             if (res?.success) {
@@ -114,7 +281,7 @@ const MasterAdmissionVsDischargeReport = ({
         } finally {
             setLoading(false);
         }
-    }, [dateRange, statusFilter, companyFilter, sortOrder, HmsBaseUrl]);
+    }, [dateRange, statusFilter, companyFilter, outlet, sortOrder, HmsBaseUrl]);
 
     useEffect(() => {
         fetchReport();
@@ -138,6 +305,133 @@ const MasterAdmissionVsDischargeReport = ({
         );
     }, [records, searchTerm]);
 
+    // 3-Level Grouping: Admitting Date -> Company / Corporate -> Room
+    const groupedData = useMemo(() => {
+        if (!filteredRecords || filteredRecords.length === 0) return [];
+
+        // Map: Date -> Map: Company -> Map: Room -> [items]
+        const dateMap = new Map();
+
+        filteredRecords.forEach(r => {
+            let dateKey = r.admitting_date_display;
+            if (!dateKey || dateKey === "-") {
+                dateKey = extractAdmitDate(r.admitting_date);
+            }
+
+            const compKey = String(r.company_name || "Cash / Self").trim().toUpperCase();
+            const roomKey = String(r.room || "Not Assigned").trim();
+
+            if (!dateMap.has(dateKey)) {
+                dateMap.set(dateKey, new Map());
+            }
+            const compMap = dateMap.get(dateKey);
+            if (!compMap.has(compKey)) {
+                compMap.set(compKey, new Map());
+            }
+            const roomMap = compMap.get(compKey);
+            if (!roomMap.has(roomKey)) {
+                roomMap.set(roomKey, []);
+            }
+            roomMap.get(roomKey).push(r);
+        });
+
+        const result = [];
+        let runningSlno = 1;
+
+        dateMap.forEach((compMap, dateKey) => {
+            const companies = [];
+            let dateAdvance = 0;
+            let dateGross = 0;
+            let dateNet = 0;
+            let dateCount = 0;
+
+            compMap.forEach((roomMap, compKey) => {
+                const rooms = [];
+                let compAdvance = 0;
+                let compGross = 0;
+                let compNet = 0;
+                let compCount = 0;
+
+                roomMap.forEach((items, roomKey) => {
+                    let roomAdvance = 0;
+                    let roomGross = 0;
+                    let roomNet = 0;
+
+                    // Sort items by IP number
+                    const sortedItems = [...items].sort((a, b) => {
+                        const s1 = String(a.ip_number || "").trim();
+                        const s2 = String(b.ip_number || "").trim();
+                        return sortOrder === "desc"
+                            ? s2.localeCompare(s1, undefined, { numeric: true, sensitivity: 'base' })
+                            : s1.localeCompare(s2, undefined, { numeric: true, sensitivity: 'base' });
+                    });
+
+                    const enrichedItems = sortedItems.map(it => {
+                        const adv = cleanNum(it.advance);
+                        const gross = cleanNum(it.gross_bill);
+                        const net = cleanNum(it.net_paid);
+
+                        roomAdvance += adv;
+                        roomGross += gross;
+                        roomNet += net;
+
+                        return {
+                            ...it,
+                            displaySlno: runningSlno++,
+                            adv,
+                            gross,
+                            net
+                        };
+                    });
+
+                    rooms.push({
+                        roomName: roomKey,
+                        items: enrichedItems,
+                        roomAdvance,
+                        roomGross,
+                        roomNet,
+                        count: enrichedItems.length
+                    });
+
+                    compAdvance += roomAdvance;
+                    compGross += roomGross;
+                    compNet += roomNet;
+                    compCount += enrichedItems.length;
+                });
+
+                companies.push({
+                    companyName: compKey,
+                    rooms,
+                    compAdvance,
+                    compGross,
+                    compNet,
+                    count: compCount
+                });
+
+                dateAdvance += compAdvance;
+                dateGross += compGross;
+                dateNet += compNet;
+                dateCount += compCount;
+            });
+
+            result.push({
+                date: dateKey,
+                companies,
+                dateAdvance,
+                dateGross,
+                dateNet,
+                dateCount
+            });
+        });
+
+        return result;
+    }, [filteredRecords, sortOrder]);
+
+    // Financial totals
+    const totalAdvance = filteredRecords.reduce((a, r) => a + cleanNum(r.advance), 0);
+    const totalGross = filteredRecords.reduce((a, r) => a + cleanNum(r.gross_bill), 0);
+    const totalNet = filteredRecords.reduce((a, r) => a + cleanNum(r.net_paid), 0);
+
     // Toggle sorting
     const toggleSortOrder = () => {
         setSortOrder(prev => (prev === "asc" ? "desc" : "asc"));
@@ -145,22 +439,32 @@ const MasterAdmissionVsDischargeReport = ({
 
     // Excel Export
     const handleExport = () => {
-        const rows = filteredRecords.map((r, idx) => ({
-            "SL NO": idx + 1,
-            "IP NUMBER": r.ip_number,
-            "UHID": r.uhid,
-            "PATIENT NAME": r.patient_name,
-            "DOCTOR NAME": r.doctor_name,
-            "ROOM / BED": r.room,
-            "ADMITTING DATE": r.admitting_date,
-            "DISCHARGE DATE": r.discharge_date,
-            "STAY (DAYS)": r.no_of_days,
-            "ADVANCE (₹)": cleanNum(r.advance),
-            "GROSS BILL (₹)": cleanNum(r.gross_bill),
-            "NET PAID (₹)": cleanNum(r.net_paid),
-            "COMPANY / CORPORATE": r.company_name,
-            "STATUS": r.is_discharged ? "Discharged" : "Admitted"
-        }));
+        const rows = [];
+        groupedData.forEach(dg => {
+            dg.companies.forEach(comp => {
+                comp.rooms.forEach(room => {
+                    room.items.forEach(r => {
+                        rows.push({
+                            "SL NO": r.displaySlno,
+                            "ADMITTING DATE": dg.date,
+                            "COMPANY / CORPORATE": comp.companyName,
+                            "ROOM / BED": room.roomName,
+                            "IP NUMBER": r.ip_number,
+                            "ADMITTING TIME": r.admitting_time_display || extractAdmitTime(r.admitting_date),
+                            "UHID": r.uhid,
+                            "PATIENT NAME": r.patient_name,
+                            "DOCTOR NAME": r.doctor_name,
+                            "DISCHARGE DATE": r.is_discharged ? (r.discharge_date_display || r.discharge_date) : "Still Admitted",
+                            "STAY (DAYS)": r.no_of_days,
+                            "ADVANCE (₹)": cleanNum(r.advance),
+                            "GROSS BILL (₹)": cleanNum(r.gross_bill),
+                            "NET PAID (₹)": cleanNum(r.net_paid),
+                            "STATUS": r.is_discharged ? "Discharged" : "Admitted"
+                        });
+                    });
+                });
+            });
+        });
         exportToExcel(rows, "Master_Admission_vs_Discharge_Report", "AdmissionVsDischarge");
     };
 
@@ -201,17 +505,30 @@ const MasterAdmissionVsDischargeReport = ({
                         </div>
 
                         <div className="filter-item">
-                            <label>Status:</label>
-                            <Select value={statusFilter} onChange={setStatusFilter} style={{ width: 170 }}>
-                                <Option value="all">All Patients</Option>
-                                <Option value="admitted">Currently Admitted</Option>
-                                <Option value="discharged">Discharged</Option>
+                            <label>Outlet:</label>
+                            <Select
+                                value={outlet}
+                                onChange={setOutlet}
+                                style={{ width: 180 }}
+                            >
+                                <Option value="all">All Outlets</Option>
+                                {outletsList.map(o => (
+                                    <Option key={o.outlet_code} value={o.outlet_code}>
+                                        {o.outlet_name || o.outlet_code}
+                                    </Option>
+                                ))}
                             </Select>
                         </div>
 
                         <div className="filter-item">
-                            <label>Company / TPA:</label>
-                            <Select value={companyFilter} onChange={setCompanyFilter} style={{ width: 220 }} showSearch>
+                            <label>Company / Corporate:</label>
+                            <Select
+                                value={companyFilter}
+                                onChange={setCompanyFilter}
+                                style={{ width: 220 }}
+                                showSearch
+                                optionFilterProp="children"
+                            >
                                 <Option value="all">All Companies</Option>
                                 {companiesList.map((c, idx) => (
                                     <Option key={idx} value={c}>
@@ -222,12 +539,21 @@ const MasterAdmissionVsDischargeReport = ({
                         </div>
 
                         <div className="filter-item">
+                            <label>Status:</label>
+                            <Select value={statusFilter} onChange={setStatusFilter} style={{ width: 160 }}>
+                                <Option value="all">All Patients</Option>
+                                <Option value="admitted">Currently Admitted</Option>
+                                <Option value="discharged">Discharged</Option>
+                            </Select>
+                        </div>
+
+                        <div className="filter-item">
                             <Input
                                 placeholder="Search IP / Patient / Room / Doctor..."
                                 prefix={<Search size={14} color="#94a3b8" />}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{ width: 230 }}
+                                style={{ width: 220 }}
                             />
                         </div>
 
@@ -277,7 +603,7 @@ const MasterAdmissionVsDischargeReport = ({
 
                             <KPICard $border="#16a34a">
                                 <span className="kpi-title">Total Advance</span>
-                                <span className="kpi-value">₹{formatINR(summary.total_advance ?? filteredRecords.reduce((a, r) => a + cleanNum(r.advance), 0))}</span>
+                                <span className="kpi-value">₹{formatINR(summary.total_advance ?? totalAdvance)}</span>
                                 <span className="kpi-subtitle">Deposited advances</span>
                             </KPICard>
 
@@ -290,144 +616,212 @@ const MasterAdmissionVsDischargeReport = ({
                     )}
 
                     <DataTableWrapper>
-                        <table>
+                        <AdmissionTable>
                             <thead>
                                 <tr>
-                                    <th style={{ width: "45px" }}>SLNO</th>
-                                    <th>IP No</th>
-                                    <th>UHID</th>
-                                    <th>Patient Name</th>
-                                    <th>Doctor Name</th>
-                                    <th>Room / Bed</th>
-                                    <th>Admitting Date</th>
-                                    <th>Discharge Date</th>
-                                    <th style={{ textAlign: "center" }}>Stay (Days)</th>
-                                    <th className="text-right" style={{ color: "#059669" }}>Advance (₹)</th>
-                                    <th className="text-right">Gross Bill (₹)</th>
-                                    <th className="text-right" style={{ color: "#0284c7" }}>Net Paid (₹)</th>
-                                    <th>Company / Corporate</th>
-                                    <th style={{ textAlign: "center" }}>Status</th>
+                                    <th style={{ width: "42px", textAlign: "center" }}>SLNO</th>
+                                    <th style={{ width: "105px" }}>IP No</th>
+                                    <th style={{ width: "85px" }}>Time</th>
+                                    <th style={{ width: "105px" }}>UHID</th>
+                                    <th style={{ width: "170px" }}>Patient Name</th>
+                                    <th style={{ width: "150px" }}>Doctor Name</th>
+                                    <th style={{ width: "140px" }}>Discharge Date</th>
+                                    <th style={{ width: "75px", textAlign: "center" }}>Stay (Days)</th>
+                                    <th style={{ width: "105px", textAlign: "right" }}>Advance (₹)</th>
+                                    <th style={{ width: "105px", textAlign: "right" }}>Gross Bill (₹)</th>
+                                    <th style={{ width: "105px", textAlign: "right" }}>Net Paid (₹)</th>
+                                    <th style={{ width: "90px", textAlign: "center" }}>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredRecords.length === 0 ? (
+                                {groupedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={14} style={{ textAlign: "center", padding: "35px", color: "#94a3b8" }}>
+                                        <td colSpan={12} style={{ textAlign: "center", padding: "35px", color: "#94a3b8" }}>
                                             No Admission vs Discharge records found for the selected period.
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredRecords.map((r, idx) => (
-                                        <tr key={r.ip_number || idx}>
-                                            <td>{idx + 1}</td>
-                                            <td style={{ fontWeight: 700, fontFamily: "monospace", color: "#0f172a" }}>
-                                                {r.ip_number}
-                                            </td>
-                                            <td style={{ fontFamily: "monospace", color: "#64748b" }}>
-                                                {r.uhid}
-                                            </td>
-                                            <td style={{ fontWeight: 600 }}>
-                                                {r.patient_name}
-                                            </td>
-                                            <td style={{ color: "#334155" }}>
-                                                {r.doctor_name}
-                                            </td>
-                                            <td style={{ fontWeight: 600, color: "#1e293b" }}>
-                                                {r.room}
-                                            </td>
-                                            <td style={{ fontSize: "0.80rem", color: "#475569" }}>
-                                                {r.admitting_date}
-                                            </td>
-                                            <td style={{ fontSize: "0.80rem" }}>
-                                                {r.is_discharged ? (
-                                                    <span style={{ color: "#475569" }}>{r.discharge_date}</span>
-                                                ) : (
-                                                    <span style={{
-                                                        background: "#ecfdf5",
-                                                        color: "#059669",
-                                                        padding: "2px 8px",
-                                                        borderRadius: "12px",
-                                                        fontWeight: 700,
-                                                        fontSize: "0.75rem"
-                                                    }}>
-                                                        Still Admitted
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td style={{ textAlign: "center" }}>
-                                                <span style={{
-                                                    background: "#f8fafc",
-                                                    border: "1px solid #e2e8f0",
-                                                    padding: "2px 7px",
-                                                    borderRadius: "6px",
-                                                    fontWeight: 700
-                                                }}>
-                                                    {r.no_of_days}
-                                                </span>
-                                            </td>
-                                            <td className="text-right font-mono" style={{ color: "#059669", fontWeight: 600 }}>
-                                                ₹{formatINR(r.advance)}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {r.gross_bill > 0 ? `₹${formatINR(r.gross_bill)}` : "—"}
-                                            </td>
-                                            <td className="text-right font-mono font-bold" style={{ color: "#0284c7" }}>
-                                                {r.net_paid > 0 ? `₹${formatINR(r.net_paid)}` : "—"}
-                                            </td>
-                                            <td style={{ fontSize: "0.80rem", color: "#334155" }}>
-                                                {r.company_name}
-                                            </td>
-                                            <td style={{ textAlign: "center" }}>
-                                                {r.is_discharged ? (
-                                                    <span style={{
-                                                        background: "#f1f5f9",
-                                                        color: "#475569",
-                                                        padding: "3px 8px",
-                                                        borderRadius: "12px",
-                                                        fontSize: "0.74rem",
-                                                        fontWeight: 600
-                                                    }}>
-                                                        Discharged
-                                                    </span>
-                                                ) : (
-                                                    <span style={{
-                                                        background: "#dcfce7",
-                                                        color: "#15803d",
-                                                        padding: "3px 8px",
-                                                        borderRadius: "12px",
-                                                        fontSize: "0.74rem",
-                                                        fontWeight: 700
-                                                    }}>
-                                                        Admitted
-                                                    </span>
-                                                )}
-                                            </td>
-                                        </tr>
+                                    groupedData.map((dg) => (
+                                        <React.Fragment key={dg.date}>
+                                            {/* Level 1: Admitting Date Header */}
+                                            <DateHeaderTr>
+                                                <td colSpan={12}>
+                                                    Admitting Date : {dg.date}
+                                                </td>
+                                            </DateHeaderTr>
+
+                                            {dg.companies.map((comp) => (
+                                                <React.Fragment key={`${dg.date}-${comp.companyName}`}>
+                                                    {/* Level 2: Company / Corporate Sub-Header */}
+                                                    <CompanyHeaderTr>
+                                                        <td colSpan={12}>
+                                                            Company / Corporate : {comp.companyName}
+                                                        </td>
+                                                    </CompanyHeaderTr>
+
+                                                    {comp.rooms.map((room) => (
+                                                        <React.Fragment key={`${dg.date}-${comp.companyName}-${room.roomName}`}>
+                                                            {/* Level 3: Room Sub-Header */}
+                                                            <RoomHeaderTr>
+                                                                <td colSpan={12}>
+                                                                    Room / Bed : {room.roomName}
+                                                                </td>
+                                                            </RoomHeaderTr>
+
+                                                            {/* Item rows inside this room */}
+                                                            {room.items.map((r) => (
+                                                                <tr key={r.ip_number || r.displaySlno}>
+                                                                    <td className="text-center font-mono">{r.displaySlno}</td>
+                                                                    <td className="font-mono" style={{ fontWeight: 700, color: "#0f172a" }}>
+                                                                        {r.ip_number}
+                                                                    </td>
+                                                                    <td style={{ color: "#475569" }}>
+                                                                        {r.admitting_time_display || extractAdmitTime(r.admitting_date)}
+                                                                    </td>
+                                                                    <td className="font-mono" style={{ color: "#64748b" }}>
+                                                                        {r.uhid}
+                                                                    </td>
+                                                                    <td style={{ fontWeight: 600 }}>
+                                                                        {r.patient_name}
+                                                                    </td>
+                                                                    <td style={{ color: "#334155" }}>
+                                                                        {r.doctor_name}
+                                                                    </td>
+                                                                    <td>
+                                                                        {r.is_discharged ? (
+                                                                            <span style={{ color: "#475569" }}>
+                                                                                {r.discharge_date_display || r.discharge_date}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span style={{
+                                                                                background: "#ecfdf5",
+                                                                                color: "#059669",
+                                                                                padding: "2px 8px",
+                                                                                borderRadius: "12px",
+                                                                                fontWeight: 700,
+                                                                                fontSize: "0.75rem"
+                                                                            }}>
+                                                                                Still Admitted
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="text-center">
+                                                                        <span style={{
+                                                                            background: "#f8fafc",
+                                                                            border: "1px solid #e2e8f0",
+                                                                            padding: "2px 7px",
+                                                                            borderRadius: "6px",
+                                                                            fontWeight: 700
+                                                                        }}>
+                                                                            {r.no_of_days}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="text-right font-mono" style={{ color: "#059669", fontWeight: 700 }}>
+                                                                        {r.advance > 0 ? `₹${formatINR(r.advance)}` : "-"}
+                                                                    </td>
+                                                                    <td className="text-right font-mono">
+                                                                        {r.gross_bill > 0 ? `₹${formatINR(r.gross_bill)}` : "-"}
+                                                                    </td>
+                                                                    <td className="text-right font-mono font-bold" style={{ color: "#0284c7" }}>
+                                                                        {r.net_paid > 0 ? `₹${formatINR(r.net_paid)}` : "-"}
+                                                                    </td>
+                                                                    <td className="text-center">
+                                                                        {r.is_discharged ? (
+                                                                            <span style={{
+                                                                                background: "#f1f5f9",
+                                                                                color: "#475569",
+                                                                                padding: "3px 8px",
+                                                                                borderRadius: "12px",
+                                                                                fontSize: "0.74rem",
+                                                                                fontWeight: 600
+                                                                            }}>
+                                                                                Discharged
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span style={{
+                                                                                background: "#dcfce7",
+                                                                                color: "#15803d",
+                                                                                padding: "3px 8px",
+                                                                                borderRadius: "12px",
+                                                                                fontSize: "0.74rem",
+                                                                                fontWeight: 700
+                                                                            }}>
+                                                                                Admitted
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </React.Fragment>
+                                                    ))}
+
+                                                    {/* Company Subtotal Row */}
+                                                    <SubtotalTr>
+                                                        <td colSpan={8} className="text-right font-bold">
+                                                            Total ({comp.companyName}) -&gt;
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold" style={{ color: "#059669" }}>
+                                                            {comp.compAdvance > 0 ? `₹${formatINR(comp.compAdvance)}` : "-"}
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold">
+                                                            {comp.compGross > 0 ? `₹${formatINR(comp.compGross)}` : "-"}
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold" style={{ color: "#0284c7" }}>
+                                                            {comp.compNet > 0 ? `₹${formatINR(comp.compNet)}` : "-"}
+                                                        </td>
+                                                        <td className="text-center" style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                                            {comp.count} pts
+                                                        </td>
+                                                    </SubtotalTr>
+                                                </React.Fragment>
+                                            ))}
+
+                                            {/* Date Subtotal Row (shown when multiple companies exist on that date) */}
+                                            {dg.companies.length > 1 && (
+                                                <SubtotalTr style={{ background: "#f1f5f9" }}>
+                                                    <td colSpan={8} className="text-right font-bold" style={{ color: "#0f172a" }}>
+                                                        Date Total ({dg.date}) -&gt;
+                                                    </td>
+                                                    <td className="text-right font-mono font-bold" style={{ color: "#059669" }}>
+                                                        {dg.dateAdvance > 0 ? `₹${formatINR(dg.dateAdvance)}` : "-"}
+                                                    </td>
+                                                    <td className="text-right font-mono font-bold">
+                                                        {dg.dateGross > 0 ? `₹${formatINR(dg.dateGross)}` : "-"}
+                                                    </td>
+                                                    <td className="text-right font-mono font-bold" style={{ color: "#0284c7" }}>
+                                                        {dg.dateNet > 0 ? `₹${formatINR(dg.dateNet)}` : "-"}
+                                                    </td>
+                                                    <td className="text-center" style={{ fontSize: "0.75rem", color: "#0f172a", fontWeight: 700 }}>
+                                                        {dg.dateCount} pts
+                                                    </td>
+                                                </SubtotalTr>
+                                            )}
+                                        </React.Fragment>
                                     ))
                                 )}
 
                                 {/* Grand Total Summary Row */}
                                 {filteredRecords.length > 0 && (
-                                    <tr style={{ background: "#0f172a", color: "#ffffff", fontWeight: 800 }}>
-                                        <td colSpan={9} style={{ color: "#ffffff", padding: "10px 12px" }}>
-                                            <strong>GRAND TOTAL ({filteredRecords.length} INPATIENTS)</strong>
+                                    <tr className="total-row">
+                                        <td colSpan={8} className="text-right font-bold">
+                                            GRAND TOTAL ({filteredRecords.length} INPATIENTS) -&gt;
                                         </td>
                                         <td className="text-right font-mono" style={{ color: "#4ade80" }}>
-                                            ₹{formatINR(filteredRecords.reduce((a, r) => a + cleanNum(r.advance), 0))}
+                                            ₹{formatINR(totalAdvance)}
                                         </td>
                                         <td className="text-right font-mono" style={{ color: "#ffffff" }}>
-                                            ₹{formatINR(filteredRecords.reduce((a, r) => a + cleanNum(r.gross_bill), 0))}
+                                            ₹{formatINR(totalGross)}
                                         </td>
                                         <td className="text-right font-mono font-bold" style={{ color: "#38bdf8" }}>
-                                            ₹{formatINR(filteredRecords.reduce((a, r) => a + cleanNum(r.net_paid), 0))}
+                                            ₹{formatINR(totalNet)}
                                         </td>
-                                        <td colSpan={2} style={{ color: "#cbd5e1", textAlign: "center" }}>
-                                            {filteredRecords.filter(r => !r.is_discharged).length} Admitted | {filteredRecords.filter(r => r.is_discharged).length} Discharged
+                                        <td style={{ color: "#cbd5e1", textAlign: "center", fontSize: "0.75rem" }}>
+                                            {filteredRecords.filter(r => !r.is_discharged).length} Adm | {filteredRecords.filter(r => r.is_discharged).length} Dis
                                         </td>
                                     </tr>
                                 )}
                             </tbody>
-                        </table>
+                        </AdmissionTable>
                     </DataTableWrapper>
 
                     <ReportPrintFooter />

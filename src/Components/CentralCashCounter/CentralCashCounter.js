@@ -1001,6 +1001,9 @@ export default function CentralCashCounter() {
   const [returnReceivedBills, setReturnReceivedBills] = useState([]);
 
   // ── In-flight request lock refs (prevent duplicate concurrent requests) ──────
+  const isFetchingPendingRef = useRef(false);
+  const isFetchingUnpaidRef = useRef(false);
+  const isFetchingReceivedRef = useRef(false);
   const isFetchingIpAdvancePendingRef = useRef(false);
   const isFetchingIpAdvanceUnpaidRef = useRef(false);
   const isFetchingIpAdvanceReceivedRef = useRef(false);
@@ -1628,8 +1631,9 @@ export default function CentralCashCounter() {
   };
 
   // ── Fetch pending bills ───────────────────────────────────────────────────────
-  // ── Fetch pending bills ───────────────────────────────────────────────────────
   const fetchPendingBills = useCallback(async (silent = false) => {
+    if (isFetchingPendingRef.current) return;
+    isFetchingPendingRef.current = true;
     if (!silent) setLoading(true);
     try {
       const response = await apiRequest(`${HmsBaseUrl}get_mainblock_pendingbills/`, "GET");
@@ -1700,12 +1704,15 @@ export default function CentralCashCounter() {
         showToast("error", "Unable to connect to HMS server. Please try again.");
       }
     } finally {
+      isFetchingPendingRef.current = false;
       if (!silent) setLoading(false);
     }
   }, []);
 
   // ── Fetch unpaid bills ───────────────────────────────────────────────────────
   const fetchUnpaidBills = useCallback(async (silent = false) => {
+    if (isFetchingUnpaidRef.current) return;
+    isFetchingUnpaidRef.current = true;
     if (!silent) setLoading(true);
     try {
       const response = await apiRequest(`${HmsBaseUrl}get_mainblock_pendingbills/?status=unpaid`, "GET");
@@ -1776,12 +1783,15 @@ export default function CentralCashCounter() {
         showToast("error", "Unable to connect to HMS server. Please try again.");
       }
     } finally {
+      isFetchingUnpaidRef.current = false;
       if (!silent) setLoading(false);
     }
   }, []);
 
   // ── Fetch received bills ─────────────────────────────────────────────────────
   const fetchReceivedBills = useCallback(async (silent = false) => {
+    if (isFetchingReceivedRef.current) return;
+    isFetchingReceivedRef.current = true;
     if (!silent) setLoading(true);
     try {
       const response = await apiRequest(`${HmsBaseUrl}get_mainblock_pendingbills/?status=paid`, "GET");
@@ -1848,6 +1858,7 @@ export default function CentralCashCounter() {
         showToast("error", "Unable to load received bills.");
       }
     } finally {
+      isFetchingReceivedRef.current = false;
       if (!silent) setLoading(false);
     }
   }, []);
@@ -2111,6 +2122,12 @@ export default function CentralCashCounter() {
       const received = [];
 
       data.forEach((item, idx) => {
+        // For hospital_investrefund, only display if approved
+        if (item.collection_name === "hospital_investrefund") {
+          const isApproved = item.is_approved === true || item.is_approved === "true" || item.is_approved === "True";
+          if (!isApproved) return;
+        }
+
         // Use return_bill_date as primary date field
         // hospital_investrefund uses camelCase "refundBillDate" — add it to the fallback chain
         const dateRaw = item.return_bill_date || item.created_date || item.refund_date || item.refundBillDate || null;
@@ -2251,6 +2268,8 @@ export default function CentralCashCounter() {
       setIsSavingPayment(true);
       try {
         const payload = {
+          _id: selectedBill.raw?._id || selectedBill._id || null,
+          bill_no: selectedBill.raw_bill_no || selectedBill.bill_no || null,
           Bill_id: selectedBill.Bill_id,
           uhid: selectedBill.uhid && selectedBill.uhid !== "-" ? selectedBill.uhid : "",
           payment_details,
@@ -2697,8 +2716,8 @@ export default function CentralCashCounter() {
       }
     };
 
-    // Live continuous background fetch every 6 seconds
-    const intervalId = setInterval(syncLatestData, 6000);
+    // Live continuous background fetch every 12 seconds
+    const intervalId = setInterval(syncLatestData, 12000);
 
     // Instant sync whenever cashier switches back to this browser tab
     const handleVisibilityChange = () => {
