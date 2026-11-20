@@ -1978,6 +1978,21 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const getRequestNo = (patient) => {
+    if (!patient) return "";
+    const rNo = patient.request_no || patient.requestNo;
+    if (rNo && String(rNo).trim() && String(rNo).trim() !== "null" && String(rNo).trim() !== "undefined") {
+      return String(rNo).trim();
+    }
+    const bNo = String(patient.bill_no || "").trim();
+    if (bNo.startsWith("MR")) return bNo;
+    const bId = patient.Bill_id || patient.bill_id;
+    if (bId) return `MRIP${String(bId).padStart(3, "0")}`;
+    const idStr = String(patient._id || patient.id || "").trim();
+    if (idStr.length >= 4) return `MRIP${idStr.slice(-4).padStart(3, "0")}`;
+    return "";
+  };
+
   const getPatientInitials = (patient) => {
     const name = patient?.patient_details?.patient_name || patient?.patient_name || "";
     const parts = name.trim().split(" ").filter(Boolean);
@@ -2480,7 +2495,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         const reqBy   = String(patient.created_by_name || patient.prepared_by || patient.created_by || patient.patient_details?.created_by_name || "").toLowerCase();
         const mobile  = String(patient.patient_details?.mobile || patient.mobile || "").toLowerCase();
         const company = String(patient.insurance_company || "").toLowerCase();
-        const reqNo   = String(patient.request_no || patient.requestNo || "").toLowerCase();
+        const reqNo   = String(getRequestNo(patient)).toLowerCase();
 
         return (
           pName.includes(q) ||
@@ -2921,7 +2936,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       const ward = patient.ward_name || patient.room_no || "—";
                       const isOtRequest = String(patient.billing_mode || patient.billingMode || "").toUpperCase().includes("OT");
                       const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date || patient.bill_date);
-                      const reqNo = patient.request_no || patient.requestNo || "";
+                      const reqNo = getRequestNo(patient);
                       const isInsurance = Boolean(
                         patient.is_insurance ||
                         String(patient.customer_type || "").toLowerCase() === "insurance" ||
@@ -3221,7 +3236,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     )}
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
                       <CardDateSubtext>{dateFormatted}</CardDateSubtext>
-                      {(patient.request_no || patient.requestNo) && (
+                      {getRequestNo(patient) && (
                         <span style={{
                           fontSize: "0.68rem",
                           fontWeight: 700,
@@ -3232,7 +3247,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           padding: "1px 5px",
                           letterSpacing: "0.2px"
                         }}>
-                          {patient.request_no || patient.requestNo}
+                          {getRequestNo(patient)}
                         </span>
                       )}
                     </div>
@@ -3471,7 +3486,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           </span>
                         )}
                         <span>{dateFormatted}</span>
-                        {(patient.request_no || patient.requestNo) && (
+                        {getRequestNo(patient) && (
                           <span style={{
                             background: "#f0fdfa",
                             color: "#0f766e",
@@ -3481,7 +3496,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                             fontWeight: 700,
                             fontSize: "0.72rem"
                           }}>
-                            Req No: {patient.request_no || patient.requestNo}
+                            Req No: {getRequestNo(patient)}
                           </span>
                         )}
                         {modalRequestedBy && (
