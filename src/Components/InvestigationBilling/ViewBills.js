@@ -1502,6 +1502,27 @@ const BillsReport = () => {
                           🗑 Delete Pending
                         </span>
                       )}
+
+                      {/* Refund Pending badge */}
+                      {bill.refunds &&
+                        bill.refunds.length > 0 &&
+                        bill.refunds.some((r) => !r.is_approved) && (
+                          <span
+                            title="Refund awaiting approval"
+                            style={{
+                              display: "inline-block",
+                              fontSize: 10,
+                              background: "#dbeafe",
+                              color: "#1e40af",
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                              fontWeight: 700,
+                              marginTop: 2,
+                            }}
+                          >
+                            💸 Refund Pending
+                          </span>
+                        )}
                     </StickyTd>
                     <StickyTd $left={COL.uhid.left} $width={COL.uhid.width}>
                       {bill.uhid}
