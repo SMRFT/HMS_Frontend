@@ -1214,7 +1214,8 @@ const OTMedicineBilling = () => {
     age: pd.age || "-",
     gender: pd.gender || "-",
     admittingDr: pd.admittingDoctor || "-",
-    roomBed: `${pd.roomNo || "-"} | ${pd.bedNo || "-"}`,
+    ot_name: pd.ot_name || pd.otName || pd.roomNo || "",
+    roomBed: `${pd.ot_name || pd.otName || pd.roomNo || "-"} | ${pd.bedNo || "-"}`,
     customerType: pd.customerType || pd.customer_type || "-",
     companyName: pd.companyName || pd.company_name || "-",
     surgeryRef: pd.surgeryRef || "",
@@ -1584,11 +1585,14 @@ const OTMedicineBilling = () => {
         fetchRequests();
       } else alert(res.error || "Update failed");
     } else {
+      const otRoomName = (resolvedPatient.ot_name && resolvedPatient.ot_name !== "-" ? resolvedPatient.ot_name : (resolvedPatient.roomBed?.split("|")[0].trim() || "-"));
       const payload = {
         uhid: resolvedPatient.uhid,
         ipNumber: resolvedPatient.ipNo,
         patient_name: resolvedPatient.name,
-        wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
+        wardName: otRoomName,
+        room_no: otRoomName,
+        ot_name: resolvedPatient.ot_name || otRoomName,
         medicine_particulars,
         total_amount: total,
         doctor_id: doctor,

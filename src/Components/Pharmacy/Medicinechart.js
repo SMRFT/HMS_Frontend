@@ -271,6 +271,50 @@ const CleanSearchInput = styled.input`
   }
 `;
 
+const ModeFilterButtonGroup = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f8fafc;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+`;
+
+const ModeFilterBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: ${({ $active }) => ($active ? "700" : "600")};
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: ${({ $active }) => ($active ? "#0f766e" : "transparent")};
+  color: ${({ $active }) => ($active ? "#ffffff" : "#475569")};
+
+  &:hover {
+    background: ${({ $active }) => ($active ? "#0d655e" : "#e2e8f0")};
+    color: ${({ $active }) => ($active ? "#ffffff" : "#0f172a")};
+  }
+
+  .mode-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: 9999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: ${({ $active }) => ($active ? "rgba(255,255,255,0.25)" : "#e2e8f0")};
+    color: ${({ $active }) => ($active ? "#ffffff" : "#475569")};
+  }
+`;
+
 const SegmentPillsWrap = styled.div`
   display: flex;
   align-items: center;
@@ -1928,6 +1972,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const [fromDate, setFromDate]               = useState(todayStr);
   const [toDate, setToDate]                   = useState(todayStr);
   const [searchQuery, setSearchQuery]         = useState("");
+  const [billingModeFilter, setBillingModeFilter] = useState("ALL"); // "ALL", "OT REQUEST", "WARD REQUEST"
   const [activeFilter, setActiveFilter]       = useState("All"); // All, Pending, Processing, Insurance, General
   const [viewMode, setViewMode]               = useState("table"); // "table" or "cards"
   const [printPatient, setPrintPatient]       = useState(null);
@@ -1938,7 +1983,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   // Reset page to 1 when filters or search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeFilter, searchQuery, fromDate, toDate]);
+  }, [activeFilter, searchQuery, fromDate, toDate, billingModeFilter]);
 
   // ------ Format & Calculation Helpers (matching screenshots) ------
   const formatDateTime = (dateVal) => {
@@ -1984,16 +2029,38 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const getRequestNo = (patient) => {
     if (!patient) return "";
     const rNo = patient.request_no || patient.requestNo;
-    if (rNo && String(rNo).trim() && String(rNo).trim() !== "null" && String(rNo).trim() !== "undefined") {
+    if (
+      rNo &&
+      String(rNo).trim() &&
+      String(rNo).trim().toLowerCase() !== "null" &&
+      String(rNo).trim().toLowerCase() !== "undefined"
+    ) {
       return String(rNo).trim();
     }
-    const bNo = String(patient.bill_no || "").trim();
-    if (bNo.startsWith("MR")) return bNo;
-    const bId = patient.Bill_id || patient.bill_id;
-    if (bId) return `MRIP${String(bId).padStart(3, "0")}`;
-    const idStr = String(patient._id || patient.id || "").trim();
-    if (idStr.length >= 4) return `MRIP${idStr.slice(-4).padStart(3, "0")}`;
     return "";
+  };
+
+  const getCleanOtWard = (w) => {
+    if (!w || w === "—" || w === "-") return "";
+    const cleaned = String(w).replace(/^OT Request\s*\(?/i, "").replace(/\)$/, "").trim();
+    return cleaned && cleaned.toLowerCase() !== "ot request" ? cleaned : "";
+  };
+
+  const cleanRoomDisplay = (val) => {
+    if (!val || val === "-" || val === "—") return "—";
+    const s = String(val).trim();
+    if (s.toLowerCase().startsWith("ot")) return s;
+    if (s.includes("|")) {
+      const [r, b] = s.split("|").map(x => x.trim());
+      return `Room ${r.replace(/^Room\s*/i, "")}${b && b !== "-" && b !== "—" ? ` | Bed ${b.replace(/^Bed\s*/i, "")}` : ""}`;
+    }
+    if (s.includes("/")) {
+      return s.toLowerCase().startsWith("room") ? s : `Room ${s}`;
+    }
+    if (!s.toLowerCase().startsWith("room")) {
+      return `Room ${s}`;
+    }
+    return s;
   };
 
   const getPatientInitials = (patient) => {
@@ -2026,14 +2093,17 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     const rawStatus = String(patient?.billing_status || "").trim().toLowerCase();
     const isBilled = rawStatus === "billed" || rawStatus === "paid" || rawStatus === "completed";
 
-    const activeItems = rawItems.filter((it) => {
+    const pendingItems = rawItems.filter((it) => {
       if (it.deleted_is || it.is_deleted) return false;
-      if (isBilled) return true;
       const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
       const disp = Number(it.dispatched_qty ?? 0);
       const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
       return pend > 0;
     });
+
+    const activeItems = isBilled || pendingItems.length === 0
+      ? rawItems.filter((it) => !it.deleted_is && !it.is_deleted)
+      : pendingItems;
 
     activeItems.forEach((it) => {
       const rate = getUnitPrice(it);
@@ -2249,23 +2319,6 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           return false;
         }
 
-        const isBilled = bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
-        if (!isBilled) {
-          // Items filter: For active Pending/Processing requests, must have at least one item with remaining pending qty > 0
-          const items = Array.isArray(bill.medicine_items)
-            ? bill.medicine_items
-            : (Array.isArray(bill.medicine_particulars) ? bill.medicine_particulars : []);
-          if (items.length > 0) {
-            const hasPending = items.some((it) => {
-              if (it.deleted_is || it.is_deleted) return false;
-              const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
-              const disp = Number(it.dispatched_qty ?? 0);
-              const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
-              return pend > 0;
-            });
-            if (!hasPending) return false;
-          }
-        }
         return true;
       });
 
@@ -2444,19 +2497,49 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     }
   }, [substSearch, fetchMedicines]);
 
-  // --------- Filter based strictly on ward_request_date ---------------------------------------------------------------------------------
+  // --------- Filter based strictly on created_date ----------------
   const dateFilteredData = useMemo(() => {
     return medicineData.filter((patient) => {
       if (!fromDate && !toDate) return true;
-      const raw = patient.ward_request_date || patient.created_date;
-      const wardDate = extractWardDate(raw);
-      if (fromDate && (!wardDate || wardDate < fromDate)) return false;
-      if (toDate   && (!wardDate || wardDate > toDate))   return false;
+      const rawCreated = extractWardDate(patient.created_date || patient.ward_request_date || patient.bill_date);
+      if (fromDate && (!rawCreated || rawCreated < fromDate)) return false;
+      if (toDate   && (!rawCreated || rawCreated > toDate))   return false;
       return true;
     });
   }, [medicineData, fromDate, toDate]);
 
-  // --------- Computed Statistics for KPI cards (reflecting active date range) ------------------
+  // Helper to determine if a prescription is an OT Request
+  const isOtPatient = (p) => {
+    const bm = String(p.billing_mode || p.billingMode || "").toUpperCase();
+    const reqNo = String(p.request_no || "").toUpperCase();
+    const rNo = String(p.room_no || "").toUpperCase();
+    const wName = String(p.ward_name || "").toUpperCase();
+    return bm.includes("OT") || reqNo.startsWith("OT") || rNo.includes("OT") || wName.includes("OT");
+  };
+
+  // Pre-calculate counts of OT and Ward within dateFilteredData for the filter selector
+  const modeCounts = useMemo(() => {
+    let ot = 0;
+    let ward = 0;
+    dateFilteredData.forEach((p) => {
+      if (isOtPatient(p)) ot += 1;
+      else ward += 1;
+    });
+    return { ot, ward, all: dateFilteredData.length };
+  }, [dateFilteredData]);
+
+  // --------- Filter based on billing_mode ("ALL", "OT REQUEST", "WARD REQUEST") ----------
+  const modeFilteredData = useMemo(() => {
+    return dateFilteredData.filter((p) => {
+      if (billingModeFilter === "ALL") return true;
+      const isOt = isOtPatient(p);
+      if (billingModeFilter === "OT REQUEST") return isOt;
+      if (billingModeFilter === "WARD REQUEST") return !isOt;
+      return true;
+    });
+  }, [dateFilteredData, billingModeFilter]);
+
+  // --------- Computed Statistics for KPI cards (reflecting active date range & billing mode) ------------------
   const stats = useMemo(() => {
     let pending = 0;
     let processing = 0;
@@ -2465,7 +2548,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     let generalCount = 0;
     let totalAdvance = 0;
 
-    dateFilteredData.forEach((p) => {
+    modeFilteredData.forEach((p) => {
       const bStatus = String(p.billing_status || "").trim().toLowerCase();
       const isB = bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
       if (bStatus === "pending") pending += 1;
@@ -2484,7 +2567,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     const total = pending + processing;
 
     return { total, pending, processing, billed, insuranceCount, generalCount, totalAdvance };
-  }, [dateFilteredData]);
+  }, [modeFilteredData]);
 
   // Sync active count with parent tab badge whenever stats.total changes
   useEffect(() => {
@@ -2495,7 +2578,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
   // --------- Filtered Data (by status tabs and search query) ------------------------------------------------------------------
   const filteredData = useMemo(() => {
-    return dateFilteredData.filter((patient) => {
+    return modeFilteredData.filter((patient) => {
       const bStatus = String(patient.billing_status || "").trim().toLowerCase();
       const isBilled = bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
 
@@ -2542,7 +2625,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
       return true;
     });
-  }, [dateFilteredData, activeFilter, searchQuery]);
+  }, [modeFilteredData, activeFilter, searchQuery]);
 
   // --------- Pagination (10 per page) ----------------------------------------------------------------------------------------------------------------------
   const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
@@ -2866,26 +2949,56 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
             )}
           </SearchInputWrap>
 
-          <SegmentPillsWrap>
-            {[
-              { id: "All", label: "All", count: stats.total },
-              { id: "Pending", label: "Pending", count: stats.pending },
-              { id: "Processing", label: "Processing", count: stats.processing },
-              { id: "Billed", label: "Billed", count: stats.billed },
-              { id: "Insurance", label: "Insurance", count: stats.insuranceCount },
-              { id: "General", label: "General", count: stats.generalCount },
-            ].map(tab => (
-              <SegmentPillBtn
-                key={tab.id}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {/* Billing Mode Filter (OT REQUEST / WARD REQUEST / ALL) placed directly before All */}
+            <ModeFilterButtonGroup>
+              <ModeFilterBtn
                 type="button"
-                $active={activeFilter === tab.id}
-                onClick={() => setActiveFilter(tab.id)}
+                $active={billingModeFilter === "ALL"}
+                onClick={() => { setBillingModeFilter("ALL"); setCurrentPage(1); }}
+                title="Show all requests (both OT & Ward)"
               >
-                <span>{tab.label}</span>
-                <span className="badge">{tab.count}</span>
-              </SegmentPillBtn>
-            ))}
-          </SegmentPillsWrap>
+                All Modes
+              </ModeFilterBtn>
+              <ModeFilterBtn
+                type="button"
+                $active={billingModeFilter === "OT REQUEST"}
+                onClick={() => { setBillingModeFilter("OT REQUEST"); setCurrentPage(1); }}
+                title="Filter by OT Request"
+              >
+                🏥 OT Request <span className="mode-badge">{modeCounts.ot}</span>
+              </ModeFilterBtn>
+              <ModeFilterBtn
+                type="button"
+                $active={billingModeFilter === "WARD REQUEST"}
+                onClick={() => { setBillingModeFilter("WARD REQUEST"); setCurrentPage(1); }}
+                title="Filter by Ward Request"
+              >
+                🏥 Ward Request <span className="mode-badge">{modeCounts.ward}</span>
+              </ModeFilterBtn>
+            </ModeFilterButtonGroup>
+
+            <SegmentPillsWrap>
+              {[
+                { id: "All", label: "All", count: stats.total },
+                { id: "Pending", label: "Pending", count: stats.pending },
+                { id: "Processing", label: "Processing", count: stats.processing },
+                { id: "Billed", label: "Billed", count: stats.billed },
+                { id: "Insurance", label: "Insurance", count: stats.insuranceCount },
+                { id: "General", label: "General", count: stats.generalCount },
+              ].map(tab => (
+                <SegmentPillBtn
+                  key={tab.id}
+                  type="button"
+                  $active={activeFilter === tab.id}
+                  onClick={() => setActiveFilter(tab.id)}
+                >
+                  <span>{tab.label}</span>
+                  <span className="badge">{tab.count}</span>
+                </SegmentPillBtn>
+              ))}
+            </SegmentPillsWrap>
+          </div>
         </FilterBarCard>
 
         {/* ------ Prescription Meta Row ------ */}
@@ -2964,7 +3077,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       const uhid = patient.uhid || "—";
                       const ipNo = patient.inpatient_number || patient.ip_number || "—";
                       const ward = patient.ward_name || patient.room_no || "—";
-                      const isOtRequest = String(patient.billing_mode || patient.billingMode || "").toUpperCase().includes("OT");
+                      const roomNo = patient.room_no || "";
+                      const wardName = patient.ward_name && patient.ward_name !== "-" && patient.ward_name !== "—" ? patient.ward_name : "";
+                      const rawBillingMode = String(patient.billing_mode || patient.billingMode || "").trim();
+                      const isOtRequest = rawBillingMode.toUpperCase().includes("OT") || String(patient.request_no || "").toUpperCase().startsWith("OT") || String(ward || "").toUpperCase().includes("OT");
+                      const isWardRequest = !isOtRequest;
                       const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date || patient.bill_date);
                       const reqNo = getRequestNo(patient);
                       const isInsurance = Boolean(
@@ -3031,12 +3148,13 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
                           {/* 5. Ward & Room Number */}
                           <td>
-                            <div>
-                              {isOtRequest ? (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                              {/* Billing Mode Badge */}
+                              <div>
+                                {isOtRequest ? (
                                   <span style={{
                                     background: "#fef3c7",
-                                    color: "#b45309",
+                                    color: "#92400e",
                                     border: "1px solid #fde68a",
                                     padding: "2px 8px",
                                     borderRadius: 4,
@@ -3047,19 +3165,41 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                                   }}>
                                     🏥 OT Request
                                   </span>
-                                  {ward && ward !== "—" && ward !== "-" && !ward.toLowerCase().includes("ot request") && (
-                                    <span style={{ fontSize: "0.68rem", color: "#475569", fontWeight: 600 }}>
-                                      {ward}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.76rem" }}>
-                                  Room {ward}
+                                ) : (
+                                  <span style={{
+                                    background: "#e0f2fe",
+                                    color: "#0369a1",
+                                    border: "1px solid #bae6fd",
+                                    padding: "2px 8px",
+                                    borderRadius: 4,
+                                    fontWeight: 800,
+                                    fontSize: "0.72rem",
+                                    display: "inline-block",
+                                    width: "fit-content"
+                                  }}>
+                                    🏥 Ward Request
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Room Number / Theater */}
+                              <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.76rem" }}>
+                                {isOtRequest ? (
+                                  getCleanOtWard(ward) || "OT Room"
+                                ) : (
+                                  cleanRoomDisplay(roomNo || ward)
+                                )}
+                              </div>
+
+                              {/* Ward Name (if distinct from Room Number and OT Request) */}
+                              {wardName && !wardName.toLowerCase().includes("ot request") && wardName !== roomNo && wardName !== ward && (
+                                <div style={{ fontSize: "0.68rem", color: "#475569", fontWeight: 600 }}>
+                                  {wardName}
                                 </div>
                               )}
+
                               {(roomCat || block || nursingStation) && !isOtRequest && (
-                                <div style={{ fontSize: "0.65rem", color: "#0f766e", marginTop: 2, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", lineHeight: 1.2 }}>
+                                <div style={{ fontSize: "0.65rem", color: "#0f766e", marginTop: 1, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", lineHeight: 1.2 }}>
                                   {roomCat && (
                                     <span style={{ background: "#ccfbf1", color: "#0f766e", padding: "1px 4px", borderRadius: 3, fontWeight: 700, fontSize: "0.62rem", textTransform: "uppercase" }}>
                                       {roomCat}
@@ -3078,31 +3218,34 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
                           {/* 6. Request Date & Time */}
                           <td>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                              <span style={{ fontWeight: 700, fontSize: "0.76rem", color: "#0f172a", whiteSpace: "nowrap" }}>
-                                {formatDateOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
-                              </span>
-                              <span style={{ fontSize: "0.72rem", color: "#64748b", whiteSpace: "nowrap" }}>
-                                {formatTimeOnly(patient.ward_request_date || patient.created_date || patient.bill_date)}
-                              </span>
-                            </div>
-                            {reqNo ? (
-                              <div style={{
-                                marginTop: 3,
-                                display: "inline-block",
-                                fontSize: "0.7rem",
-                                fontWeight: 700,
-                                color: "#0f766e",
-                                background: "#f0fdfa",
-                                border: "1px solid #99f6e4",
-                                borderRadius: 4,
-                                padding: "1px 6px",
-                                letterSpacing: "0.2px",
-                                whiteSpace: "nowrap"
-                              }}>
-                                {reqNo}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+                                <span style={{ fontWeight: 700, fontSize: "0.76rem", color: "#0f172a", whiteSpace: "nowrap" }}>
+                                  {formatDateOnly(patient.created_date || patient.ward_request_date || patient.bill_date)}
+                                </span>
+                                <span style={{ fontSize: "0.72rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                  {formatTimeOnly(patient.created_date || patient.ward_request_date || patient.bill_date)}
+                                </span>
                               </div>
-                            ) : null}
+                              {reqNo ? (
+                                <div>
+                                  <span style={{
+                                    display: "inline-block",
+                                    fontSize: "0.7rem",
+                                    fontWeight: 700,
+                                    color: "#0f766e",
+                                    background: "#f0fdfa",
+                                    border: "1px solid #99f6e4",
+                                    borderRadius: 4,
+                                    padding: "1px 6px",
+                                    letterSpacing: "0.2px",
+                                    whiteSpace: "nowrap"
+                                  }}>
+                                    {reqNo}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </div>
                           </td>
 
                           {/* 7. Status */}
@@ -3216,7 +3359,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
               const uhid = patient.uhid || "—";
               const ipNo = patient.inpatient_number || patient.ip_number || "—";
               const ward = patient.ward_name || patient.room_no || "—";
-              const isOtRequest = String(patient.billing_mode || patient.billingMode || "").toUpperCase().includes("OT");
+              const roomNo = patient.room_no || "";
+              const wardName = patient.ward_name && patient.ward_name !== "-" && patient.ward_name !== "—" ? patient.ward_name : "";
+              const rawBillingMode = String(patient.billing_mode || patient.billingMode || "").trim();
+              const isOtRequest = rawBillingMode.toUpperCase().includes("OT") || String(patient.request_no || "").toUpperCase().startsWith("OT") || String(ward || "").toUpperCase().includes("OT");
+              const isWardRequest = !isOtRequest;
               const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date);
               const isInsurance = Boolean(
                 patient.is_insurance ||
@@ -3246,9 +3393,18 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
                   <div style={{ minWidth: 0 }}>
                     {isOtRequest ? (
-                      <CardRoomTitle style={{ color: "#b45309" }}>🏥 OT Request</CardRoomTitle>
+                      <CardRoomTitle style={{ color: "#b45309" }}>
+                        🏥 OT Request {getCleanOtWard(ward) ? `• ${getCleanOtWard(ward)}` : ""}
+                      </CardRoomTitle>
                     ) : (
-                      <CardRoomTitle>Room {ward}</CardRoomTitle>
+                      <CardRoomTitle style={{ color: "#0369a1" }}>
+                        🏥 Ward Request • {cleanRoomDisplay(roomNo || ward)}
+                      </CardRoomTitle>
+                    )}
+                    {wardName && !wardName.toLowerCase().includes("ot request") && wardName !== roomNo && wardName !== ward && (
+                      <div style={{ fontSize: "0.68rem", color: "#475569", fontWeight: 600, marginTop: 1 }}>
+                        {wardName}
+                      </div>
                     )}
                     {(roomCat || block || nursingStation) && !isOtRequest && (
                       <div style={{ fontSize: "0.68rem", color: "#0f766e", marginTop: 2, display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", lineHeight: 1.2 }}>
@@ -3447,7 +3603,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
               const uhid = patient.uhid || "—";
               const ipNo = patient.inpatient_number || patient.ip_number || "—";
               const ward = patient.ward_name || patient.room_no || "—";
-              const isOtRequest = String(patient.billing_mode || patient.billingMode || "").toUpperCase().includes("OT");
+              const roomNo = patient.room_no || "";
+              const wardName = patient.ward_name && patient.ward_name !== "-" && patient.ward_name !== "—" ? patient.ward_name : "";
+              const rawBillingMode = String(patient.billing_mode || patient.billingMode || "").trim();
+              const isOtRequest = rawBillingMode.toUpperCase().includes("OT") || String(patient.request_no || "").toUpperCase().startsWith("OT") || String(ward || "").toUpperCase().includes("OT");
+              const isWardRequest = !isOtRequest;
               const dateFormatted = formatDateTime(patient.ward_request_date || patient.created_date);
               const doctorName = patient.doctor_name
                 ? (patient.doctor_name.toLowerCase().startsWith("dr") ? patient.doctor_name : `Dr. ${patient.doctor_name}`)
@@ -3458,16 +3618,16 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
               const rawItems = Array.isArray(patient.medicine_items)
                 ? patient.medicine_items
                 : (Array.isArray(patient.medicine_particulars) ? patient.medicine_particulars : []);
-              // If billed, display all items that were billed; if pending/processing, display only remaining pending items (excluding deleted):
-              const items = isBilled
+              const pendingItems = rawItems.filter((it) => {
+                if (it.deleted_is || it.is_deleted) return false;
+                const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
+                const disp = Number(it.dispatched_qty ?? 0);
+                const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
+                return pend > 0;
+              });
+              const items = isBilled || pendingItems.length === 0
                 ? rawItems.filter((it) => !it.deleted_is && !it.is_deleted)
-                : rawItems.filter((it) => {
-                    if (it.deleted_is || it.is_deleted) return false;
-                    const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
-                    const disp = Number(it.dispatched_qty ?? 0);
-                    const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
-                    return pend > 0;
-                  });
+                : pendingItems;
 
               let modalPrescriptionTotal = 0;
               let modalConsumableTotal = 0;
@@ -3511,11 +3671,30 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                         <span>UHID {uhid}</span>
                         <span>IP {ipNo}</span>
                         {isOtRequest ? (
-                          <span style={{ background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a", padding: "1px 7px", borderRadius: 4, fontWeight: 800, fontSize: "0.7rem" }}>
-                            🏥 OT Request
-                          </span>
+                          <>
+                            <span style={{ background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a", padding: "1px 7px", borderRadius: 4, fontWeight: 800, fontSize: "0.7rem" }}>
+                              🏥 OT Request
+                            </span>
+                            {getCleanOtWard(ward) && (
+                              <span style={{ fontWeight: 700, color: "#0f172a" }}>
+                                {getCleanOtWard(ward)}
+                              </span>
+                            )}
+                          </>
                         ) : (
-                          <span>Room {ward}</span>
+                          <>
+                            <span style={{ background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd", padding: "1px 7px", borderRadius: 4, fontWeight: 800, fontSize: "0.7rem" }}>
+                              🏥 Ward Request
+                            </span>
+                            <span style={{ fontWeight: 700, color: "#0f172a" }}>
+                              {cleanRoomDisplay(roomNo || ward)}
+                            </span>
+                          </>
+                        )}
+                        {wardName && !wardName.toLowerCase().includes("ot request") && wardName !== roomNo && wardName !== ward && (
+                          <span style={{ color: "#475569", fontWeight: 600 }}>
+                            {wardName}
+                          </span>
                         )}
                         {modalRoomCat && (
                           <span style={{ background: "#ccfbf1", color: "#0f766e", padding: "1px 6px", borderRadius: 4, fontWeight: 700, fontSize: "0.68rem", textTransform: "uppercase" }}>
