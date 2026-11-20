@@ -218,6 +218,35 @@ import AdvanceRegistrationInsurence from "./Components/Accounts/AdvanceRegistrat
 import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
 import BillCancelReport from "./Components/Accounts/BillCancelReport";
 import AccountsReports from "./Components/Reports/AccountsReports";
+import UnifiedAccountsReport from "./Components/Accounts/UnifiedAccountsReport";
+import MasterAccountsDashboard from "./Components/MasterAccounts/MasterAccountsDashboard";
+import MasterShiftBasisReport from "./Components/MasterAccounts/MasterShiftBasisReport";
+import MasterCashBillsReport from "./Components/MasterAccounts/MasterCashBillsReport";
+import MasterDailyCashReport from "./Components/MasterAccounts/MasterDailyCashReport";
+import MasterCashierWiseReport from "./Components/MasterAccounts/MasterCashierWiseReport";
+import MasterCashierDetailedReport from "./Components/MasterAccounts/MasterCashierDetailedReport";
+import MasterCreditCardReport from "./Components/MasterAccounts/MasterCreditCardReport";
+import MasterDatewiseSummaryReport from "./Components/MasterAccounts/MasterDatewiseSummaryReport";
+import MasterDepartmentWiseReport from "./Components/MasterAccounts/MasterDepartmentWiseReport";
+import MasterBillTypeWiseReport from "./Components/MasterAccounts/MasterBillTypeWiseReport";
+import MasterAdvanceRegistration from "./Components/MasterAccounts/MasterAdvanceRegistration";
+import MasterInsuranceAdvanceReport from "./Components/MasterAccounts/MasterInsuranceAdvanceReport";
+import MasterIPAdvanceReport from "./Components/MasterAccounts/MasterIPAdvanceReport";
+import MasterAdmissionVsDischargeReport from "./Components/MasterAccounts/MasterAdmissionVsDischargeReport";
+import MasterDischargeBillsReport from "./Components/MasterAccounts/MasterDischargeBillsReport";
+import MasterDischargeDetailedReport from "./Components/MasterAccounts/MasterDischargeDetailedReport";
+import MasterDebitDueBillsReport from "./Components/MasterAccounts/MasterDebitDueBillsReport";
+import MasterDiscountBillsReport from "./Components/MasterAccounts/MasterDiscountBillsReport";
+import MasterBillCancelReport from "./Components/MasterAccounts/MasterBillCancelReport";
+import MasterAccountsAuditReport from "./Components/MasterAccounts/MasterAccountsAuditReport";
+import MasterBillWiseReport from "./Components/MasterAccounts/MasterBillWiseReport";
+import MasterMiscPaymentReport from "./Components/MasterAccounts/MasterMiscPaymentReport";
+import MasterSalesTaxRegister from "./Components/MasterAccounts/MasterSalesTaxRegister";
+import MasterDaywiseSalesTaxRegister from "./Components/MasterAccounts/MasterDaywiseSalesTaxRegister";
+import MasterOPPharmacyGSTReport from "./Components/MasterAccounts/MasterOPPharmacyGSTReport";
+import MasterPurchaseGSTReport from "./Components/MasterAccounts/MasterPurchaseGSTReport";
+import MasterStockReportIpOp from "./Components/MasterAccounts/MasterStockReportIpOp";
+import MasterSalesReturnReport from "./Components/MasterAccounts/MasterSalesReturnReport";
 import DrugPurchaseReportsDashboard from "./Components/Reports/DrugPurchaseReportsDashboard";
 import InsuranceReportsDashboard from "./Components/Reports/InsuranceReportsDashboard";
 import InsuranceBillsDueList from "./Components/Insurance_report/InsuranceBillsDueList";
@@ -650,6 +679,36 @@ function App() {
       "/DiscountBillsReport": "Discount Bills Report",
       "/Feedbackreports": "InPatient Feedback Reports",
       "/FeedbackReports": "InPatient Feedback Reports",
+      "/Masteraccountsdashboard": "Master Accounts Reports Dashboard",
+      "/MasterAccountsDashboard": "Master Accounts Reports Dashboard",
+      "/MasterUnifiedAccountsReport": "Master Unified Accounts Report",
+      "/MasterShiftBasisReport": "Master Shift Basis Report",
+      "/MasterCashBillsReport": "Master Cash Bills Summary",
+      "/MasterDailyCashReport": "Master Daily Cash Report",
+      "/MasterCashierWiseReport": "Master Cashier Wise Summary",
+      "/MasterCashierDetailedReport": "Master Cashier Detailed Report",
+      "/MasterCreditCardReport": "Master Credit Card Report",
+      "/MasterDatewiseSummaryReport": "Master Date-Wise Summary",
+      "/MasterDepartmentWiseReport": "Master Department-Wise Report",
+      "/MasterBillTypeWiseReport": "Master Bill Type-Wise Report",
+      "/MasterAdvanceRegistration": "Master Advance Registration",
+      "/MasterInsuranceAdvanceReport": "Master Insurance Advance",
+      "/MasterIPAdvanceReport": "Master IP Advance Report",
+      "/MasterAdmissionVsDischargeReport": "Master Admission vs Discharge Report",
+      "/MasterDischargeBillsReport": "Master Discharge Bills Summary",
+      "/MasterDischargeDetailedReport": "Master Discharge Detailed",
+      "/MasterDebitDueBillsReport": "Master Debit Due Bills",
+      "/MasterDiscountBillsReport": "Master Discount Bills Report",
+      "/MasterBillCancelReport": "Master Bill Cancel Report",
+      "/MasterAccountsAuditReport": "Master Accounts Audit Report",
+      "/MasterBillWiseReport": "Master Bill Wise Report",
+      "/MasterMiscPaymentReport": "Master Misc Payment Report",
+      "/MasterSalesTaxRegister": "Master Sales Tax Register",
+      "/MasterDaywiseSalesTaxRegister": "Master Day-wise Sales Tax Register",
+      "/MasterOPPharmacyGSTReport": "Master OP Pharmacy Sales GST",
+      "/MasterPurchaseGSTReport": "Master Purchase GST Report",
+      "/MasterStockReportIpOp": "Master Stock Report IP vs OP",
+      "/MasterSalesReturnReport": "Master Sales Return Report",
     };
 
 
@@ -1858,6 +1917,46 @@ function App() {
               <Route path="/OPPharmacyB2BReport" element={<OPPharmacyB2BReport />} />
               <Route path="/OPPharmacyHSNReport" element={<OPPharmacyHSNReport />} />
               <Route path="/OPPharmacyDocsReport" element={<OPPharmacyDocsReport />} />
+              <Route path="/UnifiedAccountsReport" element={<UnifiedAccountsReport />} />
+              <Route path="/Masteraccountsdashboard" element={<MasterAccountsDashboard />} />
+              <Route path="/MasterAccountsDashboard" element={<MasterAccountsDashboard />} />
+              <Route path="/MasterUnifiedAccountsReport" element={<UnifiedAccountsReport />} />
+              <Route path="/MasterShiftBasisReport" element={<MasterShiftBasisReport />} />
+              <Route path="/MasterCashBillsReport" element={<MasterCashBillsReport />} />
+              <Route path="/MasterDailyCashReport" element={<MasterDailyCashReport />} />
+              <Route path="/MasterCashierWiseReport" element={<MasterCashierWiseReport />} />
+              <Route path="/MasterCashierDetailedReport" element={<MasterCashierDetailedReport />} />
+              <Route path="/MasterCreditCardReport" element={<MasterCreditCardReport />} />
+              <Route path="/MasterDatewiseSummaryReport" element={<MasterDatewiseSummaryReport />} />
+              <Route path="/MasterDepartmentWiseReport" element={<MasterDepartmentWiseReport />} />
+              <Route path="/MasterBillTypeWiseReport" element={<MasterBillTypeWiseReport />} />
+              <Route path="/MasterAdvanceRegistration" element={<MasterAdvanceRegistration />} />
+              <Route path="/MasterInsuranceAdvanceReport" element={<MasterInsuranceAdvanceReport />} />
+              <Route path="/MasterIPAdvanceReport" element={<MasterIPAdvanceReport />} />
+              <Route path="/MasterAdmissionVsDischargeReport" element={<MasterAdmissionVsDischargeReport />} />
+              <Route path="/MasterDischargeBillsReport" element={<MasterDischargeBillsReport />} />
+              <Route path="/MasterDischargeDetailedReport" element={<MasterDischargeDetailedReport />} />
+              <Route path="/MasterDebitDueBillsReport" element={<MasterDebitDueBillsReport />} />
+              <Route path="/MasterDiscountBillsReport" element={<MasterDiscountBillsReport />} />
+              <Route path="/MasterBillCancelReport" element={<MasterBillCancelReport />} />
+              <Route path="/MasterAccountsAuditReport" element={<MasterAccountsAuditReport />} />
+              <Route path="/MasterBillWiseReport" element={<MasterBillWiseReport />} />
+              <Route path="/MasterMiscPaymentReport" element={<MasterMiscPaymentReport />} />
+              <Route path="/MasterSalesTaxRegister" element={<MasterSalesTaxRegister />} />
+              <Route path="/MasterDaywiseSalesTaxRegister" element={<MasterDaywiseSalesTaxRegister />} />
+              <Route path="/MasterOPPharmacyGSTReport" element={<MasterOPPharmacyGSTReport />} />
+              <Route path="/MasterPurchaseGSTReport" element={<MasterPurchaseGSTReport />} />
+              <Route path="/MasterDrugPurchaseB2B" element={<MasterPurchaseGSTReport defaultSourceType="drug" defaultTab="b2b" lockedSourceType={true} lockedTab={true} title="Drug Purchase - B2B Invoices" />} />
+              <Route path="/MasterDrugHSNReport" element={<MasterPurchaseGSTReport defaultSourceType="drug" defaultTab="hsn" lockedSourceType={true} lockedTab={true} title="Drug Purchase - HSN Wise Summary" />} />
+              <Route path="/MasterDrugDocsReport" element={<MasterPurchaseGSTReport defaultSourceType="drug" defaultTab="docs" lockedSourceType={true} lockedTab={true} title="Drug Purchase - Document Summary" />} />
+              <Route path="/MasterStoreB2BReport" element={<MasterPurchaseGSTReport defaultSourceType="stores" defaultTab="b2b" lockedSourceType={true} lockedTab={true} title="General Stores - B2B Invoices" />} />
+              <Route path="/MasterStoreHSNReport" element={<MasterPurchaseGSTReport defaultSourceType="stores" defaultTab="hsn" lockedSourceType={true} lockedTab={true} title="General Stores - HSN Wise Summary" />} />
+              <Route path="/MasterStoreDocsReport" element={<MasterPurchaseGSTReport defaultSourceType="stores" defaultTab="docs" lockedSourceType={true} lockedTab={true} title="General Stores - Document Summary" />} />
+              <Route path="/MasterOPPharmacySalesInvoices" element={<MasterOPPharmacyGSTReport defaultTab="invoices" lockedTab={true} title="OP Pharmacy Sales - Invoices" />} />
+              <Route path="/MasterOPPharmacySalesHSN" element={<MasterOPPharmacyGSTReport defaultTab="hsn" lockedTab={true} title="OP Pharmacy Sales - HSN Wise Summary" />} />
+              <Route path="/MasterOPPharmacySalesDocs" element={<MasterOPPharmacyGSTReport defaultTab="docs" lockedTab={true} title="OP Pharmacy Sales - Document Summary" />} />
+              <Route path="/MasterStockReportIpOp" element={<MasterStockReportIpOp />} />
+              <Route path="/MasterSalesReturnReport" element={<MasterSalesReturnReport />} />
               <Route path="/StoresPurchaseOrderFormat" element={<StoresPurchaseOrderFormat />} />
               <Route path="/StoresPurchaseReturn" element={<StoresPurchaseReturn />} />
               <Route path="/StoresPurchaseAnalysisReport" element={<StoresPurchaseAnalysisReport />} />

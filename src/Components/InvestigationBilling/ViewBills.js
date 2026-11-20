@@ -23,6 +23,14 @@ import {
   colors,
 } from "../GlobalStyles";
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+// A delete request also sets is_approved=false on the backend, so the edit
+// flags must ignore bills that are in "delete requested" state.
+const hasEditActivity = (bill) =>
+  !bill.is_delete_requested &&
+  ((Array.isArray(bill.history) && bill.history.length > 0) ||
+    bill.is_approved === false);
+
 // ─── Page Layout ──────────────────────────────────────────────────────────────
 
 const PageContainer = styled(PageWrapper)`
@@ -177,8 +185,8 @@ const searchableSelectStyles = {
     backgroundColor: state.isSelected
       ? colors.primary
       : state.isFocused
-      ? "#f0fdfa"
-      : "transparent",
+        ? "#f0fdfa"
+        : "transparent",
     color: state.isSelected ? "#ffffff" : colors.textMain,
     cursor: "pointer",
   }),
@@ -386,7 +394,6 @@ const ConfirmRefundBtn = styled(Button)`
 // ─── Frozen-column table ──────────────────────────────────────────────────────
 // border-collapse:separate is required for position:sticky to work on td/th.
 
-// Update FrozenTableWrapper — remove fixed min-width so scrollable cols shrink-wrap
 const FrozenTableWrapper = styled.div`
   overflow-x: auto;
   overflow-y: auto;
@@ -397,19 +404,11 @@ const FrozenTableWrapper = styled.div`
   table {
     border-collapse: separate;
     border-spacing: 0;
-    width: max-content; /* ← was min-width:1500px; now hugs content */
-    min-width: 100%; /* ← still fills container when few columns */
+    width: max-content;
+    min-width: 100%;
   }
 `;
-// Frozen columns and their cumulative left offsets
-//  Col 1  Sl.No        44px   left:   0
-//  Col 2  Date/Time   150px   left:  44
-//  Col 3  Bill No     130px   left: 194
-//  Col 4  UHID No     100px   left: 324
-//  Col 5  IP No        80px   left: 424
-//  Col 6  Patient Name 160px  left: 504  ← last frozen (shadow here)
 
-// Replace the COL object
 const COL = {
   slNo: { width: 50, left: 0 },
   dateTime: { width: 170, left: 50 },
@@ -460,14 +459,12 @@ const StickyTd = styled(Td)`
   ${({ $last }) => ($last ? frozenShadow : "")}
 `;
 
-// Sticky td background for striped/hover rows — match Tr background
 const StickyTdAlt = styled(StickyTd)`
   tr:hover & {
     background: ${colors.rowHover || "#f8fafc"};
   }
 `;
 
-// Remarks — wide, wraps text, muted colour
 const RemarksTh = styled(Th)`
   min-width: 240px;
 `;
@@ -609,12 +606,10 @@ const RemarksModalBody = styled(ModalBody)`
   gap: 10px;
 `;
 const RefundModalBox = styled(ModalBox)`
-  // ← MOVE HERE (after ModalBox)
   max-width: 600px;
 `;
 
 const RefundModalBody = styled(ModalBody)`
-  // ← MOVE HERE (after ModalBody)
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -704,6 +699,141 @@ const RefundHistorySVG = () => (
     <path d="M12 7v5l4 2" />
   </svg>
 );
+// ─── Actions eye button + sticky Actions column ───────────────────────────────
+
+const ActionsEyeBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1.5px solid #99f6e4;
+  background: rgba(13, 148, 136, 0.08);
+  color: #0f766e;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    background 0.15s;
+  &:hover {
+    transform: scale(1.1);
+    background: rgba(13, 148, 136, 0.16);
+  }
+`;
+
+const EyeSVG = ({ size = 16 }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const StickyActionsTh = styled(ScrollableTh)`
+  right: 0;
+  z-index: 4;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+`;
+
+const StickyActionsTd = styled(Td)`
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: white;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: -4px 0 8px -4px rgba(15, 23, 42, 0.18);
+  tr:hover & {
+    background: ${colors.rowHover || "#f8fafc"};
+  }
+`;
+
+// ─── Actions modal ────────────────────────────────────────────────────────────
+
+const ActionsInfoCard = styled.div`
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+`;
+
+const ActionsInfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 14px;
+  font-size: 0.76rem;
+  margin-top: 8px;
+`;
+
+const InfoLabel = styled.span`
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: ${colors.textMuted};
+`;
+
+const StatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: ${({ $ok }) => ($ok ? "#f0fdf4" : "#fffbeb")};
+  color: ${({ $ok }) => ($ok ? "#15803d" : "#b45309")};
+  border: 1.5px solid ${({ $ok }) => ($ok ? "#86efac" : "#fde68a")};
+`;
+
+const ActionsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+`;
+
+const ActionTile = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-align: left;
+  border: 1.5px solid ${({ $border }) => $border};
+  background: ${({ $bg }) => $bg};
+  color: ${({ $color }) => $color};
+  cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};
+  opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
+  transition: transform 0.15s;
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+`;
+
+const ActionTileIcon = styled.div`
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+  background: ${({ $bg }) => $bg};
+  color: ${({ $color }) => $color};
+`;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -752,6 +882,8 @@ const BillsReport = () => {
   const [refundRemarks, setRefundRemarks] = useState("");
   const [refundRemarksErr, setRefundRemarksErr] = useState(false);
   const [viewRefundBill, setViewRefundBill] = useState(null);
+  const [nameSearch, setNameSearch] = useState("");
+  const [actionsBill, setActionsBill] = useState(null);
 
   // Print modal state — { bill, isEstimate }
   const [printJob, setPrintJob] = useState(null);
@@ -765,8 +897,7 @@ const BillsReport = () => {
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  const isBarcodeLocked = (bill) =>
-    bill.is_barcode === true;
+  const isBarcodeLocked = (bill) => bill.is_barcode === true;
 
   const formatBillDate = (dateStr) => {
     if (!dateStr) return "";
@@ -831,18 +962,33 @@ const BillsReport = () => {
     fetchMeta();
   }, [HMSURL]);
 
-  // belt-and-suspenders client side IP/OP filter
+  // client-side IP/OP + patient name filter
   useEffect(() => {
+    const tokens = nameSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
     setFilteredBills(
       estimateBills.filter((bill) => {
         if (filters.patientType === "IP" && !(bill.uhid && bill.ipNumber))
           return false;
         if (filters.patientType === "OP" && !(bill.uhid && !bill.ipNumber))
           return false;
+
+        if (tokens.length) {
+          const fullName = [
+            bill.salutation,
+            bill.firstName,
+            bill.middleName,
+            bill.lastName,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          if (!tokens.every((t) => fullName.includes(t))) return false;
+        }
         return true;
       }),
     );
-  }, [estimateBills, filters.patientType]);
+  }, [estimateBills, filters.patientType, nameSearch]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -890,6 +1036,17 @@ const BillsReport = () => {
   };
 
   const handlePrint = (bill) => {
+    if (bill.is_delete_requested) {
+      toast.warning("Delete is pending approval in Dept BUD Report.");
+      return;
+    }
+    const isEdited = hasEditActivity(bill);
+    if (isEdited && bill.is_approved !== true) {
+      toast.warning(
+        "This bill was edited and is awaiting approval in Dept BUD Report. Printing is disabled until approved.",
+      );
+      return;
+    }
     const isEstimate = !bill.investBillNo && !!bill.EstBillNo;
     setPrintJob({ bill: toPrintBill(bill), isEstimate, isDuplicate: true });
   };
@@ -907,14 +1064,33 @@ const BillsReport = () => {
     setRemarksError(false);
   };
 
-  const handleRemarksConfirm = () => {
+  const handleRemarksConfirm = async () => {
     if (!remarksValue.trim()) {
       setRemarksError(true);
       return;
     }
+    const billNo = remarksBill.investBillNo || remarksBill.EstBillNo;
+    const remarks = remarksValue.trim();
+
+    try {
+      await apiRequest(`${HMSURL}request-bill-edit/`, "PATCH", {
+        investBillNo: billNo,
+        editRemarks: remarks,
+      });
+      setEstimateBills((prev) =>
+        prev.map((b) =>
+          (b.investBillNo || b.EstBillNo) === billNo
+            ? { ...b, is_approved: false, editRemarks: remarks }
+            : b,
+        ),
+      );
+    } catch (e) {
+      console.warn("request-bill-edit error:", e);
+    }
+
     navigate("/InvestigationBilling", {
       state: {
-        patientData: { ...remarksBill, editRemarks: remarksValue.trim() },
+        patientData: { ...remarksBill, editRemarks: remarks },
       },
     });
     setRemarksBill(null);
@@ -946,10 +1122,14 @@ const BillsReport = () => {
         deleteRemarks: deleteRemarks.trim(),
       });
       if (result.success) {
-        toast.success("Bill deleted.");
+        toast.success("Delete request sent for approval.");
         const billNo = deleteBill.investBillNo || deleteBill.EstBillNo;
         setEstimateBills((prev) =>
-          prev.filter((b) => (b.investBillNo || b.EstBillNo) !== billNo),
+          prev.map((b) =>
+            (b.investBillNo || b.EstBillNo) === billNo
+              ? { ...b, is_delete_requested: true, is_approved: false }
+              : b,
+          ),
         );
         handleDeleteCancel();
       } else {
@@ -962,16 +1142,16 @@ const BillsReport = () => {
   const handleRefund = (bill) => {
     setRefundBill({ ...bill });
     setRefundSelected([]);
-    setRefundRemarks(""); // ← ADD
-    setRefundRemarksErr(false); // ← ADD
+    setRefundRemarks("");
+    setRefundRemarksErr(false);
   };
 
   const handleRefundCancel = () => {
     setRefundBill(null);
     setRefundSelected([]);
     setRefundSubmitting(false);
-    setRefundRemarks(""); // ← ADD
-    setRefundRemarksErr(false); // ← ADD
+    setRefundRemarks("");
+    setRefundRemarksErr(false);
   };
 
   const toggleRefundItem = (idx) => {
@@ -996,7 +1176,6 @@ const BillsReport = () => {
   const handleRefundConfirm = async () => {
     if (!refundSelected.length) return;
 
-    // ← ADD validation
     if (!refundRemarks.trim()) {
       setRefundRemarksErr(true);
       return;
@@ -1014,7 +1193,7 @@ const BillsReport = () => {
         refund_finalPrice: refundTotal.toFixed(2),
         item: selectedItems,
         investBillDate: refundBill.investBillDate || refundBill.EstBillDate,
-        refundRemarks: refundRemarks.trim(), // ← ADD
+        refundRemarks: refundRemarks.trim(),
       };
 
       const result = await apiRequest(
@@ -1047,6 +1226,52 @@ const BillsReport = () => {
         <PageTitle>📄 Bills Report</PageTitle>
         <BackButton onClick={() => navigate(-1)}>← Back to Billing</BackButton>
       </HeaderContainer>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          marginBottom: 12,
+          alignItems: "center",
+        }}
+      >
+        <span
+          style={{
+            color: colors.primary,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontSize: 13,
+          }}
+          onClick={() => navigate("/InvestigationBilling")}
+        >
+          ✏️ Investigation Billing
+        </span>
+        <span style={{ color: "#cbd5e1" }}>|</span>
+        <span
+          style={{
+            color: colors.primary,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontSize: 13,
+          }}
+          onClick={() => navigate("/ViewEstimate")}
+        >
+          📊 View Estimate
+        </span>
+        <span style={{ color: "#cbd5e1" }}>|</span>
+        <span
+          style={{
+            color: colors.primary,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontSize: 13,
+          }}
+          onClick={() => navigate("/DeptBUDReport")}
+        >
+          📋 Dept BUD Report
+        </span>
+      </div>
+
       <ContentCard>
         {/* Filters */}
         <FilterGrid>
@@ -1079,7 +1304,9 @@ const BillsReport = () => {
               options={billTypeOptions}
               value={
                 filters.billType
-                  ? billTypeOptions.find((o) => o.value === String(filters.billType)) || null
+                  ? billTypeOptions.find(
+                    (o) => o.value === String(filters.billType),
+                  ) || null
                   : null
               }
               onChange={(selected) => {
@@ -1089,7 +1316,9 @@ const BillsReport = () => {
                 }));
               }}
               styles={searchableSelectStyles}
-              menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : null
+              }
             />
           </InputWrapper>
 
@@ -1102,7 +1331,9 @@ const BillsReport = () => {
               options={doctorOptions}
               value={
                 filters.doctor
-                  ? doctorOptions.find((o) => o.value === String(filters.doctor)) || null
+                  ? doctorOptions.find(
+                    (o) => o.value === String(filters.doctor),
+                  ) || null
                   : null
               }
               onChange={(selected) => {
@@ -1112,7 +1343,9 @@ const BillsReport = () => {
                 }));
               }}
               styles={searchableSelectStyles}
-              menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : null
+              }
             />
           </InputWrapper>
 
@@ -1123,6 +1356,16 @@ const BillsReport = () => {
               name="uhid"
               value={filters.uhid}
               onChange={handleFilterChange}
+            />
+          </InputWrapper>
+          <InputWrapper>
+            <Label>Patient Name</Label>
+            <Input
+              type="text"
+              name="patientName"
+              placeholder="Search by name"
+              value={nameSearch}
+              onChange={(e) => setNameSearch(e.target.value)}
             />
           </InputWrapper>
 
@@ -1186,10 +1429,9 @@ const BillsReport = () => {
                   <ScrollableTh>Doctor</ScrollableTh>
                   <ScrollableTh>Billed By</ScrollableTh>
                   <ScrollableTh>Edited By</ScrollableTh>
-                  <RemarksScrollableTh>Remarks</RemarksScrollableTh>{" "}
-                  {/* see below */}
+                  <RemarksScrollableTh>Remarks</RemarksScrollableTh>
                   <ScrollableTh>Status</ScrollableTh>
-                  <ScrollableTh>Actions</ScrollableTh>
+                  <StickyActionsTh>Actions</StickyActionsTh>
                 </tr>
               </thead>
               <tbody>
@@ -1206,7 +1448,81 @@ const BillsReport = () => {
                       {formatBillDate(bill.investBillDate || bill.EstBillDate)}
                     </StickyTd>
                     <StickyTd $left={COL.billNo.left} $width={COL.billNo.width}>
-                      {bill.investBillNo || bill.EstBillNo}
+                      <div>{bill.investBillNo || bill.EstBillNo}</div>
+
+                      {/* Edit badge — never shown when a delete is requested */}
+                      {hasEditActivity(bill) &&
+                        (bill.is_approved === true ? (
+                          <span
+                            title={`Approved by ${bill.approved_by_name || bill.approved_by || bill.approvedByName || ""}`}
+                            style={{
+                              display: "inline-block",
+                              fontSize: 10,
+                              background: "#dcfce7",
+                              color: "#166534",
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                              fontWeight: 700,
+                              marginTop: 2,
+                            }}
+                          >
+                            ✓ Approved
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              fontSize: 10,
+                              background: "#fef3c7",
+                              color: "#b45309",
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                              fontWeight: 700,
+                              marginTop: 2,
+                            }}
+                          >
+                            ⏳ Edit Pending
+                          </span>
+                        ))}
+
+                      {/* Delete badge */}
+                      {bill.is_delete_requested && (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            fontSize: 10,
+                            background: "#fee2e2",
+                            color: "#b91c1c",
+                            padding: "1px 5px",
+                            borderRadius: 4,
+                            fontWeight: 700,
+                            marginTop: 2,
+                          }}
+                        >
+                          🗑 Delete Pending
+                        </span>
+                      )}
+
+                      {/* Refund Pending badge */}
+                      {bill.refunds &&
+                        bill.refunds.length > 0 &&
+                        bill.refunds.some((r) => !r.is_approved) && (
+                          <span
+                            title="Refund awaiting approval"
+                            style={{
+                              display: "inline-block",
+                              fontSize: 10,
+                              background: "#dbeafe",
+                              color: "#1e40af",
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                              fontWeight: 700,
+                              marginTop: 2,
+                            }}
+                          >
+                            💸 Refund Pending
+                          </span>
+                        )}
                     </StickyTd>
                     <StickyTd $left={COL.uhid.left} $width={COL.uhid.width}>
                       {bill.uhid}
@@ -1283,89 +1599,15 @@ const BillsReport = () => {
                         : "—"}
                     </RemarksTd>
                     <Td>{bill.paymentStatus}</Td>
-                    <Td>
-                      <ActionGroup>
-                        <PrintIconBtn
-                          onClick={() => handlePrint(bill)}
-                          title="Print"
-                        >
-                          <PrintSVG />
-                        </PrintIconBtn>
-                        <ViewIcon
-                          onClick={() => setViewBill(bill)}
-                          title="View Items"
-                        >
-                          👁
-                        </ViewIcon>
-                        {canEdit && (() => {
-                          const editDisabled =
-                            bill.paymentStatus !== "Pending" || isBarcodeLocked(bill);
-                          return (
-                            <EditIcon
-                              onClick={() => !editDisabled && handleEdit(bill)}
-                              title={
-                                isBarcodeLocked(bill)
-                                  ? "Edit not allowed (Barcode generated)"
-                                  : bill.paymentStatus !== "Pending"
-                                    ? "Edit not allowed"
-                                    : "Edit"
-                              }
-                              $disabled={editDisabled}
-                            >
-                              ✏️
-                            </EditIcon>
-                          );
-                        })()}
-
-                        {canDelete && (() => {
-                          const deleteDisabled =
-                            bill.paymentStatus !== "Pending" || isBarcodeLocked(bill);
-                          return (
-                            <DeleteIcon
-                              onClick={() => !deleteDisabled && handleDelete(bill)}
-                              title={
-                                isBarcodeLocked(bill)
-                                  ? "Delete not allowed (Barcode generated)"
-                                  : bill.paymentStatus !== "Pending"
-                                    ? "Delete not allowed"
-                                    : "Delete"
-                              }
-                              $disabled={deleteDisabled}
-                            >
-                              🗑️
-                            </DeleteIcon>
-                          );
-                        })()}
-
-                        {(() => {
-                          const refundDisabled =
-                            bill.paymentStatus === "Pending" || isBarcodeLocked(bill);
-                          return (
-                            <RefundIcon
-                              onClick={() => !refundDisabled && handleRefund(bill)}
-                              title={
-                                isBarcodeLocked(bill)
-                                  ? "Refund not allowed (Barcode generated)"
-                                  : bill.paymentStatus === "Pending"
-                                    ? "Refund not allowed (Pending)"
-                                    : "Refund"
-                              }
-                              $disabled={refundDisabled}
-                            >
-                              💸
-                            </RefundIcon>
-                          );
-                        })()}
-                        {bill.refunds && bill.refunds.length > 0 && (
-                          <RefundHistoryIconBtn
-                            onClick={() => setViewRefundBill(bill)}
-                            title="View Refunds"
-                          >
-                            <RefundHistorySVG />
-                          </RefundHistoryIconBtn>
-                        )}
-                      </ActionGroup>
-                    </Td>
+                    <StickyActionsTd>
+                      <ActionsEyeBtn
+                        type="button"
+                        title="View Actions"
+                        onClick={() => setActionsBill(bill)}
+                      >
+                        <EyeSVG />
+                      </ActionsEyeBtn>
+                    </StickyActionsTd>
                   </Tr>
                 ))}
               </tbody>
@@ -1377,6 +1619,280 @@ const BillsReport = () => {
           </EmptyState>
         )}
       </ContentCard>
+      {/* ── Actions Modal (eye icon) ── */}
+      {actionsBill &&
+        (() => {
+          const b = actionsBill;
+          const billNo = b.investBillNo || b.EstBillNo;
+          const locked = isBarcodeLocked(b);
+          const isPending = b.paymentStatus === "Pending";
+          const close = () => setActionsBill(null);
+          const run = (fn) => {
+            close();
+            fn(b);
+          };
+          const deletePending = b.is_delete_requested === true;
+          // Edit flags ignore bills that are only in "delete requested" state
+          const isEdited = hasEditActivity(b);
+          const isEditApproved = b.is_approved === true;
+
+          const editDisabled = !isPending || locked || deletePending;
+          const deleteDisabled = !isPending || locked || deletePending;
+          const refundDisabled = isPending || locked || deletePending;
+          const printDisabled =
+            (isEdited && !isEditApproved) || deletePending;
+
+          const tiles = [
+            {
+              key: "print",
+              icon: <PrintSVG />,
+              title: "Print Bill",
+              sub: deletePending
+                ? "Disabled (Delete pending approval)"
+                : printDisabled
+                  ? "Disabled (Edit pending approval)"
+                  : "Print or export PDF",
+              disabled: printDisabled,
+              theme: printDisabled
+                ? {
+                  bg: "#f1f5f9",
+                  border: "#cbd5e1",
+                  color: "#94a3b8",
+                  iconBg: "rgba(148,163,184,0.15)",
+                }
+                : {
+                  bg: "#f0f9ff",
+                  border: "#bae6fd",
+                  color: "#0369a1",
+                  iconBg: "rgba(2,132,199,0.15)",
+                },
+              onClick: () => {
+                if (printDisabled) {
+                  toast.warning(
+                    deletePending
+                      ? "Delete is pending approval in Dept BUD Report."
+                      : "This bill was edited and is awaiting approval in Dept BUD Report. Printing is disabled until approved.",
+                  );
+                  return;
+                }
+                run(handlePrint);
+              },
+            },
+            {
+              key: "items",
+              icon: "👁",
+              title: "View Items",
+              sub: "See billed investigations",
+              theme: {
+                bg: "#f5f3ff",
+                border: "#ddd6fe",
+                color: "#6d28d9",
+                iconBg: "rgba(124,58,237,0.15)",
+              },
+              onClick: () => run(setViewBill),
+            },
+            canEdit && {
+              key: "edit",
+              icon: "✏️",
+              title: "Edit Bill",
+              sub: deletePending
+                ? "Delete pending approval"
+                : locked
+                  ? "Locked (Barcode generated)"
+                  : !isPending
+                    ? "Locked (Not pending)"
+                    : "Modify bill items",
+              disabled: editDisabled,
+              theme: {
+                bg: "#fffbeb",
+                border: "#fde68a",
+                color: "#b45309",
+                iconBg: "rgba(245,158,11,0.18)",
+              },
+              onClick: () => run(handleEdit),
+            },
+            canDelete && {
+              key: "delete",
+              icon: "🗑️",
+              title: "Delete Bill",
+              sub: deletePending
+                ? "Delete pending approval"
+                : locked
+                  ? "Locked (Barcode generated)"
+                  : !isPending
+                    ? "Locked (Not pending)"
+                    : "Permanently remove",
+              disabled: deleteDisabled,
+              theme: {
+                bg: "#fef2f2",
+                border: "#fecaca",
+                color: "#b91c1c",
+                iconBg: "rgba(220,38,38,0.15)",
+              },
+              onClick: () => run(handleDelete),
+            },
+            {
+              key: "refund",
+              icon: "💸",
+              title: "Refund",
+              sub: deletePending
+                ? "Delete pending approval"
+                : locked
+                  ? "Locked (Barcode generated)"
+                  : isPending
+                    ? "Not available (Pending)"
+                    : "Refund selected items",
+              disabled: refundDisabled,
+              theme: {
+                bg: "#ecfeff",
+                border: "#a5f3fc",
+                color: "#0e7490",
+                iconBg: "rgba(8,145,178,0.15)",
+              },
+              onClick: () => run(handleRefund),
+            },
+            b.refunds &&
+            b.refunds.length > 0 && {
+              key: "refund-history",
+              icon: <RefundHistorySVG />,
+              title: "View Refunds",
+              sub: `${b.refunds.length} refund${b.refunds.length > 1 ? "s" : ""} on this bill`,
+              theme: {
+                bg: "#f0fdfa",
+                border: "#99f6e4",
+                color: "#0f766e",
+                iconBg: "rgba(13,148,136,0.15)",
+              },
+              onClick: () => run(setViewRefundBill),
+            },
+          ].filter(Boolean);
+
+          return (
+            <ModalOverlay onClick={close}>
+              <ModalBox
+                style={{ maxWidth: 560 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ModalHeader>
+                  <ModalTitle>👁 Bill Actions — {billNo}</ModalTitle>
+                  <ModalClose onClick={close}>✕</ModalClose>
+                </ModalHeader>
+
+                <ModalBody>
+                  <ActionsInfoCard>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 8,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <strong
+                        style={{ fontSize: "0.9rem", color: colors.textMain }}
+                      >
+                        {fmtName(
+                          b.salutation,
+                          b.firstName,
+                          b.middleName,
+                          b.lastName,
+                        ) || "Patient"}
+                      </strong>
+                      <StatusBadge $ok={!isPending}>
+                        {b.paymentStatus || "—"}
+                      </StatusBadge>
+                    </div>
+                    <ActionsInfoGrid>
+                      <div>
+                        <InfoLabel>Bill No</InfoLabel>
+                        <strong>{billNo}</strong>
+                      </div>
+                      <div>
+                        <InfoLabel>UHID</InfoLabel>
+                        <strong>{b.uhid || "—"}</strong>
+                      </div>
+                      <div>
+                        <InfoLabel>IP No</InfoLabel>
+                        <strong>{b.ipNumber || "—"}</strong>
+                      </div>
+                      <div>
+                        <InfoLabel>Bill Type</InfoLabel>
+                        <strong>{b.bill_name || "—"}</strong>
+                      </div>
+                      <div>
+                        <InfoLabel>Amount</InfoLabel>
+                        <strong style={{ color: colors.primary }}>
+                          ₹ {b.finalPrice}
+                        </strong>
+                      </div>
+                      <div>
+                        <InfoLabel>Date</InfoLabel>
+                        <strong>
+                          {formatBillDate(b.investBillDate || b.EstBillDate)}
+                        </strong>
+                      </div>
+                    </ActionsInfoGrid>
+                  </ActionsInfoCard>
+
+                  <div
+                    style={{
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      color: colors.textMuted,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      marginBottom: 10,
+                    }}
+                  >
+                    Available Actions
+                  </div>
+
+                  <ActionsGrid>
+                    {tiles.map((t) => (
+                      <ActionTile
+                        key={t.key}
+                        type="button"
+                        disabled={t.disabled}
+                        onClick={t.onClick}
+                        $bg={t.disabled ? "#f8fafc" : t.theme.bg}
+                        $border={t.disabled ? "#e2e8f0" : t.theme.border}
+                        $color={t.disabled ? "#94a3b8" : t.theme.color}
+                      >
+                        <ActionTileIcon
+                          $bg={t.disabled ? "#e2e8f0" : t.theme.iconBg}
+                          $color={t.disabled ? "#94a3b8" : t.theme.color}
+                        >
+                          {t.icon}
+                        </ActionTileIcon>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: "0.82rem" }}>
+                            {t.title}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.68rem",
+                              color: "#64748b",
+                              marginTop: 2,
+                            }}
+                          >
+                            {t.sub}
+                          </div>
+                        </div>
+                      </ActionTile>
+                    ))}
+                  </ActionsGrid>
+                </ModalBody>
+
+                <RemarksModalFooter>
+                  <CancelBtn type="button" onClick={close}>
+                    Close
+                  </CancelBtn>
+                </RemarksModalFooter>
+              </ModalBox>
+            </ModalOverlay>
+          );
+        })()}
       {/* ── View Items Modal ── */}
       {viewBill && (
         <ModalOverlay onClick={() => setViewBill(null)}>
@@ -1532,7 +2048,7 @@ const BillsReport = () => {
           </RemarksModalBox>
         </ModalOverlay>
       )}
-      {/* ── Refund Items Modal ── */} {/* ← ADD FROM HERE */}
+      {/* ── Refund Items Modal ── */}
       {refundBill && (
         <ModalOverlay onClick={handleRefundCancel}>
           <RefundModalBox onClick={(e) => e.stopPropagation()}>

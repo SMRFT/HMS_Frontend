@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
-import { Search, Plus, X, ChevronDown } from "lucide-react";
+import { Search, Plus, X, ChevronDown, Loader2 } from "lucide-react";
+
+const spinAnimation = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const SpinningLoader = styled(Loader2)`
+  animation: ${spinAnimation} 1s linear infinite;
+`;
 
 // --- Color Palette matching the screenshot ---
 // ─── Color palette (mirrors Radiology/Lab pattern) ──────────────────────
@@ -960,6 +969,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
   const toggleRow = (id) => setExpandedRow((prev) => (prev === id ? null : id));
 
@@ -1025,6 +1035,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     const safeUhid = resolvedPatient.uhid && resolvedPatient.uhid !== "-" ? resolvedPatient.uhid : "";
     if (!safeUhid) return;
     try {
+      setLoading(true);
       const url = `${HmsBaseUrl}get_medicine_ward_requests/?uhid=${encodeURIComponent(safeUhid)}${safeIp ? `&ipNumber=${encodeURIComponent(safeIp)}` : ""}`;
       const res = await apiRequest(url, "GET");
       if (res.success) {
@@ -1033,6 +1044,8 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       }
     } catch (e) {
       console.error("Error fetching requests:", e);
+    } finally {
+      setLoading(false);
     }
   }, [HmsBaseUrl, resolvedPatient.uhid, resolvedPatient.ipNo]);
 
@@ -1339,7 +1352,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     const newMed = {
       item_id: selectedDrug.item_id,
       name: selectedDrug.name || "",
-      batch_number: selectedDrug.batch_number || "",
+      batch_number: "",
       qty: Number(qty),
       dispatched_qty: null,
       price: selectedDrug.price,
@@ -1460,8 +1473,10 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
   };
 
   const handleConfirm = async () => {
+    if (isSubmitting) return;
     if (selectedMedicines.length === 0) return alert("No medicines added.");
 
+    setIsSubmitting(true);
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
@@ -1474,16 +1489,13 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       medicine_particulars: selectedMedicines.map((m) => ({
         item_id: m.item_id,
         qty: Number(m.qty) || 0,
-        dispatched_qty: m.dispatched_qty !== undefined ? m.dispatched_qty : null,
+        dispatched_qty: null,
         dosage: m.dosage || "",
         noOfDays: m.noOfDays || "",
         remark: m.remark || "",
         dose: m.dose || "",
-        doseunit: m.doseunit || m.doseUnit || "",
         doseUnit: m.doseUnit || m.doseunit || "",
         route: m.route || "",
-        batch_number: m.batch_number || "",
-        price: m.price || 0,
       })),
       total_amount: selectedMedicines.reduce(
         (acc, m) => acc + (m.price || 0) * (m.qty || 0),
@@ -1506,14 +1518,21 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       if (res.success) {
         setSelectedMedicines([]);
         setIsDischarge(false);
+        setShowForm(false);
+        setEditingRequest(null);
         fetchRequests();
         const goBack = window.confirm("Ward Request saved successfully!\n\nDo you want to return to the Actions Menu?");
         if (goBack && onBack) {
           onBack();
         }
+      } else {
+        alert("Failed to save ward request: " + (res.error || res.data?.message || "Unknown error"));
       }
     } catch (e) {
       console.error("Save error", e);
+      alert("An error occurred while saving the request.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1668,7 +1687,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       const updated = selectedMedicines.map((m) => ({
         item_id: m.item_id,
         batch_number: m.batch_number,
-        quantity: m.qty,
+        qty: m.qty,
         dispatched_qty: m.dispatched_qty !== undefined ? m.dispatched_qty : null,
         dosage: m.dosage,
         is_deleted: false,
@@ -1680,7 +1699,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
         .map((m) => ({
           item_id: m.item_id,
           batch_number: m.batch_number || "",
-          quantity: m.quantity,
+          qty: m.qty || m.quantity || 0,
           dosage: m.dosage,
           is_deleted: true,
         }));
@@ -2192,10 +2211,17 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                   </div>
                 ) : (
                   <AddBtn
-                    style={{ width: "100%", padding: "8px", height: "34px" }}
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      height: "34px",
+                      opacity: isSubmitting ? 0.65 : 1,
+                      cursor: isSubmitting ? "not-allowed" : "pointer",
+                    }}
                     onClick={handleConfirm}
+                    disabled={isSubmitting}
                   >
-                    Confirm Request
+                    {isSubmitting ? "Submitting..." : "Confirm Request"}
                   </AddBtn>
                 )}
               </SidePanelFooter>
@@ -2231,17 +2257,34 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
               </tr>
             </thead>
             <tbody>
-              {requests.length === 0 ? (
+              {loading ? (
                 <tr>
                   <td
                     colSpan="8"
                     style={{
                       textAlign: "center",
-                      padding: "30px",
-                      color: colors.textMuted,
+                      padding: "40px",
+                      color: colors.primary,
                     }}
                   >
-                    No request history found.
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontWeight: 600 }}>
+                      <SpinningLoader size={18} />
+                      <span>Loading medicine requests...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : requests.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan="8"
+                    style={{
+                      textAlign: "center",
+                      padding: "40px",
+                      color: colors.textMuted,
+                      fontWeight: 500,
+                    }}
+                  >
+                    No medicine requests found.
                   </td>
                 </tr>
               ) : (
@@ -2295,7 +2338,31 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                           {req.reqDate} {req.reqTime}
                         </td>
                         <td style={{ fontWeight: 600, color: "#0d8a7a" }}>
-                          {String(req.bill_no || req.Bill_id || req.reqId || "-").replace(/\//g, "")}
+                          {req.is_converted || req.status === "Billed" ? (
+                            <div>
+                              <span style={{ color: "#0d8a7a", fontWeight: 700, fontSize: "0.85rem" }}>
+                                {String(req.bill_no || req.billed_bill_no || "-").replace(/\//g, "")}
+                              </span>
+                              {req.request_no && req.request_no !== req.bill_no && (
+                                <span style={{ display: "block", fontSize: "0.72rem", color: "#64748b", fontWeight: 500 }}>
+                                  Req: {req.request_no}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{
+                              background: "#ccfbf1",
+                              color: "#0f766e",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              border: "1px solid #99f6e4",
+                              fontSize: "0.82rem",
+                              fontWeight: 700,
+                              display: "inline-block"
+                            }}>
+                              {req.request_no || req.bill_no || "-"}
+                            </span>
+                          )}
                         </td>
                         <td style={{ color: "#334155" }}>
                           {req.doctorName || req.doctor || "-"}
@@ -2401,27 +2468,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                             >
                               {hasPendingReturn ? "⌛ Return Pending" : "↺ Return"}
                             </button>
-                            {canCancel && (
-                              <button
-                                onClick={() => handleCancelRequest(req.Bill_id || req.id)}
-                                style={{
-                                  background: "#fee2e2",
-                                  color: "#dc2626",
-                                  border: "none",
-                                  borderRadius: "5px",
-                                  padding: "5px 10px",
-                                  cursor: "pointer",
-                                  fontSize: "0.78rem",
-                                  fontWeight: "600",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "3px",
-                                }}
-                                title="Cancel Request"
-                              >
-                                ✕ Cancel
-                              </button>
-                            )}
+
                           </div>
                         </td>
                       </tr>
@@ -2468,13 +2515,12 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                     <th>Route</th>
                                     <th>Batch No</th>
                                     <th style={{ textAlign: "center" }}>Item Status</th>
-                                    {canCancel && <th style={{ textAlign: "center", width: "70px" }}>Action</th>}
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {activeMeds.length === 0 ? (
                                     <tr>
-                                      <td colSpan={canCancel ? 10 : 9} style={{ textAlign: "center", color: "#94a3b8", padding: "16px" }}>
+                                      <td colSpan={9} style={{ textAlign: "center", color: "#94a3b8", padding: "16px" }}>
                                         No medicines found in this request.
                                       </td>
                                     </tr>
@@ -2504,27 +2550,6 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                                             {(m.status || req.status) === "Billed" ? "✓ Dispensed / Billed" : (m.status || req.status || "Pending")}
                                           </span>
                                         </td>
-                                        {canCancel && (
-                                          <td style={{ textAlign: "center" }}>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleRemoveIndividualMedicine(req.Bill_id || req.id, m)}
-                                              style={{
-                                                background: "#fee2e2",
-                                                border: "none",
-                                                color: "#dc2626",
-                                                cursor: "pointer",
-                                                borderRadius: "4px",
-                                                padding: "2px 8px",
-                                                fontSize: "0.75rem",
-                                                fontWeight: 600,
-                                              }}
-                                              title="Remove this medicine"
-                                            >
-                                              ✕ Remove
-                                            </button>
-                                          </td>
-                                        )}
                                       </tr>
                                     ))
                                   )}

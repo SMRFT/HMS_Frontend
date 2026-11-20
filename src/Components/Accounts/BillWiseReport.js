@@ -409,7 +409,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                 rows.push({
                     "S.No": `BILLTYPE : ${group.billTypeName}`,
                     "Flag": "", "Bill Date": "", "Bill Number": "",
-                    "Patient Name": "", "UHID / Op Number": "",
+                    "Patient Name": "", "UHID": "", "IP Number": "",
                     "Gross": "", "Cash": "", "Credit": "", "Bank": "",
                     "Payment Mode": "", "Scheme / Insurance": "", "Cashier": ""
                 });
@@ -433,7 +433,8 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                         "Bill Date": b.bill_date ? dayjs(b.bill_date).format("DD/MM/YYYY") : "—",
                         "Bill Number": b.bill_no,
                         "Patient Name": b.patient_name || "N/A",
-                        "UHID / Op Number": b.op_number || b.uhid || "—",
+                        "UHID": b.uhid || "—",
+                        "IP Number": b.ip_number || "—",
                         "Gross": Number(formatINR(gross)),
                         "Cash": Number(formatINR(cash)),
                         "Credit": Number(formatINR(credit)),
@@ -447,7 +448,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                 // Group subtotal row
                 rows.push({
                     "S.No": `Total for ${group.billTypeName}`,
-                    "Flag": "", "Bill Date": "", "Bill Number": "", "Patient Name": "", "UHID / Op Number": "",
+                    "Flag": "", "Bill Date": "", "Bill Number": "", "Patient Name": "", "UHID": "", "IP Number": "",
                     "Gross": Number(formatINR(group.totals.gross)),
                     "Cash": Number(formatINR(group.totals.cash)),
                     "Credit": Number(formatINR(group.totals.credit)),
@@ -581,7 +582,8 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                             <th style={{ width: "95px" }}>Bill date</th>
                             <th style={{ width: "115px" }}>Bill Number</th>
                             <th>Patient Name</th>
-                            <th style={{ width: "110px" }}>Op Number</th>
+                            <th style={{ width: "105px" }}>UHID</th>
+                            <th style={{ width: "105px" }}>IP Number</th>
                             <th className="num" style={{ width: "90px" }}>Gross</th>
                             <th className="num" style={{ width: "90px" }}>Cash</th>
                             <th className="num" style={{ width: "90px" }}>Credit</th>
@@ -594,7 +596,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                                 <React.Fragment key={group.billTypeName || groupIdx}>
                                     {/* Bill Type Header Banner */}
                                     <tr>
-                                        <td colSpan="9" className="bill-type-banner">
+                                        <td colSpan="10" className="bill-type-banner">
                                             BILLTYPE : {group.billTypeName}
                                         </td>
                                     </tr>
@@ -628,7 +630,8 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                                                     {b.patient_debit > 0 && <div className="deduction">LESS PATIENT DEBIT {formatINR(b.patient_debit)}</div>}
                                                     {b.is_cancelled && <div className="cancelled">CANCELLED:({formatINR(gross)})</div>}
                                                 </td>
-                                                <td>{b.op_number || b.uhid || "—"}</td>
+                                                <td>{b.uhid || "—"}</td>
+                                                <td>{b.ip_number || "—"}</td>
                                                 <td className="num">{formatINR(gross)}</td>
                                                 <td className="num">{cash !== 0 ? formatINR(cash) : ""}</td>
                                                 <td className="num">{credit !== 0 ? formatINR(credit) : ""}</td>
@@ -640,7 +643,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                                     {/* Subtotal row for this Bill Type */}
                                     <tr className="subtotal-row">
                                         <td className="flag"></td>
-                                        <td colSpan="4">Total...</td>
+                                        <td colSpan="5">Total...</td>
                                         <td className="num">{formatINR(group.totals.gross)}</td>
                                         <td className="num">{formatINR(group.totals.cash)}</td>
                                         <td className="num">{formatINR(group.totals.credit)}</td>

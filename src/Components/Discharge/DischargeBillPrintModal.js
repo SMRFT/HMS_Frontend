@@ -397,7 +397,7 @@ const formatDoctor = (pd, doctorsMap = {}) => {
 };
 
 const formatDepartment = (pd, bill) => {
-  const dept = pd.department || bill.department || "GYNEACOLOGY";
+  const dept = pd.department || bill.department || "PULMONOLOGY"
   return String(dept).toUpperCase();
 };
 
@@ -517,10 +517,12 @@ const NormalBillSheet = ({
     const n = String(i.itemName || i.name || "").toUpperCase();
     return n.startsWith("MEDICINE") || n.startsWith("PHARMACY") || i.billTypeNo === "PHARM01" || i.bill_type === 13;
   });
+  const billMeds = Array.isArray(bill.pharmacy_medicines) ? bill.pharmacy_medicines : [];
+  const billMedsAreGeneric = billMeds.length > 0 && billMeds.every(m => /^medicine\s+\d+$/i.test(m.itemName || m.name || m.item_name || ""));
   const pharmacyMedicines = (medAmt > 0 || hasMedItemInBill)
-    ? ((Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
-        ? bill.pharmacy_medicines
-        : (Array.isArray(loadedMeds) ? loadedMeds : []))
+    ? ((billMeds.length > 0 && !billMedsAreGeneric)
+      ? billMeds
+      : ((Array.isArray(loadedMeds) && loadedMeds.length > 0) ? loadedMeds : billMeds))
     : [];
 
   const totalMedsSum = pharmacyMedicines.reduce(
@@ -561,10 +563,18 @@ const NormalBillSheet = ({
   if (isBreakdown) {
     if (pharmacyMedicines.length > 0) {
       pharmacyMedicines.forEach(med => {
-        const medName = String(med.itemName || med.item_name || med.name || "PHARMACY MEDICINE").toUpperCase();
+        const medName = String(
+          med.itemName ||
+          med.item_name ||
+          med.name ||
+          med.medicine_name ||
+          med.drug_name ||
+          med.description ||
+          "PHARMACY MEDICINE"
+        ).toUpperCase();
         displayItems.push({
           name: medName,
-          subDesc: "",
+          subDesc: med.item_description || (med.batch_number ? `BATCH: ${med.batch_number}` : ""),
           qty: parseFloat(med.quantity || med.qty || 1),
           amount: parseFloat(med.amount || med.calculated_price || 0),
         });
@@ -1021,10 +1031,12 @@ const InsuranceClaimSheet = ({
     const n = String(i.itemName || i.name || "").toUpperCase();
     return n.startsWith("MEDICINE") || n.startsWith("PHARMACY") || i.billTypeNo === "PHARM01" || i.bill_type === 13;
   });
+  const billMeds = Array.isArray(bill.pharmacy_medicines) ? bill.pharmacy_medicines : [];
+  const billMedsAreGeneric = billMeds.length > 0 && billMeds.every(m => /^medicine\s+\d+$/i.test(m.itemName || m.name || m.item_name || ""));
   const pharmacyMedicines = (medAmt > 0 || hasMedItemInBill)
-    ? ((Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0)
-        ? bill.pharmacy_medicines
-        : (Array.isArray(loadedMeds) ? loadedMeds : []))
+    ? ((billMeds.length > 0 && !billMedsAreGeneric)
+      ? billMeds
+      : ((Array.isArray(loadedMeds) && loadedMeds.length > 0) ? loadedMeds : billMeds))
     : [];
 
   // Insurance view: consolidated or breakdown based on viewMode
@@ -1032,9 +1044,17 @@ const InsuranceClaimSheet = ({
   if (isInsBreakdown && pharmacyMedicines.length > 0) {
     // INSURANCE BREAKDOWN: completely replace with itemized medicines
     groups["MEDICINE / PHARMACY CHARGES"] = pharmacyMedicines.map(med => ({
-      itemName: String(med.itemName || med.item_name || med.name || "PHARMACY MEDICINE").toUpperCase(),
-      item_description: "",
-      nabh_code: "-",
+      itemName: String(
+        med.itemName ||
+        med.item_name ||
+        med.name ||
+        med.medicine_name ||
+        med.drug_name ||
+        med.description ||
+        "PHARMACY MEDICINE"
+      ).toUpperCase(),
+      item_description: med.item_description || (med.batch_number ? `BATCH: ${med.batch_number}` : ""),
+      nabh_code: med.nabh_code || "-",
       doctor: "",
       amount: parseFloat(med.amount || med.calculated_price || 0),
       quantity: parseFloat(med.quantity || med.qty || 1),
@@ -1859,8 +1879,11 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
       }
 
       if (Array.isArray(bill.pharmacy_medicines) && bill.pharmacy_medicines.length > 0) {
-        setLoadedMeds(bill.pharmacy_medicines);
-        return;
+        const isAllGeneric = bill.pharmacy_medicines.every(m => /^medicine\s+\d+$/i.test(m.itemName || m.name || m.item_name || ""));
+        if (!isAllGeneric) {
+          setLoadedMeds(bill.pharmacy_medicines);
+          return;
+        }
       }
       const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/_b_a_c_k_e_n_d/HMS/";
       const billNo = bill.bill_no || bill.bill_number || "";
@@ -1891,7 +1914,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             setLoadedMeds(meds);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [bill]);
 
@@ -2005,7 +2028,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
       const isA5 = paperSize === "A5";
       let iframe = document.getElementById("discharge-print-iframe");
       if (iframe) {
-        try { document.body.removeChild(iframe); } catch {}
+        try { document.body.removeChild(iframe); } catch { }
       }
 
       iframe = document.createElement("iframe");
@@ -2178,8 +2201,8 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
       if (liveImg && liveImg.src) {
         try {
           const isLogo = (liveImg.alt && liveImg.alt.toLowerCase().includes("logo")) ||
-                         (liveImg.src && liveImg.src.toLowerCase().includes("logo")) ||
-                         (liveImg.width > 0 && liveImg.width <= 120);
+            (liveImg.src && liveImg.src.toLowerCase().includes("logo")) ||
+            (liveImg.width > 0 && liveImg.width <= 120);
 
           const origW = liveImg.naturalWidth || liveImg.width || (isLogo ? 50 : 580);
           const origH = liveImg.naturalHeight || liveImg.height || (isLogo ? 50 : 65);

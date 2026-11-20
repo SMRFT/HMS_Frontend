@@ -89,6 +89,7 @@ const generateMedicinePendingPrintHtml = ({ patient = {}, requests = [] }) => {
       <div class="bill">
         <div class="bill-head">
           <span><b>Bill No:</b> ${escHtml(req.bill_id || req.Bill_id || "-")}</span>
+          <span><b>REQ. ID:</b> ${escHtml(req.requestNo || "-")}</span>
           <span><b>Date:</b> ${escHtml(req.reqDate || "")} ${escHtml(req.reqTime || "")}</span>
           <span><b>Doctor:</b> ${escHtml(req.doctorName || req.doctor || "-")}</span>
           <span><b>Dispatch:</b> ${escHtml(getRequestDispatchStatus(req))}</span>

@@ -136,6 +136,22 @@ const StickyLTD = styled(LTD)`
   background: ${p => p.$bg || "#ffffff"};
   ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid ${T.border};`}
 `;
+const StickyRightLTH = styled(LTH)`
+  position: sticky;
+  right: ${p => p.$right || "0px"};
+  z-index: 10;
+  background: #f8fafc;
+  box-shadow: -3px 0 6px -2px rgba(0,0,0,0.12);
+  border-left: 1px solid ${T.border};
+`;
+const StickyRightLTD = styled(LTD)`
+  position: sticky;
+  right: ${p => p.$right || "0px"};
+  z-index: 5;
+  background: ${p => p.$bg || "#ffffff"};
+  box-shadow: -3px 0 6px -2px rgba(0,0,0,0.12);
+  border-left: 1px solid ${T.border};
+`;
 const Mono = styled.span`font-family: 'Courier New', monospace; font-size: 0.78rem;`;
 
 const DateBar = styled.div`
@@ -413,9 +429,13 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
             ...res.patient,
           };
         }
-        const meds = res?.pharmacy_medicines || res?.patient?.pharmacy_medicines;
-        if (Array.isArray(meds) && meds.length > 0) {
-          updatedBill.pharmacy_medicines = meds;
+        const existingMeds = Array.isArray(b.pharmacy_medicines) ? b.pharmacy_medicines : [];
+        const hasGoodMeds = existingMeds.length > 0 && !existingMeds.every(m => /^medicine\s+\d+$/i.test(m.itemName || m.name || m.item_name || ""));
+        if (!hasGoodMeds) {
+          const meds = res?.pharmacy_medicines || res?.patient?.pharmacy_medicines;
+          if (Array.isArray(meds) && meds.length > 0) {
+            updatedBill.pharmacy_medicines = meds;
+          }
         }
       } catch (err) {
         console.error("Print patient details fetch error:", err);
@@ -822,7 +842,7 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
               <LTH>GST</LTH>
               <LTH>Net Amount</LTH>
               <LTH>Status</LTH>
-              <LTH style={{ textAlign: "center", width: 60 }}>Action</LTH>
+              <StickyRightLTH style={{ textAlign: "center", width: 60, minWidth: 60 }}>Action</StickyRightLTH>
             </tr>
           </thead>
           <tbody>
@@ -935,11 +955,11 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                     </Badge>
                   </LTD>
                   {/* Action */}
-                  <LTD style={{ textAlign: "center" }}>
+                  <StickyRightLTD $bg={stickyBg} style={{ textAlign: "center", width: 60, minWidth: 60 }}>
                     <AW>
                       <DotB onClick={e => handleMenuToggle(b.id, e)} title="Actions">⋮</DotB>
                     </AW>
-                  </LTD>
+                  </StickyRightLTD>
                 </LTR>
               );
             })}

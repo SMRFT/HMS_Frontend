@@ -371,7 +371,42 @@ const Td = styled.td`
 const Tr = styled.tr`
   transition: background .1s;
   &:hover { background: ${T.gray50}; }
+  &:hover > td { background: ${T.gray50} !important; }
   &:last-child td { border-bottom: none; }
+`;
+
+const StickyTh = styled(Th)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 10;
+  background: ${T.gray50};
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid ${T.gray200};`}
+`;
+
+const StickyTd = styled(Td)`
+  position: sticky;
+  left: ${p => p.$left || "0px"};
+  z-index: 5;
+  background: ${p => p.$bg || "#ffffff"};
+  ${p => p.$shadow && `box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12); border-right: 1px solid ${T.gray200};`}
+`;
+
+const StickyRightTh = styled(Th)`
+  position: sticky;
+  right: ${p => p.$right || "0px"};
+  z-index: 10;
+  background: ${T.gray50};
+  box-shadow: -3px 0 6px -2px rgba(0,0,0,0.12);
+  border-left: 1px solid ${T.gray200};
+`;
+
+const StickyRightTd = styled(Td)`
+  position: sticky;
+  right: ${p => p.$right || "0px"};
+  z-index: 5;
+  background: ${p => p.$bg || "#ffffff"};
+  box-shadow: -3px 0 6px -2px rgba(0,0,0,0.12);
+  border-left: 1px solid ${T.gray200};
 `;
 
 const ActionBtn = styled.button`
@@ -1605,9 +1640,16 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
               <Table>
                 <thead>
                   <tr>
-                    {["Shift #","UHID","IP Number","IP Serial","Patient Name","Room / Bed","Shifting Date & Time","Duration","Status","Actions"].map(h => (
-                      <Th key={h}>{h}</Th>
-                    ))}
+                    <StickyTh $left="0px" style={{ width: 85, minWidth: 85 }}>Shift #</StickyTh>
+                    <StickyTh $left="85px" style={{ width: 95, minWidth: 95 }}>UHID</StickyTh>
+                    <StickyTh $left="180px" style={{ width: 95, minWidth: 95 }}>IP Number</StickyTh>
+                    <StickyTh $left="275px" style={{ width: 85, minWidth: 85 }}>IP Serial</StickyTh>
+                    <StickyTh $left="360px" $shadow style={{ width: 160, minWidth: 160 }}>Patient Name</StickyTh>
+                    <Th>Room / Bed</Th>
+                    <Th>Shifting Date & Time</Th>
+                    <Th>Duration</Th>
+                    <Th>Status</Th>
+                    <StickyRightTh style={{ textAlign: "center", width: 80, minWidth: 80 }}>Actions</StickyRightTh>
                   </tr>
                 </thead>
                 <tbody>
@@ -1620,6 +1662,7 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                   ) : (
                     shiftings.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage).map((s, idx) => {
                       const shiftId = s.shifting_id || s._id;
+                      const rowBg = idx % 2 === 0 ? "#ffffff" : "#f9fafb";
                       const shiftDateStr = s.shiftingDateTime
                         ? new Date(s.shiftingDateTime).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone: "Asia/Kolkata" })
                         : "-";
@@ -1628,14 +1671,16 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
 
                       return (
                         <Tr key={`${shiftId}-${idx}`}>
-                          <Td style={{ fontWeight: 700, color: T.primary }}>
+                          <StickyTd $left="0px" $bg={rowBg} style={{ fontWeight: 700, color: T.primary, width: 85, minWidth: 85 }}>
                             {shiftId}
                             {s.edited_from && <span title={`Edited from ${s.edited_from}`} style={{ fontSize: ".6rem", color: T.gray400, marginLeft: 4 }}>✏️</span>}
-                          </Td>
-                          <Td>{s.uhid              || "-"}</Td>
-                          <Td>{s.ipNumber          || "-"}</Td>
-                          <Td>{s.ipserial_number   || "-"}</Td>
-                          <Td style={{ fontWeight: 500 }}>{s.patient_name || "-"}</Td>
+                          </StickyTd>
+                          <StickyTd $left="85px" $bg={rowBg} style={{ width: 95, minWidth: 95 }}>{s.uhid || "-"}</StickyTd>
+                          <StickyTd $left="180px" $bg={rowBg} style={{ width: 95, minWidth: 95 }}>{s.ipNumber || "-"}</StickyTd>
+                          <StickyTd $left="275px" $bg={rowBg} style={{ width: 85, minWidth: 85 }}>{s.ipserial_number || "-"}</StickyTd>
+                          <StickyTd $left="360px" $shadow $bg={rowBg} style={{ fontWeight: 500, width: 160, minWidth: 160, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {s.patient_name || "-"}
+                          </StickyTd>
                           <Td><span style={{ fontFamily: "monospace", fontSize: ".8rem" }}>{`${s.newRoomNo||"-"} / ${s.newBedNo||"-"}`}</span></Td>
                           <Td style={{ whiteSpace: "nowrap" }}>{shiftDateStr}</Td>
                           <Td>
@@ -1647,13 +1692,13 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                           <Td>
                             <Badge s={isActive ? "active" : "inactive"}>{isActive ? "Active" : "Inactive"}</Badge>
                           </Td>
-                          <Td>
+                          <StickyRightTd $bg={rowBg} style={{ textAlign: "center", width: 80, minWidth: 80 }}>
                             {isActive && (
                               <ActionBtn type="button" onClick={() => { setEditRecord({ ...s }); setEditOpen(true); }}>
                                 ✏️ Edit
                               </ActionBtn>
                             )}
-                          </Td>
+                          </StickyRightTd>
                         </Tr>
                       );
                     })
