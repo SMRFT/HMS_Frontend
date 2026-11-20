@@ -2268,6 +2268,8 @@ export default function CentralCashCounter() {
       setIsSavingPayment(true);
       try {
         const payload = {
+          _id: selectedBill.raw?._id || selectedBill._id || null,
+          bill_no: selectedBill.raw_bill_no || selectedBill.bill_no || null,
           Bill_id: selectedBill.Bill_id,
           uhid: selectedBill.uhid && selectedBill.uhid !== "-" ? selectedBill.uhid : "",
           payment_details,
