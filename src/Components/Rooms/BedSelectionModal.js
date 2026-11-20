@@ -559,12 +559,12 @@ export const RoomPaginationBar = ({ page, totalPages, totalItems, pageSize, onPa
 
 export const isPrivateRoom = (roomOrNo, category = "", bedCount = null) => {
   const cat = String(category || (typeof roomOrNo === "object" ? (roomOrNo?.room_category || roomOrNo?.room_type || roomOrNo?.category) : "")).trim().toUpperCase();
-  if (cat === "PRIVATE ROOM" || (cat.includes("PRIVATE") && !cat.includes("SEMI"))) {
+  if (cat === "PRIVATE ROOM" || (cat.includes("PRIVATE") && !cat.includes("SEMI")) || cat.includes("SINGLE") || cat.includes("SUITE") || cat.includes("DELUXE")) {
     return true;
   }
   const rNo = String(typeof roomOrNo === "string" ? roomOrNo : (roomOrNo?.room_number || roomOrNo?.roomNo || "")).trim().toUpperCase();
   if (!rNo || rNo === "-") return false;
-  if (/^(SR|KS|PS|QS)\s*-\s*\d+/i.test(rNo)) return true;
+  if (/^(SR|KS|PS|QS|DLX|DELUXE|SUITE|VIP|SINGLE)\b/i.test(rNo) || /^(SR|KS|PS|QS)\s*-\s*\d+/i.test(rNo)) return true;
   if (/^S\s*-\s*\d+/i.test(rNo) && !["S-6", "S-42", "S-51"].includes(rNo.replace(/\s+/g, ""))) return true;
   if (bedCount === 1) return true;
   return false;

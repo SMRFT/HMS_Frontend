@@ -723,14 +723,20 @@ const getRoomStatus = beds => {
 };
 
 const getActiveRoom = adm => {
-  if (!adm) return { roomNo: "-", bedNo: "-", source: "fallback", isActive: false };
+  if (!adm) return { roomNo: "-", bedNo: "-", roomCategory: "", source: "fallback", isActive: false };
   const isAdmActive = Boolean(adm.is_admitted && !adm.is_discharged && !adm.is_cancelled);
   const shifts = safeParseList(adm.roomShitingDetails || adm.room_shifting_details);
   // 1. Look for active shift first
   for (let i = shifts.length - 1; i >= 0; i--) {
     const s = shifts[i];
     if (s && s.is_roomActive === true && (s.newRoomNo || s.roomNo)) {
-      return { roomNo: s.newRoomNo || s.roomNo || "-", bedNo: s.newBedNo || s.bedNo || "-", source: "shifting", isActive: isAdmActive && Boolean(s.is_roomActive) };
+      return {
+        roomNo: s.newRoomNo || s.roomNo || "-",
+        bedNo: s.newBedNo || s.bedNo || "-",
+        roomCategory: s.newRoomCategory || s.roomCategory || s.room_category || adm.roomCategory || adm.room_category || "",
+        source: "shifting",
+        isActive: isAdmActive && Boolean(s.is_roomActive),
+      };
     }
   }
 
@@ -739,7 +745,13 @@ const getActiveRoom = adm => {
   for (let i = rooms.length - 1; i >= 0; i--) {
     const r = rooms[i];
     if (r && r.is_roomActive === true && (r.roomNo || r.room_no)) {
-      return { roomNo: r.roomNo || r.room_no || "-", bedNo: r.bedNo || r.bed_no || "-", source: "room_details", isActive: isAdmActive && Boolean(r.is_roomActive) };
+      return {
+        roomNo: r.roomNo || r.room_no || "-",
+        bedNo: r.bedNo || r.bed_no || "-",
+        roomCategory: r.roomCategory || r.room_category || adm.roomCategory || adm.room_category || "",
+        source: "room_details",
+        isActive: isAdmActive && Boolean(r.is_roomActive),
+      };
     }
   }
 
@@ -747,7 +759,13 @@ const getActiveRoom = adm => {
   for (let i = shifts.length - 1; i >= 0; i--) {
     const s = shifts[i];
     if (s && (s.newRoomNo || s.roomNo)) {
-      return { roomNo: s.newRoomNo || s.roomNo || "-", bedNo: s.newBedNo || s.bedNo || "-", source: "shifting", isActive: false };
+      return {
+        roomNo: s.newRoomNo || s.roomNo || "-",
+        bedNo: s.newBedNo || s.bedNo || "-",
+        roomCategory: s.newRoomCategory || s.roomCategory || s.room_category || adm.roomCategory || adm.room_category || "",
+        source: "shifting",
+        isActive: false,
+      };
     }
   }
 
@@ -755,12 +773,24 @@ const getActiveRoom = adm => {
   for (let i = rooms.length - 1; i >= 0; i--) {
     const r = rooms[i];
     if (r && (r.roomNo || r.room_no)) {
-      return { roomNo: r.roomNo || r.room_no || "-", bedNo: r.bedNo || r.bed_no || "-", source: "room_details", isActive: false };
+      return {
+        roomNo: r.roomNo || r.room_no || "-",
+        bedNo: r.bedNo || r.bed_no || "-",
+        roomCategory: r.roomCategory || r.room_category || adm.roomCategory || adm.room_category || "",
+        source: "room_details",
+        isActive: false,
+      };
     }
   }
 
   // 5. Fallback to top-level fields
-  return { roomNo: adm.roomNo || adm.room_no || "-", bedNo: adm.bedNo || adm.bed_no || "-", source: "fallback", isActive: false };
+  return {
+    roomNo: adm.roomNo || adm.room_no || "-",
+    bedNo: adm.bedNo || adm.bed_no || "-",
+    roomCategory: adm.roomCategory || adm.room_category || "",
+    source: "fallback",
+    isActive: false,
+  };
 };
 
 const getAdmittedRoom = adm => {
@@ -1043,12 +1073,16 @@ function RoomTimeline({ roomDetails = [], shiftingDetails = [], isDischarged = f
       <TLList>
         {all.map((r, idx) => {
           const dur = calcDuration(r.start, r.end);
+          const isPriv = isPrivateRoom(r.roomNo, r.room_category || r.category);
           return (
             <TLItem key={r.key} active={r.isActive} last={idx === all.length - 1}>
               <TLDot active={r.isActive} shift={r.isShift && !r.isActive} />
               <TLBody>
                 <TLRoomNo>
-                  Room <strong>{r.roomNo}</strong> / Bed <strong>{r.bedNo}</strong>
+                  Room <strong>{r.roomNo}</strong>
+                  {r.bedNo && r.bedNo !== "—" && r.bedNo !== "-" && !isPriv && (
+                    <> / Bed <strong>{r.bedNo}</strong></>
+                  )}
                   {r.isActive && <TLBadge active>🟢 Current</TLBadge>}
                   {!r.isActive && r.isCleaned && <TLBadge cleaned>✅ Cleaned</TLBadge>}
                   {!r.isActive && !r.isCleaned && <TLBadge>Past</TLBadge>}
@@ -1140,11 +1174,14 @@ function RoomHistoryModal({ adm, onClose }) {
 
   const renderCard = (r, i) => {
     const dur = calcDuration(r.start, r.end);
+    const isPriv = isPrivateRoom(r.roomNo, r.room_category || r.category);
     return (
       <RHCard key={r.key} i={i} active={r.isActive} shift={r.isShift}>
         <RHCardHead active={r.isActive} shift={r.isShift}>
           <div>
-            <RHRoomLabel>Room {r.roomNo} / Bed {r.bedNo}</RHRoomLabel>
+            <RHRoomLabel>
+              Room {r.roomNo}{r.bedNo && r.bedNo !== "—" && r.bedNo !== "-" && !isPriv ? ` / Bed ${r.bedNo}` : ""}
+            </RHRoomLabel>
             <RHRoomSub>{r.label}{r.shiftId ? ` · ID: ${r.shiftId}` : ""}</RHRoomSub>
           </div>
           <RHStatusPill active={r.isActive} cleaned={r.isCleaned} shift={r.isShift && !r.isActive}>
@@ -1194,31 +1231,33 @@ function RoomHistoryModal({ adm, onClose }) {
             🔄 {shiftEntries.length} shifting{shiftEntries.length !== 1 ? "s" : ""}
           </span>
           {(() => {
-            const { roomNo, bedNo, source, isActive } = getActiveRoom(adm);
+            const { roomNo, bedNo, roomCategory, source, isActive } = getActiveRoom(adm);
+            const isPrivate = isPrivateRoom(roomNo, roomCategory || adm.room_category || adm.roomCategory);
+            const bedSuffix = bedNo && bedNo !== "-" && !isPrivate ? ` / Bed ${bedNo}` : "";
             if (isAdmDischarged) {
               return (
                 <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#f1f5f9", border: "1px solid #cbd5e1", color: "#475569", fontWeight: 700 }}>
-                  🚪 Discharged Room: {roomNo}{bedNo && bedNo !== "-" ? ` / Bed ${bedNo}` : ""}{source === "shifting" && " 🔄"}
+                  🚪 Discharged Room: {roomNo}{bedSuffix}{source === "shifting" && " 🔄"}
                 </span>
               );
             }
             if (isAdmCancelled) {
               return (
                 <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontWeight: 700 }}>
-                  ❌ Cancelled Room: {roomNo}{bedNo && bedNo !== "-" ? ` / Bed ${bedNo}` : ""}
+                  ❌ Cancelled Room: {roomNo}{bedSuffix}
                 </span>
               );
             }
             if (isActive) {
               return (
                 <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", color: "#166534", fontWeight: 700 }}>
-                  🟢 Active: Room {roomNo} / Bed {bedNo}{source === "shifting" && " 🔄"}
+                  🟢 Active: Room {roomNo}{bedSuffix}{source === "shifting" && " 🔄"}
                 </span>
               );
             }
             return (
               <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#f3f4f6", border: "1px solid #e5e7eb", color: "#6b7280", fontWeight: 700 }}>
-                🏨 Last Room: {roomNo}{bedNo && bedNo !== "-" ? ` / Bed ${bedNo}` : ""}
+                🏨 Last Room: {roomNo}{bedSuffix}
               </span>
             );
           })()}
@@ -1255,7 +1294,8 @@ function ViewAdmissionModal({ adm, doctors, onClose }) {
   if (!adm) return null;
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "";
   const status = getAdmStatus(adm);
-  const { roomNo, bedNo } = getActiveRoom(adm);
+  const { roomNo, bedNo, roomCategory } = getActiveRoom(adm);
+  const isPrivate = isPrivateRoom(roomNo, roomCategory || adm.room_category || adm.roomCategory);
   const editHistory = safeParseList(adm.edit_history);
   const getDoctorName = (id) =>
     doctors?.find((d) => String(d.employeeId) === String(id))?.employeeName || String(id || "—");
@@ -1300,7 +1340,7 @@ function ViewAdmissionModal({ adm, doctors, onClose }) {
               <InfoItem>
                 <InfoLbl>Active Room / Bed</InfoLbl>
                 <InfoVal style={{ fontWeight: 700 }}>
-                  {roomNo !== "-" ? `Room ${roomNo} / Bed ${bedNo}` : "—"}
+                  {roomNo !== "-" ? (isPrivate || !bedNo || bedNo === "-" ? `Room ${roomNo}` : `Room ${roomNo} / Bed ${bedNo}`) : "—"}
                 </InfoVal>
               </InfoItem>
               <InfoItem>
@@ -1422,8 +1462,9 @@ function ViewAdmissionModal({ adm, doctors, onClose }) {
                 <InfoLbl>Room / Bed</InfoLbl>
                 <InfoVal style={{ fontWeight: 700, color: "#0f766e" }}>
                   {(() => {
-                    const { roomNo, bedNo } = getActiveRoom(adm);
-                    return roomNo !== "-" ? `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}` : "—";
+                    const { roomNo, bedNo, roomCategory } = getActiveRoom(adm);
+  const isPrivate = isPrivateRoom(roomNo, roomCategory || adm.room_category || adm.roomCategory);
+                    return roomNo !== "-" ? `${roomNo}${bedNo && bedNo !== "-" && !isPrivate ? ` / ${bedNo}` : ""}` : "—";
                   })()}
                 </InfoVal>
               </InfoItem>
@@ -2660,7 +2701,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
   function loadAdmissionIntoForm(adm) {
     setEditingId(adm.ipNumber);
-    const { roomNo, bedNo } = getActiveRoom(adm);
+    const { roomNo, bedNo, roomCategory } = getActiveRoom(adm);
+  const isPrivate = isPrivateRoom(roomNo, roomCategory || adm.room_category || adm.roomCategory);
     const dobStr = adm.dob || "";
     const calcAge = calculateAgeFromDob(dobStr);
     const currentAge = calcAge.age !== "" ? calcAge.age : (adm.age || "");
@@ -4621,7 +4663,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     <tr><Td colSpan={13} style={{ textAlign: "center", padding: 28, color: "#6b7280" }}>No admissions found</Td></tr>
                   ) : paginated.map((adm, idx) => {
                     const t = getAdmStatus(adm);
-                    const { roomNo, bedNo } = getActiveRoom(adm);
+                    const { roomNo, bedNo, roomCategory } = getActiveRoom(adm);
+  const isPrivate = isPrivateRoom(roomNo, roomCategory || adm.room_category || adm.roomCategory);
                     const rdCount = (Array.isArray(adm.room_details) && adm.room_details.length > 0) ? 1 : (adm.roomNo ? 1 : 0);
                     const shCount = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails.length : 0;
                     const totalCount = rdCount + shCount;
@@ -4716,7 +4759,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                           {roomNo !== "-" ? (
                             <span>
                               <span style={{ fontWeight: 700 }}>{roomNo}</span>
-                              {bedNo && bedNo !== "-" && (
+                              {bedNo && bedNo !== "-" && !isPrivate && (
                                 <>
                                   <span style={{ color: "#6b7280" }}> / </span>
                                   <span style={{ fontWeight: 700 }}>{bedNo}</span>

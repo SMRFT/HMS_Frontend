@@ -3,6 +3,8 @@ import styled from "styled-components";
 import headerImg from "../Images/Header.png";
 import smrftLogo from "../Images/smrft_logo.png";
 import apiRequest from "../../Auth/apiRequest";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v) => {
@@ -644,36 +646,41 @@ const NormalBillSheet = ({
     }}>
       {/* ── TOP HEADER (LOGO + HOSPITAL DETAILS + BILL TYPE) ── */}
       {withHeader ? (
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingTop: isA5 ? "4px" : "12px", marginBottom: isA5 ? "6px" : "10px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: isA5 ? 10 : 16 }}>
-            <img
-              src={smrftLogo}
-              alt="Shanmuga Logo"
-              style={{ width: isA5 ? 44 : 56, height: isA5 ? 44 : 56, objectFit: "contain" }}
-              onError={(e) => { e.target.style.display = "none"; }}
-            />
-            <div>
-              <div style={{ fontSize: isA5 ? "13px" : "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
-                SHANMUGA HOSPITAL LIMITED
-              </div>
-              <div style={{ fontSize: isA5 ? "10px" : "11.5px", color: "#222", marginTop: 1 }}>
-                51/24.Saradha College Road, Salem - 636007
-              </div>
-              <div style={{ display: "flex", gap: isA5 ? 14 : 24, fontSize: isA5 ? "9.5px" : "11px", color: "#222", marginTop: 1, flexWrap: "wrap" }}>
-                <span>04272706666</span>
-                <span>CIN: L85110TZ2020PLC033974</span>
-              </div>
-              <div style={{ fontSize: isA5 ? "9.5px" : "11px", color: "#222" }}>
-                GST No: 33ABDCS8326A1ZP
-              </div>
-            </div>
-          </div>
-          <div style={{ textAlign: "right", alignSelf: "flex-end", paddingBottom: 2 }}>
-            <div style={{ fontSize: isA5 ? "13px" : "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
-              {isCredit ? "CREDIT BILL" : "CASH BILL"}
-            </div>
-          </div>
-        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginBottom: isA5 ? 6 : 10 }}>
+          <tbody>
+            <tr>
+              <td style={{ width: isA5 ? "52px" : "64px", verticalAlign: "middle", padding: "0 8px 0 0" }}>
+                <img
+                  src={smrftLogo}
+                  alt="Shanmuga Logo"
+                  width={isA5 ? 44 : 56}
+                  height={isA5 ? 44 : 56}
+                  style={{ width: isA5 ? 44 : 56, height: isA5 ? 44 : 56, objectFit: "contain", display: "block" }}
+                  onError={(e) => { e.target.style.display = "none"; }}
+                />
+              </td>
+              <td style={{ verticalAlign: "top", textAlign: "left" }}>
+                <div style={{ fontSize: isA5 ? "13px" : "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
+                  SHANMUGA HOSPITAL LIMITED
+                </div>
+                <div style={{ fontSize: isA5 ? "10px" : "11.5px", color: "#222", marginTop: 1 }}>
+                  51/24.Saradha College Road, Salem - 636007
+                </div>
+                <div style={{ fontSize: isA5 ? "9.5px" : "11px", color: "#222", marginTop: 1 }}>
+                  04272706666 &nbsp;|&nbsp; CIN: L85110TZ2020PLC033974
+                </div>
+                <div style={{ fontSize: isA5 ? "9.5px" : "11px", color: "#222" }}>
+                  GST No: 33ABDCS8326A1ZP
+                </div>
+              </td>
+              <td style={{ width: isA5 ? "110px" : "140px", verticalAlign: "bottom", textAlign: "right", paddingBottom: 2 }}>
+                <div style={{ fontSize: isA5 ? "13px" : "15px", fontWeight: "800", letterSpacing: "0.5px", color: "#111", textTransform: "uppercase" }}>
+                  {isCredit ? "CREDIT BILL" : "CASH BILL"}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       ) : (
         <div className="letterpad-spacer" style={{ height: `${headerSpacerHeight}px`, minHeight: `${headerSpacerHeight}px` }} />
       )}
@@ -682,62 +689,98 @@ const NormalBillSheet = ({
       <div style={{ borderTop: "1.5px solid #000", margin: isA5 ? "6px 0 4px" : "8px 0 6px" }} />
 
       {/* ── SUBHEADER: DISCHARGE BILL - GST EXEMPT & COMPANY NAME ── */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        fontWeight: "800",
-        fontSize: isA5 ? "11px" : "12.5px",
-        padding: "2px 0",
-        letterSpacing: "0.4px",
-        textTransform: "uppercase"
-      }}>
-        <div>{isBreakdown ? "DISCHARGE BILL (BREAKDOWN)" : "DISCHARGE BILL"} &nbsp;&nbsp;-&nbsp;&nbsp; GST EXEMPT</div>
-        {isCredit && companyName && (
-          <div style={{ fontWeight: "800", letterSpacing: "0.5px" }}>{companyName}</div>
-        )}
-      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", margin: "2px 0" }}>
+        <tbody>
+          <tr>
+            <td style={{ textAlign: "left", fontWeight: "800", fontSize: isA5 ? "11px" : "12.5px", letterSpacing: "0.4px", textTransform: "uppercase" }}>
+              {isBreakdown ? "DISCHARGE BILL (BREAKDOWN)" : "DISCHARGE BILL"} &nbsp;&nbsp;-&nbsp;&nbsp; GST EXEMPT
+            </td>
+            {isCredit && companyName && (
+              <td style={{ textAlign: "right", fontWeight: "800", fontSize: isA5 ? "11px" : "12.5px", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                {companyName}
+              </td>
+            )}
+          </tr>
+        </tbody>
+      </table>
 
       {/* Divider Line */}
       <div style={{ borderTop: "1px solid #000", margin: "4px 0 6px" }} />
 
       {/* ── PATIENT & BILL DETAILS (2 COLUMNS WITH ALIGNED COLONS) ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", gap: isA5 ? 12 : 24, fontSize: isA5 ? "10px" : "11.5px", padding: "2px 0" }}>
-        {/* Left Column */}
-        <div style={{ flex: 1.15, display: "grid", gridTemplateColumns: isA5 ? "68px 8px 1fr" : "88px 12px 1fr", rowGap: isA5 ? 1 : 2, alignItems: "baseline" }}>
-          <span style={{ fontWeight: "bold" }}>UHID</span><span>:</span><span style={{ fontWeight: "bold" }}>{opNumber}</span>
-          <span style={{ fontWeight: "bold" }}>Name</span><span>:</span><span style={{ fontWeight: "bold" }}>{patientName}</span>
-          <span style={{ fontWeight: "bold" }}>Guardian</span><span>:</span><span>{guardian}</span>
-          <span style={{ fontWeight: "bold" }}>Address</span><span>:</span>
-          <div>
-            {addrParts.length > 0 ? (
-              addrParts.map((p, i) => (
-                <div key={i} style={{ textTransform: "uppercase" }}>{p}</div>
-              ))
-            ) : (
-              <span>—</span>
-            )}
-          </div>
-          <span style={{ fontWeight: "bold" }}>Doctor</span><span>:</span><span style={{ fontWeight: "bold" }}>{doctor}</span>
-          <span style={{ fontWeight: "bold" }}>Department</span><span>:</span><span>{department}</span>
-        </div>
-
-        {/* Right Column */}
-        <div style={{ flex: 0.85, display: "grid", gridTemplateColumns: isA5 ? "74px 8px 1fr" : "98px 12px 1fr", rowGap: isA5 ? 1 : 2, alignItems: "baseline" }}>
-          <span style={{ fontWeight: "bold" }}>SH-Bill No</span><span>:</span><span style={{ fontWeight: "bold" }}>{billNo}</span>
-          <span style={{ fontWeight: "bold" }}>IP Number</span><span>:</span><span style={{ fontWeight: "bold" }}>{ipNumber}</span>
-          <span style={{ fontWeight: "bold" }}>Billdate</span><span>:</span><span>{billDate}</span>
-          <span style={{ fontWeight: "bold" }}>DOA</span><span>:</span><span>{doa}</span>
-          <span style={{ fontWeight: "bold" }}>DOD</span><span>:</span><span>{dod}</span>
-          <span style={{ fontWeight: "bold" }}>Room Number</span><span>:</span><span>{roomNumber}</span>
-        </div>
-      </div>
+      <table style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        tableLayout: "fixed",
+        fontSize: isA5 ? "10px" : "11.5px",
+        margin: "2px 0",
+        fontFamily: "Arial, Helvetica, sans-serif"
+      }}>
+        <tbody>
+          <tr>
+            <td style={{ width: isA5 ? "16%" : "15%", fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>UHID</td>
+            <td style={{ width: "2%", textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ width: isA5 ? "32%" : "33%", fontWeight: "bold", padding: "1px 4px 1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{opNumber}</td>
+            <td style={{ width: isA5 ? "20%" : "18%", fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>SH-Bill No</td>
+            <td style={{ width: "2%", textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ width: isA5 ? "28%" : "30%", fontWeight: "bold", padding: "1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{billNo}</td>
+          </tr>
+          <tr>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>Name</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ fontWeight: "bold", padding: "1px 4px 1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{patientName}</td>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>IP Number</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{ipNumber}</td>
+          </tr>
+          <tr>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>Guardian</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ padding: "1px 4px 1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{guardian}</td>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>Billdate</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ padding: "1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{billDate}</td>
+          </tr>
+          <tr>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>Address</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ padding: "1px 4px 1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>
+              {addrParts.length > 0 ? (
+                addrParts.map((p, i) => (
+                  <div key={i} style={{ textTransform: "uppercase" }}>{p}</div>
+                ))
+              ) : (
+                <span>—</span>
+              )}
+            </td>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>DOA</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ padding: "1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{doa}</td>
+          </tr>
+          <tr>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>Doctor</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ fontWeight: "bold", padding: "1px 4px 1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{doctor}</td>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>DOD</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ padding: "1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{dod}</td>
+          </tr>
+          <tr>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>Department</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ padding: "1px 4px 1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{department}</td>
+            <td style={{ fontWeight: "bold", padding: "1px 2px", verticalAlign: "top" }}>Room Number</td>
+            <td style={{ textAlign: "center", padding: "1px 0", verticalAlign: "top" }}>:</td>
+            <td style={{ padding: "1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{roomNumber}</td>
+          </tr>
+        </tbody>
+      </table>
 
       {/* Divider Line */}
       <div style={{ borderTop: "1px solid #000", margin: "6px 0 4px" }} />
 
       {/* ── ITEMS TABLE ── */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: isA5 ? "10px" : "11.5px", margin: "4px 0" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: isA5 ? "10px" : "11.5px", margin: "4px 0" }}>
         <thead>
           <tr style={{ borderBottom: "1.5px solid #000" }}>
             <th style={{ width: isA5 ? "35px" : "45px", textAlign: "left", padding: isA5 ? "2px 3px" : "4px 4px", fontWeight: "bold" }}>Slno</th>
@@ -775,117 +818,124 @@ const NormalBillSheet = ({
       <div style={{ borderTop: "1.5px solid #000", margin: "6px 0 4px" }} />
 
       {/* ── TOTALS (LEFT: DISCOUNT & IP RETURN, RIGHT: TOTALS TABLE) ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", margin: "4px 0 6px" }}>
-        {/* Left Side: Discount & IP Return (matching standard format) */}
-        <div style={{ paddingTop: 2 }}>
-          <table style={{ borderCollapse: "collapse", fontSize: isA5 ? "10px" : "12px" }}>
-            <tbody>
-              {discAmt > 0 && (
-                <tr>
-                  <td style={{ padding: isA5 ? "1.5px 6px 1.5px 0" : "2px 8px 2px 0", fontWeight: "bold", whiteSpace: "nowrap" }}>
-                    Discount :
-                  </td>
-                  <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", fontWeight: "bold", minWidth: 60 }}>
-                    {discAmt % 1 === 0 ? discAmt : discAmt.toFixed(2)}
-                  </td>
-                </tr>
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", margin: "4px 0 6px" }}>
+        <tbody>
+          <tr>
+            <td style={{ width: "45%", verticalAlign: "top", textAlign: "left", padding: 0 }}>
+              {(discAmt > 0 || salesReturnAmt > 0) && (
+                <table style={{ borderCollapse: "collapse", fontSize: isA5 ? "10px" : "12px" }}>
+                  <tbody>
+                    {discAmt > 0 && (
+                      <tr>
+                        <td style={{ padding: isA5 ? "1.5px 6px 1.5px 0" : "2px 8px 2px 0", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                          Discount :
+                        </td>
+                        <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", fontWeight: "bold", minWidth: 60 }}>
+                          {discAmt % 1 === 0 ? discAmt : discAmt.toFixed(2)}
+                        </td>
+                      </tr>
+                    )}
+                    {salesReturnAmt > 0 && (
+                      <tr>
+                        <td style={{ padding: isA5 ? "1.5px 6px 1.5px 0" : "2px 8px 2px 0", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                          Ipreturn :
+                        </td>
+                        <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", fontWeight: "bold", minWidth: 60 }}>
+                          {salesReturnAmt % 1 === 0 ? salesReturnAmt : salesReturnAmt.toFixed(2)}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               )}
-              {salesReturnAmt > 0 && (
-                <tr>
-                  <td style={{ padding: isA5 ? "1.5px 6px 1.5px 0" : "2px 8px 2px 0", fontWeight: "bold", whiteSpace: "nowrap" }}>
-                    Ipreturn :
-                  </td>
-                  <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", fontWeight: "bold", minWidth: 60 }}>
-                    {salesReturnAmt % 1 === 0 ? salesReturnAmt : salesReturnAmt.toFixed(2)}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Right Side: Totals Table */}
-        <table style={{ borderCollapse: "collapse", fontSize: isA5 ? "10px" : "12px" }}>
-          <tbody>
-            <tr>
-              <td style={{ padding: isA5 ? "1.5px 12px 1.5px 0" : "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
-                Total :
-              </td>
-              <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 80 }}>
-                {totalAmt % 1 === 0 ? totalAmt : totalAmt.toFixed(2)}
-              </td>
-            </tr>
-            {advAmt > 0 && (
-              <tr>
-                <td style={{ padding: isA5 ? "1.5px 12px 1.5px 0" : "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
-                  Advance :
-                </td>
-                <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 80 }}>
-                  {advAmt % 1 === 0 ? advAmt : advAmt.toFixed(2)}
-                </td>
-              </tr>
-            )}
-            <tr>
-              <td style={{
-                padding: isA5 ? "2px 12px 2px 0" : "3px 16px 3px 0",
-                textAlign: "right",
-                fontWeight: "800",
-                fontSize: isA5 ? "11px" : "13px",
-                whiteSpace: "nowrap",
-                color: netAmt < 0 ? "#b91c1c" : "inherit"
-              }}>
-                {netAmt < 0 ? "Refund Amount :" : "Net Amount :"}
-              </td>
-              <td style={{
-                padding: isA5 ? "2px 0" : "3px 0",
-                textAlign: "right",
-                fontWeight: "800",
-                fontSize: isA5 ? "11px" : "13px",
-                minWidth: 80,
-                color: netAmt < 0 ? "#b91c1c" : "inherit"
-              }}>
-                {fmt(netAmt)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+            </td>
+            <td style={{ width: "55%", verticalAlign: "top", textAlign: "right", padding: 0 }}>
+              <table style={{ borderCollapse: "collapse", fontSize: isA5 ? "10px" : "12px", marginLeft: "auto" }}>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: isA5 ? "1.5px 12px 1.5px 0" : "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                      Total :
+                    </td>
+                    <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 80 }}>
+                      {totalAmt % 1 === 0 ? totalAmt : totalAmt.toFixed(2)}
+                    </td>
+                  </tr>
+                  {advAmt > 0 && (
+                    <tr>
+                      <td style={{ padding: isA5 ? "1.5px 12px 1.5px 0" : "2px 16px 2px 0", textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                        Advance :
+                      </td>
+                      <td style={{ padding: isA5 ? "1.5px 0" : "2px 0", textAlign: "right", fontWeight: "bold", minWidth: 80 }}>
+                        {advAmt % 1 === 0 ? advAmt : advAmt.toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td style={{
+                      padding: isA5 ? "2px 12px 2px 0" : "3px 16px 3px 0",
+                      textAlign: "right",
+                      fontWeight: "800",
+                      fontSize: isA5 ? "11px" : "13px",
+                      whiteSpace: "nowrap",
+                      color: netAmt < 0 ? "#b91c1c" : "inherit"
+                    }}>
+                      {netAmt < 0 ? "Refund Amount :" : "Net Amount :"}
+                    </td>
+                    <td style={{
+                      padding: isA5 ? "2px 0" : "3px 0",
+                      textAlign: "right",
+                      fontWeight: "800",
+                      fontSize: isA5 ? "11px" : "13px",
+                      minWidth: 80,
+                      color: netAmt < 0 ? "#b91c1c" : "inherit"
+                    }}>
+                      {fmt(netAmt)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       {/* ── RUPEES IN WORDS ── */}
-      <div style={{
-        marginTop: 4,
-        marginBottom: 6,
-        padding: isA5 ? "3px 6px" : "5px 8px",
-        background: "#f8fafc",
-        border: "1px dashed #000",
-        fontSize: isA5 ? "9.5px" : "11px",
-        fontWeight: "bold",
-        textTransform: "uppercase"
-      }}>
-        Rupees in Words : RUPEE(S) {numberToWords(netAmt).toUpperCase()} ONLY {netAmt < 0 ? "(REFUND) " : ""}/-
-      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginTop: 4, marginBottom: 6 }}>
+        <tbody>
+          <tr>
+            <td style={{
+              padding: isA5 ? "3px 6px" : "5px 8px",
+              background: "#f8fafc",
+              border: "1px dashed #000",
+              fontSize: isA5 ? "9.5px" : "11px",
+              fontWeight: "bold",
+              textTransform: "uppercase"
+            }}>
+              Rupees in Words : RUPEE(S) {numberToWords(netAmt).toUpperCase()} ONLY {netAmt < 0 ? "(REFUND) " : ""}/-
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       {/* Divider Line */}
       <div style={{ borderTop: "1.5px solid #000", margin: isA5 ? "6px 0 10px" : "6px 0 16px" }} />
 
-      {/* ── FOOTER: PREPARED BY IN LEFT, SIGNATURE IN RIGHT (MATCHING PHARMACY / REFERENCE) ── */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-end",
-        fontSize: isA5 ? "10.5px" : "12px",
-        padding: isA5 ? "2px 0 10px" : "2px 0 16px"
-      }}>
-        <div style={{ textAlign: "left" }}>
-          <span>Prepared By : </span>
-          <span style={{ fontWeight: "bold" }}>
-            {preparedByName || bill.created_by_name || bill.created_by || localStorage.getItem("employeeName") || localStorage.getItem("userName") || "—"}
-          </span>
-        </div>
-        <div style={{ textAlign: "right", fontWeight: "bold" }}>
-          Signature
-        </div>
-      </div>
+      {/* ── FOOTER: PREPARED BY IN LEFT, SIGNATURE IN RIGHT ── */}
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", margin: isA5 ? "4px 0 6px" : "8px 0 12px", fontSize: isA5 ? "10.5px" : "12px" }}>
+        <tbody>
+          <tr>
+            <td style={{ width: "60%", textAlign: "left", verticalAlign: "bottom", padding: "2px 0" }}>
+              <span>Prepared By : </span>
+              <span style={{ fontWeight: "bold" }}>
+                {preparedByName || bill.created_by_name || bill.created_by || localStorage.getItem("employeeName") || localStorage.getItem("userName") || "—"}
+              </span>
+            </td>
+            <td style={{ width: "40%", textAlign: "right", verticalAlign: "bottom", fontWeight: "bold", padding: "2px 0" }}>
+              Signature
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       {/* ── GST EXEMPTION DISCLAIMER ── */}
       <div style={{
@@ -1054,7 +1104,7 @@ const InsuranceClaimSheet = ({
 
   const renderHeaderBlock = () => (
     withHeader ? (
-      <div style={{ textAlign: "center", paddingTop: "14px", marginBottom: "12px" }}>
+      <div style={{ textAlign: "center", paddingTop: "6px", marginBottom: "8px" }}>
         <img src={headerImg} alt="HOSPITAL HEADER" style={{ maxWidth: "100%", height: "auto", maxHeight: "68px" }} />
       </div>
     ) : (
@@ -1067,27 +1117,27 @@ const InsuranceClaimSheet = ({
     const isFirstPage = pageNo === 1;
 
     return (
-      <div style={{ marginTop: 14 }}>
+      <div style={{ marginTop: 8 }}>
         {isFirstPage && (
           <table style={{
             width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
-            fontSize: "0.78rem", textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif"
+            fontSize: "0.88rem", textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif"
           }}>
             <tbody>
               <tr>
                 <td style={{ width: "50%", textAlign: "left", verticalAlign: "bottom" }}>
-                  <div style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                  <div style={{ fontWeight: "bold", fontSize: "0.95rem" }}>
                     {effPreparedByName}
                   </div>
-                  <div style={{ fontSize: "0.72rem", color: "#111", fontWeight: "bold", marginTop: 2 }}>
+                  <div style={{ fontSize: "0.78rem", color: "#111", fontWeight: "bold", marginTop: 2 }}>
                     {effPreparedByDesig}
                   </div>
                 </td>
                 <td style={{ width: "50%", textAlign: "right", verticalAlign: "bottom" }}>
-                  <div style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                  <div style={{ fontWeight: "bold", fontSize: "0.95rem" }}>
                     {effManagerName}
                   </div>
-                  <div style={{ fontSize: "0.72rem", color: "#111", fontWeight: "bold", marginTop: 2 }}>
+                  <div style={{ fontSize: "0.78rem", color: "#111", fontWeight: "bold", marginTop: 2 }}>
                     {effManagerDesig}
                   </div>
                 </td>
@@ -1097,8 +1147,8 @@ const InsuranceClaimSheet = ({
         )}
 
         <div style={{
-          textAlign: "center", fontWeight: "bold", fontSize: "0.78rem",
-          marginTop: isFirstPage ? 12 : 6, marginBottom: 4, textTransform: "uppercase",
+          textAlign: "center", fontWeight: "bold", fontSize: "0.82rem",
+          marginTop: isFirstPage ? 8 : 6, marginBottom: 4, textTransform: "uppercase",
           fontFamily: "'Times New Roman', Times, serif"
         }}>
           PAGE : {pageNo} OF {totalPages}
@@ -1106,12 +1156,12 @@ const InsuranceClaimSheet = ({
 
         <table style={{
           width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
-          borderTop: "1px solid #000", fontSize: "0.68rem", textTransform: "uppercase",
+          borderTop: "1px solid #000", fontSize: "0.72rem", textTransform: "uppercase",
           fontFamily: "'Times New Roman', Times, serif"
         }}>
           <tbody>
             <tr>
-              <td style={{ textAlign: "left", fontStyle: "italic", fontSize: "0.65rem", padding: "4px 2px 0", verticalAlign: "middle" }}>
+              <td style={{ textAlign: "left", fontStyle: "italic", fontSize: "0.70rem", padding: "4px 2px 0", verticalAlign: "middle" }}>
                 HEALTH CARE SERVICES PROVIDED BY A CLINICAL ESTABLISHMENT ARE EXEMPT UNDER NOTIFICATION NO. 12/2017-CENTRAL TAX (RATE). THIS IS A GST EXEMPT INVOICE.
               </td>
             </tr>
@@ -1170,19 +1220,19 @@ const InsuranceClaimSheet = ({
     return (
       <table style={{
         width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
-        fontSize: "0.74rem", lineHeight: "1.35", borderBottom: "1px solid #000",
+        fontSize: "0.85rem", lineHeight: "1.4", borderBottom: "1.5px solid #000",
         paddingBottom: 4, marginBottom: 8, textTransform: "uppercase",
         fontFamily: "'Times New Roman', Times, serif"
       }}>
         <tbody>
           {rows.map((r, i) => (
             <tr key={i}>
-              <td style={{ width: "20%", padding: "1px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.lLabel}</td>
-              <td style={{ width: "2%", padding: "1px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
-              <td style={{ width: "28%", padding: "1px 4px 1px 2px", verticalAlign: "top", wordBreak: "break-word" }}>{r.lVal}</td>
-              <td style={{ width: "20%", padding: "1px 2px", fontWeight: "bold", verticalAlign: "top" }}>{r.rLabel}</td>
-              <td style={{ width: "2%", padding: "1px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
-              <td style={{ width: "28%", padding: "1px 2px", verticalAlign: "top", wordBreak: "break-word", fontWeight: "bold" }}>{r.rVal}</td>
+              <td style={{ width: "20%", padding: "2px 3px", fontWeight: "bold", verticalAlign: "top" }}>{r.lLabel}</td>
+              <td style={{ width: "2%", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
+              <td style={{ width: "28%", padding: "2px 4px", verticalAlign: "top", wordBreak: "break-word" }}>{r.lVal}</td>
+              <td style={{ width: "20%", padding: "2px 3px", fontWeight: "bold", verticalAlign: "top" }}>{r.rLabel}</td>
+              <td style={{ width: "2%", padding: "2px 0", textAlign: "center", verticalAlign: "top" }}>:</td>
+              <td style={{ width: "28%", padding: "2px 3px", verticalAlign: "top", wordBreak: "break-word", fontWeight: "bold" }}>{r.rVal}</td>
             </tr>
           ))}
         </tbody>
@@ -1204,10 +1254,10 @@ const InsuranceClaimSheet = ({
           }}>
             <tbody>
               <tr>
-                <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.82rem", padding: "4px 2px" }}>
+                <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.92rem", padding: "4px 2px" }}>
                   DISCHARGE BILL - GST EXEMPT
                 </td>
-                <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.82rem", padding: "4px 2px" }}>
+                <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.92rem", padding: "4px 2px" }}>
                   CREDIT BILL (INSURANCE)
                 </td>
               </tr>
@@ -1217,13 +1267,17 @@ const InsuranceClaimSheet = ({
           {renderHeaderDetails()}
 
           <div style={{ marginTop: 10, marginBottom: 12 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem", textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif" }}>
+            <table style={{
+              width: "100%", borderCollapse: "collapse", fontSize: "0.85rem",
+              textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif",
+              tableLayout: "fixed", border: "1.5px solid #000"
+            }}>
               <thead>
-                <tr style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", fontWeight: "bold" }}>
-                  <th style={{ width: "120px", textAlign: "left", padding: "5px 4px" }}>REF / CODE</th>
-                  <th style={{ textAlign: "left", padding: "5px 4px" }}>ITEM DESCRIPTION</th>
-                  <th style={{ width: "180px", textAlign: "left", padding: "5px 4px" }}>DOCTOR</th>
-                  <th style={{ width: "110px", textAlign: "right", padding: "5px 4px" }}>AMOUNT (₹)</th>
+                <tr style={{ background: "#f8fafc" }}>
+                  <th style={{ width: "14%", border: "1px solid #000", textAlign: "left", padding: "5px 6px", fontWeight: "bold" }}>CODE</th>
+                  <th style={{ width: "62%", border: "1px solid #000", textAlign: "left", padding: "5px 8px", fontWeight: "bold" }}>Particulars</th>
+                  <th style={{ width: "8%", border: "1px solid #000", textAlign: "center", padding: "5px 4px", fontWeight: "bold" }}>Qty</th>
+                  <th style={{ width: "16%", border: "1px solid #000", textAlign: "right", padding: "5px 8px", fontWeight: "bold" }}>Rate</th>
                 </tr>
               </thead>
               <tbody>
@@ -1231,44 +1285,46 @@ const InsuranceClaimSheet = ({
                   const nabh = getNabhCode(it);
                   const desc = cleanDesc(it);
                   const showDoctor = isDoctorDisplayItem(it);
-                  const doc = (showDoctor && (it.doctor || it.doctor_name)) ? resolveDocName(it.doctor || it.doctor_name, doctorsMap) : "—";
+                  const doc = (showDoctor && (it.doctor || it.doctor_name)) ? resolveDocName(it.doctor || it.doctor_name, doctorsMap) : "";
+                  const nabhCode = (nabh && nabh !== "-" && nabh !== "—") ? String(nabh).toUpperCase() : "";
+                  const itemName = String(it.itemName || it.name || "SERVICE ITEM").toUpperCase();
+                  const qty = it.quantity || 1;
+
                   return (
-                    <tr key={idx} style={{ borderBottom: "1px dashed #cbd5e1" }}>
-                      <td style={{ padding: "4px 4px", verticalAlign: "top", fontWeight: "bold" }}>{String(nabh).toUpperCase()}</td>
-                      <td style={{ padding: "4px 4px", verticalAlign: "top" }}>
-                        <div style={{ fontWeight: "bold" }}>{String(it.itemName || it.name || "SERVICE ITEM").toUpperCase()}</div>
-                        {desc ? <div style={{ fontSize: "0.70rem", color: "#475569" }}>{String(desc).toUpperCase()}</div> : null}
+                    <tr key={idx}>
+                      <td style={{ border: "1px solid #000", padding: "4px 6px", verticalAlign: "top", fontWeight: nabhCode ? "bold" : "normal" }}>
+                        {nabhCode}
                       </td>
-                      <td style={{ padding: "4px 4px", verticalAlign: "top" }}>{String(doc).toUpperCase()}</td>
-                      <td style={{ padding: "4px 4px", verticalAlign: "top", textAlign: "right", fontWeight: "bold" }}>₹{fmt(it.amount)}</td>
+                      <td style={{ border: "1px solid #000", padding: "4px 8px", verticalAlign: "top", wordBreak: "break-word" }}>
+                        <span style={{ fontWeight: 600 }}>{itemName}</span>
+                        {doc && doc !== "—" ? <span style={{ fontWeight: 600 }}> {String(doc).toUpperCase()}</span> : null}
+                        {desc ? <div style={{ fontSize: "0.75rem", color: "#475569", marginTop: 1 }}>{String(desc).toUpperCase()}</div> : null}
+                      </td>
+                      <td style={{ border: "1px solid #000", padding: "4px 4px", verticalAlign: "top", textAlign: "center" }}>
+                        {qty}
+                      </td>
+                      <td style={{ border: "1px solid #000", padding: "4px 8px", verticalAlign: "top", textAlign: "right", fontWeight: "bold" }}>
+                        {fmt(it.amount)}
+                      </td>
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
 
-            <table style={{
-              width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
-              borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000",
-              marginTop: 10, marginBottom: 8, textTransform: "uppercase",
-              fontFamily: "'Times New Roman', Times, serif"
-            }}>
-              <tbody>
-                <tr>
-                  <td style={{ textAlign: "left", fontWeight: "bold", fontSize: "0.85rem", padding: "6px 4px" }}>
-                    TOTAL AMOUNT
-                  </td>
-                  <td style={{ textAlign: "right", fontWeight: "bold", fontSize: "0.85rem", padding: "6px 4px" }}>
-                    ₹{fmt(insNetAmount)}
+                <tr style={{ fontWeight: "bold", fontSize: "0.95rem", background: "#f1f5f9" }}>
+                  <td style={{ border: "1px solid #000", padding: "6px 6px" }}></td>
+                  <td style={{ border: "1px solid #000", padding: "6px 8px" }}>Total</td>
+                  <td style={{ border: "1px solid #000", padding: "6px 4px" }}></td>
+                  <td style={{ border: "1px solid #000", padding: "6px 8px", textAlign: "right" }}>
+                    {fmt(insNetAmount)}
                   </td>
                 </tr>
               </tbody>
             </table>
 
             <div style={{
-              marginTop: 8, marginBottom: 10, padding: "5px 6px",
+              marginTop: 8, marginBottom: 10, padding: "5px 8px",
               background: "#f8fafc", border: "1px dashed #000",
-              fontSize: "0.78rem", fontWeight: "bold", textTransform: "uppercase",
+              fontSize: "0.85rem", fontWeight: "bold", textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
               RUPEE(S) {numberToWords(insNetAmount).toUpperCase()} ONLY
@@ -1283,8 +1339,8 @@ const InsuranceClaimSheet = ({
           {/* PAGE 1: Overall Summary */}
           <div className="bill-page bill-page-1" style={{
             background: "#fff",
-            padding: "16px 20px",
-            marginBottom: "24px",
+            padding: "12px 18px",
+            marginBottom: "16px",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
             border: "1px solid #e2e8f0",
             pageBreakAfter: "always",
@@ -1295,15 +1351,15 @@ const InsuranceClaimSheet = ({
             <table style={{
               width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
               borderTop: "2px solid #000", borderBottom: "2px solid #000",
-              marginBottom: 8, marginTop: 18, textTransform: "uppercase",
+              marginBottom: 6, marginTop: 10, textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
               <tbody>
                 <tr>
-                  <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.82rem", padding: "4px 2px" }}>
+                  <td style={{ width: "50%", textAlign: "left", fontWeight: "bold", fontSize: "0.92rem", padding: "3px 2px" }}>
                     DISCHARGE BILL - GST EXEMPT
                   </td>
-                  <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.82rem", padding: "4px 2px" }}>
+                  <td style={{ width: "50%", textAlign: "right", fontWeight: "bold", fontSize: "0.92rem", padding: "3px 2px" }}>
                     CREDIT BILL (INSURANCE)
                   </td>
                 </tr>
@@ -1312,29 +1368,29 @@ const InsuranceClaimSheet = ({
 
             {renderHeaderDetails()}
 
-            <div style={{ marginTop: 8, marginBottom: 8 }}>
+            <div style={{ marginTop: 6, marginBottom: 8 }}>
               <div style={{
-                fontWeight: "bold", fontSize: "0.78rem", marginBottom: 4,
+                fontWeight: "bold", fontSize: "0.88rem", marginBottom: 4,
                 textTransform: "uppercase", borderBottom: "1.5px solid #000", paddingBottom: 2,
                 fontFamily: "'Times New Roman', Times, serif"
               }}>
                 HOSPITAL CHARGES (OVERALL SUMMARY)
               </div>
               <table style={{
-                width: "100%", borderCollapse: "collapse", fontSize: "0.76rem",
+                width: "100%", borderCollapse: "collapse", fontSize: "0.86rem",
                 textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif"
               }}>
                 <thead>
                   <tr style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", background: "#f8fafc" }}>
-                    <th style={{ textAlign: "left", padding: "4px 4px" }}>ITEM DESCRIPTION</th>
-                    <th style={{ textAlign: "right", padding: "4px 4px", width: "130px" }}>AMOUNT (₹)</th>
+                    <th style={{ textAlign: "left", padding: "4px 6px" }}>ITEM DESCRIPTION</th>
+                    <th style={{ textAlign: "right", padding: "4px 6px", width: "140px" }}>AMOUNT (₹)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {IP_CATEGORIES.filter(cat => (parseFloat(groupTotals[cat]) || 0) > 0).map((cat, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                      <td style={{ padding: "3.5px 4px", fontWeight: "bold" }}>{cat}</td>
-                      <td style={{ padding: "3.5px 4px", textAlign: "right", fontWeight: "bold" }}>₹{fmt(groupTotals[cat])}</td>
+                      <td style={{ padding: "3px 6px", fontWeight: "bold" }}>{cat}</td>
+                      <td style={{ padding: "3px 6px", textAlign: "right", fontWeight: "bold" }}>₹{fmt(groupTotals[cat])}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1342,25 +1398,25 @@ const InsuranceClaimSheet = ({
 
               <div style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", marginTop: 6, padding: "4px 0" }}>
                 <table style={{
-                  width: "100%", borderCollapse: "collapse", fontSize: "0.78rem",
+                  width: "100%", borderCollapse: "collapse", fontSize: "0.88rem",
                   textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif"
                 }}>
                   <tbody>
                     <tr>
-                      <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>TOTAL HOSPITAL CHARGES :</td>
-                      <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>₹{fmt(bill.total_amount)}</td>
+                      <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: "bold" }}>TOTAL HOSPITAL CHARGES :</td>
+                      <td style={{ width: "140px", textAlign: "right", padding: "2px 6px", fontWeight: "bold" }}>₹{fmt(bill.total_amount)}</td>
                     </tr>
                     {parseFloat(bill.discount_amount) > 0 && (
                       <tr style={{ color: "#b91c1c" }}>
-                        <td style={{ textAlign: "right", padding: "1.5px 6px", fontWeight: "bold" }}>LESS: DISCOUNT :</td>
-                        <td style={{ width: "130px", textAlign: "right", padding: "1.5px 4px", fontWeight: "bold" }}>-₹{fmt(bill.discount_amount)}</td>
+                        <td style={{ textAlign: "right", padding: "2px 8px", fontWeight: "bold" }}>LESS: DISCOUNT :</td>
+                        <td style={{ width: "140px", textAlign: "right", padding: "2px 6px", fontWeight: "bold" }}>-₹{fmt(bill.discount_amount)}</td>
                       </tr>
                     )}
                     <tr>
-                      <td style={{ textAlign: "right", padding: "4px 6px 1px", fontWeight: "bold", fontSize: "0.86rem", borderTop: "1px dashed #000" }}>
+                      <td style={{ textAlign: "right", padding: "4px 8px 2px", fontWeight: "bold", fontSize: "0.98rem", borderTop: "1px dashed #000" }}>
                         GRAND TOTAL / NET AMOUNT :
                       </td>
-                      <td style={{ width: "130px", textAlign: "right", padding: "4px 4px 1px", fontWeight: "bold", fontSize: "0.86rem", borderTop: "1px dashed #000" }}>
+                      <td style={{ width: "140px", textAlign: "right", padding: "4px 6px 2px", fontWeight: "bold", fontSize: "0.98rem", borderTop: "1px dashed #000" }}>
                         ₹{fmt(insNetAmount)}
                       </td>
                     </tr>
@@ -1369,9 +1425,9 @@ const InsuranceClaimSheet = ({
               </div>
 
               <div style={{
-                marginTop: 6, marginBottom: 8, padding: "4px 6px",
+                marginTop: 6, marginBottom: 8, padding: "4px 8px",
                 background: "#f8fafc", border: "1px dashed #000",
-                fontSize: "0.76rem", fontWeight: "bold", textTransform: "uppercase",
+                fontSize: "0.85rem", fontWeight: "bold", textTransform: "uppercase",
                 fontFamily: "'Times New Roman', Times, serif"
               }}>
                 RUPEE(S) {numberToWords(insNetAmount).toUpperCase()} ONLY
@@ -1384,7 +1440,7 @@ const InsuranceClaimSheet = ({
           {/* PAGE 2: Itemized Breakdown */}
           <div className="bill-page bill-page-2 page-break" style={{
             background: "#fff",
-            padding: "16px 20px",
+            padding: "12px 18px",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
             border: "1px solid #e2e8f0",
             pageBreakBefore: "always",
@@ -1392,121 +1448,160 @@ const InsuranceClaimSheet = ({
           }}>
             {renderHeaderBlock()}
 
+            <div style={{
+              textAlign: "center", fontWeight: "bold", fontSize: "1.05rem",
+              textDecoration: "underline", margin: "6px 0 10px",
+              textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif"
+            }}>
+              DISCHARGE BILL
+            </div>
+
             <table style={{
               width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
-              borderTop: "2px solid #000", borderBottom: "2px solid #000",
-              marginBottom: 8, marginTop: 18, textTransform: "uppercase",
+              borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000",
+              marginBottom: 10, textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
               <tbody>
                 <tr>
-                  <td style={{ width: "45%", textAlign: "left", fontWeight: "bold", fontSize: "0.82rem", padding: "3px 2px" }}>
-                    DISCHARGE BILL - DETAILED BREAKDOWN
+                  <td style={{ width: "45%", textAlign: "left", fontWeight: "bold", fontSize: "0.88rem", padding: "3px 2px" }}>
+                    DETAILED BREAKDOWN
                   </td>
-                  <td style={{ width: "55%", textAlign: "right", fontWeight: "bold", fontSize: "0.76rem", padding: "3px 2px" }}>
+                  <td style={{ width: "55%", textAlign: "right", fontWeight: "bold", fontSize: "0.85rem", padding: "3px 2px" }}>
                     BILL NO: {String(bill.insurance_bill_number || bill.bill_no || bill.estimate_number || "—").toUpperCase()} | UHID: {String(bill.uhid || pd.uhid || "—").toUpperCase()}
                   </td>
                 </tr>
               </tbody>
             </table>
 
+            {/* Continuous Boxed Table with Solid Lines Between Every Item */}
             <table style={{
-              width: "100%", borderCollapse: "collapse", fontSize: "0.76rem",
+              width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
+              border: "1.5px solid #000", fontSize: "0.85rem",
               textTransform: "uppercase", fontFamily: "'Times New Roman', Times, serif",
-              tableLayout: "fixed", marginBottom: 3
+              marginBottom: 10
             }}>
               <thead>
-                <tr style={{ borderTop: "2px solid #000", borderBottom: "2px solid #000", background: "#f8fafc" }}>
-                  <th style={{ width: "5%", textAlign: "left", padding: "5px 3px" }}>SL</th>
-                  <th style={{ width: "15%", textAlign: "left", padding: "5px 4px" }}>REF / CODE</th>
-                  <th style={{ width: "38%", textAlign: "left", padding: "5px 4px" }}>ITEM DESCRIPTION</th>
-                  <th style={{ width: "22%", textAlign: "left", padding: "5px 4px" }}>DOCTOR</th>
-                  <th style={{ width: "6%", textAlign: "right", padding: "5px 3px" }}>QTY</th>
-                  <th style={{ width: "14%", textAlign: "right", padding: "5px 4px" }}>AMOUNT (₹)</th>
+                <tr style={{ background: "#f8fafc" }}>
+                  <th style={{ width: "14%", border: "1px solid #000", textAlign: "left", padding: "5px 6px", fontWeight: "bold", fontSize: "0.88rem" }}>CODE</th>
+                  <th style={{ width: "62%", border: "1px solid #000", textAlign: "left", padding: "5px 8px", fontWeight: "bold", fontSize: "0.88rem" }}>Particulars</th>
+                  <th style={{ width: "8%", border: "1px solid #000", textAlign: "center", padding: "5px 4px", fontWeight: "bold", fontSize: "0.88rem" }}>Qty</th>
+                  <th style={{ width: "16%", border: "1px solid #000", textAlign: "right", padding: "5px 8px", fontWeight: "bold", fontSize: "0.88rem" }}>Rate</th>
                 </tr>
               </thead>
-            </table>
+              <tbody>
+                {IP_CATEGORIES.map((groupTitle, gIdx) => {
+                  const gItems = groups[groupTitle];
+                  if (!gItems || gItems.length === 0) return null;
+                  if (!(parseFloat(groupTotals[groupTitle]) > 0)) return null;
 
-            {IP_CATEGORIES.map((groupTitle, gIdx) => {
-              const gItems = groups[groupTitle];
-              if (!gItems || gItems.length === 0) return null;
-              if (!(parseFloat(groupTotals[groupTitle]) > 0)) return null;
+                  return (
+                    <React.Fragment key={gIdx}>
+                      {/* Category Header Row */}
+                      <tr style={{ background: "#f1f5f9" }}>
+                        <td
+                          colSpan={4}
+                          style={{
+                            border: "1px solid #000",
+                            padding: "5px 8px",
+                            fontWeight: "bold",
+                            fontSize: "0.88rem",
+                            letterSpacing: "0.3px",
+                          }}
+                        >
+                          {groupTitle}
+                        </td>
+                      </tr>
 
-              return (
-                <div key={gIdx} style={{ marginTop: 8, marginBottom: 10 }}>
-                  <div style={{
-                    background: "#f1f5f9", padding: "4px 6px", fontSize: "0.75rem",
-                    fontWeight: "bold", borderLeft: "3px solid #000",
-                    marginBottom: 3, textTransform: "uppercase",
-                    fontFamily: "'Times New Roman', Times, serif"
-                  }}>
-                    {groupTitle}
-                  </div>
-
-                  <table style={{
-                    width: "100%", borderCollapse: "collapse", fontSize: "0.75rem",
-                    tableLayout: "fixed", textTransform: "uppercase",
-                    fontFamily: "'Times New Roman', Times, serif"
-                  }}>
-                    <tbody>
+                      {/* Category Items with Solid Borders Between Each Item */}
                       {gItems.map((it, idx) => {
                         const nabh = getNabhCode(it);
                         const desc = cleanDesc(it);
                         const showDoctor = isDoctorDisplayItem(it);
-                        const doc = (showDoctor && (it.doctor || it.doctor_name)) ? resolveDocName(it.doctor || it.doctor_name, doctorsMap) : "—";
+                        const doc = (showDoctor && (it.doctor || it.doctor_name)) ? resolveDocName(it.doctor || it.doctor_name, doctorsMap) : "";
                         const qty = it.quantity || 1;
+                        const itemName = String(it.itemName || it.name || "SERVICE ITEM").toUpperCase();
+                        const nabhCode = (nabh && nabh !== "-" && nabh !== "—") ? String(nabh).toUpperCase() : "";
+
                         return (
-                          <tr key={idx} style={{ borderBottom: "1px dashed #cbd5e1" }}>
-                            <td style={{ width: "5%", padding: "3px 3px", verticalAlign: "top" }}>{idx + 1}</td>
-                            <td style={{ width: "15%", padding: "3px 4px", verticalAlign: "top", fontWeight: "bold" }}>
-                              {String(nabh).toUpperCase()}
+                          <tr key={idx}>
+                            <td style={{
+                              border: "1px solid #000",
+                              padding: "4px 6px",
+                              verticalAlign: "top",
+                              fontWeight: nabhCode ? "bold" : "normal",
+                              fontSize: "0.84rem"
+                            }}>
+                              {nabhCode}
                             </td>
-                            <td style={{ width: "38%", padding: "3px 4px", verticalAlign: "top", wordBreak: "break-word" }}>
-                              <span style={{ fontWeight: "bold" }}>{String(it.itemName || it.name || "SERVICE ITEM").toUpperCase()}</span>
-                              {desc ? <div style={{ fontSize: "0.68rem", color: "#555" }}>{String(desc).toUpperCase()}</div> : null}
+                            <td style={{
+                              border: "1px solid #000",
+                              padding: "4px 8px",
+                              verticalAlign: "top",
+                              wordBreak: "break-word",
+                              fontSize: "0.85rem"
+                            }}>
+                              <span style={{ fontWeight: 600 }}>{itemName}</span>
+                              {doc && doc !== "—" ? (
+                                <span style={{ fontWeight: 600, color: "#111" }}> {String(doc).toUpperCase()}</span>
+                              ) : null}
+                              {desc ? (
+                                <div style={{ fontSize: "0.75rem", color: "#475569", marginTop: 1 }}>{String(desc).toUpperCase()}</div>
+                              ) : null}
                             </td>
-                            <td style={{ width: "22%", padding: "3px 4px", verticalAlign: "top", wordBreak: "break-word" }}>
-                              {String(doc).toUpperCase()}
-                            </td>
-                            <td style={{ width: "6%", padding: "3px 3px", textAlign: "right", verticalAlign: "top" }}>
+                            <td style={{
+                              border: "1px solid #000",
+                              padding: "4px 4px",
+                              verticalAlign: "top",
+                              textAlign: "center",
+                              fontSize: "0.85rem",
+                              fontWeight: 500
+                            }}>
                               {qty}
                             </td>
-                            <td style={{ width: "14%", padding: "3px 4px", textAlign: "right", verticalAlign: "top", fontWeight: "bold" }}>
-                              ₹{fmt(it.amount)}
+                            <td style={{
+                              border: "1px solid #000",
+                              padding: "4px 8px",
+                              verticalAlign: "top",
+                              textAlign: "right",
+                              fontWeight: "bold",
+                              fontSize: "0.85rem"
+                            }}>
+                              {fmt(it.amount)}
                             </td>
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
 
-                  <div style={{
-                    display: "flex", justifyContent: "flex-end", gap: 14,
-                    padding: "3px 6px", fontSize: "0.73rem", fontWeight: "bold",
-                    background: "#f8fafc", textTransform: "uppercase",
-                    fontFamily: "'Times New Roman', Times, serif"
-                  }}>
-                    <span>CATEGORY SUBTOTAL:</span>
-                    <span>₹{fmt(groupTotals[groupTitle])}</span>
-                  </div>
-                </div>
-              );
-            })}
+                      {/* Category Subtotal Row */}
+                      <tr style={{ background: "#f8fafc", fontWeight: "bold", fontSize: "0.86rem" }}>
+                        <td style={{ border: "1px solid #000", padding: "4px 6px" }}></td>
+                        <td style={{ border: "1px solid #000", padding: "4px 8px" }}></td>
+                        <td style={{ border: "1px solid #000", padding: "4px 4px" }}></td>
+                        <td style={{ border: "1px solid #000", padding: "4px 8px", textAlign: "right" }}>
+                          {fmt(groupTotals[groupTitle])}
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
+
+                {/* Final Total Row */}
+                <tr style={{ fontWeight: "bold", fontSize: "0.95rem", background: "#f1f5f9" }}>
+                  <td style={{ border: "1px solid #000", padding: "6px 6px" }}></td>
+                  <td style={{ border: "1px solid #000", padding: "6px 8px", fontWeight: "bold" }}>Total</td>
+                  <td style={{ border: "1px solid #000", padding: "6px 4px" }}></td>
+                  <td style={{ border: "1px solid #000", padding: "6px 8px", textAlign: "right", fontWeight: "bold" }}>
+                    {fmt(bill.total_amount)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
             <div style={{
-              borderTop: "2px solid #000", borderBottom: "2px solid #000",
-              padding: "6px 4px", marginTop: 10, display: "flex", justifyContent: "space-between",
-              fontWeight: "bold", fontSize: "0.88rem", textTransform: "uppercase",
-              fontFamily: "'Times New Roman', Times, serif"
-            }}>
-              <span>TOTAL ITEMS AMOUNT</span>
-              <span>₹{fmt(bill.total_amount)}</span>
-            </div>
-
-            <div style={{
-              marginTop: 8, marginBottom: 10, padding: "4px 6px",
+              marginTop: 8, marginBottom: 10, padding: "5px 8px",
               background: "#f8fafc", border: "1px dashed #000",
-              fontSize: "0.76rem", fontWeight: "bold", textTransform: "uppercase",
+              fontSize: "0.85rem", fontWeight: "bold", textTransform: "uppercase",
               fontFamily: "'Times New Roman', Times, serif"
             }}>
               RUPEE(S) {numberToWords(bill.total_amount || bill.net_amount).toUpperCase()} ONLY
@@ -1689,22 +1784,52 @@ export const PrintSheet = React.forwardRef(({
 const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NORMAL", doctors = [] }) => {
   const printRef = useRef(null);
 
-  // Is this an insurance bill (i.e. Convert to Insurance Bill was clicked)?
-  const isInsurance = Boolean(bill?.is_insurance_bill || bill?.insurance_bill_number);
+  // Customer Type strictly determines if Insurance bill layout applies
+  const custTypeStr = String(bill?.customer_type || bill?.patient_details?.customer_type || bill?.patient_details?.patient_type || "").toUpperCase();
+  const isCustTypeInsurance = custTypeStr.includes("INSURANCE");
+
+  // Is this an insurance bill (i.e. Insurance patient bill)?
+  const isInsuranceBill = Boolean(
+    isCustTypeInsurance && (
+      bill?.is_insurance_bill ||
+      bill?.insurance_bill_number ||
+      defaultViewMode === "INSURANCE_CLAIM" ||
+      defaultViewMode === "INSURANCE_BREAKDOWN"
+    )
+  );
 
   // View mode: "NORMAL" (Summary reference bill) vs "BREAKDOWN" (Itemized medicines) vs "INSURANCE_CLAIM" (NABH multi-category format)
-  const [viewMode, setViewMode] = useState(defaultViewMode || "NORMAL");
-  const [paperSize, setPaperSize] = useState((defaultViewMode === "INSURANCE_CLAIM") ? "A4" : "A5");
+  const [viewMode, setViewMode] = useState(
+    isInsuranceBill
+      ? (defaultViewMode === "INSURANCE_BREAKDOWN" ? "INSURANCE_BREAKDOWN" : "INSURANCE_CLAIM")
+      : (defaultViewMode === "INSURANCE_CLAIM" || defaultViewMode === "INSURANCE_BREAKDOWN" ? "NORMAL" : (defaultViewMode || "NORMAL"))
+  );
+
+  const isInsurance = isInsuranceBill || (isCustTypeInsurance && (viewMode === "INSURANCE_CLAIM" || viewMode === "INSURANCE_BREAKDOWN"));
+  const [paperSize, setPaperSize] = useState(isInsurance ? "A4" : "A5");
   const [loadedMeds, setLoadedMeds] = useState([]);
 
   useEffect(() => {
     if (defaultViewMode) {
-      setViewMode(defaultViewMode);
-      const isIns = defaultViewMode === "INSURANCE_CLAIM";
-      setPaperSize(isIns ? "A4" : "A5");
-      setHeaderSpacerHeight(isIns ? 200 : 140);
+      const isIns = Boolean(
+        isCustTypeInsurance && (
+          defaultViewMode === "INSURANCE_CLAIM" ||
+          defaultViewMode === "INSURANCE_BREAKDOWN" ||
+          bill?.is_insurance_bill ||
+          bill?.insurance_bill_number
+        )
+      );
+      if (isIns) {
+        setViewMode(defaultViewMode === "INSURANCE_BREAKDOWN" ? "INSURANCE_BREAKDOWN" : "INSURANCE_CLAIM");
+        setPaperSize("A4");
+        setHeaderSpacerHeight(200);
+      } else {
+        setViewMode(defaultViewMode === "INSURANCE_CLAIM" || defaultViewMode === "INSURANCE_BREAKDOWN" ? "NORMAL" : defaultViewMode);
+        setPaperSize("A5");
+        setHeaderSpacerHeight(140);
+      }
     }
-  }, [defaultViewMode]);
+  }, [defaultViewMode, bill, isCustTypeInsurance]);
 
   const handleSelectViewMode = (mode) => {
     setViewMode(mode);
@@ -2005,41 +2130,92 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
   };
 
   const handleDownloadWord = () => {
-    if (!printRef.current) return;
-    let bodyHtml = printRef.current.innerHTML;
+    if (!printRef.current || !bill) return;
+    const isA5 = paperSize === "A5";
 
+    // Clone node so we can safely clean styles specifically for MS Word
+    const clone = printRef.current.cloneNode(true);
+
+    // Remove no-print elements
+    clone.querySelectorAll(".no-print").forEach(el => el.remove());
+
+    // Clean up bill-page styles (remove borders and shadows) and insert explicit Word page breaks
+    const pages = Array.from(clone.querySelectorAll(".bill-page"));
+    pages.forEach((page, idx) => {
+      page.style.boxShadow = "none";
+      page.style.border = "none";
+      page.style.margin = "0";
+      page.style.padding = isA5 ? "6px 8px" : "10px 14px";
+      page.style.background = "#ffffff";
+      page.style.width = "100%";
+
+      // For every page after the first, insert an explicit Word hard page break before it
+      if (idx > 0) {
+        const pBreak = document.createElement("p");
+        pBreak.className = "MsoNormal";
+        pBreak.setAttribute("style", "page-break-before:always; mso-break-type:section-break; margin:0; padding:0; line-height:0; font-size:1pt;");
+        pBreak.innerHTML = '<span lang="EN-US" style="display:none; mso-special-character:line-break; page-break-before:always">&nbsp;</span><br clear="all" style="page-break-before:always; mso-break-type:section-break" />';
+        page.parentNode.insertBefore(pBreak, page);
+      }
+    });
+
+    // Also check any elements with class .page-break or .bill-page-2 that might not be in the direct list
+    clone.querySelectorAll(".page-break, .bill-page-2").forEach(el => {
+      if (el.previousElementSibling && !el.previousElementSibling.classList.contains("MsoNormal")) {
+        const pBreak = document.createElement("p");
+        pBreak.className = "MsoNormal";
+        pBreak.setAttribute("style", "page-break-before:always; mso-break-type:section-break; margin:0; padding:0; line-height:0; font-size:1pt;");
+        pBreak.innerHTML = '<span lang="EN-US" style="display:none; mso-special-character:line-break; page-break-before:always">&nbsp;</span><br clear="all" style="page-break-before:always; mso-break-type:section-break" />';
+        el.parentNode.insertBefore(pBreak, el);
+      }
+    });
+
+    // Process images: ensure small logos are NOT stretched to 580px
     const imgEls = printRef.current.querySelectorAll("img");
-    imgEls.forEach(imgEl => {
-      if (imgEl && imgEl.src) {
+    const cloneImgEls = clone.querySelectorAll("img");
+    cloneImgEls.forEach((imgEl, idx) => {
+      const liveImg = imgEls[idx] || imgEl;
+      if (liveImg && liveImg.src) {
         try {
+          const isLogo = (liveImg.alt && liveImg.alt.toLowerCase().includes("logo")) ||
+                         (liveImg.src && liveImg.src.toLowerCase().includes("logo")) ||
+                         (liveImg.width > 0 && liveImg.width <= 120);
+
+          const origW = liveImg.naturalWidth || liveImg.width || (isLogo ? 50 : 580);
+          const origH = liveImg.naturalHeight || liveImg.height || (isLogo ? 50 : 65);
+
+          const targetW = isLogo ? (isA5 ? 44 : 50) : (isA5 ? 420 : 580);
+          const targetH = isLogo ? (isA5 ? 44 : 50) : Math.max(25, Math.round((origH / origW) * targetW));
+
           const canvas = document.createElement("canvas");
-          const origW = imgEl.naturalWidth || imgEl.width || 580;
-          const origH = imgEl.naturalHeight || imgEl.height || 65;
-          const targetW = 580;
-          const targetH = Math.max(30, Math.round((origH / origW) * targetW));
-          canvas.width = targetW;
-          canvas.height = targetH;
+          canvas.width = origW;
+          canvas.height = origH;
           const ctx = canvas.getContext("2d");
-          ctx.drawImage(imgEl, 0, 0, targetW, targetH);
+          ctx.drawImage(liveImg, 0, 0, origW, origH);
           const dataUrl = canvas.toDataURL("image/png");
-          bodyHtml = bodyHtml.replace(
-            imgEl.outerHTML,
-            `<img src="${dataUrl}" width="${targetW}" height="${targetH}" style="width:${targetW}px;height:${targetH}px;display:block;margin:0 auto;" />`
-          );
+
+          imgEl.setAttribute("src", dataUrl);
+          imgEl.setAttribute("width", String(targetW));
+          imgEl.setAttribute("height", String(targetH));
+          imgEl.style.width = `${targetW}px`;
+          imgEl.style.height = `${targetH}px`;
+          imgEl.style.maxWidth = `${targetW}px`;
+          imgEl.style.display = "block";
+          imgEl.style.margin = isLogo ? "0" : "0 auto";
         } catch {
-          if (imgEl.src.startsWith("/")) {
-            bodyHtml = bodyHtml.replace(imgEl.src, `${window.location.origin}${imgEl.src}`);
+          if (imgEl.src && imgEl.src.startsWith("/")) {
+            imgEl.src = `${window.location.origin}${imgEl.src}`;
           }
         }
       }
     });
 
+    let bodyHtml = clone.innerHTML;
     bodyHtml = bodyHtml.replace(/class="print-area"[^>]*style="[^"]*"/i, 'class="print-area" style="width:100%;margin:0;padding:0;"');
 
-    const isA5 = paperSize === "A5";
     const pageSizeCss = isA5
-      ? "size: 419.55pt 595.35pt;\n      margin: 14.2pt 18pt 14.2pt 18pt;"
-      : "size: 595.35pt 841.95pt;\n      margin: 22.7pt 28.35pt 22.7pt 28.35pt;";
+      ? "size: 419.55pt 595.35pt;\n      margin: 12pt 16pt 12pt 16pt;"
+      : "size: 595.35pt 841.95pt;\n      margin: 18pt 22pt 18pt 22pt;";
 
     const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head>
@@ -2057,18 +2233,20 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
   <style>
     @page Section1 {
       ${pageSizeCss}
-      mso-header-margin: 15pt;
-      mso-footer-margin: 15pt;
+      mso-header-margin: 10pt;
+      mso-footer-margin: 10pt;
       mso-paper-source: 0;
     }
     div.Section1 { page: Section1; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: ${isA5 ? "7.5pt" : "8.5pt"}; color: #000; margin: 0; padding: 0; }
-    table { width: 100% !important; max-width: 100% !important; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; }
-    td, th { font-family: Arial, Helvetica, sans-serif; font-size: ${isA5 ? "6.8pt" : "7.5pt"}; padding: 2px; }
+    body { font-family: 'Times New Roman', Times, serif; font-size: ${isA5 ? "7.5pt" : "8.5pt"}; color: #000; margin: 0; padding: 0; }
+    table { width: 100% !important; max-width: 100% !important; border-collapse: collapse; font-family: 'Times New Roman', Times, serif; }
+    td, th { font-family: 'Times New Roman', Times, serif; font-size: ${isA5 ? "6.8pt" : "7.5pt"}; padding: 2px; }
     img { max-width: 100%; }
     .no-print { display: none; }
-    .bill-page-1 { page-break-after: always; mso-break-type: page-break; }
-    .bill-page-2, .page-break { page-break-before: always; mso-break-type: page-break; }
+    .bill-page { width: 100% !important; margin: 0 !important; }
+    .bill-page-1 { page-break-after: always; mso-break-type: section-break; }
+    .bill-page-2, .page-break { page-break-before: always; mso-break-type: section-break; }
+    br.page-break { page-break-before: always; mso-break-type: section-break; }
   </style>
 </head>
 <body>
@@ -2082,37 +2260,119 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Bill_${bill.insurance_bill_number || bill.bill_no || "DischargeBill"}.doc`;
+    a.download = `Bill_${(bill.insurance_bill_number || bill.bill_no || "DischargeBill").replace(/\//g, "_")}.doc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!printRef.current || !bill) return;
-    const element = printRef.current;
     const isA5 = paperSize === "A5";
-    const opt = {
-      margin: isA5 ? [0.12, 0.15, 0.12, 0.15] : [0.2, 0.25, 0.2, 0.25],
-      filename: `Bill_${(bill.insurance_bill_number || bill.bill_no || "DischargeBill").replace(/\//g, "_")}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: 'in', format: isA5 ? 'a5' : 'a4', orientation: 'portrait' }
-    };
-    if (window.html2pdf) {
-      window.html2pdf().set(opt).from(element).save();
-    } else {
-      const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-      script.onload = () => {
-        if (window.html2pdf) {
-          window.html2pdf().set(opt).from(element).save();
+    const fileName = `Bill_${(bill.insurance_bill_number || bill.bill_no || "DischargeBill").replace(/\//g, "_")}.pdf`;
+
+    try {
+      const pageElements = printRef.current.querySelectorAll(".bill-page");
+      const elementsToPrint = pageElements.length > 0 ? Array.from(pageElements) : [printRef.current];
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: isA5 ? "a5" : "a4"
+      });
+
+      const pdfWidth = isA5 ? 148 : 210;
+      const pdfHeight = isA5 ? 210 : 297;
+      const margin = isA5 ? 4 : 6;
+      const printableWidth = pdfWidth - (margin * 2);
+      const printableHeight = pdfHeight - (margin * 2);
+
+      let isFirstPdfPage = true;
+
+      for (let i = 0; i < elementsToPrint.length; i++) {
+        const el = elementsToPrint[i];
+
+        // Temporarily clear box shadow and borders for crisp clean PDF page capture
+        const origBoxShadow = el.style.boxShadow;
+        const origBorder = el.style.border;
+        el.style.boxShadow = "none";
+        el.style.border = "none";
+
+        const canvas = await html2canvas(el, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#ffffff"
+        });
+
+        el.style.boxShadow = origBoxShadow;
+        el.style.border = origBorder;
+
+        const totalTargetHeight = (canvas.height * printableWidth) / canvas.width;
+
+        // If the element fits on a single PDF page (e.g. Page 1 or compact Page 2)
+        if (totalTargetHeight <= printableHeight + 2) {
+          if (!isFirstPdfPage) {
+            pdf.addPage(isA5 ? "a5" : "a4", "portrait");
+          }
+          isFirstPdfPage = false;
+          pdf.addImage(
+            canvas.toDataURL("image/jpeg", 0.98),
+            "JPEG",
+            margin,
+            margin,
+            printableWidth,
+            Math.min(totalTargetHeight, printableHeight)
+          );
         } else {
-          triggerPrint();
+          // If the element is longer than 1 page (e.g. Page 2 with dozens of items),
+          // slice canvas across pages so nothing is ever clipped or cut off
+          const pageCanvasHeight = Math.floor((printableHeight * canvas.width) / printableWidth);
+          let heightLeft = canvas.height;
+          let sY = 0;
+
+          while (heightLeft > 0) {
+            const currentChunkHeight = Math.min(heightLeft, pageCanvasHeight);
+
+            const pageCanvas = document.createElement("canvas");
+            pageCanvas.width = canvas.width;
+            pageCanvas.height = currentChunkHeight;
+            const ctx = pageCanvas.getContext("2d");
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+            ctx.drawImage(
+              canvas,
+              0, sY, canvas.width, currentChunkHeight,
+              0, 0, canvas.width, currentChunkHeight
+            );
+
+            const chunkTargetHeight = (currentChunkHeight * printableWidth) / canvas.width;
+
+            if (!isFirstPdfPage) {
+              pdf.addPage(isA5 ? "a5" : "a4", "portrait");
+            }
+            isFirstPdfPage = false;
+
+            pdf.addImage(
+              pageCanvas.toDataURL("image/jpeg", 0.98),
+              "JPEG",
+              margin,
+              margin,
+              printableWidth,
+              chunkTargetHeight
+            );
+
+            sY += currentChunkHeight;
+            heightLeft -= currentChunkHeight;
+          }
         }
-      };
-      document.body.appendChild(script);
+      }
+
+      pdf.save(fileName);
+    } catch (err) {
+      console.error("html2canvas/jsPDF error, falling back to print:", err);
+      triggerPrint();
     }
   };
 
@@ -2125,31 +2385,15 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
           </ModalTitle>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
 
-            {/* ── View Mode Switcher: STANDARD vs BREAKDOWN vs INSURANCE ── */}
+            {/* ── View Mode Switcher: For Insurance, only INSURANCE and INS. BREAKDOWN are shown (no Standard / Breakdown) ── */}
             <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
-              <HeadBtn
-                type="button"
-                $active={viewMode === "NORMAL"}
-                onClick={() => handleSelectViewMode("NORMAL")}
-                title="Standard Bill (summary medicine charges) - A5 format"
-              >
-                🖨️ STANDARD
-              </HeadBtn>
-              <HeadBtn
-                type="button"
-                $active={viewMode === "BREAKDOWN"}
-                onClick={() => handleSelectViewMode("BREAKDOWN")}
-                title="Breakdown Bill (all medicines itemized) - A5 format"
-              >
-                📑 BREAKDOWN
-              </HeadBtn>
-              {(isInsurance || bill.is_insurance_bill || bill.insurance_bill_number) && (
+              {isInsurance ? (
                 <>
                   <HeadBtn
                     type="button"
                     $active={viewMode === "INSURANCE_CLAIM"}
                     onClick={() => handleSelectViewMode("INSURANCE_CLAIM")}
-                    title="NABH Insurance Claim Format - consolidated medicine row - A4 format"
+                    title="Insurance Summary - A4 format"
                   >
                     🛡️ INSURANCE
                   </HeadBtn>
@@ -2157,33 +2401,54 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
                     type="button"
                     $active={viewMode === "INSURANCE_BREAKDOWN"}
                     onClick={() => handleSelectViewMode("INSURANCE_BREAKDOWN")}
-                    title="NABH Insurance Claim Format with itemised medicine breakdown - A4 format"
+                    title="Insurance Detailed Breakdown - A4 format"
                   >
                     📋 INS. BREAKDOWN
+                  </HeadBtn>
+                </>
+              ) : (
+                <>
+                  <HeadBtn
+                    type="button"
+                    $active={viewMode === "NORMAL"}
+                    onClick={() => handleSelectViewMode("NORMAL")}
+                    title="Standard Bill (summary medicine charges) - A5 format"
+                  >
+                    🖨️ STANDARD
+                  </HeadBtn>
+                  <HeadBtn
+                    type="button"
+                    $active={viewMode === "BREAKDOWN"}
+                    onClick={() => handleSelectViewMode("BREAKDOWN")}
+                    title="Breakdown Bill (all medicines itemized) - A5 format"
+                  >
+                    📑 BREAKDOWN
                   </HeadBtn>
                 </>
               )}
             </div>
 
-            {/* ── Paper Size Toggle: A5 vs A4 ── */}
-            <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
-              <HeadBtn
-                type="button"
-                $active={paperSize === "A5"}
-                onClick={() => setPaperSize("A5")}
-                title="A5 Paper Size (148mm × 210mm) - Compact Hospital Invoice"
-              >
-                📄 A5
-              </HeadBtn>
-              <HeadBtn
-                type="button"
-                $active={paperSize === "A4"}
-                onClick={() => setPaperSize("A4")}
-                title="A4 Paper Size (210mm × 297mm) - Full Page Sheet"
-              >
-                📄 A4
-              </HeadBtn>
-            </div>
+            {/* ── Paper Size Toggle: A5 vs A4 (Hidden for insurance bills as insurance strictly uses A4) ── */}
+            {!isInsurance && (
+              <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
+                <HeadBtn
+                  type="button"
+                  $active={paperSize === "A5"}
+                  onClick={() => setPaperSize("A5")}
+                  title="A5 Paper Size (148mm × 210mm) - Compact Hospital Invoice"
+                >
+                  📄 A5
+                </HeadBtn>
+                <HeadBtn
+                  type="button"
+                  $active={paperSize === "A4"}
+                  onClick={() => setPaperSize("A4")}
+                  title="A4 Paper Size (210mm × 297mm) - Full Page Sheet"
+                >
+                  📄 A4
+                </HeadBtn>
+              </div>
+            )}
 
             {/* ── Header toggle (available across ALL view modes: Standard, Breakdown, Insurance) ── */}
             <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: 2, borderRadius: 6 }}>
