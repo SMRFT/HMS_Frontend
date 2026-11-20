@@ -1690,7 +1690,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       const updated = selectedMedicines.map((m) => ({
         item_id: m.item_id,
         batch_number: m.batch_number,
-        quantity: m.qty,
+        qty: m.qty,
         dispatched_qty: m.dispatched_qty !== undefined ? m.dispatched_qty : null,
         dosage: m.dosage,
         is_deleted: false,
@@ -1702,7 +1702,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
         .map((m) => ({
           item_id: m.item_id,
           batch_number: m.batch_number || "",
-          quantity: m.quantity,
+          qty: m.qty || m.quantity || 0,
           dosage: m.dosage,
           is_deleted: true,
         }));

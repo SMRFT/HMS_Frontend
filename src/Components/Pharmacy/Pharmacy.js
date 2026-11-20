@@ -760,37 +760,29 @@ const StyledToastContainer = styled(ToastContainer)`
 // ── Helper to Paginate Medicines for Print Layout (A5 Landscape) ──
 const chunkMedicinesForPrint = (items) => {
   const list = items || [];
-  // If 7 or fewer, fits comfortably on a single A5 landscape page along with header, totals & footer
-  if (list.length <= 7) {
+  // If 13 or fewer, fits on a single A5 landscape page with header, table, totals & footer
+  if (list.length <= 13) {
     return [list];
   }
 
   const pages = [];
   let remaining = [...list];
 
-  // First page has the full header, can take up to 7 items comfortably
-  let firstTake = 7;
-  if (list.length <= 14) {
-    firstTake = Math.ceil(list.length / 2);
-  }
+  // First page has the full header but NO totals/footer; fills all the way to bottom (up to 16 items)
+  const firstTake = Math.min(16, list.length - 1);
   pages.push(remaining.slice(0, firstTake));
   remaining = remaining.slice(firstTake);
 
   while (remaining.length > 0) {
-    // Subsequent pages have NO big header, so final page with totals & footer can hold up to 10 items
-    if (remaining.length <= 10) {
+    // Final page has no big header; with totals & footer it can hold up to 14 items
+    if (remaining.length <= 14) {
       pages.push(remaining);
       break;
     }
-    if (remaining.length <= 20) {
-      const take = Math.ceil(remaining.length / 2);
-      pages.push(remaining.slice(0, take));
-      remaining = remaining.slice(take);
-    } else {
-      const take = 12;
-      pages.push(remaining.slice(0, take));
-      remaining = remaining.slice(take);
-    }
+    // Intermediate page has neither big header nor totals/footer; can hold up to 18 items
+    const take = Math.min(18, remaining.length - 1);
+    pages.push(remaining.slice(0, take));
+    remaining = remaining.slice(take);
   }
 
   return pages;
@@ -1103,18 +1095,18 @@ const buildPrintBillHtml = (data) => {
 
     return `
       <tr>
-        <td style="font-weight: 500; text-align: left; padding: 2.5px 4px; max-width: 170px; word-break: break-word; line-height: 1.25;">${m.name || m.item_name || "—"}</td>
-        <td style="text-align: center; padding: 2.5px 3px; white-space: nowrap;">${m.hsn_code || "—"}</td>
-        <td style="text-align: center; padding: 2.5px 3px; white-space: nowrap;">${m.batch_number || m.batch || "—"}</td>
-        <td style="text-align: center; padding: 2.5px 3px; white-space: nowrap;">${formatExpiryDate(m.expiry_date || m.expiry)}</td>
-        <td style="text-align: center; font-weight: 700; padding: 2.5px 3px;">${pricing.qty}</td>
-        <td style="text-align: right; padding: 2.5px 4px; white-space: nowrap;">${rate.toFixed(2)}</td>
-        <td style="text-align: center; padding: 2.5px 3px;">${pricing.cgstRate}</td>
-        <td style="text-align: right; padding: 2.5px 3px; white-space: nowrap;">${pricing.cgstAmt.toFixed(2)}</td>
-        <td style="text-align: center; padding: 2.5px 3px;">${pricing.sgstRate}</td>
-        <td style="text-align: right; padding: 2.5px 3px; white-space: nowrap;">${pricing.sgstAmt.toFixed(2)}</td>
-        <td style="text-align: right; padding: 2.5px 4px; white-space: nowrap; font-weight: 600;">${itemDiscAmt}</td>
-        <td style="text-align: right; font-weight: 700; color: #111; padding: 2.5px 4px; white-space: nowrap;">${pricing.lineTotal.toFixed(2)}</td>
+        <td style="font-weight: 500; text-align: left; padding: 2px 4px; max-width: 170px; word-break: break-word; line-height: 1.2;">${m.name || m.item_name || "—"}</td>
+        <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${m.hsn_code || "—"}</td>
+        <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${m.batch_number || m.batch || "—"}</td>
+        <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${formatExpiryDate(m.expiry_date || m.expiry)}</td>
+        <td style="text-align: center; font-weight: 700; padding: 2px 3px;">${pricing.qty}</td>
+        <td style="text-align: right; padding: 2px 4px; white-space: nowrap;">${rate.toFixed(2)}</td>
+        <td style="text-align: center; padding: 2px 3px;">${pricing.cgstRate}</td>
+        <td style="text-align: right; padding: 2px 3px; white-space: nowrap;">${pricing.cgstAmt.toFixed(2)}</td>
+        <td style="text-align: center; padding: 2px 3px;">${pricing.sgstRate}</td>
+        <td style="text-align: right; padding: 2px 3px; white-space: nowrap;">${pricing.sgstAmt.toFixed(2)}</td>
+        <td style="text-align: right; padding: 2px 4px; white-space: nowrap; font-weight: 600;">${itemDiscAmt}</td>
+        <td style="text-align: right; font-weight: 700; color: #111; padding: 2px 4px; white-space: nowrap;">${pricing.lineTotal.toFixed(2)}</td>
       </tr>
     `;
   };
@@ -1218,14 +1210,14 @@ const buildPrintBillHtml = (data) => {
             <th style="width: 42px; text-align: right; padding: 2px 3px;">Amt</th>
           </tr>
         </thead>
-        <tbody style="border-bottom: 1px solid #111;">
+        <tbody style="border-bottom: ${isLastPage ? '1px solid #111' : 'none'};">
           ${pageRowsHtml}
         </tbody>
       </table>
 
       <!-- Continuation indicator OR Totals & Footer -->
       ${!isLastPage ? `
-      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #111; padding: 4px 2px; margin-top: auto; font-size: 11px; font-style: italic; color: #444;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 2px; margin-top: auto; font-size: 11px; font-style: italic; color: #444;">
         <span>Continued on Page ${pageIdx + 2}...</span>
         <span style="font-weight: 700; font-style: normal; color: #005b8e;">Page ${pageIdx + 1} of ${totalPages}</span>
       </div>
@@ -1403,6 +1395,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [billTypes, setBillTypes] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [addedMedicines, setAddedMedicines] = useState([]);
+  const [deletedMedicines, setDeletedMedicines] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [selectedBatchItem, setSelectedBatchItem] = useState(null);
@@ -1429,6 +1422,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [pendingBillIntent, setPendingBillIntent] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printBillData, setPrintBillData] = useState(null);
+  const [saveLaterModal, setSaveLaterModal] = useState(null);
   const [showNilStock, setShowNilStock] = useState(false);
   const [modalPage, setModalPage] = useState(1);
   const MODAL_PAGE_SIZE = 9;
@@ -2523,6 +2517,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       billTypeName: lastBilled.bill_name || ""
     }));
     setAddedMedicines([]);
+    setDeletedMedicines([]);
     focusMedicineSearch();
   };
 
@@ -3248,6 +3243,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       cashier_id: localStorage.getItem("employeeId") || "",
     });
     setAddedMedicines([]);
+    setDeletedMedicines([]);
     setSearchTerm("");
     setSelectedMedicines([]);
     setFilteredModalMedicines([]);
@@ -3280,6 +3276,103 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     if (typeof onEstimateLoaded === "function") onEstimateLoaded();
   }, [estimateToLoad]);
 
+  const handleToggleSaveLater = (index) => {
+    setAddedMedicines((prev) =>
+      prev.map((m, i) => {
+        if (i !== index) return m;
+        const willSaveLater = !m.save_later;
+        if (willSaveLater) {
+          return {
+            ...m,
+            save_later: true,
+            orig_quantity: m.orig_quantity || m.quantity || m.requested_qty || 1,
+            quantity: 0,
+            total: 0,
+            product_value: 0,
+            taxable_value: 0,
+            cgst_amount: 0,
+            sgst_amount: 0,
+            discount_amount: 0,
+          };
+        } else {
+          const restoredQty = m.orig_quantity || m.requested_qty || 1;
+          const pricing = calculateMedicinePricing(m, restoredQty);
+          return {
+            ...m,
+            save_later: false,
+            quantity: restoredQty,
+            total: pricing.lineTotal,
+            product_value: pricing.productValue,
+            taxable_value: pricing.taxableValue,
+            cgst_amount: pricing.cgstAmt,
+            sgst_amount: pricing.sgstAmt,
+            discount_amount: pricing.discAmtOnBase,
+          };
+        }
+      })
+    );
+    setQtyErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[index];
+      return copy;
+    });
+  };
+
+  const handleConfirmSaveLaterAndProceed = (intentStatus) => {
+    const updatedMeds = addedMedicines.map((m) => {
+      const avail = Number(m.available_stock);
+      if (avail <= 0 || m.save_later) {
+        return {
+          ...m,
+          save_later: true,
+          orig_quantity: m.orig_quantity || m.quantity || m.requested_qty || 1,
+          quantity: 0,
+          total: 0,
+          product_value: 0,
+          taxable_value: 0,
+          cgst_amount: 0,
+          sgst_amount: 0,
+          discount_amount: 0,
+        };
+      }
+      return m;
+    });
+
+    setAddedMedicines(updatedMeds);
+    setSaveLaterModal(null);
+    setQtyErrors({});
+
+    const billableMeds = updatedMeds.filter((m) => !m.save_later && Number(m.quantity || 0) > 0);
+    if (billableMeds.length === 0) {
+      toast.warning("All items are marked Save Later. There are no in-stock medicines to bill right now.", { autoClose: 3500 });
+      return;
+    }
+
+    toast.info("Out of stock items saved for later. Proceeding with in-stock items.", { autoClose: 2500 });
+    proceedWithSave(intentStatus, updatedMeds);
+  };
+
+  const proceedWithSave = async (intentStatus, customMeds = null) => {
+    if (intentStatus !== "Estimate") {
+      setPendingBillIntent(intentStatus);
+      const currentOutlet = String(
+        localStorage.getItem("selected_outlet") ||
+        localStorage.getItem("outlet_code") ||
+        ""
+      ).trim().toUpperCase();
+
+      if (currentOutlet === "OLET001" || currentOutlet === "1") {
+        setSelectedPaymentMode("credit");
+      } else {
+        setSelectedPaymentMode("cash");
+      }
+      setShowPaymentModal(true);
+      return;
+    }
+
+    await executeSave(intentStatus, null, customMeds);
+  };
+
   const handleSave = async (intentStatus) => {
     if (saving) return;
 
@@ -3295,12 +3388,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     const errorMap = {};
     addedMedicines.forEach((m, i) => {
-      if (!m.quantity || m.quantity <= 0) errorMap[i] = true;
+      if (!m.save_later && (!m.quantity || m.quantity <= 0)) errorMap[i] = true;
     });
 
     if (Object.keys(errorMap).length > 0) {
       setQtyErrors(errorMap);
-      const first = addedMedicines.find((m) => !m.quantity || m.quantity <= 0);
+      const first = addedMedicines.find((m) => !m.save_later && (!m.quantity || m.quantity <= 0));
       toast.error(`Quantity is required for "${first.name}".`, { autoClose: 2000 });
       return;
     }
@@ -3310,6 +3403,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     // Auto-cap quantity to available stock if quantity exceeds stock and stock > 0
     let autoAdjustedCount = 0;
     const cappedMedicines = addedMedicines.map((m) => {
+      if (m.save_later) return m;
       const avail = Number(m.available_stock);
       const req = Number(m.quantity);
       if (
@@ -3351,60 +3445,54 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     currentMeds.forEach((m, idx) => {
       if (
         intentStatus !== "Estimate" &&
+        !m.save_later &&
         m.available_stock !== 9999 &&
         m.available_stock != null &&
         Number(m.available_stock) <= 0
       ) {
         stockErrorMap[idx] = true;
-        invalidStockItems.push(m);
+        invalidStockItems.push({ ...m, tableIndex: idx });
       }
     });
 
+    const isWardReqBill = Boolean(isWardRequest || patientDetails?.is_ward_request || patientDetails?.Bill_id || recordId);
+
     if (invalidStockItems.length > 0) {
-      setQtyErrors(stockErrorMap);
-      const first = invalidStockItems[0];
-      const itemName = first.name || first.item_name || "Medicine";
-      toast.error(`"${itemName}" has 0 stock available. Please substitute or remove before billing.`, { autoClose: 3500 });
-      return;
-    }
-
-    // For Direct bill → show payment mode modal first
-    if (intentStatus !== "Estimate") {
-      setPendingBillIntent(intentStatus);
-      const currentOutlet = String(
-        localStorage.getItem("selected_outlet") ||
-        localStorage.getItem("outlet_code") ||
-        ""
-      ).trim().toUpperCase();
-
-      // Outlet-based default selection:
-      // OLET001 / 1 (IP Pharmacy) defaults to "credit" (Pay Later)
-      // OLET002 / 2 (OP Pharmacy) or standard retail defaults to "cash" (Pay Now) by default
-      if (currentOutlet === "OLET001" || currentOutlet === "1") {
-        setSelectedPaymentMode("credit");
-      } else {
-        setSelectedPaymentMode("cash");
+      if (!isWardReqBill) {
+        setQtyErrors(stockErrorMap);
+        const first = invalidStockItems[0];
+        const itemName = first.name || first.item_name || "Medicine";
+        toast.error(`"${itemName}" has 0 stock available. Please substitute or remove before billing.`, { autoClose: 3500 });
+        return;
       }
-      setShowPaymentModal(true);
-      return;
+      // For ward request / medicine chart: ALLOW TO BILL!
+      // In-stock items will be billed and printed, while out-of-stock items will store 0 in dispatched and remain pending in Medicine Chart.
     }
 
-    // For Estimate → save directly (no payment mode needed)
-    await executeSave(intentStatus, null);
+    if (!isWardReqBill) {
+      const billableCount = currentMeds.filter((m) => !m.save_later && Number(m.quantity || 0) > 0).length;
+      if (billableCount === 0) {
+        toast.warning("All items are marked Save Later. There are no in-stock medicines to bill right now.", { autoClose: 3500 });
+        return;
+      }
+    }
+
+    await proceedWithSave(intentStatus, currentMeds);
   };
 
-  const executeSave = async (intentStatus, paymentMode) => {
+  const executeSave = async (intentStatus, paymentMode, customMeds = null) => {
     setSaving(true);
     const isCredit = String(paymentMode || "").toLowerCase() === "credit";
     const resolvedPaymentMode = intentStatus === "Estimate" ? null : (isCredit ? "Credit" : "Cash");
 
     try {
+      const activeMeds = customMeds || addedMedicines;
       // ── Ward Request → Convert to Bill ────────────────────────────────────
       // When the bill originates from MedicineChart ("Convert to Bill"), the
       // record already exists in the DB with its own Bill_id.
       // We skip save_oppharmacy_bill entirely and call finalize_bill directly.
       // finalize_bill handles: bill_no generation, stock update (blocked_quantity),
-      // and setting billing_status → "Billed".
+      // and setting billing_status → "Billed" (or "Processing" if partial/save-later).
       if (isWardRequest && intentStatus !== "Estimate") {
         const hasBillId =
           recordId !== undefined &&
@@ -3420,27 +3508,32 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           return;
         }
 
-        // ── Build updated medicine list from current addedMedicines state ─────
-        // The user may have changed quantities on the Pharmacy page before clicking
-        // "Bill", so we always use the live frontend state rather than DB values.
-        const finalMedicines = addedMedicines.map((m) => {
+        // ── Build updated medicine list from live state, FILTERING OUT save_later items ──
+        // ── 1. Distinguish billable in-stock items vs out-of-stock items vs deleted items ──
+        const isItemBillable = (m) => {
+          if (m.save_later) return false;
+          if (m.deleted_is || m.is_deleted) return false;
+          const avail = Number(m.available_stock);
+          if (m.available_stock != null && m.available_stock !== 9999 && avail <= 0) return false;
+          return Number(m.quantity || m.qty || 0) > 0;
+        };
+
+        const billableMeds = activeMeds.filter(isItemBillable);
+        const outOfStockMeds = activeMeds.filter((m) => !isItemBillable(m) && !m.deleted_is && !m.is_deleted);
+
+        // Map billable medicines with actual pricing & qty
+        const mappedBillable = billableMeds.map((m) => {
           const pricing = calculateMedicinePricing(m);
           return {
             item_id: Number(m.item_id),
             item_name: m.name || m.item_name || "",
             batch_number: String(m.batch_number || ""),
             qty: pricing.qty,
-            requested_qty: Number(m.requested_qty || m.qty || pricing.qty),
-            dispatched_qty: Number(m.dispatched_qty || 0),
-            pending_qty: Number(m.pending_qty ?? pricing.qty),
             price: m.price ?? pricing.mrp,
             mrp: pricing.mrp,
-            Selling_Price: m.Selling_Price ?? m.price ?? pricing.mrp,
-            selling_price: m.selling_price ?? m.price ?? pricing.mrp,
+            calculated_price: pricing.gross,
             product_value: pricing.productValue,
             taxable_value: pricing.taxableValue,
-            calculated_price: pricing.gross,
-            edit_history: m.edit_history || [],
             CGST_Percentage: pricing.cgstRate,
             SGST_Percentage: pricing.sgstRate,
             cgst_rate: pricing.cgstRate,
@@ -3462,17 +3555,85 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             instruction: m.instruction || "",
             route: m.route || "",
             ...(m.is_consumable_items ? { is_consumable_items: true } : {}),
+            dispatched_qty: Number(m.dispatched_qty || 0),
+            deleted_is: false,
+            is_deleted: false,
+            edit_history: m.edit_history || [],
           };
         });
 
-        // ── Recalculate totals from live frontend state ───────────────────────
+        // Map out of stock medicines: billed qty is 0 so 0 is stored in dispatched, keeping them pending in Medicine Chart
+        const mappedOutOfStock = outOfStockMeds.map((m) => {
+          const pricing = calculateMedicinePricing(m);
+          return {
+            item_id: Number(m.item_id),
+            item_name: m.name || m.item_name || "",
+            batch_number: String(m.batch_number || ""),
+            qty: 0,
+            price: m.price ?? pricing.mrp,
+            mrp: pricing.mrp,
+            calculated_price: 0,
+            product_value: 0,
+            taxable_value: 0,
+            CGST_Percentage: pricing.cgstRate,
+            SGST_Percentage: pricing.sgstRate,
+            cgst_rate: pricing.cgstRate,
+            sgst_rate: pricing.sgstRate,
+            CGST_Amt: 0,
+            SGST_Amt: 0,
+            cgst_amount: 0,
+            sgst_amount: 0,
+            discount: 0,
+            discount_type: pricing.discType,
+            discount_value: 0,
+            discount_percent: "%",
+            discount_amount: 0,
+            total: 0,
+            dosage: m.dosage || "",
+            noOfDays: m.noOfDays || m.no_of_days || "",
+            dose: m.dose || "",
+            doseunit: m.doseunit || m.doseUnit || "",
+            instruction: m.instruction || "",
+            route: m.route || "",
+            ...(m.is_consumable_items ? { is_consumable_items: true } : {}),
+            dispatched_qty: Number(m.dispatched_qty || 0),
+            deleted_is: false,
+            is_deleted: false,
+            edit_history: m.edit_history || [],
+          };
+        });
+
+        // Map deleted medicines with deleted_is: true
+        const mappedDeleted = deletedMedicines.map((m) => ({
+          item_id: Number(m.item_id),
+          item_name: m.name || m.item_name || "",
+          batch_number: String(m.batch_number || ""),
+          qty: 0,
+          price: m.price ?? m.mrp ?? 0,
+          mrp: m.mrp ?? m.price ?? 0,
+          calculated_price: 0,
+          product_value: 0,
+          taxable_value: 0,
+          CGST_Percentage: 0,
+          SGST_Percentage: 0,
+          CGST_Amt: 0,
+          SGST_Amt: 0,
+          total: 0,
+          deleted_is: true,
+          is_deleted: true,
+          dispatched_qty: Number(m.dispatched_qty || 0),
+          edit_history: m.edit_history || [],
+        }));
+
+        const finalMedicines = [...mappedBillable, ...mappedOutOfStock, ...mappedDeleted];
+
+        // ── Recalculate totals from live frontend state (billable items only) ──
         const updatedTotalAmount = parseFloat(
-          finalMedicines.reduce((s, m) => s + m.calculated_price, 0).toFixed(2)
+          mappedBillable.reduce((s, m) => s + m.calculated_price, 0).toFixed(2)
         );
 
-        const updatedItemDiscount = addedMedicines.reduce((sum, m) => {
-          const pricing = calculateMedicinePricing(m);
-          return sum + pricing.totalDiscountOnMrp;
+        const updatedItemDiscount = mappedBillable.reduce((sum, m) => {
+          return sum + (m.discount_amount || 0);
         }, 0);
 
         const baseForOverall = Math.max(0, updatedTotalAmount - updatedItemDiscount);
@@ -3569,7 +3730,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             inpatientNumber: formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
             insuranceName: insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "",
             billTypeName: formData.billTypeName || "OP Pharmacy",
-            medicines: [...addedMedicines],
+            medicines: [...mappedBillable],
             totalAmount: updatedTotalAmount,
             totalItemDiscount: updatedItemDiscount,
             discount_amount: updatedTotalDiscount,
@@ -3582,10 +3743,14 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             payment_mode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
             paymentMode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
           });
-          setShowPrintModal(true);
+          if (mappedBillable.length > 0) {
+            setShowPrintModal(true);
+          } else {
+            toast.info("Ward request updated. Out-of-stock items remain pending in Medicine Chart.", { autoClose: 3500 });
+          }
 
           // Deduct billed stock in memory immediately for 0ms instant UI update
-          const billedItems = [...addedMedicines];
+          const billedItems = [...mappedBillable];
           setMedicines((prevMeds) => {
             if (!Array.isArray(prevMeds) || prevMeds.length === 0) return prevMeds;
             const deductionMap = {};
@@ -3643,45 +3808,75 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       }
 
       // ── Normal save path (Direct bill / Estimate / Edit bill) ─────────────
-      const finalItems = addedMedicines.map((m) => {
-        const pricing = calculateMedicinePricing(m);
+      const mappedDeletedNormal = deletedMedicines.map((m) => ({
+        item_id: Number(m.item_id),
+        item_name: m.name || m.item_name || "",
+        batch_number: String(m.batch_number || ""),
+        expiry_date: m.expiry_date || m.expiry || "",
+        hsn_code: m.hsn_code || m.hsn || "",
+        qty: 0,
+        price: m.price ?? m.mrp ?? 0,
+        mrp: m.mrp ?? m.price ?? 0,
+        Selling_Price: m.price ?? m.mrp ?? 0,
+        selling_price: m.price ?? m.mrp ?? 0,
+        calculated_price: 0,
+        product_value: 0,
+        taxable_value: 0,
+        CGST_Percentage: 0,
+        SGST_Percentage: 0,
+        CGST_Amt: 0,
+        SGST_Amt: 0,
+        total: 0,
+        deleted_is: true,
+        is_deleted: true,
+        dispatched_qty: 0,
+        edit_history: m.edit_history || [],
+      }));
 
-        return {
-          item_id: Number(m.item_id),
-          batch_number: String(m.batch_number || ""),
-          expiry_date: m.expiry_date || m.expiry || "",
-          hsn_code: m.hsn_code || m.hsn || "",
-          qty: pricing.qty,
-          price: m.price ?? pricing.mrp,
-          mrp: pricing.mrp,
-          Selling_Price: m.Selling_Price ?? m.price ?? pricing.mrp,
-          selling_price: m.selling_price ?? m.price ?? pricing.mrp,
-          calculated_price: pricing.gross,
-          item_name: m.name || m.item_name || "",
-          dosage: m.dosage || "",
-          noOfDays: m.noOfDays || m.no_of_days || "",
-          dose: m.dose || "",
-          doseunit: m.doseunit || m.doseUnit || "",
-          instruction: m.instruction || "",
-          route: m.route || "",
-          product_value: pricing.productValue,
-          taxable_value: pricing.taxableValue,
-          cgst_rate: pricing.cgstRate,
-          sgst_rate: pricing.sgstRate,
-          CGST_Percentage: pricing.cgstRate,
-          SGST_Percentage: pricing.sgstRate,
-          cgst_amount: pricing.cgstAmt,
-          sgst_amount: pricing.sgstAmt,
-          CGST_Amt: pricing.cgstAmt,
-          SGST_Amt: pricing.sgstAmt,
-          discount_type: pricing.discType,
-          discount_value: pricing.discVal,
-          discount_percent: "%",
-          discount_amount: pricing.totalDiscountOnMrp,
-          discount: pricing.discVal,
-          total: pricing.lineTotal,
-        };
-      });
+      const finalItems = [
+        ...addedMedicines.map((m) => {
+          const pricing = calculateMedicinePricing(m);
+
+          return {
+            item_id: Number(m.item_id),
+            batch_number: String(m.batch_number || ""),
+            expiry_date: m.expiry_date || m.expiry || "",
+            hsn_code: m.hsn_code || m.hsn || "",
+            qty: pricing.qty,
+            price: m.price ?? pricing.mrp,
+            mrp: pricing.mrp,
+            Selling_Price: m.Selling_Price ?? m.price ?? pricing.mrp,
+            selling_price: m.selling_price ?? m.price ?? pricing.mrp,
+            calculated_price: pricing.gross,
+            item_name: m.name || m.item_name || "",
+            dosage: m.dosage || "",
+            noOfDays: m.noOfDays || m.no_of_days || "",
+            dose: m.dose || "",
+            doseunit: m.doseunit || m.doseUnit || "",
+            instruction: m.instruction || "",
+            route: m.route || "",
+            product_value: pricing.productValue,
+            taxable_value: pricing.taxableValue,
+            cgst_rate: pricing.cgstRate,
+            sgst_rate: pricing.sgstRate,
+            CGST_Percentage: pricing.cgstRate,
+            SGST_Percentage: pricing.sgstRate,
+            cgst_amount: pricing.cgstAmt,
+            sgst_amount: pricing.sgstAmt,
+            CGST_Amt: pricing.cgstAmt,
+            SGST_Amt: pricing.sgstAmt,
+            discount_type: pricing.discType,
+            discount_value: pricing.discVal,
+            discount_percent: "%",
+            discount_amount: pricing.totalDiscountOnMrp,
+            discount: pricing.discVal,
+            total: pricing.lineTotal,
+            deleted_is: false,
+            is_deleted: false,
+          };
+        }),
+        ...mappedDeletedNormal
+      ];
 
       const baseForOverallFinal = Math.max(0, grossTotalAmount - totalItemDiscount);
       const overallDiscAmtFinal =
@@ -4196,6 +4391,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   // ── Convert Ward Request → Bill ────────────────────────────────────────────
   const convertWardRequest = async (wardReq) => {
     if (!wardReq) return;
+    setDeletedMedicines([]);
 
     // ── 1. Fill header fields immediately so the form is not blank ────────
     const billDateStr = wardReq.bill_date
@@ -4212,7 +4408,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       name: wardReq.patient_name || wardReq.patient_details?.patient_name || "",
       doctor_id: wardReq.doctor_id || "",
       doctor_name: wardReq.doctor_name || wardReq.patient_details?.doctor_name || "",
-      roomNo: wardReq.room_no || wardReq.ward_name || "",
+      roomNo: (() => {
+        const isOt = String(wardReq.billing_mode || wardReq.billingMode || "").toUpperCase().includes("OT");
+        if (isOt) return "OT Request";
+        const rm = wardReq.room_no || wardReq.ward_name || "";
+        return (rm && rm !== "-" && rm !== "—") ? rm : "";
+      })(),
       billType: wardReq.bill_type || 18,
       billTypeName: wardReq.bill_type_name || wardReq.bill_name || "PHARMACY IP BILL",
       billDate: billDateStr,
@@ -4925,7 +5126,20 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   };
 
   const handleDelete = (key) => {
-    setAddedMedicines(prev => prev.filter((m) => getMedicineKey(m) !== key));
+    setAddedMedicines(prev => {
+      const itemToDelete = prev.find((m) => getMedicineKey(m) === key);
+      if (itemToDelete) {
+        setDeletedMedicines(dPrev => [
+          ...dPrev,
+          {
+            ...itemToDelete,
+            deleted_is: true,
+            is_deleted: true,
+          }
+        ]);
+      }
+      return prev.filter((m) => getMedicineKey(m) !== key);
+    });
   };
 
   // Gross Total: actual undiscounted amount (quantity * price/mrp)
@@ -4981,6 +5195,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                 onClick={() => {
                   setLoadedEstimateNo(null);
                   setAddedMedicines([]);
+    setDeletedMedicines([]);
                 }}
               >
                 ×
@@ -5403,7 +5618,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                             ? "#c2410c"
                             : undefined;
                   return (
-                    <Tr key={index}>
+                    <Tr key={index} style={medicine.save_later ? { background: "#fffbeb", opacity: 0.88 } : {}}>
                       <Td>
                         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
@@ -5459,6 +5674,23 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                               Requested: {medicine.requested_qty ?? medicine.quantity} units → Allowed to bill: {medicine.available_stock}
                             </div>
                           )}
+                          {medicine.save_later && (
+                            <div style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                              background: "#fef3c7",
+                              color: "#92400e",
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              fontSize: "0.72rem",
+                              fontWeight: 700,
+                              border: "1px solid #fde68a",
+                              marginTop: 2
+                            }}>
+                              ⏳ Saved Later (Will remain pending in medicine chart)
+                            </div>
+                          )}
                           {(medicine.dosage || medicine.dose || medicine.instruction) && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
                               {medicine.dosage && (
@@ -5500,8 +5732,24 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                       <Td>{medicine.batch_number}</Td>
                       <Td>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-                          <QtyInput
-                            ref={(el) => (qtyInputRefs.current[index] = el)}
+                          {medicine.save_later ? (
+                            <span style={{
+                              padding: "4px 10px",
+                              borderRadius: 4,
+                              background: "#fef3c7",
+                              color: "#b45309",
+                              fontSize: "0.78rem",
+                              fontWeight: 700,
+                              border: "1px dashed #d97706",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4
+                            }}>
+                              0 (Later)
+                            </span>
+                          ) : (
+                            <QtyInput
+                              ref={(el) => (qtyInputRefs.current[index] = el)}
                             type="number"
                             min="0"
                             value={medicine.quantity || ""}
@@ -5571,6 +5819,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                               }
                             }}
                           />
+                        )}
                           {Boolean(medicine.stock_capped && Number(medicine.available_stock) > 0) && (
                             <BlinkBadge style={{ fontSize: "0.68rem", padding: "1px 5px" }}>
                               <BlinkDot style={{ width: 6, height: 6, background: "#ea580c" }} /> Allow {medicine.available_stock}
@@ -5646,10 +5895,40 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                       <Td>{(parseFloat(medicine.sgst_rate) || 0).toFixed(2)}</Td>
                       <Td>{(parseFloat(medicine.sgst_amount) || 0).toFixed(2)}</Td>
                       <Td style={{ fontWeight: 600 }}>₹{(parseFloat(medicine.total) || 0).toFixed(2)}</Td>
-                      <Td>
-                        <DeleteBtn onClick={() => handleDelete(getMedicineKey(medicine))}>
-                          <FaTrashAlt />
-                        </DeleteBtn>
+                      <Td style={{ whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+                          {(Number(medicine.available_stock) <= 0 || medicine.save_later) && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSaveLater(index)}
+                              style={{
+                                padding: "4px 8px",
+                                fontSize: "0.72rem",
+                                fontWeight: 700,
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                border: medicine.save_later ? "1px solid #16a34a" : "1px solid #d97706",
+                                background: medicine.save_later ? "#f0fdf4" : "#fef3c7",
+                                color: medicine.save_later ? "#15803d" : "#b45309",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                                transition: "all 0.15s ease",
+                              }}
+                              title={
+                                medicine.save_later
+                                  ? "Item saved for later. Click to revert"
+                                  : "Save this out-of-stock item for later in medicine chart"
+                              }
+                            >
+                              {medicine.save_later ? "✓ Saved Later" : "⏳ Save Later"}
+                            </button>
+                          )}
+                          <DeleteBtn onClick={() => handleDelete(getMedicineKey(medicine))} title="Delete medicine">
+                            <FaTrashAlt />
+                          </DeleteBtn>
+                        </div>
                       </Td>
                     </Tr>
                   );
@@ -6892,6 +7171,76 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         );
       })()}
 
+      {/* ── Save Later Confirmation Modal (for Out of Stock medicines in Ward Requests) ── */}
+      {saveLaterModal && (
+        <ModalOverlay onClick={() => setSaveLaterModal(null)}>
+          <ModalContainer style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
+            <ModalHeader style={{ background: "linear-gradient(135deg, #d97706, #b45309)" }}>
+              <ModalTitle style={{ color: "#ffffff", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "1.15rem" }}>⏳</span>
+                Out of Stock Item(s) — Save Later
+              </ModalTitle>
+              <CloseButton onClick={() => setSaveLaterModal(null)} style={{ color: "#ffffff" }}>×</CloseButton>
+            </ModalHeader>
+            <ModalBody style={{ padding: "18px 22px" }}>
+              <p style={{ margin: "0 0 12px 0", fontSize: "0.88rem", color: "#334155", lineHeight: 1.5 }}>
+                The following requested medicine(s) currently have <strong style={{ color: "#b91c1c" }}>0 stock</strong> in this outlet:
+              </p>
+              <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 6, marginBottom: 16 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                      <th style={{ padding: "8px 10px", color: "#475569", fontWeight: 700 }}>Medicine Particulars</th>
+                      <th style={{ padding: "8px 10px", color: "#475569", fontWeight: 700, textAlign: "center", width: 90 }}>Requested</th>
+                      <th style={{ padding: "8px 10px", color: "#475569", fontWeight: 700, textAlign: "center", width: 90 }}>Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(saveLaterModal.items || []).map((it, idx) => (
+                      <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#ffffff" : "#fdfefe" }}>
+                        <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>
+                          {it.name || it.item_name || `Item #${it.item_id}`}
+                          {it.dosage && (
+                            <span style={{ marginLeft: 8, fontSize: "0.72rem", color: "#16a34a", fontWeight: 600 }}>
+                              ({it.dosage})
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: "#334155" }}>
+                          {it.quantity || it.requested_qty || 1}
+                        </td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: "#dc2626" }}>
+                          0 (NIL)
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 6, padding: "10px 12px", fontSize: "0.82rem", color: "#92400e", lineHeight: 1.45 }}>
+                💡 <strong>Save Later Option:</strong> These out-of-stock items will <strong>NOT</strong> be billed or printed on this invoice. They will remain <strong>pending</strong> in the patient&apos;s Medicine Chart so you can dispense and bill them once fresh stock arrives!
+              </div>
+            </ModalBody>
+            <ModalFooterBar style={{ justifyContent: "space-between" }}>
+              <Button secondary onClick={() => setSaveLaterModal(null)}>
+                <FaTimes /> Cancel &amp; Review
+              </Button>
+              <Button
+                onClick={() => handleConfirmSaveLaterAndProceed(saveLaterModal.intentStatus)}
+                style={{
+                  background: "linear-gradient(135deg, #10b981, #059669)",
+                  color: "#ffffff",
+                  border: "none",
+                  fontWeight: 700
+                }}
+              >
+                ⏳ Save Later &amp; Proceed to Bill
+              </Button>
+            </ModalFooterBar>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
       {/* ── Print Modal ── */}
       {showPrintModal && printBillData && (
         <ModalOverlay onClick={() => { setShowPrintModal(false); focusMedicineSearch(); }}>
@@ -7074,7 +7423,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                 <th style={{ width: 42, textAlign: "right", padding: "2px 3px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amt</th>
                               </tr>
                             </thead>
-                            <tbody style={{ borderBottom: "1px solid #111" }}>
+                            <tbody style={{ borderBottom: isLastPage ? "1px solid #111" : "none" }}>
                               {pageMeds.map((m, i) => {
                                 const pricing = calculateMedicinePricing(m);
                                 const rate = pricing.mrp;
@@ -7083,18 +7432,18 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   : (Number(m.discount_amount || 0) > 0 ? Number(m.discount_amount).toFixed(2) : "0.00");
                                 return (
                                   <tr key={i}>
-                                    <td style={{ padding: "2.5px 4px", fontWeight: 500, maxWidth: 170, wordBreak: "break-word", lineHeight: 1.25 }}>{m.name || m.item_name || "—"}</td>
-                                    <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.hsn_code || "—"}</td>
-                                    <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.batch_number || m.batch || "—"}</td>
-                                    <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryDate(m.expiry_date || m.expiry)}</td>
-                                    <td style={{ padding: "2.5px 3px", textAlign: "center", fontWeight: 700 }}>{pricing.qty}</td>
-                                    <td style={{ padding: "2.5px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{rate.toFixed(2)}</td>
-                                    <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{pricing.cgstRate}</td>
-                                    <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{pricing.cgstAmt.toFixed(2)}</td>
-                                    <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{pricing.sgstRate}</td>
-                                    <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{pricing.sgstAmt.toFixed(2)}</td>
-                                    <td style={{ padding: "2.5px 4px", textAlign: "right", whiteSpace: "nowrap", fontWeight: 600 }}>{itemDiscAmt}</td>
-                                    <td style={{ padding: "2.5px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{pricing.lineTotal.toFixed(2)}</td>
+                                    <td style={{ padding: "2px 4px", fontWeight: 500, maxWidth: 170, wordBreak: "break-word", lineHeight: 1.2 }}>{m.name || m.item_name || "—"}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.hsn_code || "—"}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.batch_number || m.batch || "—"}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryDate(m.expiry_date || m.expiry)}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center", fontWeight: 700 }}>{pricing.qty}</td>
+                                    <td style={{ padding: "2px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{rate.toFixed(2)}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center" }}>{pricing.cgstRate}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{pricing.cgstAmt.toFixed(2)}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center" }}>{pricing.sgstRate}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{pricing.sgstAmt.toFixed(2)}</td>
+                                    <td style={{ padding: "2px 4px", textAlign: "right", whiteSpace: "nowrap", fontWeight: 600 }}>{itemDiscAmt}</td>
+                                    <td style={{ padding: "2px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{pricing.lineTotal.toFixed(2)}</td>
                                   </tr>
                                 );
                               })}
@@ -7103,7 +7452,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
                           {/* Continuation indicator OR Totals & Footer */}
                           {!isLastPage ? (
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #111", padding: "4px 2px", marginTop: 4, fontSize: 11, fontStyle: "italic", color: "#444" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 2px", marginTop: 4, fontSize: 11, fontStyle: "italic", color: "#444" }}>
                               <span>Continued on Page {pageIdx + 2}...</span>
                               <span style={{ fontWeight: 700, fontStyle: "normal", color: "#005b8e" }}>Page {pageIdx + 1} of {totalPreviewPages}</span>
                             </div>
