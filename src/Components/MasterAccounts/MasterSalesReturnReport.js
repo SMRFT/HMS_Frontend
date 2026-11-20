@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import styled from "styled-components";
 import { DatePicker, Select, Button, Spin, Tag, Input, Tooltip, Popover } from "antd";
 import dayjs from "dayjs";
 import { Printer, Download, Search, RefreshCw, RotateCcw, FileText, CheckCircle } from "lucide-react";
@@ -10,6 +11,8 @@ import {
     printReportArea,
     extractReportData,
     getSafeArray,
+    fetchCachedOutlets,
+    cachedApiRequest,
     ReportPageWrapper,
     ControlCard,
     HeaderBar,
@@ -20,6 +23,86 @@ import {
     ReportPrintHeader,
     ReportPrintFooter
 } from "./masterAccountsHelper";
+
+const DateHeaderTr = styled.tr`
+    background: #f1f5f9 !important;
+    td {
+        background: #f1f5f9 !important;
+        font-weight: 800 !important;
+        color: #0f172a !important;
+        font-size: 0.90rem !important;
+        letter-spacing: 0.03em;
+        border-top: 2px solid #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        padding: 5px 8px !important;
+    }
+`;
+
+const SectionHeaderTr = styled.tr`
+    background: #e2e8f0 !important;
+    td {
+        background: #e2e8f0 !important;
+        font-weight: 700 !important;
+        color: #1e293b !important;
+        font-size: 0.85rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border-top: 1px solid #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        padding: 4px 8px !important;
+    }
+`;
+
+const SubtotalTr = styled.tr`
+    background: #f8fafc !important;
+    font-weight: 700 !important;
+    td {
+        background: #f8fafc !important;
+        border-top: 1px dashed #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        font-size: 0.85rem !important;
+        padding: 4px 8px !important;
+    }
+`;
+
+const SalesReturnTable = styled.table`
+    width: 100%;
+    border-collapse: collapse !important;
+    table-layout: fixed;
+
+    th {
+        border: 1px solid #cbd5e1 !important;
+        padding: 7px 5px !important;
+        background: #f8fafc;
+        font-size: 0.78rem !important;
+        text-align: left;
+        color: #1e293b;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 5px 6px !important;
+        font-size: 0.82rem;
+        vertical-align: middle;
+        color: #0f172a;
+    }
+
+    td.wrap-text {
+        white-space: normal !important;
+        word-break: break-word !important;
+        line-height: 1.25;
+    }
+
+    td.no-wrap {
+        white-space: nowrap !important;
+    }
+`;
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -54,9 +137,9 @@ const MasterSalesReturnReport = ({
     useEffect(() => {
         const fetchOutlets = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) {
-                    setOutletsList(res.data);
+                const data = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(data)) {
+                    setOutletsList(data);
                 }
             } catch (e) {}
         };
@@ -69,7 +152,7 @@ const MasterSalesReturnReport = ({
         }
     }, [startDate, endDate]);
 
-    const fetchReport = async () => {
+    const fetchReport = async (isRefresh = false) => {
         try {
             setLoading(true);
             const fDate = dateRange[0].format("YYYY-MM-DD");
@@ -77,7 +160,7 @@ const MasterSalesReturnReport = ({
             const outletParam = outlet && outlet !== "all" ? `&outlet_code=${outlet}` : "";
             const billTypeParam = billTypeFilter && billTypeFilter !== "all" ? `&bill_type=${encodeURIComponent(billTypeFilter)}` : "";
             const url = `${HmsBaseUrl}master-accounts/sales-return/?from_date=${fDate}&to_date=${tDate}${outletParam}${billTypeParam}`;
-            const res = await apiRequest(url, "GET");
+            const res = await cachedApiRequest(url, "GET", null, { forceRefresh: isRefresh });
             if (res?.success) {
                 setReportData(extractReportData(res));
             }
@@ -121,22 +204,201 @@ const MasterSalesReturnReport = ({
         );
     }, [records, searchTerm, billTypeFilter]);
 
+    const extractReturnDate = (dateVal) => {
+        if (!dateVal) return "Unknown Date";
+        const s = String(dateVal).trim();
+        const firstPart = s.split(" ")[0];
+        if (firstPart.includes("/")) {
+            return firstPart;
+        }
+        if (firstPart.includes("-") && firstPart.length === 10) {
+            const parts = firstPart.split("-");
+            if (parts[0].length === 4) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            return firstPart;
+        }
+        return firstPart || "Unknown Date";
+    };
+
+    const extractReturnTime = (dateVal) => {
+        if (!dateVal) return "";
+        const s = String(dateVal).trim();
+        if (s.includes(" ")) {
+            return s.split(" ").slice(1).join(" ");
+        }
+        return "";
+    };
+
+    const groupedData = useMemo(() => {
+        if (!filtered || filtered.length === 0) return [];
+
+        const dateMap = new Map();
+
+        filtered.forEach(r => {
+            const dateKey = extractReturnDate(r.return_bill_date);
+            const timeStr = extractReturnTime(r.return_bill_date);
+            const billType = String(r.bill_type || r.category || "Pharmacy Return").trim();
+
+            if (!dateMap.has(dateKey)) {
+                dateMap.set(dateKey, new Map());
+            }
+            const catMap = dateMap.get(dateKey);
+            if (!catMap.has(billType)) {
+                catMap.set(billType, []);
+            }
+            catMap.get(billType).push({
+                ...r,
+                dateKey,
+                timeStr
+            });
+        });
+
+        const result = [];
+        let runningSlno = 1;
+
+        dateMap.forEach((catMap, dateKey) => {
+            const sections = [];
+            let dateTotalAmt = 0;
+            let dateCount = 0;
+
+            catMap.forEach((items, billType) => {
+                let secTotalAmt = 0;
+                const enrichedItems = items.map(it => {
+                    const amt = cleanNum(it.return_amount);
+                    secTotalAmt += amt;
+                    return {
+                        ...it,
+                        displaySlno: runningSlno++,
+                        amt
+                    };
+                });
+
+                sections.push({
+                    billType,
+                    items: enrichedItems,
+                    totalAmt: secTotalAmt,
+                    count: enrichedItems.length
+                });
+
+                dateTotalAmt += secTotalAmt;
+                dateCount += enrichedItems.length;
+            });
+
+            result.push({
+                date: dateKey,
+                sections,
+                dateTotalAmt,
+                dateCount
+            });
+        });
+
+        return result;
+    }, [filtered]);
+
     const handleExport = () => {
-        const rows = filtered.map(r => ({
-            "Return Bill No": r.return_bill_no,
-            "Return Date": r.return_bill_date,
-            "Original Bill No": r.original_bill_no,
-            "Bill Type": r.bill_type || r.category || "Return",
-            "UHID": r.uhid,
-            "Patient Name": r.patient_name,
-            "Requested By": r.requested_by || "-",
-            "Approved By": r.approved_by || "-",
-            "Return Amount": r.return_amount,
-            "Payment Type": r.payment_type,
-            "Billing Details": (r.billing_details || []).map(it => `${it.item_name || it.name} (Qty: ${it.quantity || 1}, ₹${it.amount || it.unit_price || 0})`).join("; ") || r.refund_remarks || "-",
-            "Status": r.status
-        }));
-        exportToExcel(rows, "Master_Sales_Return_Report", "SalesReturns");
+        if (!groupedData || groupedData.length === 0) return;
+
+        const excelRows = [];
+        groupedData.forEach(dg => {
+            excelRows.push({
+                "SLNO": `Return Date: ${dg.date}`,
+                "Return Bill No": "",
+                "Original Bill No": "",
+                "Return Time": "",
+                "Bill Type": "",
+                "UHID": "",
+                "Patient Name": "",
+                "Requested By": "",
+                "Approved By": "",
+                "Payment Type": "",
+                "Status": "",
+                "Return Amount (₹)": ""
+            });
+
+            dg.sections.forEach(sec => {
+                excelRows.push({
+                    "SLNO": sec.billType,
+                    "Return Bill No": "",
+                    "Original Bill No": "",
+                    "Return Time": "",
+                    "Bill Type": "",
+                    "UHID": "",
+                    "Patient Name": "",
+                    "Requested By": "",
+                    "Approved By": "",
+                    "Payment Type": "",
+                    "Status": "",
+                    "Return Amount (₹)": ""
+                });
+
+                sec.items.forEach(it => {
+                    excelRows.push({
+                        "SLNO": it.displaySlno,
+                        "Return Bill No": it.return_bill_no,
+                        "Original Bill No": it.original_bill_no || "-",
+                        "Return Time": it.timeStr || "",
+                        "Bill Type": sec.billType,
+                        "UHID": it.uhid || "-",
+                        "Patient Name": it.patient_name || "General",
+                        "Requested By": it.requested_by || "-",
+                        "Approved By": it.approved_by || "-",
+                        "Payment Type": it.payment_type || "Cash",
+                        "Status": it.status || "Paid",
+                        "Return Amount (₹)": it.amt
+                    });
+                });
+
+                excelRows.push({
+                    "SLNO": "",
+                    "Return Bill No": "",
+                    "Original Bill No": "",
+                    "Return Time": "",
+                    "Bill Type": "",
+                    "UHID": "",
+                    "Patient Name": "",
+                    "Requested By": "",
+                    "Approved By": "",
+                    "Payment Type": "",
+                    "Status": `Total (${sec.billType}) ->`,
+                    "Return Amount (₹)": sec.totalAmt
+                });
+            });
+
+            if (dg.sections.length > 1) {
+                excelRows.push({
+                    "SLNO": "",
+                    "Return Bill No": "",
+                    "Original Bill No": "",
+                    "Return Time": "",
+                    "Bill Type": "",
+                    "UHID": "",
+                    "Patient Name": "",
+                    "Requested By": "",
+                    "Approved By": "",
+                    "Payment Type": "",
+                    "Status": `Date Total (${dg.date}) ->`,
+                    "Return Amount (₹)": dg.dateTotalAmt
+                });
+            }
+        });
+
+        excelRows.push({
+            "SLNO": "",
+            "Return Bill No": "",
+            "Original Bill No": "",
+            "Return Time": "",
+            "Bill Type": "",
+            "UHID": "",
+            "Patient Name": "",
+            "Requested By": "",
+            "Approved By": "",
+            "Payment Type": "",
+            "Status": `GRAND TOTAL ->`,
+            "Return Amount (₹)": totalReturn
+        });
+
+        exportToExcel(excelRows, "Master_Sales_Return_Report", "SalesReturns");
     };
 
     const totalReturn = filtered.reduce((a, x) => a + cleanNum(x.return_amount), 0);
@@ -244,7 +506,7 @@ const MasterSalesReturnReport = ({
                                 style={{ width: 250 }}
                             />
                         </div>
-                        <Button icon={<RefreshCw size={14} />} onClick={fetchReport} loading={loading}>
+                        <Button icon={<RefreshCw size={14} />} onClick={() => fetchReport(true)} loading={loading}>
                             Refresh
                         </Button>
                     </FilterBar>
@@ -290,69 +552,137 @@ const MasterSalesReturnReport = ({
                     )}
 
                     <DataTableWrapper>
-                        <table>
+                        <SalesReturnTable className="sales-return-table">
                             <thead>
                                 <tr>
-                                    <th>Return Bill No</th>
-                                    <th>Return Date</th>
-                                    <th>Original Bill No</th>
-                                    <th>Bill Type</th>
-                                    <th>UHID</th>
-                                    <th>Patient Name</th>
-                                    <th>Requested By</th>
-                                    <th>Approved By</th>
-                                    <th>Billing Details</th>
-                                    <th>Payment Type</th>
-                                    <th>Status</th>
-                                    <th className="text-right">Return Amount (₹)</th>
+                                    <th style={{ width: "3.5%", textAlign: "center" }}>SLNO</th>
+                                    <th style={{ width: "13%" }}>Return Bill No</th>
+                                    <th style={{ width: "10.5%" }}>Original Bill No</th>
+                                    <th style={{ width: "6.5%", textAlign: "center" }}>Time</th>
+                                    <th style={{ width: "8%" }}>UHID</th>
+                                    <th style={{ width: "15%" }}>Patient Name</th>
+                                    <th style={{ width: "11.5%" }}>Requested By</th>
+                                    <th style={{ width: "11.5%" }}>Approved By</th>
+                                    <th style={{ width: "5%", textAlign: "center" }}>Details</th>
+                                    <th style={{ width: "4%", textAlign: "center" }}>Mode</th>
+                                    <th style={{ width: "4%", textAlign: "center" }}>Status</th>
+                                    <th style={{ width: "7.5%" }} className="text-right">Amount (₹)</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.length === 0 ? (
+                                {groupedData.length === 0 ? (
                                     <tr>
                                         <td colSpan={12} style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>
                                             No sales returns or approved investigation refunds found for the selected criteria.
                                         </td>
                                     </tr>
                                 ) : (
-                                    filtered.map((r, idx) => {
-                                        const isInvest = String(r.bill_type || "").toLowerCase().includes("investigation");
-                                        return (
-                                            <tr key={idx}>
-                                                <td className="font-mono"><strong>{r.return_bill_no}</strong></td>
-                                                <td style={{ whiteSpace: "nowrap" }}>{r.return_bill_date}</td>
-                                                <td className="font-mono">{r.original_bill_no || "-"}</td>
-                                                <td>
-                                                    <Tag color={isInvest ? "orange" : "blue"}>
-                                                        {r.bill_type || (isInvest ? "Investigation" : "Pharmacy")}
-                                                    </Tag>
+                                    groupedData.map(dg => (
+                                        <React.Fragment key={dg.date}>
+                                            {/* Return Date Header Row */}
+                                            <DateHeaderTr className="DateGroup date-group">
+                                                <td colSpan={12}>
+                                                    Return Date : {dg.date}
                                                 </td>
-                                                <td className="font-mono">{r.uhid || "-"}</td>
-                                                <td><strong>{r.patient_name || "General"}</strong></td>
-                                                <td><span style={{ fontWeight: 600, color: "#334155" }}>{r.requested_by || "-"}</span></td>
-                                                <td>
-                                                    <span style={{ fontWeight: 600, color: "#16a34a", display: "inline-flex", alignItems: "center", gap: 3 }}>
-                                                        <CheckCircle size={13} color="#16a34a" /> {r.approved_by || "-"}
-                                                    </span>
-                                                </td>
-                                                <td>{renderBillingDetailsPopover(r)}</td>
-                                                <td>{r.payment_type || "Cash"}</td>
-                                                <td><Tag color="green">{r.status || "Paid"}</Tag></td>
-                                                <td className="text-right font-mono font-bold" style={{ color: "#dc2626" }}>
-                                                    {formatINR(r.return_amount)}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
+                                            </DateHeaderTr>
+
+                                            {/* Bill Type Sub-Headings */}
+                                            {dg.sections.map(sec => (
+                                                <React.Fragment key={`${dg.date}-${sec.billType}`}>
+                                                    <SectionHeaderTr className="SectionHeader section-header">
+                                                        <td colSpan={12}>
+                                                            {sec.billType}
+                                                        </td>
+                                                    </SectionHeaderTr>
+
+                                                    {/* Items within Bill Type */}
+                                                    {sec.items.map(it => (
+                                                        <tr key={it.return_bill_no + "-" + it.displaySlno}>
+                                                            <td className="text-center" style={{ fontWeight: 600, fontSize: "0.85rem" }}>
+                                                                {it.displaySlno}
+                                                            </td>
+                                                            <td className="font-mono no-wrap" style={{ fontSize: "0.85rem", fontWeight: 700 }}>
+                                                                <strong>{it.return_bill_no}</strong>
+                                                            </td>
+                                                            <td className="font-mono no-wrap" style={{ fontSize: "0.82rem" }}>
+                                                                {it.original_bill_no || "-"}
+                                                            </td>
+                                                            <td className="text-center no-wrap" style={{ fontSize: "0.80rem", color: "#334155" }}>
+                                                                {it.timeStr || "—"}
+                                                            </td>
+                                                            <td className="font-mono no-wrap" style={{ fontSize: "0.82rem", fontWeight: 600 }}>
+                                                                {it.uhid || "-"}
+                                                            </td>
+                                                            <td className="wrap-text">
+                                                                <strong style={{ fontSize: "0.86rem", color: "#0f172a" }}>
+                                                                    {it.patient_name || "General"}
+                                                                </strong>
+                                                            </td>
+                                                            <td className="wrap-text">
+                                                                <span style={{ fontWeight: 600, color: "#334155", fontSize: "0.82rem" }}>
+                                                                    {it.requested_by || "-"}
+                                                                </span>
+                                                            </td>
+                                                            <td className="wrap-text">
+                                                                <span style={{ fontWeight: 600, color: "#16a34a", display: "inline-flex", alignItems: "center", gap: 3, fontSize: "0.82rem" }}>
+                                                                    <CheckCircle size={13} color="#16a34a" /> {it.approved_by || "-"}
+                                                                </span>
+                                                            </td>
+                                                            <td className="text-center">
+                                                                {renderBillingDetailsPopover(it)}
+                                                            </td>
+                                                            <td className="text-center no-wrap" style={{ fontSize: "0.82rem" }}>
+                                                                {it.payment_type || "Cash"}
+                                                            </td>
+                                                            <td className="text-center">
+                                                                <Tag color="green" style={{ margin: 0, fontSize: "0.75rem" }}>
+                                                                    {it.status || "Paid"}
+                                                                </Tag>
+                                                            </td>
+                                                            <td className="text-right font-mono font-bold no-wrap" style={{ color: "#dc2626", fontSize: "0.92rem" }}>
+                                                                {formatINR(it.amt)}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+
+                                                    {/* Category / Bill Type Subtotal */}
+                                                    <SubtotalTr className="SubtotalRow subtotal-row">
+                                                        <td colSpan={11} className="text-right font-bold" style={{ color: "#475569" }}>
+                                                            Total ({sec.billType}) ->
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold" style={{ color: "#dc2626", fontSize: "0.94rem" }}>
+                                                            ₹{formatINR(sec.totalAmt)}
+                                                        </td>
+                                                    </SubtotalTr>
+                                                </React.Fragment>
+                                            ))}
+
+                                            {/* Date Subtotal if multiple categories */}
+                                            {dg.sections.length > 1 && (
+                                                <SubtotalTr style={{ background: "#e2e8f0 !important", fontWeight: 800 }}>
+                                                    <td colSpan={11} className="text-right font-bold" style={{ color: "#1e293b" }}>
+                                                        Date Total ({dg.date}) ->
+                                                    </td>
+                                                    <td className="text-right font-mono font-bold" style={{ color: "#dc2626", fontSize: "0.96rem" }}>
+                                                        ₹{formatINR(dg.dateTotalAmt)}
+                                                    </td>
+                                                </SubtotalTr>
+                                            )}
+                                        </React.Fragment>
+                                    ))
                                 )}
-                                <tr className="total-row">
-                                    <td colSpan={11}><strong>TOTAL AUDITED SALES RETURNS ({filtered.length} TRANSACTIONS)</strong></td>
-                                    <td className="text-right font-mono font-bold" style={{ color: "#dc2626" }}>
+
+                                {/* Grand Total Row */}
+                                <tr className="total-row" style={{ background: "#0f172a", color: "#ffffff" }}>
+                                    <td colSpan={11} style={{ color: "#ffffff", padding: "10px" }}>
+                                        <strong>GRAND TOTAL AUDITED SALES RETURNS ({filtered.length} TRANSACTIONS)</strong>
+                                    </td>
+                                    <td className="text-right font-mono font-bold" style={{ color: "#fca5a5", fontSize: "1.05rem", padding: "10px" }}>
                                         ₹{formatINR(summary.total_return_amount || totalReturn)}
                                     </td>
                                 </tr>
                             </tbody>
-                        </table>
+                        </SalesReturnTable>
                     </DataTableWrapper>
 
                     <ReportPrintFooter />

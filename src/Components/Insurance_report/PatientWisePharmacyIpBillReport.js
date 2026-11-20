@@ -394,13 +394,14 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
         printInsuranceReport('printable-pharmacy-ip-sheet', {
             reportTitle: 'PHARMACY IP BILL',
             patientInfo: {
-                uhid: patient.op_number || uhid,
+                uhid: patient.op_number || patient.uhid || uhid,
                 ip_number: patient.ip_number,
                 patient_name: patient.patient_name,
                 age_gender: patient.age_gender,
                 admitted_date: patient.admitted_date,
                 discharge_date: patient.discharge_date,
-                doctor: patient.doctor_name
+                doctor: patient.doctor_name || patient.doctor,
+                company: patient.company || patient.insurance_company || patient.company_name || '-'
             },
             orientation: 'portrait'
         });
@@ -708,7 +709,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                         </div>
                         <div className="meta-item">
                             <span className="meta-label">Doctor</span>
-                            <span className="meta-val">: {patient.doctor_name || '-'}</span>
+                            <span className="meta-val">: {patient.doctor_name || patient.doctor || '-'}</span>
                         </div>
                         <div className="meta-item" style={{ visibility: 'hidden' }}>
                             <span className="meta-label"></span>

@@ -142,60 +142,119 @@ const MasterDaywiseSalesTaxRegister = ({
     }, [activeGt, filteredData]);
 
     const isIpMode = patientType === "ip";
+    const isOpMode = patientType === "op";
+
+    const isOpRow = (row) => {
+        const pt = String(row?.patient_type || "").toUpperCase();
+        const bn = String(row?.bill_name || "").toUpperCase();
+        if (pt === "IP" || bn.includes("IP")) return false;
+        return true;
+    };
 
     const handleExportExcel = () => {
         if (!activeList || activeList.length === 0) return;
-        const rows = filteredData.map(r => ({
-            "Date": r.bill_date,
-            "Particulars": r.bill_name,
-            "Bills": r.bills,
-            "Exempted Taxable": r.exempted?.taxable || 0,
-            "Exempted Total": r.exempted?.total || 0,
-            "5% Taxable": r.rate_5?.taxable || 0,
-            "5% SGST": r.rate_5?.sgst || 0,
-            "5% CGST": r.rate_5?.cgst || 0,
-            "5% GST": (r.rate_5?.sgst || 0) + (r.rate_5?.cgst || 0),
-            "5% Total": r.rate_5?.total || 0,
-            "12% Taxable": r.rate_12?.taxable || 0,
-            "12% SGST": r.rate_12?.sgst || 0,
-            "12% CGST": r.rate_12?.cgst || 0,
-            "12% GST": (r.rate_12?.sgst || 0) + (r.rate_12?.cgst || 0),
-            "12% Total": r.rate_12?.total || 0,
-            "18% Taxable": r.rate_18?.taxable || 0,
-            "18% SGST": r.rate_18?.sgst || 0,
-            "18% CGST": r.rate_18?.cgst || 0,
-            "18% GST": (r.rate_18?.sgst || 0) + (r.rate_18?.cgst || 0),
-            "18% Total": r.rate_18?.total || 0,
-            "Total Taxable": r.total?.taxable || 0,
-            "Total GST": (r.total?.sgst || 0) + (r.total?.cgst || 0),
-            "Total Amount": r.total?.total || 0,
-        }));
+        const rows = filteredData.map(r => {
+            const isOp = isOpRow(r);
+            const r5Gst = (r.rate_5?.sgst || 0) + (r.rate_5?.cgst || 0);
+            const r12Gst = (r.rate_12?.sgst || 0) + (r.rate_12?.cgst || 0);
+            const r18Gst = (r.rate_18?.sgst || 0) + (r.rate_18?.cgst || 0);
+            const totGst = (r.total?.sgst || 0) + (r.total?.cgst || 0);
+
+            const rowObj = {
+                "Date": r.bill_date,
+                "Particulars": r.bill_name,
+                "Bills": r.bills,
+                "Exempted Taxable": r.exempted?.taxable || 0,
+                "Exempted Total": r.exempted?.total || 0,
+                "5% Taxable": r.rate_5?.taxable || 0,
+            };
+
+            if (isIpMode || (!isOp && !isOpMode)) {
+                // IP pharmacy: only display GST
+                rowObj["5% GST"] = r5Gst;
+                rowObj["5% Total"] = r.rate_5?.total || 0;
+                rowObj["12% Taxable"] = r.rate_12?.taxable || 0;
+                rowObj["12% GST"] = r12Gst;
+                rowObj["12% Total"] = r.rate_12?.total || 0;
+                rowObj["18% Taxable"] = r.rate_18?.taxable || 0;
+                rowObj["18% GST"] = r18Gst;
+                rowObj["18% Total"] = r.rate_18?.total || 0;
+                rowObj["Total Taxable"] = r.total?.taxable || 0;
+                rowObj["Total GST"] = totGst;
+                rowObj["Total Amount"] = r.total?.total || 0;
+            } else {
+                // OP pharmacy: separate SGST and CGST
+                rowObj["5% SGST"] = r.rate_5?.sgst || 0;
+                rowObj["5% CGST"] = r.rate_5?.cgst || 0;
+                rowObj["5% GST"] = r5Gst;
+                rowObj["5% Total"] = r.rate_5?.total || 0;
+                rowObj["12% Taxable"] = r.rate_12?.taxable || 0;
+                rowObj["12% SGST"] = r.rate_12?.sgst || 0;
+                rowObj["12% CGST"] = r.rate_12?.cgst || 0;
+                rowObj["12% GST"] = r12Gst;
+                rowObj["12% Total"] = r.rate_12?.total || 0;
+                rowObj["18% Taxable"] = r.rate_18?.taxable || 0;
+                rowObj["18% SGST"] = r.rate_18?.sgst || 0;
+                rowObj["18% CGST"] = r.rate_18?.cgst || 0;
+                rowObj["18% GST"] = r18Gst;
+                rowObj["18% Total"] = r.rate_18?.total || 0;
+                rowObj["Total Taxable"] = r.total?.taxable || 0;
+                rowObj["Total SGST"] = r.total?.sgst || 0;
+                rowObj["Total CGST"] = r.total?.cgst || 0;
+                rowObj["Total GST"] = totGst;
+                rowObj["Total Amount"] = r.total?.total || 0;
+            }
+            return rowObj;
+        });
+
         if (activeGt) {
-            rows.push({
+            const gtObj = {
                 "Date": "GRAND TOTAL",
                 "Particulars": "",
                 "Bills": "",
                 "Exempted Taxable": activeGt.exempted?.taxable || 0,
                 "Exempted Total": activeGt.exempted?.total || 0,
                 "5% Taxable": activeGt.rate_5?.taxable || 0,
-                "5% SGST": activeGt.rate_5?.sgst || 0,
-                "5% CGST": activeGt.rate_5?.cgst || 0,
-                "5% GST": (activeGt.rate_5?.sgst || 0) + (activeGt.rate_5?.cgst || 0),
-                "5% Total": activeGt.rate_5?.total || 0,
-                "12% Taxable": activeGt.rate_12?.taxable || 0,
-                "12% SGST": activeGt.rate_12?.sgst || 0,
-                "12% CGST": activeGt.rate_12?.cgst || 0,
-                "12% GST": (activeGt.rate_12?.sgst || 0) + (activeGt.rate_12?.cgst || 0),
-                "12% Total": activeGt.rate_12?.total || 0,
-                "18% Taxable": activeGt.rate_18?.taxable || 0,
-                "18% SGST": activeGt.rate_18?.sgst || 0,
-                "18% CGST": activeGt.rate_18?.cgst || 0,
-                "18% GST": (activeGt.rate_18?.sgst || 0) + (activeGt.rate_18?.cgst || 0),
-                "18% Total": activeGt.rate_18?.total || 0,
-                "Total Taxable": activeGt.total?.taxable || 0,
-                "Total GST": (activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0),
-                "Total Amount": activeGt.total?.total || 0,
-            });
+            };
+            const gt5Gst = (activeGt.rate_5?.sgst || 0) + (activeGt.rate_5?.cgst || 0);
+            const gt12Gst = (activeGt.rate_12?.sgst || 0) + (activeGt.rate_12?.cgst || 0);
+            const gt18Gst = (activeGt.rate_18?.sgst || 0) + (activeGt.rate_18?.cgst || 0);
+            const gtTotGst = (activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0);
+
+            if (isIpMode) {
+                gtObj["5% GST"] = gt5Gst;
+                gtObj["5% Total"] = activeGt.rate_5?.total || 0;
+                gtObj["12% Taxable"] = activeGt.rate_12?.taxable || 0;
+                gtObj["12% GST"] = gt12Gst;
+                gtObj["12% Total"] = activeGt.rate_12?.total || 0;
+                gtObj["18% Taxable"] = activeGt.rate_18?.taxable || 0;
+                gtObj["18% GST"] = gt18Gst;
+                gtObj["18% Total"] = activeGt.rate_18?.total || 0;
+                gtObj["Total Taxable"] = activeGt.total?.taxable || 0;
+                gtObj["Total GST"] = gtTotGst;
+                gtObj["Total Amount"] = activeGt.total?.total || 0;
+            } else {
+                gtObj["5% SGST"] = activeGt.rate_5?.sgst || 0;
+                gtObj["5% CGST"] = activeGt.rate_5?.cgst || 0;
+                gtObj["5% GST"] = gt5Gst;
+                gtObj["5% Total"] = activeGt.rate_5?.total || 0;
+                gtObj["12% Taxable"] = activeGt.rate_12?.taxable || 0;
+                gtObj["12% SGST"] = activeGt.rate_12?.sgst || 0;
+                gtObj["12% CGST"] = activeGt.rate_12?.cgst || 0;
+                gtObj["12% GST"] = gt12Gst;
+                gtObj["12% Total"] = activeGt.rate_12?.total || 0;
+                gtObj["18% Taxable"] = activeGt.rate_18?.taxable || 0;
+                gtObj["18% SGST"] = activeGt.rate_18?.sgst || 0;
+                gtObj["18% CGST"] = activeGt.rate_18?.cgst || 0;
+                gtObj["18% GST"] = gt18Gst;
+                gtObj["18% Total"] = activeGt.rate_18?.total || 0;
+                gtObj["Total Taxable"] = activeGt.total?.taxable || 0;
+                gtObj["Total SGST"] = activeGt.total?.sgst || 0;
+                gtObj["Total CGST"] = activeGt.total?.cgst || 0;
+                gtObj["Total GST"] = gtTotGst;
+                gtObj["Total Amount"] = activeGt.total?.total || 0;
+            }
+            rows.push(gtObj);
         }
         exportToExcel(rows, `Daywise_GST_${activeTab.toUpperCase()}`, "GST_Register");
     };
@@ -270,13 +329,21 @@ const MasterDaywiseSalesTaxRegister = ({
                         <span className="kpi-title">Total Taxable Value</span>
                         <span className="kpi-value">{formatINR(activeGt?.total?.taxable || 0)}</span>
                     </KPICard>
-                    <KPICard $border="#059669">
-                        <span className="kpi-title">5% Slab GST</span>
-                        <span className="kpi-value">{formatINR((activeGt?.rate_5?.sgst || 0) + (activeGt?.rate_5?.cgst || 0))}</span>
-                    </KPICard>
+                    {!isIpMode && (
+                        <>
+                            <KPICard $border="#059669">
+                                <span className="kpi-title">Output SGST (OP)</span>
+                                <span className="kpi-value">{formatINR(activeGt?.total?.sgst || 0)}</span>
+                            </KPICard>
+                            <KPICard $border="#0891b2">
+                                <span className="kpi-title">Output CGST (OP)</span>
+                                <span className="kpi-value">{formatINR(activeGt?.total?.cgst || 0)}</span>
+                            </KPICard>
+                        </>
+                    )}
                     <KPICard $border="#d97706">
-                        <span className="kpi-title">12% Slab GST</span>
-                        <span className="kpi-value">{formatINR((activeGt?.rate_12?.sgst || 0) + (activeGt?.rate_12?.cgst || 0))}</span>
+                        <span className="kpi-title">{isIpMode ? "IP GST Total" : "Total Output GST"}</span>
+                        <span className="kpi-value">{formatINR((activeGt?.total?.sgst || 0) + (activeGt?.total?.cgst || 0))}</span>
                     </KPICard>
                     <KPICard $border="#7c3aed">
                         <span className="kpi-title">Total Invoiced Amount</span>
@@ -389,109 +456,243 @@ const MasterDaywiseSalesTaxRegister = ({
                         />
                     )}
 
-                    {/* High-Definition 100% Fit Formal A4 Table Container (Zero Horizontal Scrollbar) */}
-                    <div style={{ width: "100%", overflowX: isModalView ? "visible" : "auto" }}>
+                    {/* High-Definition 100% Fit Formal A4 Table Container (Zero Horizontal Overflow) */}
+                    <div style={{ width: "100%", overflowX: isModalView ? "auto" : "auto" }}>
                         <table 
                             style={{ 
                                 width: "100%", 
                                 borderCollapse: "collapse",
-                                fontSize: isModalView ? "8.5px" : "11px",
+                                fontSize: isModalView ? "9px" : "11px",
+                                lineHeight: "1.25",
                                 tableLayout: "auto",
-                                color: "#000000"
+                                color: "#000000",
+                                border: "1.5px solid #334155"
                             }}
                         >
                             <thead>
-                                <tr style={{ background: "#f1f5f9", borderTop: "1.5px solid #000", borderBottom: "1px solid #000" }}>
-                                    <th rowSpan="2" style={{ textAlign: "center", width: "24px", padding: "4px 2px", border: "1px solid #cbd5e1" }}>#</th>
-                                    <th rowSpan="2" style={{ width: "66px", padding: "4px 4px", whiteSpace: "nowrap", border: "1px solid #cbd5e1" }}>Date</th>
-                                    <th rowSpan="2" style={{ width: "150px", padding: "4px 4px", border: "1px solid #cbd5e1" }}>Particulars</th>
-                                    <th rowSpan="2" style={{ width: "130px", padding: "4px 4px", border: "1px solid #cbd5e1" }}>Bill Numbers</th>
-                                    <th colSpan="2" style={{ textAlign: "center", background: "#f8fafc", padding: "3px 4px", border: "1px solid #cbd5e1" }}>Exempted</th>
-                                    <th colSpan="3" style={{ textAlign: "center", background: "#f0fdf4", padding: "3px 4px", border: "1px solid #cbd5e1" }}>5% GST Slab</th>
-                                    <th colSpan="3" style={{ textAlign: "center", background: "#fefce8", padding: "3px 4px", border: "1px solid #cbd5e1" }}>12% GST Slab</th>
-                                    <th colSpan="3" style={{ textAlign: "center", background: "#fdf4ff", padding: "3px 4px", border: "1px solid #cbd5e1" }}>18% GST Slab</th>
+                                <tr style={{ background: "#f1f5f9", borderTop: "1.5px solid #334155", borderBottom: "1px solid #334155" }}>
+                                    <th rowSpan="2" style={{ textAlign: "center", width: "20px", padding: isModalView ? "2px 1px" : "3px 2px", border: "1px solid #94a3b8" }}>#</th>
+                                    <th rowSpan="2" style={{ width: "56px", padding: isModalView ? "2px 2px" : "3px 3px", whiteSpace: "nowrap", border: "1px solid #94a3b8" }}>Date</th>
+                                    <th rowSpan="2" style={{ width: "95px", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8" }}>Particulars</th>
+                                    <th rowSpan="2" style={{ width: "80px", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>Bill Numbers</th>
+                                    <th colSpan="2" style={{ textAlign: "center", background: "#f8fafc", padding: "3px 2px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>Exempted</th>
+                                    
+                                    {/* 5% Slab Header */}
+                                    <th colSpan={isIpMode ? 3 : 4} style={{ textAlign: "center", background: "#f0fdf4", padding: "3px 2px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>
+                                        5% GST Slab
+                                    </th>
+
+                                    {/* 12% Slab Header */}
+                                    <th colSpan={isIpMode ? 3 : 4} style={{ textAlign: "center", background: "#fefce8", padding: "3px 2px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>
+                                        12% GST Slab
+                                    </th>
+
+                                    {/* 18% Slab Header */}
+                                    <th colSpan={isIpMode ? 3 : 4} style={{ textAlign: "center", background: "#fdf4ff", padding: "3px 2px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>
+                                        18% GST Slab
+                                    </th>
+
+                                    {/* 28% Slab Header if active */}
                                     {has28Slab && (
-                                        <th colSpan="3" style={{ textAlign: "center", background: "#faf5ff", padding: "3px 4px", border: "1px solid #cbd5e1" }}>28% GST Slab</th>
+                                        <th colSpan={isIpMode ? 3 : 4} style={{ textAlign: "center", background: "#faf5ff", padding: "3px 2px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>
+                                            28% GST Slab
+                                        </th>
                                     )}
-                                    <th colSpan="3" style={{ textAlign: "center", background: "#e0f2fe", padding: "3px 4px", border: "1px solid #000" }}>Grand Total</th>
+
+                                    {/* Grand Total Header */}
+                                    <th colSpan={isIpMode ? 3 : 5} style={{ textAlign: "center", background: "#e0f2fe", padding: "3px 2px", border: "1px solid #94a3b8", borderLeft: "2.5px solid #334155", borderRight: "1.5px solid #334155" }}>
+                                        Grand Total
+                                    </th>
                                 </tr>
-                                <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #000" }}>
-                                    {/* Exempted */}
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Taxable</th>
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Total</th>
-                                    {/* 5% */}
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Taxable</th>
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>GST</th>
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Total</th>
-                                    {/* 12% */}
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Taxable</th>
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>GST</th>
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Total</th>
-                                    {/* 18% */}
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Taxable</th>
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>GST</th>
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Total</th>
-                                    {/* 28% */}
-                                    {has28Slab && (
+                                <tr style={{ background: "#f8fafc", borderBottom: "2px solid #334155" }}>
+                                    {/* Exempted Subheaders */}
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8" }}>Taxable</th>
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>Total</th>
+
+                                    {/* 5% Slab Subheaders */}
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8" }}>Taxable</th>
+                                    {isIpMode ? (
+                                        <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#047857" }}>GST (5%)</th>
+                                    ) : (
                                         <>
-                                            <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Taxable</th>
-                                            <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>GST</th>
-                                            <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1" }}>Total</th>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#047857" }}>SGST (2.5%)</th>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#047857" }}>CGST (2.5%)</th>
                                         </>
                                     )}
-                                    {/* Grand Total */}
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1", fontWeight: "700" }}>Taxable</th>
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #cbd5e1", fontWeight: "700" }}>Total GST</th>
-                                    <th style={{ textAlign: "right", padding: "3px 3px", border: "1px solid #000", fontWeight: "800" }}>Net Amount</th>
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>Total</th>
+
+                                    {/* 12% Slab Subheaders */}
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8" }}>Taxable</th>
+                                    {isIpMode ? (
+                                        <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#b45309" }}>GST (12%)</th>
+                                    ) : (
+                                        <>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#b45309" }}>SGST (6%)</th>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#b45309" }}>CGST (6%)</th>
+                                        </>
+                                    )}
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>Total</th>
+
+                                    {/* 18% Slab Subheaders */}
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8" }}>Taxable</th>
+                                    {isIpMode ? (
+                                        <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#6d28d9" }}>GST (18%)</th>
+                                    ) : (
+                                        <>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#6d28d9" }}>SGST (9%)</th>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#6d28d9" }}>CGST (9%)</th>
+                                        </>
+                                    )}
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>Total</th>
+
+                                    {/* 28% Slab Subheaders if active */}
+                                    {has28Slab && (
+                                        <>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8" }}>Taxable</th>
+                                            {isIpMode ? (
+                                                <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#9333ea" }}>GST (28%)</th>
+                                            ) : (
+                                                <>
+                                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#9333ea" }}>SGST (14%)</th>
+                                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", color: "#9333ea" }}>CGST (14%)</th>
+                                                </>
+                                            )}
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>Total</th>
+                                        </>
+                                    )}
+
+                                    {/* Grand Total Subheaders */}
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderLeft: "2.5px solid #334155", fontWeight: "700" }}>Taxable</th>
+                                    {isIpMode ? (
+                                        <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", fontWeight: "700", color: "#0369a1" }}>Total GST</th>
+                                    ) : (
+                                        <>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", fontWeight: "700", color: "#0369a1" }}>SGST</th>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", fontWeight: "700", color: "#0369a1" }}>CGST</th>
+                                            <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", fontWeight: "700" }}>Total GST</th>
+                                        </>
+                                    )}
+                                    <th style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "1.5px solid #334155", fontWeight: "800" }}>Net Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={has28Slab ? 21 : 18} style={{ textAlign: "center", padding: "36px", color: "#64748b" }}>
+                                        <td 
+                                            colSpan={isIpMode ? (has28Slab ? 21 : 18) : (has28Slab ? 27 : 23)} 
+                                            style={{ textAlign: "center", padding: "36px", color: "#64748b", border: "1px solid #94a3b8" }}
+                                        >
                                             No day-wise GST transaction records found for the selected filter criteria.
                                         </td>
                                     </tr>
                                 ) : (
                                     filteredData.map((row, idx) => {
+                                        const isOp = isOpRow(row);
                                         const r5Gst = (row.rate_5?.sgst || 0) + (row.rate_5?.cgst || 0);
                                         const r12Gst = (row.rate_12?.sgst || 0) + (row.rate_12?.cgst || 0);
                                         const r18Gst = (row.rate_18?.sgst || 0) + (row.rate_18?.cgst || 0);
                                         const r28Gst = (row.rate_28?.sgst || 0) + (row.rate_28?.cgst || 0);
                                         const totGst = (row.total?.sgst || 0) + (row.total?.cgst || 0);
+
                                         return (
                                             <tr key={idx} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfcfd" }}>
-                                                <td style={{ textAlign: "center", color: "#64748b", padding: "3px 2px", border: "0.5px solid #e2e8f0" }}>{idx + 1}</td>
-                                                <td style={{ fontWeight: "700", whiteSpace: "nowrap", padding: "3px 4px", border: "0.5px solid #e2e8f0" }}>{row.bill_date}</td>
-                                                <td style={{ fontWeight: "600", padding: "3px 4px", border: "0.5px solid #e2e8f0", whiteSpace: "nowrap" }}>{row.bill_name || "—"}</td>
-                                                <td style={{ fontSize: isModalView ? "7.5px" : "10px", color: "#475569", padding: "3px 4px", border: "0.5px solid #e2e8f0" }}>{row.bills || "—"}</td>
+                                                {/* Meta Columns */}
+                                                <td style={{ textAlign: "center", color: "#64748b", padding: isModalView ? "2px 1px" : "3px 2px", border: "1px solid #94a3b8" }}>{idx + 1}</td>
+                                                <td style={{ fontWeight: "700", whiteSpace: "nowrap", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8" }}>{row.bill_date}</td>
+                                                <td style={{ fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{row.bill_name || "—"}</td>
+                                                <td style={{ fontSize: isModalView ? "6.8px" : "9.5px", color: "#475569", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>{row.bills || "—"}</td>
+
                                                 {/* Exempted */}
-                                                <td style={{ textAlign: "right", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.exempted?.taxable || 0)}</td>
-                                                <td style={{ textAlign: "right", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.exempted?.total || 0)}</td>
-                                                {/* 5% */}
-                                                <td style={{ textAlign: "right", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.rate_5?.taxable || 0)}</td>
-                                                <td style={{ textAlign: "right", color: "#047857", fontWeight: "600", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(r5Gst)}</td>
-                                                <td style={{ textAlign: "right", fontWeight: "600", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.rate_5?.total || 0)}</td>
-                                                {/* 12% */}
-                                                <td style={{ textAlign: "right", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.rate_12?.taxable || 0)}</td>
-                                                <td style={{ textAlign: "right", color: "#b45309", fontWeight: "600", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(r12Gst)}</td>
-                                                <td style={{ textAlign: "right", fontWeight: "600", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.rate_12?.total || 0)}</td>
-                                                {/* 18% */}
-                                                <td style={{ textAlign: "right", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.rate_18?.taxable || 0)}</td>
-                                                <td style={{ textAlign: "right", color: "#6d28d9", fontWeight: "600", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(r18Gst)}</td>
-                                                <td style={{ textAlign: "right", fontWeight: "600", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.rate_18?.total || 0)}</td>
-                                                {/* 28% */}
+                                                <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.exempted?.taxable || 0)}</td>
+                                                <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(row.exempted?.total || 0)}</td>
+
+                                                {/* 5% Slab */}
+                                                <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_5?.taxable || 0)}</td>
+                                                {isIpMode ? (
+                                                    <td style={{ textAlign: "right", color: "#047857", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(r5Gst)}</td>
+                                                ) : isOp ? (
+                                                    <>
+                                                        <td style={{ textAlign: "right", color: "#047857", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_5?.sgst || 0)}</td>
+                                                        <td style={{ textAlign: "right", color: "#047857", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_5?.cgst || 0)}</td>
+                                                    </>
+                                                ) : (
+                                                    <td colSpan="2" style={{ textAlign: "right", color: "#047857", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>
+                                                        {formatINR(r5Gst)}
+                                                    </td>
+                                                )}
+                                                <td style={{ textAlign: "right", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(row.rate_5?.total || 0)}</td>
+
+                                                {/* 12% Slab */}
+                                                <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_12?.taxable || 0)}</td>
+                                                {isIpMode ? (
+                                                    <td style={{ textAlign: "right", color: "#b45309", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(r12Gst)}</td>
+                                                ) : isOp ? (
+                                                    <>
+                                                        <td style={{ textAlign: "right", color: "#b45309", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_12?.sgst || 0)}</td>
+                                                        <td style={{ textAlign: "right", color: "#b45309", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_12?.cgst || 0)}</td>
+                                                    </>
+                                                ) : (
+                                                    <td colSpan="2" style={{ textAlign: "right", color: "#b45309", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>
+                                                        {formatINR(r12Gst)}
+                                                    </td>
+                                                )}
+                                                <td style={{ textAlign: "right", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(row.rate_12?.total || 0)}</td>
+
+                                                {/* 18% Slab */}
+                                                <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_18?.taxable || 0)}</td>
+                                                {isIpMode ? (
+                                                    <td style={{ textAlign: "right", color: "#6d28d9", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(r18Gst)}</td>
+                                                ) : isOp ? (
+                                                    <>
+                                                        <td style={{ textAlign: "right", color: "#6d28d9", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_18?.sgst || 0)}</td>
+                                                        <td style={{ textAlign: "right", color: "#6d28d9", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_18?.cgst || 0)}</td>
+                                                    </>
+                                                ) : (
+                                                    <td colSpan="2" style={{ textAlign: "right", color: "#6d28d9", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>
+                                                        {formatINR(r18Gst)}
+                                                    </td>
+                                                )}
+                                                <td style={{ textAlign: "right", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(row.rate_18?.total || 0)}</td>
+
+                                                {/* 28% Slab if active */}
                                                 {has28Slab && (
                                                     <>
-                                                        <td style={{ textAlign: "right", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.rate_28?.taxable || 0)}</td>
-                                                        <td style={{ textAlign: "right", color: "#9333ea", fontWeight: "600", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(r28Gst)}</td>
-                                                        <td style={{ textAlign: "right", fontWeight: "600", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.rate_28?.total || 0)}</td>
+                                                        <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_28?.taxable || 0)}</td>
+                                                        {isIpMode ? (
+                                                            <td style={{ textAlign: "right", color: "#9333ea", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(r28Gst)}</td>
+                                                        ) : isOp ? (
+                                                            <>
+                                                                <td style={{ textAlign: "right", color: "#9333ea", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_28?.sgst || 0)}</td>
+                                                                <td style={{ textAlign: "right", color: "#9333ea", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.rate_28?.cgst || 0)}</td>
+                                                            </>
+                                                        ) : (
+                                                            <td colSpan="2" style={{ textAlign: "right", color: "#9333ea", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>
+                                                                {formatINR(r28Gst)}
+                                                            </td>
+                                                        )}
+                                                        <td style={{ textAlign: "right", fontWeight: "600", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(row.rate_28?.total || 0)}</td>
                                                     </>
                                                 )}
-                                                {/* Total */}
-                                                <td style={{ textAlign: "right", fontWeight: "700", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(row.total?.taxable || 0)}</td>
-                                                <td style={{ textAlign: "right", fontWeight: "700", color: "#0369a1", padding: "3px 3px", border: "0.5px solid #e2e8f0" }}>{formatINR(totGst)}</td>
-                                                <td style={{ textAlign: "right", fontWeight: "800", color: "#0f172a", padding: "3px 3px", border: "0.5px solid #000" }}>{formatINR(row.total?.total || 0)}</td>
+
+                                                {/* Grand Total */}
+                                                <td style={{ textAlign: "right", fontWeight: "700", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderLeft: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(row.total?.taxable || 0)}</td>
+                                                {isIpMode ? (
+                                                    <td style={{ textAlign: "right", fontWeight: "700", color: "#0369a1", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(totGst)}</td>
+                                                ) : isOp ? (
+                                                    <>
+                                                        <td style={{ textAlign: "right", fontWeight: "700", color: "#0369a1", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.total?.sgst || 0)}</td>
+                                                        <td style={{ textAlign: "right", fontWeight: "700", color: "#0369a1", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(row.total?.cgst || 0)}</td>
+                                                        <td style={{ textAlign: "right", fontWeight: "700", color: "#0369a1", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(totGst)}</td>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <td colSpan="2" style={{ textAlign: "right", fontWeight: "700", color: "#0369a1", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>
+                                                            {formatINR(totGst)}
+                                                        </td>
+                                                        <td style={{ textAlign: "right", fontWeight: "700", color: "#0369a1", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(totGst)}</td>
+                                                    </>
+                                                )}
+                                                <td style={{ textAlign: "right", fontWeight: "800", color: "#0f172a", padding: isModalView ? "2px 2px" : "3px 3px", border: "1px solid #94a3b8", borderRight: "1.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(row.total?.total || 0)}</td>
                                             </tr>
                                         );
                                     })
@@ -499,29 +700,77 @@ const MasterDaywiseSalesTaxRegister = ({
                             </tbody>
                             {activeGt && (
                                 <tfoot>
-                                    <tr style={{ background: "#f1f5f9", fontWeight: "800", borderTop: "2px solid #000", borderBottom: "2.5px double #000" }}>
-                                        <td colSpan="4" style={{ textAlign: "right", fontWeight: "800", padding: "5px 6px", border: "1px solid #cbd5e1" }}>GRAND TOTAL:</td>
-                                        <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.exempted?.taxable || 0)}</td>
-                                        <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.exempted?.total || 0)}</td>
-                                        <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.rate_5?.taxable || 0)}</td>
-                                        <td style={{ textAlign: "right", color: "#047857", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR((activeGt.rate_5?.sgst || 0) + (activeGt.rate_5?.cgst || 0))}</td>
-                                        <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.rate_5?.total || 0)}</td>
-                                        <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.rate_12?.taxable || 0)}</td>
-                                        <td style={{ textAlign: "right", color: "#b45309", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR((activeGt.rate_12?.sgst || 0) + (activeGt.rate_12?.cgst || 0))}</td>
-                                        <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.rate_12?.total || 0)}</td>
-                                        <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.rate_18?.taxable || 0)}</td>
-                                        <td style={{ textAlign: "right", color: "#6d28d9", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR((activeGt.rate_18?.sgst || 0) + (activeGt.rate_18?.cgst || 0))}</td>
-                                        <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.rate_18?.total || 0)}</td>
-                                        {has28Slab && (
+                                    <tr style={{ background: "#f1f5f9", fontWeight: "800", borderTop: "2.5px solid #334155", borderBottom: "2.5px double #334155" }}>
+                                        <td colSpan="4" style={{ textAlign: "right", fontWeight: "800", padding: isModalView ? "3px 4px" : "5px 6px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155" }}>GRAND TOTAL:</td>
+                                        
+                                        {/* Exempted Grand Total */}
+                                        <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.exempted?.taxable || 0)}</td>
+                                        <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(activeGt.exempted?.total || 0)}</td>
+                                        
+                                        {/* 5% Grand Total */}
+                                        <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_5?.taxable || 0)}</td>
+                                        {isIpMode ? (
+                                            <td style={{ textAlign: "right", color: "#047857", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR((activeGt.rate_5?.sgst || 0) + (activeGt.rate_5?.cgst || 0))}</td>
+                                        ) : (
                                             <>
-                                                <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.rate_28?.taxable || 0)}</td>
-                                                <td style={{ textAlign: "right", color: "#9333ea", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR((activeGt.rate_28?.sgst || 0) + (activeGt.rate_28?.cgst || 0))}</td>
-                                                <td style={{ textAlign: "right", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.rate_28?.total || 0)}</td>
+                                                <td style={{ textAlign: "right", color: "#047857", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_5?.sgst || 0)}</td>
+                                                <td style={{ textAlign: "right", color: "#047857", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_5?.cgst || 0)}</td>
                                             </>
                                         )}
-                                        <td style={{ textAlign: "right", fontWeight: "800", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR(activeGt.total?.taxable || 0)}</td>
-                                        <td style={{ textAlign: "right", fontWeight: "800", color: "#0369a1", padding: "5px 3px", border: "1px solid #cbd5e1" }}>{formatINR((activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0))}</td>
-                                        <td style={{ textAlign: "right", fontWeight: "800", color: "#0f172a", padding: "5px 3px", border: "1.5px solid #000" }}>{formatINR(activeGt.total?.total || 0)}</td>
+                                        <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_5?.total || 0)}</td>
+                                        
+                                        {/* 12% Grand Total */}
+                                        <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_12?.taxable || 0)}</td>
+                                        {isIpMode ? (
+                                            <td style={{ textAlign: "right", color: "#b45309", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR((activeGt.rate_12?.sgst || 0) + (activeGt.rate_12?.cgst || 0))}</td>
+                                        ) : (
+                                            <>
+                                                <td style={{ textAlign: "right", color: "#b45309", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_12?.sgst || 0)}</td>
+                                                <td style={{ textAlign: "right", color: "#b45309", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_12?.cgst || 0)}</td>
+                                            </>
+                                        )}
+                                        <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_12?.total || 0)}</td>
+                                        
+                                        {/* 18% Grand Total */}
+                                        <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_18?.taxable || 0)}</td>
+                                        {isIpMode ? (
+                                            <td style={{ textAlign: "right", color: "#6d28d9", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR((activeGt.rate_18?.sgst || 0) + (activeGt.rate_18?.cgst || 0))}</td>
+                                        ) : (
+                                            <>
+                                                <td style={{ textAlign: "right", color: "#6d28d9", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_18?.sgst || 0)}</td>
+                                                <td style={{ textAlign: "right", color: "#6d28d9", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_18?.cgst || 0)}</td>
+                                            </>
+                                        )}
+                                        <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_18?.total || 0)}</td>
+                                        
+                                        {/* 28% Grand Total if active */}
+                                        {has28Slab && (
+                                            <>
+                                                <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_28?.taxable || 0)}</td>
+                                                {isIpMode ? (
+                                                    <td style={{ textAlign: "right", color: "#9333ea", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR((activeGt.rate_28?.sgst || 0) + (activeGt.rate_28?.cgst || 0))}</td>
+                                                ) : (
+                                                    <>
+                                                        <td style={{ textAlign: "right", color: "#9333ea", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_28?.sgst || 0)}</td>
+                                                        <td style={{ textAlign: "right", color: "#9333ea", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_28?.cgst || 0)}</td>
+                                                    </>
+                                                )}
+                                                <td style={{ textAlign: "right", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", borderRight: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(activeGt.rate_28?.total || 0)}</td>
+                                            </>
+                                        )}
+
+                                        {/* Grand Total Footer Cells */}
+                                        <td style={{ textAlign: "right", fontWeight: "800", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", borderLeft: "2.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(activeGt.total?.taxable || 0)}</td>
+                                        {isIpMode ? (
+                                            <td style={{ textAlign: "right", fontWeight: "800", color: "#0369a1", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR((activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0))}</td>
+                                        ) : (
+                                            <>
+                                                <td style={{ textAlign: "right", fontWeight: "800", color: "#0369a1", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.total?.sgst || 0)}</td>
+                                                <td style={{ textAlign: "right", fontWeight: "800", color: "#0369a1", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR(activeGt.total?.cgst || 0)}</td>
+                                                <td style={{ textAlign: "right", fontWeight: "800", color: "#0369a1", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", whiteSpace: "nowrap" }}>{formatINR((activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0))}</td>
+                                            </>
+                                        )}
+                                        <td style={{ textAlign: "right", fontWeight: "800", color: "#0f172a", padding: isModalView ? "2px 2px" : "5px 3px", border: "1px solid #94a3b8", borderRight: "1.5px solid #334155", whiteSpace: "nowrap" }}>{formatINR(activeGt.total?.total || 0)}</td>
                                     </tr>
                                 </tfoot>
                             )}

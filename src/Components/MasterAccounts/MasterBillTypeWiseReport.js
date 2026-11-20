@@ -10,6 +10,8 @@ import {
     printReportArea,
     extractReportData,
     getSafeArray,
+    fetchCachedOutlets,
+    cachedApiRequest,
     ReportPageWrapper,
     ControlCard,
     HeaderBar,
@@ -47,9 +49,9 @@ const MasterBillTypeWiseReport = ({
     useEffect(() => {
         const fetchOutlets = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) {
-                    setOutletsList(res.data);
+                const data = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(data)) {
+                    setOutletsList(data);
                 }
             } catch (e) {}
         };
@@ -76,14 +78,14 @@ const MasterBillTypeWiseReport = ({
         }
     }, [propCategory, propBillType, category]);
 
-    const fetchReport = useCallback(async () => {
+    const fetchReport = useCallback(async (isRefresh = false) => {
         try {
             setLoading(true);
             const fDate = dateRange[0].format("YYYY-MM-DD");
             const tDate = dateRange[1].format("YYYY-MM-DD");
             const effectiveCat = category || "All";
             const url = `${HmsBaseUrl}master-accounts/bill-type-wise-collection/?from_date=${fDate}&to_date=${tDate}&outlet_code=${outlet}&category=${encodeURIComponent(effectiveCat)}`;
-            const res = await apiRequest(url, "GET");
+            const res = await cachedApiRequest(url, "GET", null, { forceRefresh: isRefresh });
             if (res?.success) {
                 setReportData(extractReportData(res));
             }
@@ -165,7 +167,7 @@ const MasterBillTypeWiseReport = ({
                                 ))}
                             </Select>
                         </div>
-                        <Button icon={<RefreshCw size={14} />} onClick={fetchReport} loading={loading}>
+                        <Button icon={<RefreshCw size={14} />} onClick={() => fetchReport(true)} loading={loading}>
                             Refresh
                         </Button>
                     </FilterBar>
