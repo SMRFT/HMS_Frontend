@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { fetchCachedOutlets, cachedApiRequest } from "./masterAccountsHelper";
 import { printAccountsReport } from "../Accounts/printAccountsReport";
 import {
     PageWrapper,
@@ -138,13 +139,9 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
     useEffect(() => {
         const load = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) {
-                    setOutletsList(res.data);
-                } else if (Array.isArray(res?.data)) {
-                    setOutletsList(res.data);
-                } else if (Array.isArray(res)) {
-                    setOutletsList(res);
+                const data = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(data)) {
+                    setOutletsList(data);
                 }
             } catch (e) {}
         };
@@ -152,13 +149,13 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
     }, [HmsBaseUrl]);
 
     /* fetch report */
-    const fetchReport = useCallback(async () => {
+    const fetchReport = useCallback(async (isRefresh = false) => {
         if (!fromDate || !toDate) return;
         setLoading(true);
         try {
             const outletParam = outlet && outlet !== "all" ? `&outlet_code=${outlet}` : "";
             const url = `${HmsBaseUrl}master-accounts/advance-registration/?from_date=${fromDate}&to_date=${toDate}${outletParam}`;
-            const response = await apiRequest(url, "GET");
+            const response = await cachedApiRequest(url, "GET", null, { forceRefresh: isRefresh });
             if (response && response.success) {
                 const body = response.data || {};
                 let rows = [];
@@ -356,7 +353,7 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
                                 <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
                                     <FaPrint style={{ marginRight: "8px" }} /> Print
                                 </Button>
-                                <Button onClick={fetchReport} disabled={loading} style={{ height: "40px", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1" }}>
+                                <Button onClick={() => fetchReport(true)} disabled={loading} style={{ height: "40px", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1" }}>
                                     <FaSyncAlt style={{ marginRight: "8px" }} /> Refresh
                                 </Button>
                             </div>

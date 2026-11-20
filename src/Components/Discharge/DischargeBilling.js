@@ -703,48 +703,53 @@ const calcTotals = (items, f) => {
   return { itemsTotal, totalAmount: grossTotal, grossTotal, discAmt, totalDisc, netAmount, totalCharges };
 };
 
-const buildPayload = (items, f, totals, status, patient, editReason = "", insurance = null, paymentMethod = "Cash") => ({
-  status,
-  billTypeNo: "DIS01",
-  bill_type: 2,
-  uhid: patient?.uhid || null,
-  ip_number: patient?.ip_number || null,
-  is_insurance_bill: Boolean(insurance?.isInsuranceBill),
-  claim_number: insurance?.claimNumber || "",
-  id_card_number: insurance?.idCardNumber || "",
-  insurance_bill_number: insurance?.insuranceBillNumber || "",
-  company_name: insurance?.companyName || patient?.company || "",
-  items: items.map(({ _key, _fromInvest, _baseRate, _appliedWard, _rateCategory, ...r }) => ({
-    ...r,
-    billTypeNo: r.billTypeNo || "DIS01",
-    bill_type: (r.bill_type != null && r.bill_type !== "") ? r.bill_type : 2,
-    nabh_code: r.nabh_code || "",
-    nabh_rate: r.nabh_rate != null ? r.nabh_rate : null,
-    non_nabh_rate: r.non_nabh_rate != null ? r.non_nabh_rate : null,
-    rate_category: r.rate_category || _rateCategory || "NABH",
-  })),
-  total_amount: totals.totalAmount,
-  advance_amount: parseFloat(f.advance_amount) || 0,
-  sales_return: parseFloat(f.sales_return) || 0,
-  medicines_amount: parseFloat(f.medicines) || 0,
-  implant_amount: parseFloat(f.implant_amount) || 0,
-  taxable_amount: parseFloat(f.taxable) || 0,
-  non_tax_amount: parseFloat(f.non_tax) || totals.totalAmount,
-  gst_amount: parseFloat(f.gst_amount) || 0,
-  room_tax: parseFloat(f.room_tax) || 0,
-  discount_percent: parseFloat(f.discount_percent) || 0,
-  discount_amount: totals.discAmt,
-  disc_reason: f.disc_reason || "",
-  total_disc: totals.totalDisc,
-  net_amount: totals.netAmount,
-  remarks: f.remarks || "",
-  next_visit_date: f.next_visit_date || null,
-  discharge_date: f.discharge_date || null,
-  date_of_discharge: f.discharge_date || null,
-  bill_date: f.discharge_date || null,
-  edit_reason: editReason || "",
-  payment_method: status === "Estimate" ? null : (paymentMethod || f.payment_method || "Cash"),
-});
+const buildPayload = (items, f, totals, status, patient, editReason = "", insurance = null, paymentMethod = "Cash") => {
+  const custType = patient?.customer_type || patient?.patient_type || "GENERAL";
+  const isIns = Boolean(insurance?.isInsuranceBill) && String(custType).toUpperCase().includes("INSURANCE");
+  return {
+    status,
+    billTypeNo: "DIS01",
+    bill_type: 2,
+    uhid: patient?.uhid || null,
+    ip_number: patient?.ip_number || null,
+    customer_type: custType,
+    is_insurance_bill: isIns,
+    claim_number: isIns ? (insurance?.claimNumber || "") : "",
+    id_card_number: isIns ? (insurance?.idCardNumber || "") : "",
+    insurance_bill_number: isIns ? (insurance?.insuranceBillNumber || "") : "",
+    company_name: isIns ? (insurance?.companyName || patient?.company || "") : "",
+    items: items.map(({ _key, _fromInvest, _baseRate, _appliedWard, _rateCategory, ...r }) => ({
+      ...r,
+      billTypeNo: r.billTypeNo || "DIS01",
+      bill_type: (r.bill_type != null && r.bill_type !== "") ? r.bill_type : 2,
+      nabh_code: r.nabh_code || "",
+      nabh_rate: r.nabh_rate != null ? r.nabh_rate : null,
+      non_nabh_rate: r.non_nabh_rate != null ? r.non_nabh_rate : null,
+      rate_category: r.rate_category || _rateCategory || "NABH",
+    })),
+    total_amount: totals.totalAmount,
+    advance_amount: parseFloat(f.advance_amount) || 0,
+    sales_return: parseFloat(f.sales_return) || 0,
+    medicines_amount: parseFloat(f.medicines) || 0,
+    implant_amount: parseFloat(f.implant_amount) || 0,
+    taxable_amount: parseFloat(f.taxable) || 0,
+    non_tax_amount: parseFloat(f.non_tax) || totals.totalAmount,
+    gst_amount: parseFloat(f.gst_amount) || 0,
+    room_tax: parseFloat(f.room_tax) || 0,
+    discount_percent: parseFloat(f.discount_percent) || 0,
+    discount_amount: totals.discAmt,
+    disc_reason: f.disc_reason || "",
+    total_disc: totals.totalDisc,
+    net_amount: totals.netAmount,
+    remarks: f.remarks || "",
+    next_visit_date: f.next_visit_date || null,
+    discharge_date: f.discharge_date || null,
+    date_of_discharge: f.discharge_date || null,
+    bill_date: f.discharge_date || null,
+    edit_reason: editReason || "",
+    payment_method: status === "Estimate" ? null : (paymentMethod || f.payment_method || "Cash"),
+  };
+};
 
 const recalcItem = (item, field, value) => {
   const u = { ...item, [field]: value };
@@ -1788,10 +1793,8 @@ const DischargeBilling = () => {
 
   const isInsurancePatient = Boolean(
     patient && (
-      (patient.patient_type && String(patient.patient_type).trim().toUpperCase().includes("INSURANCE")) ||
       (patient.customer_type && String(patient.customer_type).trim().toUpperCase().includes("INSURANCE")) ||
-      Boolean(editingEst?.is_insurance_bill) ||
-      Boolean(editingEst?.insurance_bill_number)
+      (patient.patient_type && String(patient.patient_type).trim().toUpperCase().includes("INSURANCE"))
     )
   );
 
@@ -2464,6 +2467,8 @@ const DischargeBilling = () => {
   const handleEditConvert = useCallback(async est => {
     if (!est?.id) return;
     const pd = est.patient_details || {};
+    const initCust = pd.customer_type || pd.patient_type || est.customer_type || "";
+    const isInitialIns = String(initCust).trim().toUpperCase().includes("INSURANCE");
     const initialPatient = {
       patient_name: pd.patient_name || "",
       age: pd.age || "",
@@ -2475,8 +2480,9 @@ const DischargeBilling = () => {
       mobile: pd.mobile || "",
       room_no: pd.room_no || "",
       total_days: pd.total_days ?? 0,
-      patient_type: pd.patient_type || "",
-      company: pd.company || "",
+      customer_type: initCust,
+      patient_type: initCust,
+      company: isInitialIns ? (pd.company || est.company_name || "") : "",
       ward_status: "Sent for billing"
     };
     setPatient(initialPatient);
@@ -2496,11 +2502,11 @@ const DischargeBilling = () => {
     setFormRaw(estToForm(est));
     setEditingEst({ id: est.id, estimate_number: est.estimate_number, bill_no: est.bill_no, status: est.status });
     setInsuranceData({
-      isInsuranceBill: Boolean(est.is_insurance_bill),
-      claimNumber: est.claim_number || pd.claim_number || pd.referral_number || "",
-      idCardNumber: est.id_card_number || pd.id_card_number || pd.card_no || "",
-      insuranceBillNumber: est.insurance_bill_number || "",
-      companyName: est.company_name || pd.company || pd.company_code || "",
+      isInsuranceBill: isInitialIns,
+      claimNumber: isInitialIns ? (est.claim_number || pd.claim_number || pd.referral_number || "") : "",
+      idCardNumber: isInitialIns ? (est.id_card_number || pd.id_card_number || pd.card_no || "") : "",
+      insuranceBillNumber: isInitialIns ? (est.insurance_bill_number || "") : "",
+      companyName: isInitialIns ? (est.company_name || pd.company || pd.company_code || "") : "",
     });
     setTab("create");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -2514,6 +2520,10 @@ const DischargeBilling = () => {
         const res = raw?.success && raw?.data?.success ? raw.data.data : (raw?.success ? raw.data : raw);
         const p = res?.patient;
         if (p) {
+          const isPIssue = Boolean(
+            (p.customer_type && String(p.customer_type).trim().toUpperCase().includes("INSURANCE")) ||
+            (p.patient_type && String(p.patient_type).trim().toUpperCase().includes("INSURANCE"))
+          );
           setPatient(prev => ({
             ...prev,
             ...p,
@@ -2523,11 +2533,19 @@ const DischargeBilling = () => {
             room_no: p.room_no || prev?.room_no,
             total_days: p.total_days ?? prev?.total_days,
             mobile: p.mobile || prev?.mobile,
-            patient_type: p.patient_type || prev?.patient_type,
-            company: p.company || prev?.company,
+            customer_type: p.customer_type || prev?.customer_type,
+            patient_type: p.customer_type || p.patient_type || prev?.patient_type,
+            company: isPIssue ? (p.company || prev?.company) : "",
             address: p.address || prev?.address,
             guardian: p.guardian || prev?.guardian,
           }));
+          setInsuranceData({
+            isInsuranceBill: isPIssue,
+            claimNumber: isPIssue ? (p.claim_number || p.referral_number || "") : "",
+            idCardNumber: isPIssue ? (p.id_card_number || p.card_no || "") : "",
+            insuranceBillNumber: isPIssue ? (p.insurance_bill_number || "") : "",
+            companyName: isPIssue ? (p.company || p.company_code || p.insurance_company || "") : "",
+          });
         }
       } catch (err) {
         console.error("Failed to fetch full patient details on edit:", err);
@@ -2574,8 +2592,15 @@ const DischargeBilling = () => {
     setShowPaymentModal(false);
     setPendingSaveIntent(null);
     const activeInsurance = customInsurance || insuranceData;
-    const isIns = actionType === "insurance_bill" || Boolean(activeInsurance.isInsuranceBill);
-    const insPayload = { ...activeInsurance, isInsuranceBill: isIns };
+    const isIns = isInsurancePatient && (actionType === "insurance_bill" || Boolean(activeInsurance.isInsuranceBill));
+    const insPayload = {
+      ...activeInsurance,
+      isInsuranceBill: isIns,
+      claimNumber: isIns ? activeInsurance.claimNumber : "",
+      idCardNumber: isIns ? activeInsurance.idCardNumber : "",
+      insuranceBillNumber: isIns ? activeInsurance.insuranceBillNumber : "",
+      companyName: isIns ? activeInsurance.companyName : "",
+    };
 
     try {
       const t = calcTotals(items, form);
@@ -2976,15 +3001,15 @@ const DischargeBilling = () => {
                         <MetricVal>{patient.room_no ? `Room ${patient.room_no}` : "—"} · {patient.total_days ?? 0} Days</MetricVal>
                       </MetricBox>
                       <MetricBox>
-                        <MetricLabel>🏢 Billing Type</MetricLabel>
-                        <MetricVal style={{ color: T.primary, textTransform: "uppercase" }} title={patient.company || patient.company_code}>
-                          {patient.patient_type || "General"}
-                          {patient.company ? ` / ${patient.company}` : patient.company_code ? ` / ${patient.company_code}` : ""}
+                        <MetricLabel>🏢 Customer Type</MetricLabel>
+                        <MetricVal style={{ color: T.primary, textTransform: "uppercase" }} title={patient.customer_type || patient.patient_type || "General"}>
+                          {patient.customer_type || patient.patient_type || "General"}
+                          {isInsurancePatient && (patient.company || patient.company_code) ? ` / ${patient.company || patient.company_code}` : ""}
                         </MetricVal>
                       </MetricBox>
                     </div>
                   </PatientMetrics2Col>
-                  {insuranceData.isInsuranceBill && (
+                  {isInsurancePatient && insuranceData.isInsuranceBill && (
                     <div style={{
                       marginTop: 10, padding: "8px 12px", background: "#ecfdf5",
                       border: "1px solid #a7f3d0", borderRadius: 6, display: "flex",

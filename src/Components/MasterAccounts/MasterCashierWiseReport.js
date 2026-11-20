@@ -10,6 +10,8 @@ import {
     printReportArea,
     extractReportData,
     getSafeArray,
+    fetchCachedOutlets,
+    cachedApiRequest,
     ReportPageWrapper,
     ControlCard,
     HeaderBar,
@@ -39,9 +41,9 @@ const MasterCashierWiseReport = ({ isModalView = false, startDate, endDate, init
     useEffect(() => {
         const fetchOutlets = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) {
-                    setOutletsList(res.data);
+                const data = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(data)) {
+                    setOutletsList(data);
                 }
             } catch (e) {}
         };
@@ -60,13 +62,13 @@ const MasterCashierWiseReport = ({ isModalView = false, startDate, endDate, init
 
 
 
-    const fetchReport = async () => {
+    const fetchReport = async (isRefresh = false) => {
         try {
             setLoading(true);
             const fDate = dateRange[0].format("YYYY-MM-DD");
             const tDate = dateRange[1].format("YYYY-MM-DD");
             const url = `${HmsBaseUrl}master-accounts/cashier-wise-summary/?from_date=${fDate}&to_date=${tDate}&outlet_code=${outlet}`;
-            const res = await apiRequest(url, "GET");
+            const res = await cachedApiRequest(url, "GET", null, { forceRefresh: isRefresh });
             if (res?.success) {
                 setReportData(extractReportData(res));
             }
@@ -178,7 +180,7 @@ const MasterCashierWiseReport = ({ isModalView = false, startDate, endDate, init
                                 style={{ width: 200 }}
                             />
                         </div>
-                        <Button icon={<RefreshCw size={14} />} onClick={fetchReport} loading={loading}>
+                        <Button icon={<RefreshCw size={14} />} onClick={() => fetchReport(true)} loading={loading}>
                             Refresh
                         </Button>
                     </FilterBar>

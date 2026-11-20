@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 import dayjs from "dayjs";
-import { DatePicker, Modal } from "antd";
+import { DatePicker, Modal, Spin } from "antd";
 import { 
     FaEye, 
     FaPrint, 
@@ -30,7 +30,7 @@ import {
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { printAccountsReport } from "../Accounts/printAccountsReport";
-import { cleanNum, formatINR } from "./masterAccountsHelper";
+import { cleanNum, formatINR, fetchCachedOutlets, cachedApiRequest } from "./masterAccountsHelper";
 
 // ─── STYLED COMPONENTS ───────────────────────────────────────────────────────
 const StyledPageWrapper = styled(PageWrapper)`
@@ -43,7 +43,7 @@ const StyledPageWrapper = styled(PageWrapper)`
 
 const SummaryLabel = styled.p`
     margin: 0;
-    font-size: 0.75rem;
+    font-size: 0.82rem;
     font-weight: 600;
     color: ${colors.textMuted};
     text-transform: uppercase;
@@ -58,6 +58,20 @@ const FilterSection = styled.div`
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 `;
 
+const StyledTableWrapper = styled(TableWrapper)`
+    table {
+        font-size: 0.90rem;
+    }
+    th {
+        font-size: 0.86rem;
+        padding: 9px 8px !important;
+    }
+    td {
+        font-size: 0.90rem;
+        padding: 8px 8px !important;
+    }
+`;
+
 const DateGroupRow = styled.tr`
     background: #f1f5f9 !important;
     font-weight: 700;
@@ -66,8 +80,8 @@ const DateGroupRow = styled.tr`
     border-bottom: 1px solid #cbd5e1;
 
     td {
-        padding: 9px 12px !important;
-        font-size: 0.88rem !important;
+        padding: 10px 12px !important;
+        font-size: 0.94rem !important;
         letter-spacing: 0.3px;
     }
 `;
@@ -80,8 +94,8 @@ const SubtotalRow = styled.tr`
     border-bottom: 2px solid #64748b;
 
     td {
-        padding: 8px 8px !important;
-        font-size: 0.82rem !important;
+        padding: 9px 8px !important;
+        font-size: 0.90rem !important;
     }
 `;
 
@@ -93,8 +107,8 @@ const GrandTotalRow = styled.tr`
     border-bottom: 3px double #000;
 
     td {
-        padding: 10px 8px !important;
-        font-size: 0.86rem !important;
+        padding: 11px 8px !important;
+        font-size: 0.94rem !important;
     }
 `;
 
@@ -111,7 +125,7 @@ const DateSectionBanner = styled.div`
     gap: 10px;
 
     .date-title {
-        font-size: 1.05rem;
+        font-size: 1.15rem;
         font-weight: 700;
         display: flex;
         align-items: center;
@@ -119,7 +133,7 @@ const DateSectionBanner = styled.div`
     }
 
     .shift-pill {
-        font-size: 0.75rem;
+        font-size: 0.80rem;
         background: rgba(255, 255, 255, 0.22);
         padding: 3px 10px;
         border-radius: 12px;
@@ -127,7 +141,7 @@ const DateSectionBanner = styled.div`
     }
 
     .date-metrics {
-        font-size: 0.82rem;
+        font-size: 0.88rem;
         font-weight: 600;
         display: flex;
         gap: 14px;
@@ -274,9 +288,9 @@ const MasterShiftBasisReport = ({ isModalView = false, startDate, endDate, initi
 
     const fetchOutlets = useCallback(async () => {
         try {
-            const response = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-            if (response.success && response.data) {
-                setOutlets(response.data);
+            const data = await fetchCachedOutlets(HmsBaseUrl);
+            if (Array.isArray(data)) {
+                setOutlets(data);
             }
         } catch (error) {
             console.error("Error fetching outlets:", error);
@@ -289,11 +303,11 @@ const MasterShiftBasisReport = ({ isModalView = false, startDate, endDate, initi
         return found ? (found.outlet_name || found.name) : code;
     }, [outlets]);
 
-    const fetchReport = useCallback(async () => {
+    const fetchReport = useCallback(async (isRefresh = false) => {
         setLoading(true);
         try {
             const url = `${HmsBaseUrl}master-accounts/shift-basis-collection/?from_date=${fromDate}&to_date=${toDate}&outlet_code=${outlet}&shiftno=${shiftNo}`;
-            const res = await apiRequest(url, "GET");
+            const res = await cachedApiRequest(url, "GET", null, { forceRefresh: isRefresh });
             if (res?.success) {
                 const payload = (res.data && typeof res.data === "object" && !Array.isArray(res.data)) ? res.data : (res || {});
                 const sData = Array.isArray(payload.summary_data) ? payload.summary_data : 
@@ -630,198 +644,195 @@ const MasterShiftBasisReport = ({ isModalView = false, startDate, endDate, initi
                     </PrintHeader>
                 </PrintTemplate>
 
-                {/* ── VIEW TYPE: GROUPED CARDS ── */}
-                {viewType === "grouped" ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                        {dateGroups.length > 0 ? (
-                            dateGroups.map((group) => (
-                                <div key={group.dateKey} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                                    <DateSectionBanner>
-                                        <div className="date-title">
-                                            <FaCalendarAlt /> Date: {group.displayDate}
-                                            <span className="shift-pill">
-                                                {group.shifts.length} {group.shifts.length === 1 ? "Shift" : "Shifts"}
-                                            </span>
-                                        </div>
-                                        <div className="date-metrics">
-                                            <span>Opening: ₹{formatINR(group.subtotals.opening)}</span>
-                                            <span>Cash: ₹{formatINR(group.subtotals.cashColl)}</span>
-                                            <span>Credit: ₹{formatINR(group.subtotals.creditColl)}</span>
-                                            <span className="highlight">Total: ₹{formatINR(group.subtotals.totalColl)}</span>
-                                            <span style={{ color: colors.danger, fontWeight: "700" }}>Return: ₹{formatINR(group.subtotals.returnAmount)}</span>
-                                            <span style={{ fontWeight: "700" }}>Closing: ₹{formatINR(group.subtotals.closing)}</span>
-                                        </div>
-                                    </DateSectionBanner>
-
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                                        {group.shifts.map((shift, sIdx) => (
-                                            <div key={`${shift.shiftno}-${sIdx}`} style={{ background: "white", borderRadius: "10px", border: `1px solid ${colors.border}`, overflow: "hidden" }}>
-                                                <div style={{ background: colors.surface, padding: "14px 18px", borderBottom: `2px solid ${colors.primary}`, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "12px" }}>
-                                                    <div><SummaryLabel>Shift No</SummaryLabel><strong style={{ color: colors.primary }}>{shift.shiftno}</strong></div>
-                                                    <div><SummaryLabel>Cashier</SummaryLabel><strong>{shift.User}</strong></div>
-                                                    <div><SummaryLabel>Timing</SummaryLabel><span>{shift.StartTime} - {shift.EndTime}</span></div>
-                                                    <div><SummaryLabel>Opening Bal</SummaryLabel><span>₹{formatINR(shift.openBal)}</span></div>
-                                                    <div><SummaryLabel>Cash Coll</SummaryLabel><strong style={{ color: colors.success }}>₹{formatINR(shift.cashColl)}</strong></div>
-                                                    <div><SummaryLabel>Card & Bank</SummaryLabel><span>₹{formatINR(shift.cardColl)}</span></div>
-                                                    <div><SummaryLabel>Credit Coll</SummaryLabel><span>₹{formatINR(shift.creditColl)}</span></div>
-                                                    <div><SummaryLabel>Total Coll</SummaryLabel><strong style={{ color: colors.primary }}>₹{formatINR(shift.totalColl)}</strong></div>
-                                                    <div><SummaryLabel>Sales Return</SummaryLabel><span style={{ color: colors.danger, fontWeight: "700" }}>₹{formatINR(shift.retAmt)}</span></div>
-                                                    <div><SummaryLabel>Closing Bal</SummaryLabel><strong>₹{formatINR(shift.closeBal)}</strong></div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div style={{ textAlign: "center", padding: "40px", background: colors.surface, borderRadius: "10px", color: colors.textMuted }}>No shift records found.</div>
-                        )}
+                {loading ? (
+                    <div style={{ padding: "80px 20px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
+                        <Spin size="large" />
+                        <span style={{ fontSize: "1rem", fontWeight: "600", color: "#64748b" }}>Loading Shift Basis Collection Report...</span>
                     </div>
                 ) : (
-                    /* ── VIEW TYPE: SUMMARY TABLE ── */
-                    <TableWrapper>
-                        <Table>
-                            <thead>
-                                <Tr>
-                                    <Th>Counter</Th>
-                                    <Th>Date</Th>
-                                    <Th>Shift No</Th>
-                                    <Th>Cashier Name</Th>
-                                    <Th>Start Time</Th>
-                                    <Th>End Time</Th>
-                                    <Th style={{ textAlign: "right" }}>Opening Bal</Th>
-                                    <Th style={{ textAlign: "right" }}>Gross Cash</Th>
-                                    <Th style={{ textAlign: "right", color: colors.danger }}>Expenses Paid</Th>
-                                    <Th style={{ textAlign: "right", color: colors.danger }}>Sales Return</Th>
-                                    <Th style={{ textAlign: "right" }}>Closing Bal</Th>
-                                    <Th style={{ textAlign: "right" }}>Card & Bank</Th>
-                                    <Th style={{ textAlign: "right" }}>Credit / TPA</Th>
-                                    <Th style={{ textAlign: "right" }}>Total Coll.</Th>
-                                    <Th style={{ textAlign: "center" }} className="hide-on-print action-column">Action</Th>
-                                </Tr>
-                            </thead>
-                            <tbody>
+                    <>
+                        {/* ── VIEW TYPE: GROUPED CARDS ── */}
+                        {viewType === "grouped" ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
                                 {dateGroups.length > 0 ? (
                                     dateGroups.map((group) => (
-                                        <React.Fragment key={group.dateKey}>
-                                            {/* Date Banner Header */}
-                                            <DateGroupRow className="date-group-header">
-                                                <td colSpan={15}>
-                                                    <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                                                        <FaCalendarAlt style={{ color: colors.primary }} /> 
-                                                        <strong>Date: {group.displayDate}</strong>
-                                                        <span style={{ fontSize: "0.75rem", background: "#cbd5e1", color: "#0f172a", padding: "2px 8px", borderRadius: "10px", fontWeight: "600" }}>
-                                                            {group.shifts.length} {group.shifts.length === 1 ? "Shift" : "Shifts"}
-                                                        </span>
+                                        <div key={group.dateKey} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                            <DateSectionBanner>
+                                                <div className="date-title">
+                                                    <FaCalendarAlt /> Date: {group.displayDate}
+                                                    <span className="shift-pill">
+                                                        {group.shifts.length} {group.shifts.length === 1 ? "Shift" : "Shifts"}
                                                     </span>
-                                                </td>
-                                            </DateGroupRow>
+                                                </div>
+                                                <div className="date-metrics">
+                                                    <span>Cash: ₹{formatINR(group.subtotals.cashColl)}</span>
+                                                    <span className="highlight">Total: ₹{formatINR(group.subtotals.totalColl)}</span>
+                                                    <span style={{ color: colors.danger, fontWeight: "700" }}>Return: ₹{formatINR(group.subtotals.returnAmount)}</span>
+                                                    <span style={{ fontWeight: "700" }}>Closing: ₹{formatINR(group.subtotals.closing)}</span>
+                                                </div>
+                                            </DateSectionBanner>
 
-                                            {/* Shifts in Date */}
-                                            {group.shifts.map((s, si) => (
-                                                <Tr key={`${s.shiftno}-${si}`}>
-                                                    <Td>{getOutletName(s.SelectedOutlet)}</Td>
-                                                    <Td>{s.displayDate}</Td>
-                                                    <Td style={{ fontWeight: "700", color: colors.primary }}>{s.shiftno}</Td>
-                                                    <Td>{s.User}</Td>
-                                                    <Td style={{ fontSize: "0.8rem" }}>{s.StartTime}</Td>
-                                                    <Td style={{ fontSize: "0.8rem" }}>{s.EndTime || "Active"}</Td>
-                                                    <Td style={{ textAlign: "right" }}>₹{formatINR(s.openBal)}</Td>
-                                                    <Td style={{ textAlign: "right", color: colors.success, fontWeight: "600" }}>₹{formatINR(s.cashColl)}</Td>
-                                                    <Td style={{ textAlign: "right", color: s.expensesPaid > 0 ? colors.danger : colors.textMuted, fontWeight: s.expensesPaid > 0 ? "700" : "normal" }}>
-                                                        {s.expensesPaid > 0 ? `-₹${formatINR(s.expensesPaid)}` : "₹0.00"}
-                                                    </Td>
-                                                    <Td style={{ textAlign: "right", color: s.retAmt > 0 ? colors.danger : colors.textMuted, fontWeight: s.retAmt > 0 ? "700" : "normal" }}>
-                                                        {s.retAmt > 0 ? `-₹${formatINR(s.retAmt)}` : "₹0.00"}
-                                                    </Td>
-                                                    <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{formatINR(s.closeBal)}</Td>
-                                                    <Td style={{ textAlign: "right", color: "#6366f1" }}>₹{formatINR(s.cardColl)}</Td>
-                                                    <Td style={{ textAlign: "right", color: "#0284c7" }}>₹{formatINR(s.creditColl)}</Td>
-                                                    <Td style={{ textAlign: "right", fontWeight: "700", color: colors.primary }}>₹{formatINR(s.totalColl)}</Td>
-                                                    <Td style={{ textAlign: "center" }} className="hide-on-print action-column">
-                                                        <FaEye
-                                                            style={{ cursor: "pointer", color: colors.primary, fontSize: "1.1rem" }}
-                                                            title="Inspect shift bills & expense vouchers"
-                                                            onClick={() => {
-                                                                const shiftNum = String(s.shiftno || s.shift_no || "").trim();
-                                                                const shiftNumClean = shiftNum.replace(/\//g, "");
-                                                                const bills = reportBills.filter(b => {
-                                                                    const bShift = String(b.shift_no || b.shiftno || "").trim();
-                                                                    return bShift === shiftNum || bShift.replace(/\//g, "") === shiftNumClean;
-                                                                });
-                                                                const expenses = reportExpenses.filter(e => {
-                                                                    const eShift = String(e.shift_no || e.shiftno || "").trim();
-                                                                    return eShift === shiftNum || eShift.replace(/\//g, "") === shiftNumClean;
-                                                                });
-                                                                setSelectedShiftBills({
-                                                                    shiftno: s.shiftno,
-                                                                    cashier: s.User,
-                                                                    gross_cash: s.cashColl,
-                                                                    expenses_paid: s.expensesPaid,
-                                                                    sales_return: s.retAmt,
-                                                                    closing_bal: s.closeBal,
-                                                                    bills,
-                                                                    expenses
-                                                                });
-                                                            }}
-                                                        />
-                                                    </Td>
-                                                </Tr>
-                                            ))}
-
-                                            {/* Subtotal Row */}
-                                            <SubtotalRow className="subtotal-row">
-                                                <Td colSpan={6} style={{ textAlign: "right", fontWeight: "700" }}>
-                                                    Subtotal for {group.displayDate} ({group.shifts.length} {group.shifts.length === 1 ? "Shift" : "Shifts"}):
-                                                </Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{formatINR(group.subtotals.opening)}</Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700", color: colors.success }}>₹{formatINR(group.subtotals.cashColl)}</Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700", color: colors.danger }}>
-                                                    {group.subtotals.expensesPaid > 0 ? `-₹${formatINR(group.subtotals.expensesPaid)}` : "₹0.00"}
-                                                </Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700", color: colors.danger }}>
-                                                    {group.subtotals.returnAmount > 0 ? `-₹${formatINR(group.subtotals.returnAmount)}` : "₹0.00"}
-                                                </Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{formatINR(group.subtotals.closing)}</Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700", color: "#6366f1" }}>₹{formatINR(group.subtotals.cardColl)}</Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "700", color: "#0284c7" }}>₹{formatINR(group.subtotals.creditColl)}</Td>
-                                                <Td style={{ textAlign: "right", fontWeight: "800", color: colors.primary }}>₹{formatINR(group.subtotals.totalColl)}</Td>
-                                                <Td className="hide-on-print action-column"></Td>
-                                            </SubtotalRow>
-                                        </React.Fragment>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                                {group.shifts.map((shift, sIdx) => (
+                                                    <div key={`${shift.shiftno}-${sIdx}`} style={{ background: "white", borderRadius: "10px", border: `1px solid ${colors.border}`, overflow: "hidden" }}>
+                                                        <div style={{ background: colors.surface, padding: "14px 18px", borderBottom: `2px solid ${colors.primary}`, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "12px" }}>
+                                                            <div><SummaryLabel>Shift No</SummaryLabel><strong style={{ color: colors.primary }}>{shift.shiftno}</strong></div>
+                                                            <div><SummaryLabel>Cashier</SummaryLabel><strong>{shift.User}</strong></div>
+                                                            <div><SummaryLabel>Timing</SummaryLabel><span>{shift.StartTime} - {shift.EndTime}</span></div>
+                                                            <div><SummaryLabel>Cash Coll</SummaryLabel><strong style={{ color: colors.success }}>₹{formatINR(shift.cashColl)}</strong></div>
+                                                            <div><SummaryLabel>Card & Bank</SummaryLabel><span>₹{formatINR(shift.cardColl)}</span></div>
+                                                            <div><SummaryLabel>Total Coll</SummaryLabel><strong style={{ color: colors.primary }}>₹{formatINR(shift.totalColl)}</strong></div>
+                                                            <div><SummaryLabel>Sales Return</SummaryLabel><span style={{ color: colors.danger, fontWeight: "700" }}>₹{formatINR(shift.retAmt)}</span></div>
+                                                            <div><SummaryLabel>Closing Bal</SummaryLabel><strong>₹{formatINR(shift.closeBal)}</strong></div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                     ))
                                 ) : (
-                                    <Tr>
-                                        <Td colSpan={15} style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
-                                            No shift records found for the selected criteria.
-                                        </Td>
-                                    </Tr>
+                                    <div style={{ textAlign: "center", padding: "40px", background: colors.surface, borderRadius: "10px", color: colors.textMuted }}>No shift records found.</div>
                                 )}
-                            </tbody>
-                            {dateGroups.length > 0 && (
-                                <tfoot>
-                                    <GrandTotalRow className="grand-total-row">
-                                        <Td colSpan={6} style={{ textAlign: "right", fontWeight: "800" }}>
-                                            GRAND TOTAL ({grandTotals.shiftsCount} Shifts across {dateGroups.length} Dates):
-                                        </Td>
-                                        <Td style={{ textAlign: "right", fontWeight: "800" }}>₹{formatINR(grandTotals.opening)}</Td>
-                                        <Td style={{ textAlign: "right", color: colors.success, fontWeight: "800" }}>₹{formatINR(grandTotals.cashColl)}</Td>
-                                        <Td style={{ textAlign: "right", color: colors.danger, fontWeight: "800" }}>
-                                            {grandTotals.expensesPaid > 0 ? `-₹${formatINR(grandTotals.expensesPaid)}` : "₹0.00"}
-                                        </Td>
-                                        <Td style={{ textAlign: "right", color: colors.danger, fontWeight: "800" }}>
-                                            {grandTotals.returnAmount > 0 ? `-₹${formatINR(grandTotals.returnAmount)}` : "₹0.00"}
-                                        </Td>
-                                        <Td style={{ textAlign: "right", fontWeight: "800" }}>₹{formatINR(grandTotals.closing)}</Td>
-                                        <Td style={{ textAlign: "right", color: "#6366f1", fontWeight: "800" }}>₹{formatINR(grandTotals.cardColl)}</Td>
-                                        <Td style={{ textAlign: "right", color: "#0284c7", fontWeight: "800" }}>₹{formatINR(grandTotals.creditColl)}</Td>
-                                        <Td style={{ textAlign: "right", fontWeight: "800", color: colors.primary }}>₹{formatINR(grandTotals.totalColl)}</Td>
-                                        <Td className="hide-on-print action-column"></Td>
-                                    </GrandTotalRow>
-                                </tfoot>
-                            )}
-                        </Table>
-                    </TableWrapper>
+                            </div>
+                        ) : (
+                            /* ── VIEW TYPE: SUMMARY TABLE ── */
+                            <StyledTableWrapper>
+                                <Table>
+                                    <thead>
+                                        <Tr>
+                                            <Th>Counter</Th>
+                                            <Th>Date</Th>
+                                            <Th>Shift No</Th>
+                                            <Th>Cashier Name</Th>
+                                            <Th>Start Time</Th>
+                                            <Th>End Time</Th>
+                                            <Th style={{ textAlign: "right" }}>Gross Cash</Th>
+                                            <Th style={{ textAlign: "right", color: colors.danger }}>Expenses Paid</Th>
+                                            <Th style={{ textAlign: "right", color: colors.danger }}>Sales Return</Th>
+                                            <Th style={{ textAlign: "right" }}>Closing Bal</Th>
+                                            <Th style={{ textAlign: "right" }}>Card & Bank</Th>
+                                            <Th style={{ textAlign: "right" }}>Total Coll.</Th>
+                                            <Th style={{ textAlign: "center" }} className="hide-on-print action-column">Action</Th>
+                                        </Tr>
+                                    </thead>
+                                    <tbody>
+                                        {dateGroups.length > 0 ? (
+                                            dateGroups.map((group) => (
+                                                <React.Fragment key={group.dateKey}>
+                                                    {/* Date Banner Header */}
+                                                    <DateGroupRow className="date-group-header">
+                                                        <td colSpan={13}>
+                                                            <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                                                                <FaCalendarAlt style={{ color: colors.primary }} /> 
+                                                                <strong>Date: {group.displayDate}</strong>
+                                                                <span style={{ fontSize: "0.80rem", background: "#cbd5e1", color: "#0f172a", padding: "2px 8px", borderRadius: "10px", fontWeight: "600" }}>
+                                                                    {group.shifts.length} {group.shifts.length === 1 ? "Shift" : "Shifts"}
+                                                                </span>
+                                                            </span>
+                                                        </td>
+                                                    </DateGroupRow>
+
+                                                    {/* Shifts in Date */}
+                                                    {group.shifts.map((s, si) => (
+                                                        <Tr key={`${s.shiftno}-${si}`}>
+                                                            <Td>{getOutletName(s.SelectedOutlet)}</Td>
+                                                            <Td>{s.displayDate}</Td>
+                                                            <Td style={{ fontWeight: "700", color: colors.primary }}>{s.shiftno}</Td>
+                                                            <Td>{s.User}</Td>
+                                                            <Td style={{ fontSize: "0.85rem" }}>{s.StartTime}</Td>
+                                                            <Td style={{ fontSize: "0.85rem" }}>{s.EndTime || "Active"}</Td>
+                                                            <Td style={{ textAlign: "right", color: colors.success, fontWeight: "600" }}>₹{formatINR(s.cashColl)}</Td>
+                                                            <Td style={{ textAlign: "right", color: s.expensesPaid > 0 ? colors.danger : colors.textMuted, fontWeight: s.expensesPaid > 0 ? "700" : "normal" }}>
+                                                                {s.expensesPaid > 0 ? `-₹${formatINR(s.expensesPaid)}` : "₹0.00"}
+                                                            </Td>
+                                                            <Td style={{ textAlign: "right", color: s.retAmt > 0 ? colors.danger : colors.textMuted, fontWeight: s.retAmt > 0 ? "700" : "normal" }}>
+                                                                {s.retAmt > 0 ? `-₹${formatINR(s.retAmt)}` : "₹0.00"}
+                                                            </Td>
+                                                            <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{formatINR(s.closeBal)}</Td>
+                                                            <Td style={{ textAlign: "right", color: "#6366f1" }}>₹{formatINR(s.cardColl)}</Td>
+                                                            <Td style={{ textAlign: "right", fontWeight: "700", color: colors.primary }}>₹{formatINR(s.totalColl)}</Td>
+                                                            <Td style={{ textAlign: "center" }} className="hide-on-print action-column">
+                                                                <FaEye
+                                                                    style={{ cursor: "pointer", color: colors.primary, fontSize: "1.1rem" }}
+                                                                    title="Inspect shift bills & expense vouchers"
+                                                                    onClick={() => {
+                                                                        const shiftNum = String(s.shiftno || s.shift_no || "").trim();
+                                                                        const shiftNumClean = shiftNum.replace(/\//g, "");
+                                                                        const bills = reportBills.filter(b => {
+                                                                            const bShift = String(b.shift_no || b.shiftno || "").trim();
+                                                                            return bShift === shiftNum || bShift.replace(/\//g, "") === shiftNumClean;
+                                                                        });
+                                                                        const expenses = reportExpenses.filter(e => {
+                                                                            const eShift = String(e.shift_no || e.shiftno || "").trim();
+                                                                            return eShift === shiftNum || eShift.replace(/\//g, "") === shiftNumClean;
+                                                                        });
+                                                                        setSelectedShiftBills({
+                                                                            shiftno: s.shiftno,
+                                                                            cashier: s.User,
+                                                                            gross_cash: s.cashColl,
+                                                                            expenses_paid: s.expensesPaid,
+                                                                            sales_return: s.retAmt,
+                                                                            closing_bal: s.closeBal,
+                                                                            bills,
+                                                                            expenses
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            </Td>
+                                                        </Tr>
+                                                    ))}
+
+                                                    {/* Subtotal Row */}
+                                                    <SubtotalRow className="subtotal-row">
+                                                        <Td colSpan={6} style={{ textAlign: "right", fontWeight: "700" }}>
+                                                            Subtotal for {group.displayDate} ({group.shifts.length} {group.shifts.length === 1 ? "Shift" : "Shifts"}):
+                                                        </Td>
+                                                        <Td style={{ textAlign: "right", fontWeight: "700", color: colors.success }}>₹{formatINR(group.subtotals.cashColl)}</Td>
+                                                        <Td style={{ textAlign: "right", fontWeight: "700", color: colors.danger }}>
+                                                            {group.subtotals.expensesPaid > 0 ? `-₹${formatINR(group.subtotals.expensesPaid)}` : "₹0.00"}
+                                                        </Td>
+                                                        <Td style={{ textAlign: "right", fontWeight: "700", color: colors.danger }}>
+                                                            {group.subtotals.returnAmount > 0 ? `-₹${formatINR(group.subtotals.returnAmount)}` : "₹0.00"}
+                                                        </Td>
+                                                        <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{formatINR(group.subtotals.closing)}</Td>
+                                                        <Td style={{ textAlign: "right", fontWeight: "700", color: "#6366f1" }}>₹{formatINR(group.subtotals.cardColl)}</Td>
+                                                        <Td style={{ textAlign: "right", fontWeight: "800", color: colors.primary }}>₹{formatINR(group.subtotals.totalColl)}</Td>
+                                                        <Td className="hide-on-print action-column"></Td>
+                                                    </SubtotalRow>
+                                                </React.Fragment>
+                                            ))
+                                        ) : (
+                                            <Tr>
+                                                <Td colSpan={13} style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                                    No shift records found for the selected criteria.
+                                                </Td>
+                                            </Tr>
+                                        )}
+                                    </tbody>
+                                    {dateGroups.length > 0 && (
+                                        <tfoot>
+                                            <GrandTotalRow className="grand-total-row">
+                                                <Td colSpan={6} style={{ textAlign: "right", fontWeight: "800" }}>
+                                                    GRAND TOTAL ({grandTotals.shiftsCount} Shifts across {dateGroups.length} Dates):
+                                                </Td>
+                                                <Td style={{ textAlign: "right", color: colors.success, fontWeight: "800" }}>₹{formatINR(grandTotals.cashColl)}</Td>
+                                                <Td style={{ textAlign: "right", color: colors.danger, fontWeight: "800" }}>
+                                                    {grandTotals.expensesPaid > 0 ? `-₹${formatINR(grandTotals.expensesPaid)}` : "₹0.00"}
+                                                </Td>
+                                                <Td style={{ textAlign: "right", color: colors.danger, fontWeight: "800" }}>
+                                                    {grandTotals.returnAmount > 0 ? `-₹${formatINR(grandTotals.returnAmount)}` : "₹0.00"}
+                                                </Td>
+                                                <Td style={{ textAlign: "right", fontWeight: "800" }}>₹{formatINR(grandTotals.closing)}</Td>
+                                                <Td style={{ textAlign: "right", color: "#6366f1", fontWeight: "800" }}>₹{formatINR(grandTotals.cardColl)}</Td>
+                                                <Td style={{ textAlign: "right", fontWeight: "800", color: colors.primary }}>₹{formatINR(grandTotals.totalColl)}</Td>
+                                                <Td className="hide-on-print action-column"></Td>
+                                            </GrandTotalRow>
+                                        </tfoot>
+                                    )}
+                                </Table>
+                            </StyledTableWrapper>
+                        )}
+                    </>
                 )}
 
                 <PrintTemplate>

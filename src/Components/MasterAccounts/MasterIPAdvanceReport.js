@@ -19,7 +19,7 @@ import * as XLSX from "xlsx";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { printAccountsReport } from "../Accounts/printAccountsReport";
-import { cleanNum, formatINR } from "./masterAccountsHelper";
+import { cleanNum, formatINR, fetchCachedOutlets, cachedApiRequest } from "./masterAccountsHelper";
 import { 
     colors, 
     fadeIn, 
@@ -359,7 +359,7 @@ const MasterIPAdvanceReport = ({
     const [selectedPatient, setSelectedPatient] = useState(null);
 
     // Fetch report data from Master Accounts backend
-    const fetchReport = useCallback(async () => {
+    const fetchReport = useCallback(async (isRefresh = false) => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
@@ -372,7 +372,7 @@ const MasterIPAdvanceReport = ({
             if (outlet && outlet !== "all") params.append("outlet_code", outlet);
             if (searchTerm.trim()) params.append("search", searchTerm.trim());
 
-            const response = await apiRequest(`${HmsBaseUrl}master-accounts/ip-advance-collection/?${params.toString()}`, "GET");
+            const response = await cachedApiRequest(`${HmsBaseUrl}master-accounts/ip-advance-collection/?${params.toString()}`, "GET", null, { forceRefresh: isRefresh });
 
             if (response && response.success) {
                 const resPayload = response.data || response;
@@ -475,8 +475,8 @@ const MasterIPAdvanceReport = ({
     useEffect(() => {
         const loadOutlets = async () => {
             try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res?.success && Array.isArray(res?.data)) setOutletsList(res.data);
+                const data = await fetchCachedOutlets(HmsBaseUrl);
+                if (Array.isArray(data)) setOutletsList(data);
             } catch (e) {}
         };
         loadOutlets();
@@ -704,7 +704,7 @@ const MasterIPAdvanceReport = ({
                         </InputWrapper>
 
                         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "auto" }}>
-                            <ActionBtn variant="primary" onClick={fetchReport} disabled={loading}>
+                            <ActionBtn variant="primary" onClick={() => fetchReport(true)} disabled={loading}>
                                 <FaSyncAlt className={loading ? "spin" : ""} /> Refresh
                             </ActionBtn>
                             <ActionBtn 
