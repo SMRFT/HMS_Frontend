@@ -2012,7 +2012,8 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     item?.is_consumable_items === "true" ||
     item?.is_consumable_items === 1 ||
     item?.consumable ||
-    String(item?.item_type || item?.type || "").toLowerCase().includes("consumable")
+    String(item?.item_type || item?.type || "").toLowerCase().includes("consumable") ||
+    String(item?.item_name || item?.medicine_name || "").toUpperCase().includes("CONSUMABLE")
   );
 
   const getPatientFinancials = (patient) => {

@@ -3356,12 +3356,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     const medsToCheck = customMeds || addedMedicines;
     const isWardReq = Boolean(isWardRequest || wardRequestToLoad?.is_ward_request || wardRequestToLoad?.Bill_id || recordId);
 
-    // Check if there are any billable items (with stock > 0, qty > 0, not save_later, not deleted)
+    // Check if there are any billable items (with qty > 0, not save_later, not deleted)
     const hasBillableItems = medsToCheck.some((m) => {
       if (m.save_later) return false;
       if (m.deleted_is || m.is_deleted) return false;
-      const avail = Number(m.available_stock);
-      if (m.available_stock != null && m.available_stock !== 9999 && avail <= 0) return false;
       return Number(m.quantity || m.qty || 0) > 0;
     });
 
@@ -3531,8 +3529,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         const isItemBillable = (m) => {
           if (m.save_later) return false;
           if (m.deleted_is || m.is_deleted) return false;
-          const avail = Number(m.available_stock);
-          if (m.available_stock != null && m.available_stock !== 9999 && avail <= 0) return false;
           return Number(m.quantity || m.qty || 0) > 0;
         };
 
@@ -3959,6 +3955,16 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         status = "Billed";
         if (loadedEstimateNo) {
           billing_mode = "ESTIMATE";
+        } else if (isWardRequest || wardRequestToLoad) {
+          const reqNo = String(formData.request_no || wardRequestToLoad?.request_no || wardRequestToLoad?.requestNo || "").toUpperCase();
+          const origMode = String(formData.billing_mode || wardRequestToLoad?.billing_mode || wardRequestToLoad?.billingMode || "").toUpperCase();
+          if (origMode.includes("OT") || reqNo.startsWith("OT")) {
+            billing_mode = "OT REQUEST";
+          } else if (origMode.includes("DISCHARGE")) {
+            billing_mode = "DISCHARGE MEDICINE";
+          } else {
+            billing_mode = "WARD REQUEST";
+          }
         } else {
           billing_mode = isCredit ? "IP CREDIT" : "DIRECT";
         }
@@ -3981,6 +3987,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       const activeOutletCode = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
 
       const basePayload = {
+        is_active: true,
         outlet_code: activeOutletCode || undefined,
         bill_date: formData.billDate,
         bill_type: formData.billType,
@@ -4454,12 +4461,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setDeletedMedicines([]);
 
     // ── 1. Fill header fields immediately so the form is not blank ────────
-    const billDateStr = wardReq.bill_date
-      ? wardReq.bill_date.split("T")[0]
-      : new Date().toISOString().split("T")[0];
+    const billDateStr = new Date().toISOString().split("T")[0];
 
     const custType = wardReq.customer_type || wardReq.patient_details?.customer_type || "General";
     const insComp = wardReq.insurance_company || wardReq.patient_details?.insurance_company || wardReq.company_code || "";
+    const isOt = String(wardReq.billing_mode || wardReq.billingMode || wardReq.request_no || "").toUpperCase().includes("OT");
+    const wardBillingMode = isOt ? "OT REQUEST" : (String(wardReq.billing_mode || "").toUpperCase().includes("DISCHARGE") ? "DISCHARGE MEDICINE" : "WARD REQUEST");
 
     setFormData((prev) => ({
       ...prev,
@@ -4468,6 +4475,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       name: wardReq.patient_name || wardReq.patient_details?.patient_name || "",
       doctor_id: wardReq.doctor_id || "",
       doctor_name: wardReq.doctor_name || wardReq.patient_details?.doctor_name || "",
+      billing_mode: wardBillingMode,
+      request_no: wardReq.request_no || wardReq.requestNo || "",
       roomNo: (() => {
         const isOt = String(wardReq.billing_mode || wardReq.billingMode || "").toUpperCase().includes("OT");
         if (isOt) return "OT Request";
@@ -4632,7 +4641,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       const dispQ = Number(item.dispatched_qty ?? 0);
       const pendingQ = item.pending_qty != null ? Number(item.pending_qty) : Math.max(0, origReq - dispQ);
       const reqQ = origReq > 0 ? origReq : pendingQ;
-      const availStock = item.available_stock != null ? Number(item.available_stock) : (stockMatch?.available_stock != null ? Number(stockMatch.available_stock) : 0);
+      const rawAvail = item.available_stock != null
+        ? Number(item.available_stock)
+        : (stockMatch?.available_stock != null
+            ? Number(stockMatch.available_stock)
+            : (stockMatch?.total_stock != null ? Number(stockMatch.total_stock) : null));
+      const availStock = rawAvail != null && !isNaN(rawAvail) ? rawAvail : 9999;
 
       // Auto-cap to available stock if requested/pending exceeds available stock (e.g., stock 5, req 6 -> allow 5)
       let billingQty = pendingQ;
