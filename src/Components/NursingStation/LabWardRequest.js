@@ -839,7 +839,10 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
     roomBed: `${patientProp?.roomNo || patientProp?.room_no || "-"} | ${patientProp?.bedNo || patientProp?.bed_no || "-"}`,
     customerType: patientProp?.customerType || pd.customer_type || "-",
     companyName: patientProp?.companyName || pd.company_code || "-",
+    isDischarged: Boolean(patientProp?.is_discharged || pd?.is_discharged || patientProp?.ward_status === "Discharged"),
+    dischargeDate: patientProp?.dischargeDate || patientProp?.dischargeDateTime || pd.dischargeDate || null,
   };
+  const isDischarged = resolvedPatient.isDischarged;
 
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
@@ -1330,13 +1333,33 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
           </LegendBadge>
           </LegendGroup>
         </div>
-        <Button onClick={() => setShowRequestForm((v) => !v)}>
-          {showRequestForm ? "− Request" : "+ Request"}
-        </Button>
+        {isDischarged ? (
+          <span
+            style={{
+              background: "#eff6ff",
+              color: "#1d4ed8",
+              border: "1.5px solid #bfdbfe",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+            title="Patient is discharged. Request history is in read-only mode."
+          >
+            🔒 Discharged (Read-Only)
+          </span>
+        ) : (
+          <Button onClick={() => setShowRequestForm((v) => !v)}>
+            {showRequestForm ? "− Request" : "+ Request"}
+          </Button>
+        )}
       </ActionsBar>
 
       {/* ── Request Form (inline expand) ── */}
-      {showRequestForm && (
+      {!isDischarged && showRequestForm && (
         <div
           style={{
             background: "#f9fbfc",

@@ -3571,7 +3571,8 @@ const PatientRegistrationForm = () => {
                               <span style={{ position: 'absolute', top: '-3px', right: '-3px', width: '6px', height: '6px', borderRadius: '50%', background: '#0d9488' }}></span>
                             )}
                           </HeaderBtn>
-                          {!isPaid && !isRefunded && (
+                          {/* Edit and Refund options commented out as requested */}
+                          {/* {!isPaid && !isRefunded && (
                             <HeaderBtn
                               small
                               onClick={() => {
@@ -3586,8 +3587,8 @@ const PatientRegistrationForm = () => {
                             >
                               <Edit size={13} color="#047857" />
                             </HeaderBtn>
-                          )}
-                          {isPaid && !isRefunded && (
+                          )} */}
+                          {/* {isPaid && !isRefunded && (
                             <HeaderBtn
                               small
                               onClick={() => {
@@ -3603,7 +3604,7 @@ const PatientRegistrationForm = () => {
                             >
                               <RotateCcw size={13} color="#dc2626" />
                             </HeaderBtn>
-                          )}
+                          )} */}
                         </div>
                       </TableCell>
                     </TableRow>
