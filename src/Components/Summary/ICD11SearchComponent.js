@@ -8,8 +8,9 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
   const [loading, setLoading] = useState(false);
   const [selectedDiseases, setSelectedDiseases] = useState(initialDiseases);
   const [expandedCodes, setExpandedCodes] = useState({});
+  const [source, setSource] = useState("NIH"); // "WHO" | "NIH"
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL
-  
+
   // Notify parent when diseases change
   useEffect(() => {
     if (onDiseasesChange) {
@@ -17,24 +18,51 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
     }
   }, [selectedDiseases]);
 
-  const searchICD11 = async (query) => {
+  const escapeHtml = (s = "") =>
+    String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const searchICD11 = async (query, src = source) => {
+    if (!query?.trim()) return;
     setLoading(true);
     try {
-      const response = await fetch(`${HMSURL}icd11/search/?q=${encodeURIComponent(query)}`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (src === "NIH") {
+        // NIH Clinical Tables → [total, [codes], extra, [[code, title], ...]]
+        const response = await fetch(
+          `https://clinicaltables.nlm.nih.gov/api/icd11_codes/v3/search?terms=${encodeURIComponent(query)}&df=code,title&maxList=50`
+        );
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        const rows = Array.isArray(data?.[3]) ? data[3] : [];
+        setSearchResults(
+          rows.map(([code, title], i) => ({
+            id: `${code}-${i}`,
+            theCode: code,
+            title: escapeHtml(title),
+            matchingPVs: [],
+          }))
+        );
+      } else {
+        // WHO (existing backend API)
+        const response = await fetch(`${HMSURL}icd11/search/?q=${encodeURIComponent(query)}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        setSearchResults(data.destinationEntities || []);
       }
-      
-      const data = await response.json();
-      setSearchResults(data.destinationEntities || []);
     } catch (error) {
-      console.error("Error searching ICD-11:", error);
+      console.error(`Error searching ICD-11 (${src}):`, error);
       alert("Failed to search ICD-11 codes. Please try again.");
       setSearchResults([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSourceChange = (src) => {
+    if (src === source) return;
+    setSource(src);
+    setExpandedCodes({});
+    setSearchResults([]);
+    if (searchQuery.trim()) searchICD11(searchQuery, src); // re-run with the new source
   };
 
   const handleSearch = () => {
@@ -62,7 +90,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
       name: selectedLabel || disease.title.replace(/<\/?em[^>]*>/g, ''),
       id: `${disease.theCode}-${Date.now()}`
     };
-    
+
     setSelectedDiseases(prev => [...prev, diseaseToAdd]);
     setShowModal(false);
     setSearchQuery("");
@@ -160,7 +188,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
         }}
         onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.06)")}
         onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
-        title="Search WHO ICD-11 diseases database"
+        title="Search ICD-11 diseases database"
       >
         <Search size={13} />
         <span>{selectedDiseases.length > 0 ? "+ Add More ICD-11" : "Search ICD-11"}</span>
@@ -168,7 +196,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
 
       {/* Search Modal */}
       {showModal && (
-        <div 
+        <div
           style={{
             position: "fixed",
             inset: 0,
@@ -213,7 +241,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
             }
           `}</style>
 
-          <div 
+          <div
             style={{
               background: "#ffffff",
               borderRadius: 16,
@@ -229,7 +257,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div 
+            <div
               style={{
                 padding: "16px 24px",
                 background: "linear-gradient(135deg, #0f766e 0%, #0d9488 55%, #0284c7 100%)",
@@ -309,7 +337,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
             </div>
 
             {/* Search Input Section */}
-            <div 
+            <div
               style={{
                 padding: "16px 24px 12px",
                 background: "#f8fafc",
@@ -317,7 +345,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
                 flexShrink: 0,
               }}
             >
-              <div 
+              <div
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -331,6 +359,34 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
                 }}
               >
                 <Search size={18} color="#0d9488" style={{ flexShrink: 0 }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Source:
+                  </span>
+                  <div style={{ display: "inline-flex", background: "#e2e8f0", padding: 3, borderRadius: 8, gap: 2 }}>
+                    {["WHO", "NIH"].map((src) => (
+                      <button
+                        key={src}
+                        type="button"
+                        onClick={() => handleSourceChange(src)}
+                        style={{
+                          padding: "5px 18px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          border: "none",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          background: source === src ? "#ffffff" : "transparent",
+                          color: source === src ? "#0f766e" : "#64748b",
+                          boxShadow: source === src ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        {src}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <input
                   type="text"
                   value={searchQuery}
@@ -375,8 +431,8 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 6,
-                    background: !searchQuery.trim() || loading 
-                      ? "#cbd5e1" 
+                    background: !searchQuery.trim() || loading
+                      ? "#cbd5e1"
                       : "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
                     color: "#ffffff",
                     border: "none",
@@ -440,7 +496,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
             </div>
 
             {/* Results Section */}
-            <div 
+            <div
               className="icd11-scroll"
               style={{
                 flex: 1,
@@ -501,7 +557,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
               ) : (
                 <div>
                   {/* Results Count & Column Header */}
-                  <div 
+                  <div
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -525,7 +581,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
 
                   <div style={{ marginTop: 8 }}>
                     {searchResults.map((result) => (
-                      <div 
+                      <div
                         key={result.id}
                         style={{
                           background: "#ffffff",
@@ -548,7 +604,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                           {/* Code Badge */}
                           <div style={{ width: 110, flexShrink: 0 }}>
-                            <span 
+                            <span
                               style={{
                                 display: "inline-block",
                                 background: "#f0fdfa",
@@ -582,12 +638,12 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
                               onMouseLeave={(e) => (e.currentTarget.style.color = "#0f172a")}
                               title="Click to select this disease"
                             >
-                              <span 
-                                className="icd11-title" 
-                                dangerouslySetInnerHTML={{ __html: result.title }} 
+                              <span
+                                className="icd11-title"
+                                dangerouslySetInnerHTML={{ __html: result.title }}
                               />
                             </div>
-                            
+
                             {result.matchingPVs && result.matchingPVs.length > 0 && (
                               <div style={{ marginTop: 6 }}>
                                 <button
@@ -617,7 +673,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
                                 </button>
 
                                 {expandedCodes[result.theCode] && (
-                                  <div 
+                                  <div
                                     style={{
                                       marginTop: 8,
                                       background: "#f8fafc",
@@ -655,10 +711,10 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
                                         }}
                                       >
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                          <div 
+                                          <div
                                             className="icd11-synonym"
                                             style={{ fontSize: 13, color: "#1e293b", fontWeight: 500 }}
-                                            dangerouslySetInnerHTML={{ __html: pv.label }} 
+                                            dangerouslySetInnerHTML={{ __html: pv.label }}
                                           />
                                           {pv.propertyId && (
                                             <small style={{ fontSize: 10.5, color: "#94a3b8", textTransform: "capitalize" }}>
@@ -739,7 +795,7 @@ const ICD11SearchComponent = ({ onDiseasesChange, initialDiseases = [] }) => {
             </div>
 
             {/* Modal Footer */}
-            <div 
+            <div
               style={{
                 padding: "12px 24px",
                 background: "#ffffff",
