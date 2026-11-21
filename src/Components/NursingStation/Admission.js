@@ -568,17 +568,79 @@ const SlipTopRow = styled.div`
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  margin-bottom: 4px;
-  gap: 8px;
+  margin-bottom: 3px;
+  gap: 6px;
 `;
-const SR = styled.div`display:flex;justify-content:space-between;gap:10px;align-items:flex-start;`;
+const SR = styled.div`display:flex;justify-content:space-between;gap:6px;align-items:flex-start;`;
 const SL = styled.div`flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;`;
 const SRt = styled.div`flex:0 0 auto;text-align:left;display:flex;flex-direction:column;gap:1px;white-space:nowrap;`;
-const SBig = styled.div`font-size:13px;font-weight:900;letter-spacing:.3px;line-height:1.15;white-space:nowrap;text-align:right;`;
-const SLn = styled.div`margin:0;font-size:10.5px;font-weight:800;line-height:1.32;letter-spacing:.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
-const SBold = styled.div`font-weight:900;margin:0 0 1px 0;font-size:11.5px;line-height:1.3;letter-spacing:.15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
+const SBig = styled.div`font-size:12.5px;font-weight:900;letter-spacing:.2px;line-height:1.15;white-space:nowrap;text-align:right;`;
+const SLn = styled.div`margin:0;font-size:9.5px;font-weight:800;line-height:1.28;letter-spacing:.05px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
+const SBold = styled.div`font-weight:900;margin:0 0 1px 0;font-size:10px;line-height:1.25;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
 const PA = styled.div`display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e5e7eb;`;
 const PBt = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p => p.sec ? '#e5e7eb' : '#7c3aed'};color:${p => p.sec ? '#374151' : '#fff'};&:hover{opacity:.88;}`;
+
+// ─── Slip & Label Helpers ───────────────────────────────────────────────────
+const getCustomerTypeDisplay = (pd) => {
+  if (!pd) return "";
+  const insName = pd.insuranceCompanyName || pd.insurance_company || "";
+  const pkgName = pd.package_name || pd.packageName || "";
+  const cType = pd.customerType || pd.customer_type || "";
+  if (insName) return String(insName).trim().toUpperCase();
+  if (pkgName) return String(pkgName).trim().toUpperCase();
+  if (cType) return String(cType).trim().toUpperCase();
+  return "";
+};
+
+const getGuardianDisplay = (pd) => {
+  if (!pd) return "";
+  const gName = String(pd.guardian_name || pd.guardianName || "").trim();
+  const gType = String(pd.guardian_type || pd.guardianType || "").trim();
+  if (gName) {
+    const prefix = gType ? (gType.endsWith("/") || gType.endsWith("/o") || gType.endsWith("/O") ? gType : `${gType} `) : "W/o ";
+    return `${prefix.endsWith(" ") ? prefix : `${prefix} `}${gName}`.trim().toUpperCase();
+  }
+  const cleanGender = String(pd.gender || "").toUpperCase().startsWith("F")
+    ? "FEMALE"
+    : (String(pd.gender || "").toUpperCase().startsWith("M") ? "MALE" : String(pd.gender || "").toUpperCase());
+  if (pd.spouseName) {
+    const prefix = cleanGender === "MALE" ? "H/o" : "W/o";
+    return `${prefix} ${String(pd.spouseName).trim()}`.toUpperCase();
+  }
+  if (pd.fatherName) {
+    const prefix = cleanGender === "FEMALE" ? "D/o" : "S/o";
+    return `${prefix} ${String(pd.fatherName).trim()}`.toUpperCase();
+  }
+  if (pd.motherName) {
+    const prefix = cleanGender === "FEMALE" ? "D/o" : "S/o";
+    return `${prefix} ${String(pd.motherName).trim()}`.toUpperCase();
+  }
+  if (pd.attender_name) {
+    const rel = pd.attender_relationship ? (
+      pd.attender_relationship.toLowerCase() === "spouse" ? (cleanGender === "MALE" ? "H/o" : "W/o") :
+      pd.attender_relationship.toLowerCase() === "father" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
+      pd.attender_relationship.toLowerCase() === "mother" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
+      `${pd.attender_relationship}:`
+    ) : "W/o";
+    return `${rel} ${String(pd.attender_name).trim()}`.toUpperCase();
+  }
+  return "";
+};
+
+const getDoctorDisplayName = (docVal, docNameFromRecord, docList) => {
+  let val = String(docNameFromRecord || docVal || "").trim();
+  if (!val || val === "-") return "";
+  if (/^\d+$/.test(val)) {
+    const found = docList?.find(d => String(d.employeeId) === val || String(d.id) === val || String(d.emp_id) === val);
+    if (found?.employeeName) val = found.employeeName;
+  }
+  if (/^\d+$/.test(val) && docVal && !/^\d+$/.test(String(docVal).trim())) {
+    val = String(docVal).trim();
+  }
+  let clean = val.replace(/^(dr|doctor)[\s.]+/i, "").replace(/^(dr|doctor)[\s.]+/i, "").trim();
+  if (!clean) return "";
+  return /^[a-z]\./i.test(clean) ? `DR.${clean.toUpperCase()}` : `DR. ${clean.toUpperCase()}`;
+};
 
 // ─── Room Shifting Modal wrapper ───────────────────────────────────────────────
 const ShiftMC = styled(ModalContainer)`max-width:860px;max-height:92vh;`;
@@ -1314,7 +1376,7 @@ function ViewAdmissionModal({ adm, doctors, onClose }) {
   const isPrivate = isPrivateRoom(roomNo, roomCategory || adm.room_category || adm.roomCategory);
   const editHistory = safeParseList(adm.edit_history);
   const getDoctorName = (id) =>
-    doctors?.find((d) => String(d.employeeId) === String(id))?.employeeName || String(id || "—");
+    doctors?.find((d) => String(d.employeeId) === String(id) || String(d.employeeName) === String(id))?.employeeName || String(id || "—");
 
   const rawDoc = adm.mlc_doc || "";
   const fileName = rawDoc ? rawDoc.split("/").pop().split("\\").pop() : "";
@@ -1436,7 +1498,7 @@ function ViewAdmissionModal({ adm, doctors, onClose }) {
           )}
 
           {/* Insurance / Customer Info */}
-          {((adm.customerType || adm.customer_type || "").toUpperCase() === "INSURANCE" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) && (
+          {(String(adm.customerType || adm.customer_type || "").toUpperCase() === "INSURANCE") && (
             <SectionBox>
               <SectionTitle>🛡️ Insurance Information</SectionTitle>
               <InfoGrid minWidth="180px">
@@ -2728,8 +2790,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       ...EMPTY,
       uhid: adm.uhid || "",
       ipNumber: adm.ipNumber || "",
-      admittingDoctor: adm.admittingDoctor || "",
-      consultingDoctor: adm.consultingDoctor || "",
+      admittingDoctor: adm.admittingDoctorId || adm.admittingDoctor || "",
+      consultingDoctor: adm.consultingDoctorId || adm.consultingDoctor || "",
       roomNo,
       bedNo,
       reasonForAdmission: adm.reasonForAdmission || "",
@@ -2816,8 +2878,12 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     return { todayAdmitted, todayDischarged, admitted, discharged };
   }, [admissions]);
 
-  const getDrName = id =>
-    doctors.find(d => String(d.employeeId) === String(id))?.employeeName || String(id || "-");
+  const getDrName = id => {
+    if (!id || id === "-") return "-";
+    const strId = String(id).trim();
+    const found = doctors?.find(d => String(d.employeeId) === strId || String(d.id) === strId || String(d.emp_id) === strId || String(d.employeeName) === strId);
+    return found?.employeeName || strId;
+  };
 
   const handleSort = (key) => {
     setSortConfig(prev => {
@@ -3254,13 +3320,16 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           state: savedAdm.state || form.state || "",
           spouseName: savedAdm.spouseName || form.spouseName || "",
           fatherName: savedAdm.fatherName || form.fatherName || "",
+          guardian_name: savedAdm.guardian_name || form.guardian_name || savedAdm.guardianName || form.guardianName || "",
+          guardian_type: savedAdm.guardian_type || form.guardian_type || savedAdm.guardianType || form.guardianType || "",
           relationship: savedAdm.relationship || form.relationship || "",
           aadhaar: savedAdm.aadhaar || form.aadhaar || "",
           customerType: String(savedAdm.customerType || form.customerType || "GENERAL").trim().toUpperCase(),
           insuranceCompanyName: savedAdm.insuranceCompanyName || form.insuranceCompanyName || "",
+          package_name: savedAdm.package_name || form.package_name || savedAdm.packageName || form.packageName || "",
           admissionDateTime: admDateTime,
           admittingDoctor: admDoctor,
-          admittingDoctorName: getDrName(admDoctor),
+          admittingDoctorName: savedAdm.admittingDoctorName || getDrName(admDoctor) || "",
           is_day_care: savedAdm.is_day_care !== undefined ? savedAdm.is_day_care : isDaycare,
           ward_status: savedAdm.ward_status || (isDaycare ? "Sent for billing" : (form.ward_status || "")),
           roomNo: savedAdm.roomNo || form.roomNo,
@@ -3310,9 +3379,10 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
   const handlePrint = adm => {
     setOpenMenu(null);
+    const resolvedDoc = adm.admittingDoctorName || getDrName(adm.admittingDoctor) || adm.admittingDoctor || "";
     setPrintData({
       ...adm,
-      admittingDoctorName: getDrName(adm.admittingDoctor),
+      admittingDoctorName: resolvedDoc,
       room_category: adm.room_category || (Array.isArray(adm.room_details) && adm.room_details[0]?.room_category) || "",
     });
   };
@@ -3417,22 +3487,8 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     const patientLine = [pName(pd).toUpperCase(), [ageVal, cleanGender].filter(Boolean).join("/")].filter(Boolean).join(" / ");
 
     // Relationship line (W/o, S/o, D/o, H/o, or Attender)
-    let relLine = "";
-    if (pd.spouseName) {
-      const prefix = cleanGender === "MALE" ? "H/o" : "W/o";
-      relLine = `<div class="sticker-line">${prefix} ${pd.spouseName.toUpperCase()}</div>`;
-    } else if (pd.fatherName) {
-      const prefix = cleanGender === "FEMALE" ? "D/o" : "S/o";
-      relLine = `<div class="sticker-line">${prefix} ${pd.fatherName.toUpperCase()}</div>`;
-    } else if (pd.attender_name) {
-      const rel = pd.attender_relationship ? (
-        pd.attender_relationship.toLowerCase() === "spouse" ? (cleanGender === "MALE" ? "H/o" : "W/o") :
-        pd.attender_relationship.toLowerCase() === "father" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
-        pd.attender_relationship.toLowerCase() === "mother" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
-        `${pd.attender_relationship}:`
-      ) : "W/o";
-      relLine = `<div class="sticker-line">${rel} ${pd.attender_name.toUpperCase()}</div>`;
-    }
+    const guardianStr = getGuardianDisplay(pd);
+    const relLine = guardianStr ? `<div class="sticker-line">${guardianStr}</div>` : "";
 
     // Address
     const addr1 = (pd.permanent_address || "").trim().toUpperCase();
@@ -3446,13 +3502,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     const cleanMobile = rawMobile.replace(/^(\+91|91)/, "").trim();
     const phoneLine = cleanMobile ? `Ph.+91${cleanMobile}` : (rawMobile ? `Ph.${rawMobile}` : "");
 
-    // Company / Insurance
-    const compName = (pd.insuranceCompanyName || pd.insurance_company || (pd.customerType !== "General" ? pd.customerType : "") || "").toUpperCase();
+    // Company / Insurance / Customer Type
+    const compName = getCustomerTypeDisplay(pd);
 
     // Doctor
-    let rawDr = String(pd.admittingDoctorName || getDrName(pd.admittingDoctor) || "").trim();
-    rawDr = rawDr.replace(/^(dr|doctor)[\s.]+/i, "").replace(/^(dr|doctor)[\s.]+/i, "").trim();
-    const docDisplay = rawDr ? (/^[a-z]\./i.test(rawDr) ? `DR.${rawDr.toUpperCase()}` : `DR. ${rawDr.toUpperCase()}`) : "";
+    const docDisplay = getDoctorDisplayName(pd.admittingDoctorName, pd.admittingDoctor, doctors);
 
     // Aadhaar / Adhar
     const adharNo = pd.aadhaar || pd.aadhar || "";
@@ -3530,7 +3584,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         align-items: center;
         width: 100%;
         margin-bottom: 3px;
-        gap: 8px;
+        gap: 6px;
       }
       .barcode-svg-wrap {
         width: 140px;
@@ -3552,18 +3606,18 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         flex-shrink: 0;
       }
       .ip-title {
-        font-size: 13px;
+        font-size: 12.5px;
         font-weight: 900;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.2px;
         white-space: nowrap;
         line-height: 1.1;
       }
       .comp-title {
-        font-size: 9.5px;
+        font-size: 9px;
         font-weight: 900;
         margin-top: 1.5px;
         line-height: 1.15;
-        max-width: 175px;
+        max-width: 185px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -3572,7 +3626,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        gap: 8px;
+        gap: 6px;
         width: 100%;
       }
       .col-left {
@@ -3585,32 +3639,32 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         white-space: nowrap;
       }
       .sticker-line {
-        font-size: 10.5px;
-        line-height: 1.32;
+        font-size: 9.5px;
+        line-height: 1.28;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         font-weight: 800;
-        letter-spacing: 0.1px;
+        letter-spacing: 0.05px;
         color: #000;
       }
       .patient-line {
-        font-size: 11.5px;
+        font-size: 10px;
         font-weight: 900;
-        line-height: 1.28;
+        line-height: 1.25;
         margin-bottom: 1px;
-        letter-spacing: 0.15px;
+        letter-spacing: -0.1px;
       }
       .doc-line {
-        font-size: 10.5px;
+        font-size: 9.8px;
         font-weight: 900;
         margin-top: 1px;
       }
       .meta-line {
-        font-size: 10.5px;
-        line-height: 1.34;
+        font-size: 9.5px;
+        line-height: 1.28;
         font-weight: 800;
-        letter-spacing: 0.1px;
+        letter-spacing: 0.05px;
         white-space: nowrap;
         color: #000;
       }
@@ -4720,7 +4774,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                         <Td>{adm.age ? `${adm.age} ${adm.age_type || "Y"}` : "-"}</Td>
                         <Td>{adm.gender || "-"}</Td>
                         <Td>
-                          {((adm.customerType || adm.customer_type || "").toUpperCase() === "INSURANCE" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) ? (
+                          {(String(adm.customerType || adm.customer_type || "").toUpperCase() === "INSURANCE") ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                               <span style={{
                                 display: "inline-flex",
@@ -5175,6 +5229,28 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
       {/* ══ PRINT SLIP ══ */}
       {printData && (() => {
         const { roomNo, bedNo } = getActiveRoom(printData);
+        const admTs = parseTimestamp(printData.admissionDateTime);
+        const admDT = new Date(admTs || Date.now());
+        const doaDate = admDT.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: IST_TZ });
+        const doaTime = admDT.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ });
+        const isPrivate = isPrivateRoom(roomNo, printData?.room_category || printData?.roomCategory);
+        const roomDisplay = roomNo !== "-"
+          ? (isPrivate || !bedNo || bedNo === "-" ? roomNo : `${roomNo}${bedNo && bedNo !== "-" ? ` / ${bedNo}` : ""}`)
+          : "-";
+        const cleanGender = String(printData.gender || "").toUpperCase().startsWith("F")
+          ? "FEMALE"
+          : (String(printData.gender || "").toUpperCase().startsWith("M") ? "MALE" : String(printData.gender || "").toUpperCase());
+        const ageUnit = printData.age_type === "M" ? "MONTHS" : printData.age_type === "D" ? "DAYS" : "YEARS";
+        const ageVal = printData.age !== undefined && printData.age !== null && printData.age !== "" ? `${printData.age} ${ageUnit}` : "";
+        const patientLine = [pName(printData).toUpperCase(), [ageVal, cleanGender].filter(Boolean).join("/")].filter(Boolean).join(" / ");
+        const custType = getCustomerTypeDisplay(printData);
+        const guardianStr = getGuardianDisplay(printData);
+        const docDisplay = getDoctorDisplayName(printData.admittingDoctorName, printData.admittingDoctor, doctors);
+        const addrParts = [printData.area, printData.city, printData.state].filter(Boolean).map(s => String(s).trim().toUpperCase());
+        const uniqueAddrParts = [];
+        addrParts.forEach(p => { if (p && !uniqueAddrParts.includes(p)) uniqueAddrParts.push(p); });
+        const addr2 = uniqueAddrParts.join(" ");
+
         return (
           <ModalOverlay onClick={() => setPrintData(null)}>
             <PMC onClick={e => e.stopPropagation()}>
@@ -5185,36 +5261,28 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     <BarcodeSVG value={printData.ipNumber || printData.ip_number || ""} width={140} height={25} />
                     <div style={{ textAlign: "right", minWidth: 0 }}>
                       <SBig>IP NO : {printData.ipNumber || printData.ip_number || ""}</SBig>
-                      {(printData.insuranceCompanyName || printData.insurance_company) && (
-                        <SLn style={{ textAlign: "right", fontSize: "9.5px", maxWidth: "175px" }}>
-                          {String(printData.insuranceCompanyName || printData.insurance_company).toUpperCase()}
+                      {custType && (
+                        <SLn style={{ textAlign: "right", fontSize: "9px", maxWidth: "185px", fontWeight: 900, marginTop: "2px" }}>
+                          {custType}
                         </SLn>
                       )}
                     </div>
                   </SlipTopRow>
                   <SR>
                     <SL>
-                      <SBold>
-                        {[
-                          pName(printData).toUpperCase(),
-                          [
-                            printData.age ? `${printData.age} ${printData.age_type === "M" ? "MONTHS" : printData.age_type === "D" ? "DAYS" : "YEARS"}` : "",
-                            String(printData.gender || "").toUpperCase(),
-                          ].filter(Boolean).join("/"),
-                        ].filter(Boolean).join(" / ")}
-                      </SBold>
+                      <SBold>{patientLine}</SBold>
+                      {guardianStr && <SLn>{guardianStr}</SLn>}
                       {printData.permanent_address && <SLn>{String(printData.permanent_address).toUpperCase()}</SLn>}
-                      {[printData.area, printData.city, printData.state].filter(Boolean).length > 0 && (
-                        <SLn>{[printData.area, printData.city, printData.state].filter(Boolean).map(s => String(s).toUpperCase()).join(" ")}</SLn>
-                      )}
+                      {addr2 && <SLn>{addr2}</SLn>}
                       {printData.mobilePhone && <SLn>Ph.+91{String(printData.mobilePhone).replace(/^(\+91|91)/, "").trim()}</SLn>}
-                      <SLn>DR. {String(printData.admittingDoctorName || getDrName(printData.admittingDoctor) || "").replace(/^(dr|doctor)[\s.]+/i, "").trim().toUpperCase()}</SLn>
+                      {docDisplay && <SLn style={{ fontWeight: 900 }}>{docDisplay}</SLn>}
+                      {(printData.aadhaar || printData.aadhar) && <SLn>Adhar : {printData.aadhaar || printData.aadhar}</SLn>}
                     </SL>
                     <SRt>
                       <SLn style={{ fontWeight: 900 }}>UHID : {printData.uhid || ""}</SLn>
-                      <SLn>DOA  : {printData.admissionDateTime ? fmtDate(printData.admissionDateTime) : "-"}</SLn>
-                      <SLn>TIME : {parseTimestamp(printData.admissionDateTime) ? new Date(parseTimestamp(printData.admissionDateTime)).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: IST_TZ }) : "-"}</SLn>
-                      <SLn>Room : {isPrivateRoom(roomNo, printData?.room_category || printData?.roomCategory) || !bedNo || bedNo === "-" ? roomNo : `${roomNo} / ${bedNo}`}</SLn>
+                      <SLn>DOA  : {doaDate}</SLn>
+                      <SLn>TIME : {doaTime}</SLn>
+                      <SLn>Room : {roomDisplay}</SLn>
                     </SRt>
                   </SR>
                 </Slip>
