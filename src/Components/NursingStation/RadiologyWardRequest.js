@@ -749,6 +749,7 @@ const SearchableDropdown = ({ value, onChange, options, placeholder = "Select...
 
 export default function RadiologyWardRequest({ patient, onClose, onBack }) {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const isDischarged = Boolean(patient?.is_discharged || patient?.patient_details?.is_discharged || patient?.ward_status === "Discharged");
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
@@ -1166,12 +1167,32 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
           )}
           <span className="history-count">{requests.length} previous radiology request(s)</span>
         </div>
-        <ViewHistoryBtn onClick={() => { setShowRequestForm(!showRequestForm); if (!showRequestForm) setExpandedRow(null); }}>
-          {showRequestForm ? "View History" : "+ New Other Request"}
-        </ViewHistoryBtn>
+        {isDischarged ? (
+          <span
+            style={{
+              background: "#eff6ff",
+              color: "#1d4ed8",
+              border: "1.5px solid #bfdbfe",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+            title="Patient is discharged. Request history is in read-only mode."
+          >
+            🔒 Discharged (Read-Only)
+          </span>
+        ) : (
+          <ViewHistoryBtn onClick={() => { setShowRequestForm(!showRequestForm); if (!showRequestForm) setExpandedRow(null); }}>
+            {showRequestForm ? "View History" : "+ New Other Request"}
+          </ViewHistoryBtn>
+        )}
       </ActionsBar>
 
-      {showRequestForm ? (
+      {!isDischarged && showRequestForm ? (
         <RequestFormWrapper>
           <FormPanel>
             <FormRow>

@@ -951,7 +951,10 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
     roomBed: `${patient?.roomNo || patient?.room_no || "-"} | ${patient?.bedNo || patient?.bed_no || "-"}`,
     customerType: patient?.customerType || patient?.customer_type || pd.customer_type || "-",
     companyName: patient?.companyName || pd.company_code || "-",
+    isDischarged: Boolean(patient?.is_discharged || pd?.is_discharged || patient?.ward_status === "Discharged"),
+    dischargeDate: patient?.dischargeDate || patient?.dischargeDateTime || pd.dischargeDate || null,
   };
+  const isDischarged = resolvedPatient.isDischarged;
 
   // Data Arrays
   const [requests, setRequests] = useState([]);
@@ -1793,9 +1796,31 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
               {resolvedPatient.name ? resolvedPatient.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "P"}
             </PatientAvatar>
             <PatientIdentity>
-              <h3>{resolvedPatient.name || "Unknown Patient"}</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <h3 style={{ margin: 0 }}>{resolvedPatient.name || "Unknown Patient"}</h3>
+                {isDischarged && (
+                  <span
+                    style={{
+                      background: "#dbeafe",
+                      color: "#1e40af",
+                      border: "1px solid #bfdbfe",
+                      padding: "1px 6px",
+                      borderRadius: "4px",
+                      fontSize: "10px",
+                      fontWeight: 800,
+                    }}
+                  >
+                    DISCHARGED
+                  </span>
+                )}
+              </div>
               <div className="sub-text">
                 UHID: {resolvedPatient.uhid || "-"} · IP: {resolvedPatient.ipNo || "-"} {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}
+                {resolvedPatient.dischargeDate && (
+                  <span style={{ color: "#2563eb", marginLeft: "6px", fontWeight: 600 }}>
+                    · Discharged: {resolvedPatient.dischargeDate}
+                  </span>
+                )}
               </div>
             </PatientIdentity>
           </div>
@@ -1814,8 +1839,12 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
               <FieldValue>{resolvedPatient.customerType || "-"}</FieldValue>
             </FieldBox>
             <FieldBox>
-              <FieldLabel>Admitting Date</FieldLabel>
-              <FieldValue>{resolvedPatient.admittingDate} {resolvedPatient.admittingTime}</FieldValue>
+              <FieldLabel>{isDischarged ? "Discharge Date" : "Admitting Date"}</FieldLabel>
+              <FieldValue>
+                {isDischarged && resolvedPatient.dischargeDate
+                  ? resolvedPatient.dischargeDate
+                  : `${resolvedPatient.admittingDate} ${resolvedPatient.admittingTime}`}
+              </FieldValue>
             </FieldBox>
             <FieldBox>
               <FieldLabel>Company Name</FieldLabel>
@@ -1852,12 +1881,33 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
               {showForm ? "📝 Fill in medicine details below" : `💊 Pharmacy Medicine Requests (${requests.length} record${requests.length === 1 ? "" : "s"})`}
             </div>
           </div>
-          <RequestBtn onClick={() => setShowForm(!showForm)}>
-            {showForm ? "✕ Close Form" : "＋ New Medicine Request"}
-          </RequestBtn>
+          {isDischarged ? (
+            <span
+              style={{
+                background: "#eff6ff",
+                color: "#1d4ed8",
+                border: "1.5px solid #bfdbfe",
+                padding: "6px 14px",
+                borderRadius: "6px",
+                fontSize: "0.82rem",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
+              }}
+              title="Patient is discharged. Request history is in read-only mode."
+            >
+              🔒 Discharged (Read-Only)
+            </span>
+          ) : (
+            <RequestBtn onClick={() => setShowForm(!showForm)}>
+              {showForm ? "✕ Close Form" : "＋ New Medicine Request"}
+            </RequestBtn>
+          )}
         </TopActionBar>
 
-        {showForm && (
+        {!isDischarged && showForm && (
           <RequestFormWrapper>
             <FormPanel>
               {/* Row 1: Bill Type (with Active Outlet badge) & Doctor */}
@@ -2430,41 +2480,41 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                           <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
                             <button
                               onClick={() => handleOpenEdit(req)}
-                              disabled={req.status === "Billed" || req.status === "Cancelled"}
+                              disabled={isDischarged || req.status === "Billed" || req.status === "Cancelled"}
                               style={{
-                                background: req.status === "Billed" || req.status === "Cancelled" ? "#ccc" : "#136A63",
+                                background: isDischarged || req.status === "Billed" || req.status === "Cancelled" ? "#ccc" : "#136A63",
                                 color: "white",
                                 border: "none",
                                 borderRadius: "5px",
                                 padding: "5px 10px",
-                                cursor: req.status === "Billed" || req.status === "Cancelled" ? "not-allowed" : "pointer",
+                                cursor: isDischarged || req.status === "Billed" || req.status === "Cancelled" ? "not-allowed" : "pointer",
                                 fontSize: "0.78rem",
                                 fontWeight: "600",
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: "3px",
                               }}
-                              title="Edit Request"
+                              title={isDischarged ? "Cannot edit request for discharged patient" : "Edit Request"}
                             >
                               ✎ Edit
                             </button>
                             <button
                               onClick={() => handleOpenReturn(req)}
-                              disabled={!canReturn}
+                              disabled={isDischarged || !canReturn}
                               style={{
-                                background: !canReturn ? "#ccc" : colors.orange,
+                                background: isDischarged || !canReturn ? "#ccc" : colors.orange,
                                 color: "white",
                                 border: "none",
                                 borderRadius: "5px",
                                 padding: "5px 10px",
-                                cursor: !canReturn ? "not-allowed" : "pointer",
+                                cursor: isDischarged || !canReturn ? "not-allowed" : "pointer",
                                 fontSize: "0.78rem",
                                 fontWeight: "600",
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: "3px",
                               }}
-                              title="Return Medicines"
+                              title={isDischarged ? "Returns locked for discharged patient" : "Return Medicines"}
                             >
                               {hasPendingReturn ? "⌛ Return Pending" : "↺ Return"}
                             </button>

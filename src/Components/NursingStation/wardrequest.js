@@ -1114,6 +1114,9 @@ const isRoomMatch = (r1, r2) => {
 const WardRequest = () => {
   const navigate = useNavigate();
   const [admissions, setAdmissions] = useState([]);
+  const [dischargedAdmissions, setDischargedAdmissions] = useState([]);
+  const [loadingDischarged, setLoadingDischarged] = useState(false);
+  const [dischargedLoaded, setDischargedLoaded] = useState(false);
   const [locationMapping, setLocationMapping] = useState([]);
   const [insuranceProviders, setInsuranceProviders] = useState([]);
 
@@ -1188,10 +1191,57 @@ const WardRequest = () => {
     }
   };
 
+  const fetchDischargedAdmissions = async (searchTerm = search) => {
+    try {
+      setLoadingDischarged(true);
+      const params = new URLSearchParams();
+      params.append("status", "discharged");
+      if (searchTerm && typeof searchTerm === "string" && searchTerm.trim()) {
+        params.append("search", searchTerm.trim());
+      }
+      const res = await apiRequest(`${HmsBaseUrl}wardrequest/?${params.toString()}`, "GET");
+      if (res && res.success) {
+        let list = [];
+        if (Array.isArray(res.data)) {
+          list = res.data;
+        } else if (res.data && Array.isArray(res.data.data)) {
+          list = res.data.data;
+        } else if (res.data && Array.isArray(res.data.admissions)) {
+          list = res.data.admissions;
+        }
+        setDischargedAdmissions(list);
+        setDischargedLoaded(true);
+      }
+    } catch (err) {
+      console.error("Discharged admissions fetch failed", err);
+    } finally {
+      setLoadingDischarged(false);
+    }
+  };
+
+  const handleStatusFilterChange = (filterType) => {
+    setStatusFilter(filterType);
+    if (filterType === "discharged") {
+      setViewMode("list");
+    }
+    if ((filterType === "discharged" || filterType === "all") && !dischargedLoaded) {
+      fetchDischargedAdmissions();
+    }
+  };
+
   useEffect(() => {
     fetchAdmissions();
     fetchLocationMapping();
   }, []);
+
+  useEffect(() => {
+    if (statusFilter === "discharged" && dischargedLoaded) {
+      const timer = setTimeout(() => {
+        fetchDischargedAdmissions(search);
+      }, 450);
+      return () => clearTimeout(timer);
+    }
+  }, [search, statusFilter]);
 
   const fetchBillingClearance = useCallback(async (ipNumber, uhid) => {
     if (!ipNumber && !uhid) return;
@@ -1391,9 +1441,22 @@ const WardRequest = () => {
     return count;
   }, [selectedNursingStation, selectedBlock, selectedCategory, selectedDoctor, selectedPayment, selectedWardStatus]);
 
+  const currentSourceList = useMemo(() => {
+    if (statusFilter === "discharged") {
+      return dischargedAdmissions;
+    }
+    if (statusFilter === "all") {
+      const map = new Map();
+      admissions.forEach(a => map.set(a._id || a.id || a.ipNumber, a));
+      dischargedAdmissions.forEach(a => map.set(a._id || a.id || a.ipNumber, a));
+      return Array.from(map.values());
+    }
+    return admissions;
+  }, [statusFilter, admissions, dischargedAdmissions]);
+
   // Filter Admissions
   const filteredAdmissions = useMemo(() => {
-    return admissions.filter((item) => {
+    return currentSourceList.filter((item) => {
       const pName = getPatientFullName(item);
       const uhid = getField(item, "uhid") || "";
       const ip = item.ipNumber || getField(item, "ipNumber") || "";
@@ -1455,7 +1518,7 @@ const WardRequest = () => {
 
       return true;
     });
-  }, [admissions, search, statusFilter, selectedNursingStation, selectedBlock, selectedCategory, selectedDoctor, selectedPayment, selectedWardStatus, getAdmNursingStation]);
+  }, [currentSourceList, search, statusFilter, selectedNursingStation, selectedBlock, selectedCategory, selectedDoctor, selectedPayment, selectedWardStatus, getAdmNursingStation]);
 
   // Group Rooms for Grid View
   const roomGroups = useMemo(() => {
@@ -1610,7 +1673,9 @@ const WardRequest = () => {
 
   // Compute KPI Summary Metrics
   const kpiRoomsCount = roomGroups.length;
-  const kpiPatientsCount = filteredAdmissions.filter(a => !getField(a, "is_discharged")).length;
+  const kpiPatientsCount = statusFilter === "discharged"
+    ? filteredAdmissions.length
+    : filteredAdmissions.filter(a => !getField(a, "is_discharged")).length;
   const kpiHighRiskCount = useMemo(() => {
     return admissions.filter(a => !getField(a, "is_discharged") && getIsHighRisk(a)).length;
   }, [admissions]);
@@ -1710,8 +1775,16 @@ const WardRequest = () => {
           <h1>Ward Requests</h1>
           <p>Live bed and request status across the block</p>
         </div>
-        <button className="refresh-btn" onClick={fetchAdmissions}>
-          <FiRefreshCcw className={loading ? "spin" : ""} /> Refresh <span style={{ fontSize: "11px", color: "#94a3b8" }}>just now</span>
+        <button
+          className="refresh-btn"
+          onClick={() => {
+            fetchAdmissions();
+            if (statusFilter === "discharged" || statusFilter === "all" || dischargedLoaded) {
+              fetchDischargedAdmissions();
+            }
+          }}
+        >
+          <FiRefreshCcw className={loading || loadingDischarged ? "spin" : ""} /> Refresh <span style={{ fontSize: "11px", color: "#94a3b8" }}>just now</span>
         </button>
       </PageHeaderRow>
 
@@ -1726,7 +1799,7 @@ const WardRequest = () => {
         </KpiCard>
 
         <KpiCard>
-          <span className="kpi-title">IP Patients</span>
+          <span className="kpi-title">{statusFilter === "discharged" ? "Discharged" : "IP Patients"}</span>
           <div className="kpi-value-row">
             <span className="val">{kpiPatientsCount}</span>
             <span className="sub">in view</span>
@@ -1757,7 +1830,7 @@ const WardRequest = () => {
             background: statusFilter === "high_risk" ? "#fef2f2" : undefined,
             transition: "all 0.2s"
           }}
-          onClick={() => setStatusFilter(prev => prev === "high_risk" ? "all" : "high_risk")}
+          onClick={() => handleStatusFilterChange(statusFilter === "high_risk" ? "all" : "high_risk")}
           title="Click to toggle Isolation filter"
         >
           <span className="kpi-title" style={{ color: "#dc2626", fontWeight: 700 }}>
@@ -1773,9 +1846,11 @@ const WardRequest = () => {
       {/* Filter Controls Row */}
       <ControlsBar>
         <div className="filter-pills">
-          <button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}>All</button>
-          <button className={statusFilter === "admitted" ? "active" : ""} onClick={() => setStatusFilter("admitted")}>Admitted</button>
-          <button className={statusFilter === "discharged" ? "active" : ""} onClick={() => setStatusFilter("discharged")}>Discharged</button>
+          <button className={statusFilter === "all" ? "active" : ""} onClick={() => handleStatusFilterChange("all")}>All</button>
+          <button className={statusFilter === "admitted" ? "active" : ""} onClick={() => handleStatusFilterChange("admitted")}>Admitted</button>
+          <button className={statusFilter === "discharged" ? "active" : ""} onClick={() => handleStatusFilterChange("discharged")}>
+            Discharged {dischargedAdmissions.length > 0 ? `(${dischargedAdmissions.length})` : ""}
+          </button>
           <button
             className={statusFilter === "high_risk" ? "active" : ""}
             style={
@@ -1783,7 +1858,7 @@ const WardRequest = () => {
                 ? { background: "#dc2626", borderColor: "#dc2626", color: "white", fontWeight: 700 }
                 : (kpiHighRiskCount > 0 ? { borderColor: "#fca5a5", color: "#dc2626", fontWeight: 600 } : {})
             }
-            onClick={() => setStatusFilter(prev => prev === "high_risk" ? "all" : "high_risk")}
+            onClick={() => handleStatusFilterChange(statusFilter === "high_risk" ? "all" : "high_risk")}
           >
             🚨 Isolation {kpiHighRiskCount > 0 ? `(${kpiHighRiskCount})` : ""}
           </button>
@@ -1819,11 +1894,22 @@ const WardRequest = () => {
           </button>
 
           <div className="view-switch">
-            <button className={viewMode === "grid" ? "active" : ""} onClick={() => setViewMode("grid")}>
+            <button
+              className={viewMode === "grid" && statusFilter !== "discharged" ? "active" : ""}
+              onClick={() => {
+                if (statusFilter !== "discharged") setViewMode("grid");
+              }}
+              disabled={statusFilter === "discharged"}
+              style={statusFilter === "discharged" ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+              title={statusFilter === "discharged" ? "Room bed grid is disabled for discharged patients — Table view is active" : "Beds Grid View"}
+            >
               <FiGrid /> Beds
             </button>
-            <button className={viewMode === "list" ? "active" : ""} onClick={() => setViewMode("list")}>
-              <FiList /> Patients
+            <button
+              className={viewMode === "list" || statusFilter === "discharged" ? "active" : ""}
+              onClick={() => setViewMode("list")}
+            >
+              <FiList /> Patients (Table)
             </button>
           </div>
         </div>
@@ -1841,7 +1927,7 @@ const WardRequest = () => {
       </LegendRow>
 
       {/* MAIN VIEW: Beds Grid (Image 1) OR Patients List (Image 3) */}
-      {viewMode === "grid" ? (
+      {viewMode === "grid" && statusFilter !== "discharged" ? (
         <RoomsContainer>
           {roomGroups.length === 0 ? (
             <div style={{ textAlign: "center", padding: "48px 16px", color: "#64748b", width: "100%", gridColumn: "1 / -1" }}>
@@ -1949,19 +2035,30 @@ const WardRequest = () => {
             <thead>
               <tr>
                 <th>Patient</th>
+                <th>{statusFilter === "discharged" ? "Last Bed · Room" : "Bed · Room"}</th>
                 <th>UHID / IP / Insurance</th>
-                <th>Admitted</th>
-                <th>Room · Bed</th>
+                <th>{statusFilter === "discharged" ? "Discharge Date & Time" : "Admitted"}</th>
                 <th>Doctor</th>
                 <th>Status</th>
                 <th style={{ textAlign: "right" }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {filteredAdmissions.length === 0 ? (
+              {loading || (statusFilter === "discharged" && loadingDischarged) ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: "center", padding: "40px", color: "#0d9488", fontWeight: 600 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                      <FiRefreshCcw className="spin" />
+                      <span>Loading {statusFilter === "discharged" ? "discharged patients..." : "patients..."}</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredAdmissions.length === 0 ? (
                 <tr>
                   <td colSpan="7" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
-                    No IP patients found for current filter.
+                    {statusFilter === "discharged"
+                      ? "No discharged patients found for current search/filter."
+                      : "No IP patients found for current filter."}
                   </td>
                 </tr>
               ) : (
@@ -1978,7 +2075,7 @@ const WardRequest = () => {
                   const bedNo = getField(adm, "bed_no") || "-";
                   const doctor = getField(adm, "doctorName") || "-";
                   const wardStatus = getField(adm, "ward_status");
-                  const isDischarged = getField(adm, "is_discharged");
+                  const isDischarged = Boolean(getField(adm, "is_discharged"));
                   const statusConfig = getStatusStyle(wardStatus, isDischarged);
                   const admDateRaw = getField(adm, "admission_date") || getField(adm, "admissionDateTime");
                   let admDateStr = "-";
@@ -1999,13 +2096,17 @@ const WardRequest = () => {
                     }
                   }
 
+                  const disDateStr = adm?.dischargeDate
+                    ? `${adm.dischargeDate}${adm.dischargeTime ? `, ${adm.dischargeTime}` : ""}`
+                    : (adm?.dischargeDateTime ? String(adm.dischargeDateTime) : null);
+
                   return (
                     <tr
                       key={adm._id || adm.id || idx}
                       style={isHighRisk ? {
                         background: "#fff5f5",
                         borderLeft: "4px solid #ef4444"
-                      } : {}}
+                      } : (isDischarged ? { background: "#f8fafc" } : {})}
                     >
                       <td>
                         <div style={{ fontWeight: 700, color: isHighRisk ? "#991b1b" : "#0f172a", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
@@ -2029,12 +2130,55 @@ const WardRequest = () => {
                               🚨 ISOLATION
                             </span>
                           )}
+                          {isDischarged && (
+                            <span
+                              style={{
+                                background: "#eff6ff",
+                                color: "#1d4ed8",
+                                border: "1px solid #bfdbfe",
+                                padding: "1px 6px",
+                                borderRadius: "4px",
+                                fontSize: "10px",
+                                fontWeight: 800,
+                                display: "inline-flex",
+                                alignItems: "center"
+                              }}
+                            >
+                              DISCHARGED
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: "11px", color: isHighRisk ? "#7f1d1d" : "#64748b" }}>{ageGender}</div>
                         {isHighRisk && (
                           <div style={{ fontSize: "11px", color: "#dc2626", fontWeight: 700, marginTop: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
                             <span>⚠️ {hrReason || "Isolation active"}</span>
                             {hrDate && <span style={{ color: "#991b1b", fontSize: "10px", fontWeight: 500 }}>({hrDate})</span>}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <span
+                            style={{
+                              background: isDischarged ? "#f1f5f9" : "#ecfdf5",
+                              color: isDischarged ? "#1e293b" : "#0f766e",
+                              border: `1px solid ${isDischarged ? "#cbd5e1" : "#a7f3d0"}`,
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              whiteSpace: "nowrap"
+                            }}
+                          >
+                            🛏️ Bed {bedNo}
+                          </span>
+                          <span style={{ fontSize: "12px", fontWeight: 600, color: "#334155" }}>
+                            Room {roomNo}
+                          </span>
+                        </div>
+                        {(getField(adm, "block") || getField(adm, "room_category") || getField(adm, "room_category_id")) && (
+                          <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                            {[getField(adm, "block"), getField(adm, "room_category") || getField(adm, "room_category_id")].filter(Boolean).join(" · ")}
                           </div>
                         )}
                       </td>
@@ -2046,10 +2190,18 @@ const WardRequest = () => {
                         </div>
                       </td>
                       <td style={{ fontSize: "12px", color: "#475569" }}>
-                        {admDateStr}
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 700, color: "#0f172a" }}>{roomNo} · Bed {bedNo}</span>
+                        {isDischarged ? (
+                          <div>
+                            <div style={{ fontWeight: 700, color: "#1e40af" }}>
+                              {disDateStr || admDateStr}
+                            </div>
+                            <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                              Admitted: {admDateStr}
+                            </div>
+                          </div>
+                        ) : (
+                          admDateStr
+                        )}
                       </td>
                       <td style={{ fontSize: "12px", color: "#334155" }}>
                         Dr. {doctor}
@@ -2061,10 +2213,14 @@ const WardRequest = () => {
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <RequestActionButton
-                          style={isHighRisk ? { background: "#dc2626", borderColor: "#dc2626" } : {}}
+                          style={
+                            isDischarged
+                              ? { background: "#1d4ed8", borderColor: "#1e40af" }
+                              : (isHighRisk ? { background: "#dc2626", borderColor: "#dc2626" } : {})
+                          }
                           onClick={() => handleOpenActionModal(adm)}
                         >
-                          Request
+                          {isDischarged ? "📋 Request History" : "Request"}
                         </RequestActionButton>
                       </td>
                     </tr>
@@ -2115,6 +2271,31 @@ const WardRequest = () => {
               </div>
               <button className="close-btn" onClick={() => setShowActionModal(false)}>✕</button>
             </div>
+
+            {Boolean(getField(selectedPatient, "is_discharged")) && (
+              <div style={{
+                margin: "14px 20px 0 20px",
+                padding: "10px 14px",
+                background: "#eff6ff",
+                border: "1px solid #bfdbfe",
+                borderLeft: "4px solid #2563eb",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px"
+              }}>
+                <span style={{ fontSize: "20px" }}>📋</span>
+                <div>
+                  <div style={{ fontSize: "12px", fontWeight: 800, color: "#1e40af" }}>
+                    DISCHARGED PATIENT — SERVICE & REQUEST HISTORY
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#3b82f6", marginTop: "2px" }}>
+                    Viewing past ward requests in read-only mode.
+                    {selectedPatient?.dischargeDate && ` (Discharged: ${selectedPatient.dischargeDate}${selectedPatient.dischargeTime ? ` ${selectedPatient.dischargeTime}` : ""})`}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {getIsHighRisk(selectedPatient) && (
               <div style={{
@@ -2191,17 +2372,21 @@ const WardRequest = () => {
                   <div className="sub">Surgical</div>
                 </div>
 
-                <div className="type-card" onClick={() => handleActionOption("status")}>
-                  <div className="pill-badge">St</div>
-                  <div className="title">Update status</div>
-                  <div className="sub">Condition</div>
-                </div>
+                {!Boolean(getField(selectedPatient, "is_discharged")) && (
+                  <>
+                    <div className="type-card" onClick={() => handleActionOption("status")}>
+                      <div className="pill-badge">St</div>
+                      <div className="title">Update status</div>
+                      <div className="sub">Condition</div>
+                    </div>
 
-                <div className="type-card" onClick={() => handleActionOption("shift")}>
-                  <div className="pill-badge">Sh</div>
-                  <div className="title">Room shift</div>
-                  <div className="sub">Transfer</div>
-                </div>
+                    <div className="type-card" onClick={() => handleActionOption("shift")}>
+                      <div className="pill-badge">Sh</div>
+                      <div className="title">Room shift</div>
+                      <div className="sub">Transfer</div>
+                    </div>
+                  </>
+                )}
 
                 <div className="type-card" onClick={() => handleActionOption("discharge_summary")}>
                   <div className="pill-badge">DS</div>
