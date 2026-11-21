@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DatePicker, Spin, message } from 'antd';
 import dayjs from 'dayjs';
 import styled from 'styled-components';
@@ -153,7 +153,7 @@ const PrintableSheet = styled.div`
   margin: 0 auto;
   color: #000000;
   font-family: Arial, sans-serif;
-  font-size: 11px;
+  font-size: 13px;
 
   @media print {
     border: none;
@@ -168,48 +168,50 @@ const PrintableSheet = styled.div`
     margin-bottom: 8px;
 
     .main-title {
-      font-size: 14px;
-      font-weight: bold;
+      font-size: 18px;
+      font-weight: 800;
       letter-spacing: 0.5px;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
     .sub-address {
-      font-size: 11px;
+      font-size: 13px;
       margin-bottom: 2px;
+      font-weight: 500;
     }
     .tax-row {
-      font-size: 11px;
+      font-size: 12.5px;
       margin-bottom: 6px;
+      font-weight: 500;
     }
     .report-banner {
       text-align: center;
-      font-size: 13px;
-      font-weight: bold;
+      font-size: 16px;
+      font-weight: 800;
       letter-spacing: 1px;
-      padding: 4px 0;
-      border-top: 1px solid #000000;
-      border-bottom: 1px solid #000000;
-      margin: 6px 0 10px 0;
+      padding: 5px 0;
+      border-top: 1.5px solid #000000;
+      border-bottom: 1.5px solid #000000;
+      margin: 8px 0 12px 0;
     }
   }
 
   .patient-meta-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    row-gap: 3px;
-    font-size: 11px;
-    padding: 6px 0;
-    border-bottom: 1px solid #000000;
-    margin-bottom: 8px;
+    row-gap: 5px;
+    font-size: 13px;
+    padding: 8px 0;
+    border-bottom: 1.5px solid #000000;
+    margin-bottom: 10px;
 
     .meta-item {
       display: flex;
       .meta-label {
-        width: 90px;
-        font-weight: normal;
+        width: 105px;
+        font-weight: 700;
       }
       .meta-val {
-        font-weight: bold;
+        font-weight: 800;
       }
     }
   }
@@ -220,12 +222,12 @@ const PrintableSheet = styled.div`
     margin-bottom: 16px;
 
     th {
-      border-top: 1px solid #000000;
-      border-bottom: 1px solid #000000;
-      padding: 6px 4px;
+      border-top: 1.5px solid #000000;
+      border-bottom: 1.5px solid #000000;
+      padding: 8px 6px;
       text-align: left;
-      font-weight: bold;
-      font-size: 10.5px;
+      font-weight: 800;
+      font-size: 12.5px;
       white-space: nowrap;
 
       &.text-right { text-align: right; }
@@ -233,45 +235,49 @@ const PrintableSheet = styled.div`
     }
 
     td {
-      padding: 4px 4px;
-      font-size: 10.5px;
+      padding: 6px 5px;
+      font-size: 12.5px;
       vertical-align: top;
 
-      &.text-right { text-align: right; }
+      &.text-right { 
+        text-align: right; 
+        font-weight: 700;
+      }
       &.text-center { text-align: center; }
     }
 
     .bill-group-header td {
-      font-weight: bold;
-      padding: 8px 4px 4px 4px;
-      border-bottom: 0.5px dashed #666666;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 10px 4px 6px 4px;
+      border-bottom: 1px dashed #444444;
     }
 
     .bill-summary-row td {
-      padding-top: 6px;
-      font-size: 10.5px;
+      padding-top: 8px;
+      font-size: 12.5px;
     }
   }
 
   .tax-summary-box {
     margin-left: auto;
-    width: 360px;
+    width: 380px;
     max-width: 100%;
-    margin-top: 6px;
-    margin-bottom: 14px;
+    margin-top: 8px;
+    margin-bottom: 16px;
     border-top: 1.5px solid #000000;
-    border-bottom: 1px solid #000000;
-    padding: 6px 4px;
+    border-bottom: 1.5px solid #000000;
+    padding: 8px 6px;
     display: flex;
     justify-content: space-between;
     gap: 20px;
-    font-size: 11px;
+    font-size: 12.5px;
 
     .tax-col-left, .tax-col-right {
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
     }
 
     .tax-row-item {
@@ -282,29 +288,30 @@ const PrintableSheet = styled.div`
 
       .tax-label {
         color: #1e293b;
-        font-size: 11px;
+        font-size: 12.5px;
+        font-weight: 600;
       }
       .tax-val {
-        font-weight: bold;
-        font-size: 11px;
-        min-width: 65px;
+        font-weight: 800;
+        font-size: 12.5px;
+        min-width: 70px;
         text-align: right;
       }
     }
 
     .net-amount-row {
-      margin-top: 3px;
-      padding-top: 4px;
+      margin-top: 4px;
+      padding-top: 6px;
       border-top: 1px dashed #000000;
 
       .net-label {
-        font-size: 13.5px;
-        font-weight: 800;
+        font-size: 14.5px;
+        font-weight: 900;
         color: #000000;
         letter-spacing: 0.3px;
       }
       .net-val {
-        font-size: 14px;
+        font-size: 15.5px;
         font-weight: 900;
         color: #000000;
         text-align: right;
@@ -316,23 +323,23 @@ const PrintableSheet = styled.div`
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    border-top: 2px solid #000000;
-    border-bottom: 2px solid #000000;
-    padding: 8px 6px;
-    margin-top: 12px;
+    border-top: 2.5px solid #000000;
+    border-bottom: 2.5px solid #000000;
+    padding: 10px 8px;
+    margin-top: 14px;
     background: #f8fafc;
 
     .label {
       margin-right: 24px;
-      font-size: 13px;
-      font-weight: 800;
+      font-size: 14px;
+      font-weight: 900;
       text-transform: uppercase;
       color: #000000;
     }
     .amount {
-      min-width: 100px;
+      min-width: 110px;
       text-align: right;
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 900;
       color: #000000;
     }
@@ -352,30 +359,47 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
 
     // Parse query params if any
     const queryParams = new URLSearchParams(location.search);
-    const initialUhid = queryParams.get('uhid') || queryParams.get('ip_number') || queryParams.get('ip_no') || '';
+    const initialIp = queryParams.get('ip_number') || queryParams.get('ip_no') || '';
+    const initialUhid = queryParams.get('uhid') || '';
     const initialFrom = queryParams.get('from_date') || dayjs().subtract(14, 'days').format('YYYY-MM-DD');
     const initialTo = queryParams.get('to_date') || dayjs().format('YYYY-MM-DD');
 
     const [uhid, setUhid] = useState(initialUhid);
+    const [ipNumber, setIpNumber] = useState(initialIp);
+    const [ipOptions, setIpOptions] = useState([]);
     const [dateRange, setDateRange] = useState([dayjs(initialFrom), dayjs(initialTo)]);
     const [loading, setLoading] = useState(false);
     const [reportPayload, setReportPayload] = useState(null);
+    const [doctorMap, setDoctorMap] = useState({});
 
-    const loadData = useCallback(async (targetUhid = uhid, dates = dateRange) => {
+    const loadData = useCallback(async (targetUhid = uhid, targetIp = ipNumber, dates = dateRange) => {
+        const queryTerm = (targetIp && targetIp.trim()) || (targetUhid && targetUhid.trim());
+        if (!queryTerm) {
+            setReportPayload(null);
+            return;
+        }
         try {
             setLoading(true);
             const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
             const fDate = dates && dates[0] ? dates[0].format('YYYY-MM-DD') : '';
             const tDate = dates && dates[1] ? dates[1].format('YYYY-MM-DD') : '';
 
-            const url = `${getBaseUrl.replace(/\/$/, '')}/report-patient-wise-pharmacy-ip-bill/?uhid=${encodeURIComponent(targetUhid)}&ip_number=${encodeURIComponent(targetUhid)}&from_date=${fDate}&to_date=${tDate}`;
+            const ipParam = targetIp ? targetIp.trim() : '';
+            const uhidParam = targetUhid ? targetUhid.trim() : '';
+            const url = `${getBaseUrl.replace(/\/$/, '')}/report-patient-wise-pharmacy-ip-bill/?uhid=${encodeURIComponent(uhidParam)}&ip_number=${encodeURIComponent(ipParam)}&from_date=${fDate}&to_date=${tDate}`;
             const res = await apiRequest(url, 'GET');
 
             if (res && res.success) {
-                const dataObj = (res.data && res.data.patient_info) ? res.data : (res.data || res);
+                const dataObj = (res.data && res.data.patient_info) ? res.data : (res.data?.data || res.data || res);
                 setReportPayload(dataObj);
+                if (dataObj.patient_info?.uhid && !uhid) {
+                    setUhid(dataObj.patient_info.uhid);
+                }
+                if (!ipParam && dataObj.patient_info?.ip_number) {
+                    setIpNumber(dataObj.patient_info.ip_number);
+                }
             } else {
-                message.warning(res?.message || 'No pharmacy billing records found for this patient.');
+                message.warning(res?.message || res?.data?.message || 'No pharmacy billing records found for this patient.');
                 setReportPayload(null);
             }
         } catch (err) {
@@ -384,11 +408,93 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
         } finally {
             setLoading(false);
         }
-    }, [uhid, dateRange]);
+    }, [uhid, ipNumber, dateRange]);
+
+    const fetchIpOptions = useCallback(async (uhidVal, autoSelectFirst = true, selectedIp = '') => {
+        if (!uhidVal || uhidVal.trim().length < 2) {
+            setIpOptions([]);
+            return;
+        }
+        try {
+            const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/get-ip-numbers-by-uhid/?uhid=${encodeURIComponent(uhidVal.trim())}`, 'GET');
+            const admissions = res?.data?.admissions || res?.admissions || (Array.isArray(res?.data) ? res.data : []);
+            if (Array.isArray(admissions) && admissions.length > 0) {
+                setIpOptions(admissions);
+                if (autoSelectFirst) {
+                    const match = selectedIp && admissions.some(a => a.ip_number === selectedIp);
+                    const chosen = match ? selectedIp : admissions[0].ip_number;
+                    setIpNumber(chosen);
+                    loadData(uhidVal, chosen, dateRange);
+                }
+            } else {
+                setIpOptions([]);
+            }
+        } catch (err) {
+            console.error('Error fetching IP options:', err);
+            setIpOptions([]);
+        }
+    }, [dateRange, loadData]);
+
+    const mountedRef = useRef(false);
+    useEffect(() => {
+        if (mountedRef.current) return;
+        mountedRef.current = true;
+        if (initialUhid && initialUhid.trim()) {
+            fetchIpOptions(initialUhid, true, initialIp);
+        } else if (initialIp && initialIp.trim()) {
+            loadData('', initialIp, [dayjs(initialFrom), dayjs(initialTo)]);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleUhidInput = (val) => {
+        setUhid(val);
+        setIpNumber('');
+        if (val && val.trim().length >= 2) {
+            fetchIpOptions(val, true, '');
+        } else {
+            setIpOptions([]);
+        }
+    };
+
+    const handleSelectAdmission = (adm) => {
+        if (!adm || !adm.ip_number) return;
+        const newIp = adm.ip_number;
+        setIpNumber(newIp);
+        loadData(uhid, newIp, dateRange);
+    };
+
+    const handleQuery = () => {
+        const targetIp = ipNumber || (ipOptions.length > 0 ? ipOptions[0].ip_number : '');
+        if (targetIp && !ipNumber) setIpNumber(targetIp);
+        loadData(uhid, targetIp, dateRange);
+    };
 
     useEffect(() => {
-        loadData(initialUhid, [dayjs(initialFrom), dayjs(initialTo)]);
-    }, [initialUhid, initialFrom, initialTo, loadData]);
+        const fetchDoctors = async () => {
+            try {
+                const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
+                const url = `${getBaseUrl.replace(/\/$/, '')}/doctor_list_diagnostics/`;
+                const res = await apiRequest(url, 'GET');
+                const list = res?.doctors || res?.data || (Array.isArray(res) ? res : []);
+                if (Array.isArray(list)) {
+                    const map = {};
+                    list.forEach(d => {
+                        const id = String(d.employeeId || d.employee_id || d.id || '').trim();
+                        const name = d.employeeName || d.name || d.doctorName || '';
+                        if (id && name) {
+                            map[id] = name;
+                            map[id.toLowerCase()] = name;
+                        }
+                    });
+                    setDoctorMap(map);
+                }
+            } catch (err) {
+                console.error('Error fetching doctor list for report:', err);
+            }
+        };
+        fetchDoctors();
+    }, []);
 
     const handlePrint = () => {
         printInsuranceReport('printable-pharmacy-ip-sheet', {
@@ -400,7 +506,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                 age_gender: patient.age_gender,
                 admitted_date: patient.admitted_date,
                 discharge_date: patient.discharge_date,
-                doctor: patient.doctor_name || patient.doctor,
+                doctor: resolvedDoctor,
                 company: patient.company || patient.insurance_company || patient.company_name || '-'
             },
             orientation: 'portrait'
@@ -422,6 +528,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                     rows.push({
                         'Bill Number': bill.bill_no,
                         'Bill Date': bill.bill_date,
+                        'UHID': bill.uhid || patient.uhid || patient.op_number || uhid,
+                        'IP Number': bill.ip_number || patient.ip_number || ipNumber,
                         'Qty': it.qty,
                         'Particulars': it.particulars,
                         'HSN': it.hsn,
@@ -448,6 +556,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
     };
 
     const patient = reportPayload?.patient_info || {};
+    const rawDoc = String(patient.doctor_name || patient.doctor || '').trim();
+    const resolvedDoctor = doctorMap[rawDoc] || doctorMap[rawDoc.toLowerCase()] || (rawDoc.match(/^\d+$/) && doctorMap[rawDoc] ? doctorMap[rawDoc] : (rawDoc || '-'));
     const bills = Array.isArray(reportPayload?.bills) ? reportPayload.bills : [];
     const grandTotal = reportPayload?.grand_total ?? reportPayload?.summary?.net_amount ?? reportPayload?.summary?.gross_amount ?? bills.reduce((acc, b) => acc + (Array.isArray(b.items) ? b.items.reduce((s, it) => s + (Number(it.amount) || 0), 0) : (Number(b.bill_total) || 0)), 0);
 
@@ -632,16 +742,49 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                     </div>
 
                     <div className="filters-side">
-                        <div className="uhid-input">
+                        <div className="uhid-input" style={{ width: '160px' }}>
                             <User size={15} color="#64748b" />
                             <input
                                 type="text"
-                                placeholder="Enter UHID or IP Number..."
+                                placeholder="Type UHID..."
                                 value={uhid}
-                                onChange={(e) => setUhid(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') loadData(); }}
+                                onChange={(e) => handleUhidInput(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleQuery(); }}
+                                style={{ width: '120px' }}
                             />
                         </div>
+
+                        {/* IP Admissions Dropdown / Direct IP Input */}
+                        {ipOptions.length > 0 ? (
+                            <div className="uhid-input" style={{ width: '250px', padding: '0 6px' }}>
+                                <select
+                                    value={ipNumber}
+                                    onChange={(e) => {
+                                        const selectedAdm = ipOptions.find(opt => opt.ip_number === e.target.value);
+                                        handleSelectAdmission(selectedAdm || { ip_number: e.target.value });
+                                    }}
+                                    style={{ border: 'none', outline: 'none', width: '100%', fontSize: '0.85rem', background: 'transparent', fontWeight: 600, color: '#0f766e' }}
+                                >
+                                    <option value="">-- Select IP Admission --</option>
+                                    {ipOptions.map(opt => (
+                                        <option key={opt.ip_number} value={opt.ip_number}>
+                                            {opt.ip_number} ({opt.admission_date ? opt.admission_date.slice(0, 10) : ''}{opt.patient_name ? ` - ${opt.patient_name}` : ''})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        ) : (
+                            <div className="uhid-input" style={{ width: '160px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="IP Number..."
+                                    value={ipNumber}
+                                    onChange={(e) => setIpNumber(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleQuery(); }}
+                                    style={{ width: '140px' }}
+                                />
+                            </div>
+                        )}
 
                         <DatePicker.RangePicker
                             value={dateRange}
@@ -651,7 +794,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                             style={{ height: '36px', borderRadius: '8px' }}
                         />
 
-                        <button className="btn-query" onClick={() => loadData()}>
+                        <button className="btn-query" onClick={handleQuery}>
                             <Search size={15} /> Search
                         </button>
 
@@ -684,8 +827,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                     {/* Patient Meta Data Box */}
                     <div className="patient-meta-grid">
                         <div className="meta-item">
-                            <span className="meta-label">OP Number</span>
-                            <span className="meta-val">: {patient.op_number || uhid}</span>
+                            <span className="meta-label">UHID / OP NO</span>
+                            <span className="meta-val">: {patient.uhid || patient.op_number || uhid || '-'}</span>
                         </div>
                         <div className="meta-item">
                             <span className="meta-label">Age & Sex</span>
@@ -693,7 +836,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                         </div>
                         <div className="meta-item">
                             <span className="meta-label">IP-NO</span>
-                            <span className="meta-val">: {patient.ip_number || '-'}</span>
+                            <span className="meta-val">: {patient.ip_number || ipNumber || '-'}</span>
                         </div>
                         <div className="meta-item" style={{ visibility: 'hidden' }}>
                             <span className="meta-label"></span>
@@ -709,7 +852,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                         </div>
                         <div className="meta-item">
                             <span className="meta-label">Doctor</span>
-                            <span className="meta-val">: {patient.doctor_name || patient.doctor || '-'}</span>
+                            <span className="meta-val">: {resolvedDoctor}</span>
                         </div>
                         <div className="meta-item" style={{ visibility: 'hidden' }}>
                             <span className="meta-label"></span>
@@ -762,10 +905,13 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                     {group.bills.map((bill, bIdx) => (
                                         <React.Fragment key={`${gIdx}-${bIdx}`}>
                                             <tr className="bill-group-header">
-                                                <td colSpan={6} style={{ textAlign: 'left' }}>
+                                                <td colSpan={4} style={{ textAlign: 'left' }}>
                                                     Bill Number : {bill.bill_no}
                                                 </td>
-                                                <td colSpan={5} className="text-right" style={{ textAlign: 'right' }}>
+                                                <td colSpan={3} style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                                                    UHID : {bill.uhid || patient.uhid || patient.op_number || uhid || '-'}
+                                                </td>
+                                                <td colSpan={4} className="text-right" style={{ textAlign: 'right' }}>
                                                     Bill Date : {bill.bill_date} (IP CREDITS)
                                                 </td>
                                             </tr>
@@ -780,12 +926,12 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.hsn || '-'}</td>
                                                         <td className="text-left" style={{ textAlign: 'left' }}>{it.batch || '-'}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.expiry || '-'}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right' }}>{Number(it.taxable_amt || 0).toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{Number(it.taxable_amt || 0).toFixed(2)}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.cgst_pct ?? '-'}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right' }}>{Number(cgstVal || 0).toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{Number(cgstVal || 0).toFixed(2)}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.sgst_pct ?? '-'}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right' }}>{Number(sgstVal || 0).toFixed(2)}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 600 }}>{Number(it.amount || 0).toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{Number(sgstVal || 0).toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800, color: '#000000' }}>{Number(it.amount || 0).toFixed(2)}</td>
                                                     </tr>
                                                 );
                                             })}

@@ -74,7 +74,7 @@ const getInsurancePdfStyle = (orientation = "landscape") => `
     }
     body {
         font-family: Arial, Helvetica, "Segoe UI", sans-serif;
-        font-size: 8.5pt;
+        font-size: 10pt;
         color: #000000;
         background: #ffffff;
         margin: 0;
@@ -101,66 +101,68 @@ const getInsurancePdfStyle = (orientation = "landscape") => `
     /* Top Centered Header */
     .report-header {
         text-align: center;
-        padding-bottom: 6px;
-        margin-bottom: 8px;
-        border-bottom: 1.5px solid #000000;
+        padding-bottom: 8px;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #000000;
     }
     .hospital-name {
-        font-size: 12.5pt;
-        font-weight: bold;
+        font-size: 15pt;
+        font-weight: 900;
         letter-spacing: 0.5px;
         text-transform: uppercase;
         color: #000000;
-        margin-bottom: 2px;
+        margin-bottom: 3px;
     }
     .hospital-address {
-        font-size: 8.5pt;
+        font-size: 10pt;
         color: #111111;
         margin-bottom: 4px;
+        font-weight: 500;
     }
     .report-title {
-        font-size: 10.5pt;
-        font-weight: bold;
+        font-size: 13pt;
+        font-weight: 900;
         text-transform: uppercase;
         color: #000000;
-        letter-spacing: 0.3px;
-        margin-bottom: 2px;
+        letter-spacing: 0.4px;
+        margin-bottom: 3px;
     }
     .report-period {
-        font-size: 8.5pt;
-        font-weight: bold;
+        font-size: 10pt;
+        font-weight: 800;
         color: #111111;
     }
 
     /* Patient Info Metadata Box (for Patient voucher reports) */
     .patient-meta-box {
         width: 100%;
-        border: 1px solid #000000;
-        margin-bottom: 8px;
-        padding: 5px 8px;
-        font-size: 8.5pt;
+        border: 1.5px solid #000000;
+        margin-bottom: 10px;
+        padding: 8px 10px;
+        font-size: 10pt;
     }
     .patient-meta-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 4px 12px;
+        gap: 6px 14px;
     }
     .patient-meta-item {
         display: flex;
-        gap: 4px;
+        gap: 6px;
+        font-size: 9.5pt;
     }
     .patient-meta-item strong {
-        font-weight: bold;
+        font-weight: 800;
         color: #000000;
-        min-width: 75px;
+        min-width: 85px;
     }
 
     /* Main Ledger Table (NO vertical grid lines, clean ledger ruled style) */
     table, table.ledger-table {
         width: 100% !important;
         border-collapse: collapse !important;
-        font-size: 8.2pt !important;
-        margin-top: 4px !important;
+        font-size: 9.5pt !important;
+        margin-top: 6px !important;
         border: none !important;
     }
 
@@ -178,63 +180,69 @@ const getInsurancePdfStyle = (orientation = "landscape") => `
 
     /* Table Column Headers */
     th, thead tr th, tr.col-headers th {
-        border-top: 1.5px solid #000000 !important;
-        border-bottom: 1.5px solid #000000 !important;
+        border-top: 2px solid #000000 !important;
+        border-bottom: 2px solid #000000 !important;
         border-left: none !important;
         border-right: none !important;
-        padding: 4px 5px !important;
-        font-weight: bold !important;
+        padding: 6px 7px !important;
+        font-weight: 800 !important;
         color: #000000 !important;
         text-align: left;
-        font-size: 8.2pt !important;
+        font-size: 9.5pt !important;
         background: #ffffff !important;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
     }
 
     /* Company / Category / Group Bar */
     .company-header, tr.company-header-row td, tr.category-row td, .group-header-row td {
-        border-bottom: 1px solid #000000 !important;
-        border-top: 1px solid #000000 !important;
+        border-bottom: 1.5px solid #000000 !important;
+        border-top: 1.5px solid #000000 !important;
         border-left: none !important;
         border-right: none !important;
-        padding: 4px 6px !important;
-        font-weight: bold !important;
+        padding: 6px 8px !important;
+        font-weight: 800 !important;
         text-transform: uppercase !important;
         color: #000000 !important;
-        font-size: 8.5pt !important;
+        font-size: 10pt !important;
         background: #f8fafc !important;
     }
 
     /* Data Cells */
     td, tbody tr td {
         border-top: none !important;
-        border-bottom: 1px solid #e2e8f0 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
         border-left: none !important;
         border-right: none !important;
-        padding: 3.5px 5px !important;
-        font-size: 8pt !important;
+        padding: 5px 7px !important;
+        font-size: 9.5pt !important;
         color: #000000 !important;
     }
 
     /* Subtotal & Total Rows */
     tr.subtotal-row td, .subtotal-row td {
-        border-top: 1px solid #000000 !important;
-        border-bottom: 1px solid #000000 !important;
-        font-weight: bold !important;
-        padding: 4px 5px !important;
+        border-top: 1.5px solid #000000 !important;
+        border-bottom: 1.5px solid #000000 !important;
+        font-weight: 800 !important;
+        font-size: 10.5pt !important;
+        padding: 6px 7px !important;
         background: #ffffff !important;
     }
 
     tr.grand-total-row td, .grand-total-row td {
-        border-top: 1.5px solid #000000 !important;
-        border-bottom: 2px solid #000000 !important;
-        font-weight: 800 !important;
-        font-size: 8.5pt !important;
-        padding: 5px 6px !important;
+        border-top: 2.5px solid #000000 !important;
+        border-bottom: 2.5px solid #000000 !important;
+        font-weight: 900 !important;
+        font-size: 11pt !important;
+        padding: 8px 8px !important;
         background: #f8fafc !important;
     }
 
-    .text-right {
+    /* ALL Amounts Bold in Print */
+    .text-right, td.text-right, th.text-right, td.amount-cell, .amount-cell {
         text-align: right !important;
+        font-weight: 800 !important;
+        color: #000000 !important;
     }
     .text-left {
         text-align: left !important;
@@ -453,10 +461,17 @@ export const printInsuranceReport = (elementOrId, options = {}) => {
             cells.forEach((td, idx) => {
                 const correspondingTh = ths[idx];
                 const tdTxt = (td.textContent || "").trim();
-                if (correspondingTh && correspondingTh.classList.contains("text-right")) {
+                const isAmount = (
+                    (correspondingTh && correspondingTh.classList.contains("text-right")) ||
+                    /^[₹$]?\s*[-–—]?\s*[\d,]+(\.\d+)?%?$/.test(tdTxt) ||
+                    tdTxt.startsWith("₹") ||
+                    tdTxt.startsWith("$")
+                );
+                if (isAmount) {
                     td.classList.add("text-right");
-                } else if (/^[₹$]?\s*[\d,]+(\.\d+)?%?$/.test(tdTxt)) {
-                    td.classList.add("text-right");
+                    td.classList.add("amount-cell");
+                    td.style.fontWeight = "800";
+                    td.style.textAlign = "right";
                 }
             });
         });
