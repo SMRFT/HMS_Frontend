@@ -127,15 +127,15 @@ const CategoryTabs = styled.div`
 `;
 
 const CategoryTab = styled.button`
-  padding: 8px 14px;
+  padding: 9px 16px;
   border-radius: 8px;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  border: 1px solid ${props => props.$active ? '#0891b2' : '#e2e8f0'};
+  border: 1.5px solid ${props => props.$active ? '#0891b2' : '#cbd5e1'};
   background: ${props => props.$active ? '#ecfeff' : '#ffffff'};
-  color: ${props => props.$active ? '#0891b2' : '#64748b'};
+  color: ${props => props.$active ? '#0891b2' : '#334155'};
   transition: all 0.15s ease;
 
   &:hover {
@@ -146,7 +146,7 @@ const CategoryTab = styled.button`
 
 const SearchBox = styled.div`
   position: relative;
-  width: 320px;
+  width: 340px;
   max-width: 100%;
 
   svg {
@@ -159,14 +159,14 @@ const SearchBox = styled.div`
 
   input {
     width: 100%;
-    height: 40px;
+    height: 42px;
     border-radius: 10px;
-    border: 1px solid ${colors.border};
+    border: 1.5px solid #cbd5e1;
     background: #ffffff;
-    padding: 0 14px 0 38px;
-    font-size: 0.88rem;
-    font-weight: 500;
-    color: ${colors.textMain};
+    padding: 0 14px 0 40px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #0f172a;
     transition: all 0.2s ease;
 
     &:focus {
@@ -179,16 +179,16 @@ const SearchBox = styled.div`
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 22px;
   animation: ${fadeIn} 0.5s ease-out;
 `;
 
 const ReportCard = styled.div`
   background: #ffffff;
   border-radius: 14px;
-  padding: 20px;
-  border: 1px solid #e2e8f0;
+  padding: 22px;
+  border: 1.5px solid #cbd5e1;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   position: relative;
@@ -196,7 +196,7 @@ const ReportCard = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 185px;
+  min-height: 195px;
 
   &::before {
     content: '';
@@ -204,7 +204,7 @@ const ReportCard = styled.div`
     top: 0;
     left: 0;
     width: 100%;
-    height: 4px;
+    height: 5px;
     background: ${props => props.color || '#0891b2'};
     opacity: 0;
     transition: opacity 0.25s ease;
@@ -212,7 +212,7 @@ const ReportCard = styled.div`
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 16px 24px -6px rgba(0, 0, 0, 0.08), 0 8px 12px -4px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 16px 24px -6px rgba(0, 0, 0, 0.1), 0 8px 12px -4px rgba(0, 0, 0, 0.04);
     border-color: ${props => props.color || '#0891b2'};
 
     &::before {
@@ -238,8 +238,8 @@ const ReportCard = styled.div`
     margin-bottom: 14px;
 
     .icon-wrapper {
-      width: 44px;
-      height: 44px;
+      width: 46px;
+      height: 46px;
       border-radius: 12px;
       background: #f1f5f9;
       color: ${props => props.color || '#475569'};
@@ -250,30 +250,33 @@ const ReportCard = styled.div`
     }
 
     .badge {
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: #64748b;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      padding: 3px 8px;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #334155;
+      background: #f1f5f9;
+      border: 1.5px solid #cbd5e1;
+      padding: 4px 10px;
       border-radius: 6px;
       text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
   }
 
   .content {
     h3 {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: ${colors.textMain};
-      margin: 0 0 6px 0;
+      font-size: 1.18rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 8px 0;
       line-height: 1.35;
+      letter-spacing: -0.01em;
     }
     p {
-      font-size: 0.82rem;
-      color: ${colors.textMuted};
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: #334155;
       margin: 0;
-      line-height: 1.45;
+      line-height: 1.5;
     }
   }
 
@@ -281,13 +284,13 @@ const ReportCard = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid #f1f5f9;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1.5px solid #f1f5f9;
 
     .scheme-tag {
-      font-size: 0.75rem;
-      font-weight: 600;
+      font-size: 0.88rem;
+      font-weight: 700;
       color: #0891b2;
     }
 
@@ -419,25 +422,26 @@ const StatsGrid = styled.div`
 
 const StatCard = styled.div`
   background: #ffffff;
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  border-left: 4px solid ${props => props.color || '#0891b2'};
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  border: 1.5px solid #cbd5e1;
+  border-left: 5px solid ${props => props.color || '#0891b2'};
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 
   .label {
-    font-size: 0.74rem;
-    font-weight: 700;
-    color: #64748b;
+    font-size: 0.84rem;
+    font-weight: 800;
+    color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
 
   .value {
-    font-size: 1.35rem;
-    font-weight: 800;
+    font-size: 1.65rem;
+    font-weight: 900;
     color: #0f172a;
-    margin-top: 4px;
+    margin-top: 5px;
+    letter-spacing: -0.02em;
   }
 `;
 
@@ -445,29 +449,29 @@ const FilterRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   background: #ffffff;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1.5px solid #cbd5e1;
 
   .left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     flex-wrap: wrap;
   }
 
   select {
-    height: 38px;
+    height: 42px;
     border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    padding: 0 12px;
-    font-size: 0.85rem;
+    border: 1.5px solid #cbd5e1;
+    padding: 0 14px;
+    font-size: 0.95rem;
     font-weight: 600;
-    color: #334155;
+    color: #0f172a;
     background: #ffffff;
     outline: none;
 
@@ -480,42 +484,46 @@ const FilterRow = styled.div`
 const ReportTableWrapper = styled.div`
   background: #ffffff;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1.5px solid #cbd5e1;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 `;
 
 const StyledTable = styled.table`
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.84rem;
+  font-size: 0.95rem;
 
   thead {
-    background: #f1f5f9;
-    border-bottom: 2px solid #cbd5e1;
+    background: #e2e8f0;
+    border-bottom: 2px solid #94a3b8;
 
     th {
-      padding: 10px 12px;
-      font-weight: 700;
-      color: #334155;
+      padding: 12px 14px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: #0f172a;
       text-align: left;
       white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
   }
 
   tbody {
     tr {
-      border-bottom: 1px solid #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
       transition: background 0.15s ease;
 
       &:hover {
-        background: #f8fafc;
+        background: #f1f5f9;
       }
     }
 
     td {
-      padding: 10px 12px;
-      color: #1e293b;
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      color: #0f172a;
       white-space: nowrap;
     }
   }
@@ -636,17 +644,17 @@ const TealModalContainer = styled.div`
 
 const TealModalHeader = styled.div`
   background: #1e5655;
-  padding: 14px 20px;
+  padding: 16px 22px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 
   .title {
-    font-size: 1.05rem;
-    font-weight: 700;
+    font-size: 1.2rem;
+    font-weight: 800;
     color: #ffffff;
     margin: 0;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.3px;
   }
 
   .close-btn {
@@ -663,14 +671,14 @@ const TealModalHeader = styled.div`
 `;
 
 const TealModalBody = styled.div`
-  padding: 24px;
+  padding: 26px;
   background: #ffffff;
 
   .fields-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 18px;
+    gap: 18px;
+    margin-bottom: 20px;
 
     &.single {
       grid-template-columns: 1fr;
@@ -680,22 +688,23 @@ const TealModalBody = styled.div`
   .field-box {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 
     label {
-      font-size: 0.74rem;
-      font-weight: 700;
-      color: #334155;
+      font-size: 0.84rem;
+      font-weight: 800;
+      color: #0f172a;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
     input, select {
-      height: 38px;
-      border: 1px solid #cbd5e1;
-      border-radius: 4px;
-      padding: 0 10px;
-      font-size: 0.88rem;
+      height: 42px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 0 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
       color: #0f172a;
       outline: none;
 
@@ -705,28 +714,29 @@ const TealModalBody = styled.div`
     }
 
     .ant-picker {
-      height: 38px;
-      border-radius: 4px;
-      border: 1px solid #cbd5e1;
+      height: 42px;
+      border-radius: 6px;
+      border: 1.5px solid #cbd5e1;
+      font-size: 0.95rem;
     }
   }
 
   .footer-actions {
     display: flex;
     justify-content: flex-end;
-    margin-top: 14px;
+    margin-top: 18px;
 
     .btn-teal-print {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       background: #1e5655;
       color: #ffffff;
       border: none;
-      border-radius: 4px;
-      padding: 7px 18px;
-      font-size: 0.88rem;
-      font-weight: 600;
+      border-radius: 6px;
+      padding: 9px 24px;
+      font-size: 0.95rem;
+      font-weight: 700;
       cursor: pointer;
       transition: background 0.2s;
 
@@ -973,8 +983,43 @@ const InsuranceReportsDashboard = () => {
     const [modalToDate, setModalToDate] = useState(dayjs());
     const [modalUhid, setModalUhid] = useState('');
     const [modalIpNumber, setModalIpNumber] = useState('');
+    const [modalIpOptions, setModalIpOptions] = useState([]);
+    const [modalSearchingIps, setModalSearchingIps] = useState(false);
     const [modalCompanyName, setModalCompanyName] = useState('ALL');
     const [modalOutletName, setModalOutletName] = useState('ALL');
+
+    const fetchModalIpOptions = useCallback(async (uhidVal) => {
+        if (!uhidVal || uhidVal.trim().length < 2) {
+            setModalIpOptions([]);
+            return;
+        }
+        setModalSearchingIps(true);
+        try {
+            const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/get-ip-numbers-by-uhid/?uhid=${encodeURIComponent(uhidVal.trim())}`, 'GET');
+            const admissions = res?.data?.admissions || res?.admissions || (Array.isArray(res?.data) ? res.data : []);
+            if (Array.isArray(admissions) && admissions.length > 0) {
+                setModalIpOptions(admissions);
+                setModalIpNumber(admissions[0].ip_number);
+            } else {
+                setModalIpOptions([]);
+            }
+        } catch (err) {
+            console.error('Error fetching modal IP options:', err);
+            setModalIpOptions([]);
+        } finally {
+            setModalSearchingIps(false);
+        }
+    }, []);
+
+    const handleModalUhidChange = (val) => {
+        setModalUhid(val);
+        if (val && val.trim().length >= 2) {
+            fetchModalIpOptions(val);
+        } else {
+            setModalIpOptions([]);
+        }
+    };
 
     // Modal data state
     const [loadingData, setLoadingData] = useState(false);
@@ -1001,7 +1046,7 @@ const InsuranceReportsDashboard = () => {
             const endStr = activeDates && activeDates[1] ? activeDates[1].format('YYYY-MM-DD') : '';
             const compParam = comp || 'all';
             const searchParam = search ? encodeURIComponent(search) : '';
-            
+
             const url = `${getBaseUrl.replace(/\/$/, '')}/insurance-credit-report/?report_key=${rep.id}&start_date=${startStr}&end_date=${endStr}&company_code=${compParam}&search=${searchParam}`;
             const res = await apiRequest(url, 'GET');
 
@@ -1035,6 +1080,8 @@ const InsuranceReportsDashboard = () => {
         setTargetReport(report);
         setModalUhid('');
         setModalIpNumber('');
+        setModalIpOptions([]);
+        setModalSearchingIps(false);
         setModalCompanyName('ALL');
         setModalOutletName('ALL');
         setModalFromDate(dateRange[0] || dayjs().subtract(30, 'days'));
@@ -1053,13 +1100,13 @@ const InsuranceReportsDashboard = () => {
         ].includes(targetReport.id);
 
         const params = new URLSearchParams();
-        if (targetReport.id === 'patient_wise_pharmacy_ip_bill') {
-            params.append('uhid', modalUhid);
-            params.append('ip_number', modalUhid);
-            params.append('from_date', fDate);
-            params.append('to_date', tDate);
-        } else if (['lab_abstract', 'medicine_abstract'].includes(targetReport.id) || isDischarge) {
-            params.append('ip_number', modalIpNumber);
+        if (['patient_wise_pharmacy_ip_bill', 'lab_abstract', 'medicine_abstract'].includes(targetReport.id) || isDischarge) {
+            if (modalIpNumber && modalIpNumber.trim()) {
+                params.append('ip_number', modalIpNumber.trim());
+            }
+            if (modalUhid && modalUhid.trim()) {
+                params.append('uhid', modalUhid.trim());
+            }
             params.append('from_date', fDate);
             params.append('to_date', tDate);
             if (isDischarge) {
@@ -1096,8 +1143,8 @@ const InsuranceReportsDashboard = () => {
         return INSURANCE_REPORTS.filter((rep) => {
             const matchesCat = selectedCategory === 'All' || rep.category === selectedCategory;
             const query = searchTerm.toLowerCase().trim();
-            const matchesSearch = !query || 
-                rep.title.toLowerCase().includes(query) || 
+            const matchesSearch = !query ||
+                rep.title.toLowerCase().includes(query) ||
                 rep.description.toLowerCase().includes(query) ||
                 rep.category.toLowerCase().includes(query);
             return matchesCat && matchesSearch;
@@ -1112,7 +1159,7 @@ const InsuranceReportsDashboard = () => {
         if (modalSearch && modalSearch.trim()) {
             const q = modalSearch.toLowerCase().trim();
             rows = rows.filter((r) => {
-                return Object.values(r).some((val) => 
+                return Object.values(r).some((val) =>
                     String(val || '').toLowerCase().includes(q)
                 );
             });
@@ -1127,8 +1174,8 @@ const InsuranceReportsDashboard = () => {
         const target = String(selectedCompany).toLowerCase().trim();
         const match = (reportData.companies || []).find(
             (c) => String(c.code).toLowerCase().trim() === target ||
-                   String(c.name).toLowerCase().trim() === target ||
-                   target.includes(String(c.name).toLowerCase().trim())
+                String(c.name).toLowerCase().trim() === target ||
+                target.includes(String(c.name).toLowerCase().trim())
         );
         return match ? match.code : selectedCompany;
     }, [selectedCompany, reportData.companies]);
@@ -1368,32 +1415,49 @@ const InsuranceReportsDashboard = () => {
                                         </div>
                                     </div>
 
-                                    {targetReport.id === 'patient_wise_pharmacy_ip_bill' && (
-                                        <div className="fields-row single">
-                                            <div className="field-box">
-                                                <label>UHID / IP NUMBER</label>
-                                                <input
-                                                    type="text"
-                                                    value={modalUhid}
-                                                    onChange={(e) => setModalUhid(e.target.value)}
-                                                    placeholder="Enter UHID or IP Number..."
-                                                />
+                                    {['patient_wise_pharmacy_ip_bill', 'lab_abstract', 'medicine_abstract', 'discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery', 'discharge_all_company', 'discharge_tkt_op', 'discharge_tkt_railway'].includes(targetReport.id) && (
+                                        <>
+                                            <div className="fields-row">
+                                                <div className="field-box">
+                                                    <label>UHID</label>
+                                                    <input
+                                                        type="text"
+                                                        value={modalUhid}
+                                                        onChange={(e) => handleModalUhidChange(e.target.value)}
+                                                        placeholder="Enter UHID (e.g. S026/005494)..."
+                                                    />
+                                                </div>
+                                                <div className="field-box">
+                                                    <label>IP NUMBER</label>
+                                                    {modalIpOptions.length > 0 ? (
+                                                        <select
+                                                            value={modalIpNumber}
+                                                            onChange={(e) => setModalIpNumber(e.target.value)}
+                                                            style={{ fontWeight: 600, color: '#0f766e' }}
+                                                        >
+                                                            <option value="">-- Select IP Admission --</option>
+                                                            {modalIpOptions.map(opt => (
+                                                                <option key={opt.ip_number} value={opt.ip_number}>
+                                                                    {opt.ip_number} ({opt.admission_date ? opt.admission_date.slice(0, 10) : ''}{opt.patient_name ? ` - ${opt.patient_name}` : ''})
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <input
+                                                            type="text"
+                                                            value={modalIpNumber}
+                                                            onChange={(e) => setModalIpNumber(e.target.value)}
+                                                            placeholder="Enter IP Number..."
+                                                        />
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-
-                                    {['lab_abstract', 'medicine_abstract', 'discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery', 'discharge_all_company', 'discharge_tkt_op', 'discharge_tkt_railway'].includes(targetReport.id) && (
-                                        <div className="fields-row single">
-                                            <div className="field-box">
-                                                <label>IP NUMBER / UHID</label>
-                                                <input
-                                                    type="text"
-                                                    value={modalIpNumber}
-                                                    onChange={(e) => setModalIpNumber(e.target.value)}
-                                                    placeholder="Enter IP Number or UHID..."
-                                                />
-                                            </div>
-                                        </div>
+                                            {modalIpOptions.length > 0 && (
+                                                <div style={{ fontSize: '0.82rem', color: '#0d9488', marginTop: '-6px', marginBottom: '8px', fontWeight: 600 }}>
+                                                    Found {modalIpOptions.length} inpatient admissions for this UHID. Select the desired IP number.
+                                                </div>
+                                            )}
+                                        </>
                                     )}
 
                                     {['insurance_bills_status', 'branch_wise_dues', 'branch_wise_status', 'companywise_registration', 'date_wise_details', 'bills_summary', 'status_op_patients'].includes(targetReport.id) && (
@@ -1584,129 +1648,167 @@ const InsuranceReportsDashboard = () => {
                                         </SearchBox>
                                     </FilterRow>
 
-                            {/* Data Table */}
-                            {loadingData ? (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#0891b2', fontWeight: 700 }}>
-                                    Loading {activeReport.title} data...
-                                </div>
-                            ) : (
-                                <ReportTableWrapper>
-                                    <StyledTable>
-                                        <thead>
-                                            <tr>
-                                                {(reportData.columns || []).map((col) => (
-                                                    <th
-                                                        key={col.key}
-                                                        style={{
-                                                            width: col.width,
-                                                            textAlign: col.align || 'left'
-                                                        }}
-                                                    >
-                                                        {col.label}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {paginatedRows.map((row, idx) => (
-                                                <tr key={idx}>
-                                                    {(reportData.columns || []).map((col) => {
-                                                        const val = row[col.key];
-                                                        const isNum = typeof val === 'number';
-                                                        const isCur = isNum && (col.key.includes('amount') || col.key.includes('fee') || col.key.includes('due') || col.key.includes('total') || col.key.includes('rate'));
-                                                        return (
-                                                            <td
+                                    {/* Data Table */}
+                                    {loadingData ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#0891b2', fontWeight: 700 }}>
+                                            Loading {activeReport.title} data...
+                                        </div>
+                                    ) : (
+                                        <ReportTableWrapper>
+                                            <StyledTable>
+                                                <thead>
+                                                    <tr>
+                                                        {(reportData.columns || []).map((col) => (
+                                                            <th
                                                                 key={col.key}
                                                                 style={{
-                                                                    textAlign: col.align || 'left',
-                                                                    fontWeight: col.key === 'patient_name' ? 600 : 'normal'
+                                                                    width: col.width,
+                                                                    textAlign: col.align || 'left'
                                                                 }}
                                                             >
-                                                                {isCur ? `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : (val != null ? String(val) : '—')}
+                                                                {col.label}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {paginatedRows.map((row, idx) => (
+                                                        <tr key={idx}>
+                                                            {(reportData.columns || []).map((col) => {
+                                                                const val = row[col.key];
+                                                                const isNum = typeof val === 'number';
+                                                                const isCur = isNum && (
+                                                                    col.key.includes('amount') ||
+                                                                    col.key.includes('fee') ||
+                                                                    col.key.includes('due') ||
+                                                                    col.key.includes('total') ||
+                                                                    col.key.includes('rate') ||
+                                                                    col.key.includes('paid') ||
+                                                                    col.key.includes('balance') ||
+                                                                    col.key.includes('charge') ||
+                                                                    col.key.includes('tax') ||
+                                                                    col.key.includes('gst') ||
+                                                                    col.key.includes('price') ||
+                                                                    col.key.includes('cost') ||
+                                                                    col.key.includes('net')
+                                                                );
+                                                                return (
+                                                                    <td
+                                                                        key={col.key}
+                                                                        style={{
+                                                                            textAlign: col.align || (isNum ? 'right' : 'left'),
+                                                                            fontWeight: isCur ? 800 : (col.key === 'patient_name' ? 700 : 500),
+                                                                            fontSize: isCur ? '1rem' : '0.95rem',
+                                                                            color: isCur ? '#0f172a' : '#1e293b'
+                                                                        }}
+                                                                    >
+                                                                        {isCur ? `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : (val != null ? String(val) : '—')}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                    {paginatedRows.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan={(reportData.columns || []).length || 5} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                                                                No records found for the selected criteria.
                                                             </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
-                                            {paginatedRows.length === 0 && (
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </StyledTable>
+
+                                            {/* Pagination */}
+                                            <PaginationBar>
+                                                <div>
+                                                    Showing {filteredTableRows.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredTableRows.length)} of {filteredTableRows.length} entries
+                                                </div>
+                                                <div className="btns">
+                                                    <button
+                                                        disabled={currentPage === 1}
+                                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                                    >
+                                                        <ChevronLeft size={14} style={{ verticalAlign: 'middle' }} /> Prev
+                                                    </button>
+                                                    <span style={{ padding: '4px 8px', fontWeight: 700 }}>
+                                                        {currentPage} / {totalPages}
+                                                    </span>
+                                                    <button
+                                                        disabled={currentPage >= totalPages}
+                                                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                                    >
+                                                        Next <ChevronRight size={14} style={{ verticalAlign: 'middle' }} />
+                                                    </button>
+                                                </div>
+                                            </PaginationBar>
+                                        </ReportTableWrapper>
+                                    )}
+
+                                    {/* Print Version for A4 Printing */}
+                                    <PrintWrapper id="insurance-print-view">
+                                        <div className="print-header">
+                                            <h2>SHANMUGA HOSPITAL LIMITED</h2>
+                                            <p>51/24. Saradha College Road, Salem - 636007 | Phone: 0427-2706666</p>
+                                            <div className="title">
+                                                {reportData.title || activeReport.title} (From {dateRange[0]?.format('DD/MM/YYYY')} To {dateRange[1]?.format('DD/MM/YYYY')})
+                                            </div>
+                                            <p style={{ fontSize: '8pt', color: '#555', marginTop: '2px' }}>
+                                                Printed As On: {dayjs().format('DD/MM/YYYY HH:mm:ss')}
+                                            </p>
+                                        </div>
+
+                                        <table>
+                                            <thead>
                                                 <tr>
-                                                    <td colSpan={(reportData.columns || []).length || 5} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                                                        No records found for the selected criteria.
-                                                    </td>
+                                                    {(reportData.columns || []).map((col) => (
+                                                        <th key={col.key} style={{ textAlign: col.align || 'left' }}>
+                                                            {col.label}
+                                                        </th>
+                                                    ))}
                                                 </tr>
-                                            )}
-                                        </tbody>
-                                    </StyledTable>
-
-                                    {/* Pagination */}
-                                    <PaginationBar>
-                                        <div>
-                                            Showing {filteredTableRows.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredTableRows.length)} of {filteredTableRows.length} entries
-                                        </div>
-                                        <div className="btns">
-                                            <button
-                                                disabled={currentPage === 1}
-                                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                            >
-                                                <ChevronLeft size={14} style={{ verticalAlign: 'middle' }} /> Prev
-                                            </button>
-                                            <span style={{ padding: '4px 8px', fontWeight: 700 }}>
-                                                {currentPage} / {totalPages}
-                                            </span>
-                                            <button
-                                                disabled={currentPage >= totalPages}
-                                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                            >
-                                                Next <ChevronRight size={14} style={{ verticalAlign: 'middle' }} />
-                                            </button>
-                                        </div>
-                                    </PaginationBar>
-                                </ReportTableWrapper>
+                                            </thead>
+                                            <tbody>
+                                                {filteredTableRows.map((row, idx) => (
+                                                    <tr key={idx}>
+                                                        {(reportData.columns || []).map((col) => {
+                                                            const val = row[col.key];
+                                                            const isNum = typeof val === 'number';
+                                                            const isCur = isNum && (
+                                                                col.key.includes('amount') ||
+                                                                col.key.includes('fee') ||
+                                                                col.key.includes('due') ||
+                                                                col.key.includes('total') ||
+                                                                col.key.includes('rate') ||
+                                                                col.key.includes('paid') ||
+                                                                col.key.includes('balance') ||
+                                                                col.key.includes('charge') ||
+                                                                col.key.includes('tax') ||
+                                                                col.key.includes('gst') ||
+                                                                col.key.includes('price') ||
+                                                                col.key.includes('cost') ||
+                                                                col.key.includes('net')
+                                                            );
+                                                            return (
+                                                                <td
+                                                                    key={col.key}
+                                                                    style={{
+                                                                        textAlign: col.align || (isNum ? 'right' : 'left'),
+                                                                        fontWeight: isCur ? 'bold' : 'normal',
+                                                                        fontSize: '9.5pt',
+                                                                        color: '#000000'
+                                                                    }}
+                                                                >
+                                                                    {isCur ? `₹${val.toFixed(2)}` : (val != null ? String(val) : '—')}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </PrintWrapper>
+                                </>
                             )}
-
-                            {/* Print Version for A4 Printing */}
-                            <PrintWrapper id="insurance-print-view">
-                                <div className="print-header">
-                                    <h2>SHANMUGA HOSPITAL LIMITED</h2>
-                                    <p>51/24. Saradha College Road, Salem - 636007 | Phone: 0427-2706666</p>
-                                    <div className="title">
-                                        {reportData.title || activeReport.title} (From {dateRange[0]?.format('DD/MM/YYYY')} To {dateRange[1]?.format('DD/MM/YYYY')})
-                                    </div>
-                                    <p style={{ fontSize: '8pt', color: '#555', marginTop: '2px' }}>
-                                        Printed As On: {dayjs().format('DD/MM/YYYY HH:mm:ss')}
-                                    </p>
-                                </div>
-
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            {(reportData.columns || []).map((col) => (
-                                                <th key={col.key} style={{ textAlign: col.align || 'left' }}>
-                                                    {col.label}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredTableRows.map((row, idx) => (
-                                            <tr key={idx}>
-                                                {(reportData.columns || []).map((col) => {
-                                                    const val = row[col.key];
-                                                    const isNum = typeof val === 'number';
-                                                    const isCur = isNum && (col.key.includes('amount') || col.key.includes('fee') || col.key.includes('due') || col.key.includes('total') || col.key.includes('rate'));
-                                                    return (
-                                                        <td key={col.key} style={{ textAlign: col.align || 'left' }}>
-                                                            {isCur ? `₹${val.toFixed(2)}` : (val != null ? String(val) : '—')}
-                                                        </td>
-                                                    );
-                                                })}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </PrintWrapper>
-                            </>
-                        )}
                         </ModalBody>
                     </ModalContainer>
                 </ModalOverlay>

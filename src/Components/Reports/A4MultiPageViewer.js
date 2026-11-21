@@ -951,7 +951,7 @@ const A4MultiPageViewer = ({
 
     const hospitalName = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
     const isNoOutletReport = [
-        "ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "admission_vs_discharge", "101", "102"
+        "ip_advance", "discharge_detailed", "advance_reg", "insurance_advance", "101", "102"
     ].includes(String(selectedReport?.id)) || [
         "/AdvanceRegistration", "/AdvanceRegistrationInsurence", "/IPAdvanceReport", "/DischargeBillsDetailed"
     ].includes(selectedReport?.route);
@@ -1275,6 +1275,39 @@ const A4MultiPageViewer = ({
                                         <option value="Miscellaneous">Miscellaneous Payment</option>
                                     </>
                                 )}
+                            </select>
+                        </div>
+                    )}
+
+                    {selectedReport?.id === "admission_vs_discharge" && (
+                        <div className="filter-item">
+                            <span className="filter-label">Company:</span>
+                            <select 
+                                value={tempCompany} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setTempCompany(val);
+                                    if (setSelectedCompany) setSelectedCompany(val);
+                                }}
+                            >
+                                <option value="all">All Companies</option>
+                                <option value="Cash / Self">Cash / Self</option>
+                                <option value="STAR HEALTH AND ALLIED INSURANCE LTD">STAR HEALTH</option>
+                                <option value="MEDI ASSIST">MEDI ASSIST</option>
+                                <option value="CGHS CREDIT">CGHS CREDIT</option>
+                                <option value="ECHS">ECHS</option>
+                                <option value="RAILWAY CTSE">RAILWAY CTSE</option>
+                                <option value="TNCMCHIS">TNCMCHIS</option>
+                                <option value="ESI">ESI</option>
+                                <option value="ESIC">ESIC</option>
+                                <option value="MD INDIA">MD INDIA</option>
+                                <option value="UNITED HEALTHCARE">UNITED HEALTHCARE</option>
+                                <option value="CHOLA MS HELP">CHOLA MS</option>
+                                <option value="BAJAJ ALLIANZ & ALLIED INSURANCE">BAJAJ ALLIANZ</option>
+                                <option value="FOOD CORPORATION OF INDIA (FCI),">FCI</option>
+                                <option value="TKT">TKT</option>
+                                <option value="SELF PACKAGE">SELF PACKAGE</option>
+                                <option value="VIDAL HEALTH">VIDAL HEALTH</option>
                             </select>
                         </div>
                     )}

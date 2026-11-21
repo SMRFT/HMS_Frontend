@@ -784,7 +784,8 @@ const MasterAccountsDashboard = () => {
             icon: <ShieldCheck size={24} />,
             color: "#475569",
             component: MasterAccountsAuditReport,
-            fullPageRoute: "/MasterAccountsAuditReport"
+            fullPageRoute: "/MasterAccountsAuditReport",
+            isWide: true
         },
         {
             id: "bill_wise",

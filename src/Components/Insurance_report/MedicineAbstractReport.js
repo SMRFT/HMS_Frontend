@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DatePicker, Spin, message } from 'antd';
 import dayjs from 'dayjs';
 import styled from 'styled-components';
@@ -152,7 +152,7 @@ const PrintableSheet = styled.div`
   margin: 0 auto;
   color: #000000;
   font-family: Arial, sans-serif;
-  font-size: 11px;
+  font-size: 13px;
 
   @media print {
     border: none;
@@ -165,88 +165,92 @@ const PrintableSheet = styled.div`
   .header-block {
     margin-bottom: 12px;
     .hosp-name {
-      font-size: 14px;
-      font-weight: bold;
-      margin-bottom: 2px;
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 3px;
       color: #000000;
     }
     .hosp-addr {
-      font-size: 11px;
+      font-size: 13px;
       margin-bottom: 2px;
       color: #000000;
+      font-weight: 500;
     }
     .hosp-phone {
-      font-size: 11px;
+      font-size: 13px;
       margin-bottom: 12px;
       color: #000000;
+      font-weight: 500;
     }
     .rep-name {
-      font-size: 13px;
-      font-weight: bold;
+      font-size: 16px;
+      font-weight: 800;
       margin-bottom: 8px;
       color: #000000;
     }
   }
 
   .divider-line {
-    border-top: 1px solid #000000;
-    margin: 6px 0;
+    border-top: 1.5px solid #000000;
+    margin: 8px 0;
   }
 
   .patient-bar {
     display: flex;
     justify-content: space-between;
-    font-size: 11px;
-    padding: 4px 0;
-    line-height: 1.6;
+    font-size: 13px;
+    padding: 6px 0;
+    line-height: 1.7;
 
     .left-side {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
 
     .right-side {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
       min-width: 320px;
     }
 
     .row-field {
       display: flex;
       .field-lbl {
-        width: 110px;
-        font-weight: normal;
+        width: 120px;
+        font-weight: 700;
         color: #000000;
       }
       .field-sep {
-        margin-right: 6px;
+        margin-right: 8px;
+        font-weight: 700;
       }
       .field-val {
-        font-weight: normal;
+        font-weight: 600;
         color: #000000;
       }
     }
   }
 
   .table-box {
-    margin-top: 6px;
+    margin-top: 8px;
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11px;
+      font-size: 13px;
       color: #000000;
 
       thead {
         tr {
-          border-top: 1px solid #000000;
-          border-bottom: 1px solid #000000;
+          border-top: 1.5px solid #000000;
+          border-bottom: 1.5px solid #000000;
         }
         th {
-          padding: 6px 4px;
-          font-weight: bold;
+          padding: 8px 6px;
+          font-weight: 800;
+          font-size: 13px;
           color: #000000;
           text-align: left;
           background: transparent;
@@ -259,26 +263,31 @@ const PrintableSheet = styled.div`
       tbody {
         tr {
           td {
-            padding: 5px 4px;
+            padding: 7px 6px;
             color: #000000;
+            font-size: 13px;
 
             &.text-center { text-align: center; }
-            &.text-right { text-align: right; }
+            &.text-right { 
+              text-align: right; 
+              font-weight: 700;
+            }
           }
         }
 
         tr.grand-total-row {
-          border-top: 1px solid #000000;
-          border-bottom: 2px solid #000000;
-          font-weight: bold;
+          border-top: 1.5px solid #000000;
+          border-bottom: 2.5px solid #000000;
+          font-weight: 900;
 
           td {
-            padding: 7px 4px;
+            padding: 9px 6px;
             color: #000000;
-            font-size: 11px;
+            font-size: 14px;
+            font-weight: 900;
 
-            &.text-right { text-align: right; }
-            &.text-left { text-align: left; }
+            &.text-right { text-align: right; font-weight: 900; }
+            &.text-left { text-align: left; font-weight: 900; }
           }
         }
       }
@@ -299,20 +308,25 @@ const MedicineAbstractReport = () => {
 
     // Query parameters
     const searchParams = new URLSearchParams(location.search);
-    const initialIp = searchParams.get('ip_number') || searchParams.get('uhid') || 'S026/008240';
+    const initialIp = searchParams.get('ip_number') || searchParams.get('ip_no') || '';
+    const initialUhid = searchParams.get('uhid') || '';
     const initialFrom = searchParams.get('from_date') || dayjs().subtract(60, 'day').format('YYYY-MM-DD');
     const initialTo = searchParams.get('to_date') || dayjs().format('YYYY-MM-DD');
 
+    const [uhid, setUhid] = useState(initialUhid);
     const [ipNumber, setIpNumber] = useState(initialIp);
+    const [ipOptions, setIpOptions] = useState([]);
+    const [searchingIps, setSearchingIps] = useState(false);
     const [fromDate, setFromDate] = useState(dayjs(initialFrom));
     const [toDate, setToDate] = useState(dayjs(initialTo));
 
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
 
-    const fetchReport = useCallback(async (targetIp, fDate, tDate) => {
-        if (!targetIp) {
-            message.warning('Please enter IP Number or UHID');
+    const fetchReport = useCallback(async (targetIp, targetUhid, fDate, tDate) => {
+        const queryTerm = (targetIp && targetIp.trim()) || (targetUhid && targetUhid.trim());
+        if (!queryTerm) {
+            setReportData(null);
             return;
         }
         setLoading(true);
@@ -320,12 +334,20 @@ const MedicineAbstractReport = () => {
             const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
             const fromStr = fDate ? fDate.format('YYYY-MM-DD') : '';
             const toStr = tDate ? tDate.format('YYYY-MM-DD') : '';
-            const url = `${getBaseUrl.replace(/\/$/, '')}/report-medicine-abstract/?ip_number=${encodeURIComponent(targetIp.trim())}&uhid=${encodeURIComponent(targetIp.trim())}&from_date=${fromStr}&to_date=${toStr}`;
+            const ipParam = targetIp ? targetIp.trim() : '';
+            const uhidParam = targetUhid ? targetUhid.trim() : '';
+            const url = `${getBaseUrl.replace(/\/$/, '')}/report-medicine-abstract/?ip_number=${encodeURIComponent(ipParam)}&uhid=${encodeURIComponent(uhidParam)}&from_date=${fromStr}&to_date=${toStr}`;
 
             const res = await apiRequest(url, 'GET');
             if (res && res.success) {
                 const dataObj = (res.data && res.data.patient_info) ? res.data : (res.data?.data || res.data || res);
                 setReportData(dataObj);
+                if (dataObj.patient_info?.uhid && !uhid) {
+                    setUhid(dataObj.patient_info.uhid);
+                }
+                if (dataObj.patient_info?.ip_number && !ipNumber) {
+                    setIpNumber(dataObj.patient_info.ip_number);
+                }
             } else {
                 setReportData(null);
                 message.info(res?.message || res?.data?.message || 'No records found');
@@ -336,16 +358,69 @@ const MedicineAbstractReport = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [uhid, ipNumber]);
 
-    useEffect(() => {
-        if (initialIp) {
-            fetchReport(initialIp, fromDate, toDate);
+    const fetchIpOptions = useCallback(async (uhidVal, autoSelectFirst = true, selectedIp = '') => {
+        if (!uhidVal || uhidVal.trim().length < 2) {
+            setIpOptions([]);
+            return;
         }
-    }, [initialIp, fromDate, toDate, fetchReport]);
+        setSearchingIps(true);
+        try {
+            const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/get-ip-numbers-by-uhid/?uhid=${encodeURIComponent(uhidVal.trim())}`, 'GET');
+            const admissions = res?.data?.admissions || res?.admissions || (Array.isArray(res?.data) ? res.data : []);
+            if (Array.isArray(admissions) && admissions.length > 0) {
+                setIpOptions(admissions);
+                if (autoSelectFirst) {
+                    const match = selectedIp && admissions.some(a => a.ip_number === selectedIp);
+                    const chosen = match ? selectedIp : admissions[0].ip_number;
+                    setIpNumber(chosen);
+                    fetchReport(chosen, uhidVal, fromDate, toDate);
+                }
+            } else {
+                setIpOptions([]);
+            }
+        } catch (err) {
+            console.error('Error fetching IP options:', err);
+            setIpOptions([]);
+        } finally {
+            setSearchingIps(false);
+        }
+    }, [fromDate, toDate, fetchReport]);
+
+    const mountedRef = useRef(false);
+    useEffect(() => {
+        if (mountedRef.current) return;
+        mountedRef.current = true;
+        if (initialUhid && initialUhid.trim()) {
+            fetchIpOptions(initialUhid, true, initialIp);
+        } else if (initialIp || initialUhid) {
+            fetchReport(initialIp, initialUhid, fromDate, toDate);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleUhidChange = (val) => {
+        setUhid(val);
+        setIpNumber('');
+        if (val && val.trim().length >= 2) {
+            fetchIpOptions(val, true, '');
+        } else {
+            setIpOptions([]);
+        }
+    };
+
+    const handleSelectAdmission = (adm) => {
+        if (!adm || !adm.ip_number) return;
+        const newIp = adm.ip_number;
+        setIpNumber(newIp);
+        fetchReport(newIp, uhid, fromDate, toDate);
+    };
 
     const handleQuery = () => {
-        fetchReport(ipNumber, fromDate, toDate);
+        const targetIp = ipNumber || (ipOptions.length > 0 ? ipOptions[0].ip_number : '');
+        if (targetIp && !ipNumber) setIpNumber(targetIp);
+        fetchReport(targetIp, uhid, fromDate, toDate);
     };
 
     const handleExcelExport = () => {
@@ -361,6 +436,7 @@ const MedicineAbstractReport = () => {
                 'Slno': b.sl_no,
                 'Bill Date': b.bill_date,
                 'Bill Number': b.bill_number,
+                'UHID': b.uhid || patient?.uhid || patient?.op_number || '-',
                 'Credit Status': b.credit_status,
                 'Taxable Amt': Number(b.taxable_amt || 0).toFixed(2),
                 'Cgst': Number(b.cgst || 0).toFixed(2),
@@ -379,6 +455,7 @@ const MedicineAbstractReport = () => {
             'Slno': 'Total',
             'Bill Date': '',
             'Bill Number': '',
+            'UHID': '',
             'Credit Status': '',
             'Taxable Amt': Number(reportData.summary?.total_taxable || 0).toFixed(2),
             'Cgst': Number(reportData.summary?.total_cgst || 0).toFixed(2),
@@ -432,16 +509,49 @@ const MedicineAbstractReport = () => {
                 </div>
 
                 <div className="filters-side">
-                    <div className="filter-input">
+                    <div className="filter-input" style={{ width: '160px' }}>
                         <User size={15} color="#64748b" />
                         <input
                             type="text"
-                            placeholder="IP No / UHID"
-                            value={ipNumber}
-                            onChange={(e) => setIpNumber(e.target.value)}
+                            placeholder="Type UHID..."
+                            value={uhid}
+                            onChange={(e) => handleUhidChange(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
+                            style={{ width: '120px' }}
                         />
                     </div>
+
+                    {/* IP Admissions Dropdown / Direct IP Input */}
+                    {ipOptions.length > 0 ? (
+                        <div className="filter-input" style={{ width: '250px', padding: '0 6px' }}>
+                            <select
+                                value={ipNumber}
+                                onChange={(e) => {
+                                    const selectedAdm = ipOptions.find(opt => opt.ip_number === e.target.value);
+                                    handleSelectAdmission(selectedAdm || { ip_number: e.target.value });
+                                }}
+                                style={{ border: 'none', outline: 'none', width: '100%', fontSize: '0.85rem', background: 'transparent', fontWeight: 600, color: '#0f766e' }}
+                            >
+                                <option value="">-- Select IP Admission --</option>
+                                {ipOptions.map(opt => (
+                                    <option key={opt.ip_number} value={opt.ip_number}>
+                                        {opt.ip_number} ({opt.admission_date ? opt.admission_date.slice(0, 10) : ''}{opt.patient_name ? ` - ${opt.patient_name}` : ''})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        <div className="filter-input" style={{ width: '160px' }}>
+                            <input
+                                type="text"
+                                placeholder="IP Number..."
+                                value={ipNumber}
+                                onChange={(e) => setIpNumber(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
+                                style={{ width: '140px' }}
+                            />
+                        </div>
+                    )}
 
                     <DatePicker
                         value={fromDate}
@@ -496,15 +606,15 @@ const MedicineAbstractReport = () => {
                         </div>
 
                         <div className="right-side">
-                            <div className="row-field" style={{ visibility: 'hidden' }}>
-                                <span className="field-lbl">Placeholder</span>
+                            <div className="row-field">
+                                <span className="field-lbl">Doctor</span>
                                 <span className="field-sep">:</span>
-                                <span className="field-val">-</span>
+                                <span className="field-val">{patient?.doctor_name || patient?.doctor || '-'}</span>
                             </div>
                             <div className="row-field">
-                                <span className="field-lbl">Op Number</span>
+                                <span className="field-lbl">UHID</span>
                                 <span className="field-sep">:</span>
-                                <span className="field-val">{patient?.op_number || '-'}</span>
+                                <span className="field-val">{patient?.uhid || patient?.op_number || '-'}</span>
                             </div>
                         </div>
                     </div>
@@ -517,15 +627,16 @@ const MedicineAbstractReport = () => {
                             <table>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: '45px' }} className="text-left">Slno</th>
+                                        <th style={{ width: '40px' }} className="text-left">Slno</th>
                                         <th style={{ width: '85px' }} className="text-left">Bill Date</th>
                                         <th style={{ width: '95px' }} className="text-left">Bill Number</th>
-                                        <th style={{ width: '95px' }} className="text-left">Credit Status</th>
+                                        <th style={{ width: '95px' }} className="text-left">UHID</th>
+                                        <th style={{ width: '90px' }} className="text-left">Credit Status</th>
                                         <th style={{ width: '90px' }} className="text-right">Taxable Amt</th>
-                                        <th style={{ width: '65px' }} className="text-right">Cgst</th>
-                                        <th style={{ width: '65px' }} className="text-right">Sgst</th>
-                                        <th style={{ width: '65px' }} className="text-right">Gst</th>
-                                        {hasDiscount && <th style={{ width: '75px' }} className="text-right">Discount</th>}
+                                        <th style={{ width: '60px' }} className="text-right">Cgst</th>
+                                        <th style={{ width: '60px' }} className="text-right">Sgst</th>
+                                        <th style={{ width: '60px' }} className="text-right">Gst</th>
+                                        {hasDiscount && <th style={{ width: '70px' }} className="text-right">Discount</th>}
                                         <th style={{ width: '95px' }} className="text-right">Bill Amount</th>
                                     </tr>
                                 </thead>
@@ -535,25 +646,26 @@ const MedicineAbstractReport = () => {
                                             <td className="text-left">{b.sl_no}</td>
                                             <td className="text-left">{b.bill_date}</td>
                                             <td className="text-left">{b.bill_number}</td>
+                                            <td className="text-left" style={{ fontWeight: 600 }}>{b.uhid || patient?.uhid || patient?.op_number || '-'}</td>
                                             <td className="text-left">{b.credit_status}</td>
-                                            <td className="text-right">{Number(b.taxable_amt || 0).toFixed(2)}</td>
-                                            <td className="text-right">{Number(b.cgst || 0).toFixed(2)}</td>
-                                            <td className="text-right">{Number(b.sgst || 0).toFixed(2)}</td>
-                                            <td className="text-right">{Number(b.gst || 0).toFixed(2)}</td>
-                                            {hasDiscount && <td className="text-right" style={{ color: '#b91c1c' }}>{Number(b.discount_amount || 0) > 0 ? `-${Number(b.discount_amount).toFixed(2)}` : '0.00'}</td>}
-                                            <td className="text-right">{Number(b.net_amount ?? b.bill_amount ?? 0).toFixed(2)}</td>
+                                            <td className="text-right" style={{ fontWeight: 800 }}>{Number(b.taxable_amt || 0).toFixed(2)}</td>
+                                            <td className="text-right" style={{ fontWeight: 800 }}>{Number(b.cgst || 0).toFixed(2)}</td>
+                                            <td className="text-right" style={{ fontWeight: 800 }}>{Number(b.sgst || 0).toFixed(2)}</td>
+                                            <td className="text-right" style={{ fontWeight: 800 }}>{Number(b.gst || 0).toFixed(2)}</td>
+                                            {hasDiscount && <td className="text-right" style={{ color: '#b91c1c', fontWeight: 800 }}>{Number(b.discount_amount || 0) > 0 ? `-${Number(b.discount_amount).toFixed(2)}` : '0.00'}</td>}
+                                            <td className="text-right" style={{ fontWeight: 800 }}>{Number(b.net_amount ?? b.bill_amount ?? 0).toFixed(2)}</td>
                                         </tr>
                                     ))}
 
                                     {/* Grand Total Row matching PDF */}
                                     <tr className="grand-total-row">
-                                        <td colSpan={4} className="text-left">Total</td>
-                                        <td className="text-right">{Number(summary.total_taxable || 0).toFixed(2)}</td>
-                                        <td className="text-right">{Number(summary.total_cgst || 0).toFixed(2)}</td>
-                                        <td className="text-right">{Number(summary.total_sgst || 0).toFixed(2)}</td>
-                                        <td className="text-right">{Number(summary.total_gst || 0).toFixed(2)}</td>
-                                        {hasDiscount && <td className="text-right" style={{ color: '#b91c1c' }}>{Number(summary.total_discount || 0) > 0 ? `-${Number(summary.total_discount).toFixed(2)}` : '0.00'}</td>}
-                                        <td className="text-right">{Number(summary.total_bill_amount ?? summary.total_net_amount ?? 0).toFixed(2)}</td>
+                                        <td colSpan={5} className="text-left" style={{ fontWeight: 900 }}>Total</td>
+                                        <td className="text-right" style={{ fontWeight: 900 }}>{Number(summary.total_taxable || 0).toFixed(2)}</td>
+                                        <td className="text-right" style={{ fontWeight: 900 }}>{Number(summary.total_cgst || 0).toFixed(2)}</td>
+                                        <td className="text-right" style={{ fontWeight: 900 }}>{Number(summary.total_sgst || 0).toFixed(2)}</td>
+                                        <td className="text-right" style={{ fontWeight: 900 }}>{Number(summary.total_gst || 0).toFixed(2)}</td>
+                                        {hasDiscount && <td className="text-right" style={{ color: '#b91c1c', fontWeight: 900 }}>{Number(summary.total_discount || 0) > 0 ? `-${Number(summary.total_discount).toFixed(2)}` : '0.00'}</td>}
+                                        <td className="text-right" style={{ fontWeight: 900 }}>{Number(summary.total_bill_amount ?? summary.total_net_amount ?? 0).toFixed(2)}</td>
                                     </tr>
                                 </tbody>
                             </table>

@@ -117,7 +117,7 @@ const SubtotalTr = styled.tr`
 const AuditTable = styled.table`
     width: 100%;
     border-collapse: collapse !important;
-    table-layout: auto;
+    table-layout: fixed;
 
     th {
         border: 1px solid #cbd5e1 !important;
@@ -130,6 +130,8 @@ const AuditTable = styled.table`
         text-transform: uppercase;
         letter-spacing: 0.02em;
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     td {
@@ -138,8 +140,8 @@ const AuditTable = styled.table`
         font-size: 0.84rem;
         vertical-align: middle;
         white-space: normal;
-        word-break: normal;
-        overflow-wrap: anywhere;
+        word-break: break-word;
+        overflow-wrap: break-word;
     }
 
     .font-mono {
@@ -551,16 +553,16 @@ const MasterAccountsAuditReport = ({
                         <AuditTable>
                             <thead>
                                 <tr>
-                                    <th style={{ width: "42px", textAlign: "center" }}>S.No</th>
-                                    <th style={{ width: "115px" }}>Record No</th>
-                                    <th style={{ width: "80px" }}>Time</th>
-                                    <th style={{ width: "95px" }}>UHID</th>
-                                    <th style={{ minWidth: "140px" }}>Patient Name</th>
-                                    <th style={{ minWidth: "200px" }}>Billing Details / Change</th>
-                                    <th style={{ width: "95px", textAlign: "right" }}>Old Value (₹)</th>
-                                    <th style={{ width: "95px", textAlign: "right" }}>New Value (₹)</th>
-                                    <th style={{ minWidth: "115px" }}>Requested By</th>
-                                    <th style={{ minWidth: "115px" }}>Approved By</th>
+                                    <th style={{ width: "4%", textAlign: "center" }}>S.No</th>
+                                    <th style={{ width: "12%" }}>Record No</th>
+                                    <th style={{ width: "7%" }}>Time</th>
+                                    <th style={{ width: "9%" }}>UHID</th>
+                                    <th style={{ width: "14%" }}>Patient Name</th>
+                                    <th style={{ width: "24%" }}>Billing Details / Change</th>
+                                    <th style={{ width: "7.5%", textAlign: "right" }}>Old Value (₹)</th>
+                                    <th style={{ width: "7.5%", textAlign: "right" }}>New Value (₹)</th>
+                                    <th style={{ width: "7.5%" }}>Requested By</th>
+                                    <th style={{ width: "7.5%" }}>Approved By</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -601,12 +603,19 @@ const MasterAccountsAuditReport = ({
                                                                     <div style={{ fontWeight: 700, marginBottom: 6, fontSize: "12px", borderBottom: "1px solid #e2e8f0", paddingBottom: 4 }}>
                                                                         Itemized Breakdown
                                                                     </div>
-                                                                    {details.map((it, idx) => (
-                                                                        <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", padding: "3px 0", borderBottom: "1px dashed #f1f5f9" }}>
-                                                                            <span>{it.name || "Item"} {it.quantity ? `x${it.quantity}` : ""}</span>
-                                                                            <span style={{ fontWeight: 600, fontFamily: "monospace" }}>₹{formatINR(it.amount || 0)}</span>
-                                                                        </div>
-                                                                    ))}
+                                                                    {details.map((it, idx) => {
+                                                                        const itemName = it.name || it.item_name || it.itemName || it.particular || (it.item_id ? `Item #${it.item_id}` : "Item");
+                                                                        const itemQty = it.quantity ?? it.qty ?? 1;
+                                                                        const itemAmt = it.amount ?? it.total ?? it.calculated_price ?? it.price ?? 0;
+                                                                        return (
+                                                                            <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", padding: "3px 0", borderBottom: "1px dashed #f1f5f9" }}>
+                                                                                <span style={{ maxWidth: 210, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                                                    {itemName} {itemQty ? `x${itemQty}` : ""}
+                                                                                </span>
+                                                                                <span style={{ fontWeight: 600, fontFamily: "monospace", marginLeft: 8 }}>₹{formatINR(itemAmt)}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
                                                                 </div>
                                                             ) : null;
 
