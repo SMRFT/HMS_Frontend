@@ -1089,6 +1089,29 @@ const getHighRiskReason = (adm) => {
   );
 };
 
+const formatToIST = (dateStr) => {
+  if (!dateStr) return "";
+  const s = String(dateStr).trim();
+  if (s.includes("/") && (s.includes("AM") || s.includes("PM") || s.includes(":"))) {
+    return s;
+  }
+  try {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleString("en-GB", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      });
+    }
+  } catch (e) {}
+  return s;
+};
+
 // Flexible Room Matcher: handles prefixes (e.g. 'TS - 422' vs '422', 'SR-509' vs '509', 'SUT006' vs 'S-6')
 const isRoomMatch = (r1, r2) => {
   if (!r1 || !r2) return false;
@@ -2980,7 +3003,7 @@ const WardRequest = () => {
                       <strong>Reason:</strong> {getHighRiskReason(selectedPatient) || "Identified for Isolation during Admission"}
                       {(selectedPatient?.high_risk_date || selectedPatient?.patient_details?.high_risk_date) && (
                         <span style={{ marginLeft: "8px", color: "#7f1d1d" }}>
-                          · Date: {selectedPatient.high_risk_date || selectedPatient.patient_details?.high_risk_date}
+                          · Date: {formatToIST(selectedPatient.high_risk_date || selectedPatient.patient_details?.high_risk_date)}
                         </span>
                       )}
                     </div>
@@ -3147,7 +3170,7 @@ const WardRequest = () => {
 
                                         {bill.date && (
                                           <div style={{ fontSize: "10px", color: "#64748b", marginBottom: "4px" }}>
-                                            <i className="bi bi-clock" style={{ marginRight: "3px" }}></i>{bill.date}
+                                            <i className="bi bi-clock" style={{ marginRight: "3px" }}></i>{formatToIST(bill.date)}
                                           </div>
                                         )}
 
