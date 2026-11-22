@@ -1329,7 +1329,7 @@ const SalesReturn = () => {
       if (data?.status === "success" && Array.isArray(data.data)) {
         setUhidBills(data.data);
         if (data.data.length === 0) {
-          showToast("No bills found within the last 30 days for this UHID / IP number.", "warning");
+          showToast("No bills found within the last 90 days for this UHID / IP number.", "warning");
         }
       } else {
         showToast(data?.message || "No bills found for this UHID / IP number.", "warning");
@@ -1448,10 +1448,6 @@ const SalesReturn = () => {
       }, 60);
     }
   }, [showForm]);
-
-  const cashCount  = returnList.filter(r => r.mode === "Cash Return").length;
-  const ipCount    = returnList.filter(r => r.mode === "IP Credit").length;
-  const otherCount = returnList.filter(r => r.mode === "Other Mode").length;
 
   const filtered = returnList.filter(r =>
     !searchFilter ||
@@ -1844,14 +1840,14 @@ const SalesReturn = () => {
         <ModalOverlay onClick={() => setShowUhidModal(false)}>
           <ModalBox onClick={e => e.stopPropagation()}>
             <ModalHeader>
-              Select Bill — {form.uhidNo || form.name || "UHID Bills (Last 30 Days)"}
+              Select Bill — {form.uhidNo || form.name || "UHID Bills (Last 90 Days)"}
               <ModalCloseBtn onClick={() => setShowUhidModal(false)}>✕</ModalCloseBtn>
             </ModalHeader>
             <ModalBody>
               {loadingUhidBills ? (
                 <NoRecords>Loading bills…</NoRecords>
               ) : uhidBills.length === 0 ? (
-                <NoRecords>No paid bills found within the last 30 days.</NoRecords>
+                <NoRecords>No paid bills found within the last 90 days.</NoRecords>
               ) : (
                 <ModalTable>
                   <thead>
@@ -1897,7 +1893,7 @@ const SalesReturn = () => {
               )}
             </ModalBody>
             <ModalFooter>
-              Showing {uhidBills.length} bill(s) within the last 30 days &nbsp;·&nbsp;
+              Showing {uhidBills.length} bill(s) within the last 90 days &nbsp;·&nbsp;
               Only <strong>Paid</strong> bills are eligible for return.
             </ModalFooter>
           </ModalBox>
@@ -1938,30 +1934,6 @@ const SalesReturn = () => {
                 🔍 Search
               </SearchBtn>
             </DateGroup>
-
-            <DonutChart
-              cashCount={cashCount}
-              ipCount={ipCount}
-              otherCount={otherCount}
-            />
-
-            <LegendList>
-              <LegendItem>
-                <Dot color="#00796b" />
-                <LegendLabel>Cash Return</LegendLabel>
-                <LegendCount>{cashCount}</LegendCount>
-              </LegendItem>
-              <LegendItem>
-                <Dot color="#f9a825" />
-                <LegendLabel>IP Credit</LegendLabel>
-                <LegendCount>{ipCount}</LegendCount>
-              </LegendItem>
-              <LegendItem>
-                <Dot color="#4dd0e1" />
-                <LegendLabel>Other Mode</LegendLabel>
-                <LegendCount>{otherCount}</LegendCount>
-              </LegendItem>
-            </LegendList>
 
             <NewReturnBtn
               $open={showForm}

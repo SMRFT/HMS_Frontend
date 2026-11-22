@@ -1867,51 +1867,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCancelConfirm = async () => {
-    const isEstimateLoaded = Boolean(
-      loadedEstimateNo ||
-      (recordId && billingType === "Estimate") ||
-      (recordId && isEditMode && !formData.billNo)
-    );
-
-    if (isEstimateLoaded) {
-      try {
-        const payload = {
-          Bill_id: recordId,
-          estimate_no: loadedEstimateNo,
-          cancel_reason: "Cancelled from pharmacy billing form",
-        };
-        const activeOutlet =
-          localStorage.getItem("selected_outlet") ||
-          localStorage.getItem("outlet_code") ||
-          "";
-        if (activeOutlet) {
-          payload.outlet_code = activeOutlet;
-        }
-        const res = await apiRequest(`${HmsBaseUrl}cancel_estimate_bill/`, "POST", payload);
-        if (res?.status === "success" || res?.success) {
-          toast.success(res?.message || "Estimate cancelled successfully.", { autoClose: 2000, pauseOnHover: false });
-        }
-        if (typeof onEstimateSaved === "function") {
-          onEstimateSaved();
-        }
-        try {
-          if (typeof BroadcastChannel !== "undefined") {
-            new BroadcastChannel("hms_billing_channel").postMessage({
-              type: "ESTIMATE_CANCELLED",
-              estimateNo: loadedEstimateNo,
-              billId: recordId,
-            });
-          }
-        } catch (e) { }
-      } catch (err) {
-        console.error("Error cancelling estimate:", err);
-        toast.error("Failed to cancel estimate on server.", { autoClose: 2000, pauseOnHover: false });
-      }
-    }
+  const handleCancelConfirm = () => {
+    // Purely reset the form to a fresh page — never send any cancel payload or change any database status!
     resetForm();
     setTodayBillDate();
     setShowCancelModal(false);
+    toast.info("Form cleared.", { autoClose: 1500, pauseOnHover: false });
   };
 
   const handleSubmit = (e) => {
@@ -3864,30 +3825,34 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       }
 
       // ── Normal save path (Direct bill / Estimate / Edit bill) ─────────────
-      const mappedDeletedNormal = deletedMedicines.map((m) => ({
-        item_id: Number(m.item_id),
-        item_name: m.name || m.item_name || "",
-        batch_number: String(m.batch_number || ""),
-        expiry_date: m.expiry_date || m.expiry || "",
-        hsn_code: m.hsn_code || m.hsn || "",
-        qty: 0,
-        price: m.price ?? m.mrp ?? 0,
-        mrp: m.mrp ?? m.price ?? 0,
-        Selling_Price: m.price ?? m.mrp ?? 0,
-        selling_price: m.price ?? m.mrp ?? 0,
-        calculated_price: 0,
-        product_value: 0,
-        taxable_value: 0,
-        CGST_Percentage: 0,
-        SGST_Percentage: 0,
-        CGST_Amt: 0,
-        SGST_Amt: 0,
-        total: 0,
-        deleted_is: true,
-        is_deleted: true,
-        dispatched_qty: 0,
-        edit_history: m.edit_history || [],
-      }));
+      // Only track deleted items if editing an existing bill (for audit history).
+      // On new bills, items removed before saving should never be sent to the database.
+      const mappedDeletedNormal = (isEditMode && formData.billNo)
+        ? deletedMedicines.map((m) => ({
+            item_id: Number(m.item_id),
+            item_name: m.name || m.item_name || "",
+            batch_number: String(m.batch_number || ""),
+            expiry_date: m.expiry_date || m.expiry || "",
+            hsn_code: m.hsn_code || m.hsn || "",
+            qty: 0,
+            price: m.price ?? m.mrp ?? 0,
+            mrp: m.mrp ?? m.price ?? 0,
+            Selling_Price: m.price ?? m.mrp ?? 0,
+            selling_price: m.price ?? m.mrp ?? 0,
+            calculated_price: 0,
+            product_value: 0,
+            taxable_value: 0,
+            CGST_Percentage: 0,
+            SGST_Percentage: 0,
+            CGST_Amt: 0,
+            SGST_Amt: 0,
+            total: 0,
+            deleted_is: true,
+            is_deleted: true,
+            dispatched_qty: 0,
+            edit_history: m.edit_history || [],
+          }))
+        : [];
 
       const finalItems = [
         ...addedMedicines.map((m) => {

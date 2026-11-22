@@ -359,15 +359,15 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
               <Table>
                 <thead>
                   <tr>
-                    <Th>Estimate No</Th>
-                    <Th>Patient Name</Th>
-                    <Th>UHID / IP</Th>
-                    <Th>Doctor</Th>
-                    <Th>Date & Time</Th>
-                    <Th>Bill Type</Th>
-                    <Th>Net Amount</Th>
-                    <Th>Status</Th>
-                    <Th style={{ textAlign: "center" }}>Action</Th>
+                    <Th style={{ width: "95px", whiteSpace: "nowrap" }}>Estimate No</Th>
+                    <Th style={{ minWidth: "165px", whiteSpace: "nowrap" }}>Patient Name</Th>
+                    <Th style={{ minWidth: "110px", whiteSpace: "nowrap" }}>UHID / IP</Th>
+                    <Th style={{ minWidth: "140px", whiteSpace: "nowrap" }}>Doctor</Th>
+                    <Th style={{ whiteSpace: "nowrap" }}>Date & Time</Th>
+                    <Th style={{ whiteSpace: "nowrap" }}>Bill Type</Th>
+                    <Th style={{ whiteSpace: "nowrap", textAlign: "right" }}>Net Amount</Th>
+                    <Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Status</Th>
+                    <Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Action</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -376,35 +376,41 @@ const ViewEstimate = ({ onConvertEstimate, refreshTrigger, activeTab }) => {
 
                     return (
                       <Tr key={estimate.Bill_id || index}>
-                        <Td style={{ fontWeight: 700, color: "#0f766e" }}>{estimate.estimate_no || `EST-${estimate.Bill_id}`}</Td>
-                        <Td style={{ fontWeight: 600 }}>{estimate.patient_name || "—"}</Td>
-                        <Td>
+                        <Td style={{ fontWeight: 700, color: "#0f766e", fontSize: "0.82rem", whiteSpace: "nowrap" }}>
+                          {estimate.estimate_no || `EST-${estimate.Bill_id}`}
+                        </Td>
+                        <Td style={{ fontWeight: 600, fontSize: "0.8rem", color: "#1e293b", whiteSpace: "nowrap", minWidth: "165px" }}>
+                          {estimate.patient_name || "—"}
+                        </Td>
+                        <Td style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
                           <div>{estimate.uhid || "—"}</div>
                           {estimate.inpatient_number && (
-                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>IP: {estimate.inpatient_number}</div>
+                            <div style={{ fontSize: "0.72rem", color: "#64748b" }}>IP: {estimate.inpatient_number}</div>
                           )}
                         </Td>
-                        <Td>{estimate.doctor_name || estimate.doctor_id || "—"}</Td>
-                        <Td style={{ fontSize: "0.82rem", color: "#475569", whiteSpace: "nowrap" }}>{dateFormatted}</Td>
-                        <Td style={{ fontSize: "0.82rem", color: "#64748b" }}>
+                        <Td style={{ fontSize: "0.8rem", color: "#334155", maxWidth: "160px" }}>
+                          {estimate.doctor_name || estimate.doctor_id || "—"}
+                        </Td>
+                        <Td style={{ fontSize: "0.78rem", color: "#475569", whiteSpace: "nowrap" }}>{dateFormatted}</Td>
+                        <Td style={{ fontSize: "0.78rem", color: "#64748b", whiteSpace: "nowrap" }}>
                           {estimate.bill_type_name || estimate.bill_name || `Type ${estimate.bill_type || ""}`}
                         </Td>
-                        <Td style={{ fontWeight: 700, color: "#0f766e", fontSize: "0.95rem" }}>
+                        <Td style={{ fontWeight: 700, color: "#0f766e", fontSize: "0.9rem", textAlign: "right", whiteSpace: "nowrap" }}>
                           ₹{parseFloat(estimate.net_amount || estimate.total_amount || 0).toFixed(2)}
                         </Td>
-                        <Td>
+                        <Td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                           <StatusBadge>Estimate</StatusBadge>
                         </Td>
                         <Td style={{ textAlign: "center" }}>
                           <div style={{ display: "flex", gap: 8, justifyContent: "center", alignItems: "center" }}>
                             <Button
-                              style={{ padding: "6px 14px", fontSize: "0.82rem", background: "#0f766e", color: "#fff" }}
+                              style={{ padding: "5px 12px", fontSize: "0.8rem", background: "#0f766e", color: "#fff", whiteSpace: "nowrap" }}
                               onClick={() => handleConvert(estimate)}
                             >
                               Edit / Convert
                             </Button>
                             <Button
-                              style={{ padding: "6px 14px", fontSize: "0.82rem", background: "#ef4444", color: "#fff", border: "none" }}
+                              style={{ padding: "5px 12px", fontSize: "0.8rem", background: "#ef4444", color: "#fff", border: "none", whiteSpace: "nowrap" }}
                               onClick={() => setCancellingEstimate(estimate)}
                             >
                               Cancel

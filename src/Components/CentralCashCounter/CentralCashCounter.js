@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Mic, RotateCcw, CreditCard, Hash, Plus, Minus, Eye } from "lucide-react";
 import ShiftDetails from "./ShiftDetails";
@@ -887,6 +887,7 @@ export default function CentralCashCounter() {
   const [showEntries, setShowEntries] = useState("10");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("pending");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
   const [activeMenuItem, setActiveMenuItem] = useState("Pending Bills");
   const [showShiftDetails, setShowShiftDetails] = useState(false);
   const [pendingBills, setPendingBills] = useState([]);
@@ -944,8 +945,6 @@ export default function CentralCashCounter() {
   const [selectedMethods, setSelectedMethods] = useState({
     cash: false,
     card: false,
-    cheque: false,
-    credit: false,
   });
   const [isMultipleMode, setIsMultipleMode] = useState(false);
   const [payments, setPayments] = useState({
@@ -1497,9 +1496,7 @@ export default function CentralCashCounter() {
 
   const paidAmount =
     (selectedMethods.cash ? parseFloat(payments.cash) || 0 : 0) +
-    (selectedMethods.cheque ? parseFloat(payments.cheque) || 0 : 0) +
-    (selectedMethods.card ? parseFloat(payments.card) || 0 : 0) +
-    (selectedMethods.credit ? parseFloat(payments.credit) || 0 : 0);
+    (selectedMethods.card ? parseFloat(payments.card) || 0 : 0);
 
   const balance = netAmount - paidAmount;
 
@@ -1514,7 +1511,7 @@ export default function CentralCashCounter() {
     const isRefund = rawVal < 0 || bill?.is_refund || enrichedBill?.source === "ReturnBill";
     const totalAmt = isRefund ? Math.abs(rawVal) : Math.max(rawVal, 0);
     setIsMultipleMode(false);
-    setSelectedMethods({ cash: true, card: false, cheque: false, credit: false });
+    setSelectedMethods({ cash: true, card: false });
     setPayments({
       cash: totalAmt > 0 ? String(totalAmt) : "",
       cheque: "",
@@ -1535,16 +1532,14 @@ export default function CentralCashCounter() {
     setSelectedMethods({
       cash: method === "cash",
       card: method === "card",
-      cheque: method === "cheque",
-      credit: method === "credit",
     });
     setPayments((prev) => ({
       cash: method === "cash" ? (netAmount > 0 ? String(netAmount) : "") : "",
       card: method === "card" ? (netAmount > 0 ? String(netAmount) : "") : "",
       cardNo: prev.cardNo,
-      cheque: method === "cheque" ? (netAmount > 0 ? String(netAmount) : "") : "",
-      chequeNo: prev.chequeNo,
-      credit: method === "credit" ? (netAmount > 0 ? String(netAmount) : "") : "",
+      cheque: "",
+      chequeNo: "",
+      credit: "",
     }));
   };
 
@@ -1966,7 +1961,13 @@ export default function CentralCashCounter() {
           total: parseFloat(item.net_amount || 0),
           status: item.billing_status || "-",
           doctor: item.doctor_name || "-",
-          payment_method: parsePaymentDetails(item.payment_details).label,
+          payment_method: (() => {
+            const parsed = parsePaymentDetails(item.payment_details).label;
+            if (parsed && parsed !== "-") return parsed;
+            const pmRaw = item.payment_method || item.payment_mode || item.paymentType || "";
+            return pmRaw ? (String(pmRaw).charAt(0).toUpperCase() + String(pmRaw).slice(1).toLowerCase()) : "-";
+          })(),
+          payment_mode: item.payment_mode || item.payment_method || "",
           payment_breakdown: parsePaymentDetails(item.payment_details).breakdown,
           source: "OPPharmacy",
           raw_bill_no: item.bill_no || null,
@@ -2525,6 +2526,44 @@ export default function CentralCashCounter() {
         );
       });
     }
+    if (selectedType === "received" && paymentMethodFilter && paymentMethodFilter !== "ALL") {
+      const target = paymentMethodFilter.trim().toLowerCase();
+      filtered = filtered.filter((bill) => {
+        const pm = (
+          String(bill.payment_method || "") + " " +
+          String(bill.payment_mode || "") + " " +
+          String(bill.raw?.payment_mode || "") + " " +
+          String(bill.raw?.payment_method || "") + " " +
+          String(bill.raw?.payment_type || "")
+        ).trim().toLowerCase();
+        if (target === "card") {
+          if (pm.includes("card") || pm.includes("credit") || pm.includes("debit")) return true;
+        } else if (target === "upi") {
+          if (pm.includes("upi") || pm.includes("gpay") || pm.includes("phonepe") || pm.includes("paytm") || pm.includes("online")) return true;
+        } else if (target === "cash") {
+          if (pm.includes("cash")) return true;
+        } else if (target === "multiple") {
+          if (pm.includes("multi")) return true;
+        } else if (target === "cheque") {
+          if (pm.includes("cheque") || pm.includes("check") || pm.includes("dd")) return true;
+        } else {
+          if (pm.includes(target)) return true;
+        }
+
+        if (bill.payment_breakdown && Array.isArray(bill.payment_breakdown)) {
+          return bill.payment_breakdown.some((b) => {
+            const m = String(b.method || "").toLowerCase();
+            if (target === "card") return m.includes("card") || m.includes("credit") || m.includes("debit");
+            if (target === "upi") return m.includes("upi") || m.includes("online");
+            if (target === "cash") return m.includes("cash");
+            if (target === "cheque") return m.includes("cheque") || m.includes("check") || m.includes("dd");
+            return m.includes(target);
+          });
+        }
+        return false;
+      });
+    }
+
     if (searchTerm) {
       filtered = filtered.filter(
         (bill) =>
@@ -2555,12 +2594,14 @@ export default function CentralCashCounter() {
     billType,
     allowedBillTypes,
     searchTerm,
+    paymentMethodFilter,
   ]);
 
   const handleMenuItemClick = (itemLabel) => {
     setActiveMenuItem(itemLabel);
     setSearchTerm("");
     setSelectedType("pending");
+    setPaymentMethodFilter("ALL");
 
     if (itemLabel === "Receipt / Payment") {
       rpFetchAccountHeads();
@@ -2608,6 +2649,7 @@ export default function CentralCashCounter() {
   const handleTypeChange = (type) => {
     setSelectedType(type);
     setSearchTerm("");
+    setPaymentMethodFilter("ALL");
   };
 
   const handleShiftDetailsClick = () => {
@@ -2760,8 +2802,8 @@ export default function CentralCashCounter() {
       : activeMenuItem === "IP Advance"
         ? (selectedType === "received" ? 9 : 10)
         : selectedType === "received"
-          ? 10  // Doctor + Total + Payment Method, no Action column
-          : 8;
+          ? 10  // Total + Payment Method (Doctor removed), no Action column
+          : 9;
 
   return (
     <Container>
@@ -3467,31 +3509,56 @@ export default function CentralCashCounter() {
                   </ControlsWrapper>
 
                   <TableControls>
-                    <ControlGroup>
-                      <span>Show up to</span>
-                      <Select value={showEntries} onChange={(e) => setShowEntries(e.target.value)}>
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                      </Select>
-                    </ControlGroup>
+                    <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+                      <ControlGroup>
+                        <span>Show up to</span>
+                        <Select value={showEntries} onChange={(e) => setShowEntries(e.target.value)}>
+                          <option value="10">10</option>
+                          <option value="25">25</option>
+                          <option value="50">50</option>
+                          <option value="100">100</option>
+                        </Select>
+                      </ControlGroup>
+                    </div>
 
-                    <SearchWrapper>
-                      <span>Search:</span>
-                      <SearchInputWrapper>
-                        <Search size={15} style={{ position: "absolute", left: 12, color: "#94a3b8", pointerEvents: "none" }} />
-                        <SearchInput
-                          type="text"
-                          placeholder="Patient Name, UHID, or Bill No"
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                        <MicButton>
-                          <Mic size={14} />
-                        </MicButton>
-                      </SearchInputWrapper>
-                    </SearchWrapper>
+                    <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+                      {/* Payment Method filter before Search */}
+                      {selectedType === "received" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "13px", fontWeight: "600", color: "#475569" }}>
+                            Payment Method:
+                          </span>
+                          <Select
+                            value={paymentMethodFilter}
+                            onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                            style={{ minWidth: "115px", padding: "6px 12px", cursor: "pointer" }}
+                          >
+                            <option value="ALL">All</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Card">Card</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Multiple">Multiple Payment</option>
+                            <option value="Cheque">Cheque</option>
+                          </Select>
+                        </div>
+                      )}
+
+                      <SearchWrapper>
+                        <span>Search:</span>
+                        <SearchInputWrapper>
+                          <Search size={15} style={{ position: "absolute", left: 12, color: "#94a3b8", pointerEvents: "none" }} />
+                          <SearchInput
+                            type="text"
+                            placeholder="Patient Name, UHID, or Bill No"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
+                          <MicButton>
+                            <Mic size={14} />
+                          </MicButton>
+                        </SearchInputWrapper>
+                      </SearchWrapper>
+                    </div>
                   </TableControls>
 
                   <div style={{ width: "100%", overflowX: "hidden" }}>
@@ -3538,7 +3605,6 @@ export default function CentralCashCounter() {
                             <TableHeader center>Status</TableHeader>
                             {selectedType === "received" && (
                               <>
-                                <TableHeader>Doctor</TableHeader>
                                 <TableHeader>Total</TableHeader>
                                 <TableHeader>Payment Method</TableHeader>
                               </>
@@ -3693,7 +3759,6 @@ export default function CentralCashCounter() {
                                 </TableCell>
                                 {selectedType === "received" && (
                                   <>
-                                    <TableCell>{bill.doctor}</TableCell>
                                     <TableCell>
                                       {bill.payment_breakdown && bill.payment_breakdown.length > 0 ? (
                                         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -3988,8 +4053,6 @@ export default function CentralCashCounter() {
                 {[
                   { id: "cash", label: "Cash", icon: "💵" },
                   { id: "card", label: "Card", icon: "💳" },
-                  { id: "cheque", label: "Cheque", icon: "🏦" },
-                  { id: "credit", label: "Credit", icon: "📑" },
                 ].map(({ id, label, icon }) => {
                   const isChecked = !!selectedMethods[id];
                   return (
@@ -4104,74 +4167,6 @@ export default function CentralCashCounter() {
                       type="text" placeholder="Enter card / transaction ref no (optional)"
                       value={payments.cardNo}
                       onChange={(e) => setPayments({ ...payments, cardNo: e.target.value })}
-                    />
-                  </FormRow>
-                </PaymentSection>
-              )}
-
-              {selectedMethods.cheque && (
-                <PaymentSection>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <PaymentMethodLabel>🏦 Cheque</PaymentMethodLabel>
-                    {isMultipleMode && balance > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => applyRemainingToMethod("cheque")}
-                        style={{
-                          fontSize: "11px", color: "#0d9488", background: "#f0fdfa",
-                          border: "1px solid #99f6e4", borderRadius: "4px",
-                          padding: "2px 8px", cursor: "pointer", fontWeight: 600
-                        }}
-                      >
-                        + Use remaining ₹{balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                      </button>
-                    )}
-                  </div>
-                  <FormRow>
-                    <FormLabel>Amount (₹)</FormLabel>
-                    <Input
-                      type="number" placeholder="0.00"
-                      value={payments.cheque}
-                      onChange={(e) => handlePaymentAmountChange("cheque", e.target.value)}
-                      onWheel={(e) => e.target.blur()}
-                    />
-                  </FormRow>
-                  <FormRow>
-                    <FormLabel>Cheque No <span style={{ color: "red" }}>*</span></FormLabel>
-                    <SubInput
-                      type="text" placeholder="Enter cheque number"
-                      value={payments.chequeNo}
-                      onChange={(e) => setPayments({ ...payments, chequeNo: e.target.value })}
-                    />
-                  </FormRow>
-                </PaymentSection>
-              )}
-
-              {selectedMethods.credit && (
-                <PaymentSection>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <PaymentMethodLabel>📑 Credit</PaymentMethodLabel>
-                    {isMultipleMode && balance > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => applyRemainingToMethod("credit")}
-                        style={{
-                          fontSize: "11px", color: "#0d9488", background: "#f0fdfa",
-                          border: "1px solid #99f6e4", borderRadius: "4px",
-                          padding: "2px 8px", cursor: "pointer", fontWeight: 600
-                        }}
-                      >
-                        + Use remaining ₹{balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                      </button>
-                    )}
-                  </div>
-                  <FormRow>
-                    <FormLabel>Amount (₹)</FormLabel>
-                    <Input
-                      type="number" placeholder="0.00"
-                      value={payments.credit}
-                      onChange={(e) => handlePaymentAmountChange("credit", e.target.value)}
-                      onWheel={(e) => e.target.blur()}
                     />
                   </FormRow>
                 </PaymentSection>

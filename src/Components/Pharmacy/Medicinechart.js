@@ -2563,18 +2563,18 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       totalAdvance += Number(p.total_ip_advance || 0);
     });
 
-    // "All" reflects only active Pending and Processing prescriptions
+    // "All" reflects pending + processing prescriptions under the selected billing mode (excluding Billed)
     const total = pending + processing;
 
     return { total, pending, processing, billed, insuranceCount, generalCount, totalAdvance };
   }, [modeFilteredData]);
 
-  // Sync active count with parent tab badge whenever stats.total changes
+  // Sync pending count with parent tab badge so pharmacists know how many orders need action
   useEffect(() => {
     if (typeof onCountChange === "function") {
-      onCountChange(stats.total);
+      onCountChange(stats.pending);
     }
-  }, [stats.total, onCountChange]);
+  }, [stats.pending, onCountChange]);
 
   // --------- Filtered Data (by status tabs and search query) ------------------------------------------------------------------
   const filteredData = useMemo(() => {
@@ -2582,9 +2582,10 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
       const bStatus = String(patient.billing_status || "").trim().toLowerCase();
       const isBilled = bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
 
-      // 1. Active Tab Filter: "All" displays Pending and Processing alone; Billed is viewed under "Billed" tab
+      // 1. Active Tab Filter: "All" displays Pending and Processing prescriptions; "Billed" displays billed alone
       if (activeFilter === "All") {
         if (isBilled) return false;
+        return bStatus === "pending" || bStatus === "processing" || !bStatus;
       } else if (activeFilter === "Pending") {
         if (bStatus !== "pending") return false;
       } else if (activeFilter === "Processing") {
