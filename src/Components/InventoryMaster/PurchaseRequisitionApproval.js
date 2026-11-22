@@ -434,7 +434,8 @@ export default function PurchaseRequisitionAdmin() {
     const { pr, actionCfg } = actionModal
     setActing(true)
     try {
-      const payload = { pr_number: pr.pr_number, action: actionCfg.action }
+      const empId = localStorage.getItem("employeeId") || localStorage.getItem("auth-user-id") || localStorage.getItem("user_id") || ""
+      const payload = { pr_number: pr.pr_number, action: actionCfg.action, employee_id: empId }
       if (actionCfg.needsReason) payload.rejected_reason = reason
 
       const r = await apiRequest(`${HmsBaseUrl}purchase-requisition-action/`, "POST", payload)

@@ -488,10 +488,12 @@ export default function PurchaseRequisition() {
       const isEdit = !!editPr
       const url    = isEdit ? `${HmsBaseUrl}purchase-requisition/${editPr.pr_number}/` : `${HmsBaseUrl}purchase-requisition/`
       const method = isEdit ? "PUT" : "POST"
+      const empId = localStorage.getItem("employeeId") || localStorage.getItem("auth-user-id") || localStorage.getItem("user_id") || ""
       const payload = {
         outlet_code: effCode,
         outlet_name: effName,
         items,
+        created_by: empId,
       }
       if (isEdit) payload.edited_reason = editedReason
 
