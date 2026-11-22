@@ -1127,11 +1127,27 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
   const splitOk      = !splitEntered || (total > 0 && Math.abs(splitIP + splitBill - total) < 0.01);
   const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
   const formatSlipAmount = (v) => parseFloat(v || 0).toFixed(2);
+  const parseDateIST = (d) => {
+    if (!d) return null;
+    let str = String(d).trim();
+    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(str) && !/[Zz]|[+-]\d{2}/.test(str)) {
+      str = str.replace(" ", "T") + "Z";
+    }
+    const dt = new Date(str);
+    return isNaN(dt.getTime()) ? null : dt;
+  };
+
+  const formatTableDate = (d) => {
+    if (!d) return "—";
+    const dt = parseDateIST(d);
+    return dt ? dt.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : String(d);
+  };
+
   const formatSlipDate = (d) => {
     if (!d) return "—";
     try {
-      const dt = new Date(d);
-      if (isNaN(dt.getTime())) return String(d);
+      const dt = parseDateIST(d);
+      if (!dt) return String(d);
       const datePart = dt.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
       const timePart = dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Kolkata" });
       return `${datePart} ${timePart}`;
@@ -2912,7 +2928,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                         const rowIdx      = (page - 1) * perPage + i + 1;
                         const rowBg       = i % 2 === 0 ? "#f8fafc" : "#fff";
                         const status      = p.status || "Pending";
-                        const billDate    = p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "—";
+                        const billDate    = formatTableDate(p.bill_date || p.date || p.created_date);
                         const patientName = p.patient_name || p.name || p.patientName || "—";
                         const ipNo        = p.ip_number    || p.ipNumber || "—";
                         const menuId      = String(p.bill_no || `${ipNo}_${p.advance_id || i}_${i}`);
@@ -3240,7 +3256,7 @@ export default function IPAdvance({ patient: propPatient, uhid: propUhid, ipNumb
                             <Tr key={r._id || r.refund_bill_no || idx} even={idx % 2 === 1}>
                               <StickyTd $left="0px" $bg={rowBg} style={{ fontWeight: 600, width: 44, minWidth: 44 }}>{slNo}</StickyTd>
                               <StickyTd $left="44px" $bg={rowBg} style={{ whiteSpace: "nowrap", width: 95, minWidth: 95 }}>
-                                {r.refund_date ? new Date(r.refund_date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "—"}
+                                {formatTableDate(r.refund_date || r.created_date)}
                               </StickyTd>
                               <StickyTd $left="139px" $bg={rowBg} style={{ fontWeight: 700, color: T.purple, fontFamily: "monospace", width: 120, minWidth: 120 }}>
                                 {rBill}

@@ -639,19 +639,17 @@ const fmt = v => {
 
 const formatAdmissionDate = str => {
   if (!str) return "—";
-  if (/^\d{2}-\d{2}-\d{4}/.test(str)) return str;
   try {
-    const d = new Date(str);
+    let s = String(str).trim();
+    if (/^\d{2}-\d{2}-\d{4}/.test(s)) return s;
+    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(s) && !/[Zz]|[+-]\d{2}/.test(s)) {
+      s = s.replace(" ", "T") + "Z";
+    }
+    const d = new Date(s);
     if (isNaN(d.getTime())) return str;
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12;
-    const hrsStr = String(hours).padStart(2, "0");
-    return `${day}-${month}-${year} ${hrsStr}:${minutes} ${ampm}`;
+    const dateStr = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" }).replace(/\//g, "-");
+    const timeStr = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+    return `${dateStr} ${timeStr}`;
   } catch {
     return str;
   }
@@ -873,7 +871,17 @@ export const parseDateToYMD = (dStr) => {
     return "";
   }
   const s = dStr.trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(s)) {
+    try {
+      let isoStr = s;
+      if (!/[Zz]|[+-]\d{2}/.test(s)) {
+        isoStr = s.replace(" ", "T") + "Z";
+      }
+      const d = new Date(isoStr);
+      if (!isNaN(d.getTime())) return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    } catch {}
+  }
   const dmyMatch = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
   if (dmyMatch) {
     const d = dmyMatch[1];
@@ -1853,11 +1861,7 @@ const DischargeBilling = () => {
   const [reqSortDir, setReqSortDir] = useState("desc");
 
   const getLocalTodayStr = () => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const d = String(now.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   };
 
   const fetchDischargeRequests = useCallback(async (dateOverride) => {
@@ -2829,6 +2833,23 @@ const DischargeBilling = () => {
                                 border: `1px solid ${T.border}`
                               }}>
                                 Room: {req.roomNo}{req.bedNo ? ` / Bed ${req.bedNo}` : ""}
+                              </span>
+                            )}
+                            {String(req.customerType || req.customer_type || "").toUpperCase().includes("INSURANCE") ? (
+                              <span style={{
+                                fontSize: "0.68rem", fontWeight: 700, padding: "2px 7px",
+                                borderRadius: "4px", background: "#fef3c7", color: "#92400e",
+                                border: "1px solid #fde68a", display: "inline-flex", alignItems: "center", gap: 3
+                              }} title={`Insurance: ${req.insuranceCompany || ""}`}>
+                                🛡️ {req.insuranceCompany || "Insurance"}
+                              </span>
+                            ) : (
+                              <span style={{
+                                fontSize: "0.68rem", fontWeight: 600, padding: "2px 7px",
+                                borderRadius: "4px", background: "#f1f5f9", color: "#475569",
+                                border: "1px solid #e2e8f0"
+                              }}>
+                                {String(req.customerType || req.customer_type || "GENERAL").toUpperCase()}
                               </span>
                             )}
                           </div>

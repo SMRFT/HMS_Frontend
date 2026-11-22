@@ -296,6 +296,23 @@ const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 const fmt  = v => (parseFloat(v) || 0).toFixed(2);
 const fmtCurrency = v => `₹${Number(parseFloat(v) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+const parseBillDateIST = (d) => {
+  if (!d) return null;
+  let str = String(d).trim();
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(str) && !/[Zz]|[+-]\d{2}/.test(str)) {
+    str = str.replace(" ", "T") + "Z";
+  }
+  const dt = new Date(str);
+  return isNaN(dt.getTime()) ? null : dt;
+};
+const formatBillDate = (d) => {
+  const dt = parseBillDateIST(d);
+  return dt ? dt.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" }) : "—";
+};
+const formatBillTime = (d) => {
+  const dt = parseBillDateIST(d);
+  return dt ? dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }) : "—";
+};
 
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -878,11 +895,11 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                   </StickyLTD>
                   {/* Bill Date */}
                   <StickyLTD $left="44px" $bg={stickyBg} style={{ fontSize: "0.77rem", fontWeight: 600, width: 90, minWidth: 90, maxWidth: 90 }}>
-                    {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" }) : "—"}
+                    {formatBillDate(b.bill_date)}
                   </StickyLTD>
                   {/* Bill Time */}
                   <StickyLTD $left="134px" $bg={stickyBg} style={{ fontSize: "0.75rem", color: T.textMid, width: 82, minWidth: 82, maxWidth: 82 }}>
-                    {b.bill_date ? new Date(b.bill_date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }) : "—"}
+                    {formatBillTime(b.bill_date)}
                   </StickyLTD>
                   {/* Bill No. */}
                   <StickyLTD $left="216px" $bg={stickyBg} style={{ width: 145, minWidth: 145, maxWidth: 145 }}>
@@ -908,8 +925,8 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap"
-                        }} title={`Insurance: ${b.company_name || ""} | Claim: ${b.claim_number || ""}`}>
-                          🛡️ {b.company_name || "INS"}
+                        }} title={`Insurance: ${b.company_name || b.patient_details?.company || ""} | Claim: ${b.claim_number || b.patient_details?.claim_number || ""}`}>
+                          🛡️ {b.company_name || b.patient_details?.company || "INS"}
                         </span>
                       </div>
                     ) : (

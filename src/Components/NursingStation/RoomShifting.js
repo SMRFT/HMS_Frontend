@@ -1664,7 +1664,16 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                       const shiftId = s.shifting_id || s._id;
                       const rowBg = idx % 2 === 0 ? "#ffffff" : "#f9fafb";
                       const shiftDateStr = s.shiftingDateTime
-                        ? new Date(s.shiftingDateTime).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone: "Asia/Kolkata" })
+                        ? (() => {
+                            let str = String(s.shiftingDateTime).trim();
+                            if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(str) && !/[Zz]|[+-]\d{2}/.test(str)) {
+                              str = str.replace(" ", "T") + "Z";
+                            }
+                            const dt = new Date(str);
+                            return !isNaN(dt.getTime())
+                              ? dt.toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })
+                              : String(s.shiftingDateTime);
+                          })()
                         : "-";
                       const duration = formatDuration(s.startDateTime, s.endDateTime || null);
                       const isActive = s.is_roomActive;
