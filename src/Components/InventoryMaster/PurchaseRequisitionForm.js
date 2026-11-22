@@ -324,7 +324,11 @@ export default function PurchaseRequisition() {
   const [items,          setItems]          = useState([]) // [{ item_id, medicine_name, quantity }]
   const [medicines,      setMedicines]      = useState([])
   const [outlets,        setOutlets]        = useState([])
-  const [selectedOutlet, setSelectedOutlet] = useState(null) // { outlet_code, outlet_name }
+  const [selectedOutlet, setSelectedOutlet] = useState(() => {
+    const code = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "OLET001"
+    const name = localStorage.getItem("selected_outlet_name") || localStorage.getItem("outlet_name") || "MAIN PHARMACY"
+    return { outlet_code: code, outlet_name: name }
+  })
   const [curMedicineId,  setCurMedicineId]  = useState("")
   const [curQty,         setCurQty]         = useState("1")
   const [addErr,         setAddErr]         = useState("")
@@ -365,16 +369,15 @@ export default function PurchaseRequisition() {
       const list = Array.isArray(r?.data) ? r.data : (Array.isArray(r) ? r : [])
       setOutlets(list)
 
-      // Set default outlet if not set yet
-      const curCode = localStorage.getItem("outlet_code")
+      // Set default outlet automatically from localStorage or first active outlet
+      const curCode = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code")
+      const curName = localStorage.getItem("selected_outlet_name") || localStorage.getItem("outlet_name")
       if (curCode) {
         const found = list.find(o => (o.outlet_code || o.outlet_id) === curCode)
-        if (found) {
-          setSelectedOutlet({
-            outlet_code: found.outlet_code || found.outlet_id,
-            outlet_name: found.outlet_name || found.outlet || found.name,
-          })
-        }
+        setSelectedOutlet({
+          outlet_code: curCode,
+          outlet_name: found ? (found.outlet_name || found.outlet || found.name) : (curName || curCode),
+        })
       } else if (list.length > 0) {
         // default to first active outlet
         setSelectedOutlet({
@@ -471,10 +474,9 @@ export default function PurchaseRequisition() {
 
   /* ── Perform save (POST or PUT) ── */
   const doSave = async (editedReason) => {
-    if (!selectedOutlet?.outlet_code) {
-      setOutletErr("Please select an outlet")
-      return
-    }
+    const effCode = selectedOutlet?.outlet_code || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || (outlets[0]?.outlet_code || outlets[0]?.outlet_id || "OLET001")
+    const effName = selectedOutlet?.outlet_name || localStorage.getItem("selected_outlet_name") || localStorage.getItem("outlet_name") || (outlets[0]?.outlet_name || outlets[0]?.name || "MAIN PHARMACY")
+
     setOutletErr("")
     if (items.length === 0) {
       setItemsErr("Add at least one medicine item")
@@ -486,10 +488,12 @@ export default function PurchaseRequisition() {
       const isEdit = !!editPr
       const url    = isEdit ? `${HmsBaseUrl}purchase-requisition/${editPr.pr_number}/` : `${HmsBaseUrl}purchase-requisition/`
       const method = isEdit ? "PUT" : "POST"
+      const empId = localStorage.getItem("employeeId") || localStorage.getItem("auth-user-id") || localStorage.getItem("user_id") || ""
       const payload = {
-        outlet_code: selectedOutlet.outlet_code,
-        outlet_name: selectedOutlet.outlet_name,
+        outlet_code: effCode,
+        outlet_name: effName,
         items,
+        created_by: empId,
       }
       if (isEdit) payload.edited_reason = editedReason
 
@@ -513,10 +517,7 @@ export default function PurchaseRequisition() {
 
   /* ── Submit handler ── */
   const handleSubmit = () => {
-    if (!selectedOutlet?.outlet_code) {
-      setOutletErr("Please select an outlet")
-      return
-    }
+    setOutletErr("")
     if (items.length === 0) {
       setItemsErr("Add at least one medicine item")
       return
@@ -558,6 +559,9 @@ export default function PurchaseRequisition() {
     setAddErr("")
     setItemsErr("")
     setOutletErr("")
+    const curCode = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || (outlets[0]?.outlet_code || outlets[0]?.outlet_id || "OLET001")
+    const curName = localStorage.getItem("selected_outlet_name") || localStorage.getItem("outlet_name") || (outlets[0]?.outlet_name || outlets[0]?.name || "MAIN PHARMACY")
+    setSelectedOutlet({ outlet_code: curCode, outlet_name: curName })
   }
 
   const fmtDT = d => { try { return d ? new Date(d).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—" } catch { return "—" } }
@@ -587,56 +591,16 @@ export default function PurchaseRequisition() {
           <AniCard>
             <CardHead>
               <span>{editPr ? `✏️ Edit — ${editPr.pr_number}` : "📝 New Requisition"}</span>
-              {editPr && <Badge $s={editPr.status}>{editPr.status}</Badge>}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {selectedOutlet?.outlet_name && (
+                  <span style={{ fontSize: ".75rem", fontWeight: 700, background: "rgba(13,148,136,0.1)", color: C.primary, padding: "3px 10px", borderRadius: 12 }}>
+                    Outlet: {selectedOutlet.outlet_name}
+                  </span>
+                )}
+                {editPr && <Badge $s={editPr.status}>{editPr.status}</Badge>}
+              </div>
             </CardHead>
             <CardBody>
-
-              {/* ── Outlet Selection ── */}
-              <div style={{ marginBottom: 18 }}>
-                <Lbl style={{ display: "block", marginBottom: 6 }}>
-                  Outlet <span style={{ color: C.danger }}>*</span>
-                </Lbl>
-                <select
-                  value={selectedOutlet?.outlet_code || ""}
-                  onChange={(e) => {
-                    const code = e.target.value
-                    const found = outlets.find(o => (o.outlet_code || o.outlet_id) === code)
-                    if (found) {
-                      setSelectedOutlet({
-                        outlet_code: found.outlet_code || found.outlet_id,
-                        outlet_name: found.outlet_name || found.outlet || found.name,
-                      })
-                    } else {
-                      setSelectedOutlet(null)
-                    }
-                    setOutletErr("")
-                  }}
-                  style={{
-                    padding: "9px 12px",
-                    borderRadius: 7,
-                    border: `1.5px solid ${outletErr ? C.danger : C.border}`,
-                    fontSize: ".875rem",
-                    color: C.text,
-                    outline: "none",
-                    width: "100%",
-                    maxWidth: 360,
-                    background: "#fff",
-                    cursor: "pointer",
-                  }}
-                >
-                  <option value="">-- Select Outlet --</option>
-                  {outlets.map((o) => {
-                    const code = o.outlet_code || o.outlet_id
-                    const name = o.outlet_name || o.outlet || o.name || code
-                    return (
-                      <option key={code} value={code}>
-                        {name} ({code})
-                      </option>
-                    )
-                  })}
-                </select>
-                {outletErr && <ErrMsg style={{ display: "block", marginTop: 4 }}>{outletErr}</ErrMsg>}
-              </div>
 
               {/* ── Items table ── */}
               <div style={{ marginBottom: 16 }}>

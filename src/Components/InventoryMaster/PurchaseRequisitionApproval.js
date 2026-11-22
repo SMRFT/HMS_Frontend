@@ -42,7 +42,6 @@ const STATUS_META = {
 const ACTION_CONFIG = {
   "Draft": [
     { action: "approve", label: "✔ Approve", color: "#16a34a", bg: "#dcfce7", border: "#86efac", hoverBg: "#bbf7d0", needsReason: false },
-    { action: "reject",  label: "✕ Reject",  color: C.danger,  bg: "#fee2e2", border: "#fca5a5", hoverBg: "#fecaca", needsReason: true },
   ],
   "Approved": [
     { action: "po_initiated", label: "📋 Initiate PO", color: "#5b21b6", bg: "#ede9fe", border: "#c4b5fd", hoverBg: "#ddd6fe", needsReason: false },
@@ -362,7 +361,7 @@ const ViewModal = ({ pr, onClose }) => {
 /* ══════════════════════════════════════════════════════
    ADMIN MAIN COMPONENT
 ══════════════════════════════════════════════════════ */
-const ALL_STATUSES = ["Draft", "Approved", "Rejected", "Purchase Order Initiated", "Purchased", "Stock Restocked"]
+const ALL_STATUSES = ["Draft", "Approved", "Purchase Order Initiated", "Purchased", "Stock Restocked"]
 
 export default function PurchaseRequisitionAdmin() {
   const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
@@ -434,7 +433,8 @@ export default function PurchaseRequisitionAdmin() {
     const { pr, actionCfg } = actionModal
     setActing(true)
     try {
-      const payload = { pr_number: pr.pr_number, action: actionCfg.action }
+      const empId = localStorage.getItem("employeeId") || localStorage.getItem("auth-user-id") || localStorage.getItem("user_id") || ""
+      const payload = { pr_number: pr.pr_number, action: actionCfg.action, employee_id: empId }
       if (actionCfg.needsReason) payload.rejected_reason = reason
 
       const r = await apiRequest(`${HmsBaseUrl}purchase-requisition-action/`, "POST", payload)
@@ -479,7 +479,6 @@ export default function PurchaseRequisitionAdmin() {
           {[
             { key: "Draft",                    color: "#d97706",  icon: "📝" },
             { key: "Approved",                 color: "#16a34a",  icon: "✔" },
-            { key: "Rejected",                 color: C.danger,   icon: "✕" },
             { key: "Purchase Order Initiated", color: C.violet,   icon: "📋" },
             { key: "Purchased",                color: C.amber,    icon: "🛒" },
             { key: "Stock Restocked",          color: "#059669",  icon: "📦" },

@@ -325,15 +325,54 @@ const formatPatientName = (pd, bill) => {
   return res;
 };
 
+const normalizeRelationshipPrefix = (gType, pd = {}) => {
+  const t = String(gType || "").trim().toLowerCase();
+  if (t === "w/o" || t === "wife of" || t === "wife") return "W/o";
+  if (t === "s/o" || t === "son of" || t === "son") return "S/o";
+  if (t === "d/o" || t === "daughter of" || t === "daughter") return "D/o";
+  if (t === "f/o" || t === "father of" || t === "father") return "F/o";
+  if (t === "h/o" || t === "husband of" || t === "husband" || t === "spouse") return "H/o";
+  if (t === "m/o" || t === "mother of" || t === "mother") return "M/o";
+  if (t === "c/o" || t === "care of") return "C/o";
+
+  const cleanGender = String(pd.gender || "").trim().toUpperCase();
+  const salutation = String(pd.salutation || "").trim().toUpperCase();
+  const marital = String(pd.marital_status || pd.maritalStatus || "").trim().toUpperCase();
+  const patName = String(pd.patient_name || pd.firstName || pd.name || "").trim().toUpperCase();
+  const age = Number(pd.age);
+
+  if (cleanGender.startsWith("F")) {
+    if (salutation.includes("MRS") || patName.startsWith("MRS.") || patName.startsWith("MRS ") || marital.includes("MARRIED") || (!isNaN(age) && age >= 21)) {
+      return "W/o";
+    }
+    if (salutation.includes("MS") || salutation.includes("MISS") || (!isNaN(age) && age < 21)) {
+      return "D/o";
+    }
+    return "W/o";
+  } else if (cleanGender.startsWith("M")) {
+    return "S/o";
+  } else {
+    if (salutation.includes("MRS") || patName.startsWith("MRS.") || patName.startsWith("MRS ")) return "W/o";
+    if (salutation.includes("MR") || patName.startsWith("MR.") || patName.startsWith("MR ")) return "S/o";
+    if (salutation.includes("MS") || salutation.includes("MISS")) return "D/o";
+    return "W/o";
+  }
+};
+
 const formatGuardian = (pd) => {
   const raw = pd.guardian || pd.guardian_name || pd.spouse_name || pd.father_name || "";
   if (!raw || !String(raw).trim()) return "—";
-  const s = String(raw).trim();
-  if (/^(w\/o|s\/o|d\/o|c\/o)\b/i.test(s)) {
-    return s.toUpperCase();
+  let s = String(raw).trim();
+  let gType = pd.guardian_type;
+  const prefixMatch = s.match(/^(w\/o|s\/o|d\/o|f\/o|h\/o|m\/o|c\/o|guardian)\s*[:.-]?\s*/i);
+  if (prefixMatch) {
+    if (!gType || /guardian/i.test(gType)) {
+      gType = prefixMatch[1];
+    }
+    s = s.slice(prefixMatch[0].length).trim();
   }
-  const gType = pd.guardian_type || (/female/i.test(pd.gender || "") && (pd.spouse_name || pd.guardian) ? "W/o" : "S/o");
-  return `${gType} ${s}`.toUpperCase();
+  const prefix = normalizeRelationshipPrefix(gType, pd);
+  return `${prefix} ${s.toUpperCase()}`.trim();
 };
 
 export const resolveDocName = (docRaw, doctorsMap = {}) => {

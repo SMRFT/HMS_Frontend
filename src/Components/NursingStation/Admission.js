@@ -592,39 +592,92 @@ const getCustomerTypeDisplay = (pd) => {
   return "";
 };
 
+const normalizeRelationshipPrefix = (gType, pd = {}) => {
+  const t = String(gType || "").trim().toLowerCase();
+  if (t === "w/o" || t === "wife of" || t === "wife") return "W/o";
+  if (t === "s/o" || t === "son of" || t === "son") return "S/o";
+  if (t === "d/o" || t === "daughter of" || t === "daughter") return "D/o";
+  if (t === "f/o" || t === "father of" || t === "father") return "F/o";
+  if (t === "h/o" || t === "husband of" || t === "husband" || t === "spouse") return "H/o";
+  if (t === "m/o" || t === "mother of" || t === "mother") return "M/o";
+  if (t === "c/o" || t === "care of") return "C/o";
+
+  // Never display "Guardian" or "GUARDIAN"
+  const cleanGender = String(pd.gender || "").trim().toUpperCase();
+  const salutation = String(pd.salutation || "").trim().toUpperCase();
+  const marital = String(pd.marital_status || pd.maritalStatus || "").trim().toUpperCase();
+  const patName = String(pd.patient_name || pd.firstName || pd.name || "").trim().toUpperCase();
+  const age = Number(pd.age);
+
+  if (cleanGender.startsWith("F")) {
+    if (salutation.includes("MRS") || patName.startsWith("MRS.") || patName.startsWith("MRS ") || marital.includes("MARRIED") || (!isNaN(age) && age >= 21)) {
+      return "W/o";
+    }
+    if (salutation.includes("MS") || salutation.includes("MISS") || (!isNaN(age) && age < 21)) {
+      return "D/o";
+    }
+    return "W/o";
+  } else if (cleanGender.startsWith("M")) {
+    return "S/o";
+  } else {
+    if (salutation.includes("MRS") || patName.startsWith("MRS.") || patName.startsWith("MRS ")) return "W/o";
+    if (salutation.includes("MR") || patName.startsWith("MR.") || patName.startsWith("MR ")) return "S/o";
+    if (salutation.includes("MS") || salutation.includes("MISS")) return "D/o";
+    return "W/o";
+  }
+};
+
 const getGuardianDisplay = (pd) => {
   if (!pd) return "";
-  const gName = String(pd.guardian_name || pd.guardianName || "").trim();
-  const gType = String(pd.guardian_type || pd.guardianType || "").trim();
-  if (gName) {
-    const prefix = gType ? (gType.endsWith("/") || gType.endsWith("/o") || gType.endsWith("/O") ? gType : `${gType} `) : "W/o ";
-    return `${prefix.endsWith(" ") ? prefix : `${prefix} `}${gName}`.trim().toUpperCase();
+  let gName = String(pd.guardian_name || pd.guardianName || "").trim();
+  let gType = String(pd.guardian_type || pd.guardianType || "").trim();
+
+  if (!gName) {
+    if (pd.spouseName || pd.spouse_name) {
+      gName = String(pd.spouseName || pd.spouse_name).trim();
+      if (!gType || /guardian/i.test(gType)) {
+        const cleanGender = String(pd.gender || "").toUpperCase().startsWith("M") ? "MALE" : "FEMALE";
+        gType = cleanGender === "MALE" ? "H/o" : "W/o";
+      }
+    } else if (pd.fatherName || pd.father_name) {
+      gName = String(pd.fatherName || pd.father_name).trim();
+      if (!gType || /guardian/i.test(gType)) {
+        const cleanGender = String(pd.gender || "").toUpperCase().startsWith("F") ? "FEMALE" : "MALE";
+        gType = cleanGender === "FEMALE" ? "D/o" : "S/o";
+      }
+    } else if (pd.motherName || pd.mother_name) {
+      gName = String(pd.motherName || pd.mother_name).trim();
+      if (!gType || /guardian/i.test(gType)) {
+        const cleanGender = String(pd.gender || "").toUpperCase().startsWith("F") ? "FEMALE" : "MALE";
+        gType = cleanGender === "FEMALE" ? "D/o" : "S/o";
+      }
+    } else if (pd.attender_name) {
+      gName = String(pd.attender_name).trim();
+      if (!gType || /guardian/i.test(gType)) {
+        const cleanGender = String(pd.gender || "").toUpperCase().startsWith("F") ? "FEMALE" : "MALE";
+        const rel = pd.attender_relationship ? (
+          pd.attender_relationship.toLowerCase() === "spouse" ? (cleanGender === "MALE" ? "H/o" : "W/o") :
+          pd.attender_relationship.toLowerCase() === "father" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
+          pd.attender_relationship.toLowerCase() === "mother" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
+          pd.attender_relationship
+        ) : (cleanGender === "FEMALE" ? "W/o" : "S/o");
+        gType = rel;
+      }
+    }
   }
-  const cleanGender = String(pd.gender || "").toUpperCase().startsWith("F")
-    ? "FEMALE"
-    : (String(pd.gender || "").toUpperCase().startsWith("M") ? "MALE" : String(pd.gender || "").toUpperCase());
-  if (pd.spouseName) {
-    const prefix = cleanGender === "MALE" ? "H/o" : "W/o";
-    return `${prefix} ${String(pd.spouseName).trim()}`.toUpperCase();
+
+  if (!gName) return "";
+
+  const prefixMatch = gName.match(/^(w\/o|s\/o|d\/o|f\/o|h\/o|m\/o|c\/o|guardian)\s*[:.-]?\s*/i);
+  if (prefixMatch) {
+    if (!gType || /guardian/i.test(gType)) {
+      gType = prefixMatch[1];
+    }
+    gName = gName.slice(prefixMatch[0].length).trim();
   }
-  if (pd.fatherName) {
-    const prefix = cleanGender === "FEMALE" ? "D/o" : "S/o";
-    return `${prefix} ${String(pd.fatherName).trim()}`.toUpperCase();
-  }
-  if (pd.motherName) {
-    const prefix = cleanGender === "FEMALE" ? "D/o" : "S/o";
-    return `${prefix} ${String(pd.motherName).trim()}`.toUpperCase();
-  }
-  if (pd.attender_name) {
-    const rel = pd.attender_relationship ? (
-      pd.attender_relationship.toLowerCase() === "spouse" ? (cleanGender === "MALE" ? "H/o" : "W/o") :
-      pd.attender_relationship.toLowerCase() === "father" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
-      pd.attender_relationship.toLowerCase() === "mother" ? (cleanGender === "FEMALE" ? "D/o" : "S/o") :
-      `${pd.attender_relationship}:`
-    ) : "W/o";
-    return `${rel} ${String(pd.attender_name).trim()}`.toUpperCase();
-  }
-  return "";
+
+  const prefix = normalizeRelationshipPrefix(gType, pd);
+  return `${prefix} ${gName.toUpperCase()}`.trim();
 };
 
 const getDoctorDisplayName = (docVal, docNameFromRecord, docList) => {
