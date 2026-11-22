@@ -935,6 +935,11 @@ const PatientRegistrationForm = () => {
               <td class="val">${visit.patientName}</td>
             </tr>
             <tr>
+              <td class="label">Gender</td>
+              <td class="colon">:</td>
+              <td class="val">${visit.gender || 'N/A'}</td>
+            </tr>
+            <tr>
               <td class="label">Doctor</td>
               <td class="colon">:</td>
               <td class="val">${formatDoctorDisplayName(visit.doctorName || visit.doctor)}</td>

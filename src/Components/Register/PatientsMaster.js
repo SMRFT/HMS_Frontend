@@ -1092,6 +1092,11 @@ const PatientsMaster = () => {
               <td class="val">${visit.patientName || ""}</td>
             </tr>
             <tr>
+              <td class="label">Gender</td>
+              <td class="colon">:</td>
+              <td class="val">${visit.gender || selectedPatientForVisits?.gender || "N/A"}</td>
+            </tr>
+            <tr>
               <td class="label">Doctor</td>
               <td class="colon">:</td>
               <td class="val">${visit.doctorName || visit.doctorId || "N/A"}</td>
@@ -1705,24 +1710,24 @@ const PatientsMaster = () => {
 
                       {(String(editFormData.customer_type).toLowerCase() === "insurance" ||
                         String(editFormData.customer_type).toLowerCase() === "corporate") && (
-                        <FormGroup style={{ gridColumn: "span 2" }}>
-                          <label style={{ fontWeight: 600, color: "#1e293b" }}>Insurance Provider / Corporate Company</label>
-                          <Input
-                            type="text"
-                            list="patient-insurance-providers-list"
-                            value={editFormData.company_name || ""}
-                            onChange={(e) => setEditFormData({ ...editFormData, company_name: e.target.value.toUpperCase() })}
-                            placeholder="Search or enter Company Name (e.g. Star Health)..."
-                          />
-                          <datalist id="patient-insurance-providers-list">
-                            {insuranceProviders.map((p, idx) => (
-                              <option key={p.company_code || idx} value={p.company_name}>
-                                {p.company_name} ({p.company_code})
-                              </option>
-                            ))}
-                          </datalist>
-                        </FormGroup>
-                      )}
+                          <FormGroup style={{ gridColumn: "span 2" }}>
+                            <label style={{ fontWeight: 600, color: "#1e293b" }}>Insurance Provider / Corporate Company</label>
+                            <Input
+                              type="text"
+                              list="patient-insurance-providers-list"
+                              value={editFormData.company_name || ""}
+                              onChange={(e) => setEditFormData({ ...editFormData, company_name: e.target.value.toUpperCase() })}
+                              placeholder="Search or enter Company Name (e.g. Star Health)..."
+                            />
+                            <datalist id="patient-insurance-providers-list">
+                              {insuranceProviders.map((p, idx) => (
+                                <option key={p.company_code || idx} value={p.company_name}>
+                                  {p.company_name} ({p.company_code})
+                                </option>
+                              ))}
+                            </datalist>
+                          </FormGroup>
+                        )}
                     </FormGrid>
                   </div>
 
