@@ -2182,14 +2182,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                   const codePart = bNo.length >= 6 ? bNo.slice(4, 6) : "";
                                   const localOut = String(localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
                                   const isOut2 = rawOut === "OLET002" || rawOut === "2" || rawOut.includes("OLET002") || rawOut.includes("OP PHARMACY") || codePart === "02" || (!rawOut && (localOut.includes("OLET002") || localOut === "2" || localOut.includes("OP PHARMACY")));
-                                  if (isOut2) return "PHARMACY OP GST INVOICE";
-                                  const isOut1 = rawOut === "OLET001" || rawOut === "1" || rawOut.includes("OLET001") || rawOut.includes("IP PHARMACY") || codePart === "01";
-                                  if (isOut1) return "PHARMACY IP GST INVOICE";
-                                  if (Boolean(printBill.inpatient_number || printBill.ip_number || printBill.ipNumber)) return "PHARMACY IP GST INVOICE";
-                                  const btn = String(printBill.bill_type_name || "").toUpperCase();
-                                  const bm = String(printBill.billing_mode || "").toUpperCase();
-                                  if (btn.includes("IP") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT")) return "PHARMACY IP GST INVOICE";
-                                  return "PHARMACY OP GST INVOICE";
+                                  return isOut2 ? "PHARMACY OP GST INVOICE" : "PHARMACY IP GST INVOICE";
                                 })()}
                               </div>
                               <div style={{ display: "flex", justifyContent: "flex-end" }}>
